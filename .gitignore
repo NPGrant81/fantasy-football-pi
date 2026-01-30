@@ -205,3 +205,17 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# 1. Create the .gitignore file so we don't track junk
+cat <<EOF > .gitignore
+__pycache__/
+venv/
+.env
+node_modules/
+.DS_Store
+dist/
+.vscode/
+EOF
+
+# 2. Create folder structure
+mkdir backend
