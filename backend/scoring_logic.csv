@@ -1,0 +1,76 @@
+Event,Range_Yds,Point_Value,PostionID
+Number of Passing TDs,1-999,6 points each,"8002, 8003, 8004, 8005"
+Length of Passing TD,30-39,1,"8002, 8003, 8004, 8005"
+Length of Passing TD,40-49,2,"8002, 8003, 8004, 8005"
+Length of Passing TD,50-99,3,"8002, 8003, 8004, 8005"
+Passing Yards,1-999,.10 points each,"8002, 8003, 8004, 8005"
+Passing Yards,200-249,3,"8002, 8003, 8004, 8005"
+Passing Yards,250-299,5,"8002, 8003, 8004, 8005"
+Passing Yards,300-349,7,"8002, 8003, 8004, 8005"
+Passing Yards,350-399,10,"8002, 8003, 8004, 8005"
+Passing Yards,400-999,15,"8002, 8003, 8004, 8005"
+Pass Completions,1-999,.5 points each,"8002, 8003, 8004, 8005"
+Pass Completions,30-999,2,"8002, 8003, 8004, 8005"
+Pass Interceptions Thrown,1-999,-3 points each,"8002, 8003, 8004, 8005"
+Passing 2 Pointers,1-999,2 points each,"8002, 8003, 8004, 8005"
+Number of Rushing TDs,1-999,10 points each,"8002, 8003, 8004, 8005"
+Length of Rushing TD,30-39,1.5,"8002, 8003, 8004, 8005"
+Length of Rushing TD,40-49,3,"8002, 8003, 8004, 8005"
+Length of Rushing TD,50-99,5,"8002, 8003, 8004, 8005"
+Rushing Yards,1-999,.30 points each,"8002, 8003, 8004, 8005"
+Rushing Yards,100-109,5,"8002, 8003, 8004, 8005"
+Rushing Yards,110-119,6,"8002, 8003, 8004, 8005"
+Rushing Yards,120-129,7,"8002, 8003, 8004, 8005"
+Rushing Yards,130-139,8,"8002, 8003, 8004, 8005"
+Rushing Yards,140-149,9,"8002, 8003, 8004, 8005"
+Rushing Yards,150-174,10,"8002, 8003, 8004, 8005"
+Rushing Yards,175-199,12,"8002, 8003, 8004, 8005"
+Rushing Yards,200-999,15,"8002, 8003, 8004, 8005"
+Rush Attempts,1-999,.5 points each,"8002, 8003, 8004, 8005"
+Rush Attempts,25-999,2,"8002, 8003, 8004, 8005"
+Rushing 2 Pointers,1-999,2 points each,"8002, 8003, 8004, 8005"
+Number of Receiving TDs,1-999,10 points each,"8002, 8003, 8004, 8005"
+Length of Receiving TD,30-39,1.5,"8002, 8003, 8004, 8005"
+Length of Receiving TD,40-49,3,"8002, 8003, 8004, 8005"
+Length of Receiving TD,50-99,5,"8002, 8003, 8004, 8005"
+Receiving Yards,1-999,.30 points each,"8002, 8003, 8004, 8005"
+Receiving Yards,100-109,5,"8002, 8003, 8004, 8005"
+Receiving Yards,110-119,6,"8002, 8003, 8004, 8005"
+Receiving Yards,120-129,7,"8002, 8003, 8004, 8005"
+Receiving Yards,130-139,8,"8002, 8003, 8004, 8005"
+Receiving Yards,140-149,9,"8002, 8003, 8004, 8005"
+Receiving Yards,150-174,10,"8002, 8003, 8004, 8005"
+Receiving Yards,175-199,12,"8002, 8003, 8004, 8005"
+Receiving Yards,200-999,15,"8002, 8003, 8004, 8005"
+Receptions,0-99,3 points each,"8002, 8003, 8004, 8005"
+Receptions,Oct-99,5,"8002, 8003, 8004, 8005"
+Receiving 2 Pointers,1-999,2 points each,"8002, 8003, 8004, 8005"
+Number of Punt Return TDs,0-99,10 points each,"8002, 8003, 8004, 8005"
+Punt Return Yards,0-999,1 point for every 25,"8002, 8003, 8004, 8005"
+Number of Kickoff Return TDs,0-99,10 points each,"8002, 8003, 8004, 8005"
+Kickoff Return Yards,0-999,1 point for every 25,"8002, 8003, 8004, 8005"
+Fumbles Lost (to Opponent),0-99,-4 points each,"8002, 8003, 8004, 8005"
+Number of Field Goals Made,1-999,3 points each,8099
+Length of Field Goal Made,50-99,1,8099
+Number of Field Goals Missed,1-999,-1 point each,8099
+Extra Points,1-999,1 point each,8099
+Extra Points Missed,1-999,-1 point each,8099
+Fumble Recoveries (from Opponent),Jan-99,3 points each,8006
+Interceptions Caught,Jan-99,2 points each,8006
+Blocked Field Goals,0-99,2 points each,8006
+Blocked Punts,0-99,2 points each,8006
+Blocked Extra Points,0-99,2 points each,8006
+Sacked a QB,Jan-99,1 point each,8006
+Safeties,Jan-99,2 points each,8006
+Total Points Allowed,0-0,15,8006
+Total Points Allowed,7-Feb,10,8006
+Total Points Allowed,14-Aug,7,8006
+Total Points Allowed,15-21,5,8006
+Total Points Allowed,22-28,1,8006
+Total Net Yards Allowed,0-149,15,8006
+Total Net Yards Allowed,150-199,10,8006
+Total Net Yards Allowed,200-249,7,8006
+Total Net Yards Allowed,250-299,5,8006
+Total Net Yards Allowed,300-349,1,8006
+Number of Defensive & Special Teams TDs,Jan-99,6 points each,8006
+Point Differential,Jan-99,5,8006

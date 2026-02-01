@@ -1,68 +1,48 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric
-from sqlalchemy.orm import relationship
-from database import Base
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float
+from sqlalchemy.orm import relationship, declarative_base
 
-# 1. USERS (Formerly 'OwnerID.csv')
+Base = declarative_base()
+
 class User(Base):
     __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)  # Matches OwnerID
     username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)  # For Epic 1.5 (Login)
+    email = Column(String)
     
     # Relationships
-    team = relationship("FantasyTeam", back_populates="owner", uselist=False)
+    draft_picks = relationship("DraftPick", back_populates="owner")
+    budgets = relationship("Budget", back_populates="owner")
 
-# 2. FANTASY TEAMS (New Table to link Users to Rosters)
-class FantasyTeam(Base):
-    __tablename__ = "fantasy_teams"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, default="My Team")
-    user_id = Column(Integer, ForeignKey("users.id"))
-    remaining_budget = Column(Integer, default=200) # Budget for auction
-    
-    owner = relationship("User", back_populates="team")
-    roster = relationship("Roster", back_populates="fantasy_team")
-    draft_picks = relationship("DraftResult", back_populates="fantasy_team")
-
-# 3. PLAYERS (Formerly 'PlayerID.csv')
 class Player(Base):
     __tablename__ = "players"
-
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True) # Matches Player_ID
     name = Column(String, index=True)
-    position = Column(String)    # QB, RB, WR, etc.
-    nfl_team = Column(String)    # KC, PHI, etc.
-    active = Column(Boolean, default=True) # To filter out retired players
+    position = Column(String)  # Stored as "QB", "WR" (converted from 8002)
+    nfl_team = Column(String)  # Stored as "ARI", "CIN" (converted from 9001)
+    active = Column(Boolean, default=True)
     
     # Relationships
-    draft_info = relationship("DraftResult", back_populates="player")
-    roster_spot = relationship("Roster", back_populates="player")
+    draft_picks = relationship("DraftPick", back_populates="player")
 
-# 4. DRAFT RESULTS (Formerly 'DraftResult.csv')
-class DraftResult(Base):
-    __tablename__ = "draft_results"
-
+class DraftPick(Base):
+    __tablename__ = "draft_picks"
     id = Column(Integer, primary_key=True, index=True)
-    season_year = Column(Integer)
-    amount = Column(Integer)  # Auction cost
+    year = Column(Integer)
+    round = Column(Integer, nullable=True) # Optional if data doesn't have it
+    pick_num = Column(Integer, nullable=True)
+    amount = Column(Float) # The WinningBid
     
     player_id = Column(Integer, ForeignKey("players.id"))
-    team_id = Column(Integer, ForeignKey("fantasy_teams.id"))
+    owner_id = Column(Integer, ForeignKey("users.id"))
     
-    player = relationship("Player", back_populates="draft_info")
-    fantasy_team = relationship("FantasyTeam", back_populates="draft_picks")
+    player = relationship("Player", back_populates="draft_picks")
+    owner = relationship("User", back_populates="draft_picks")
 
-# 5. CURRENT ROSTER (New table for current week state)
-class Roster(Base):
-    __tablename__ = "rosters"
-
+class Budget(Base):
+    __tablename__ = "budgets"
     id = Column(Integer, primary_key=True, index=True)
-    team_id = Column(Integer, ForeignKey("fantasy_teams.id"))
-    player_id = Column(Integer, ForeignKey("players.id"))
-    is_starter = Column(Boolean, default=False)
+    year = Column(Integer)
+    total_budget = Column(Float)
     
-    fantasy_team = relationship("FantasyTeam", back_populates="roster")
-    player = relationship("Player", back_populates="roster_spot")
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    owner = relationship("User", back_populates="budgets")

@@ -1,0 +1,10 @@
+PositionID,Position,PositionStatus
+8002,QB,Active
+8003,RB,Active
+8004,WR,Active
+8005,TE,Active
+8006,Def,Active
+8006,TD,Active
+8099,Kicker,Inactive
+8099,PK,Inactive
+8007,FB,Active
