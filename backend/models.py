@@ -1,48 +1,46 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float
-from sqlalchemy.orm import relationship, declarative_base
-
-Base = declarative_base()
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
+from database import Base
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)  # Matches OwnerID
+
+    id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    email = Column(String)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)  # <--- Security Column
     
-    # Relationships
-    draft_picks = relationship("DraftPick", back_populates="owner")
-    budgets = relationship("Budget", back_populates="owner")
+    # This was the missing link!
+    picks = relationship("DraftPick", back_populates="owner")
 
 class Player(Base):
     __tablename__ = "players"
-    id = Column(Integer, primary_key=True, index=True) # Matches Player_ID
+
+    id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    position = Column(String)  # Stored as "QB", "WR" (converted from 8002)
-    nfl_team = Column(String)  # Stored as "ARI", "CIN" (converted from 9001)
-    active = Column(Boolean, default=True)
-    
-    # Relationships
-    draft_picks = relationship("DraftPick", back_populates="player")
+    position = Column(String)
+    nfl_team = Column(String)
 
 class DraftPick(Base):
     __tablename__ = "draft_picks"
+
     id = Column(Integer, primary_key=True, index=True)
     year = Column(Integer)
-    round = Column(Integer, nullable=True) # Optional if data doesn't have it
+    session_id = Column(String, index=True, nullable=True) # <--- "Save File" ID
+    round_num = Column(Integer, nullable=True)
     pick_num = Column(Integer, nullable=True)
-    amount = Column(Float) # The WinningBid
+    amount = Column(Integer)
     
-    player_id = Column(Integer, ForeignKey("players.id"))
     owner_id = Column(Integer, ForeignKey("users.id"))
-    
-    player = relationship("Player", back_populates="draft_picks")
-    owner = relationship("User", back_populates="draft_picks")
+    player_id = Column(Integer, ForeignKey("players.id"))
+
+    owner = relationship("User", back_populates="picks")
+    player = relationship("Player")
 
 class Budget(Base):
     __tablename__ = "budgets"
+
     id = Column(Integer, primary_key=True, index=True)
-    year = Column(Integer)
-    total_budget = Column(Float)
-    
     owner_id = Column(Integer, ForeignKey("users.id"))
-    owner = relationship("User", back_populates="budgets")
+    year = Column(Integer)
+    total_budget = Column(Integer)

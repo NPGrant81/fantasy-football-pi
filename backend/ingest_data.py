@@ -5,8 +5,21 @@ from database import SessionLocal, engine
 from models import Player, User, DraftPick, Budget, Base
 import os
 
-# 1. Initialize DB
-Base.metadata.create_all(bind=engine)
+# --- SECURITY TOOL ---
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# ---------------------------------------------------------
+# ⚠️ HARD RESET: WIPE & REBUILD DATABASE
+# ---------------------------------------------------------
+print("⚠️  Wiping Database (Hard Reset)...")
+# This deletes all existing data/tables to prevent "Column not found" errors
+Base.metadata.drop_all(bind=engine) 
+
+print("✅  Rebuilding Tables...")
+# This creates the new tables including 'hashed_password' and 'session_id'
+Base.metadata.create_all(bind=engine) 
+# ---------------------------------------------------------
 
 def get_file_path(filename):
     path = os.path.join(os.path.dirname(__file__), filename)
@@ -30,16 +43,13 @@ def safe_int(val):
         return None
 
 def read_csv_safe(path):
-    """Tries UTF-8 first, falls back to Latin-1 (Excel standard) if that fails."""
+    """Tries UTF-8 first, falls back to Latin-1 if that fails."""
     try:
         return pd.read_csv(path, encoding='utf-8')
     except UnicodeDecodeError:
         print(f"⚠️ UTF-8 failed for {os.path.basename(path)}, switching to ISO-8859-1...")
         return pd.read_csv(path, encoding='ISO-8859-1')
 
-# ---------------------------------------------------------
-# LOAD LOOKUP MAPS (Teams & Positions)
-# ---------------------------------------------------------
 def load_lookups():
     pos_map = {}
     path = get_file_path("positions.csv")
@@ -63,15 +73,15 @@ def load_lookups():
                 team_map[tid] = row['Team']
             except: continue
             
-    print(f"✅ Loaded Mappings: {len(pos_map)} positions, {len(team_map)} teams.")
     return pos_map, team_map
 
-# ---------------------------------------------------------
-# MAIN INGEST FUNCTION
-# ---------------------------------------------------------
 def run_ingest():
     db: Session = SessionLocal()
     pos_map, team_map = load_lookups()
+    
+    # --- PREPARE THE PASSWORD ---
+    # We create the "scrambled" version of 'password123' once
+    default_hash = pwd_context.hash("password123") 
     
     try:
         # ==========================================
@@ -93,14 +103,29 @@ def run_ingest():
                 existing = db.query(User).filter(User.id == uid).first()
                 if not existing:
                     email_slug = "".join(e for e in uname if e.isalnum())
-                    db.add(User(id=uid, username=uname, email=f"{email_slug}@example.com"))
+                    
+                    # --- CREATE USER WITH PASSWORD ---
+                    db.add(User(
+                        id=uid, 
+                        username=uname, 
+                        email=f"{email_slug}@example.com",
+                        hashed_password=default_hash  # <--- The Critical Addition
+                    ))
                     count += 1
                 else:
                     existing.username = uname
+                    # Optional: Reset password for existing users
+                    existing.hashed_password = default_hash 
             
             db.commit()
-            db.execute(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));"))
-            print(f"✅ Users processed: Added {count} new.")
+            
+            # Reset ID sequence for Postgres
+            try:
+                db.execute(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));"))
+            except Exception:
+                pass
+
+            print(f"✅ Users processed: Added {count} new (with passwords).")
 
         # ==========================================
         # 2. PLAYERS
@@ -108,14 +133,12 @@ def run_ingest():
         latest_teams = {}
         draft_path = get_file_path("draft_results.csv")
         
-        # Build team history lookup
         if draft_path:
             d_df = read_csv_safe(draft_path)
             d_df = d_df.sort_values('Year', ascending=True)
             for _, row in d_df.iterrows():
                 pid = safe_int(row['PlayerID'])
                 tid = safe_int(row['TeamID'])
-                
                 if pid and tid: 
                     t_str = str(tid)
                     if t_str in team_map:
@@ -132,10 +155,8 @@ def run_ingest():
                 if not pid: continue
 
                 name = str(row['PlayerName']).strip()
-                
                 pos_id = safe_int(row['PositionID'])
                 pos_str = pos_map.get(str(pos_id), "UNK") if pos_id else "UNK"
-                
                 nfl_team_str = latest_teams.get(str(pid), "FA")
 
                 existing = db.query(Player).filter(Player.id == pid).first()
@@ -148,11 +169,14 @@ def run_ingest():
                     existing.position = pos_str
             
             db.commit()
-            db.execute(text("SELECT setval('players_id_seq', (SELECT MAX(id) FROM players));"))
+            try:
+                db.execute(text("SELECT setval('players_id_seq', (SELECT MAX(id) FROM players));"))
+            except Exception:
+                pass
             print(f"✅ Players processed: Added {count} new.")
 
         # ==========================================
-        # 3. DRAFT RESULTS (History)
+        # 3. DRAFT RESULTS & BUDGETS
         # ==========================================
         if draft_path:
             df = read_csv_safe(draft_path)
@@ -177,24 +201,17 @@ def run_ingest():
             db.commit()
             print(f"✅ Draft History processed: {count} picks loaded.")
 
-        # ==========================================
-        # 4. BUDGETS
-        # ==========================================
         path = get_file_path("draft_budget.csv")
         if path:
             df = read_csv_safe(path)
             db.query(Budget).delete()
-            
             for _, row in df.iterrows():
                 oid = safe_int(row['OwnerID'])
                 if not oid: continue
-
                 year_raw = str(row['Year'])
                 if '/' in year_raw:
-                    try:
-                        year = int(year_raw.split('/')[-1])
-                    except:
-                        year = 2024
+                    try: year = int(year_raw.split('/')[-1])
+                    except: year = 2024
                 else:
                     year = safe_int(year_raw) or 2024
 
@@ -205,7 +222,7 @@ def run_ingest():
                 )
                 db.add(new_budget)
             db.commit()
-            print(f"✅ Budgets processed.")
+            print("✅ Budgets processed.")
 
     except Exception as e:
         print(f"❌ Critical Error: {e}")
