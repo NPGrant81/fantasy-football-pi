@@ -20,28 +20,48 @@ def clean_money(val):
     if not val or pd.isna(val): return 0.0
     return float(str(val).replace('$', '').replace(',', '').strip())
 
+def safe_int(val):
+    """Safely converts 47.0 or '47' to 47. Returns None if empty/NaN."""
+    if pd.isna(val) or val == "":
+        return None
+    try:
+        return int(float(val))
+    except (ValueError, TypeError):
+        return None
+
+def read_csv_safe(path):
+    """Tries UTF-8 first, falls back to Latin-1 (Excel standard) if that fails."""
+    try:
+        return pd.read_csv(path, encoding='utf-8')
+    except UnicodeDecodeError:
+        print(f"⚠️ UTF-8 failed for {os.path.basename(path)}, switching to ISO-8859-1...")
+        return pd.read_csv(path, encoding='ISO-8859-1')
+
 # ---------------------------------------------------------
 # LOAD LOOKUP MAPS (Teams & Positions)
 # ---------------------------------------------------------
 def load_lookups():
-    # 1. Map Position IDs (8002 -> QB)
     pos_map = {}
     path = get_file_path("positions.csv")
     if path:
-        df = pd.read_csv(path)
-        # Handle both string/int inputs
+        df = read_csv_safe(path)
         for _, row in df.iterrows():
-            pid = str(row['PositionID']).split('.')[0] # Remove .0 if present
-            pos_map[pid] = row['Position']
+            if pd.isna(row['PositionID']): continue
+            try:
+                pid = str(int(float(row['PositionID'])))
+                pos_map[pid] = row['Position']
+            except: continue
     
-    # 2. Map Team IDs (9001 -> ARI)
     team_map = {}
     path = get_file_path("teams.csv")
     if path:
-        df = pd.read_csv(path)
+        df = read_csv_safe(path)
         for _, row in df.iterrows():
-            tid = str(row['TeamID']).split('.')[0]
-            team_map[tid] = row['Team']
+            if pd.isna(row['TeamID']): continue
+            try:
+                tid = str(int(float(row['TeamID'])))
+                team_map[tid] = row['Team']
+            except: continue
             
     print(f"✅ Loaded Mappings: {len(pos_map)} positions, {len(team_map)} teams.")
     return pos_map, team_map
@@ -59,61 +79,63 @@ def run_ingest():
         # ==========================================
         path = get_file_path("users.csv")
         if path:
-            df = pd.read_csv(path)
-            # Deduplicate: Group by OwnerID and pick the longest name (Nick Grant > NPG)
-            # This handles the "1, Nick Grant" vs "1, NPG" issue
+            df = read_csv_safe(path)
             df['NameLen'] = df['OwnerName'].astype(str).str.len()
             df = df.sort_values('NameLen', ascending=False).drop_duplicates(subset=['OwnerID'])
             
             count = 0
             for _, row in df.iterrows():
-                uid = int(row['OwnerID'])
-                uname = row['OwnerName'].strip()
+                uid = safe_int(row['OwnerID'])
+                if not uid: continue
+                
+                uname = str(row['OwnerName']).strip()
                 
                 existing = db.query(User).filter(User.id == uid).first()
                 if not existing:
-                    db.add(User(id=uid, username=uname, email=f"{uname.replace(' ','')}@example.com"))
+                    email_slug = "".join(e for e in uname if e.isalnum())
+                    db.add(User(id=uid, username=uname, email=f"{email_slug}@example.com"))
                     count += 1
                 else:
-                    existing.username = uname # Update name if changed
+                    existing.username = uname
             
             db.commit()
-            # Fix Postgres ID Sequence
             db.execute(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));"))
             print(f"✅ Users processed: Added {count} new.")
 
         # ==========================================
         # 2. PLAYERS
         # ==========================================
-        # Strategy: Use draft_results to find the Player's NFL Team if possible
         latest_teams = {}
         draft_path = get_file_path("draft_results.csv")
+        
+        # Build team history lookup
         if draft_path:
-            d_df = pd.read_csv(draft_path)
-            d_df = d_df.sort_values('Year', ascending=True) # Oldest to Newest
+            d_df = read_csv_safe(draft_path)
+            d_df = d_df.sort_values('Year', ascending=True)
             for _, row in d_df.iterrows():
-                pid = str(int(row['PlayerID']))
-                tid = str(int(row['TeamID']))
-                if tid in team_map:
-                    latest_teams[pid] = team_map[tid]
+                pid = safe_int(row['PlayerID'])
+                tid = safe_int(row['TeamID'])
+                
+                if pid and tid: 
+                    t_str = str(tid)
+                    if t_str in team_map:
+                        latest_teams[str(pid)] = team_map[t_str]
 
         path = get_file_path("players.csv")
         if path:
-            df = pd.read_csv(path)
-            # Deduplicate Players by ID (keep first valid one)
+            df = read_csv_safe(path)
             df = df.drop_duplicates(subset=['Player_ID'])
             
             count = 0
             for _, row in df.iterrows():
-                pid = int(row['Player_ID'])
-                name = row['PlayerName'].strip()
+                pid = safe_int(row['Player_ID'])
+                if not pid: continue
+
+                name = str(row['PlayerName']).strip()
                 
-                # Map Position ID to String (8004 -> WR)
-                pos_id = str(int(row['PositionID']))
-                pos_str = pos_map.get(pos_id, "UNK")
+                pos_id = safe_int(row['PositionID'])
+                pos_str = pos_map.get(str(pos_id), "UNK") if pos_id else "UNK"
                 
-                # Determine NFL Team
-                # First check our lookup from draft history, default to FA
                 nfl_team_str = latest_teams.get(str(pid), "FA")
 
                 existing = db.query(Player).filter(Player.id == pid).first()
@@ -122,7 +144,6 @@ def run_ingest():
                     db.add(new_p)
                     count += 1
                 else:
-                    # Update existing info
                     existing.nfl_team = nfl_team_str
                     existing.position = pos_str
             
@@ -134,16 +155,21 @@ def run_ingest():
         # 3. DRAFT RESULTS (History)
         # ==========================================
         if draft_path:
-            df = pd.read_csv(draft_path)
-            count = 0
-            # Clear old draft picks to avoid duplicates on re-run (Optional)
+            df = read_csv_safe(draft_path)
             db.query(DraftPick).delete()
             
+            count = 0
             for _, row in df.iterrows():
+                pid = safe_int(row['PlayerID'])
+                oid = safe_int(row['OwnerID'])
+                year = safe_int(row['Year'])
+                
+                if not pid or not oid: continue
+
                 new_pick = DraftPick(
-                    player_id = int(row['PlayerID']),
-                    owner_id = int(row['OwnerID']),
-                    year = int(row['Year']),
+                    player_id = pid,
+                    owner_id = oid,
+                    year = year if year else 0,
                     amount = clean_money(row['WinningBid'])
                 )
                 db.add(new_pick)
@@ -156,19 +182,24 @@ def run_ingest():
         # ==========================================
         path = get_file_path("draft_budget.csv")
         if path:
-            df = pd.read_csv(path)
-            db.query(Budget).delete() # Refresh budgets
+            df = read_csv_safe(path)
+            db.query(Budget).delete()
             
             for _, row in df.iterrows():
-                # Extract year from '1/1/2024' -> 2024
-                year_str = str(row['Year'])
-                if '/' in year_str:
-                    year = int(year_str.split('/')[-1])
+                oid = safe_int(row['OwnerID'])
+                if not oid: continue
+
+                year_raw = str(row['Year'])
+                if '/' in year_raw:
+                    try:
+                        year = int(year_raw.split('/')[-1])
+                    except:
+                        year = 2024
                 else:
-                    year = int(year_str)
+                    year = safe_int(year_raw) or 2024
 
                 new_budget = Budget(
-                    owner_id = int(row['OwnerID']),
+                    owner_id = oid,
                     year = year,
                     total_budget = clean_money(row['DraftBudget'])
                 )
