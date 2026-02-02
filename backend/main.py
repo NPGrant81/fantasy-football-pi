@@ -5,6 +5,7 @@ load_dotenv() # <--- This loads the .env file immediately
 from datetime import datetime, timedelta
 from jose import jwt
 from passlib.context import CryptContext
+from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -126,3 +127,45 @@ def get_top_spenders(db: Session = Depends(get_db)):
     ).join(models.DraftPick).group_by(models.User.id).order_by(text("total_spent DESC")).all()
     
     return [{"owner": row.username, "total_spent": row.total_spent} for row in results]
+
+# ---------------------------------------------------------
+# DRAFT ACTIONS (This was missing!)
+# ---------------------------------------------------------
+
+# 1. Define the Data Model (The "Shape" of the data)
+class DraftPickCreate(BaseModel):
+    owner_id: int
+    player_id: int  # <--- Strictly expecting an ID now
+    amount: int
+    session_id: str
+
+# 2. The Draft Endpoint
+@app.post("/draft-pick")
+def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
+    # A. Verify Player Exists
+    player = db.query(models.Player).filter(models.Player.id == pick.player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found in database")
+
+    # B. Check if already drafted in this session (Duplicate Check)
+    existing_pick = db.query(models.DraftPick).filter(
+        models.DraftPick.player_id == pick.player_id,
+        models.DraftPick.session_id == pick.session_id
+    ).first()
+    
+    if existing_pick:
+        raise HTTPException(status_code=400, detail="Player already drafted!")
+
+    # C. Create the Draft Pick
+    new_pick = models.DraftPick(
+        player_id=pick.player_id,
+        owner_id=pick.owner_id,
+        year=2026,
+        amount=pick.amount,
+        session_id=pick.session_id
+    )
+    db.add(new_pick)
+    db.commit()
+    db.refresh(new_pick)
+    
+    return new_pick
