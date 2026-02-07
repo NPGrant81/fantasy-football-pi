@@ -2,7 +2,8 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import SessionLocal, engine
-from models import Player, User, DraftPick, Budget, Base
+# NEW: Added 'League' to the imports
+from models import Player, User, DraftPick, Budget, Base, League
 import os
 
 # --- SECURITY TOOL ---
@@ -13,11 +14,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ⚠️ HARD RESET: WIPE & REBUILD DATABASE
 # ---------------------------------------------------------
 print("⚠️  Wiping Database (Hard Reset)...")
-# This deletes all existing data/tables to prevent "Column not found" errors
 Base.metadata.drop_all(bind=engine) 
 
 print("✅  Rebuilding Tables...")
-# This creates the new tables including 'hashed_password' and 'session_id'
 Base.metadata.create_all(bind=engine) 
 # ---------------------------------------------------------
 
@@ -43,7 +42,6 @@ def safe_int(val):
         return None
 
 def read_csv_safe(path):
-    """Tries UTF-8 first, falls back to Latin-1 if that fails."""
     try:
         return pd.read_csv(path, encoding='utf-8')
     except UnicodeDecodeError:
@@ -79,19 +77,29 @@ def run_ingest():
     db: Session = SessionLocal()
     pos_map, team_map = load_lookups()
     
-    # --- PREPARE THE PASSWORD ---
-    # We create the "scrambled" version of 'password123' once
     default_hash = pwd_context.hash("password123") 
     
     try:
+        # ==========================================
+        # 0. NEW: CREATE THE LEAGUE
+        # ==========================================
+        print("🏆 Creating Default League: 'The League'...")
+        default_league = League(name="The League")
+        db.add(default_league)
+        db.commit()
+        db.refresh(default_league)
+        league_id = default_league.id # We will assign all users to this ID
+
         # ==========================================
         # 1. USERS (OWNERS)
         # ==========================================
         path = get_file_path("users.csv")
         if path:
             df = read_csv_safe(path)
-            df['NameLen'] = df['OwnerName'].astype(str).str.len()
-            df = df.sort_values('NameLen', ascending=False).drop_duplicates(subset=['OwnerID'])
+            # Safe logic to sort users (optional but keeps your old logic)
+            if 'OwnerName' in df.columns:
+                df['NameLen'] = df['OwnerName'].astype(str).str.len()
+                df = df.sort_values('NameLen', ascending=False).drop_duplicates(subset=['OwnerID'])
             
             count = 0
             for _, row in df.iterrows():
@@ -100,22 +108,19 @@ def run_ingest():
                 
                 uname = str(row['OwnerName']).strip()
                 
+                # Check if exists (Redundant after wipe, but good safety)
                 existing = db.query(User).filter(User.id == uid).first()
                 if not existing:
                     email_slug = "".join(e for e in uname if e.isalnum())
                     
-                    # --- CREATE USER WITH PASSWORD ---
                     db.add(User(
                         id=uid, 
                         username=uname, 
                         email=f"{email_slug}@example.com",
-                        hashed_password=default_hash  # <--- The Critical Addition
+                        hashed_password=default_hash,
+                        league_id=league_id  # <--- NEW: Link User to League
                     ))
                     count += 1
-                else:
-                    existing.username = uname
-                    # Optional: Reset password for existing users
-                    existing.hashed_password = default_hash 
             
             db.commit()
             
@@ -125,10 +130,10 @@ def run_ingest():
             except Exception:
                 pass
 
-            print(f"✅ Users processed: Added {count} new (with passwords).")
+            print(f"✅ Users processed: Added {count} new (Assigned to League ID {league_id}).")
 
         # ==========================================
-        # 2. PLAYERS
+        # 2. PLAYERS (Logic Preserved)
         # ==========================================
         latest_teams = {}
         draft_path = get_file_path("draft_results.csv")
@@ -159,14 +164,9 @@ def run_ingest():
                 pos_str = pos_map.get(str(pos_id), "UNK") if pos_id else "UNK"
                 nfl_team_str = latest_teams.get(str(pid), "FA")
 
-                existing = db.query(Player).filter(Player.id == pid).first()
-                if not existing:
-                    new_p = Player(id=pid, name=name, position=pos_str, nfl_team=nfl_team_str)
-                    db.add(new_p)
-                    count += 1
-                else:
-                    existing.nfl_team = nfl_team_str
-                    existing.position = pos_str
+                new_p = Player(id=pid, name=name, position=pos_str, nfl_team=nfl_team_str)
+                db.add(new_p)
+                count += 1
             
             db.commit()
             try:
@@ -176,12 +176,10 @@ def run_ingest():
             print(f"✅ Players processed: Added {count} new.")
 
         # ==========================================
-        # 3. DRAFT RESULTS & BUDGETS
+        # 3. DRAFT RESULTS & BUDGETS (Logic Preserved)
         # ==========================================
         if draft_path:
             df = read_csv_safe(draft_path)
-            db.query(DraftPick).delete()
-            
             count = 0
             for _, row in df.iterrows():
                 pid = safe_int(row['PlayerID'])
@@ -194,7 +192,8 @@ def run_ingest():
                     player_id = pid,
                     owner_id = oid,
                     year = year if year else 0,
-                    amount = clean_money(row['WinningBid'])
+                    amount = clean_money(row['WinningBid']),
+                    session_id=f"HISTORICAL_{year}" # Tagging historical data
                 )
                 db.add(new_pick)
                 count += 1
@@ -204,7 +203,6 @@ def run_ingest():
         path = get_file_path("draft_budget.csv")
         if path:
             df = read_csv_safe(path)
-            db.query(Budget).delete()
             for _, row in df.iterrows():
                 oid = safe_int(row['OwnerID'])
                 if not oid: continue
