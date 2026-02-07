@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import models
 # IMPORT get_db FROM DATABASE (Do not define it here)
 from database import SessionLocal, engine, get_db  
-from routers import admin, team 
+from routers import admin, team, matchups
 
 load_dotenv()
 
@@ -43,6 +43,7 @@ app.add_middleware(
 # Connect Routers
 app.include_router(admin.router)
 app.include_router(team.router)
+app.include_router(matchups.router) # <--- NEW: Activate router
 
 # --- AUTH HELPERS ---
 def verify_password(plain_password, hashed_password):

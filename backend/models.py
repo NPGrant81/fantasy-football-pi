@@ -1,20 +1,17 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey, Float, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 
-# --- 1. NEW: The League Table ---
+# --- 1. LEAGUE TABLE ---
 class League(Base):
     __tablename__ = "leagues"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     
-    # A league has many users (owners)
     users = relationship("User", back_populates="league")
-    # A league has many settings (future proofing)
-    # settings = relationship("LeagueSettings", back_populates="league")
 
-# --- 2. UPDATED: Users now belong to a League ---
+# --- 2. USER TABLE ---
 class User(Base):
     __tablename__ = "users"
 
@@ -23,14 +20,12 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     
-    # Foreign Key to League
     league_id = Column(Integer, ForeignKey("leagues.id")) 
     league = relationship("League", back_populates="users")
 
-    # Relationships
     picks = relationship("DraftPick", back_populates="owner")
 
-# --- 3. EXISTING: Players (Unchanged) ---
+# --- 3. PLAYER TABLE ---
 class Player(Base):
     __tablename__ = "players"
 
@@ -39,10 +34,9 @@ class Player(Base):
     position = Column(String)
     nfl_team = Column(String)
     gsis_id = Column(String, nullable=True, unique=True)
-    # New: Bye Week (Story 2.1 Prep)
     bye_week = Column(Integer, nullable=True)
 
-# --- 4. EXISTING: Draft Picks (Unchanged) ---
+# --- 4. DRAFT PICK TABLE ---
 class DraftPick(Base):
     __tablename__ = "draft_picks"
 
@@ -59,9 +53,29 @@ class DraftPick(Base):
     owner = relationship("User", back_populates="picks")
     player = relationship("Player")
 
+# --- 5. BUDGET TABLE ---
 class Budget(Base):
     __tablename__ = "budgets"
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     year = Column(Integer)
     total_budget = Column(Integer)
+
+# --- 6. MATCHUP TABLE (Consolidated) ---
+class Matchup(Base):
+    __tablename__ = "matchups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    week = Column(Integer, index=True)
+    home_team_id = Column(Integer, ForeignKey("users.id"))
+    away_team_id = Column(Integer, ForeignKey("users.id"))
+    
+    # Actual Scores
+    home_score = Column(Float, default=0.0)
+    away_score = Column(Float, default=0.0)
+
+    # Projected Scores
+    home_projected = Column(Float, default=0.0)
+    away_projected = Column(Float, default=0.0)
+    
+    is_completed = Column(Boolean, default=False)
