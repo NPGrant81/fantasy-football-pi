@@ -6,8 +6,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Get DB info from .env file
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://fantasy_admin:secret_password_change_me@localhost/fantasy_league")
+# FIX: Update this string to match your local setup!
+# Usually: postgresql://postgres:password123@localhost/fantasy_pi
+DEFAULT_DB_URL = "postgresql://postgres:password123@localhost/fantasy_pi"
+
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB_URL)
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
