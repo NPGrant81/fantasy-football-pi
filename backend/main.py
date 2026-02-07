@@ -1,4 +1,5 @@
 import os
+from routers import admin  # <--- NEW IMPORT
 from dotenv import load_dotenv
 
 load_dotenv() # <--- This loads the .env file immediately
@@ -18,6 +19,9 @@ import models
 
 # Create the App
 app = FastAPI()
+# --- NEW: Connect the Admin Router ---
+app.include_router(admin.router) 
+# -------------------------------------
 # Dependency to get the database session
 def get_db():
     db = SessionLocal()
