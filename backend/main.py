@@ -14,9 +14,9 @@ from dotenv import load_dotenv
 
 # Internal Imports
 import models
-# IMPORT get_db FROM DATABASE (Do not define it here)
 from database import SessionLocal, engine, get_db  
-from routers import admin, team, matchups
+# FIX: Added 'players' to this import line
+from routers import admin, team, matchups, players
 
 load_dotenv()
 
@@ -43,7 +43,8 @@ app.add_middleware(
 # Connect Routers
 app.include_router(admin.router)
 app.include_router(team.router)
-app.include_router(matchups.router) # <--- NEW: Activate router
+app.include_router(matchups.router)
+app.include_router(players.router) # <--- Now this works because it's imported!
 
 # --- AUTH HELPERS ---
 def verify_password(plain_password, hashed_password):
@@ -91,7 +92,10 @@ def get_current_user_info(current_user: models.User = Depends(get_current_user))
 
 @app.get("/owners")
 def get_owners(db: Session = Depends(get_db)):
-    return db.query(models.User).all()
+    # Filter out system accounts from the dropdown
+    return db.query(models.User).filter(
+        models.User.username.not_in(["Free Agent", "Obsolete", "free agent"])
+    ).all()
 
 @app.get("/players")
 def get_players(db: Session = Depends(get_db)):

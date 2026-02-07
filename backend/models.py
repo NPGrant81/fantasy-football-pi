@@ -36,7 +36,7 @@ class Player(Base):
     gsis_id = Column(String, nullable=True, unique=True)
     bye_week = Column(Integer, nullable=True)
 
-# --- 4. DRAFT PICK TABLE ---
+# --- 4. DRAFT PICK TABLE (Updated with Status) ---
 class DraftPick(Base):
     __tablename__ = "draft_picks"
 
@@ -46,6 +46,9 @@ class DraftPick(Base):
     round_num = Column(Integer, nullable=True)
     pick_num = Column(Integer, nullable=True)
     amount = Column(Integer)
+    
+    # NEW: Track line-up status
+    current_status = Column(String, default='BENCH') 
     
     owner_id = Column(Integer, ForeignKey("users.id"))
     player_id = Column(Integer, ForeignKey("players.id"))
@@ -61,7 +64,7 @@ class Budget(Base):
     year = Column(Integer)
     total_budget = Column(Integer)
 
-# --- 6. MATCHUP TABLE (Consolidated) ---
+# --- 6. MATCHUP TABLE ---
 class Matchup(Base):
     __tablename__ = "matchups"
 
