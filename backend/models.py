@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Float, Boolean, JSON
 from sqlalchemy.orm import relationship
 from database import Base
 
-# --- 1. LEAGUE TABLE ---
+# --- 1. LEAGUE TABLE (The missing piece!) ---
 class League(Base):
     __tablename__ = "leagues"
 
@@ -11,7 +11,26 @@ class League(Base):
     
     users = relationship("User", back_populates="league")
 
-# --- 2. USER TABLE ---
+# --- 2. LEAGUE SETTINGS ---
+class LeagueSettings(Base):
+    __tablename__ = "league_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_name = Column(String, default="My Fantasy League")
+    
+    # Roster Rules
+    roster_size = Column(Integer, default=14)
+    salary_cap = Column(Integer, default=200)
+    
+    # Starting Slots (stored as JSON)
+    starting_slots = Column(JSON, default={
+        "QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1
+    })
+    
+    # Scoring Rules (stored as JSON)
+    scoring_rules = Column(JSON, default=[])
+
+# --- 3. USER TABLE ---
 class User(Base):
     __tablename__ = "users"
 
@@ -20,12 +39,16 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     
+    # Admin Rights
+    is_commissioner = Column(Boolean, default=False)
+
+    # Relationship to League
     league_id = Column(Integer, ForeignKey("leagues.id")) 
     league = relationship("League", back_populates="users")
-
+    
     picks = relationship("DraftPick", back_populates="owner")
 
-# --- 3. PLAYER TABLE ---
+# --- 4. PLAYER TABLE ---
 class Player(Base):
     __tablename__ = "players"
 
@@ -36,7 +59,7 @@ class Player(Base):
     gsis_id = Column(String, nullable=True, unique=True)
     bye_week = Column(Integer, nullable=True)
 
-# --- 4. DRAFT PICK TABLE (Updated with Status) ---
+# --- 5. DRAFT PICK TABLE ---
 class DraftPick(Base):
     __tablename__ = "draft_picks"
 
@@ -47,7 +70,7 @@ class DraftPick(Base):
     pick_num = Column(Integer, nullable=True)
     amount = Column(Integer)
     
-    # NEW: Track line-up status
+    # Lineup Status
     current_status = Column(String, default='BENCH') 
     
     owner_id = Column(Integer, ForeignKey("users.id"))
@@ -56,7 +79,7 @@ class DraftPick(Base):
     owner = relationship("User", back_populates="picks")
     player = relationship("Player")
 
-# --- 5. BUDGET TABLE ---
+# --- 6. BUDGET TABLE ---
 class Budget(Base):
     __tablename__ = "budgets"
     id = Column(Integer, primary_key=True, index=True)
@@ -64,7 +87,7 @@ class Budget(Base):
     year = Column(Integer)
     total_budget = Column(Integer)
 
-# --- 6. MATCHUP TABLE ---
+# --- 7. MATCHUP TABLE ---
 class Matchup(Base):
     __tablename__ = "matchups"
 

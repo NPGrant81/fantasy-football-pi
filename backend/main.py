@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import models
 from database import SessionLocal, engine, get_db  
 # FIX: Added 'players' to this import line
-from routers import admin, team, matchups, players
+from routers import admin, team, matchups, players, league
 
 load_dotenv()
 
@@ -44,7 +44,8 @@ app.add_middleware(
 app.include_router(admin.router)
 app.include_router(team.router)
 app.include_router(matchups.router)
-app.include_router(players.router) # <--- Now this works because it's imported!
+app.include_router(players.router) 
+app.include_router(league.router) # <--- Now this works because it's imported!
 
 # --- AUTH HELPERS ---
 def verify_password(plain_password, hashed_password):
@@ -88,7 +89,13 @@ def read_root():
 
 @app.get("/me")
 def get_current_user_info(current_user: models.User = Depends(get_current_user)):
-    return {"user_id": current_user.id, "username": current_user.username}
+    return {
+        "user_id": current_user.id, 
+        "username": current_user.username,
+        # NEW: Critical data points for the frontend
+        "league_id": current_user.league_id, 
+        "is_commissioner": current_user.is_commissioner
+    }
 
 @app.get("/owners")
 def get_owners(db: Session = Depends(get_db)):
