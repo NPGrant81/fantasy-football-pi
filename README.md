@@ -33,9 +33,58 @@ pip install -r requirements.txt
 Navigate to the frontend folder:PowerShellcd frontend
 npm install
 npm run dev
-🤖 Administration Scripts (The "Nuclear Option")These scripts located in backend/ are used to reset or manage the database.Script NameDescriptionpython init_league.pyWARNING: Wipes the entire database. Recreates tables, creates the "Post Pacific League," creates the Admin user (Nick Grant / password), and loads complex scoring rules.python import_nfl_data.pyFetches live 2025 player data from NFL servers and populates the players table.python seed_draft.pySimulates a full auction draft for 12 teams. Assigns Starters/Bench automatically. Useful for testing post-draft features.python generate_schedule.pyGenerates a 14-week round-robin schedule for all teams in the league.Standard Reset Protocol (If things break):python init_league.pypython import_nfl_data.pypython seed_draft.pypython generate_schedule.py
+🤖 Administration Scripts 
+(The "Nuclear Option")These scripts located in backend/ are used to reset or manage the database.
+Script Name
+Description
+python init_league.py
+    WARNING: Wipes the entire database. 
+    Recreates tables, creates the "Post Pacific League," creates the Admin user (Nick Grant / password), and loads complex scoring rules.
+python import_nfl_data.py
+    Fetches live 2025 player data from NFL servers and populates the players table.
+python seed_draft.py
+    Simulates a full auction draft for 12 teams. 
+    Assigns Starters/Bench automatically. 
+    Useful for testing post-draft features.
+python generate_schedule.py
+    Generates a 14-week round-robin schedule for all teams in the league.
+    Standard Reset Protocol (If things break):python init_league.pypython import_nfl_data.pypython seed_draft.pypython generate_schedule.py
 🔑 Login CredentialsCommissioner 
-(Admin):Username: Nick Grant
-Password: passwordRegular Owners:Username: Owner_1 ... Owner_11Password: password🐛 Troubleshooting"No Leagues Found" / Stuck LoadingCause: The browser has an old JWT token from a previous database version.Fix:Open Developer Tools (F12) -> Application -> Local Storage.Delete the token key.Refresh the page and log in again."Foreign Key Violation" when running scriptsCause: Trying to delete a table (like Users) that other tables (like Budgets) depend on.Fix: Run init_league.py first (it uses CASCADE to force-delete), then run the other scripts.Player Search returns old playersCause: The database has stale data.Fix: Run python import_nfl_data.py to fetch the fresh 2025 roster set.Matchups show empty scoresCause: The drafted players might be set to "BENCH".Fix: Go to "My Team" and submit a lineup, or re-run python seed_draft.py which automatically sets starters.📝 Todo List (Future Work)[ ] Waiver Wire: Allow picking up free agents.[ ] Live Scoring: Connect nfl_data_py to fetch actual weekly stats (currently using projections).[ ] Standings Page: Display Win/Loss records and Points For.Final Step for TodayStop all servers.Commit everything:PowerShellgit add .
+(Admin):
+    Username: Nick Grant
+    Password: password
+Regular Owners:
+    Username: Owner_1 ... Owner_11
+    Password: password
+
+🐛 Troubleshooting
+"No Leagues Found" / Stuck Loading
+Cause: The browser has an old JWT token from a previous database version.
+Fix:Open Developer Tools (F12) -> Application -> Local Storage.
+
+Delete the token key.
+    Refresh the page and log in again.
+"Foreign Key Violation" when running scripts
+Cause: Trying to delete a table (like Users) that other tables (like Budgets) depend on.
+Fix: Run init_league.py first (it uses CASCADE to force-delete), then run the other scripts.
+
+Player Search returns old players
+Cause: The database has stale data.
+Fix: Run python import_nfl_data.py to fetch the fresh 2025 roster set.
+
+Matchups show empty scores
+Cause: The drafted players might be set to "BENCH".
+Fix: Go to "My Team" and submit a lineup, or re-run python seed_draft.py which automatically sets starters.
+
+📝 Todo List (Future Work)
+[ ] Waiver Wire: Allow picking up free agents.
+[ ] Live Scoring: Connect nfl_data_py to fetch actual weekly stats (currently using projections).
+[ ] Standings Page: Display Win/Loss records and Points For.
+
+Final Step for Today
+Stop all servers.
+Commit everything:
+PowerShell
+git add .
 git commit -m "docs: added comprehensive README and finalized Commissioner Tools"
 git push
