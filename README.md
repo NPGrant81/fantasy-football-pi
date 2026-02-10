@@ -77,9 +77,9 @@ Cause: The drafted players might be set to "BENCH".
 Fix: Go to "My Team" and submit a lineup, or re-run python seed_draft.py which automatically sets starters.
 
 📝 Todo List (Future Work)
-[ ] Waiver Wire: Allow picking up free agents.
-[ ] Live Scoring: Connect nfl_data_py to fetch actual weekly stats (currently using projections).
-[ ] Standings Page: Display Win/Loss records and Points For.
+1. [ ] Waiver Wire: Allow picking up free agents.
+2. [ ] Live Scoring: Connect nfl_data_py to fetch actual weekly stats (currently using projections).
+3. [ ] Standings Page: Display Win/Loss records and Points For.
 
 Final Step for Today
 Stop all servers.
