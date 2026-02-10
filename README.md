@@ -58,9 +58,9 @@ Regular Owners:
     Password: password
 
 🐛 Troubleshooting
-1. "No Leagues Found" / Stuck Loading
-+Cause: The browser has an old JWT token from a previous database version.
-+Fix:
+*"No Leagues Found" / Stuck Loading
+ * Cause: The browser has an old JWT token from a previous database version.
+ * Fix:
 *Open Developer Tools (F12) -> Application -> Local Storage.
 *Delete the token key.
 *Refresh the page and log in again.
