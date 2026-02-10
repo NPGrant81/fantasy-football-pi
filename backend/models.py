@@ -1,8 +1,15 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, Boolean, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, Float, Boolean, JSON, Enum as SqlEnum
 from sqlalchemy.orm import relationship
 from database import Base
+import enum
 
-# --- 1. LEAGUE TABLE (The missing piece!) ---
+# --- 0. ENUMS (Permissions) ---
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"           # Site Owner (You)
+    COMMISSIONER = "commish"  # League Manager
+    USER = "user"             # Regular Owner
+
+# --- 1. LEAGUE TABLE ---
 class League(Base):
     __tablename__ = "leagues"
 
@@ -10,12 +17,17 @@ class League(Base):
     name = Column(String, unique=True, index=True)
     
     users = relationship("User", back_populates="league")
+    # Link to the new detailed scoring rules
+    scoring_rules = relationship("ScoringRule", back_populates="league")
 
-# --- 2. LEAGUE SETTINGS ---
+# --- 2. LEAGUE SETTINGS (General Config) ---
 class LeagueSettings(Base):
     __tablename__ = "league_settings"
 
     id = Column(Integer, primary_key=True, index=True)
+    # Link this to a specific league (Best Practice)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+
     league_name = Column(String, default="My Fantasy League")
     
     # Roster Rules
@@ -27,10 +39,10 @@ class LeagueSettings(Base):
         "QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1
     })
     
-    # Scoring Rules (stored as JSON)
-    scoring_rules = Column(JSON, default=[])
+    # Basic Scoring (JSON for simple stuff like "1 pt per 10 yards")
+    simple_scoring_json = Column(JSON, default=[])
 
-# --- 3. USER TABLE ---
+# --- 3. USER TABLE (The Team Owner) ---
 class User(Base):
     __tablename__ = "users"
 
@@ -39,14 +51,19 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     
-    # Admin Rights
-    is_commissioner = Column(Boolean, default=False)
+    # --- NEW: Permissions & Divisions ---
+    role = Column(SqlEnum(UserRole), default=UserRole.USER)
+    is_commissioner = Column(Boolean, default=False) # Kept for backward compatibility
+    division = Column(String, nullable=True) # e.g. "North", "South"
 
     # Relationship to League
-    league_id = Column(Integer, ForeignKey("leagues.id")) 
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True) 
     league = relationship("League", back_populates="users")
     
     picks = relationship("DraftPick", back_populates="owner")
+    # Matches (as Home and Away)
+    home_matches = relationship("Matchup", foreign_keys="[Matchup.home_team_id]", back_populates="home_team")
+    away_matches = relationship("Matchup", foreign_keys="[Matchup.away_team_id]", back_populates="away_team")
 
 # --- 4. PLAYER TABLE ---
 class Player(Base):
@@ -56,10 +73,10 @@ class Player(Base):
     name = Column(String, index=True)
     position = Column(String)
     nfl_team = Column(String)
-    gsis_id = Column(String, nullable=True, unique=True)
+    gsis_id = Column(String, nullable=True, unique=True) # Vital for nfl_data_py syncing
     bye_week = Column(Integer, nullable=True)
 
-# --- 5. DRAFT PICK TABLE ---
+# --- 5. DRAFT PICK TABLE (Your Roster) ---
 class DraftPick(Base):
     __tablename__ = "draft_picks"
 
@@ -93,6 +110,8 @@ class Matchup(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     week = Column(Integer, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True) # Good to track which league this game belongs to
+
     home_team_id = Column(Integer, ForeignKey("users.id"))
     away_team_id = Column(Integer, ForeignKey("users.id"))
     
@@ -105,3 +124,28 @@ class Matchup(Base):
     away_projected = Column(Float, default=0.0)
     
     is_completed = Column(Boolean, default=False)
+
+    # Relationships
+    home_team = relationship("User", foreign_keys=[home_team_id], back_populates="home_matches")
+    away_team = relationship("User", foreign_keys=[away_team_id], back_populates="away_matches")
+
+# --- 8. SCORING RULES (The New Engine) ---
+class ScoringRule(Base):
+    """
+    Complex scoring rules.
+    Example: category="passing_td_length", min=40, max=49, points=2.0
+    """
+    __tablename__ = "scoring_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"))
+    
+    category = Column(String) # e.g. "PASS_TD_LENGTH", "RUSH_YARDS"
+    min_val = Column(Float, default=0) # e.g. 40
+    max_val = Column(Float, default=999) # e.g. 49
+    points = Column(Float, default=0) # e.g. 2.0
+    
+    # Logic Filters
+    position_target = Column(String, nullable=True) # e.g. "QB" (If only QBs get this rule)
+    
+    league = relationship("League", back_populates="scoring_rules")
