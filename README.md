@@ -34,7 +34,7 @@ Navigate to the frontend folder:PowerShellcd frontend
 npm install
 npm run dev
 🤖 Administration Scripts 
-(The "Nuclear Option")These scripts located in backend/ are used to reset or manage the database.
+(The "Nuclear Option")These scripts, located in backend/, are used to reset or manage the database.
 Script Name
 Description
 python init_league.py
@@ -58,23 +58,24 @@ Regular Owners:
     Password: password
 
 🐛 Troubleshooting
-"No Leagues Found" / Stuck Loading
-Cause: The browser has an old JWT token from a previous database version.
-Fix:Open Developer Tools (F12) -> Application -> Local Storage.
+1. "No Leagues Found" / Stuck Loading
+-- Cause: The browser has an old JWT token from a previous database version.
+-- Fix:
+   --- Open Developer Tools (F12) -> Application -> Local Storage.
+   --- Delete the token key.
+   --- Refresh the page and log in again.
+   
+2. "Foreign Key Violation" when running scripts
+-- Cause: Trying to delete a table (like Users) that other tables (like Budgets) depend on.
+-- Fix: Run init_league.py first (it uses CASCADE to force-delete), then run the other scripts.
 
-Delete the token key.
-    Refresh the page and log in again.
-"Foreign Key Violation" when running scripts
-Cause: Trying to delete a table (like Users) that other tables (like Budgets) depend on.
-Fix: Run init_league.py first (it uses CASCADE to force-delete), then run the other scripts.
+3. Player Search returns old players
+-- Cause: The database has stale data.
+-- Fix: Run python import_nfl_data.py to fetch the fresh 2025 roster set.
 
-Player Search returns old players
-Cause: The database has stale data.
-Fix: Run python import_nfl_data.py to fetch the fresh 2025 roster set.
-
-Matchups show empty scores
-Cause: The drafted players might be set to "BENCH".
-Fix: Go to "My Team" and submit a lineup, or re-run python seed_draft.py which automatically sets starters.
+4. Matchups show empty scores
+-- Cause: The drafted players might be set to "BENCH".
+-- Fix: Go to "My Team" and submit a lineup, or re-run python seed_draft.py which automatically sets starters.
 
 📝 Todo List (Future Work)
 1. [ ] Waiver Wire: Allow picking up free agents.
