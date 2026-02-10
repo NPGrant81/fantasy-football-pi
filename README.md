@@ -59,21 +59,21 @@ Regular Owners:
 
 🐛 Troubleshooting
 1. "No Leagues Found" / Stuck Loading
-1.1 Cause: The browser has an old JWT token from a previous database version.
-1.2 Fix:
-   1.2.1 Open Developer Tools (F12) -> Application -> Local Storage.
-   --- Delete the token key.
-   --- Refresh the page and log in again.
++Cause: The browser has an old JWT token from a previous database version.
++Fix:
+*Open Developer Tools (F12) -> Application -> Local Storage.
+*Delete the token key.
+*Refresh the page and log in again.
    
-2. "Foreign Key Violation" when running scripts
+3. "Foreign Key Violation" when running scripts
 -- Cause: Trying to delete a table (like Users) that other tables (like Budgets) depend on.
 -- Fix: Run init_league.py first (it uses CASCADE to force-delete), then run the other scripts.
 
-3. Player Search returns old players
+4. Player Search returns old players
 -- Cause: The database has stale data.
 -- Fix: Run python import_nfl_data.py to fetch the fresh 2025 roster set.
 
-4. Matchups show empty scores
+5. Matchups show empty scores
 -- Cause: The drafted players might be set to "BENCH".
 -- Fix: Go to "My Team" and submit a lineup, or re-run python seed_draft.py which automatically sets starters.
 
