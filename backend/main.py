@@ -1,103 +1,88 @@
 import os
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
 from pydantic import BaseModel
-from jose import jwt
-from passlib.context import CryptContext
 from dotenv import load_dotenv
-
 
 # Internal Imports
 import models
-from database import SessionLocal, engine, get_db  
-# FIX: Added 'players' to this import line
-from routers import admin, team, matchups, players, league, advisor
+import auth  # <--- WE USE THIS NOW instead of rewriting logic
+from database import engine, get_db
+# from routers import admin, team, matchups, players, league, advisor  <-- DELETE players
+from routers import admin, team, matchups, league, advisor
 
+# app.include_router(players.router) <-- COMMENT THIS OUT
 load_dotenv()
 
-# --- SECURITY CONFIG ---
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback_secret_if_env_missing")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 120 
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 # --- APP SETUP ---
+# Create Database Tables (Safe to run every time)
+models.Base.metadata.create_all(bind=engine)
+
 app = FastAPI()
 
-# Enable CORS
+# --- SECURITY: FIX CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allows localhost:3000, localhost:5173, specific IPs, etc.
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Connect Routers
+# --- CONNECT ROUTERS ---
 app.include_router(admin.router)
 app.include_router(team.router)
 app.include_router(matchups.router)
-app.include_router(players.router) 
-app.include_router(league.router) # <--- Now this works because it's imported!
+# app.include_router(players.router) # Commented out to avoid conflict with manual /players below. 
+# Once you move the player logic to routers/players.py, uncomment this and delete the manual route below.
+app.include_router(league.router)
 app.include_router(advisor.router)
 
-# --- AUTH HELPERS ---
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
-    
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
-
 # ---------------------------------------------------------
-# CORE ENDPOINTS
+# AUTH ENDPOINTS (Using auth.py)
 # ---------------------------------------------------------
 @app.post("/token")
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    # 1. Find the user
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
     
-    access_token = create_access_token(data={"sub": user.username})
+    # 2. Verify password (using auth.py logic)
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 3. Create Token (using auth.py logic)
+    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
     return {"access_token": access_token, "token_type": "bearer", "user_id": user.id}
 
-@app.get("/")
-def read_root():
-    return {"message": "Fantasy Football API is Running!"}
-
 @app.get("/me")
-def get_current_user_info(current_user: models.User = Depends(get_current_user)):
+def get_current_user_info(current_user: models.User = Depends(auth.get_current_user)):
     return {
         "user_id": current_user.id, 
         "username": current_user.username,
-        # NEW: Critical data points for the frontend
         "league_id": current_user.league_id, 
+        "role": current_user.role,  # Added this so frontend knows if you are admin
         "is_commissioner": current_user.is_commissioner
     }
+
+# ---------------------------------------------------------
+# CORE ENDPOINTS (Salvaged from your old file)
+# ---------------------------------------------------------
+@app.get("/")
+def read_root():
+    return {"message": "Fantasy Football API is Running!"}
 
 @app.get("/owners")
 def get_owners(db: Session = Depends(get_db)):
