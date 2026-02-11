@@ -12,11 +12,12 @@ from jose import jwt
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 
+
 # Internal Imports
 import models
 from database import SessionLocal, engine, get_db  
 # FIX: Added 'players' to this import line
-from routers import admin, team, matchups, players, league
+from routers import admin, team, matchups, players, league, advisor
 
 load_dotenv()
 
@@ -46,6 +47,7 @@ app.include_router(team.router)
 app.include_router(matchups.router)
 app.include_router(players.router) 
 app.include_router(league.router) # <--- Now this works because it's imported!
+app.include_router(advisor.router)
 
 # --- AUTH HELPERS ---
 def verify_password(plain_password, hashed_password):
