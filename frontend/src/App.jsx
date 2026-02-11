@@ -6,6 +6,8 @@ import './App.css'
 // Import Components
 import Layout from './components/Layout'
 import LeagueSelector from './components/LeagueSelector'
+import LeagueAdvisor from './components/LeagueAdvisor'; // Works for both .js and .jsx
+
 
 // Import Pages
 import Home from './pages/Home'
