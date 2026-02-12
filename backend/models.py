@@ -53,18 +53,19 @@ class User(Base):
     
     # --- NEW: Permissions & Divisions ---
     role = Column(SqlEnum(UserRole), default=UserRole.USER)
-    is_commissioner = Column(Boolean, default=False) # Kept for backward compatibility
-    division = Column(String, nullable=True) # e.g. "North", "South"
+    is_commissioner = Column(Boolean, default=False)
+    division = Column(String, nullable=True)
 
     # Relationship to League
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True) 
     league = relationship("League", back_populates="users")
     
     picks = relationship("DraftPick", back_populates="owner")
-    # Matches (as Home and Away)
-    home_matches = relationship("Matchup", foreign_keys="[Matchup.home_team_id]", back_populates="home_team")
-    away_matches = relationship("Matchup", foreign_keys="[Matchup.away_team_id]", back_populates="away_team")
-
+    
+    # FIX: Removed the brackets [] from the strings below
+    home_matches = relationship("Matchup", foreign_keys="Matchup.home_team_id", back_populates="home_team")
+    away_matches = relationship("Matchup", foreign_keys="Matchup.away_team_id", back_populates="away_team")
+    
 # --- 4. PLAYER TABLE ---
 class Player(Base):
     __tablename__ = "players"
@@ -144,7 +145,8 @@ class ScoringRule(Base):
     min_val = Column(Float, default=0) # e.g. 40
     max_val = Column(Float, default=999) # e.g. 49
     points = Column(Float, default=0) # e.g. 2.0
-    
+    # ADD THIS LINE so the AI knows what the rule is describing
+    description = Column(String, nullable=True)
     # Logic Filters
     position_target = Column(String, nullable=True) # e.g. "QB" (If only QBs get this rule)
     
