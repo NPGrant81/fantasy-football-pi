@@ -44,7 +44,7 @@ def ask_gemini(user_query: str, db: Session = Depends(get_db)):
         client = genai.Client(api_key=api_key)
         
         response = client.models.generate_content(
-            model="gemini-2.0-flash", 
+            model="gemini-flash-latest",  # <--- USE THIS EXACTLY
             contents=prompt
         )
         return {"response": response.text}
