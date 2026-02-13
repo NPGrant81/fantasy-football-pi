@@ -1,168 +1,127 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useRef } from 'react'
+import axios from 'axios'
+import ReactMarkdown from 'react-markdown'
 
-const LeagueAdvisor = () => {
-  const [isOpen, setIsOpen] = useState(false); // Controls if chat is visible
-  const [query, setQuery] = useState('');
-  const [response, setResponse] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function LeagueAdvisor({ token }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [response, setResponse] = useState(null)
+  const [loading, setLoading] = useState(false)
+  
+  // Auto-scroll to bottom of chat
+  const messagesEndRef = useRef(null)
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [response, loading])
 
-  // Toggle the chat window
-  const toggleChat = () => setIsOpen(!isOpen);
+  const askGemini = () => {
+    if (!query) return
+    setLoading(true)
+    setResponse(null)
 
-  const askGemini = async (e) => {
-    e.preventDefault();
-    if (!query) return;
-
-    setLoading(true);
-    // Don't clear response immediately so user can see previous answer while waiting
-    
-    try {
-      const url = new URL('http://localhost:8000/advisor/ask');
-      url.searchParams.append('user_query', query);
-      
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!res.ok) throw new Error('Failed to get advice');
-      const data = await res.json();
-      setResponse(data.response);
-    } catch (err) {
-      setResponse("Error: The Commissioner is out to lunch. Try again later.");
-    } finally {
-      setLoading(false);
-      setQuery(''); // Clear input after asking
-    }
-  };
+    axios.post('http://127.0.0.1:8000/advisor/ask', 
+      { user_query: query },
+      { 
+        params: { user_query: query },
+        headers: { Authorization: `Bearer ${token}` } 
+      }
+    )
+    .then(res => {
+      setResponse(res.data.response)
+      setLoading(false)
+    })
+    .catch(err => {
+      console.error(err)
+      setResponse("I'm having trouble reaching the league office right now.")
+      setLoading(false)
+    })
+  }
 
   return (
-    <>
-      {/* 1. THE CHAT WINDOW (Only shows when isOpen is true) */}
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      
+      {/* CHAT WINDOW */}
       {isOpen && (
-        <div style={styles.chatWindow}>
-          <div style={styles.header}>
-            <span style={{ fontWeight: 'bold' }}>🤖 League Advisor</span>
-            <button onClick={toggleChat} style={styles.closeBtn}>×</button>
+        <div className="mb-4 w-[450px] flex flex-col bg-slate-800 border border-slate-600 rounded-lg shadow-2xl overflow-hidden animate-fade-in-up">
+          
+          {/* HEADER */}
+          <div className="bg-slate-700 p-3 border-b border-slate-600 flex justify-between items-center">
+            <h3 className="font-bold text-white flex items-center gap-2">
+              🤖 League Advisor <span className="text-xs bg-yellow-600 px-2 py-0.5 rounded text-white">AI</span>
+            </h3>
+            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+          </div>
+          
+          {/* MESSAGES AREA */}
+          <div className="flex-grow p-4 bg-slate-900 h-[400px] overflow-y-auto custom-scrollbar">
+             
+             {/* WELCOME */}
+             {!response && !loading && (
+               <div className="text-slate-400 text-sm text-center mt-20 italic">
+                 "Ask me about sleepers, trade values, or who to start this week..."
+               </div>
+             )}
+
+             {/* USER QUERY (Optional echo) */}
+             {/* If you want to see what you asked, we could add it here, but keeping it clean for now */}
+
+             {/* LOADING */}
+             {loading && (
+               <div className="flex items-center gap-2 text-yellow-500 text-sm animate-pulse">
+                 <span>Thinking...</span>
+               </div>
+             )}
+
+             {/* AI RESPONSE (RENDERED MARKDOWN) */}
+             {response && (
+               <div className="bg-slate-800 p-4 rounded text-sm text-slate-200 border border-slate-700 leading-relaxed text-left shadow-inner">
+                 <ReactMarkdown 
+                   components={{
+                     // Style bold text to be Yellow
+                     strong: ({node, ...props}) => <span className="font-bold text-yellow-400" {...props} />,
+                     // Style headings
+                     h3: ({node, ...props}) => <h3 className="text-lg font-bold text-white mt-4 mb-2" {...props} />,
+                     // Style lists
+                     ul: ({node, ...props}) => <ul className="list-disc pl-5 space-y-1 my-2" {...props} />,
+                     li: ({node, ...props}) => <li className="pl-1" {...props} />
+                   }}
+                 >
+                   {response}
+                 </ReactMarkdown>
+               </div>
+             )}
+             
+             {/* Invisible element to force scroll to bottom */}
+             <div ref={messagesEndRef} />
           </div>
 
-          <div style={styles.body}>
-            {response ? (
-              <div style={styles.messageBot}>
-                <strong>Commissioner AI:</strong>
-                <p style={{ whiteSpace: 'pre-wrap', marginTop: '5px' }}>{response}</p>
-              </div>
-            ) : (
-              <p style={{ color: '#888', textAlign: 'center', marginTop: '50px' }}>
-                Ask me about trades, waivers, or who to start!
-              </p>
-            )}
-          </div>
-
-          <form onSubmit={askGemini} style={styles.footer}>
-            <input
+          {/* INPUT AREA */}
+          <div className="p-3 bg-slate-800 border-t border-slate-600 flex gap-2">
+            <input 
+              className="flex-grow bg-slate-900 border border-slate-600 rounded px-3 py-3 text-sm text-white focus:border-yellow-500 outline-none"
+              placeholder="Ask a question..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ask a question..."
-              style={styles.input}
-              disabled={loading}
+              onKeyDown={(e) => e.key === 'Enter' && askGemini()}
             />
-            <button type="submit" disabled={loading} style={styles.sendBtn}>
-              {loading ? '...' : 'Send'}
+            <button 
+              onClick={askGemini}
+              disabled={loading}
+              className="bg-yellow-600 hover:bg-yellow-500 text-white px-4 rounded font-bold disabled:opacity-50"
+            >
+              SEND
             </button>
-          </form>
+          </div>
         </div>
       )}
 
-      {/* 2. THE FLOATING BUTTON (Always visible) */}
-      <button onClick={toggleChat} style={styles.floatingBtn}>
-        {isOpen ? 'Close' : '🤖 Advice'}
+      {/* FLOATING BUTTON */}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="h-14 w-14 rounded-full bg-gradient-to-r from-yellow-500 to-orange-500 shadow-lg border-2 border-white flex items-center justify-center text-3xl hover:scale-110 transition-transform"
+      >
+        🤖
       </button>
-    </>
-  );
-};
-
-// CSS-in-JS Styles for the "Floating" effect
-const styles = {
-  floatingBtn: {
-    position: 'fixed',
-    bottom: '20px',
-    right: '20px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '50px',
-    padding: '15px 25px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-    zIndex: 1000, // Ensure it sits on top of everything
-    fontWeight: 'bold',
-  },
-  chatWindow: {
-    position: 'fixed',
-    bottom: '80px', // Sits just above the button
-    right: '20px',
-    width: '350px',
-    height: '500px',
-    backgroundColor: 'white',
-    borderRadius: '10px',
-    boxShadow: '0 5px 20px rgba(0,0,0,0.3)',
-    zIndex: 1000,
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden',
-    border: '1px solid #ddd',
-  },
-  header: {
-    backgroundColor: '#007bff',
-    color: 'white',
-    padding: '15px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  closeBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'white',
-    fontSize: '20px',
-    cursor: 'pointer',
-  },
-  body: {
-    flex: 1,
-    padding: '15px',
-    overflowY: 'auto',
-    backgroundColor: '#f9f9f9',
-  },
-  messageBot: {
-    backgroundColor: '#e9ecef',
-    padding: '10px',
-    borderRadius: '10px',
-    fontSize: '14px',
-    lineHeight: '1.4',
-  },
-  footer: {
-    padding: '10px',
-    borderTop: '1px solid #eee',
-    display: 'flex',
-    backgroundColor: 'white',
-  },
-  input: {
-    flex: 1,
-    padding: '10px',
-    borderRadius: '5px',
-    border: '1px solid #ddd',
-    marginRight: '10px',
-  },
-  sendBtn: {
-    padding: '10px 15px',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  }
-};
-
-export default LeagueAdvisor;
+    </div>
+  )
+}

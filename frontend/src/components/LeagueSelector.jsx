@@ -1,23 +1,18 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 
-// 1. ADD 'token' to props so we can use it in the API call
 export default function LeagueSelector({ onLeagueSelect, token }) {
   const [leagues, setLeagues] = useState([])
   const [newLeagueName, setNewLeagueName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
-  
-  // 2. ADD 'loading' state definition
   const [loading, setLoading] = useState(true)
 
-  // Fetch available leagues on load
+  // --- 1. FETCH LEAGUES (Runs immediately) ---
   useEffect(() => {
-    if (!token) return; // Don't fetch if no token
-
-    // Correct URL: /league/
-    axios.get('http://127.0.0.1:8000/league/', { 
-        headers: { Authorization: `Bearer ${token}` } 
-    })
+    // FIX A: Removed "if (!token) return" so it loads even if you aren't logged in yet.
+    
+    // FIX B: Changed url from '/league/' to '/leagues/' (Plural)
+    axios.get('http://127.0.0.1:8000/leagues/') 
     .then(res => {
         setLeagues(res.data)
         setLoading(false)
@@ -26,18 +21,16 @@ export default function LeagueSelector({ onLeagueSelect, token }) {
         console.error("Could not fetch leagues:", err)
         setLoading(false)
     })
-  }, [token])
+  }, []) // Dependency array is empty so it runs once on mount
 
-  // Handle Create New League
+  // --- 2. CREATE LEAGUE ---
   const handleCreate = () => {
     if (!newLeagueName) return
     
-    // UPDATED URL: Match the backend router prefix '/league/'
-    axios.post('http://127.0.0.1:8000/league/', { name: newLeagueName }, {
-        headers: { Authorization: `Bearer ${token}` }
-    })
+    // FIX C: Changed url to '/leagues/' (Plural)
+    axios.post('http://127.0.0.1:8000/leagues/', { name: newLeagueName })
       .then(res => {
-        setLeagues([...leagues, res.data]) // Add to list immediately
+        setLeagues([...leagues, res.data]) 
         setNewLeagueName('')
         setIsCreating(false)
       })
