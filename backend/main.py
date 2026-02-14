@@ -14,7 +14,7 @@ import models
 import auth  # <--- WE USE THIS NOW instead of rewriting logic
 from database import engine, get_db
 # from routers import admin, team, matchups, players, league, advisor  <-- DELETE players
-from routers import admin, team, matchups, league, advisor
+from routers import admin, team, matchups, league, advisor, dashboard
 
 # app.include_router(players.router) <-- COMMENT THIS OUT
 load_dotenv()
@@ -42,6 +42,7 @@ app.include_router(matchups.router)
 # Once you move the player logic to routers/players.py, uncomment this and delete the manual route below.
 app.include_router(league.router)
 app.include_router(advisor.router)
+app.include_router(dashboard.router)
 
 # ---------------------------------------------------------
 # AUTH ENDPOINTS (Using auth.py)
