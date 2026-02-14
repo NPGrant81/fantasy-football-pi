@@ -15,6 +15,7 @@ import MyTeam from './pages/MyTeam'
 import Matchups from './pages/Matchups'
 import GameCenter from './pages/GameCenter'
 import CommissionerDashboard from './pages/CommissionerDashboard'
+import Dashboard from './pages/Dashboard';
 
 function App() {
   // --- GLOBAL STATE ---
@@ -114,26 +115,38 @@ function App() {
   }
 
   // PATH C: FULL APP (Logged In + League Selected)
+// Updated App.jsx Routes
   return (
     <BrowserRouter>
+      {/* Layout provides the Sidebar/Nav and includes the Global Search */}
       <Layout username={username} leagueId={activeLeagueId}>
         
-        {/* The Routes control the main content area */}
         <Routes>
-          <Route path="/" element={<Home username={username} />} />
+          {/* NEW: The Manager Dashboard is now the Home Page */}
+          <Route path="/" element={<Dashboard ownerId={activeOwnerId} />} />
+          
+          {/* MODULARIZED: Your new high-performance Draft Board */}
           <Route path="/draft" element={<DraftBoard token={token} activeOwnerId={activeOwnerId} />} />
+          
+          {/* SALVAGED: Existing features */}
           <Route path="/team" element={<MyTeam token={token} activeOwnerId={activeOwnerId} />} />
           <Route path="/matchups" element={<Matchups token={token} />} />
           <Route path="/matchup/:id" element={<GameCenter token={token} />} />
-          <Route path="/waivers" element={<div className="text-center mt-20 text-slate-500 font-mono">Construction Zone: Waivers 🚧</div>} />
+          
+          {/* NEW: Admin Tools we built on the beach */}
+          <Route path="/admin" element={<SiteAdmin token={token} />} />
           <Route path="/commissioner" element={<CommissionerDashboard token={token} />} />
+          
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
 
-        {/* --- HERE IS THE AGENT! --- */}
-        {/* It sits outside Routes so it floats on EVERY page */}
+        {/* THE AGENT: Stays floating for context-aware help */}
         <LeagueAdvisor token={token} />
 
+        {/* Replace the 🚧 Construction Zone line with this */}
+        <Route path="/waivers" element={<Waivers token={token} activeOwnerId={activeOwnerId} />} />
+        
       </Layout>
     </BrowserRouter>
   )
