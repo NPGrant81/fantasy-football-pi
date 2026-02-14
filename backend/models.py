@@ -60,6 +60,10 @@ class Player(Base):
     name = Column(String, index=True)
     position = Column(String)
     nfl_team = Column(String)
+
+    adp = Column(Float, default=0.0)
+    projected_points = Column(Float, default=0.0)
+
     gsis_id = Column(String, nullable=True, unique=True)
     bye_week = Column(Integer, nullable=True)
 
@@ -71,6 +75,10 @@ class DraftPick(Base):
     round_num = Column(Integer, nullable=True)
     pick_num = Column(Integer, nullable=True)
     amount = Column(Integer) # Auction Value
+    # --- ADD THIS LINE ---
+    session_id = Column(String, default="default") 
+    # ---------------------
+
     current_status = Column(String, default='BENCH') 
     
     owner_id = Column(Integer, ForeignKey("users.id"))

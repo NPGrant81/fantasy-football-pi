@@ -87,3 +87,46 @@ def list_all_users(db: Session = Depends(get_db), _: models.User = Depends(get_s
     """See every user on the site."""
     users = db.query(models.User).all()
     return [{"id": u.id, "username": u.username, "league_id": u.league_id, "is_admin": u.is_superuser} for u in users]
+
+# --- ADD THIS TO THE BOTTOM OF admin.py ---
+
+@router.post("/tools/sync-nfl")
+def sync_nfl_data(db: Session = Depends(get_db)):
+    """
+    Populates the database with a starter list of NFL players.
+    (In a real app, this would fetch from an external API).
+    """
+    # 1. Check if players already exist to avoid duplicates
+    if db.query(models.Player).count() > 0:
+        return {"message": "Players already synced! Database is populated."}
+
+    # 2. Define a starter list of players
+    initial_players = [
+        {"name": "Patrick Mahomes", "position": "QB", "nfl_team": "KC"},
+        {"name": "Josh Allen", "position": "QB", "nfl_team": "BUF"},
+        {"name": "Jalen Hurts", "position": "QB", "nfl_team": "PHI"},
+        {"name": "Christian McCaffrey", "position": "RB", "nfl_team": "SF"},
+        {"name": "Austin Ekeler", "position": "RB", "nfl_team": "WAS"},
+        {"name": "Justin Jefferson", "position": "WR", "nfl_team": "MIN"},
+        {"name": "Ja'Marr Chase", "position": "WR", "nfl_team": "CIN"},
+        {"name": "Tyreek Hill", "position": "WR", "nfl_team": "MIA"},
+        {"name": "Travis Kelce", "position": "TE", "nfl_team": "KC"},
+        {"name": "Mark Andrews", "position": "TE", "nfl_team": "BAL"},
+        {"name": "Nick Bosa", "position": "DEF", "nfl_team": "SF"},
+        {"name": "Micah Parsons", "position": "DEF", "nfl_team": "DAL"},
+        # Add more here if you want...
+    ]
+
+    # 3. Loop through and add them to the DB
+    for p in initial_players:
+        db_player = models.Player(
+            name=p["name"],
+            position=p["position"],
+            nfl_team=p["nfl_team"],
+            adp=0.0,
+            projected_points=0.0
+        )
+        db.add(db_player)
+
+    db.commit()
+    return {"message": f"Successfully added {len(initial_players)} players to the database."}
