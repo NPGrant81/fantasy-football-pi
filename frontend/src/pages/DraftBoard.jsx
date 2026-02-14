@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
 import { useDraftTimer } from '../hooks/useDraftTimer';
 import { getOwnerStats, normalizePos, POSITIONS, ROSTER_SIZE } from '../utils/draftHelpers';
-import OwnerCard from './OwnerCard';
-import AuctionBlock from './AuctionBlock';
-import SessionHeader from './SessionHeader';
+// ✅ CORRECT (Looking in /components)
+import OwnerCard from "../components/OwnerCard";
+import AuctionBlock from "../components/AuctionBlock";
+import SessionHeader from "../components/SessionHeader";
 
 export default function DraftBoard({ token, activeOwnerId }) {
   // --- STATE ---

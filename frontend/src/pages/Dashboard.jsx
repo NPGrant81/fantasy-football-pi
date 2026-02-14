@@ -8,7 +8,13 @@ import { FiTrendingUp, FiRepeat, FiBell, FiPlus, FiList } from 'react-icons/fi';
 export default function Dashboard({ ownerId }) {
   const [summary, setSummary] = useState(null);
 
+// Inside Dashboard.jsx
+
   useEffect(() => {
+    // 1. STOP if ownerId is missing
+    if (!ownerId) return; 
+
+    // 2. Otherwise, fetch normally
     axios.get(`http://localhost:8000/dashboard/${ownerId}`)
       .then(res => setSummary(res.data))
       .catch(err => console.error("Dashboard fetch failed", err));

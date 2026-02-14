@@ -10,12 +10,14 @@ import LeagueAdvisor from './components/LeagueAdvisor' // <--- IMPORT IS ALREADY
 
 // Import Pages
 import Home from './pages/Home'
-import DraftBoard from './pages/DraftBoard'
 import MyTeam from './pages/MyTeam'
 import Matchups from './pages/Matchups'
 import GameCenter from './pages/GameCenter'
 import CommissionerDashboard from './pages/CommissionerDashboard'
 import Dashboard from './pages/Dashboard';
+import DraftBoard from './pages/DraftBoard'; 
+import Waivers from './pages/Waivers';     // <-- You likely need this one too!
+import SiteAdmin from './pages/SiteAdmin'; // <-- THIS is the one causing the current crash
 
 function App() {
   // --- GLOBAL STATE ---
@@ -139,14 +141,16 @@ function App() {
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />
+          
+          {/* Replace the 🚧 Construction Zone line with this */}
+          <Route path="/waivers" element={<Waivers token={token} activeOwnerId={activeOwnerId} />} />
+
         </Routes>
 
         {/* THE AGENT: Stays floating for context-aware help */}
         <LeagueAdvisor token={token} />
 
-        {/* Replace the 🚧 Construction Zone line with this */}
-        <Route path="/waivers" element={<Waivers token={token} activeOwnerId={activeOwnerId} />} />
-        
+
       </Layout>
     </BrowserRouter>
   )

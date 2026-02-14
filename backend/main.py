@@ -26,12 +26,12 @@ from routers import admin, team, matchups, league, advisor, dashboard, players, 
 # ---------------------------------------------------------
 # NUCLEAR RESET BLOCK (RUN ONCE, THEN COMMENT OUT)
 # ---------------------------------------------------------
-with engine.connect() as connection:
-    connection.execute(text("DROP TABLE IF EXISTS budgets CASCADE"))
-    connection.execute(text("DROP TABLE IF EXISTS draft_picks CASCADE"))
-    connection.execute(text("DROP TABLE IF EXISTS users CASCADE"))
-    connection.execute(text("DROP TABLE IF EXISTS players CASCADE"))
-    connection.commit()
+# with engine.connect() as connection:
+#     connection.execute(text("DROP TABLE IF EXISTS budgets CASCADE"))
+#     connection.execute(text("DROP TABLE IF EXISTS draft_picks CASCADE"))
+#     connection.execute(text("DROP TABLE IF EXISTS users CASCADE"))
+#     connection.execute(text("DROP TABLE IF EXISTS players CASCADE"))
+#     connection.commit()
 # ---------------------------------------------------------
 
 # Create tables if they don't exist
