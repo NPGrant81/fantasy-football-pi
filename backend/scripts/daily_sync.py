@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add the parent directory (backend) to the system path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # backend/scripts/daily_sync.py
 import nfl_data_py as nfl
 from database import SessionLocal

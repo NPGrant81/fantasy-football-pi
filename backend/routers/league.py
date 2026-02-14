@@ -297,3 +297,20 @@ def finalize_draft(league_id: int, db: Session = Depends(get_db)):
 
     # 3. Success - In future, set league.status = 'active'
     return {"status": "success", "message": "DRAFT COMPLETE! Season is now active."}
+
+@router.get("/players/search")
+def search_players(q: str, db: Session = Depends(get_db)):
+    """
+    Search for players by name. 
+    This is what powers the 'Global Search' and 'War Room'.
+    """
+    if len(q) < 2:
+        return []
+    
+    # We use ilike for case-insensitive searching
+    # We search the 'name' column (or 'first_name'/'last_name' depending on your model)
+    results = db.query(models.Player).filter(
+        models.Player.name.ilike(f"%{q}%")
+    ).limit(10).all()
+    
+    return results
