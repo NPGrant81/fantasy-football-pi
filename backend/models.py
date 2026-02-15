@@ -1,15 +1,33 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, Boolean, JSON, Enum as SqlEnum
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON
 from sqlalchemy.orm import relationship
 from database import Base
-import enum
 
-# --- 0. ENUMS ---
-class UserRole(str, enum.Enum):
-    ADMIN = "admin"
-    COMMISSIONER = "commissioner"
-    USER = "user"
+# --- 1. USER TABLE ---
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=True)
+    hashed_password = Column(String)
+    
+    # Roles
+    is_superuser = Column(Boolean, default=False)
+    is_commissioner = Column(Boolean, default=False)
+    
+    # League Info
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    division = Column(String, nullable=True)
+    team_name = Column(String, nullable=True)  # <--- ADDED THIS (Needed for My Team page)
 
-# --- 1. LEAGUE TABLE ---
+    # Relationships
+    league = relationship("League", back_populates="users") 
+    picks = relationship("DraftPick", back_populates="owner")
+    
+    # Matchup Relationships
+    home_matches = relationship("Matchup", foreign_keys="Matchup.home_team_id", back_populates="home_team")
+    away_matches = relationship("Matchup", foreign_keys="Matchup.away_team_id", back_populates="away_team")
+
+# --- 2. LEAGUE TABLE ---
 class League(Base):
     __tablename__ = "leagues"
     id = Column(Integer, primary_key=True, index=True)
@@ -19,8 +37,9 @@ class League(Base):
     scoring_rules = relationship("ScoringRule", back_populates="league")
     settings = relationship("LeagueSettings", back_populates="league", uselist=False)
     matchups = relationship("Matchup", back_populates="league")
+    draft_picks = relationship("DraftPick", back_populates="league") # <--- ADDED THIS
 
-# --- 2. LEAGUE SETTINGS ---
+# --- 3. LEAGUE SETTINGS ---
 class LeagueSettings(Base):
     __tablename__ = "league_settings"
     id = Column(Integer, primary_key=True, index=True)
@@ -34,25 +53,6 @@ class LeagueSettings(Base):
     
     league = relationship("League", back_populates="settings")
 
-# --- 3. USER TABLE (The Team Owner) ---
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=True)
-    hashed_password = Column(String)
-    
-    is_superuser = Column(Boolean, default=False)
-    is_commissioner = Column(Boolean, default=False)
-    division = Column(String, nullable=True)
-
-    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True) 
-    league = relationship("League", back_populates="users") 
-    
-    picks = relationship("DraftPick", back_populates="owner")
-    home_matches = relationship("Matchup", foreign_keys="Matchup.home_team_id", back_populates="home_team")
-    away_matches = relationship("Matchup", foreign_keys="Matchup.away_team_id", back_populates="away_team")
-
 # --- 4. PLAYER TABLE ---
 class Player(Base):
     __tablename__ = "players"
@@ -63,9 +63,11 @@ class Player(Base):
 
     adp = Column(Float, default=0.0)
     projected_points = Column(Float, default=0.0)
-
     gsis_id = Column(String, nullable=True, unique=True)
     bye_week = Column(Integer, nullable=True)
+    
+    # Relationship back to picks so we can see who drafted them
+    draft_pick = relationship("DraftPick", back_populates="player", uselist=False)
 
 # --- 5. DRAFT PICK TABLE (Your Roster) ---
 class DraftPick(Base):
@@ -74,18 +76,19 @@ class DraftPick(Base):
     year = Column(Integer)
     round_num = Column(Integer, nullable=True)
     pick_num = Column(Integer, nullable=True)
-    amount = Column(Integer) # Auction Value
-    # --- ADD THIS LINE ---
+    amount = Column(Integer) # Auction Value or FAAB
     session_id = Column(String, default="default") 
-    # ---------------------
-
     current_status = Column(String, default='BENCH') 
     
+    # Keys
     owner_id = Column(Integer, ForeignKey("users.id"))
     player_id = Column(Integer, ForeignKey("players.id"))
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True) # <--- ADDED THIS (Fixes your crash)
     
+    # Relationships
     owner = relationship("User", back_populates="picks")
-    player = relationship("Player")
+    player = relationship("Player", back_populates="draft_pick")
+    league = relationship("League", back_populates="draft_picks")
 
 # --- 6. MATCHUP TABLE ---
 class Matchup(Base):
