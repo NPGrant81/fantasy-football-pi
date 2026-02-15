@@ -1,19 +1,20 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
-from typing import List, Dict
+from pydantic import BaseModel
 
+# Internal Imports
 from database import get_db
 import models
-import schemas
-from auth import get_current_user, get_current_league_commissioner
+import auth 
 
-router = APIRouter(
-    prefix="/draft",
-    tags=["draft"]
-)
+# Create the router
+# Note: We removed the 'prefix' so your current frontend links (/draft-history) 
+# don't break. We can add /draft prefix later when we update the frontend.
+router = APIRouter(tags=["Draft"])
 
-# --- WEBSOCKET CONNECTION MANAGER ---
-# This handles the "Real Time" part (pushing updates to all 12 owners instantly)
+# --- 1. WEBSOCKET CONNECTION MANAGER (KEEP THIS!) ---
+# This handles the "Real Time" part (pushing updates to all owners instantly)
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -31,58 +32,71 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# --- HTTP ENDPOINTS (The Buttons) ---
+# --- 2. SCHEMAS (Moved from main.py) ---
+class DraftPickCreate(BaseModel):
+    owner_id: int
+    player_id: int 
+    amount: int
+    session_id: str
 
-# 1. GET DRAFT STATE (Is it paused? Who is on the clock?)
-@router.get("/state/{league_id}")
+# --- 3. STANDARD ENDPOINTS (From main.py - The ones working NOW) ---
+
+@router.get("/draft-history")
+def get_draft_history(session_id: str, db: Session = Depends(get_db)):
+    return db.query(models.DraftPick).filter(models.DraftPick.session_id == session_id).all()
+
+@router.post("/draft-pick")
+async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
+    # 1. Validation Logic
+    player = db.query(models.Player).filter(models.Player.id == pick.player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    existing_pick = db.query(models.DraftPick).filter(
+        models.DraftPick.player_id == pick.player_id,
+        models.DraftPick.session_id == pick.session_id
+    ).first()
+    
+    if existing_pick:
+        raise HTTPException(status_code=400, detail="Player already drafted!")
+
+    # 2. Save to Database
+    new_pick = models.DraftPick(
+        player_id=pick.player_id,
+        owner_id=pick.owner_id,
+        year=2026,
+        amount=pick.amount,
+        session_id=pick.session_id
+    )
+    db.add(new_pick)
+    db.commit()
+    db.refresh(new_pick)
+
+    # 3. REAL-TIME MAGIC (The new addition!)
+    # Notify all connected users that a pick was made!
+    await manager.broadcast({
+        "event": "PICK_MADE",
+        "player_id": pick.player_id,
+        "owner_id": pick.owner_id,
+        "amount": pick.amount,
+        "player_name": player.name # useful for the ticker
+    })
+
+    return new_pick
+
+# --- 4. FUTURE ENDPOINTS (Auction / State) ---
+
+@router.get("/draft/state/{league_id}")
 def get_draft_state(league_id: int, db: Session = Depends(get_db)):
-    # In a real app, you might store "Current Nominator" in a DraftState table.
-    # For now, we return basic info.
     return {"status": "active", "league_id": league_id}
 
-# 2. NOMINATE A PLAYER (Start the bidding)
-@router.post("/nominate")
-async def nominate_player(
-    nomination: schemas.DraftPickCreate, # You might need to add this schema
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    # Logic: Validate it's this user's turn
-    # Logic: Set the "Current Bid" to $1
-    
-    # Broadcast to everyone: "Nick nominated Josh Allen for $1"
-    await manager.broadcast({
-        "event": "NOMINATION",
-        "player_id": nomination.player_id,
-        "nominator": current_user.username,
-        "amount": 1
-    })
-    return {"status": "nominated"}
-
-# 3. PLACE BID
-@router.post("/bid")
-async def place_bid(
-    bid: dict, # {amount: 5, player_id: "8002"}
-    current_user: models.User = Depends(get_current_user)
-):
-    # Logic: Check user budget
-    # Logic: Check if bid > current bid
-    
-    await manager.broadcast({
-        "event": "NEW_BID",
-        "bidder": current_user.username,
-        "amount": bid["amount"]
-    })
-    return {"status": "accepted"}
-
-# --- THE WEBSOCKET ENDPOINT ---
-# This is what the Frontend connects to for the live ticker
+# --- 5. THE WEBSOCKET ENDPOINT ---
 @router.websocket("/ws/{league_id}")
 async def websocket_endpoint(websocket: WebSocket, league_id: int):
     await manager.connect(websocket)
     try:
         while True:
+            # tailored to wait for messages if you add chat later
             data = await websocket.receive_text()
-            # We can handle chat messages or "heartbeats" here
     except WebSocketDisconnect:
         manager.disconnect(websocket)
