@@ -16,7 +16,7 @@ import GameCenter from './pages/GameCenter'
 import CommissionerDashboard from './pages/CommissionerDashboard'
 import Dashboard from './pages/Dashboard';
 import DraftBoard from './pages/DraftBoard'; 
-import Waivers from './pages/Waivers';    
+import Waivers from './pages/WaiverWire';    
 import SiteAdmin from './pages/SiteAdmin'; 
 
 function App() {
