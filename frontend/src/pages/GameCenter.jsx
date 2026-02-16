@@ -3,6 +3,43 @@ import { useParams, Link } from 'react-router-dom'
 import axios from 'axios'
 import { FiArrowLeft } from 'react-icons/fi'
 
+// 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
+// This ensures React doesn't re-create the component definition on every state change.
+const RosterColumn = ({ players, teamName, colorClass }) => (
+  <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+    <div className="bg-slate-950/50 p-3 border-b border-slate-800 text-center">
+      <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs">{teamName} Starters</h3>
+    </div>
+    <div className="divide-y divide-slate-800">
+      {players.length === 0 ? (
+        <div className="p-8 text-center text-slate-600 italic text-sm">No starters set.</div>
+      ) : (
+        players.map(p => (
+          <div key={p.player_id} className="flex justify-between items-center p-3 hover:bg-slate-800/30 transition">
+            <div className="flex items-center gap-3">
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded w-8 text-center ${
+                p.position === 'QB' ? 'bg-red-900/20 text-red-400 border border-red-900/50' :
+                p.position === 'RB' ? 'bg-green-900/20 text-green-400 border border-green-900/50' :
+                p.position === 'WR' ? 'bg-blue-900/20 text-blue-400 border border-blue-900/50' :
+                'bg-slate-800 text-slate-400 border border-slate-700'
+              }`}>
+                {p.position}
+              </span>
+              <div>
+                <div className="text-sm font-bold text-slate-200">{p.name}</div>
+                <div className="text-[10px] text-slate-500">{p.nfl_team}</div>
+              </div>
+            </div>
+            <div className={`font-mono font-bold ${colorClass}`}>
+              {p.projected}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)
+
 export default function GameCenter({ token }) {
   const { id } = useParams()
   const [game, setGame] = useState(null)
@@ -17,47 +54,20 @@ export default function GameCenter({ token }) {
         setGame(res.data)
         setLoading(false)
       })
-      .catch(err => { console.error(err); setLoading(false) })
+      .catch(err => { 
+        console.error(err)
+        setLoading(false) 
+      })
     }
   }, [token, id])
 
-  if (loading || !game) return <div className="text-center py-20 text-slate-500 animate-pulse">Loading Game Center...</div>
-
-  // Helper for Roster Card
-  const RosterColumn = ({ players, teamName, colorClass }) => (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-       <div className="bg-slate-950/50 p-3 border-b border-slate-800 text-center">
-          <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs">{teamName} Starters</h3>
-       </div>
-       <div className="divide-y divide-slate-800">
-          {players.length === 0 ? (
-             <div className="p-8 text-center text-slate-600 italic text-sm">No starters set.</div>
-          ) : (
-             players.map(p => (
-               <div key={p.player_id} className="flex justify-between items-center p-3 hover:bg-slate-800/30 transition">
-                  <div className="flex items-center gap-3">
-                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded w-8 text-center ${
-                        p.position === 'QB' ? 'bg-red-900/20 text-red-400 border border-red-900/50' :
-                        p.position === 'RB' ? 'bg-green-900/20 text-green-400 border border-green-900/50' :
-                        p.position === 'WR' ? 'bg-blue-900/20 text-blue-400 border border-blue-900/50' :
-                        'bg-slate-800 text-slate-400 border border-slate-700'
-                     }`}>
-                        {p.position}
-                     </span>
-                     <div>
-                        <div className="text-sm font-bold text-slate-200">{p.name}</div>
-                        <div className="text-[10px] text-slate-500">{p.nfl_team}</div>
-                     </div>
-                  </div>
-                  <div className={`font-mono font-bold ${colorClass}`}>
-                     {p.projected}
-                  </div>
-               </div>
-             ))
-          )}
-       </div>
-    </div>
-  )
+  if (loading || !game) {
+    return (
+      <div className="text-center py-20 text-slate-500 animate-pulse">
+        Loading Game Center...
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
@@ -67,7 +77,9 @@ export default function GameCenter({ token }) {
         <Link to="/matchups" className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition">
            <FiArrowLeft size={20} />
         </Link>
-        <h1 className="text-xl font-bold text-slate-300 uppercase tracking-wide">Week {game.week} Matchup</h1>
+        <h1 className="text-xl font-bold text-slate-300 uppercase tracking-wide">
+          Week {game.week} Matchup
+        </h1>
       </div>
 
       {/* SCOREBOARD BANNER */}
@@ -96,9 +108,9 @@ export default function GameCenter({ token }) {
 
       {/* ROSTERS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
-         {/* Connector Line (Desktop only) */}
          <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px bg-slate-800/50 -translate-x-1/2"></div>
          
+         {/* Using our outside-declared component */}
          <RosterColumn 
             teamName={game.home_team} 
             players={game.home_roster} 

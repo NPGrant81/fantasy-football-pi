@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react' // 1.1 Added useCallback
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import axios from 'axios'
 import './App.css'
@@ -9,7 +9,6 @@ import LeagueSelector from './components/LeagueSelector'
 import LeagueAdvisor from './components/LeagueAdvisor' 
 
 // Import Pages
-import Home from './pages/Home' // (Optional if Dashboard replaces it)
 import MyTeam from './pages/MyTeam'
 import Matchups from './pages/Matchups'
 import GameCenter from './pages/GameCenter'
@@ -23,57 +22,60 @@ function App() {
   // --- GLOBAL STATE ---
   const [token, setToken] = useState(localStorage.getItem('fantasyToken'))
   const [activeLeagueId, setActiveLeagueId] = useState(localStorage.getItem('fantasyLeagueId'))
-  
-  // User Info
   const [activeOwnerId, setActiveOwnerId] = useState(null)
-  const [username, setUsername] = useState('') // This is for the UI display
+  const [username, setUsername] = useState('') 
 
-  // Login Inputs (The form fields)
   const [userInput, setUserInput] = useState('')
   const [passInput, setPassInput] = useState('')
-  const [error, setError] = useState('') // <--- ADDED THIS
+  const [error, setError] = useState('')
 
-  // --- 1. AUTH CHECK ---
+  // --- 1. LOGOUT (MOVED UP) ---
+  // 1.1 We wrap this in useCallback so it's a stable reference for the useEffect
+  const handleLogout = useCallback(() => {
+    setToken(null)
+    setActiveOwnerId(null)
+    setUsername('')
+    localStorage.removeItem('fantasyToken')
+    localStorage.removeItem('user_id')
+    localStorage.removeItem('fantasyLeagueId')
+  }, [])
+
+  // --- 2. AUTH CHECK ---
   useEffect(() => {
     if (token) {
-      axios.get('http://127.0.0.1:8000/me', { headers: { Authorization: `Bearer ${token}` } })
-        .then(res => {
-          setActiveOwnerId(res.data.user_id)
-          setUsername(res.data.username)
-        })
-        .catch(() => handleLogout()) 
+      axios.get('http://127.0.0.1:8000/me', { 
+        headers: { Authorization: `Bearer ${token}` } 
+      })
+      .then(res => {
+        setActiveOwnerId(res.data.user_id)
+        setUsername(res.data.username)
+      })
+      .catch(() => handleLogout()) 
     }
-  }, [token])
+  }, [token, handleLogout]) // 2.1 Added handleLogout to dependencies
 
-  // --- 2. LOGIN ---
+  // --- 3. LOGIN ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
-    // --- THE FIX: Use URLSearchParams to create Form Data ---
     const formData = new URLSearchParams();
-    // Use 'userInput' and 'passInput' from your state here
     formData.append('username', userInput);
     formData.append('password', passInput);
 
     try {
       const response = await axios.post('http://127.0.0.1:8000/token', formData, {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded' // <--- Python needs this!
+          'Content-Type': 'application/x-www-form-urlencoded'
         }
       });
 
-      // Valid Login! Save the data
-      localStorage.setItem('fantasyToken', response.data.access_token); // Use your app's key name 'fantasyToken'
+      localStorage.setItem('fantasyToken', response.data.access_token);
       localStorage.setItem('user_id', response.data.owner_id);
       localStorage.setItem('fantasyLeagueId', response.data.league_id);
       
-      // Update State (This automatically switches the view to PATH C)
       setToken(response.data.access_token);
       setActiveLeagueId(response.data.league_id);
-      
-      // We don't need 'navigate' here because the 'if (!token)' check below 
-      // will fail on the next render, showing the main app automatically.
 
     } catch (err) {
       console.error("Login Error:", err);
@@ -81,26 +83,11 @@ function App() {
     }
   };
 
-  // --- 3. LOGOUT ---
-  const handleLogout = () => {
-    setToken(null)
-    setActiveOwnerId(null)
-    setUsername('')
-    localStorage.removeItem('fantasyToken')
-  }
-
-  // --- 4. SWITCH LEAGUE ---
-  const handleSwitchLeague = () => {
-    setActiveLeagueId(null)
-    localStorage.removeItem('fantasyLeagueId')
-    // We don't logout, just clear the league choice
-  }
-
   // ==========================================
   // TRAFFIC COP (Render Logic)
   // ==========================================
 
-  // PATH A: Not Logged In (Show Login Form)
+  // PATH A: Not Logged In
   if (!token) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
@@ -130,7 +117,7 @@ function App() {
               />
             </div>
           </div>
-          <button className="w-full mt-8 bg-gradient-to-r from-green-600 to-green-500 py-3 rounded font-bold hover:shadow-lg hover:from-green-500 hover:to-green-400 transition transform hover:-translate-y-0.5">
+          <button type="submit" className="w-full mt-8 bg-gradient-to-r from-green-600 to-green-500 py-3 rounded font-bold hover:shadow-lg hover:from-green-500 hover:to-green-400 transition transform hover:-translate-y-0.5">
             ENTER
           </button>
         </form>
@@ -138,7 +125,7 @@ function App() {
     )
   }
 
-  // PATH B: Logged In, But No League Selected
+  // PATH B: No League Selected
   if (!activeLeagueId) {
     return (
       <LeagueSelector 
@@ -151,36 +138,22 @@ function App() {
     )
   }
 
-  // PATH C: FULL APP (Logged In + League Selected)
+  // PATH C: FULL APP
   return (
     <BrowserRouter>
-      {/* Layout provides the Sidebar/Nav and includes the Global Search */}
       <Layout username={username} leagueId={activeLeagueId} onLogout={handleLogout}>
-        
         <Routes>
-          {/* NEW: The Manager Dashboard is now the Home Page */}
           <Route path="/" element={<Dashboard ownerId={activeOwnerId} />} />
-          
-          {/* MODULARIZED: Your new high-performance Draft Board */}
           <Route path="/draft" element={<DraftBoard token={token} activeOwnerId={activeOwnerId} />} />
-          
-          {/* SALVAGED: Existing features */}
           <Route path="/team" element={<MyTeam token={token} activeOwnerId={activeOwnerId} />} />
           <Route path="/matchups" element={<Matchups token={token} />} />
           <Route path="/matchup/:id" element={<GameCenter token={token} />} />
-          
-          {/* NEW: Admin Tools */}
           <Route path="/admin" element={<SiteAdmin token={token} />} />
           <Route path="/commissioner" element={<CommissionerDashboard token={token} />} />
           <Route path="/waivers" element={<Waivers token={token} activeOwnerId={activeOwnerId} />} />
-          
-          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-
-        {/* THE AGENT: Stays floating for context-aware help */}
         <LeagueAdvisor token={token} />
-
       </Layout>
     </BrowserRouter>
   )
