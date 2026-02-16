@@ -1,34 +1,45 @@
-import { useEffect, useState } from 'react'
-import axios from 'axios'
-import { Link } from 'react-router-dom' // <--- NEW Import
+// frontend/src/pages/Matchups.jsx
+import { useEffect, useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { FiChevronLeft, FiChevronRight, FiCalendar, FiActivity, FiToggleRight, FiToggleLeft } from 'react-icons/fi'
 
-export default function Matchups({ token }) {
+// Professional Imports
+import apiClient from '@api/client'
+
+export default function Matchups() {
+  // --- 1.1 STATE MANAGEMENT ---
   const [week, setWeek] = useState(1)
   const [games, setGames] = useState([])
+  const [showProjected, setShowProjected] = useState(true)
+  
+  // 1.1.1 Start as true to avoid sync setState in useEffect
   const [loading, setLoading] = useState(true)
-  const [showProjected, setShowProjected] = useState(true) // <--- Toggle State
 
-  useEffect(() => {
-    if (token) {
-      setLoading(true)
-      axios.get(`http://127.0.0.1:8000/matchups/week/${week}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+  // --- 1.2 DATA RETRIEVAL (The Engine) ---
+  const fetchMatchups = useCallback(() => {
+    setLoading(true)
+    apiClient.get(`/matchups/week/${week}`)
       .then(res => {
         setGames(res.data)
+      })
+      .catch(err => {
+        console.error("Matchup feed failed:", err)
+      })
+      .finally(() => {
         setLoading(false)
       })
-      .catch(err => { console.error(err); setLoading(false) })
-    }
-  }, [token, week])
+  }, [week])
 
+  useEffect(() => {
+    fetchMatchups()
+  }, [fetchMatchups])
+
+  // --- 1.3 UTILITIES ---
   const handleWeekChange = (direction) => {
     if (direction === 'prev' && week > 1) setWeek(week - 1)
-    if (direction === 'next' && week < 17) setWeek(week + 1) // Updated to 17
+    if (direction === 'next' && week < 17) setWeek(week + 1)
   }
 
-  // Helper to get correct score based on toggle
   const getScore = (game, side) => {
     if (showProjected) {
       return side === 'home' ? game.home_projected : game.away_projected
@@ -36,36 +47,48 @@ export default function Matchups({ token }) {
     return side === 'home' ? game.home_score : game.away_score
   }
 
+  // --- 2.1 RENDER LOGIC (The View) ---
+
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
       
-      {/* 1. WEEK SELECTOR & HEADER */}
+      {/* 2.2 WEEK SELECTOR & HEADER */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-4 shadow-lg">
-         
-         <div className="flex justify-between items-center mb-4">
-             <button onClick={() => handleWeekChange('prev')} disabled={week === 1} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"><FiChevronLeft size={24} className="text-white" /></button>
-             
-             <div className="text-center">
-               <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase flex items-center gap-2 justify-center">
-                 <FiCalendar className="text-yellow-500" />
-                 Week {week}
-               </h1>
-               {/* Date & Type Label */}
-               {games.length > 0 && (
-                 <div className="flex flex-col items-center">
+          <div className="flex justify-between items-center mb-4">
+              <button 
+                onClick={() => handleWeekChange('prev')} 
+                disabled={week === 1} 
+                className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"
+              >
+                <FiChevronLeft size={24} className="text-white" />
+              </button>
+              
+              <div className="text-center">
+                <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase flex items-center gap-2 justify-center">
+                  <FiCalendar className="text-yellow-500" />
+                  Week {week}
+                </h1>
+                {games.length > 0 && (
+                  <div className="flex flex-col items-center">
                     <span className={`text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded ${games[0].label === 'Playoffs' ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500'}`}>
                         {games[0].label}
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono mt-1">{games[0].date_range}</span>
-                 </div>
-               )}
-             </div>
+                  </div>
+                )}
+              </div>
 
-             <button onClick={() => handleWeekChange('next')} disabled={week === 17} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"><FiChevronRight size={24} className="text-white" /></button>
-         </div>
+              <button 
+                onClick={() => handleWeekChange('next')} 
+                disabled={week === 17} 
+                className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"
+              >
+                <FiChevronRight size={24} className="text-white" />
+              </button>
+          </div>
 
-         {/* TOGGLE BAR */}
-         <div className="flex justify-center border-t border-slate-800 pt-4">
+          {/* 2.3 TOGGLE BAR */}
+          <div className="flex justify-center border-t border-slate-800 pt-4">
             <button 
                 onClick={() => setShowProjected(!showProjected)}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-950 border border-slate-700 hover:border-slate-500 transition"
@@ -74,16 +97,19 @@ export default function Matchups({ token }) {
                 {showProjected ? <FiToggleRight size={24} className="text-blue-400" /> : <FiToggleLeft size={24} className="text-slate-500" />}
                 <span className={`text-xs font-bold uppercase ${showProjected ? 'text-blue-400' : 'text-slate-500'}`}>Projected</span>
             </button>
-         </div>
+          </div>
       </div>
 
-      {/* 2. MATCHUP GRID */}
-      {loading ? <div className="text-center py-12 text-slate-500 animate-pulse">Loading Week {week}...</div> : (
+      {/* 2.4 MATCHUP GRID */}
+      {loading ? (
+        <div className="text-center py-12 text-slate-500 animate-pulse font-black uppercase tracking-widest">
+          Loading Week {week}...
+        </div>
+      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {games.map((game) => (
             <div key={game.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-600 transition shadow-xl group flex flex-col">
               
-              {/* Teams */}
               <div className="p-6 flex justify-between items-center relative flex-grow">
                 {/* Home */}
                 <div className="text-center w-1/3">
@@ -96,7 +122,6 @@ export default function Matchups({ token }) {
                   </div>
                 </div>
 
-                {/* VS */}
                 <div className="text-center w-1/3 flex flex-col items-center">
                   <div className="text-slate-600 font-black italic text-xl opacity-20">VS</div>
                   {showProjected && <span className="text-[10px] text-blue-500/50 uppercase font-bold mt-1">Proj</span>}
@@ -114,11 +139,11 @@ export default function Matchups({ token }) {
                 </div>
               </div>
 
-              {/* GAME CENTER LINK */}
+              {/* ACTION LINK */}
               <Link to={`/matchup/${game.id}`} className="block p-3 bg-slate-950/30 border-t border-slate-800 text-center hover:bg-slate-800 transition">
-                 <button className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center justify-center gap-1 mx-auto">
-                   <FiActivity /> Game Center
-                 </button>
+                  <div className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center justify-center gap-1 mx-auto">
+                    <FiActivity /> Game Center
+                  </div>
               </Link>
             </div>
           ))}

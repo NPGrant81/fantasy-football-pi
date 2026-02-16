@@ -1,10 +1,16 @@
-import { FiAward, FiActivity } from 'react-icons/fi' // <--- CHANGED HERE
+// frontend/src/pages/Home.jsx
+import React from 'react'
+import { FiAward, FiActivity } from 'react-icons/fi'
 
 export default function Home({ username }) {
+  // --- 1.1 CONFIGURATION ---
+  // Note: This page currently serves as a static landing. 
+  // Future 1.2 Data Retrieval for "League News" will go here.
+
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* 1. Welcome Banner */}
+      {/* 2.1 WELCOME BANNER */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-6 shadow-lg">
         <h1 className="text-3xl font-black text-white italic tracking-tighter">LEAGUE DASHBOARD</h1>
         <p className="text-slate-400 mt-1">
@@ -13,17 +19,16 @@ export default function Home({ username }) {
         </p>
       </div>
 
-      {/* 2. Standings & Activity Grid */}
+      {/* 2.2 STANDINGS & ACTIVITY GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* STANDINGS */}
+        {/* 2.2.1 STANDINGS MODULE */}
         <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-xl p-6 shadow-xl">
           <div className="flex items-center gap-2 mb-4">
-            <FiAward className="text-yellow-500" size={24} /> {/* <--- CHANGED HERE */}
+            <FiAward className="text-yellow-500" size={24} />
             <h2 className="text-lg font-bold text-white uppercase tracking-widest">Current Standings</h2>
           </div>
           
-          {/* Mock Standings Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left text-slate-400">
               <thead className="text-xs text-slate-500 uppercase bg-slate-950/50">
@@ -52,7 +57,7 @@ export default function Home({ username }) {
           </div>
         </div>
 
-        {/* RECENT ACTIVITY */}
+        {/* 2.2.2 RECENT ACTIVITY MODULE */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 shadow-xl">
           <div className="flex items-center gap-2 mb-4">
             <FiActivity className="text-blue-500" size={24} />

@@ -1,28 +1,29 @@
 // frontend/src/pages/SiteAdmin.jsx
 import React, { useState } from 'react';
-import axios from 'axios';
-import { FiRefreshCw, FiTool, FiDatabase, FiCheckCircle, FiBox } from 'react-icons/fi';
-import Toast from '../components/Toast'; 
+import { FiRefreshCw, FiTool, FiDatabase, FiCheckCircle, FiBox, FiTrash2 } from 'react-icons/fi';
 
-export default function SiteAdmin({ token }) {
+// 1.1 PROFESSIONAL IMPORTS
+import apiClient from '@api/client'; 
+import Toast from '@components/Toast'; 
+
+export default function SiteAdmin() {
+  // --- 1.2 STATE MANAGEMENT ---
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [lastSync, setLastSync] = useState(null);
 
-  // Helper to standardise toast calls
+  // --- 1.3 UTILITIES ---
   const showToast = (message, type) => {
     setToast({ message, type });
   };
 
-  // --- ACTION: RUN NFL SYNC ---
+  // --- 2.1 ADMINISTRATIVE ACTIONS (The Engine) ---
+
+  // 2.1.1 ACTION: RUN NFL SYNC
   const runSync = async () => {
     setLoading(true);
     try {
-      const res = await axios.post('http://127.0.0.1:8000/admin/tools/sync-nfl', {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // Use detail from backend if available, else generic success
+      const res = await apiClient.post('/admin/tools/sync-nfl');
       showToast(res.data.detail || "Sync Started! Players added.", 'success');
       setLastSync(new Date().toLocaleTimeString()); 
     } catch (err) {
@@ -33,13 +34,11 @@ export default function SiteAdmin({ token }) {
     }
   };
 
-  // --- ACTION: CREATE TEST LEAGUE ---
+  // 2.1.2 ACTION: CREATE TEST LEAGUE
   const runTestLeague = async () => {
     setLoading(true);
     try {
-      const res = await axios.post('http://127.0.0.1:8000/admin/create-test-league', {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiClient.post('/admin/create-test-league');
       showToast(res.data.message || "League Generated!", 'success');
     } catch (err) {
       showToast("Failed to create Test League", 'error');
@@ -47,26 +46,26 @@ export default function SiteAdmin({ token }) {
       setLoading(false);
     }
   };
-  // Add this to your SiteAdmin.jsx actions
+
+  // 2.1.3 ACTION: RESET DRAFT (The Nuclear Option)
   const resetDraft = async () => {
     if (!window.confirm("⚠️ DANGER: This will wipe all draft picks. Continue?")) return;
     setLoading(true);
     try {
-      await axios.post('http://127.0.0.1:8000/admin/reset-draft', {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiClient.post('/admin/reset-draft');
       setLastSync("Draft Reset: " + new Date().toLocaleTimeString());
-      setToast({ message: "Draft history purged!", type: 'success' });
+      showToast("Draft history purged!", 'success'); // Using utility function now
     } catch (err) {
-      setToast({ message: "Reset failed", type: 'error' });
+      showToast("Reset failed", 'error');
     } finally {
       setLoading(false);
     }
   };
 
+  // --- 3.1 RENDER LOGIC (The View) ---
   return (
     <div className="p-8 max-w-6xl mx-auto text-white min-h-screen">
-      {/* Header */}
+      {/* 3.2 HEADER */}
       <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">
         <FiTool className="text-4xl text-purple-500" />
         <div>
@@ -117,33 +116,28 @@ export default function SiteAdmin({ token }) {
           </button>
         </div>
 
-        {/* CARD 3: SYSTEM STATUS */}
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+        {/* CARD 3: RESET CONTROLS */}
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl hover:border-red-500/30 transition">
           <div className="flex justify-between items-start mb-4">
-            <FiCheckCircle className="text-green-400 text-3xl" />
-            <div className="bg-green-900/30 text-green-400 text-xs font-bold px-2 py-1 rounded">HEALTH</div>
+             <FiTrash2 className="text-red-400 text-3xl" />
+             <div className="bg-red-900/30 text-red-400 text-xs font-bold px-2 py-1 rounded">DANGER</div>
           </div>
-          <h3 className="text-xl font-bold mb-2">Platform Health</h3>
-          <div className="space-y-4 mt-4">
-            <div className="flex justify-between text-sm border-b border-slate-800 pb-2">
-              <span className="text-slate-400">Backend API</span>
-              <span className="text-green-400 font-mono font-bold flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> ONLINE
-              </span>
-            </div>
-            <div className="flex justify-between text-sm border-b border-slate-800 pb-2">
-              <span className="text-slate-400">Last NFL Sync</span>
-              <span className="text-white font-mono">{lastSync || 'Never'}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Environment</span>
-              <span className="text-yellow-500 font-mono italic">Development</span>
-            </div>
-          </div>
+          <h3 className="text-xl font-bold mb-2">Reset Draft</h3>
+          <p className="text-slate-400 text-sm mb-6 min-h-[40px]">
+            Wipe all current draft picks and reset the board for a fresh start.
+          </p>
+          <button 
+            onClick={resetDraft}
+            disabled={loading}
+            className={`w-full py-3 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition ${loading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 text-white'}`}
+          >
+            <FiTrash2 />
+            {loading ? 'Resetting...' : 'Reset Board'}
+          </button>
         </div>
       </div>
 
-      {/* Toast Notification */}
+      {/* 3.3 TOAST NOTIFICATION (FIXED SYNTAX) */}
       {toast && (
         <Toast 
           message={toast.message} 
