@@ -36,3 +36,31 @@ Why this works:
 • Separation of Concerns: You can update the "Waiver Claim" logic in the service layer without touching the API endpoint in the router.
 • Scalability: New features (like Trades or Playoff Brackets) have a clear, predetermined home in the directory tree.
 • AI Coordination: Maintaining this file helps AI tools understand your specific architectural invariants, leading to better code suggestions.
+
+Since we are moving to a professional, self-hosted setup on your Raspberry Pi, the architecture needs to transition from "script-based" to "service-based." This schema reflects a modern FastAPI + PostgreSQL stack designed for performance and reliability.
+4.0 Backend Infrastructure Schema
+The backend is built on a Layered Architecture to ensure that data logic, business rules, and API endpoints stay separated. This prevents "spaghetti code" and makes debugging from your phone much easier.
+4.1 Layered Logic Stack
+1. Routers (/api/v1/routers): The "Front Desk." They receive requests, validate the user's JWT token via the "Bouncer" (security.py), and hand the work off to the Services.
+2. Services (/api/v1/services): The "Brain." This is where the heavy lifting happens—calculating complex scoring, processing auction bids, and managing draft logic.
+3. Models (/models): The "Blueprint." Defines exactly how a User, Player, or League looks in the database.
+4. Schemas (/schemas): The "Contract." Uses Pydantic to define what the JSON data looks like coming in and going out of the API.
+4.2 Data & Persistence Layer
+• Primary DB: PostgreSQL. Handles relational data like League standings and Roster history.
+• Real-time Layer: Redis (Optional/Future). Recommended for the "War Room" auction timer and live chat to reduce the load on the Pi’s SD card.
+• Migration Tool: Alembic. Manages database versioning so you can update your schema without losing your draft data.
+4.3 Deployment & Networking
+
+
+4.4 The "Bouncer" (Security) Logic
+The infrastructure relies on JWT (JSON Web Tokens) for stateless authentication:
+1. User provides credentials to /auth/token.
+2. Backend verifies and returns a signed token.
+3. Frontend stores this in localStorage and includes it in the Authorization: Bearer <token> header for all future calls via apiClient.
+4. Infrastructure verifies the signature at the Router level before allowing access to Service logic.
+4.5 Production Environment Variables
+To keep your "Locker Room" secure, sensitive data is never hardcoded. We use a .env file on the Pi:
+• DATABASE_URL: Connection string for Postgres.
+• SECRET_KEY: High-entropy string for signing JWTs.
+• ENVIRONMENT: Set to production or development.
+
