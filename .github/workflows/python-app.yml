@@ -28,3 +28,15 @@ jobs:
       run: |
         # 1.3 Update: Only scan your actual code folders, excluding virtual environments
         flake8 backend/routers backend/services backend/core --count --select=E9,F63,F7,F82 --show-source --statistics
+    - name: Install Frontend Dependencies
+      # 1.3.1 Adding prettier to the dev-dependencies install
+      run: |
+        npm install eslint eslint-plugin-react prettier --save-dev
+        
+    - name: Run JSX Linting & Formatting Check
+      # 1.3.2 This checks both the logic (eslint) and the looks (prettier)
+      run: |
+        npm run lint
+        npx prettier --check "src/**/*.{js,jsx}"
+
+
