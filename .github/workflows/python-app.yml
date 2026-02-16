@@ -7,15 +7,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    
+    # --- 1.1 BACKEND SETUP & LINT ---
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.10"
-    - name: Install dependencies
+        
+    - name: Install Backend Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install flake8
-    - name: Lint with flake8
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+
+    - name: Set PYTHONPATH
+      run: echo "PYTHONPATH=$GITHUB_WORKSPACE/backend" >> $GITHUB_ENV
+
+    - name: Lint Backend (flake8)
       run: |
-        # stop the build if there are Python syntax errors
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 backend/routers backend/services backend/core --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    # --- 2.1 FRONTEND SETUP & LINT ---
+    - name: Install Frontend Dependencies
+      # 2.1.1 We only need to do this once!
+      working-directory: ./frontend
+      run: npm install eslint eslint-plugin-react prettier --save-dev
+        
+    - name: Run JSX Linting & Formatting Check
+      # 2.1.2 This runs both checks inside the correct folder
+      working-directory: ./frontend
+      run: |
+        npm run lint
+        npx prettier --check "src/**/*.{js,jsx}"
