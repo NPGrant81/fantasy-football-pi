@@ -20,6 +20,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # 1.1.3 IMPORTANT: Point this to your new auth router path
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
+# 1.1.4 Define a reusable credentials exception
+credentials_exception = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
+)
+
 # --- 1.2 UTILITY FUNCTIONS (THE TOOLS) ---
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -40,29 +47,43 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 # --- 2.1 THE BOUNCERS (REFACTORED) ---
 
+# --- 2.1 THE BOUNCERS (FIXED) ---
+
 # 2.1.1 Standard User: Verifies token and returns the User object
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    # (Existing JWT decoding logic)
-    # ...
+    try:
+        # 1.2.1 DECODE: Extract the payload from the token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        
+        # 1.2.2 EXTRACT: The 'sub' key usually holds the username
+        username: str = payload.get("sub")
+        
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    # 1.2.3 QUERY: Now 'username' is defined and safe to use
     user = db.query(models.User).filter(models.User.username == username).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+    
+    if user is None:
+        raise credentials_exception
     return user
 
-# 2.1.2 The Commissioner: Only lets league leaders through
+# 2.1.2 The Commissioner Bouncer
 async def get_current_active_commish(current_user: models.User = Depends(get_current_user)):
     if not current_user.is_commissioner:
         raise HTTPException(
-            status_code=403, 
+            status_code=status.HTTP_403_FORBIDDEN, 
             detail="Access denied. Commissioner privileges required."
         )
     return current_user
 
-# 2.1.3 The Superuser: Only lets platform developers through
+# 2.1.3 The Superuser Bouncer (Platform Admin)
 async def get_current_active_admin(current_user: models.User = Depends(get_current_user)):
     if not current_user.is_superuser:
         raise HTTPException(
-            status_code=403, 
+            status_code=status.HTTP_403_FORBIDDEN, 
             detail="Superuser privileges required"
         )
     return current_user
