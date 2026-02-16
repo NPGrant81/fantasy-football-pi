@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from database import get_db
 import models
-import auth # <--- Added this to get the user's league
+import auth 
 
 router = APIRouter(
     prefix="/players",
@@ -10,23 +10,32 @@ router = APIRouter(
 )
 
 @router.get("/search")
-def search_players(q: str = Query(..., min_length=2), db: Session = Depends(get_db)):
+def search_players(
+    q: str = Query(..., min_length=2), 
+    pos: str = Query("ALL"), # Merged: Added position filter
+    db: Session = Depends(get_db)
+):
     """
-    Search for ANY player in the system (Drafted or Free Agent).
-    Powers the 'Global Search' and 'War Room' lookups.
+    Search for ANY player in the system. 
+    Supports Global Search and specific Position Filtering.
     """
     search_term = f"%{q.strip()}%"
     
-    results = db.query(models.Player).filter(
+    query = db.query(models.Player).filter(
         models.Player.name.ilike(search_term)
-    ).limit(15).all()
+    )
+
+    # Merged logic: Filter by position if not 'ALL'
+    if pos != "ALL":
+        query = query.filter(models.Player.position == pos)
     
+    results = query.limit(15).all()
     return results
 
 @router.get("/waiver-wire")
 def get_free_agents(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_user) # <--- Added dependency
+    current_user: models.User = Depends(auth.get_current_user)
 ):
     """
     Returns all players NOT currently owned in the user's specific league.
@@ -36,8 +45,7 @@ def get_free_agents(
         models.DraftPick.league_id == current_user.league_id
     )
     
-    # 2. Main Query: Find players NOT IN that list
-    # "SELECT * FROM players WHERE id NOT IN (SELECT player_id FROM draft_picks WHERE league_id = X)"
+    # 2. Find players NOT IN that list
     free_agents = db.query(models.Player).filter(
         ~models.Player.id.in_(owned_ids_query)
     ).limit(50).all()
