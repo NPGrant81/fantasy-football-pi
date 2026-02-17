@@ -23,8 +23,7 @@ export default function ChatInterface({ initialQuery = "" }) {
     if (initialQuery) {
       handleSendMessage(initialQuery);
     }
-  }, []); // Run once on mount
-
+  }, []); 
 
   // --- 2.1 MESSAGE HANDLER ---
   const handleSendMessage = async (queryOverride = null) => {
@@ -33,12 +32,14 @@ export default function ChatInterface({ initialQuery = "" }) {
 
     // 2.1.1 LOCAL UPDATE
     setMessages(prev => [...prev, { role: 'user', text: activeQuery }]);
-    if (!queryOverride) setInput(""); // Clear input if it wasn't a prop-based call
+    if (!queryOverride) setInput(""); 
     setIsLoading(true);
 
     try {
-      // 2.1.2 EXECUTION: Clean POST with encoded query
-      const res = await apiClient.post(`/advisor/ask?user_query=${encodeURIComponent(activeQuery)}`);
+      // 2.1.2 EXECUTION: POST with JSON body (Fixes the 422 error)
+      const res = await apiClient.post('/advisor/ask', { 
+        user_query: activeQuery 
+      });
       
       // 2.1.3 SUCCESS
       setMessages(prev => [...prev, { role: 'ai', text: res.data.response }]);
@@ -52,7 +53,6 @@ export default function ChatInterface({ initialQuery = "" }) {
       setIsLoading(false);
     }
   };
-
 
   // --- 3.1 RENDER: CONTAINER ---
   return (
