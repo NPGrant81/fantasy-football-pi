@@ -3,7 +3,7 @@ import apiClient from '@api/client';
 import { useDraftTimer } from '@hooks/useDraftTimer';
 import { getOwnerStats, normalizePos, ROSTER_SIZE } from '@utils';
 import { OwnerCard, AuctionBlock, SessionHeader, DraftHistoryFeed } from '@components/draft';
-import { ROSTER_SIZE } from '@utils/constants'; 
+// import { ROSTER_SIZE } from '@utils/constants'; 
 import { ChatInterface } from '@components/chat';
 
 export default function DraftBoard({ token, activeOwnerId }) {

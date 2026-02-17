@@ -42,14 +42,14 @@ function App() {
   // --- 1.3 AUTH CHECK (The Guard) ---
   useEffect(() => {
     if (token) {
-      // Using pro client: headers are handled by interceptors automatically
-      apiClient.get('/me') 
+      // UPDATED: Pointing to the new nested endpoint
+      apiClient.get('/auth/me') 
         .then(res => {
           setActiveOwnerId(res.data.user_id)
           setUsername(res.data.username)
         })
         .catch(() => {
-          handleLogout(); // Kick to login if token is invalid
+          handleLogout(); 
         });
     }
   }, [token, handleLogout]);
@@ -64,8 +64,8 @@ function App() {
     formData.append('password', passInput);
 
     try {
-      // Change to apiClient for base URL consistency
-      const response = await apiClient.post('/token', formData, {
+      // UPDATED: Standard OAuth2 tokenUrl is now under /auth
+      const response = await apiClient.post('/auth/token', formData, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
 

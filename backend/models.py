@@ -9,9 +9,8 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String)
-    claims = relationship("WaiverClaim", back_populates="user")
     
-    # 1.1 ROLES: Added is_commissioner earlier, ensure it's here
+    # 1.1 ROLES
     is_superuser = Column(Boolean, default=False)
     is_commissioner = Column(Boolean, default=False)
     
@@ -20,9 +19,10 @@ class User(Base):
     division = Column(String, nullable=True)
     team_name = Column(String, nullable=True)
 
-    # Relationships (Keep existing...)
+    # Relationships
     league = relationship("League", back_populates="users") 
     picks = relationship("DraftPick", back_populates="owner")
+    claims = relationship("WaiverClaim", back_populates="user")
     home_matches = relationship("Matchup", foreign_keys="Matchup.home_team_id", back_populates="home_team")
     away_matches = relationship("Matchup", foreign_keys="Matchup.away_team_id", back_populates="away_team")
 
@@ -31,21 +31,16 @@ class League(Base):
     __tablename__ = "leagues"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    waiver_claims = relationship("WaiverClaim", back_populates="league")
-    
-    # 2.1 STATUS: Added this to track the draft lifecycle
-    # Possible values: 'PRE_DRAFT', 'DRAFTING', 'COMPLETED'
     draft_status = Column(String, default="PRE_DRAFT") 
-
-    # 2.2 TIMESTAMP: Helpful for sorting league history
     created_at = Column(String, nullable=True)
 
-    # Relationships (Keep existing...)
+    # Relationships
     users = relationship("User", back_populates="league")
     scoring_rules = relationship("ScoringRule", back_populates="league")
     settings = relationship("LeagueSettings", back_populates="league", uselist=False)
     matchups = relationship("Matchup", back_populates="league")
     draft_picks = relationship("DraftPick", back_populates="league")
+    waiver_claims = relationship("WaiverClaim", back_populates="league")
 
 # --- 3. LEAGUE SETTINGS ---
 class LeagueSettings(Base):
@@ -68,16 +63,14 @@ class Player(Base):
     name = Column(String, index=True)
     position = Column(String)
     nfl_team = Column(String)
-
     adp = Column(Float, default=0.0)
     projected_points = Column(Float, default=0.0)
     gsis_id = Column(String, nullable=True, unique=True)
     bye_week = Column(Integer, nullable=True)
     
-    # Relationship back to picks so we can see who drafted them
     draft_pick = relationship("DraftPick", back_populates="player", uselist=False)
 
-# --- 5. DRAFT PICK TABLE (Your Roster) ---
+# --- 5. DRAFT PICK TABLE ---
 class DraftPick(Base):
     __tablename__ = "draft_picks"
     id = Column(Integer, primary_key=True, index=True)
@@ -87,11 +80,8 @@ class DraftPick(Base):
     amount = Column(Integer) 
     session_id = Column(String, default="default") 
     current_status = Column(String, default='BENCH') 
-    
-    # 5.1 TIMESTAMP: Crucial for the Live Activity Feed sorting
     timestamp = Column(String, nullable=True) 
 
-    # Keys & Relationships (Keep existing...)
     owner_id = Column(Integer, ForeignKey("users.id"))
     player_id = Column(Integer, ForeignKey("players.id"))
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
@@ -109,7 +99,6 @@ class Matchup(Base):
 
     home_team_id = Column(Integer, ForeignKey("users.id"))
     away_team_id = Column(Integer, ForeignKey("users.id"))
-    
     home_score = Column(Float, default=0.0)
     away_score = Column(Float, default=0.0)
     is_completed = Column(Boolean, default=False)
@@ -123,17 +112,12 @@ class ScoringRule(Base):
     __tablename__ = "scoring_rules"
     id = Column(Integer, primary_key=True, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"))
-    
     category = Column(String) 
-    description = Column(String, nullable=True)
-    min_val = Column(Float, default=0) 
-    max_val = Column(Float, default=999) 
     points = Column(Float, default=0) 
-    position_target = Column(String, nullable=True) 
     
     league = relationship("League", back_populates="scoring_rules")
 
-# --- 8. Final WAIVER CLAIMS Table ---
+# --- 8. WAIVER CLAIMS ---
 class WaiverClaim(Base):
     __tablename__ = "waiver_claims"
     id = Column(Integer, primary_key=True, index=True)
@@ -143,14 +127,9 @@ class WaiverClaim(Base):
     drop_player_id = Column(Integer, ForeignKey("players.id"), nullable=True)
     
     bid_amount = Column(Integer, default=0)
-    priority = Column(Integer, default=0)
     status = Column(String, default="PENDING") 
     
-    # Standard back_populates for bidirectional access
     user = relationship("User", back_populates="claims")
     league = relationship("League", back_populates="waiver_claims")
-    
-    # Multiple foreign keys to the same table require explicit foreign_keys
     target_player = relationship("Player", foreign_keys=[player_id])
     drop_player = relationship("Player", foreign_keys=[drop_player_id])
-
