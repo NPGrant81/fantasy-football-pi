@@ -36,3 +36,19 @@ Why this works:
 • Separation of Concerns: You can update the "Waiver Claim" logic in the service layer without touching the API endpoint in the router.
 • Scalability: New features (like Trades or Playoff Brackets) have a clear, predetermined home in the directory tree.
 • AI Coordination: Maintaining this file helps AI tools understand your specific architectural invariants, leading to better code suggestions.
+
+4. Frontend Overview & Testing
+The frontend is a Vite + React single-page app located in the `frontend/` folder. Key points:
+
+- `src/api/client.js`: Central axios instance with request/response interceptors (adds JWT from `localStorage`, handles 401 -> auto-logout).
+- `src/components`: UI building blocks (e.g., `LeagueSelector`, `LeagueAdvisor`, `Layout`). Keep these components mostly presentational and push business logic into lightweight hooks or service modules where possible.
+- Routing: `App.jsx` performs initial guarding (auth check and league selection) then mounts the `Layout` and nested routes.
+
+Testing strategy
+- Backend: `pytest` tests live under `backend/tests/` and run in CI.
+- Frontend: `vitest` + React Testing Library tests live under `frontend/tests/`. Tests mock network calls (axios or `apiClient`) and exercise component behavior (e.g., login flows, league selection, advisor chat interactions).
+- CI: GitHub Actions runs both backend and frontend test suites on push/PR (see `.github/workflows/ci.yml`).
+
+Recommendations
+- Keep `apiClient` thin and testable; export a small wrapper layer if you need to swap implementations for tests.
+- Favor mocking network calls in component tests and unit-testing business logic in isolation for faster feedback.
