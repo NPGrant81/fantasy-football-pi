@@ -36,9 +36,9 @@
     "vite": "^7.2.4"
     ,
     "vitest": "^0.34.1",
-    "@testing-library/react": "^15.0.0",
-    "@testing-library/jest-dom": "^7.0.0",
-    "@testing-library/user-event": "^15.0.0",
+    "@testing-library/react": "^14.3.1",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/user-event": "^14.6.0",
     "jsdom": "^22.1.0"
     ,
     "cypress": "^12.17.0"
