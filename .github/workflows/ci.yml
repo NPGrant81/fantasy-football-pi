@@ -70,7 +70,7 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: |
-          npm ci
+          npm ci --legacy-peer-deps
 
       - name: Run frontend tests
         working-directory: frontend
@@ -97,7 +97,7 @@ jobs:
 
       - name: Install frontend deps
         working-directory: frontend
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Start dev server
         working-directory: frontend

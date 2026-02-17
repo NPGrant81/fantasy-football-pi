@@ -87,7 +87,7 @@ jobs:
     # --- 2.1 FRONTEND SETUP & LINT ---
     - name: Install Frontend Dependencies
       working-directory: ./frontend
-      run: npm install eslint eslint-plugin-react prettier --save-dev
+      run: npm ci --legacy-peer-deps
         
     - name: Run JSX Linting & Formatting Check
       working-directory: ./frontend
