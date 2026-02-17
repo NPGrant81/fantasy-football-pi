@@ -4,7 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from database import get_db
 import models
-import auth
+from core.security import get_current_user, check_is_commissioner
 import random
 
 router = APIRouter(
@@ -104,7 +104,7 @@ def organize_roster(picks, db: Session):
 @router.get("/my-roster", response_model=RosterView)
 def get_my_roster(
     db: Session = Depends(get_db), 
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     """Get the logged-in user's team, nicely sorted."""
     
@@ -155,7 +155,7 @@ def get_any_team(
 def update_team_name(
     name_data: dict, 
     db: Session = Depends(get_db), 
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     current_user.team_name = name_data.get("name")
     db.commit()

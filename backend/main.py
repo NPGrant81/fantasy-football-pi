@@ -1,21 +1,26 @@
-from fastapi import FastAPI, Depends, CORSMiddleware  # Added Depends
+from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 # Internal Imports
 import models
 from database import engine, SessionLocal
-from auth import get_password_hash, check_is_commissioner # Cleaned up imports
+from core.security import get_password_hash, check_is_commissioner
 
 # Import All Routers
-from routers import admin, team, matchups, league, advisor, dashboard, players, waivers, draft, auth
+from routers import (
+    admin, team, matchups, league, advisor, 
+    dashboard, players, waivers, draft, auth
+)
 
-# Load Environment Variables
 load_dotenv()
 
 # --- 1. DATABASE SETUP ---
+# Note: create_all does not handle migrations. 
+# Use Alembic if you add more columns later.
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(title="Fantasy Football War Room API")
 
 # --- 2. SECURITY: CORS ---
 app.add_middleware(
@@ -27,31 +32,32 @@ app.add_middleware(
 )
 
 # --- 3. CONNECT ROUTERS ---
+# We remove 'prefix' here because your individual router files 
+# (e.g., auth.py, team.py) should define them internally.
 
 # PROTECTED: Admin requires Commissioner status
 app.include_router(
     admin.router, 
-    prefix="/admin", 
-    tags=["Admin"],
     dependencies=[Depends(check_is_commissioner)] 
 )
 
-# STANDARD: Grouped with prefixes
-app.include_router(auth.router, prefix="/auth", tags=["Auth"])
-app.include_router(draft.router, prefix="/draft", tags=["Draft"])
-app.include_router(team.router, prefix="/team", tags=["Team"])
-app.include_router(matchups.router, prefix="/matchups", tags=["Matchups"])
-app.include_router(league.router, prefix="/league", tags=["League"])
-app.include_router(advisor.router, prefix="/advisor", tags=["Advisor"])
-app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
-app.include_router(players.router, prefix="/players", tags=["Players"]) 
-app.include_router(waivers.router, prefix="/waivers", tags=["Waivers"])
+# STANDARD: Included without redundant prefixes
+app.include_router(auth.router)
+app.include_router(draft.router)
+app.include_router(team.router)
+app.include_router(matchups.router)
+app.include_router(league.router)
+app.include_router(advisor.router)
+app.include_router(dashboard.router)
+app.include_router(players.router) 
+app.include_router(waivers.router)
 
 # --- 4. THE AUTO-SEEDER ---
 @app.on_event("startup")
 def seed_database():
     db = SessionLocal()
     try:
+        # Check for Admin User
         nick = db.query(models.User).filter(models.User.username == "Nick Grant").first()
         if not nick:
             print("Auto-Seeding: Creating Nick Grant...")
@@ -67,6 +73,7 @@ def seed_database():
             db.commit()
             db.refresh(nick)
 
+        # Check for Default League
         test_league = db.query(models.League).filter(models.League.name == "The Big Show").first()
         if not test_league:
             print("Auto-Seeding: Creating 'The Big Show' League...")
@@ -75,10 +82,13 @@ def seed_database():
             db.commit()
             db.refresh(test_league)
             
+            # Link Nick to the new league
             nick.league_id = test_league.id
             db.commit()
 
         print("Auto-Seeding Complete.")
+    except Exception as e:
+        print(f"Seeding Error: {e}")
     finally:
         db.close()
 

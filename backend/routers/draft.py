@@ -6,7 +6,7 @@ from pydantic import BaseModel
 # Internal Imports
 from database import get_db
 import models
-import auth 
+from core.security import get_current_user, check_is_commissioner 
 
 # Create the router
 # Note: We removed the 'prefix' so your current frontend links (/draft-history) 

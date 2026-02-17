@@ -9,6 +9,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String)
+    claims = relationship("WaiverClaim", back_populates="user")
     
     # 1.1 ROLES: Added is_commissioner earlier, ensure it's here
     is_superuser = Column(Boolean, default=False)
@@ -30,6 +31,7 @@ class League(Base):
     __tablename__ = "leagues"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+    waiver_claims = relationship("WaiverClaim", back_populates="league")
     
     # 2.1 STATUS: Added this to track the draft lifecycle
     # Possible values: 'PRE_DRAFT', 'DRAFTING', 'COMPLETED'
@@ -130,3 +132,25 @@ class ScoringRule(Base):
     position_target = Column(String, nullable=True) 
     
     league = relationship("League", back_populates="scoring_rules")
+
+# --- 8. Final WAIVER CLAIMS Table ---
+class WaiverClaim(Base):
+    __tablename__ = "waiver_claims"
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    player_id = Column(Integer, ForeignKey("players.id"))
+    drop_player_id = Column(Integer, ForeignKey("players.id"), nullable=True)
+    
+    bid_amount = Column(Integer, default=0)
+    priority = Column(Integer, default=0)
+    status = Column(String, default="PENDING") 
+    
+    # Standard back_populates for bidirectional access
+    user = relationship("User", back_populates="claims")
+    league = relationship("League", back_populates="waiver_claims")
+    
+    # Multiple foreign keys to the same table require explicit foreign_keys
+    target_player = relationship("Player", foreign_keys=[player_id])
+    drop_player = relationship("Player", foreign_keys=[drop_player_id])
+

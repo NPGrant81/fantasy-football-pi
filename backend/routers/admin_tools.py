@@ -1,7 +1,7 @@
 # backend/routers/admin_tools.py
 from fastapi import APIRouter, BackgroundTasks, Depends
 from scripts.daily_sync import sync_nfl_reality
-import auth
+from core.security import get_current_user, check_is_commissioner
 
 router = APIRouter(prefix="/admin/tools", tags=["Admin Tools"])
 

@@ -1,16 +1,16 @@
-# backend/reset_db.py
+# backend/scripts/reset_db.py
 from database import engine, Base
-from models import User, League, LeagueSettings, ScoringRule, DraftPick, Player, Team
+# Removed 'Team' from the import list since it's not in models.py
+from models import User, League, LeagueSettings, ScoringRule, DraftPick, Player, Matchup
 
 print("🔥 DESTROYING ALL DATA...")
 
-# This drops all tables defined in your models
+# Base.metadata knows about all classes that inherit from Base
 Base.metadata.drop_all(bind=engine)
 
 print("✅ Database wiped clean.")
 print("🚀 Re-creating tables...")
 
-# This creates them fresh with the new 'is_superuser' column
 Base.metadata.create_all(bind=engine)
 
-print("✨ Tables created successfully! Now run 'python init_db.py'")
+print("✨ Tables created successfully! Columns like 'draft_status' and 'is_superuser' are now live.")

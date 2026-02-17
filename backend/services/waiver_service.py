@@ -3,13 +3,12 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import models
 
-# 1.1.1 SERVICE: Handle the logic for claiming a player
-def process_claim(db: Session, user: models.User, player_id: int, bid: int):
-    # 1.1.1.1 VALIDATION: Check for League ID
+def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop_id: int = None):
+    # 1.1 VALIDATION: Check for League ID
     if not user.league_id:
         raise HTTPException(status_code=400, detail="User not in a league.")
 
-    # 1.1.1.2 VALIDATION: Is player already taken?
+    # 1.2 VALIDATION: Is target player already taken?
     existing = db.query(models.DraftPick).filter(
         models.DraftPick.player_id == player_id,
         models.DraftPick.league_id == user.league_id 
@@ -17,15 +16,30 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int):
     if existing:
         raise HTTPException(status_code=400, detail="Player already owned!")
 
-    # 1.1.1.3 VALIDATION: Is roster full (14-man limit)?
-    roster_count = db.query(models.DraftPick).filter(
-        models.DraftPick.owner_id == user.id,
-        models.DraftPick.league_id == user.league_id
-    ).count()
-    if roster_count >= 14:
-        raise HTTPException(status_code=400, detail="Roster full!")
+    # 2.1 CONDITIONAL DROP: If drop_id is provided, remove them first
+    if drop_id:
+        pick_to_drop = db.query(models.DraftPick).filter(
+            models.DraftPick.player_id == drop_id,
+            models.DraftPick.owner_id == user.id,
+            models.DraftPick.league_id == user.league_id
+        ).first()
+        
+        if not pick_to_drop:
+            raise HTTPException(status_code=404, detail="Player to drop not found on your roster.")
+        
+        db.delete(pick_to_drop)
+        # We don't commit yet; keep it in the same transaction
+    
+    # 2.2 ROSTER LIMIT CHECK: Only check if NOT dropping someone
+    else:
+        roster_count = db.query(models.DraftPick).filter(
+            models.DraftPick.owner_id == user.id,
+            models.DraftPick.league_id == user.league_id
+        ).count()
+        if roster_count >= 14:
+            raise HTTPException(status_code=400, detail="Roster full! Select a player to drop.")
 
-    # 2.1.1.1 EXECUTION: Create pick record
+    # 3.1 EXECUTION: Create pick record
     new_pick = models.DraftPick(
         owner_id=user.id,
         player_id=player_id,
@@ -40,9 +54,8 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int):
     db.refresh(new_pick)
     return new_pick
 
-# 1.1.2 SERVICE: Handle dropping a player
 def process_drop(db: Session, user: models.User, player_id: int):
-    # 1.1.2.1 VALIDATION: Does the user actually own this player?
+    # (Keep your existing process_drop logic here)
     pick = db.query(models.DraftPick).filter(
         models.DraftPick.player_id == player_id,
         models.DraftPick.owner_id == user.id,
@@ -52,7 +65,6 @@ def process_drop(db: Session, user: models.User, player_id: int):
     if not pick:
         raise HTTPException(status_code=404, detail="Player not on roster.")
 
-    # 2.1.2.1 EXECUTION: Delete record
     db.delete(pick)
     db.commit()
     return True

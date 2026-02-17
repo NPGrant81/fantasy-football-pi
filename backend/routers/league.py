@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from database import get_db
 import models
-import auth # Use our new auth system
+from core.security import get_current_user, check_is_commissioner # Use our new auth system
 import secrets
 import string
 from utils.email_sender import send_invite_email
@@ -85,7 +85,7 @@ def create_league(league_data: LeagueCreate, db: Session = Depends(get_db)):
     return LeagueSummary(id=new_league.id, name=new_league.name)
 
 @router.post("/join")
-def join_league(league_id: int, current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+def join_league(league_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Let a user join a specific league."""
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
@@ -139,7 +139,7 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
 def update_league_settings(
     league_id: int, 
     config: LeagueConfigFull, 
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # 1. Update Settings

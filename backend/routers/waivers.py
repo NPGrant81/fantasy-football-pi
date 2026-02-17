@@ -2,8 +2,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-import models, auth
+import models  # Assuming models.py is in the backend root 
 from pydantic import BaseModel
+from core.security import get_current_user  # Point to the new home of your bouncers
+
 # 1.1.1 IMPORT the service logic we just built
 from services import waiver_service 
 
@@ -26,7 +28,7 @@ class DropPlayerSchema(BaseModel):
 def submit_waiver_claim(
     claim: WaiverClaimSchema, 
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     """
     Submits a claim via the Waiver Service.
@@ -49,7 +51,7 @@ def submit_waiver_claim(
 def drop_player(
     request: DropPlayerSchema,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     """
     Drops a player via the Waiver Service.
