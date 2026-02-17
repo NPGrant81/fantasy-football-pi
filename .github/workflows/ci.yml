@@ -104,10 +104,12 @@ jobs:
         working-directory: frontend
         run: npm ci --legacy-peer-deps
 
-      - name: Run Cypress tests
+      - name: Start dev server and run Cypress
         working-directory: frontend
-        uses: cypress-io/github-action@v5
-        with:
-          browser: chrome
-          start: npm run dev
-          command: npm run e2e
+        run: |
+          npm run dev > /tmp/dev.log 2>&1 &
+          DEV_PID=$!
+          sleep 5
+          npx cypress run --browser chrome --spec "cypress/e2e/**/*.spec.js" || cypress_exit=$?
+          kill $DEV_PID 2>/dev/null || true
+          exit ${cypress_exit:-0}
