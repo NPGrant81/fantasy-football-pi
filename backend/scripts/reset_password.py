@@ -1,7 +1,7 @@
 # backend/reset_password.py
 from database import SessionLocal
 import models
-from auth import get_password_hash
+from core.security import get_password_hash
 
 # 1. Start a DB Session
 db = SessionLocal()

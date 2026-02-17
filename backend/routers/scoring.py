@@ -6,7 +6,7 @@ from typing import List
 from database import get_db
 import models
 import schemas
-from auth import get_current_league_commissioner
+from core.security import check_is_commissioner
 
 router = APIRouter(
     prefix="/scoring",
@@ -24,7 +24,7 @@ def read_scoring_rules(skip: int = 0, limit: int = 100, db: Session = Depends(ge
 def create_scoring_rule(
     rule: schemas.ScoringRuleCreate, 
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_league_commissioner) # <--- SECURITY CHECK
+    current_user: models.User = Depends(check_is_commissioner) # <--- SECURITY CHECK
 ):
     db_rule = models.ScoringRule(**rule.dict(), league_id=current_user.league_id)
     db.add(db_rule)
@@ -37,7 +37,7 @@ def create_scoring_rule(
 def delete_scoring_rule(
     rule_id: int, 
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_league_commissioner)
+    current_user: models.User = Depends(check_is_commissioner)
 ):
     rule = db.query(models.ScoringRule).filter(models.ScoringRule.id == rule_id).first()
     if not rule:

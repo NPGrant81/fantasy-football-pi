@@ -74,10 +74,10 @@ async def check_is_commissioner(current_user: models.User = Depends(get_current_
     return current_user
 
 # 2.1.3 The Superuser Bouncer (Platform Admin)
-async def get_current_active_admin(current_user: models.User = Depends(get_current_user)):
+async def get_current_active_superuser(current_user: models.User = Depends(get_current_user)):
     if not current_user.is_superuser:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Superuser privileges required"
         )
     return current_user
@@ -86,7 +86,7 @@ async def get_current_active_admin(current_user: models.User = Depends(get_curre
 async def get_current_active_admin(current_user: models.User = Depends(get_current_user)):
     if not current_user.is_commissioner:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: Commissioner privileges required."
         )
     return current_user
