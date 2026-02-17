@@ -6,6 +6,7 @@ import {
   WaiverPositionTabs, 
   DropPlayerModal 
 } from '@components/waivers';
+import { ChatInterface } from '@components/chat';
 
 export default function WaiverWire({ token, ownerId }) {
   // --- 1.1 STATE MANAGEMENT ---

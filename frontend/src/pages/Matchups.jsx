@@ -12,22 +12,22 @@ export default function Matchups() {
   const [games, setGames] = useState([])
   const [showProjected, setShowProjected] = useState(true)
   
-  // 1.1.1 Start as true to avoid sync setState in useEffect
+  // 1.1.1 Initialize as true to handle the initial mount without a sync setState
   const [loading, setLoading] = useState(true)
 
   // --- 1.2 DATA RETRIEVAL (The Engine) ---
-  const fetchMatchups = useCallback(() => {
-    setLoading(true)
-    apiClient.get(`/matchups/week/${week}`)
-      .then(res => {
-        setGames(res.data)
-      })
-      .catch(err => {
-        console.error("Matchup feed failed:", err)
-      })
-      .finally(() => {
-        setLoading(false)
-      })
+  // MERGED: One stable function to rule them all
+  const fetchMatchups = useCallback(async () => {
+    // Note: We don't call setLoading(true) here anymore because the state 
+    // is initialized as true or set during week-change transitions.
+    try {
+      const res = await apiClient.get(`/matchups/week/${week}`)
+      setGames(res.data)
+    } catch (err) {
+      console.error("Matchup feed failed:", err)
+    } finally {
+      setLoading(false)
+    }
   }, [week])
 
   useEffect(() => {
@@ -36,8 +36,14 @@ export default function Matchups() {
 
   // --- 1.3 UTILITIES ---
   const handleWeekChange = (direction) => {
-    if (direction === 'prev' && week > 1) setWeek(week - 1)
-    if (direction === 'next' && week < 17) setWeek(week + 1)
+    if (direction === 'prev' && week > 1) {
+      setLoading(true) // Trigger loading spinner for the new week
+      setWeek(week - 1)
+    }
+    if (direction === 'next' && week < 17) {
+      setLoading(true)
+      setWeek(week + 1)
+    }
   }
 
   const getScore = (game, side) => {
@@ -48,7 +54,6 @@ export default function Matchups() {
   }
 
   // --- 2.1 RENDER LOGIC (The View) ---
-
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
       
@@ -87,7 +92,6 @@ export default function Matchups() {
               </button>
           </div>
 
-          {/* 2.3 TOGGLE BAR */}
           <div className="flex justify-center border-t border-slate-800 pt-4">
             <button 
                 onClick={() => setShowProjected(!showProjected)}
@@ -100,7 +104,7 @@ export default function Matchups() {
           </div>
       </div>
 
-      {/* 2.4 MATCHUP GRID */}
+      {/* 2.3 MATCHUP GRID */}
       {loading ? (
         <div className="text-center py-12 text-slate-500 animate-pulse font-black uppercase tracking-widest">
           Loading Week {week}...
@@ -109,7 +113,6 @@ export default function Matchups() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {games.map((game) => (
             <div key={game.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-600 transition shadow-xl group flex flex-col">
-              
               <div className="p-6 flex justify-between items-center relative flex-grow">
                 {/* Home */}
                 <div className="text-center w-1/3">
@@ -139,7 +142,6 @@ export default function Matchups() {
                 </div>
               </div>
 
-              {/* ACTION LINK */}
               <Link to={`/matchup/${game.id}`} className="block p-3 bg-slate-950/30 border-t border-slate-800 text-center hover:bg-slate-800 transition">
                   <div className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center justify-center gap-1 mx-auto">
                     <FiActivity /> Game Center

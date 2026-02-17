@@ -1,11 +1,11 @@
-import { useEffect, useState, useMemo } from 'react'
-import axios from 'axios'
-import { 
-  FiShield, FiDollarSign, FiUser, FiAlertTriangle, 
-  FiCheckCircle, FiXCircle, FiSearch, FiFilter 
-} from 'react-icons/fi'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { FiUser, FiAlertTriangle } from 'react-icons/fi'
 
-// 2.1 MOVE HELPERS OUTSIDE RENDER
+// Professional Imports
+import apiClient from '@api/client'
+import { ChatInterface } from '@components/chat';
+
+// --- 1.1 CONSTANTS & HELPERS (Outside Render) ---
 const POS_RANK = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5, K: 6 }
 
 const FilterButton = ({ label, activeFilter, setActiveFilter }) => (
@@ -85,36 +85,40 @@ const RosterTable = ({ title, players, titleColor, emptyMsg, totalYTD, totalProj
   </div>
 )
 
-export default function MyTeam({ token, activeOwnerId }) {
+export default function MyTeam({ activeOwnerId }) {
+  // --- 1.2 STATE MANAGEMENT ---
   const [teamData, setTeamData] = useState(null)
   const [rosterState, setRosterState] = useState([]) 
+  // FIX: Start loading as true to avoid sync setState inside useEffect
   const [loading, setLoading] = useState(true)
-  const [validationError, setValidationError] = useState(null)
-  const [submitSuccess, setSubmitSuccess] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [sortConfig, setSortConfig] = useState({ key: 'proj_score', direction: 'desc' })
   const [activeFilter, setActiveFilter] = useState('ALL')
 
-  useEffect(() => {
-    if (token && activeOwnerId) {
-      setLoading(true)
-      axios.get(`http://127.0.0.1:8000/team/${activeOwnerId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(res => {
-        setTeamData(res.data)
-        const processedRoster = res.data.roster.map(p => ({
-          ...p,
-          status: p.status || 'BENCH',
-          position_rank: POS_RANK[p.position] || 99
-        }))
-        setRosterState(processedRoster)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+  // --- 1.3 DATA RETRIEVAL (The Engine) ---
+  const fetchTeam = useCallback(() => {
+    if (activeOwnerId) {
+      // apiClient handles the Base URL and the token automatically via interceptors
+      apiClient.get(`/team/${activeOwnerId}`)
+        .then(res => {
+          setTeamData(res.data)
+          const processedRoster = res.data.roster.map(p => ({
+            ...p,
+            status: p.status || 'BENCH',
+            position_rank: POS_RANK[p.position] || 99
+          }))
+          setRosterState(processedRoster)
+        })
+        .catch(err => console.error("Roster fetch failed", err))
+        .finally(() => setLoading(false))
     }
-  }, [token, activeOwnerId])
+  }, [activeOwnerId])
 
+  useEffect(() => {
+    fetchTeam()
+  }, [fetchTeam])
+
+  // --- 1.4 UTILITIES & DERIVED STATE ---
   const handleSort = (key) => {
     let direction = 'asc'
     if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc'
@@ -136,10 +140,11 @@ export default function MyTeam({ token, activeOwnerId }) {
 
   const starters = processedPlayers.filter(p => p.status === 'STARTER')
   const bench = processedPlayers.filter(p => p.status === 'BENCH')
-  const taxi = processedPlayers.filter(p => p.status === 'TAXI')
 
   const totalYTD = starters.reduce((sum, p) => sum + (p.ytd_score || 0), 0).toFixed(2)
   const totalProj = starters.reduce((sum, p) => sum + (p.proj_score || 0), 0).toFixed(2)
+
+  // --- 2.1 RENDER LOGIC (The View) ---
 
   if (loading) return <div className="p-8 text-white animate-pulse">Loading Roster...</div>
   if (!teamData) return <div className="text-red-500 p-8">Error loading team.</div>

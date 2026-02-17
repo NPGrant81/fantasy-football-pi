@@ -1,21 +1,13 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import apiClient from '@api/client'; 
 import { useDraftTimer } from '@hooks/useDraftTimer';
-import { 
-  getOwnerStats, 
-  normalizePos, 
-  ROSTER_SIZE 
-} from '@utils';
-
-import { 
-  OwnerCard, 
-  AuctionBlock, 
-  SessionHeader, 
-  DraftHistoryFeed 
-} from '@components/draft';
+import { getOwnerStats, normalizePos, ROSTER_SIZE } from '@utils';
+import { OwnerCard, AuctionBlock, SessionHeader, DraftHistoryFeed } from '@components/draft';
+import { ROSTER_SIZE } from '@utils/constants'; 
+import { ChatInterface } from '@components/chat';
 
 export default function DraftBoard({ token, activeOwnerId }) {
-  // --- STATE ---
+  // --- 1.1 STATE MANAGEMENT ---
   const [owners, setOwners] = useState([]);
   const [players, setPlayers] = useState([]); 
   const [winnerId, setWinnerId] = useState(activeOwnerId); 
@@ -27,37 +19,17 @@ export default function DraftBoard({ token, activeOwnerId }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [posFilter, setPosFilter] = useState('ALL');
 
-  // --- 1. DATA LOADING ---
+  // --- 1.2 THE ENGINE (Logic Actions) ---
+
   const fetchHistory = useCallback(() => {
-    apiClient.get(`/draft/history?session_id=${sessionId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        setHistory(res.data);
-        const draftedIds = new Set(res.data.map(h => h.player_id));
-        const currentP = players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-        if (currentP && draftedIds.has(currentP.id)) {
-          setPlayerName('');
-          setSuggestions([]);
-        }
-      })
+    apiClient.get(`/draft/history?session_id=${sessionId}`)
+      .then(res => setHistory(res.data))
       .catch(() => console.log("No history yet"));
-  }, [sessionId, token, players, playerName]);
+  }, [sessionId]);
 
-  // --- 2. THE HEARTBEAT (Polling) ---
-  useEffect(() => {
-    if (token) {
-      const config = { headers: { Authorization: `Bearer ${token}` }};
-      apiClient.get('/league/owners', config).then(res => setOwners(res.data));
-      apiClient.get('/players/', config).then(res => setPlayers(res.data));
-      fetchHistory();
-
-      const interval = setInterval(fetchHistory, 3000); 
-      return () => clearInterval(interval);
-    }
-  }, [token, fetchHistory]);
-
-  // --- 3. DRAFT ACTION ---
+  // 1.2.1 THE DRAFT ACTION
+  // We define this first, but we remove the 'reset' dependency.
+  // The timer will now handle its own reset when handleDraft is triggered by the clock.
   const handleDraft = useCallback(async () => {
     if (!winnerId || !playerName) return;
     const foundPlayer = players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
@@ -71,21 +43,23 @@ export default function DraftBoard({ token, activeOwnerId }) {
     };
 
     try {
-      await apiClient.post('/draft/pick', payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiClient.post('/draft/pick', payload);
       setPlayerName('');
       setBidAmount(1);
       fetchHistory();
-      reset(); 
+      // NOTE: We don't call reset() here anymore because the hook triggers it 
+      // when the button is clicked or time is up.
     } catch (err) {
       alert("Draft failed! " + (err.response?.data?.detail || "Error"));
     }
-  }, [winnerId, playerName, players, history, bidAmount, sessionId, fetchHistory, token]);
+  }, [winnerId, playerName, players, history, bidAmount, sessionId, fetchHistory]);
 
+  // 1.2.2 THE TIMER HOOK
+  // Now that handleDraft is defined, we pass it in. 
   const { timeLeft, start, reset, isActive: isTimerRunning } = useDraftTimer(10, handleDraft);
 
-  // --- 4. SEARCH & CALCULATIONS ---
+  // --- 1.3 SEARCH & POLL ---
+  
   const handleSearchChange = async (e) => {
     const val = e.target.value;
     setPlayerName(val);
@@ -100,6 +74,17 @@ export default function DraftBoard({ token, activeOwnerId }) {
     } else { setShowSuggestions(false); }
   };
 
+  useEffect(() => {
+    if (token) {
+      apiClient.get('/league/owners').then(res => setOwners(res.data));
+      apiClient.get('/players/').then(res => setPlayers(res.data));
+      fetchHistory();
+      const interval = setInterval(fetchHistory, 3000); 
+      return () => clearInterval(interval);
+    }
+  }, [token, fetchHistory]);
+
+  // --- 1.4 DERIVED CALCULATIONS ---
   const currentNominatorId = useMemo(() => {
     if (owners.length === 0) return null;
     return [...owners].sort((a,b) => a.id - b.id)[history.length % owners.length].id;
@@ -109,21 +94,15 @@ export default function DraftBoard({ token, activeOwnerId }) {
     return winnerId ? getOwnerStats(winnerId, history, players) : null;
   }, [winnerId, history, players]);
 
-  // --- 5. THE CLEAN RETURN ---
+  // --- 2.1 RENDER ---
   return (
     <div className="bg-slate-950 min-h-screen">
       <div className="max-w-[1800px] mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* LEFT: MAIN CONTENT (9 columns on large screens) */}
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-9 space-y-6">
-          
-          {/* STICKY AUCTION BLOCK */}
           <div className="sticky top-4 z-20 bg-slate-900 border-b border-yellow-600 shadow-2xl pb-6 px-6 pt-4 rounded-xl">
-            <SessionHeader 
-              sessionId={sessionId} 
-              rosterSize={ROSTER_SIZE} 
-              onFinalize={() => {}} 
-            />
+            <SessionHeader sessionId={sessionId} rosterSize={ROSTER_SIZE} onFinalize={() => {}} />
             <AuctionBlock 
               playerName={playerName}
               handleSearchChange={handleSearchChange}
@@ -138,7 +117,7 @@ export default function DraftBoard({ token, activeOwnerId }) {
               activeStats={activeStats}
               bidAmount={bidAmount}
               setBidAmount={setBidAmount}
-              handleDraft={handleDraft}
+              handleDraft={() => { handleDraft(); reset(); }} // RESET CALLED HERE ON MANUAL CLICK
               timeLeft={timeLeft}
               isTimerRunning={isTimerRunning}
               reset={reset}
@@ -146,7 +125,6 @@ export default function DraftBoard({ token, activeOwnerId }) {
             />
           </div>
 
-          {/* OWNER GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {owners.map(owner => (
               <OwnerCard 
@@ -162,7 +140,7 @@ export default function DraftBoard({ token, activeOwnerId }) {
           </div>
         </div>
 
-        {/* RIGHT: LIVE FEED (3 columns on large screens) */}
+        {/* RIGHT COLUMN */}
         <div className="lg:col-span-3">
           <div className="sticky top-4 h-[calc(100vh-2rem)]">
             <DraftHistoryFeed history={history} owners={owners} />

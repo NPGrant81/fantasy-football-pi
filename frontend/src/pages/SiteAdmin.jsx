@@ -5,6 +5,7 @@ import { FiRefreshCw, FiTool, FiDatabase, FiCheckCircle, FiBox, FiTrash2 } from 
 // 1.1 PROFESSIONAL IMPORTS
 import apiClient from '@api/client'; 
 import Toast from '@components/Toast'; 
+import { ChatInterface } from '@components/chat';
 
 export default function SiteAdmin() {
   // --- 1.2 STATE MANAGEMENT ---
