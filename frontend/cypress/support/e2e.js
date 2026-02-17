@@ -1,2 +1,2 @@
 // Cypress support file
-import './commands'
+import './commands';

@@ -1,21 +1,19 @@
 // frontend/src/components/Layout.jsx
-import { useState } from 'react'
-import { FiMenu } from 'react-icons/fi'
-import Sidebar from './Sidebar'
+import { useState } from 'react';
+import { FiMenu } from 'react-icons/fi';
+import Sidebar from './Sidebar';
 
 export default function Layout({ children, username, leagueId }) {
   // --- 1.1 UI STATE ---
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // --- 2.1 RENDER LOGIC (The Shell) ---
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans">
-      
       {/* 2.2 TOP NAVIGATION BAR */}
       <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-slate-800 h-16 px-4 flex items-center justify-between">
-        
         {/* Mobile Trigger */}
-        <button 
+        <button
           onClick={() => setIsSidebarOpen(true)}
           className="p-2 text-yellow-500 hover:bg-slate-800 rounded transition"
         >
@@ -29,9 +27,9 @@ export default function Layout({ children, username, leagueId }) {
       </header>
 
       {/* 2.3 NAVIGATION DRAWER */}
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)} 
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         username={username}
         leagueId={leagueId}
       />
@@ -41,7 +39,6 @@ export default function Layout({ children, username, leagueId }) {
         {/* This is where your Route elements (Dashboard, DraftBoard, etc.) render */}
         {children}
       </main>
-
     </div>
-  )
+  );
 }

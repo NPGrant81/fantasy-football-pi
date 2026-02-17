@@ -4,7 +4,7 @@ import axios from 'axios';
 // --- 1.1 CONFIGURATION ---
 const apiClient = axios.create({
   // 1.1.1 Use environment variables if available, fallback to localhost for Pi dev
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000', 
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000',
   timeout: 8000, // Increased to 8s for slower Raspberry Pi responses
   headers: {
     'Content-Type': 'application/json',
@@ -32,7 +32,7 @@ apiClient.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('fantasyToken');
       // 2.2.2 Force a refresh to trigger the Path A (Login) in App.jsx
-      window.location.href = '/'; 
+      window.location.href = '/';
     }
     return Promise.reject(error);
   }

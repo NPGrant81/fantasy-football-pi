@@ -27,21 +27,22 @@ export default function Toast({ message, type = 'success', onClose }) {
   return (
     // Positioned Top-Center with a slide-in animation
     <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-md px-4">
-      <div className={`
+      <div
+        className={`
         relative overflow-hidden flex items-center justify-between px-6 py-4 
         rounded-2xl shadow-2xl border backdrop-blur-md 
         transition-all duration-300 transform
         ${styles[type]}
-      `}>
-        
+      `}
+      >
         <div className="flex items-center gap-3">
           {icons[type]}
           <span className="font-bold tracking-tight">{message}</span>
         </div>
 
         {/* Manual Close Prompt */}
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="ml-4 p-1 hover:bg-white/20 rounded-lg transition-colors"
           aria-label="Close notification"
         >
@@ -49,11 +50,11 @@ export default function Toast({ message, type = 'success', onClose }) {
         </button>
 
         {/* The 5-Second Progress Bar */}
-        <div 
-          className="absolute bottom-0 left-0 h-1 bg-white/40" 
-          style={{ 
-            animation: 'toast-progress 5000ms linear forwards' 
-          }} 
+        <div
+          className="absolute bottom-0 left-0 h-1 bg-white/40"
+          style={{
+            animation: 'toast-progress 5000ms linear forwards',
+          }}
         />
       </div>
 

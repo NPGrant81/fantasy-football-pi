@@ -17,7 +17,7 @@ export const ROSTER_REQUIREMENTS = {
   FLEX: 1,
   K: 1,
   DEF: 1,
-  BENCH: 5
+  BENCH: 5,
 };
 
 // --- 1.3 SYSTEM LIMITS ---
