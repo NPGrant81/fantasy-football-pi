@@ -6,63 +6,75 @@
 
 ## ✅ COMPLETED STORIES
 
-### Story 6.1: League Standings
-- **Status:** ✅ COMPLETED
-- **Frontend:** [Home.jsx](frontend/src/pages/Home.jsx) - Standings table with rankings
-- **Backend:** `GET /leagues/owners` endpoint implemented
-- **Details:** Home page displays current league standings sorted by points, with Team name and Owner name
-- **Commit:** Ready to close
-
 ### Story 5.1: Free Agent Search
 - **Status:** ✅ COMPLETED
-- **Frontend:** [WaiverWire.jsx](frontend/src/pages/WaiverWire.jsx) - Search and display
-- **Backend:** `GET /players/search` endpoint implemented
-- **Details:** Users can search for and view free agent players
-- **Commit:** Ready to close
+- **Frontend:** [WaiverWire.jsx](frontend/src/pages/WaiverWire.jsx) - Search and display with filtering
+- **Backend:** `GET /players/search` endpoint fully implemented
+- **Details:** Users can search for and view free agent players, filter by position, sort by points
+- **Verification:** All acceptance criteria met
 
-### Story 2.1-2.3: Draft System
+### Story 2.1-2.3: Draft System  
 - **Status:** ✅ COMPLETED
 - **Frontend:** [DraftBoard.jsx](frontend/src/pages/DraftBoard.jsx)
-- **Backend:** `/draft` router with pick management and draft-state endpoints
+- **Backend:** `/draft` router with pick management, state tracking, and finalize endpoints
 - **Details:** Full draft board with player selection, bye weeks respect, position tracking
-- **Commit:** Ready to close
+- **Verification:** Draft flow complete, rosters populate correctly
 
 ### Story 4.2-4.4: Scoring & Rules Management
 - **Status:** ✅ COMPLETED
 - **Frontend:** [ManageScoringRules.jsx](frontend/src/pages/ManageScoringRules.jsx)
-- **Backend:** `GET /leagues/{league_id}/settings`, scoring service, scoring router
+- **Backend:** `GET /leagues/{league_id}/settings`, `/scoring` router, scoring service
 - **Details:** Commissioner can manage scoring rules, weekly locks, excel overrides
-- **Commit:** Ready to close
+- **Verification:** Scoring rules persisted and applied to matchups
 
 ### Story 5.2-5.4: Waiver System
 - **Status:** ✅ COMPLETED
-- **Frontend:** [WaiverWire.jsx](frontend/src/pages/WaiverWire.jsx)
+- **Frontend:** [WaiverWire.jsx](frontend/src/pages/WaiverWire.jsx) with bid management
 - **Backend:** `/waivers` router with processing logic, notifications, blind bidding
 - **Details:** Full waiver processing with blind bid management and result notifications
-- **Commit:** Ready to close
+- **Verification:** Waivers processed on schedule, results posted
 
 ### Story 3.1: Team Customization
 - **Status:** ✅ COMPLETED
 - **Frontend:** [MyTeam.jsx](frontend/src/pages/MyTeam.jsx)
 - **Backend:** `/team` router with roster and team info endpoints
 - **Details:** Users can manage team name, view roster, customize settings
-- **Commit:** Ready to close
+- **Verification:** Team name persists, roster displays correctly
 
-### Story 6: Matchups System
-- **Status:** ✅ COMPLETED
+### Story 6 (Matchups): Matchups & Game Center
+- **Status:** ✅ COMPLETED (Core Features)
 - **Frontend:** [Matchups.jsx](frontend/src/pages/Matchups.jsx), [GameCenter.jsx](frontend/src/pages/GameCenter.jsx)
-- **Backend:** `GET /matchups/week/{week_num}`, `GET /matchups/{matchup_id}`
+- **Backend:** `GET /matchups/week/{week_num}`, `GET /matchups/{matchup_id}`, matchups router
 - **Details:** Week-by-week matchups with detailed game scoring
-- **Commit:** Ready to close
+- **Verification:** Matchups display correctly, scores calculate
 
 ---
 
 ## 🔄 PARTIALLY IMPLEMENTED
 
+### Story 6.1: League Standings
+- **Status:** 🔄 PARTIAL (60% complete)
+- **Completed:** Basic standings table with Rank, Team, Owner display
+- **Missing:** 
+  - W-L-T (Wins-Losses-Ties) column
+  - PF (Points For) column  
+  - PA (Points Against) column
+  - Sortable columns functionality
+  - Backend API enhancement needed
+- **Frontend:** [Home.jsx](frontend/src/pages/Home.jsx) - Basic table exists
+- **Backend:** `/leagues/owners` returns only id, username, team_name (missing stats)
+- **Next Steps:** 
+  1. Enhance `/leagues/owners` endpoint to return W-L-T, PF, PA stats
+  2. Add sorting functionality to standings table
+  3. Add missing columns to UI
+
 ### Story 6.3: Top Free Agents Module
 - **Status:** 🔄 PARTIAL
-- **Completed:** Free agent search and waiver wire display
-- **Missing:** Featured/top free agents ranking by ADP or pickup rate
+- **Completed:** Free agent search and waiver wire display in [WaiverWire.jsx](frontend/src/pages/WaiverWire.jsx)
+- **Missing:** 
+  - Top/Featured agents ranking algorithm
+  - ADP (Average Draft Position) or pickup rate ranking
+  - Dashboard widget for top pickups
 - **Next Steps:** Implement ranking algorithm, add to dashboard
 
 ---
@@ -72,27 +84,32 @@
 ### Story 6.2: Playoff Bracket Visualization
 - **Status:** ❌ NOT STARTED
 - **Priority:** Medium
-- **Notes:** Requires bracket generation and visualization component
+- **Notes:** Requires bracket generation and visualization component (bracket-lib, react-bracket)
+- **Complexity:** High - requires tournament logic
 
 ### Story 6.4: Matchup Win Probability
 - **Status:** ❌ NOT STARTED
 - **Priority:** Medium
-- **Notes:** Requires predictive algorithm based on player projections
+- **Notes:** Requires predictive algorithm based on player projections and health
+- **Complexity:** High - ML/stats heavy
 
 ### Story 7.2: Dark/Light Mode Toggle
 - **Status:** ❌ NOT STARTED
 - **Priority:** Low
 - **Notes:** UI enhancement - app currently dark-themed only
+- **Complexity:** Medium - theme system implementation
 
 ### Story 7.3: Bug Reporting Form
 - **Status:** ❌ NOT STARTED
 - **Priority:** Low
-- **Notes:** User feedback mechanism
+- **Notes:** User feedback mechanism for bug reports
+- **Complexity:** Low - form + email/storage
 
 ### Story 1.2: Historical Data Archiving
 - **Status:** ❌ NOT STARTED
 - **Priority:** Low
-- **Notes:** Data retention and archive strategy
+- **Notes:** Data retention and archive strategy for historical seasons
+- **Complexity:** Medium - migration and cleanup scripts
 
 ---
 
@@ -100,17 +117,23 @@
 
 ### Story 0.1: Install Docker & Postgres on Pi
 - **Status:** ✅ COMPLETED
-- **Details:** docker-compose.yml configured with PostgreSQL, backend running in containers
-- **Commit:** Ready to close
+- **Details:** 
+  - docker-compose.yml configured with PostgreSQL
+  - Backend running in Docker containers
+  - Data persistence with volume mapping
+  - Port 5432 accessible
+- **Verification:** Services running, database persistent
 
 ### Story 0.2: Cloudflare Tunnel Setup
-- **Status:** ⏳ IN PROGRESS
-- **Notes:** Optional external access; local development functional
-- **Next Steps:** Domain setup and tunnel configuration
+- **Status:** ⏳ IN PROGRESS / OPTIONAL
+- **Notes:** External access setup; local development functional
+- **Blockers:** Requires domain name and Cloudflare account
+- **Next Steps:** Domain setup (optional, not MVP-blocking)
 
 ### Story 0.3: Database Scheduled Backups
-- **Status:** ⏳ IN PROGRESS
-- **Notes:** Basic database working; backup scripts needed
+- **Status:** ⏳ IN PROGRESS / NOT REQUIRED YET
+- **Notes:** Basic database working; backup scripts planned
+- **Complexity:** Low - cron job + backup script
 
 ---
 
@@ -122,19 +145,58 @@
 - **Impact:** League persistence at login time, eliminates LeagueSelector step
 - **Default League:** "The Big Show" (League ID 1) for test environment
 
+### 📊 Issue Status Documentation
+- **Commit:** `e739f93` - "docs: add GitHub issues status report and completion tracking"
+- **Change:** Created comprehensive tracking of feature completion
+- **Impact:** Clear roadmap for remaining work
+
 ---
 
 ## SUMMARY
 
 - **Total Open Issues:** 21
-- **Completed:** 8
-- **Partially Completed:** 1
-- **Not Started:** 5
-- **Infrastructure:** 3 (2 done, 1 in progress)
+- **✅ Fully Completed:** 6 stories (5.1, 2.1-2.3, 4.2-4.4, 5.2-5.4, 3.1, 6)
+- **🔄 Partially Completed:** 2 stories (6.1, 6.3)
+- **❌ Not Started:** 5 stories (6.2, 6.4, 7.2, 7.3, 1.2)
+- **🏗️ Infrastructure:** 3 tasks (0.1 ✅, 0.2 ⏳, 0.3 ⏳)
 
-**Next Priority:**
-1. Implement Story 6.3 (Top Free Agents ranking)
-2. Build Story 6.2 (Playoff Bracket)
-3. Add Story 6.4 (Win Probability)
-4. Polish UI with Story 7.2 (Dark/Light Mode)
+---
+
+## RECOMMENDATIONS FOR NEXT SPRINTS
+
+### P1 (High Priority)
+1. **Complete Story 6.1** - Enhance standings with W-L-T, PF, PA stats and sorting
+   - Effort: 1 day
+   - Impact: Core dashboard feature
+   
+2. **Update Story 6.3** - Add top free agents ranking to dashboard
+   - Effort: 0.5 days
+   - Impact: Useful for team management
+
+### P2 (Medium Priority)
+3. **Story 6.2** - Playoff bracket visualization
+   - Effort: 2-3 days
+   - Impact: Late-season engagement
+
+4. **Story 6.4** - Matchup win probability
+   - Effort: 2-3 days  
+   - Impact: Strategic decision-making
+
+### P3 (Low Priority / Polish)
+5. **Story 7.2** - Dark/Light mode toggle
+6. **Story 7.3** - Bug reporting form
+7. **Story 1.2** - Historical data archiving
+
+---
+
+## READY TO CLOSE (When PR merged)
+- Story 5.1: Free Agent Search ✅
+- Story 2.1-2.3: Draft System ✅
+- Story 4.2-4.4: Scoring Management ✅
+- Story 5.2-5.4: Waiver System ✅
+- Story 3.1: Team Customization ✅
+- Story 6 (Core): Matchups ✅
+- Story 0.1: Docker/Postgres Setup ✅
+
+**Action:** Link this ISSUE_STATUS.md to a summary comment on each GitHub issue or create a tracking project for remaining work.
 
