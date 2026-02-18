@@ -11,12 +11,19 @@ import {
 // import { ROSTER_SIZE } from '@utils/constants';
 import { ChatInterface } from '@components/chat';
 
-export default function DraftBoard({ token, activeOwnerId }) {
+export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   // --- 1.1 STATE MANAGEMENT ---
   const [owners, setOwners] = useState([]);
   const [players, setPlayers] = useState([]);
   const [winnerId, setWinnerId] = useState(activeOwnerId);
-  const [sessionId] = useState(`TEST_${new Date().toISOString().slice(0, 10)}`);
+  // Use league/session from props or localStorage
+  const [sessionId] = useState(() => {
+    const stored = localStorage.getItem('draftSessionId');
+    if (stored) return stored;
+    // fallback: league-based session or date
+    if (activeLeagueId) return `LEAGUE_${activeLeagueId}`;
+    return `TEST_${new Date().toISOString().slice(0, 10)}`;
+  });
   const [history, setHistory] = useState([]);
   const [playerName, setPlayerName] = useState('');
   const [bidAmount, setBidAmount] = useState(1);
@@ -103,14 +110,14 @@ export default function DraftBoard({ token, activeOwnerId }) {
   };
 
   useEffect(() => {
-    if (token) {
-      apiClient.get('/league/owners').then((res) => setOwners(res.data));
+    if (token && activeLeagueId) {
+      apiClient.get(`/league/owners?league_id=${activeLeagueId}`).then((res) => setOwners(res.data));
       apiClient.get('/players/').then((res) => setPlayers(res.data));
       fetchHistory();
       const interval = setInterval(fetchHistory, 3000);
       return () => clearInterval(interval);
     }
-  }, [token, fetchHistory]);
+  }, [token, activeLeagueId, fetchHistory]);
 
   // --- 1.4 DERIVED CALCULATIONS ---
   const currentNominatorId = useMemo(() => {
@@ -128,6 +135,12 @@ export default function DraftBoard({ token, activeOwnerId }) {
   return (
     <div className="bg-slate-950 min-h-screen">
       <div className="max-w-[1800px] mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* USER/LEAGUE CONTEXT */}
+        <div className="mb-4 text-xs text-slate-400">
+          <span>User ID: {activeOwnerId} </span>
+          <span className="ml-4">League ID: {activeLeagueId}</span>
+          <span className="ml-4">Session: {sessionId}</span>
+        </div>
         {/* LEFT COLUMN */}
         <div className="lg:col-span-9 space-y-6">
           <div className="sticky top-4 z-20 bg-slate-900 border-b border-yellow-600 shadow-2xl pb-6 px-6 pt-4 rounded-xl">

@@ -27,3 +27,9 @@ def get_free_agents(
 ):
     # 2.3.1 CALL the service for free agent logic
     return player_service.get_league_free_agents(db, current_user.league_id)
+
+# --- NEW: GET /players/ ---
+@router.get("/")
+def get_all_players(db: Session = Depends(get_db)):
+    """Return all players (for draft board, etc)."""
+    return db.query(models.Player).all()

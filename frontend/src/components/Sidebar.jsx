@@ -52,12 +52,13 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
         }`}
       >
         <div className="p-6 flex justify-between items-center border-b border-slate-800 bg-slate-950">
-          <div>
+          <div className="flex items-center gap-2">
+            <img src={require('../assets/react.svg')} alt="FantasyFootball-PI Logo" className="w-7 h-7" />
             <h2 className="text-2xl font-black text-white tracking-tighter">
               FANTASY<span className="text-yellow-500">Pi</span>
             </h2>
-            <p className="text-xs text-slate-500">League ID: {leagueId}</p>
           </div>
+          <p className="text-xs text-slate-500">League ID: {leagueId}</p>
           <button
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full"

@@ -41,8 +41,15 @@ class DraftPickCreate(BaseModel):
 
 # --- 3. STANDARD ENDPOINTS (From main.py - The ones working NOW) ---
 
+
+# Existing endpoint
 @router.get("/draft-history")
 def get_draft_history(session_id: str, db: Session = Depends(get_db)):
+    return db.query(models.DraftPick).filter(models.DraftPick.session_id == session_id).all()
+
+# --- NEW: GET /draft/history (alias for /draft-history) ---
+@router.get("/draft/history")
+def get_draft_history_alias(session_id: str, db: Session = Depends(get_db)):
     return db.query(models.DraftPick).filter(models.DraftPick.session_id == session_id).all()
 
 @router.post("/draft-pick")

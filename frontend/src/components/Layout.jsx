@@ -21,7 +21,8 @@ export default function Layout({ children, username, leagueId }) {
         </button>
 
         {/* Branding */}
-        <div className="font-black text-xl tracking-tighter italic uppercase">
+        <div className="flex items-center gap-2 font-black text-xl tracking-tighter italic uppercase">
+          <img src={require('../assets/react.svg')} alt="FantasyFootball-PI Logo" className="w-8 h-8" />
           FANTASY<span className="text-slate-600">Pi</span>
         </div>
       </header>

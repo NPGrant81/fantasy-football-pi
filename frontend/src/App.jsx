@@ -101,9 +101,12 @@ function App() {
           onSubmit={handleLogin}
           className="bg-slate-800 p-8 rounded-lg shadow-2xl w-96 border border-slate-700"
         >
-          <h2 className="text-3xl font-black mb-6 text-center text-yellow-500 tracking-tighter">
-            WAR ROOM LOGIN
-          </h2>
+          <div className="flex flex-col items-center mb-6">
+            <img src={require('./assets/react.svg')} alt="FantasyFootball-PI Logo" className="w-16 h-16 mb-2" />
+            <h2 className="text-3xl font-black text-center text-yellow-500 tracking-tighter">
+              FantasyFootball-PI Login
+            </h2>
+          </div>
           {error && (
             <div className="mb-4 text-red-400 text-center text-sm font-bold">
               {error}
@@ -169,7 +172,7 @@ function App() {
           <Route path="/" element={<Dashboard ownerId={activeOwnerId} />} />
           <Route
             path="/draft"
-            element={<DraftBoard activeOwnerId={activeOwnerId} />}
+            element={<DraftBoard token={token} activeOwnerId={activeOwnerId} activeLeagueId={activeLeagueId} />}
           />
           <Route
             path="/team"

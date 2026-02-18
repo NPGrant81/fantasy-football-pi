@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -53,6 +53,26 @@ def get_leagues(db: Session = Depends(get_db)):
     """List all available leagues."""
     leagues = db.query(models.League).all()
     return [LeagueSummary(id=l.id, name=l.name) for l in leagues]
+
+# --- NEW: GET /leagues/{league_id} ---
+@router.get("/{league_id}", response_model=LeagueSummary)
+def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
+    league = db.query(models.League).filter(models.League.id == league_id).first()
+    if not league:
+        raise HTTPException(status_code=404, detail="League not found")
+    return LeagueSummary(id=league.id, name=league.name)
+
+# --- NEW: GET /league/owners?league_id= ---
+# This is a GET endpoint to match the frontend call, but is defined here for convenience.
+from fastapi import APIRouter as _APIRouter
+@_APIRouter(prefix="/league", tags=["League"])
+@router.get("/owners")
+def get_league_owners(league_id: int = Query(...), db: Session = Depends(get_db)):
+    league = db.query(models.League).filter(models.League.id == league_id).first()
+    if not league:
+        raise HTTPException(status_code=404, detail="League not found")
+    owners = db.query(models.User).filter(models.User.league_id == league_id).all()
+    return [{"id": o.id, "username": o.username, "team_name": o.team_name} for o in owners]
 
 @router.post("/", response_model=LeagueSummary)
 def create_league(league_data: LeagueCreate, db: Session = Depends(get_db)):
