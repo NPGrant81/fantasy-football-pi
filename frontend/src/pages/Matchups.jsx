@@ -14,6 +14,8 @@ import {
 import apiClient from '@api/client';
 
 export default function Matchups() {
+  // --- USER/LEAGUE CONTEXT ---
+  const [userInfo, setUserInfo] = useState({ username: '', leagueName: '' });
   // --- 1.1 STATE MANAGEMENT ---
   const [week, setWeek] = useState(1);
   const [games, setGames] = useState([]);
@@ -22,7 +24,23 @@ export default function Matchups() {
   // 1.1.1 Initialize as true to handle the initial mount without a sync setState
   const [loading, setLoading] = useState(true);
 
-  // --- 1.2 DATA RETRIEVAL (The Engine) ---
+  // --- 1.1.2 Fetch User/League Info ---
+  useEffect(() => {
+    async function fetchUserLeague() {
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        let leagueName = '';
+        if (userRes.data.league_id) {
+          const leagueRes = await apiClient.get(`/leagues/${userRes.data.league_id}`);
+          leagueName = leagueRes.data.name;
+        }
+        setUserInfo({ username: userRes.data.username, leagueName });
+      } catch (err) {
+        setUserInfo({ username: '', leagueName: '' });
+      }
+    }
+    fetchUserLeague();
+  }, []);
   // MERGED: One stable function to rule them all
   const fetchMatchups = useCallback(async () => {
     // Note: We don't call setLoading(true) here anymore because the state
@@ -63,6 +81,15 @@ export default function Matchups() {
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
+      {/* USER/LEAGUE CONTEXT */}
+      <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
+        <div className="text-lg font-bold text-white">
+          User: <span className="text-yellow-400">{userInfo.username || '...'}</span>
+        </div>
+        <div className="text-lg font-bold text-white">
+          League: <span className="text-blue-400">{userInfo.leagueName || '...'}</span>
+        </div>
+      </div>
       {/* 2.2 WEEK SELECTOR & HEADER */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-4 shadow-lg">
         <div className="flex justify-between items-center mb-4">

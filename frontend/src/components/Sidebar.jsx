@@ -7,6 +7,7 @@ import {
   FiActivity,
   FiTrendingUp,
   FiSettings,
+  FiShield,
 } from 'react-icons/fi';
 import { menuGradients, bgColors, textColors, borderColors } from '../utils/uiHelpers';
 
@@ -113,11 +114,19 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
           </div>
 
           <Link
+            to="/commissionerdashboard"
+            onClick={onClose}
+            className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+          >
+            <FiShield className="text-yellow-400" /> <span>Commissioner</span>
+          </Link>
+
+          <Link
             to="/admin"
             onClick={onClose}
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
           >
-            <FiSettings /> <span>League Settings</span>
+            <FiSettings /> <span>Admin Settings</span>
           </Link>
         </nav>
 

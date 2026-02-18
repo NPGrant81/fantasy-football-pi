@@ -3,7 +3,7 @@ import { FiUser, FiAlertTriangle } from 'react-icons/fi';
 
 // Professional Imports
 import apiClient from '@api/client';
-import { ChatInterface } from '@components/chat';
+import LeagueAdvisor from '../components/LeagueAdvisor';
 
 // --- 1.1 CONSTANTS & HELPERS (Outside Render) ---
 const POS_RANK = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5, K: 6 };
@@ -163,6 +163,30 @@ const RosterTable = ({
 );
 
 export default function MyTeam({ activeOwnerId }) {
+  // --- USER/LEAGUE CONTEXT ---
+  const [userInfo, setUserInfo] = useState({ username: '', leagueName: '', leagueId: null });
+  const [scoringRules, setScoringRules] = useState([]);
+  useEffect(() => {
+    async function fetchUserLeague() {
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        let leagueName = '';
+        let leagueId = userRes.data.league_id;
+        if (leagueId) {
+          const leagueRes = await apiClient.get(`/leagues/${leagueId}`);
+          leagueName = leagueRes.data.name;
+          // Fetch scoring rules
+          const settingsRes = await apiClient.get(`/leagues/${leagueId}/settings`);
+          setScoringRules(settingsRes.data.scoring_rules || []);
+        }
+        setUserInfo({ username: userRes.data.username, leagueName, leagueId });
+      } catch (err) {
+        setUserInfo({ username: '', leagueName: '', leagueId: null });
+        setScoringRules([]);
+      }
+    }
+    fetchUserLeague();
+  }, []);
   // --- 1.2 STATE MANAGEMENT ---
   const [teamData, setTeamData] = useState(null);
   const [rosterState, setRosterState] = useState([]);
@@ -247,6 +271,29 @@ export default function MyTeam({ activeOwnerId }) {
 
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
+      {/* USER/LEAGUE CONTEXT */}
+      <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
+        <div className="text-lg font-bold text-white">
+          User: <span className="text-yellow-400">{userInfo.username || '...'}</span>
+        </div>
+        <div className="text-lg font-bold text-white">
+          League: <span className="text-blue-400">{userInfo.leagueName || '...'}</span>
+        </div>
+      </div>
+
+      {/* SCORING RULES */}
+      {scoringRules.length > 0 && (
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4">
+          <div className="text-white font-bold mb-2">Scoring Rules</div>
+          <ul className="list-disc pl-6 text-slate-300 text-sm">
+            {scoringRules.map((rule, idx) => (
+              <li key={idx}>
+                <span className="font-bold text-yellow-400">{rule.category}:</span> {rule.description ? rule.description + ', ' : ''}{rule.points} pts
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-6 shadow-lg">
         <div className="flex flex-col xl:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-4 w-full xl:w-auto">
@@ -294,6 +341,9 @@ export default function MyTeam({ activeOwnerId }) {
         sortConfig={sortConfig}
         handleSort={handleSort}
       />
+
+      {/* Persistent Chat Advisor */}
+      <LeagueAdvisor />
     </div>
   );
 }

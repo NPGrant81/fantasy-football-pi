@@ -10,6 +10,19 @@ import apiClient from '@api/client';
 import ReactMarkdown from 'react-markdown';
 
 export default function ChatInterface({ initialQuery = '' }) {
+  // --- USER/LEAGUE CONTEXT ---
+  const [userInfo, setUserInfo] = useState({ username: '', leagueId: null });
+  useEffect(() => {
+    async function fetchUserLeague() {
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        setUserInfo({ username: userRes.data.username, leagueId: userRes.data.league_id });
+      } catch (err) {
+        setUserInfo({ username: '', leagueId: null });
+      }
+    }
+    fetchUserLeague();
+  }, []);
   // --- 1.1 STATE MANAGEMENT ---
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -36,6 +49,8 @@ export default function ChatInterface({ initialQuery = '' }) {
       // 2.1.2 EXECUTION: JSON body delivery (Standard-compliant)
       const res = await apiClient.post('/advisor/ask', {
         user_query: activeQuery,
+        username: userInfo.username,
+        league_id: userInfo.leagueId,
       });
 
       // 2.1.3 SUCCESS
@@ -90,7 +105,7 @@ export default function ChatInterface({ initialQuery = '' }) {
           </div>
 
           {/* MESSAGE VIEWPORT */}
-          <div className={`flex-1 overflow-y-auto p-4 space-y-4 h-[400px] custom-scrollbar ${bgColors.section}`}>
+          <div className={`flex-1 overflow-y-auto p-4 space-y-4 max-h-[350px] min-h-[200px] custom-scrollbar ${bgColors.section}`}> 
             {messages.map((msg, i) => (
               <div
                 key={i}

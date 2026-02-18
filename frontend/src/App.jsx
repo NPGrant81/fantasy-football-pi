@@ -181,7 +181,7 @@ function App() {
           <Route path="/commissioner" element={<CommissionerDashboard />} />
           <Route
             path="/waivers"
-            element={<Waivers activeOwnerId={activeOwnerId} />}
+            element={<Waivers activeOwnerId={activeOwnerId} username={username} leagueName={activeLeagueId} />}
           />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

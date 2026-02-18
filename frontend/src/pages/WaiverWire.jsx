@@ -9,7 +9,7 @@ import {
 } from '@components/waivers';
 import { ChatInterface } from '@components/chat';
 
-export default function WaiverWire({ token, ownerId }) {
+export default function WaiverWire({ token, ownerId, username, leagueName }) {
   // --- 1.1 STATE MANAGEMENT ---
   const [players, setPlayers] = useState([]);
   const [myRoster, setMyRoster] = useState([]); // Needed for the Drop Modal
@@ -42,6 +42,11 @@ export default function WaiverWire({ token, ownerId }) {
 
   useEffect(() => {
     if (token && ownerId) fetchWaivers();
+    // Timeout loading state after 10 seconds
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 10000);
+    return () => clearTimeout(timeout);
   }, [token, ownerId, fetchWaivers]);
 
   // --- 2.1 ACTION: CLAIM PLAYER ---
@@ -107,6 +112,9 @@ export default function WaiverWire({ token, ownerId }) {
           <p className="text-slate-500 mt-4 font-bold text-xs tracking-[0.2em]">
             AVAILABLE FREE AGENTS
           </p>
+          <div className="mt-2 text-slate-400 text-sm font-bold">
+            User: <span className="text-white">{username || 'Unknown'}</span> | League: <span className="text-yellow-400">{leagueName || 'Unknown'}</span>
+          </div>
         </div>
 
         <div className="flex gap-4 w-full md:w-auto">
