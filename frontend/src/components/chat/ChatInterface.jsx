@@ -1,7 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+// ESLint doesn't properly detect JSX component usage, so suppressions below
+// eslint-disable-next-line no-unused-vars
 import { FiSend } from 'react-icons/fi';
 import apiClient from '@api/client';
+// eslint-disable-next-line no-unused-vars
 import GeminiBadge from './GeminiBadge';
+// eslint-disable-next-line no-unused-vars
 import ReactMarkdown from 'react-markdown';
 
 export default function ChatInterface({ initialQuery = '' }) {
@@ -16,20 +20,8 @@ export default function ChatInterface({ initialQuery = '' }) {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef(null);
 
-  // --- 1.2 AUTO-SCROLL ENGINE ---
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
-
-  // --- 1.3 MOUNT ENGINE (Prompt-to-Window Transition) ---
-  useEffect(() => {
-    if (initialQuery) {
-      handleSendMessage(initialQuery);
-    }
-  }, []);
-
-  // --- 2.1 MESSAGE HANDLER ---
-  const handleSendMessage = async (queryOverride = null) => {
+  // --- 2.1 MESSAGE HANDLER (Defined early for use in effects) ---
+  const handleSendMessage = useCallback(async (queryOverride = null) => {
     const activeQuery = queryOverride || input;
     if (!activeQuery.trim() || isLoading) return;
 
@@ -58,7 +50,19 @@ export default function ChatInterface({ initialQuery = '' }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [input, isLoading]);
+
+  // --- 1.2 AUTO-SCROLL ENGINE ---
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
+
+  // --- 1.3 MOUNT ENGINE (Prompt-to-Window Transition) ---
+  useEffect(() => {
+    if (initialQuery) {
+      handleSendMessage(initialQuery);
+    }
+  }, [initialQuery, handleSendMessage]);
 
   // --- 3.1 RENDER: CONTAINER ---
   return (
@@ -87,13 +91,13 @@ export default function ChatInterface({ initialQuery = '' }) {
             >
               <ReactMarkdown
                 components={{
-                  strong: ({ node, ...props }) => (
+                  strong: ({ ...props }) => (
                     <span className="font-bold text-yellow-400" {...props} />
                   ),
-                  ul: ({ node, ...props }) => (
+                  ul: ({ ...props }) => (
                     <ul className="list-disc pl-5 space-y-1 my-2" {...props} />
                   ),
-                  li: ({ node, ...props }) => (
+                  li: ({ ...props }) => (
                     <li className="pl-1" {...props} />
                   ),
                 }}

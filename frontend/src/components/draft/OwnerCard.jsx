@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { normalizePos, getPosColor, POSITIONS } from '@utils';
+import { normalizePos, POSITIONS } from '@utils';
+import { getPosColor } from '../utils/uiHelpers';
 
 const OwnerCard = memo(
   ({ owner, stats, isNominator, isSelectedWinner, myPicks, players }) => {
@@ -88,7 +89,7 @@ const OwnerCard = memo(
                     {pos}
                   </span>
                   <span className="truncate font-bold tracking-tight text-white/90">
-                    {playerDetails?.name || pick.player_name}
+                    {playerDetails?.name || p.player_name}
                   </span>
                 </div>
                 <span className="font-mono font-black text-xs">

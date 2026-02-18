@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import apiClient from '@api/client';
@@ -17,6 +18,7 @@ import Dashboard from './pages/Dashboard';
 import DraftBoard from './pages/DraftBoard';
 import Waivers from './pages/WaiverWire';
 import SiteAdmin from './pages/SiteAdmin';
+/* eslint-enable no-unused-vars */
 
 function App() {
   // --- 1.1 GLOBAL STATE ---

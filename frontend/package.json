@@ -10,6 +10,7 @@
     "test:coverage": "vitest --coverage",
     "e2e": "cypress run",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "preview": "vite preview"
   },
   "dependencies": {

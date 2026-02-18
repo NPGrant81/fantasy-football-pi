@@ -1,4 +1,5 @@
-import { POSITIONS, getPosColor, normalizePos, MIN_BID } from '@utils';
+import { POSITIONS, normalizePos, MIN_BID } from '@utils';
+import { getPosColor } from '../utils/uiHelpers';
 
 export default function AuctionBlock({
   playerName,

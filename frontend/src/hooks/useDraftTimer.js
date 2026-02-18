@@ -29,8 +29,8 @@ export function useDraftTimer(initialTime = 10, onTimeUp) {
 
   // --- 1.3 THE HEARTBEAT (The Effect) ---
   useEffect(() => {
-    // 1.3.1 Only start interval if active and time remains
-    if (isActive && timeLeft > 0) {
+    // 1.3.1 Only start interval if active
+    if (isActive) {
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {

@@ -26,6 +26,7 @@ export default defineConfig([
       globals: {
         ...globals.browser,
         ...globals.node, // 3.1.1 Added Node globals to fix 'process' or '__dirname' warnings
+        ...globals.jest, // 3.1.2 Added Jest globals for test files
       },
       parserOptions: {
         ecmaVersion: 'latest',
@@ -53,6 +54,23 @@ export default defineConfig([
         'warn',
         { allowConstantExport: true },
       ],
+    },
+  },
+
+  // --- CYPRESS TEST FILES CONFIGURATION ---
+  {
+    files: ['cypress/**/*.js', 'cypress/**/*.jsx'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        cy: 'readonly',
+        Cypress: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'warn',
+      'no-undef': 'warn',
     },
   },
 ])
