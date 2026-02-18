@@ -1,7 +1,10 @@
 import types
 from datetime import datetime, timedelta
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.utils import trade_scheduler, league_calendar, email_sender, waiver_logic
+from utils import trade_scheduler, league_calendar, email_sender, waiver_logic
 
 
 def test_is_player_locked_future_and_past():
@@ -12,7 +15,7 @@ def test_is_player_locked_future_and_past():
 
 
 def test_is_transaction_window_open_monkeypatch(monkeypatch):
-    import backend.utils.league_calendar as lc
+    from utils import league_calendar as lc
 
     class FakeDT:
         @classmethod

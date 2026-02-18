@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 // Mock child components to keep App render surface-level and deterministic
@@ -46,6 +47,11 @@ describe('App (basic)', () => {
     expect(screen.getByText(/WAR ROOM LOGIN/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter username/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter password/i)).toBeInTheDocument();
+    // Test for new League ID input (from recent changes)
+    expect(screen.getByPlaceholderText(/Enter league ID/i)).toBeInTheDocument();
+    // Verify default league is set to "The Big Show" (ID 1)
+    const leagueInput = screen.getByDisplayValue('1');
+    expect(leagueInput).toBeInTheDocument();
   });
 
   test('uses token to fetch /auth/me and shows app when valid', async () => {
@@ -61,4 +67,39 @@ describe('App (basic)', () => {
     expect(localStorage.getItem('fantasyToken')).toBe('fake-token');
     expect(screen.getByTestId('layout')).toBeInTheDocument();
   });
-});
+
+  test('login form submission saves league ID from input (not from server)', async () => {
+    // Setup
+    apiClient.post.mockResolvedValue({
+      data: { access_token: 'new-token', owner_id: 42 },
+      // Note: No league_id in response - App must use form input instead
+    });
+    apiClient.get.mockResolvedValue({
+      data: { user_id: 42, username: 'testuser' },
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+
+    // Fill in the form with custom league ID
+    const usernameInput = screen.getByPlaceholderText(/Enter username/i);
+    const passwordInput = screen.getByPlaceholderText(/Enter password/i);
+    const leagueIdInput = screen.getByPlaceholderText(/Enter league ID/i);
+
+    await user.type(usernameInput, 'testuser');
+    await user.type(passwordInput, 'password');
+    await user.clear(leagueIdInput);
+    await user.type(leagueIdInput, '5'); // Change from default (1) to 5
+
+    // Submit form
+    const submitButton = screen.getByRole('button', { name: /ENTER/i });
+    await user.click(submitButton);
+
+    // Verify token endpoint was called
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/auth/token', expect.any(Object)));
+
+    // Verify league ID from form input is saved (not from server response)
+    await waitFor(() => {
+      expect(localStorage.getItem('fantasyLeagueId')).toBe('5');
+    });
+  });
