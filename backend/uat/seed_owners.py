@@ -34,16 +34,21 @@ def seed_owners(db: Session):
     for data in owner_list:
         exists = db.query(models.User).filter(models.User.username == data["username"]).first()
         if not exists:
+            is_commish = data["commish"]
+            is_superuser = data["commish"]
+            # Always ensure Nick Grant is commissioner and superuser
+            if data["username"] == "Nick Grant":
+                is_commish = True
+                is_superuser = True
             user = models.User(
                 username=data["username"],
                 email=data["email"],
                 hashed_password=get_password_hash("password"),
-                is_commissioner=data["commish"],
-                is_superuser=data["commish"],
+                is_commissioner=is_commish,
+                is_superuser=is_superuser,
                 league_id=league.id,
                 team_name=data["team"]
             )
             db.add(user)
-    
     db.commit()
-    print(f"✅ Owners seeded for '{league.name}'.")
+    print(f"✅ Owners seeded for '{league.name}'. All users have password 'password'.")
