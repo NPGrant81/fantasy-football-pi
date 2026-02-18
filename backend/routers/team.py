@@ -141,8 +141,15 @@ def get_any_team(
         models.DraftPick.league_id == owner.league_id
     ).all()
 
+    print(f"[DEBUG] /team/{owner_id} - Found {len(picks)} picks for owner {owner.username} (league_id={owner.league_id})")
+    for pick in picks:
+        print(f"[DEBUG] Pick: player_id={pick.player_id}, status={pick.current_status}, amount={pick.amount}, session_id={pick.session_id}")
+
     sorted_players = organize_roster(picks, db)
-    
+    print(f"[DEBUG] /team/{owner_id} - Roster after organize_roster: {len(sorted_players)} players")
+    for p in sorted_players:
+        print(f"[DEBUG] RosterPlayer: {p.name} ({p.position}) - {p.status} - Proj: {p.projected_points}")
+
     team_name = owner.team_name if owner.team_name else f"Team {owner.username}"
 
     return RosterView(

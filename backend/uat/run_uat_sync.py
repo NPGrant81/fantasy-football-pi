@@ -17,7 +17,11 @@ def run_uat():
     seed_owners(db)
     seed_players(db)
     seed_draft(db)
-    
+
+    # Always generate matchups after seeding
+    from uat.generate_matchups import run as generate_matchups
+    generate_matchups()
+
     print("✨ UAT SYNC COMPLETE. Ready for testing.")
     db.close()
 

@@ -64,7 +64,8 @@ def seed_draft(db: Session):
         for player in starters:
             db.add(models.DraftPick(
                 year=2026, current_status="STARTER", owner_id=owner.id, 
-                player_id=player.id, league_id=owner.league_id, amount=random.randint(15,60)
+                player_id=player.id, league_id=owner.league_id, amount=random.randint(15,60),
+                session_id="TEST_2026-UAT"
             ))
 
         # 2.1.3 BENCH: 5 Slots using safe logic
@@ -72,10 +73,10 @@ def seed_draft(db: Session):
             bench_pool = pools['RB'] + pools['WR'] + pools['TE']
             random.shuffle(bench_pool)
             bench_player = get_safe_player(db, bench_pool, 'BENCH', owner.id)
-            
             db.add(models.DraftPick(
                 year=2026, current_status="BENCH", owner_id=owner.id, 
-                player_id=bench_player.id, league_id=owner.league_id, amount=random.randint(1,10)
+                player_id=bench_player.id, league_id=owner.league_id, amount=random.randint(1,10),
+                session_id="TEST_2026-UAT"
             ))
     
     db.commit()
