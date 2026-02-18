@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+
 import {
   FiX,
   FiGrid,
@@ -7,13 +8,14 @@ import {
   FiTrendingUp,
   FiSettings,
 } from 'react-icons/fi';
+import { menuGradients, bgColors, textColors, borderColors } from '../utils/uiHelpers';
 
 // 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
-const MenuBlock = ({ to, title, desc, icon: Icon, colorClass, onClick }) => (
+const MenuBlock = ({ to, title, desc, icon: Icon, gradient, onClick }) => (
   <Link
     to={to}
     onClick={onClick}
-    className={`group relative overflow-hidden block w-full text-left p-4 mb-3 rounded-xl border border-slate-700 hover:border-white transition-all shadow-lg ${colorClass}`}
+    className={`group relative overflow-hidden block w-full text-left p-4 mb-3 rounded-xl border ${borderColors.main} hover:border-white transition-all shadow-lg ${gradient}`}
   >
     <div className="flex items-center gap-4 relative z-10">
       <div className="p-3 bg-black/20 rounded-lg text-white">
@@ -68,12 +70,13 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             Game Modes
           </div>
 
+
           <MenuBlock
             to="/draft"
             title="War Room"
             desc="Live Auction Draft"
             icon={FiGrid}
-            colorClass="bg-gradient-to-r from-yellow-600 to-yellow-500"
+            gradient={menuGradients.draft}
             onClick={onClose}
           />
 
@@ -82,7 +85,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="My Team"
             desc="Roster & Lineups"
             icon={FiUsers}
-            colorClass="bg-gradient-to-r from-green-700 to-green-600"
+            gradient={menuGradients.team}
             onClick={onClose}
           />
 
@@ -91,7 +94,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="Matchups"
             desc="Live Scoring"
             icon={FiActivity}
-            colorClass="bg-gradient-to-r from-red-700 to-red-600"
+            gradient={menuGradients.matchups}
             onClick={onClose}
           />
 
@@ -100,7 +103,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="Waiver Wire"
             desc="Bids & Free Agents"
             icon={FiTrendingUp}
-            colorClass="bg-gradient-to-r from-blue-700 to-blue-600"
+            gradient={menuGradients.waivers}
             onClick={onClose}
           />
 

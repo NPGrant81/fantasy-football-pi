@@ -14,7 +14,32 @@ export const getPosColor = (rawPos) => {
   return colors[pos] || 'text-gray-400 border-gray-700 bg-slate-900';
 };
 
-// --- 1.2 GRADIENTS & THEME COLORS ---
+// --- 1.2 COMMON TAILWIND COLOR CLASSES ---
+export const bgColors = {
+  main: 'bg-slate-900',
+  card: 'bg-slate-950',
+  header: 'bg-slate-950/50',
+  section: 'bg-slate-950/20',
+  accent: 'bg-blue-600',
+  warning: 'bg-yellow-500',
+  error: 'bg-red-500',
+};
+
+export const textColors = {
+  main: 'text-white',
+  secondary: 'text-slate-400',
+  accent: 'text-blue-600',
+  warning: 'text-yellow-500',
+  error: 'text-red-500',
+};
+
+export const borderColors = {
+  main: 'border-slate-800',
+  accent: 'border-blue-500',
+  warning: 'border-yellow-500',
+  error: 'border-red-500',
+};
+
 export const menuGradients = {
   draft: 'bg-gradient-to-r from-yellow-600 to-yellow-500',
   team: 'bg-gradient-to-r from-green-700 to-green-600',
@@ -22,4 +47,5 @@ export const menuGradients = {
   waivers: 'bg-gradient-to-r from-blue-700 to-blue-600',
 };
 
-// Add more UI helpers as needed
+// --- 1.3 Utility for combining classes ---
+export const combineClasses = (...classes) => classes.filter(Boolean).join(' ');

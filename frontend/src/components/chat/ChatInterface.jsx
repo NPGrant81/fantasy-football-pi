@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { bgColors, textColors, borderColors } from '../../utils/uiHelpers';
 // ESLint doesn't properly detect JSX component usage, so suppressions below
 // eslint-disable-next-line no-unused-vars
 import { FiSend } from 'react-icons/fi';
@@ -66,17 +67,17 @@ export default function ChatInterface({ initialQuery = '' }) {
 
   // --- 3.1 RENDER: CONTAINER ---
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl flex flex-col h-[500px] shadow-2xl overflow-hidden">
+    <div className={`${bgColors.main} border ${borderColors.main} rounded-2xl flex flex-col h-[500px] shadow-2xl overflow-hidden`}>
       {/* 3.2 HEADER */}
-      <div className="bg-slate-950/50 p-4 border-b border-slate-800 flex justify-between items-center">
-        <h3 className="font-black uppercase tracking-tighter text-white italic">
+      <div className={`${bgColors.header} p-4 border-b ${borderColors.main} flex justify-between items-center`}>
+        <h3 className={`font-black uppercase tracking-tighter ${textColors.main} italic`}>
           War Room Advisor
         </h3>
         <GeminiBadge />
       </div>
 
       {/* 3.3 MESSAGE VIEWPORT */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-950/20">
+      <div className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar ${bgColors.section}`}>
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -85,14 +86,14 @@ export default function ChatInterface({ initialQuery = '' }) {
             <div
               className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-900/20'
-                  : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700'
+                  ? `${bgColors.accent} ${textColors.main} rounded-tr-none shadow-lg shadow-blue-900/20`
+                  : `${bgColors.main} text-slate-200 rounded-tl-none border ${borderColors.main}`
               }`}
             >
               <ReactMarkdown
                 components={{
                   strong: ({ ...props }) => (
-                    <span className="font-bold text-yellow-400" {...props} />
+                    <span className={`font-bold ${textColors.warning}`} {...props} />
                   ),
                   ul: ({ ...props }) => (
                     <ul className="list-disc pl-5 space-y-1 my-2" {...props} />
@@ -111,7 +112,7 @@ export default function ChatInterface({ initialQuery = '' }) {
         {/* 3.4 LOADING INDICATOR */}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-slate-800 p-3 rounded-2xl rounded-tl-none border border-slate-700">
+            <div className={`${bgColors.main} p-3 rounded-2xl rounded-tl-none border ${borderColors.main}`}>
               <span className="flex gap-1">
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></span>
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
@@ -124,19 +125,19 @@ export default function ChatInterface({ initialQuery = '' }) {
       </div>
 
       {/* 3.5 INPUT AREA */}
-      <div className="p-4 bg-slate-900 border-t border-slate-800">
-        <div className="flex gap-2 bg-slate-950 p-1 rounded-xl border border-slate-700 focus-within:border-blue-500 transition-colors">
+      <div className={`p-4 ${bgColors.main} border-t ${borderColors.main}`}>
+        <div className={`flex gap-2 ${bgColors.card} p-1 rounded-xl border ${borderColors.main} focus-within:${borderColors.accent} transition-colors`}>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder="Search players or ask advice..."
-            className="flex-1 bg-transparent px-3 py-2 text-white text-sm outline-none"
+            className={`flex-1 bg-transparent px-3 py-2 ${textColors.main} text-sm outline-none`}
           />
           <button
             onClick={() => handleSendMessage()}
             disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg transition disabled:opacity-30 active:scale-95"
+            className={`${bgColors.accent} hover:bg-blue-500 ${textColors.main} p-2 rounded-lg transition disabled:opacity-30 active:scale-95`}
           >
             <FiSend />
           </button>
