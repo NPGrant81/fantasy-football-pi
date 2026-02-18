@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { bgColors, textColors, borderColors } from '../utils/uiHelpers';
+import { GeminiBadge } from './chat';
 // ESLint doesn't properly detect JSX component usage, so suppressions below
 // eslint-disable-next-line no-unused-vars
 import { FiSend } from 'react-icons/fi';
 import apiClient from '@api/client';
 // eslint-disable-next-line no-unused-vars
-import GeminiBadge from './GeminiBadge';
 // eslint-disable-next-line no-unused-vars
 import ReactMarkdown from 'react-markdown';
 

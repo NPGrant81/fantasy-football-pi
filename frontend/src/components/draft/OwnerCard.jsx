@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { normalizePos, POSITIONS } from '@utils';
-import { getPosColor } from '../utils/uiHelpers';
+import { getPosColor } from '../../utils/uiHelpers';
 
 const OwnerCard = memo(
   ({ owner, stats, isNominator, isSelectedWinner, myPicks, players }) => {

@@ -1,5 +1,5 @@
 import { normalizePos } from '@utils';
-import { getPosColor } from '../utils/uiHelpers';
+import { getPosColor } from '../../utils/uiHelpers';
 
 export default function DraftHistoryFeed({ history = [], owners = [] }) {
   // --- 1.1 DATA TRANSFORMATION ---

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { FiSearch, FiRefreshCw } from 'react-icons/fi';
+import GlobalSearch from '../components/GlobalSearch';
 import apiClient from '@api/client';
 import {
   WaiverTable,
@@ -109,16 +110,12 @@ export default function WaiverWire({ token, ownerId }) {
         </div>
 
         <div className="flex gap-4 w-full md:w-auto">
-          <div className="relative flex-grow md:w-80">
-            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              placeholder="SEARCH PLAYERS..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:border-yellow-500 outline-none transition"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+            <GlobalSearch
+              onPlayerSelect={(player) => {
+                setSearchQuery(player.name);
+                setActiveTab(player.position);
+              }}
             />
-          </div>
         </div>
       </div>
 

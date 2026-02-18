@@ -1,6 +1,6 @@
 // src/components/waivers/DropPlayerModal.jsx
 import React from 'react';
-import { getPosColor } from '../utils/uiHelpers';
+import { getPosColor } from '../../utils/uiHelpers';
 
 export default function DropPlayerModal({
   isOpen,

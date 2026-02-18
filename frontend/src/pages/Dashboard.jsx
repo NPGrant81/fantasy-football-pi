@@ -5,7 +5,8 @@ import { FiTrendingUp, FiRepeat, FiBell, FiPlus, FiList } from 'react-icons/fi';
 
 // Professional Imports
 import apiClient from '@api/client';
-import { getPosColor, normalizePos } from '@utils/draftHelpers';
+import { getPosColor } from '../utils/uiHelpers';
+import { normalizePos } from '../utils/draftHelpers';
 import { ChatInterface } from '@components/chat';
 
 export default function Dashboard({ ownerId }) {
