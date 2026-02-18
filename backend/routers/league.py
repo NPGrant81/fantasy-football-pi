@@ -122,9 +122,17 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
     # 1. Get Settings (Roster, Cap)
     settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league_id).first()
     if not settings:
-        settings = models.LeagueSettings(league_id=league_id)
+        # Provide robust defaults for all required fields
+        settings = models.LeagueSettings(
+            league_id=league_id,
+            roster_size=14,
+            salary_cap=200,
+            starting_slots={"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1},
+            waiver_deadline=None
+        )
         db.add(settings)
         db.commit()
+        db.refresh(settings)
     
     # 2. Get Scoring Rules (Points)
     rules = db.query(models.ScoringRule).filter(models.ScoringRule.league_id == league_id).all()

@@ -14,10 +14,10 @@ import MyTeam from './pages/MyTeam';
 import Matchups from './pages/Matchups';
 import GameCenter from './pages/GameCenter';
 import CommissionerDashboard from './pages/CommissionerDashboard';
-import Dashboard from './pages/Dashboard';
+import Home from './pages/Home';
 import DraftBoard from './pages/DraftBoard';
 import Waivers from './pages/WaiverWire';
-import SiteAdmin from './pages/SiteAdmin';
+import SiteAdmin from './pages/admin/SiteAdmin';
 /* eslint-enable no-unused-vars */
 
 function App() {
@@ -33,6 +33,7 @@ function App() {
 
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
+  const [leagueInput, setLeagueInput] = useState('1'); // Default to "The Big Show" (league ID 1)
   const [error, setError] = useState('');
 
   // --- 1.2 LOGOUT (Stable reference for effects) ---
@@ -76,15 +77,15 @@ function App() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
 
-      const { access_token, owner_id, league_id } = response.data;
+      const { access_token, owner_id } = response.data;
 
       localStorage.setItem('fantasyToken', access_token);
       localStorage.setItem('user_id', owner_id);
-      localStorage.setItem('fantasyLeagueId', league_id);
+      localStorage.setItem('fantasyLeagueId', leagueInput); // Use user-provided league ID
 
       setToken(access_token);
       setActiveOwnerId(owner_id);
-      setActiveLeagueId(league_id);
+      setActiveLeagueId(leagueInput);
     } catch (err) {
       console.error('Login Error:', err);
       setError('Login Failed. Check credentials.');
@@ -136,6 +137,19 @@ function App() {
                 placeholder="Enter password"
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                League ID
+              </label>
+              <input
+                type="number"
+                className="w-full p-3 rounded bg-slate-900 border border-slate-600 text-white focus:border-yellow-500 outline-none"
+                value={leagueInput}
+                onChange={(e) => setLeagueInput(e.target.value)}
+                placeholder="Enter league ID (default: 1)"
+              />
+              <p className="text-xs text-slate-500 mt-1">Default: 1 (The Big Show)</p>
+            </div>
           </div>
           <button
             type="submit"
@@ -169,7 +183,7 @@ function App() {
         onLogout={handleLogout}
       >
         <Routes>
-          <Route path="/" element={<Dashboard ownerId={activeOwnerId} />} />
+          <Route path="/" element={<Home username={username} />} />
           <Route
             path="/draft"
             element={<DraftBoard token={token} activeOwnerId={activeOwnerId} activeLeagueId={activeLeagueId} />}

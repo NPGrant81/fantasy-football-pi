@@ -1,8 +1,27 @@
 // frontend/src/pages/Home.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import apiClient from '@api/client';
 import { FiAward, FiActivity } from 'react-icons/fi';
 
 export default function Home({ username }) {
+  const [standings, setStandings] = useState([]);
+  const [news, setNews] = useState([]);
+  const [leagueName, setLeagueName] = useState('');
+  const leagueId = localStorage.getItem('fantasyLeagueId');
+
+  useEffect(() => {
+    if (!leagueId) return;
+    // Fetch league name
+    apiClient.get(`/leagues/${leagueId}`)
+      .then(res => setLeagueName(res.data.name))
+      .catch(() => setLeagueName('League'));
+    // Fetch standings (owners, sorted by points for desc, then W-L)
+    apiClient.get(`/leagues/owners?league_id=${leagueId}`)
+      .then(res => setStandings(res.data))
+      .catch(() => setStandings([]));
+    // Fetch news (stub: replace with real endpoint if available)
+    apiClient.get(`/leagues/${leagueId}/news`).then(res => setNews(res.data)).catch(() => setNews([]));
+  }, [leagueId]);
   // --- 1.1 CONFIGURATION ---
   // Note: This page currently serves as a static landing.
   // Future 1.2 Data Retrieval for "League News" will go here.
@@ -12,7 +31,7 @@ export default function Home({ username }) {
       {/* 2.1 WELCOME BANNER */}
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-6 shadow-lg">
         <h1 className="text-3xl font-black text-white italic tracking-tighter">
-          LEAGUE DASHBOARD
+          {leagueName ? leagueName.toUpperCase() : 'LEAGUE DASHBOARD'}
         </h1>
         <p className="text-slate-400 mt-1">
           Welcome back, <span className="text-white font-bold">{username}</span>
@@ -41,27 +60,21 @@ export default function Home({ username }) {
                 <tr>
                   <th className="px-4 py-3">Rank</th>
                   <th className="px-4 py-3">Team</th>
-                  <th className="px-4 py-3">W-L</th>
-                  <th className="px-4 py-3">PF</th>
+                  <th className="px-4 py-3">Owner</th>
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-slate-800 hover:bg-slate-800/50">
-                  <td className="px-4 py-3 font-bold text-yellow-500">1</td>
-                  <td className="px-4 py-3 font-medium text-white">
-                    Team Crossland
-                  </td>
-                  <td className="px-4 py-3">0-0</td>
-                  <td className="px-4 py-3">0.00</td>
-                </tr>
-                <tr className="border-b border-slate-800 hover:bg-slate-800/50">
-                  <td className="px-4 py-3 font-bold text-slate-400">2</td>
-                  <td className="px-4 py-3 font-medium text-white">
-                    Team Grant
-                  </td>
-                  <td className="px-4 py-3">0-0</td>
-                  <td className="px-4 py-3">0.00</td>
-                </tr>
+                {standings.length > 0 ? (
+                  standings.map((owner, idx) => (
+                    <tr key={owner.id} className="border-b border-slate-800 hover:bg-slate-800/50">
+                      <td className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-400'}`}>{idx + 1}</td>
+                      <td className="px-4 py-3 font-medium text-white">{owner.team_name || owner.username}</td>
+                      <td className="px-4 py-3">{owner.username}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan={3} className="text-center py-6 text-slate-500">No owners found for this league.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -76,17 +89,14 @@ export default function Home({ username }) {
             </h2>
           </div>
           <div className="space-y-4">
-            <div className="text-sm border-l-2 border-green-500 pl-3">
-              <div className="text-slate-300 font-bold">New League Created</div>
-              <div className="text-slate-500 text-xs">Today at 9:00 AM</div>
-            </div>
-            <div className="text-sm border-l-2 border-yellow-500 pl-3">
-              <div className="text-slate-300 font-bold">Draft Scheduled</div>
-              <div className="text-slate-500 text-xs">Tuesday at 8:00 PM</div>
-            </div>
-            <div className="text-center text-xs text-slate-600 mt-4 italic">
-              End of feed
-            </div>
+            {news.length > 0 ? news.map((item, idx) => (
+              <div key={idx} className={`text-sm border-l-2 pl-3 ${item.type === 'info' ? 'border-green-500' : 'border-yellow-500'}`}>
+                <div className="text-slate-300 font-bold">{item.title}</div>
+                <div className="text-slate-500 text-xs">{item.timestamp}</div>
+              </div>
+            )) : (
+              <div className="text-center text-xs text-slate-600 mt-4 italic">End of feed</div>
+            )}
           </div>
         </div>
       </div>

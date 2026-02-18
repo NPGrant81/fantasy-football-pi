@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import apiClient from '@api/client';
 
 import {
   FiX,
@@ -8,6 +10,7 @@ import {
   FiTrendingUp,
   FiSettings,
   FiShield,
+  FiHome,
 } from 'react-icons/fi';
 import { menuGradients, bgColors, textColors, borderColors } from '../utils/uiHelpers';
 
@@ -37,6 +40,19 @@ const MenuBlock = ({ to, title, desc, icon: Icon, gradient, onClick }) => (
 );
 
 export default function Sidebar({ isOpen, onClose, username, leagueId }) {
+  const [leagueName, setLeagueName] = useState('');
+  const [isCommissioner, setIsCommissioner] = useState(false);
+
+  useEffect(() => {
+    if (leagueId) {
+      apiClient.get(`/leagues/${leagueId}`)
+        .then(res => setLeagueName(res.data.name))
+        .catch(() => setLeagueName('League'));
+    }
+    apiClient.get('/auth/me')
+      .then(res => setIsCommissioner(res.data.is_commissioner))
+      .catch(() => setIsCommissioner(false));
+  }, [leagueId]);
   return (
     <>
       <div
@@ -58,7 +74,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
               FANTASY<span className="text-yellow-500">Pi</span>
             </h2>
           </div>
-          <p className="text-xs text-slate-500">League ID: {leagueId}</p>
+          <p className="text-xs text-slate-500">{leagueName ? leagueName : 'League'}</p>
           <button
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full"
@@ -68,10 +84,19 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+          <div className="mb-2">
+            <MenuBlock
+              to="/"
+              title="Home"
+              desc="League Dashboard"
+              icon={FiHome}
+              gradient={menuGradients.team}
+              onClick={onClose}
+            />
+          </div>
           <div className="text-xs font-bold text-slate-500 uppercase mb-3 ml-1">
             Game Modes
           </div>
-
 
           <MenuBlock
             to="/draft"
@@ -114,13 +139,15 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             Settings
           </div>
 
-          <Link
-            to="/commissionerdashboard"
-            onClick={onClose}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
-          >
-            <FiShield className="text-yellow-400" /> <span>Commissioner</span>
-          </Link>
+          {isCommissioner && (
+            <Link
+              to="/commissioner"
+              onClick={onClose}
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+            >
+              <FiShield className="text-yellow-400" /> <span>Commissioner</span>
+            </Link>
+          )}
 
           <Link
             to="/admin"

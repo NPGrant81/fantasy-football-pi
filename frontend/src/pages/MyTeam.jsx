@@ -227,14 +227,18 @@ export default function MyTeam({ activeOwnerId }) {
         .get(`/team/${activeOwnerId}`)
         .then((res) => {
           setTeamData(res.data);
-          const processedRoster = res.data.roster.map((p) => ({
+          const roster = Array.isArray(res.data.roster) ? res.data.roster : [];
+          const processedRoster = roster.map((p) => ({
             ...p,
             status: p.status || 'BENCH',
             position_rank: POS_RANK[p.position] || 99,
           }));
           setRosterState(processedRoster);
         })
-        .catch((err) => console.error('Roster fetch failed', err))
+        .catch((err) => {
+          setRosterState([]);
+          console.error('Roster fetch failed', err)
+        })
         .finally(() => setLoading(false));
     }
   }, [activeOwnerId]);

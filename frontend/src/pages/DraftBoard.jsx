@@ -114,7 +114,13 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
   useEffect(() => {
     if (token && activeLeagueId) {
-      apiClient.get(`/leagues/owners?league_id=${activeLeagueId}`).then((res) => setOwners(res.data));
+      const leagueIdInt = parseInt(activeLeagueId, 10);
+      if (!isNaN(leagueIdInt)) {
+        apiClient.get(`/leagues/owners?league_id=${leagueIdInt}`).then((res) => setOwners(res.data));
+      } else {
+        setOwners([]);
+        console.error('Invalid league_id:', activeLeagueId);
+      }
       apiClient.get('/players/').then((res) => setPlayers(res.data));
       fetchHistory();
       // Fetch league name and user info
