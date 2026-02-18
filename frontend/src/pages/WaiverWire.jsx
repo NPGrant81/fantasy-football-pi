@@ -17,6 +17,7 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
   const [processingId, setProcessingId] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [waiverDeadline, setWaiverDeadline] = useState(null); // New state for waiver deadline
 
   // Modal State
   const [isDropModalOpen, setIsDropModalOpen] = useState(false);
@@ -42,12 +43,26 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
 
   useEffect(() => {
     if (token && ownerId) fetchWaivers();
+    // Fetch waiver deadline from league settings
+    const fetchWaiverDeadline = async () => {
+      try {
+        // Try to get leagueId from leagueName if possible, else skip
+        // If leagueName is actually the league ID, use it directly
+        if (leagueName) {
+          const res = await apiClient.get(`/leagues/${leagueName}/settings`);
+          setWaiverDeadline(res.data.waiver_deadline);
+        }
+      } catch (err) {
+        setWaiverDeadline(null);
+      }
+    };
+    fetchWaiverDeadline();
     // Timeout loading state after 10 seconds
     const timeout = setTimeout(() => {
       setLoading(false);
     }, 10000);
     return () => clearTimeout(timeout);
-  }, [token, ownerId, fetchWaivers]);
+  }, [token, ownerId, fetchWaivers, leagueName]);
 
   // --- 2.1 ACTION: CLAIM PLAYER ---
   const handleClaim = async (player) => {
@@ -82,6 +97,9 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
       await apiClient.post('/waivers/drop', { player_id: playerToDropId });
 
       // 2.2.2 Immediately claim the new player
+          {waiverDeadline && (
+            <div className="mt-1 text-xs text-blue-300 font-mono">Waivers process every Wednesday at 10am ET</div>
+          )}
       await handleClaim(pendingPlayer);
 
       // 2.2.3 Close modal and refresh roster
@@ -114,6 +132,9 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
           </p>
           <div className="mt-2 text-slate-400 text-sm font-bold">
             User: <span className="text-white">{username || 'Unknown'}</span> | League: <span className="text-yellow-400">{leagueName || 'Unknown'}</span>
+            {waiverDeadline && (
+              <div className="mt-1 text-xs text-blue-300 font-mono">Waiver Deadline: {waiverDeadline}</div>
+            )}
           </div>
         </div>
 

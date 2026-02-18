@@ -102,7 +102,7 @@ function App() {
           className="bg-slate-800 p-8 rounded-lg shadow-2xl w-96 border border-slate-700"
         >
           <div className="flex flex-col items-center mb-6">
-            <img src={require('./assets/react.svg')} alt="FantasyFootball-PI Logo" className="w-16 h-16 mb-2" />
+            <img src={import.meta.env.BASE_URL + 'src/assets/react.svg'} alt="FantasyFootball-PI Logo" className="w-16 h-16 mb-2" />
             <h2 className="text-3xl font-black text-center text-yellow-500 tracking-tighter">
               FantasyFootball-PI Login
             </h2>

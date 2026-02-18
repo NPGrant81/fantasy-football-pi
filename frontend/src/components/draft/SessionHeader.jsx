@@ -1,6 +1,6 @@
 import { FiClock, FiUsers, FiAlertTriangle } from 'react-icons/fi';
 
-export default function SessionHeader({ sessionId, rosterSize, onFinalize }) {
+export default function SessionHeader({ sessionId, rosterSize, leagueName, isCommissioner, leagueId, onFinalize }) {
   // --- 1.1 SAFETY LOGIC ---
   const handleFinalize = () => {
     if (
@@ -32,16 +32,23 @@ export default function SessionHeader({ sessionId, rosterSize, onFinalize }) {
             <span className="text-blue-400 font-mono ml-1">{rosterSize}</span>
           </span>
         </div>
+        {leagueName && (
+          <div className="flex items-center gap-2 group">
+            <span className="text-yellow-400 font-black">{leagueName}</span>
+          </div>
+        )}
       </div>
 
       {/* 2.3 ADMINISTRATIVE ACTIONS */}
-      <button
-        onClick={handleFinalize}
-        className="group flex items-center gap-2 bg-red-950/40 hover:bg-red-600 border border-red-900/50 hover:border-red-400 text-red-500 hover:text-white px-4 py-1.5 rounded-full transition-all duration-300"
-      >
-        <FiAlertTriangle className="text-xs group-hover:animate-bounce" />
-        <span className="tracking-widest">End Draft Session</span>
-      </button>
+      {isCommissioner && (
+        <button
+          onClick={handleFinalize}
+          className="group flex items-center gap-2 bg-red-950/40 hover:bg-red-600 border border-red-900/50 hover:border-red-400 text-red-500 hover:text-white px-4 py-1.5 rounded-full transition-all duration-300"
+        >
+          <FiAlertTriangle className="text-xs group-hover:animate-bounce" />
+          <span className="tracking-widest">End Draft Session</span>
+        </button>
+      )}
     </div>
   );
 }

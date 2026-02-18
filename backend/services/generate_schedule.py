@@ -81,9 +81,6 @@ def generate_schedule():
                 away_team_id=a.id,
                 home_score=0.0,
                 away_score=0.0,
-                # NEW: Mock Projections (100-140 points)
-                home_projected=round(random.uniform(95, 145), 2),
-                away_projected=round(random.uniform(95, 145), 2),
                 is_completed=False
             )
             db.add(matchup)

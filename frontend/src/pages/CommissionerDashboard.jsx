@@ -115,64 +115,39 @@ export default function CommissionerDashboard() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto text-white">
-      {/* 2.2 HEADER */}
-      <div className="flex justify-between items-center mb-10 border-b border-slate-800 pb-6">
-        <div className="flex items-center gap-4">
-          {view !== 'menu' && (
-            <button
-              onClick={() => setView('menu')}
-              className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition"
-            >
-              <FiChevronLeft size={20} />
-            </button>
-          )}
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter">
-            Commissioner Control
-          </h1>
+    <div className="p-8 max-w-3xl mx-auto text-white">
+      <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-8">Commissioner Control Panel</h1>
+      {/* Commissioner Modals */}
+      <div className="space-y-6">
+        {/* Scoring Rules Modal Stub */}
+        <div className="bg-slate-900 border border-purple-700 rounded-xl p-6">
+          <h2 className="text-2xl font-bold text-purple-400 mb-2 flex items-center gap-2"><FiSettings /> Set Scoring Rules</h2>
+          <p className="text-slate-400 mb-2">Configure how points are awarded for all league actions.</p>
+          {/* TODO: Implement scoring rules modal */}
+          <button className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded font-bold">Edit Scoring Rules</button>
         </div>
-        {unsavedChanges && (
-          <button
-            onClick={saveSettings}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-black px-6 py-2 rounded-lg font-black uppercase transition shadow-[0_0_15px_rgba(22,163,74,0.4)]"
-          >
-            <FiSave /> Save Changes
-          </button>
-        )}
+        {/* Owner Management Modal Stub */}
+        <div className="bg-slate-900 border border-blue-700 rounded-xl p-6">
+          <h2 className="text-2xl font-bold text-blue-400 mb-2 flex items-center gap-2"><FiUsers /> Invite/Manage Team Owners</h2>
+          <p className="text-slate-400 mb-2">Invite new owners, manage teams, and verify league access.</p>
+          {/* TODO: Implement owner management modal */}
+          <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold">Manage Owners</button>
+        </div>
+        {/* Waiver Wire Rules Modal Stub */}
+        <div className="bg-slate-900 border border-green-700 rounded-xl p-6">
+          <h2 className="text-2xl font-bold text-green-400 mb-2 flex items-center gap-2"><FiActivity /> Set Waiver Wire Rules</h2>
+          <p className="text-slate-400 mb-2">Set rules for waiver claims, priorities, and deadlines.</p>
+          {/* TODO: Implement waiver wire rules modal */}
+          <button className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold">Edit Waiver Rules</button>
+        </div>
+        {/* Trade Rules Modal Stub */}
+        <div className="bg-slate-900 border border-yellow-700 rounded-xl p-6">
+          <h2 className="text-2xl font-bold text-yellow-400 mb-2 flex items-center gap-2"><FiShield /> Set Trade Rules</h2>
+          <p className="text-slate-400 mb-2">Configure trade review, veto, and deadlines.</p>
+          {/* TODO: Implement trade rules modal */}
+          <button className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded font-bold">Edit Trade Rules</button>
+        </div>
       </div>
-
-      {/* 2.3 VIEW LOGIC */}
-      {view === 'menu' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <button
-            onClick={() => setView('scoring')}
-            className="p-10 bg-slate-900 border border-slate-800 rounded-[2rem] hover:border-purple-500 transition text-left group"
-          >
-            <FiSettings className="text-4xl text-purple-500 mb-4 group-hover:scale-110 transition" />
-            <h2 className="text-2xl font-bold uppercase tracking-tight">
-              Scoring Rules
-            </h2>
-            <p className="text-slate-500 mt-2">
-              Adjust yardage points, TD values, and bonus thresholds.
-            </p>
-          </button>
-
-          <button
-            onClick={() => setView('users')}
-            className="p-10 bg-slate-900 border border-slate-800 rounded-[2rem] hover:border-blue-500 transition text-left group"
-          >
-            <FiUsers className="text-4xl text-blue-500 mb-4 group-hover:scale-110 transition" />
-            <h2 className="text-2xl font-bold uppercase tracking-tight">
-              Owner Management
-            </h2>
-            <p className="text-slate-500 mt-2">
-              Add new owners, manage teams, and verify league access.
-            </p>
-          </button>
-        </div>
-      )}
-
-      {/* Logic for 'scoring' and 'users' views would follow here... */}
     </div>
   );
 }

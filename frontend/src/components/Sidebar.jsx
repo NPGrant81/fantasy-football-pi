@@ -53,7 +53,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
       >
         <div className="p-6 flex justify-between items-center border-b border-slate-800 bg-slate-950">
           <div className="flex items-center gap-2">
-            <img src={require('../assets/react.svg')} alt="FantasyFootball-PI Logo" className="w-7 h-7" />
+            <img src={import.meta.env.BASE_URL + 'src/assets/react.svg'} alt="FantasyFootball-PI Logo" className="w-7 h-7" />
             <h2 className="text-2xl font-black text-white tracking-tighter">
               FANTASY<span className="text-yellow-500">Pi</span>
             </h2>

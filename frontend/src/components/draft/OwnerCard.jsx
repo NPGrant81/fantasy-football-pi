@@ -36,30 +36,10 @@ const OwnerCard = memo(
                 isNominator ? 'text-blue-300' : 'text-slate-100'
               }`}
             >
-              {owner.username}
+              {owner.team_name || owner.username}
             </div>
-
-            {/* Position Trackers */}
-            <div className="flex flex-wrap gap-1 mt-2">
-              {POSITIONS.map((pos) => {
-                const count = stats.posCounts?.[pos] || 0;
-                return (
-                  <span
-                    key={pos}
-                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
-                      count > 0
-                        ? 'bg-slate-700 text-white border-slate-500'
-                        : 'text-slate-600 border-transparent opacity-50'
-                    }`}
-                  >
-                    {pos}:{count}
-                  </span>
-                );
-              })}
-            </div>
+            <div className="text-xs text-slate-400 font-mono truncate">Owner: {owner.username}</div>
           </div>
-
-          {/* Financials */}
           <div className="text-right w-1/3">
             <div
               className={`text-2xl font-mono font-black leading-none ${
@@ -82,19 +62,22 @@ const OwnerCard = memo(
             return (
               <div
                 key={p.id}
-                className={`flex justify-between items-center p-2 rounded-lg border text-sm animate-in fade-in slide-in-from-bottom-1 ${getPosColor(pos)}`}
+                className={`flex flex-col gap-1 p-2 rounded-lg border text-xs animate-in fade-in slide-in-from-bottom-1 ${getPosColor(pos)}`}
               >
-                <div className="flex gap-2 items-center truncate">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold tracking-tight text-white/90">
+                    {playerDetails?.name || p.player_name}
+                  </span>
+                  <span className="font-mono font-black text-xs text-green-400">
+                    ${p.amount}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-slate-400">
                   <span className="font-black text-[9px] uppercase px-1.5 py-0.5 bg-black/20 rounded border border-white/10">
                     {pos}
                   </span>
-                  <span className="truncate font-bold tracking-tight text-white/90">
-                    {playerDetails?.name || p.player_name}
-                  </span>
+                  <span>Bye: {playerDetails?.bye_week ?? '--'}</span>
                 </div>
-                <span className="font-mono font-black text-xs">
-                  ${p.amount}
-                </span>
               </div>
             );
           })}

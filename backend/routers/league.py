@@ -44,7 +44,8 @@ class LeagueConfigFull(BaseModel):
     roster_size: int
     salary_cap: int
     starting_slots: Dict[str, int]
-    scoring_rules: List[ScoringRuleSchema]    
+    waiver_deadline: Optional[str] = None
+    scoring_rules: List[ScoringRuleSchema]
 
 # --- Endpoints ---
 
@@ -62,10 +63,9 @@ def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="League not found")
     return LeagueSummary(id=league.id, name=league.name)
 
+
 # --- NEW: GET /league/owners?league_id= ---
 # This is a GET endpoint to match the frontend call, but is defined here for convenience.
-from fastapi import APIRouter as _APIRouter
-@_APIRouter(prefix="/league", tags=["League"])
 @router.get("/owners")
 def get_league_owners(league_id: int = Query(...), db: Session = Depends(get_db)):
     league = db.query(models.League).filter(models.League.id == league_id).first()
@@ -149,6 +149,7 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
         roster_size=settings.roster_size,
         salary_cap=settings.salary_cap,
         starting_slots=settings.starting_slots or {},
+        waiver_deadline=settings.waiver_deadline,
         scoring_rules=[
             ScoringRuleSchema(category=r.category, description=r.description, points=r.points) 
             for r in rules
@@ -167,6 +168,7 @@ def update_league_settings(
     settings.roster_size = config.roster_size
     settings.salary_cap = config.salary_cap
     settings.starting_slots = config.starting_slots
+    settings.waiver_deadline = config.waiver_deadline
     
     # 2. Update Rules (Nuclear Option: Delete old, add new)
     # This is the easiest way to handle edits/deletes without complex logic

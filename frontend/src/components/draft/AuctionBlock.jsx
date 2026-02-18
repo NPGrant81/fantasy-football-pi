@@ -82,9 +82,13 @@ export default function AuctionBlock({
         </label>
         <select
           className="w-full bg-slate-900 text-white border border-slate-700 rounded p-1.5 text-sm font-bold mb-2 outline-none focus:border-yellow-500"
-          value={winnerId || ''}
+          value={owners.some((o) => o.id === winnerId) ? winnerId : ''}
           onChange={(e) => setWinnerId(parseInt(e.target.value))}
+          disabled={owners.length === 0}
         >
+          <option value="" disabled>
+            {owners.length === 0 ? 'No owners available' : 'Select Owner'}
+          </option>
           {owners.map((o) => (
             <option key={o.id} value={o.id}>
               {o.username}

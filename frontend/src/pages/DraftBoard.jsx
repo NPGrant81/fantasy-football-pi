@@ -24,6 +24,9 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     if (activeLeagueId) return `LEAGUE_${activeLeagueId}`;
     return `TEST_${new Date().toISOString().slice(0, 10)}`;
   });
+  const [leagueName, setLeagueName] = useState('');
+  const [isCommissioner, setIsCommissioner] = useState(false);
+  const [username, setUsername] = useState('');
   const [history, setHistory] = useState([]);
   const [playerName, setPlayerName] = useState('');
   const [bidAmount, setBidAmount] = useState(1);
@@ -111,9 +114,18 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
   useEffect(() => {
     if (token && activeLeagueId) {
-      apiClient.get(`/league/owners?league_id=${activeLeagueId}`).then((res) => setOwners(res.data));
+      apiClient.get(`/leagues/owners?league_id=${activeLeagueId}`).then((res) => setOwners(res.data));
       apiClient.get('/players/').then((res) => setPlayers(res.data));
       fetchHistory();
+      // Fetch league name and user info
+      apiClient.get(`/leagues/${activeLeagueId}`).then((res) => setLeagueName(res.data.name)).catch(() => setLeagueName('League'));
+      apiClient.get('/auth/me').then((res) => {
+        setIsCommissioner(res.data.is_commissioner);
+        setUsername(res.data.username);
+      }).catch(() => {
+        setIsCommissioner(false);
+        setUsername('');
+      });
       const interval = setInterval(fetchHistory, 3000);
       return () => clearInterval(interval);
     }
@@ -137,9 +149,8 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       <div className="max-w-[1800px] mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* USER/LEAGUE CONTEXT */}
         <div className="mb-4 text-xs text-slate-400">
-          <span>User ID: {activeOwnerId} </span>
-          <span className="ml-4">League ID: {activeLeagueId}</span>
-          <span className="ml-4">Session: {sessionId}</span>
+          <span>User: <span className="font-bold text-blue-300">{username || '...'}</span></span>
+          <span className="ml-4">League: <span className="font-bold text-yellow-400">{leagueName || '...'}</span></span>
         </div>
         {/* LEFT COLUMN */}
         <div className="lg:col-span-9 space-y-6">
@@ -147,6 +158,9 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             <SessionHeader
               sessionId={sessionId}
               rosterSize={ROSTER_SIZE}
+              leagueName={leagueName}
+              isCommissioner={isCommissioner}
+              leagueId={activeLeagueId}
               onFinalize={() => {}}
             />
             <AuctionBlock
@@ -178,27 +192,33 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {owners.map((owner) => (
-              <OwnerCard
-                key={owner.id}
-                owner={owner}
-                stats={getOwnerStats(owner.id, history, players)}
-                isNominator={owner.id === currentNominatorId}
-                isSelectedWinner={owner.id === winnerId}
-                myPicks={history.filter((h) => h.owner_id === owner.id)}
-                players={players}
-              />
-            ))}
+            {owners.length > 0 ? (
+              owners.map((owner) => (
+                <OwnerCard
+                  key={owner.id}
+                  owner={owner}
+                  stats={getOwnerStats(owner.id, history, players)}
+                  isNominator={owner.id === currentNominatorId}
+                  isSelectedWinner={owner.id === winnerId}
+                  myPicks={history.filter((h) => h.owner_id === owner.id)}
+                  players={players}
+                />
+              ))
+            ) : (
+              <div className="col-span-full text-center text-slate-500 py-10 text-lg font-bold">No owners found for this league.</div>
+            )}
           </div>
         </div>
 
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-3">
           <div className="sticky top-4 h-[calc(100vh-2rem)]">
-            <DraftHistoryFeed history={history} owners={owners} />
+            {/* DraftHistoryFeed moved to ticker at bottom */}
           </div>
         </div>
       </div>
+      {/* Horizontal Draft Ticker */}
+      <DraftHistoryFeed history={history} owners={owners} />
     </div>
   );
 }
