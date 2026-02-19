@@ -25,6 +25,7 @@ class User(Base):
     claims = relationship("WaiverClaim", back_populates="user")
     home_matches = relationship("Matchup", foreign_keys="Matchup.home_team_id", back_populates="home_team")
     away_matches = relationship("Matchup", foreign_keys="Matchup.away_team_id", back_populates="away_team")
+    bug_reports = relationship("BugReport", back_populates="user")
 
 # --- 2. LEAGUE TABLE ---
 class League(Base):
@@ -134,3 +135,18 @@ class WaiverClaim(Base):
     league = relationship("League", back_populates="waiver_claims")
     target_player = relationship("Player", foreign_keys=[player_id])
     drop_player = relationship("Player", foreign_keys=[drop_player_id])
+
+# --- 9. BUG REPORTS ---
+class BugReport(Base):
+    __tablename__ = "bug_reports"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    email = Column(String, nullable=True)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    page_url = Column(String, nullable=True)
+    severity = Column(String, nullable=True)
+    status = Column(String, default="OPEN")
+    created_at = Column(String, nullable=True)
+
+    user = relationship("User", back_populates="bug_reports")

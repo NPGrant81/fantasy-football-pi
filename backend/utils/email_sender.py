@@ -60,3 +60,54 @@ def send_invite_email(to_email, username, temp_password):
     except Exception as e:
         print(f"❌ Failed to send email: {e}")
         return False
+
+
+def send_bug_report_email(report, support_email=None):
+    """
+    Sends a bug report email to the support inbox.
+    """
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+    sender_email = os.getenv("MAIL_USERNAME")
+    sender_password = os.getenv("MAIL_PASSWORD")
+    support_email = support_email or os.getenv("SUPPORT_EMAIL", "nicholaspgrant@gmail.com")
+
+    subject = f"Bug Report: {report['title']}"
+    body = f"""
+    <div style="font-family: Arial, sans-serif; color: #333;">
+        <h2>New Bug Report</h2>
+        <p><strong>Title:</strong> {report['title']}</p>
+        <p><strong>Description:</strong><br/>{report['description']}</p>
+        <p><strong>Severity:</strong> {report.get('severity') or 'Not specified'}</p>
+        <p><strong>Page:</strong> {report.get('page_url') or 'Not provided'}</p>
+        <p><strong>Reporter Email:</strong> {report.get('email') or 'Not provided'}</p>
+        <p><strong>Reported At:</strong> {report.get('created_at') or 'Just now'}</p>
+    </div>
+    """
+
+    if not sender_email or not sender_password:
+        print("\n" + "=" * 50)
+        print(f"📧 [SIMULATION] Bug Report Email to: {support_email}")
+        print(f"🪲 Title: {report['title']}")
+        print(f"📝 Description: {report['description']}")
+        print(f"🔗 Page: {report.get('page_url') or 'Not provided'}")
+        print(f"📨 Reporter Email: {report.get('email') or 'Not provided'}")
+        print("=" * 50 + "\n")
+        return True
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = support_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'html'))
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"❌ Failed to send bug report email: {e}")
+        return False

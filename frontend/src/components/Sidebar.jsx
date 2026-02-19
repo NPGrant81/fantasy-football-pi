@@ -11,6 +11,7 @@ import {
   FiSettings,
   FiShield,
   FiHome,
+  FiAlertTriangle,
 } from 'react-icons/fi';
 import { menuGradients, bgColors, textColors, borderColors } from '../utils/uiHelpers';
 
@@ -148,6 +149,14 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
               <FiShield className="text-yellow-400" /> <span>Commissioner</span>
             </Link>
           )}
+
+          <Link
+            to="/bug-report"
+            onClick={onClose}
+            className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+          >
+            <FiAlertTriangle className="text-yellow-400" /> <span>Report a Bug</span>
+          </Link>
 
           <Link
             to="/admin"

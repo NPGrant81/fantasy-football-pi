@@ -24,6 +24,7 @@ vi.mock('../src/pages/WaiverWire', () => ({
   default: () => <div>Waivers</div>,
 }));
 vi.mock('../src/pages/SiteAdmin', () => ({ default: () => <div>Admin</div> }));
+vi.mock('../src/pages/BugReport', () => ({ default: () => <div>BugReport</div> }));
 
 // Mock apiClient used by App
 vi.mock('../src/api/client', () => ({

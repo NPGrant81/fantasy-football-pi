@@ -18,6 +18,7 @@ import Home from './pages/Home';
 import DraftBoard from './pages/DraftBoard';
 import Waivers from './pages/WaiverWire';
 import SiteAdmin from './pages/admin/SiteAdmin';
+import BugReport from './pages/BugReport';
 /* eslint-enable no-unused-vars */
 
 function App() {
@@ -200,6 +201,7 @@ function App() {
             path="/waivers"
             element={<Waivers activeOwnerId={activeOwnerId} username={username} leagueName={activeLeagueId} />}
           />
+          <Route path="/bug-report" element={<BugReport />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         <LeagueAdvisor />

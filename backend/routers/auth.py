@@ -3,6 +3,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 # 1.1.1 INFRASTRUCTURE: Use the new Security Core
 from core import security
@@ -70,5 +71,27 @@ def get_current_user_info(current_user: models.User = Depends(security.get_curre
         "user_id": current_user.id, 
         "username": current_user.username,
         "league_id": current_user.league_id, 
-        "is_commissioner": current_user.is_commissioner
+        "is_commissioner": current_user.is_commissioner,
+        "email": current_user.email
     }
+
+
+class EmailUpdate(BaseModel):
+    email: str
+
+
+@router.put("/email")
+def update_email(
+    payload: EmailUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    email = payload.email.strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    current_user.email = email
+    db.commit()
+    db.refresh(current_user)
+
+    return {"email": current_user.email}
