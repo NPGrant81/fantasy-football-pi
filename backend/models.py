@@ -148,6 +148,7 @@ class BugReport(Base):
     page_name = Column(String, nullable=True)
     issue_type = Column(String, nullable=True)
     page_url = Column(String, nullable=True)
+    github_issue_url = Column(String, nullable=True)
     status = Column(String, default="OPEN")
     created_at = Column(String, nullable=True)
 

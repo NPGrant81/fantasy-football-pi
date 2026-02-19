@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from core.security import get_current_user
 from database import get_db
 import models
-from utils.email_sender import send_bug_report_email
+from utils.github_issues import create_bug_issue
 
 router = APIRouter(prefix="/feedback", tags=["Feedback"])
 
@@ -46,16 +46,25 @@ def create_bug_report(
     db.commit()
     db.refresh(report)
 
-    send_bug_report_email(
-        {
-            "title": report.title,
-            "description": report.description,
-            "issue_type": report.issue_type,
-            "page_name": report.page_name,
-            "page_url": report.page_url,
-            "email": report.email,
-            "created_at": report.created_at,
-        }
-    )
+    issue_payload = {
+        "title": report.title,
+        "description": report.description,
+        "issue_type": report.issue_type,
+        "page_name": report.page_name,
+        "page_url": report.page_url,
+        "email": report.email,
+        "created_at": report.created_at,
+    }
 
-    return {"message": "Bug report submitted", "report_id": report.id}
+    try:
+        issue = create_bug_issue(issue_payload)
+        report.github_issue_url = issue.get("html_url")
+        db.commit()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"GitHub issue creation failed: {exc}")
+
+    return {
+        "message": "Bug report submitted",
+        "report_id": report.id,
+        "issue_url": report.github_issue_url,
+    }

@@ -45,3 +45,9 @@ with engine.connect() as connection:
         """,
         "✅ Success! 'player_weekly_stats' table created.",
     )
+
+    run_safe(
+        connection,
+        "ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS github_issue_url VARCHAR",
+        "✅ Success! 'github_issue_url' column added to bug_reports.",
+    )

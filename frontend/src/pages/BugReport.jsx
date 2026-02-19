@@ -18,7 +18,7 @@ export default function BugReport() {
   const [issueType, setIssueType] = useState('bug');
   const [contactEmail, setContactEmail] = useState('');
   const [saveEmail, setSaveEmail] = useState(true);
-  const [status, setStatus] = useState({ type: '', message: '' });
+  const [status, setStatus] = useState({ type: '', message: '', issueUrl: '' });
 
   useEffect(() => {
     apiClient
@@ -49,14 +49,14 @@ export default function BugReport() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus({ type: '', message: '' });
+    setStatus({ type: '', message: '', issueUrl: '' });
 
     try {
       if (saveEmail && contactEmail) {
         await apiClient.put('/auth/email', { email: contactEmail });
       }
 
-      await apiClient.post('/feedback/bug', {
+      const response = await apiClient.post('/feedback/bug', {
         title,
         description,
         page_name: pageName || null,
@@ -68,10 +68,14 @@ export default function BugReport() {
       setTitle('');
       setDescription('');
       setIssueType('bug');
-      setStatus({ type: 'success', message: 'Bug report submitted. Thank you!' });
+      setStatus({
+        type: 'success',
+        message: 'Bug report submitted. Thank you!',
+        issueUrl: response.data?.issue_url || '',
+      });
     } catch (err) {
       const detail = err.response?.data?.detail || 'Unable to submit report.';
-      setStatus({ type: 'error', message: detail });
+      setStatus({ type: 'error', message: detail, issueUrl: '' });
     }
   };
 
@@ -81,10 +85,10 @@ export default function BugReport() {
         <h1 className="text-2xl font-black text-white uppercase tracking-tight">
           Bug Report
         </h1>
-        <p className="text-slate-400 mt-2">
-          Tell us what went wrong and where it happened. We will send reports to
-          support and log them for review.
-        </p>
+          <p className="text-slate-400 mt-2">
+            Tell us what went wrong and where it happened. We will open a GitHub
+            issue and log the report for review.
+          </p>
       </div>
 
       <form
@@ -100,6 +104,18 @@ export default function BugReport() {
             }`}
           >
             {status.message}
+            {status.issueUrl && (
+              <div className="mt-2 text-xs font-semibold">
+                <a
+                  href={status.issueUrl}
+                  className="underline text-yellow-200"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View GitHub issue
+                </a>
+              </div>
+            )}
           </div>
         )}
 
