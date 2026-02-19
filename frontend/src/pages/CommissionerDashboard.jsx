@@ -11,10 +11,12 @@ import {
   FiUserX,
   FiActivity,
   FiUserCheck,
+  FiDollarSign,
 } from 'react-icons/fi';
 
 // Professional Imports
 import apiClient from '@api/client';
+import DraftBudgetsModal from '../components/commissioner/DraftBudgetsModal';
 
 // --- 1.1 STATIC DATA (Declared Outside to avoid re-creations) ---
 const SCORING_MENU = {
@@ -37,6 +39,7 @@ export default function CommissionerDashboard() {
   const [activeTab, setActiveTab] = useState('Passing');
   const [newOwnerName, setNewOwnerName] = useState('');
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [showBudgets, setShowBudgets] = useState(false);
 
   const leagueId = localStorage.getItem('fantasyLeagueId');
 
@@ -48,7 +51,7 @@ export default function CommissionerDashboard() {
       // Using @api/client handles the Base URL and Token automatically
       const [setRes, userRes] = await Promise.all([
         apiClient.get(`/leagues/${leagueId}/settings`),
-        apiClient.get('/owners'),
+        apiClient.get(`/leagues/owners?league_id=${leagueId}`),
       ]);
 
       setSettings(setRes.data);
@@ -117,8 +120,19 @@ export default function CommissionerDashboard() {
   return (
     <div className="p-8 max-w-3xl mx-auto text-white">
       <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-8">Commissioner Control Panel</h1>
+      <DraftBudgetsModal open={showBudgets} onClose={() => setShowBudgets(false)} leagueId={leagueId} />
       {/* Commissioner Modals */}
       <div className="space-y-6">
+        <div className="bg-slate-900 border border-yellow-700 rounded-xl p-6">
+          <h2 className="text-2xl font-bold text-yellow-400 mb-2 flex items-center gap-2"><FiDollarSign /> Set Draft Budgets</h2>
+          <p className="text-slate-400 mb-2">Assign draft budgets for each owner and season.</p>
+          <button
+            className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded font-bold"
+            onClick={() => setShowBudgets(true)}
+          >
+            Edit Draft Budgets
+          </button>
+        </div>
         {/* Scoring Rules Modal Stub */}
         <div className="bg-slate-900 border border-purple-700 rounded-xl p-6">
           <h2 className="text-2xl font-bold text-purple-400 mb-2 flex items-center gap-2"><FiSettings /> Set Scoring Rules</h2>

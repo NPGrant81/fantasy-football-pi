@@ -18,9 +18,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   const [winnerId, setWinnerId] = useState(activeOwnerId);
   const [draftYear, setDraftYear] = useState(() => new Date().getFullYear());
   const [budgetMap, setBudgetMap] = useState({});
-  const [budgetRows, setBudgetRows] = useState([]);
-  const [showBudgetPrompt, setShowBudgetPrompt] = useState(false);
-  const [budgetSaving, setBudgetSaving] = useState(false);
   const [leagueName, setLeagueName] = useState('');
   const [isCommissioner, setIsCommissioner] = useState(false);
   const [username, setUsername] = useState('');
@@ -152,17 +149,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     apiClient
       .get(`/leagues/${activeLeagueId}/budgets?year=${draftYear}`)
       .then((res) => {
-        let rows = res.data || [];
-        const wasEmpty = rows.length === 0;
-        if (wasEmpty && owners.length > 0) {
-          rows = owners.map((owner) => ({
-            owner_id: owner.id,
-            username: owner.username,
-            team_name: owner.team_name,
-            total_budget: 200,
-          }));
-        }
-        setBudgetRows(rows);
+        const rows = res.data || [];
         const map = {};
         rows.forEach((row) => {
           if (row.total_budget != null) {
@@ -170,15 +157,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           }
         });
         setBudgetMap(map);
-        if (isCommissioner) {
-          const needsBudgets = wasEmpty || rows.some((row) => row.total_budget == null);
-          setShowBudgetPrompt(needsBudgets);
-        }
       })
       .catch(() => {
-        setBudgetRows([]);
+        setBudgetMap({});
       });
-  }, [activeLeagueId, draftYear, isCommissioner, owners]);
+  }, [activeLeagueId, draftYear]);
 
   useEffect(() => {
     if (owners.length === 0) return;
@@ -275,85 +258,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       </div>
       {/* Horizontal Draft Ticker */}
       <DraftHistoryFeed history={history} owners={owners} />
-      {showBudgetPrompt && isCommissioner && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl">
-            <h2 className="text-xl font-black text-white uppercase tracking-tight">Set Draft Budgets</h2>
-            <p className="text-slate-400 text-sm mt-2">
-              Assign budgets for the {draftYear} season. These budgets apply to the current league year.
-            </p>
-            <div className="mt-4">
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Draft Year</label>
-              <input
-                type="number"
-                className="w-full p-2 rounded bg-slate-950 border border-slate-700 text-white"
-                value={draftYear}
-                onChange={(e) => setDraftYear(parseInt(e.target.value) || new Date().getFullYear())}
-              />
-            </div>
-            <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
-              {budgetRows.map((row) => (
-                <div key={row.owner_id} className="flex items-center justify-between gap-3 bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2">
-                  <div>
-                    <div className="text-sm font-bold text-white">{row.team_name || row.username}</div>
-                    <div className="text-xs text-slate-400">Owner: {row.username}</div>
-                  </div>
-                  <input
-                    type="number"
-                    className="w-28 p-2 rounded bg-slate-900 border border-slate-700 text-white text-right"
-                    value={row.total_budget ?? 200}
-                    onChange={(e) => {
-                      const next = budgetRows.map((item) => (
-                        item.owner_id === row.owner_id
-                          ? { ...item, total_budget: parseInt(e.target.value) || 0 }
-                          : item
-                      ));
-                      setBudgetRows(next);
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded border border-slate-700 text-slate-300"
-                onClick={() => setShowBudgetPrompt(false)}
-              >
-                Close
-              </button>
-              <button
-                className="px-4 py-2 rounded bg-yellow-500 text-black font-bold"
-                disabled={budgetSaving}
-                onClick={async () => {
-                  setBudgetSaving(true);
-                  try {
-                    await apiClient.post(`/leagues/${activeLeagueId}/draft-year`, { year: draftYear });
-                    await apiClient.post(`/leagues/${activeLeagueId}/budgets`, {
-                      year: draftYear,
-                      budgets: budgetRows.map((row) => ({
-                        owner_id: row.owner_id,
-                        total_budget: row.total_budget ?? 200,
-                      })),
-                    });
-                    const map = {};
-                    budgetRows.forEach((row) => {
-                      map[row.owner_id] = row.total_budget ?? 200;
-                    });
-                    setBudgetMap(map);
-                    setShowBudgetPrompt(false);
-                  } catch (err) {
-                    alert('Failed to save budgets.');
-                  } finally {
-                    setBudgetSaving(false);
-                  }
-                }}
-              >
-                Save Budgets
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
