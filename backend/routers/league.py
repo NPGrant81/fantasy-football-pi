@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -22,6 +23,11 @@ class LeagueCreate(BaseModel):
 class LeagueSummary(BaseModel):
     id: int
     name: str
+
+class LeagueNewsItem(BaseModel):
+    type: str
+    title: str
+    timestamp: str
 
 # --- Update the Request Schema ---
 class AddMemberRequest(BaseModel):
@@ -73,6 +79,45 @@ def get_league_owners(league_id: int = Query(...), db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="League not found")
     owners = db.query(models.User).filter(models.User.league_id == league_id).all()
     return [{"id": o.id, "username": o.username, "team_name": o.team_name} for o in owners]
+
+@router.get("/{league_id}/news", response_model=List[LeagueNewsItem])
+def get_league_news(
+    league_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    league = db.query(models.League).filter(models.League.id == league_id).first()
+    if not league:
+        raise HTTPException(status_code=404, detail="League not found")
+
+    session_key = f"LEAGUE_{league_id}"
+    picks = (
+        db.query(models.DraftPick)
+        .filter(
+            or_(
+                models.DraftPick.league_id == league_id,
+                models.DraftPick.session_id == session_key,
+            )
+        )
+        .order_by(desc(models.DraftPick.id))
+        .limit(limit)
+        .all()
+    )
+
+    items: List[LeagueNewsItem] = []
+    for pick in picks:
+        owner_name = pick.owner.username if pick.owner else "Unknown Owner"
+        player_name = pick.player.name if pick.player else "Unknown Player"
+        timestamp = pick.timestamp or "Just now"
+        items.append(
+            LeagueNewsItem(
+                type="info",
+                title=f"{owner_name} drafted {player_name} for ${pick.amount}",
+                timestamp=timestamp,
+            )
+        )
+
+    return items
 
 @router.post("/", response_model=LeagueSummary)
 def create_league(league_data: LeagueCreate, db: Session = Depends(get_db)):

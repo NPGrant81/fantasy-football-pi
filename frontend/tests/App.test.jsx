@@ -103,3 +103,4 @@ describe('App (basic)', () => {
       expect(localStorage.getItem('fantasyLeagueId')).toBe('5');
     });
   });
+});

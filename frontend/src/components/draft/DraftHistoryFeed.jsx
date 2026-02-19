@@ -1,5 +1,6 @@
 import { normalizePos } from '@utils';
 import { getPosColor } from '../../utils/uiHelpers';
+import FeedPill from '../feeds/FeedPill';
 
 export default function DraftHistoryFeed({ history = [], owners = [] }) {
   // --- 1.1 DATA TRANSFORMATION ---
@@ -23,16 +24,16 @@ export default function DraftHistoryFeed({ history = [], owners = [] }) {
           recentPicks.map((pick) => {
             const owner = owners.find((o) => o.id === pick.owner_id);
             return (
-              <span
+              <FeedPill
                 key={pick.id || `${pick.player_id}-${pick.timestamp}`}
-                className="inline-flex items-center bg-slate-900 border border-slate-800 rounded-full px-4 py-1 mx-1 text-xs font-bold text-white shadow hover:border-yellow-400 transition-colors"
+                className="mx-1"
               >
                 <span className="text-yellow-400 mr-2">{owner?.username || 'Ghost Owner'}</span>
                 <span className="uppercase font-black tracking-tight mr-2">{pick.player_name}</span>
                 <span className={`text-[9px] font-black px-2 py-0.5 rounded border mr-2 ${getPosColor(pick.position)}`}>{normalizePos(pick.position)}</span>
                 <span className="text-green-400 font-mono font-black text-xs mr-2">${pick.amount}</span>
                 <span className="text-slate-500 font-mono">{new Date(pick.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-              </span>
+              </FeedPill>
             );
           })
         ) : (

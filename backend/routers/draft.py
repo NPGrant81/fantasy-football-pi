@@ -1,4 +1,5 @@
 from typing import List
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -67,13 +68,19 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
     if existing_pick:
         raise HTTPException(status_code=400, detail="Player already drafted!")
 
+    owner = db.query(models.User).filter(models.User.id == pick.owner_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+
     # 2. Save to Database
     new_pick = models.DraftPick(
         player_id=pick.player_id,
         owner_id=pick.owner_id,
         year=2026,
         amount=pick.amount,
-        session_id=pick.session_id
+        session_id=pick.session_id,
+        league_id=owner.league_id,
+        timestamp=datetime.utcnow().isoformat()
     )
     db.add(new_pick)
     db.commit()

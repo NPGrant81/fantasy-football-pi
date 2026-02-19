@@ -1,6 +1,7 @@
 // frontend/src/pages/Home.jsx
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import FeedPill from '../components/feeds/FeedPill';
 import { FiAward, FiActivity } from 'react-icons/fi';
 
 export default function Home({ username }) {
@@ -88,12 +89,15 @@ export default function Home({ username }) {
               League News
             </h2>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {news.length > 0 ? news.map((item, idx) => (
-              <div key={idx} className={`text-sm border-l-2 pl-3 ${item.type === 'info' ? 'border-green-500' : 'border-yellow-500'}`}>
-                <div className="text-slate-300 font-bold">{item.title}</div>
-                <div className="text-slate-500 text-xs">{item.timestamp}</div>
-              </div>
+              <FeedPill
+                key={idx}
+                className={`w-full justify-between gap-3 ${item.type === 'info' ? 'border-l-2 border-green-500' : 'border-l-2 border-yellow-500'}`}
+              >
+                <span className="text-slate-300 font-bold truncate">{item.title}</span>
+                <span className="text-slate-500 text-xs shrink-0">{item.timestamp}</span>
+              </FeedPill>
             )) : (
               <div className="text-center text-xs text-slate-600 mt-4 italic">End of feed</div>
             )}
