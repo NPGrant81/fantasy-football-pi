@@ -62,3 +62,13 @@ UI/UX documentation
 
 - Consolidated UI reference: [UI_REFERENCE.md](UI_REFERENCE.md)
 - System architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+
+## Documentation Appendix
+
+- Core architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+- UI/UX reference: [UI_REFERENCE.md](UI_REFERENCE.md)
+- Testing guide: [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- Testing session summary: [TESTING_SESSION_SUMMARY.md](TESTING_SESSION_SUMMARY.md)
+- Issue status tracker: [ISSUE_STATUS.md](ISSUE_STATUS.md)
+- PR handoff notes: [PR_NOTES.md](PR_NOTES.md)
+- Permissions notes: [permissions.md](permissions.md)
