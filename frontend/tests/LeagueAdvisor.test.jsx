@@ -15,8 +15,14 @@ describe('LeagueAdvisor (chat)', () => {
   });
 
   test('opens on toggle and sends message, displays AI response', async () => {
-    apiClient.get.mockResolvedValue({
-      data: { username: 'alice', league_id: 1 },
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { username: 'alice', league_id: 1 } });
+      }
+      if (url === '/advisor/status') {
+        return Promise.resolve({ data: { enabled: true } });
+      }
+      return Promise.reject(new Error('Unknown URL'));
     });
     apiClient.post.mockResolvedValue({ data: { response: 'Hello from AI' } });
     render(<LeagueAdvisor />);

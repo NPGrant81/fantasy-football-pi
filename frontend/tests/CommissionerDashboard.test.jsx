@@ -32,7 +32,7 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
       if (url === '/leagues/1/settings') {
         return Promise.resolve({ data: { scoring_rules: [] } });
       }
-      if (url === '/owners') {
+      if (url === '/leagues/owners?league_id=1') {
         return Promise.resolve({ data: [] });
       }
       return Promise.reject(new Error('Unknown URL'));
@@ -59,7 +59,7 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
       if (url === '/leagues/1/settings') {
         return Promise.resolve({ data: { scoring_rules: [] } });
       }
-      if (url === '/owners') {
+      if (url === '/leagues/owners?league_id=1') {
         return Promise.resolve({ data: [] });
       }
       return Promise.reject(new Error('Unknown URL'));
@@ -69,7 +69,7 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/leagues/1/settings');
-      expect(apiClient.get).toHaveBeenCalledWith('/owners');
+      expect(apiClient.get).toHaveBeenCalledWith('/leagues/owners?league_id=1');
     });
   });
 
