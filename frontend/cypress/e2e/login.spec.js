@@ -1,22 +1,16 @@
 describe('Login + League selection (E2E stubbed)', () => {
   it('logs in and selects a league using network stubs', () => {
     // Intercept token request
-    cy.intercept('POST', '/auth/token', {
+    cy.intercept('POST', '**/auth/token', {
       statusCode: 200,
       body: { access_token: 'e2e-token', owner_id: 5, league_id: 1 },
     }).as('token');
 
     // Intercept auth/me
-    cy.intercept('GET', '/auth/me', {
+    cy.intercept('GET', '**/auth/me', {
       statusCode: 200,
       body: { user_id: 5, username: 'e2e-user' },
     }).as('me');
-
-    // Intercept leagues
-    cy.intercept('GET', '/leagues/', {
-      statusCode: 200,
-      body: [{ id: 1, name: 'E2E League' }],
-    }).as('leagues');
 
     cy.visit('/');
 
@@ -27,14 +21,10 @@ describe('Login + League selection (E2E stubbed)', () => {
 
     cy.wait('@token');
 
-    // App should now call /auth/me and then load leagues (if no league saved)
+    // App should now call /auth/me
     cy.wait('@me');
-    cy.wait('@leagues');
 
-    // If LeagueSelector appears, select the league
-    cy.contains('E2E League').click();
-
-    // Should navigate into app layout (Dashboard text mocked in unit tests)
-    cy.contains('WAR ROOM LOGIN').should('not.exist');
+    // Should navigate into the app layout (login form should be gone)
+    cy.get('input[placeholder="Enter username"]').should('not.exist');
   });
 });

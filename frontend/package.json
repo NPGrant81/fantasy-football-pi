@@ -8,7 +8,8 @@
     "build": "vite build",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
-    "e2e": "cypress run",
+    "e2e": "node scripts/run-e2e.mjs",
+    "e2e:run": "cypress run",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "preview": "vite preview"
