@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -36,23 +36,30 @@ describe('Sidebar (Navigation)', () => {
     });
   });
 
-  test('renders when isOpen is true', () => {
-    render(<Sidebar {...defaultProps} />);
+  const renderSidebar = async (props = {}) => {
+    render(<Sidebar {...defaultProps} {...props} />);
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    });
+  };
+
+  test('renders when isOpen is true', async () => {
+    await renderSidebar();
     expect(screen.getByText(/FANTASY/i)).toBeInTheDocument();
   });
 
-  test('does not render when isOpen is false', () => {
-    render(<Sidebar {...defaultProps} isOpen={false} />);
+  test('does not render when isOpen is false', async () => {
+    await renderSidebar({ isOpen: false });
     expect(screen.queryByText(/Menu/i)).not.toBeInTheDocument();
   });
 
-  test('displays username in sidebar', () => {
-    render(<Sidebar {...defaultProps} username="testuser" />);
+  test('displays username in sidebar', async () => {
+    await renderSidebar({ username: 'testuser' });
     expect(screen.getByText(/testuser/i)).toBeInTheDocument();
   });
 
-  test('has navigation links to main pages', () => {
-    render(<Sidebar {...defaultProps} />);
+  test('has navigation links to main pages', async () => {
+    await renderSidebar();
 
     expect(screen.getByText(/Home/i)).toBeInTheDocument();
     expect(screen.getByText(/War Room/i)).toBeInTheDocument(); // Draft
@@ -61,8 +68,8 @@ describe('Sidebar (Navigation)', () => {
     expect(screen.getByText(/Waiver Wire/i)).toBeInTheDocument();
   });
 
-  test('navigation links point to correct routes', () => {
-    render(<Sidebar {...defaultProps} />);
+  test('navigation links point to correct routes', async () => {
+    await renderSidebar();
 
     const homeLink = screen.getByText(/Home/).closest('a');
     expect(homeLink).toHaveAttribute('href', '/');
@@ -74,14 +81,14 @@ describe('Sidebar (Navigation)', () => {
     expect(teamLink).toHaveAttribute('href', '/team');
   });
 
-  test('has settings section', () => {
-    render(<Sidebar {...defaultProps} />);
+  test('has settings section', async () => {
+    await renderSidebar();
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
   test('calls onClose when navigation link is clicked', async () => {
     const onClose = vi.fn();
-    render(<Sidebar {...defaultProps} onClose={onClose} />);
+    await renderSidebar({ onClose });
 
     const user = userEvent.setup();
     const homeLink = screen.getByText(/Home/).closest('a');
@@ -90,15 +97,15 @@ describe('Sidebar (Navigation)', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  test('has close button (X icon)', () => {
-    render(<Sidebar {...defaultProps} />);
+  test('has close button (X icon)', async () => {
+    await renderSidebar();
     const closeButtons = screen.getAllByRole('button');
     expect(closeButtons.length).toBeGreaterThan(0);
   });
 
   test('close button calls onClose', async () => {
     const onClose = vi.fn();
-    render(<Sidebar {...defaultProps} onClose={onClose} />);
+    await renderSidebar({ onClose });
 
     const user = userEvent.setup();
     const closeButtons = screen.getAllByRole('button');

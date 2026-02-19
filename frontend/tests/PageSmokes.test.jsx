@@ -19,20 +19,38 @@ describe('DraftBoard (Smoke Test)', () => {
     vi.resetAllMocks();
   });
 
-  test('renders without crashing', () => {
-    apiClient.get.mockResolvedValue({ data: {} });
+  test('renders without crashing', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url.startsWith('/leagues/owners')) return Promise.resolve({ data: [] });
+      if (url === '/players/') return Promise.resolve({ data: [] });
+      if (url.startsWith('/draft/history')) return Promise.resolve({ data: [] });
+      if (url.startsWith('/leagues/1/settings')) {
+        return Promise.resolve({ data: { draft_year: 2026 } });
+      }
+      if (url.startsWith('/leagues/1/budgets')) return Promise.resolve({ data: [] });
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { is_commissioner: false, username: 'alice' } });
+      }
+      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'The Big Show' } });
+      return Promise.resolve({ data: [] });
+    });
     apiClient.post.mockResolvedValue({ data: {} });
 
     const { container } = render(
       <DraftBoard token="test-token" activeOwnerId={1} activeLeagueId={1} />
     );
 
-    expect(container).toBeInTheDocument();
+    await waitFor(() => {
+      expect(container).toBeInTheDocument();
+    });
   });
 
-  test('handles missing props gracefully', () => {
+  test('handles missing props gracefully', async () => {
+    apiClient.get.mockResolvedValue({ data: [] });
     const { container } = render(<DraftBoard />);
-    expect(container).toBeInTheDocument();
+    await waitFor(() => {
+      expect(container).toBeInTheDocument();
+    });
   });
 });
 

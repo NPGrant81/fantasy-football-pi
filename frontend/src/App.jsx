@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import apiClient from '@api/client';
 import './App.css';
@@ -9,16 +9,18 @@ import Layout from './components/Layout';
 import LeagueSelector from './components/LeagueSelector';
 import LeagueAdvisor from './components/LeagueAdvisor';
 
-// Import Pages
-import MyTeam from './pages/team-owner/MyTeam';
-import Matchups from './pages/matchups/Matchups';
-import GameCenter from './pages/matchups/GameCenter';
-import CommissionerDashboard from './pages/commissioner/CommissionerDashboard';
-import Home from './pages/home/Home';
-import DraftBoard from './pages/DraftBoard';
-import Waivers from './pages/WaiverWire';
-import SiteAdmin from './pages/admin/SiteAdmin';
-import BugReport from './pages/BugReport';
+// Import Pages (Lazy Loaded)
+const MyTeam = lazy(() => import('./pages/team-owner/MyTeam'));
+const Matchups = lazy(() => import('./pages/matchups/Matchups'));
+const GameCenter = lazy(() => import('./pages/matchups/GameCenter'));
+const CommissionerDashboard = lazy(
+  () => import('./pages/commissioner/CommissionerDashboard')
+);
+const Home = lazy(() => import('./pages/home/Home'));
+const DraftBoard = lazy(() => import('./pages/DraftBoard'));
+const Waivers = lazy(() => import('./pages/WaiverWire'));
+const SiteAdmin = lazy(() => import('./pages/admin/SiteAdmin'));
+const BugReport = lazy(() => import('./pages/BugReport'));
 /* eslint-enable no-unused-vars */
 
 function App() {
@@ -189,39 +191,45 @@ function App() {
         leagueId={activeLeagueId}
         onLogout={handleLogout}
       >
-        <Routes>
-          <Route path="/" element={<Home username={username} />} />
-          <Route
-            path="/draft"
-            element={
-              <DraftBoard
-                token={token}
-                activeOwnerId={activeOwnerId}
-                activeLeagueId={activeLeagueId}
-              />
-            }
-          />
-          <Route
-            path="/team"
-            element={<MyTeam activeOwnerId={activeOwnerId} />}
-          />
-          <Route path="/matchups" element={<Matchups />} />
-          <Route path="/matchup/:id" element={<GameCenter />} />
-          <Route path="/admin" element={<SiteAdmin />} />
-          <Route path="/commissioner" element={<CommissionerDashboard />} />
-          <Route
-            path="/waivers"
-            element={
-              <Waivers
-                activeOwnerId={activeOwnerId}
-                username={username}
-                leagueName={activeLeagueId}
-              />
-            }
-          />
-          <Route path="/bug-report" element={<BugReport />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="p-8 text-slate-400 animate-pulse">Loading...</div>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Home username={username} />} />
+            <Route
+              path="/draft"
+              element={
+                <DraftBoard
+                  token={token}
+                  activeOwnerId={activeOwnerId}
+                  activeLeagueId={activeLeagueId}
+                />
+              }
+            />
+            <Route
+              path="/team"
+              element={<MyTeam activeOwnerId={activeOwnerId} />}
+            />
+            <Route path="/matchups" element={<Matchups />} />
+            <Route path="/matchup/:id" element={<GameCenter />} />
+            <Route path="/admin" element={<SiteAdmin />} />
+            <Route path="/commissioner" element={<CommissionerDashboard />} />
+            <Route
+              path="/waivers"
+              element={
+                <Waivers
+                  activeOwnerId={activeOwnerId}
+                  username={username}
+                  leagueName={activeLeagueId}
+                />
+              }
+            />
+            <Route path="/bug-report" element={<BugReport />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </Suspense>
         <LeagueAdvisor />
       </Layout>
     </BrowserRouter>

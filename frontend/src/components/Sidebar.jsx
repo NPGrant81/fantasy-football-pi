@@ -15,8 +15,6 @@ import {
 } from 'react-icons/fi';
 import {
   menuGradients,
-  bgColors,
-  textColors,
   borderColors,
 } from '../utils/uiHelpers';
 
