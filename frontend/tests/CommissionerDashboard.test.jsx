@@ -69,6 +69,7 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
   });
 
   test('handles errors gracefully', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     apiClient.get.mockRejectedValue(new Error('API Error'));
 
     render(<CommissionerDashboard />);
@@ -77,5 +78,7 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 1 }) || true).toBeDefined();
     });
+
+    consoleErrorSpy.mockRestore();
   });
 });

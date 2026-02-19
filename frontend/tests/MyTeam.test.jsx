@@ -373,6 +373,7 @@ describe('MyTeam (Roster & Lineups)', () => {
   });
 
   test('handles API errors gracefully', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     apiClient.get.mockRejectedValue(new Error('API Error'));
 
     render(<MyTeam activeOwnerId={1} />);
@@ -382,5 +383,7 @@ describe('MyTeam (Roster & Lineups)', () => {
       const content = screen.queryByText(/Loading.*Locker room/i);
       // Will either show loading or error state, both are acceptable
     });
+
+    consoleErrorSpy.mockRestore();
   });
 });

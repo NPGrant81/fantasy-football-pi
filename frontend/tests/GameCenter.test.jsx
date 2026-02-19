@@ -173,6 +173,7 @@ describe('GameCenter (Match Details)', () => {
   });
 
   test('handles API error gracefully', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     apiClient.get.mockRejectedValue(new Error('API Error'));
 
     render(<GameCenter />);
@@ -180,6 +181,8 @@ describe('GameCenter (Match Details)', () => {
     await waitFor(() => {
       expect(screen.getByText(/Matchup data unavailable/i)).toBeInTheDocument();
     });
+
+    consoleErrorSpy.mockRestore();
   });
 
   test('fetches data with correct matchup ID from route params', async () => {
