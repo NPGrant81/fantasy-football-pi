@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -68,6 +68,7 @@ class Player(Base):
     adp = Column(Float, default=0.0)
     projected_points = Column(Float, default=0.0)
     gsis_id = Column(String, nullable=True, unique=True)
+    espn_id = Column(String, nullable=True, unique=True)
     bye_week = Column(Integer, nullable=True)
     
     draft_pick = relationship("DraftPick", back_populates="player", uselist=False)
@@ -151,3 +152,21 @@ class BugReport(Base):
     created_at = Column(String, nullable=True)
 
     user = relationship("User", back_populates="bug_reports")
+
+# --- 10. PLAYER WEEKLY STATS ---
+class PlayerWeeklyStat(Base):
+    __tablename__ = "player_weekly_stats"
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", "week", "source", name="uq_player_week_source"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"))
+    season = Column(Integer, index=True)
+    week = Column(Integer, index=True)
+    fantasy_points = Column(Float, nullable=True)
+    stats = Column(JSON, nullable=True)
+    source = Column(String, default="espn")
+    created_at = Column(String, nullable=True)
+
+    player = relationship("Player")
