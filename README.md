@@ -61,3 +61,4 @@ See the `backend/` and `frontend/` folders for additional installation and usage
 UI/UX documentation
 
 - Consolidated UI reference: [UI_REFERENCE.md](UI_REFERENCE.md)
+- System architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
