@@ -4,6 +4,16 @@
 
 This repository contains a FastAPI backend and a React (Vite + Tailwind) frontend for running an auction-style fantasy football league.
 
+## Documentation Appendix
+
+- Core architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+- UI/UX reference: [UI_REFERENCE.md](UI_REFERENCE.md)
+- Testing guide: [TESTING_GUIDE.md](TESTING_GUIDE.md)
+- Testing session summary: [TESTING_SESSION_SUMMARY.md](TESTING_SESSION_SUMMARY.md)
+- Issue status tracker: [ISSUE_STATUS.md](ISSUE_STATUS.md)
+- PR handoff notes: [PR_NOTES.md](PR_NOTES.md)
+- Permissions notes: [permissions.md](permissions.md)
+
 ## CI
 
  - **GitHub Actions:** The repository runs backend tests on push and PR via `.github/workflows/ci.yml`.
@@ -57,18 +67,3 @@ Files added for testing
 
 
 See the `backend/` and `frontend/` folders for additional installation and usage details.
-
-UI/UX documentation
-
-- Consolidated UI reference: [UI_REFERENCE.md](UI_REFERENCE.md)
-- System architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
-
-## Documentation Appendix
-
-- Core architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
-- UI/UX reference: [UI_REFERENCE.md](UI_REFERENCE.md)
-- Testing guide: [TESTING_GUIDE.md](TESTING_GUIDE.md)
-- Testing session summary: [TESTING_SESSION_SUMMARY.md](TESTING_SESSION_SUMMARY.md)
-- Issue status tracker: [ISSUE_STATUS.md](ISSUE_STATUS.md)
-- PR handoff notes: [PR_NOTES.md](PR_NOTES.md)
-- Permissions notes: [permissions.md](permissions.md)
