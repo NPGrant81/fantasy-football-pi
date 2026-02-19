@@ -69,15 +69,18 @@ Rule of thumb:
 - If a component is used by one page/feature, keep it inside that feature folder (`pages/<feature>/components`).
 - If a component is reused across multiple features, promote it to `src/components`.
 
-4.2 Current Migration Pattern (Safe Refactor)
-To avoid breaking imports/tests while reorganizing:
-- New canonical files live under page-local feature folders.
-- Legacy paths in `src/components/...` can remain as thin re-export shims during migration.
-- App/router imports should prefer canonical feature paths.
+4.2 Canonical Import Pattern
+Frontend page imports should use canonical feature-folder paths.
 
-This allows incremental cleanup without large breakage risk.
+Examples:
+- `src/pages/home/Home.jsx`
+- `src/pages/matchups/Matchups.jsx`
+- `src/pages/matchups/GameCenter.jsx`
+- `src/pages/team-owner/MyTeam.jsx`
+- `src/pages/commissioner/CommissionerDashboard.jsx`
+- `src/pages/admin/SiteAdmin.jsx`
 
-Note: During migration, top-level `pages/*.jsx` files may temporarily exist as compatibility wrappers that re-export from the canonical feature folder.
+Temporary wrapper/shim files used during migration have been removed.
 
 4.3 Naming Conventions (Long-Term)
 - Page components: PascalCase route files (e.g., `CommissionerDashboard.jsx`).
@@ -99,4 +102,6 @@ Note: During migration, top-level `pages/*.jsx` files may temporarily exist as c
 Recommendations
 - Keep `apiClient` thin and test-friendly.
 - Mock network calls in component tests and isolate business logic for faster feedback.
-- During folder migrations, prefer re-export shims first, then remove them after import cleanup is complete.
+
+4.6 UI Documentation
+- Consolidated UI reference lives in [UI_REFERENCE.md](UI_REFERENCE.md).

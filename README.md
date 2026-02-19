@@ -57,3 +57,7 @@ Files added for testing
 
 
 See the `backend/` and `frontend/` folders for additional installation and usage details.
+
+UI/UX documentation
+
+- Consolidated UI reference: [UI_REFERENCE.md](UI_REFERENCE.md)
