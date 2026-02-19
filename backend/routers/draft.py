@@ -98,6 +98,11 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
 
     return new_pick
 
+# --- NEW: POST /draft/pick (alias for /draft-pick) ---
+@router.post("/draft/pick")
+async def draft_player_alias(pick: DraftPickCreate, db: Session = Depends(get_db)):
+    return await draft_player(pick, db)
+
 # --- 4. FUTURE ENDPOINTS (Auction / State) ---
 
 @router.get("/draft/state/{league_id}")
