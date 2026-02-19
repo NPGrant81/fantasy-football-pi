@@ -37,18 +37,66 @@ Why this works:
 • Scalability: New features (like Trades or Playoff Brackets) have a clear, predetermined home in the directory tree.
 • AI Coordination: Maintaining this file helps AI tools understand your specific architectural invariants, leading to better code suggestions.
 
-4. Frontend Overview & Testing
-The frontend is a Vite + React single-page app located in the `frontend/` folder. Key points:
+4. Frontend Architecture, Naming, and Testing
+The frontend is a Vite + React SPA in `frontend/`.
 
-- `src/api/client.js`: Central axios instance with request/response interceptors (adds JWT from `localStorage`, handles 401 -> auto-logout).
-- `src/components`: UI building blocks (e.g., `LeagueSelector`, `LeagueAdvisor`, `Layout`). Keep these components mostly presentational and push business logic into lightweight hooks or service modules where possible.
-- Routing: `App.jsx` performs initial guarding (auth check and league selection) then mounts the `Layout` and nested routes.
+4.1 Frontend Structure (Feature-First with Colocation)
+Use this structure as the default:
 
-Testing strategy
-- Backend: `pytest` tests live under `backend/tests/` and run in CI.
-- Frontend: `vitest` + React Testing Library tests live under `frontend/tests/`. Tests mock network calls (axios or `apiClient`) and exercise component behavior (e.g., login flows, league selection, advisor chat interactions).
-- CI: GitHub Actions runs both backend and frontend test suites on push/PR (see `.github/workflows/ci.yml`).
+frontend/src/
+├── api/                    # API clients and request wrappers
+├── components/             # Shared, cross-feature components only
+├── hooks/                  # Shared hooks
+├── utils/                  # Shared utilities/constants
+├── pages/                  # Route-level features
+│   ├── home/
+│   │   ├── Home.jsx
+│   │   └── components/
+│   ├── matchups/
+│   │   ├── Matchups.jsx
+│   │   └── GameCenter.jsx
+│   ├── team-owner/
+│   │   └── MyTeam.jsx
+│   ├── commissioner/
+│   │   ├── CommissionerDashboard.jsx
+│   │   └── components/     # Components used only by commissioner pages
+│   └── admin/
+│       └── SiteAdmin.jsx
+├── App.jsx                 # Router and auth/league guards
+└── main.jsx                # App bootstrap
+
+Rule of thumb:
+- If a component is used by one page/feature, keep it inside that feature folder (`pages/<feature>/components`).
+- If a component is reused across multiple features, promote it to `src/components`.
+
+4.2 Current Migration Pattern (Safe Refactor)
+To avoid breaking imports/tests while reorganizing:
+- New canonical files live under page-local feature folders.
+- Legacy paths in `src/components/...` can remain as thin re-export shims during migration.
+- App/router imports should prefer canonical feature paths.
+
+This allows incremental cleanup without large breakage risk.
+
+Note: During migration, top-level `pages/*.jsx` files may temporarily exist as compatibility wrappers that re-export from the canonical feature folder.
+
+4.3 Naming Conventions (Long-Term)
+- Page components: PascalCase route files (e.g., `CommissionerDashboard.jsx`).
+- Page-local components: PascalCase in `pages/<feature>/components/`.
+- Shared components: PascalCase in `src/components/`.
+- Utility files: camelCase in `src/utils/`.
+- Avoid duplicate route files in both top-level `pages/` and nested feature folders; prefer nested feature folder and keep top-level wrappers only as temporary compatibility shims.
+
+4.4 Frontend Runtime Notes
+- `src/api/client.js`: Central axios instance with auth token handling and 401 behavior.
+- `App.jsx`: Handles initial auth/league gate, then mounts `Layout` and routes.
+
+4.5 Testing Strategy
+- Backend: `pytest` tests under `backend/tests/`.
+- Frontend unit/integration: `vitest` + React Testing Library under `frontend/tests/`.
+- E2E: Cypress specs under `frontend/cypress/e2e/`.
+- CI: GitHub Actions runs backend tests, frontend tests, and Cypress E2E.
 
 Recommendations
-- Keep `apiClient` thin and testable; export a small wrapper layer if you need to swap implementations for tests.
-- Favor mocking network calls in component tests and unit-testing business logic in isolation for faster feedback.
+- Keep `apiClient` thin and test-friendly.
+- Mock network calls in component tests and isolate business logic for faster feedback.
+- During folder migrations, prefer re-export shims first, then remove them after import cleanup is complete.

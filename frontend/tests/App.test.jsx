@@ -10,20 +10,24 @@ vi.mock('../src/pages/Dashboard', () => ({
   default: () => <div>Dashboard</div>,
 }));
 vi.mock('../src/pages/DraftBoard', () => ({ default: () => <div>Draft</div> }));
-vi.mock('../src/pages/MyTeam', () => ({ default: () => <div>MyTeam</div> }));
-vi.mock('../src/pages/Matchups', () => ({
+vi.mock('../src/pages/team-owner/MyTeam', () => ({
+  default: () => <div>MyTeam</div>,
+}));
+vi.mock('../src/pages/matchups/Matchups', () => ({
   default: () => <div>Matchups</div>,
 }));
-vi.mock('../src/pages/GameCenter', () => ({
+vi.mock('../src/pages/matchups/GameCenter', () => ({
   default: () => <div>GameCenter</div>,
 }));
-vi.mock('../src/pages/CommissionerDashboard', () => ({
+vi.mock('../src/pages/commissioner/CommissionerDashboard', () => ({
   default: () => <div>Commissioner</div>,
 }));
 vi.mock('../src/pages/WaiverWire', () => ({
   default: () => <div>Waivers</div>,
 }));
-vi.mock('../src/pages/SiteAdmin', () => ({ default: () => <div>Admin</div> }));
+vi.mock('../src/pages/admin/SiteAdmin', () => ({
+  default: () => <div>Admin</div>,
+}));
 vi.mock('../src/pages/BugReport', () => ({ default: () => <div>BugReport</div> }));
 
 // Mock apiClient used by App

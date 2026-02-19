@@ -7,7 +7,7 @@ vi.mock('../src/api/client', () => ({
   },
 }));
 
-import Home from '../src/pages/Home';
+import Home from '../src/pages/home/Home';
 import apiClient from '../src/api/client';
 
 describe('Home (League Dashboard)', () => {

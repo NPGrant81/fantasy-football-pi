@@ -10,11 +10,11 @@ import LeagueSelector from './components/LeagueSelector';
 import LeagueAdvisor from './components/LeagueAdvisor';
 
 // Import Pages
-import MyTeam from './pages/MyTeam';
-import Matchups from './pages/Matchups';
-import GameCenter from './pages/GameCenter';
-import CommissionerDashboard from './pages/CommissionerDashboard';
-import Home from './pages/Home';
+import MyTeam from './pages/team-owner/MyTeam';
+import Matchups from './pages/matchups/Matchups';
+import GameCenter from './pages/matchups/GameCenter';
+import CommissionerDashboard from './pages/commissioner/CommissionerDashboard';
+import Home from './pages/home/Home';
 import DraftBoard from './pages/DraftBoard';
 import Waivers from './pages/WaiverWire';
 import SiteAdmin from './pages/admin/SiteAdmin';

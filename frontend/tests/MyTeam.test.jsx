@@ -14,23 +14,23 @@ vi.mock('react-router-dom', () => ({
 }));
 
 // Mock the internal components to avoid testing them
-vi.mock('../src/components/commissioner/ScoringRulesModal', () => ({
+vi.mock('../src/pages/commissioner/components/ScoringRulesModal', () => ({
   default: ({ open, onClose }) => open ? <div data-testid="scoring-modal">Scoring Modal</div> : null,
 }));
-vi.mock('../src/components/commissioner/OwnerManagementModal', () => ({
+vi.mock('../src/pages/commissioner/components/OwnerManagementModal', () => ({
   default: ({ open, onClose }) => open ? <div data-testid="owner-modal">Owner Modal</div> : null,
 }));
-vi.mock('../src/components/commissioner/WaiverWireRulesModal', () => ({
+vi.mock('../src/pages/commissioner/components/WaiverWireRulesModal', () => ({
   default: ({ open, onClose }) => open ? <div data-testid="waiver-modal">Waiver Modal</div> : null,
 }));
-vi.mock('../src/components/commissioner/TradeRulesModal', () => ({
+vi.mock('../src/pages/commissioner/components/TradeRulesModal', () => ({
   default: ({ open, onClose }) => open ? <div data-testid="trade-modal">Trade Modal</div> : null,
 }));
 vi.mock('../src/components/LeagueAdvisor', () => ({
   default: () => <div data-testid="league-advisor">League Advisor</div>,
 }));
 
-import MyTeam from '../src/pages/MyTeam';
+import MyTeam from '../src/pages/team-owner/MyTeam';
 import apiClient from '../src/api/client';
 
 describe('MyTeam (Roster & Lineups)', () => {

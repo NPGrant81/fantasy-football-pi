@@ -18,7 +18,6 @@ export default function OwnerManagementModal({ open, onClose }) {
         <p className="text-slate-400 mb-4">
           Invite new owners, manage teams, and verify league access.
         </p>
-        {/* TODO: Add owner management form here */}
         <div className="text-center text-slate-500">
           Owner management form coming soon...
         </div>

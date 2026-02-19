@@ -1,16 +1,68 @@
-# React + Vite
+# Frontend (Fantasy Football PI)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Vite + React frontend for the Fantasy Football PI app.
 
-Currently, two official plugins are available:
+## Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Install: `npm ci --legacy-peer-deps`
+- Run dev server: `npm run dev`
+- Run tests: `npm test -- --run`
+- Run lint: `npm run lint`
 
-## React Compiler
+## Folder Map (Canonical Structure)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Use a feature-first page structure in `src/pages`.
 
-## Expanding the ESLint configuration
+```text
+src/
+├── api/                      # API client and request wrappers
+├── components/               # Shared cross-feature UI only
+├── hooks/                    # Shared hooks
+├── utils/                    # Shared helpers/constants
+├── pages/
+│   ├── home/
+│   │   ├── Home.jsx
+│   │   └── components/
+│   ├── matchups/
+│   │   ├── Matchups.jsx
+│   │   └── GameCenter.jsx
+│   ├── team-owner/
+│   │   └── MyTeam.jsx
+│   ├── commissioner/
+│   │   ├── CommissionerDashboard.jsx
+│   │   └── components/
+│   └── admin/
+│       └── SiteAdmin.jsx
+├── App.jsx
+└── main.jsx
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Organization Rules
+
+1. If used by one page/feature, colocate it under that page folder.
+2. If reused across multiple features, promote to `src/components`.
+3. Keep route modules in canonical feature folders (example: `pages/matchups/Matchups.jsx`).
+4. Use top-level `pages/*.jsx` files only as temporary re-export wrappers during migration.
+5. Remove wrappers after imports/tests are fully migrated.
+
+## Naming Conventions
+
+- Page components: PascalCase (`Home.jsx`, `SiteAdmin.jsx`).
+- Page-local components: PascalCase under `pages/<feature>/components`.
+- Shared components: PascalCase under `src/components`.
+- Utilities: camelCase under `src/utils`.
+
+## Migration Note
+
+Legacy wrapper/shim paths used during reorganization have been removed. Use canonical feature-folder imports only.
+
+## PR Checklist (Frontend Organization)
+
+Before opening a PR, verify:
+
+- [ ] New route pages are created in feature folders under `src/pages/<feature>/`.
+- [ ] Page-local components are colocated under `src/pages/<feature>/components/`.
+- [ ] Shared components moved to `src/components/` only when reused across features.
+- [ ] `App.jsx` imports use canonical feature-folder page paths.
+- [ ] Any temporary top-level `src/pages/*.jsx` wrappers are either justified or removed once imports/tests are migrated.
+- [ ] `npm run lint` and affected tests pass.

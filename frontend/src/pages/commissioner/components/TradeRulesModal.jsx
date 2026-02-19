@@ -18,7 +18,6 @@ export default function TradeRulesModal({ open, onClose }) {
         <p className="text-slate-400 mb-4">
           Configure trade review, veto, and deadlines.
         </p>
-        {/* TODO: Add trade rules form here */}
         <div className="text-center text-slate-500">
           Trade rules form coming soon...
         </div>

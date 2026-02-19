@@ -10,16 +10,16 @@ import {
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 // --- Commissioner Modal Imports ---
-import ScoringRulesModal from '../components/commissioner/ScoringRulesModal';
-import OwnerManagementModal from '../components/commissioner/OwnerManagementModal';
-import WaiverWireRulesModal from '../components/commissioner/WaiverWireRulesModal';
-import TradeRulesModal from '../components/commissioner/TradeRulesModal';
+import ScoringRulesModal from '../commissioner/components/ScoringRulesModal';
+import OwnerManagementModal from '../commissioner/components/OwnerManagementModal';
+import WaiverWireRulesModal from '../commissioner/components/WaiverWireRulesModal';
+import TradeRulesModal from '../commissioner/components/TradeRulesModal';
 
 // Professional Imports
 import apiClient from '@api/client';
-import LeagueAdvisor from '../components/LeagueAdvisor';
-import { getPosColor } from '../utils/uiHelpers';
-import { normalizePos } from '../utils/draftHelpers';
+import LeagueAdvisor from '../../components/LeagueAdvisor';
+import { getPosColor } from '../../utils/uiHelpers';
+import { normalizePos } from '../../utils/draftHelpers';
 
 // --- 1.1 CONSTANTS & HELPERS (Outside Render) ---
 const POS_RANK = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5, K: 6 };

@@ -13,7 +13,7 @@ vi.mock('../src/api/client', () => ({
   },
 }));
 
-import Matchups from '../src/pages/Matchups';
+import Matchups from '../src/pages/matchups/Matchups';
 import apiClient from '../src/api/client';
 
 describe('Matchups (Weekly Matchups)', () => {

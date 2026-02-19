@@ -12,7 +12,7 @@ vi.mock('../src/api/client', () => ({
   },
 }));
 
-import GameCenter from '../src/pages/GameCenter';
+import GameCenter from '../src/pages/matchups/GameCenter';
 import apiClient from '../src/api/client';
 
 describe('GameCenter (Match Details)', () => {

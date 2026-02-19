@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18]
+        node-version: [20]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,18 +98,35 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci --legacy-peer-deps
 
-      - name: Start dev server and run Cypress
-        working-directory: frontend
-        run: |
-          npm run dev > /tmp/dev.log 2>&1 &
-          DEV_PID=$!
-          sleep 5
-          npx cypress run --browser chrome --spec "cypress/e2e/**/*.spec.js" || cypress_exit=$?
-          kill $DEV_PID 2>/dev/null || true
-          exit ${cypress_exit:-0}
+      - name: Run Cypress E2E
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend
+          install: false
+          start: npm run dev
+          wait-on: http://localhost:5173
+          wait-on-timeout: 120
+          browser: chrome
+          spec: cypress/e2e/**/*.spec.js
+
+      - name: Upload Cypress screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-screenshots
+          if-no-files-found: ignore
+          path: frontend/cypress/screenshots
+
+      - name: Upload Cypress videos
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-videos
+          if-no-files-found: ignore
+          path: frontend/cypress/videos

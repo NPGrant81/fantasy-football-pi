@@ -12,12 +12,7 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({}),
 }));
 
-// Mock commissioner-related components
-vi.mock('../src/components/commissioner/ScoringModal', () => ({
-  default: ({ open, onClose }) => open ? <div>ScoringModal</div> : null,
-}));
-
-import CommissionerDashboard from '../src/pages/CommissionerDashboard';
+import CommissionerDashboard from '../src/pages/commissioner/CommissionerDashboard';
 import apiClient from '../src/api/client';
 
 describe('CommissionerDashboard (Commissioner Controls)', () => {

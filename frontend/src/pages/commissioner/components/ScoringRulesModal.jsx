@@ -18,7 +18,6 @@ export default function ScoringRulesModal({ open, onClose }) {
         <p className="text-slate-400 mb-4">
           Configure how points are awarded for all league actions.
         </p>
-        {/* TODO: Add scoring rules form here */}
         <div className="text-center text-slate-500">
           Scoring rules form coming soon...
         </div>
