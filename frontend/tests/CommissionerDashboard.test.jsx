@@ -29,10 +29,11 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
 
   test('renders commissioner dashboard header', async () => {
     apiClient.get.mockImplementation((url) => {
-      if (url === '/auth/me') {
-        return Promise.resolve({
-          data: { user_id: 1, username: 'commissioner', is_commissioner: true },
-        });
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
+      }
+      if (url === '/owners') {
+        return Promise.resolve({ data: [] });
       }
       return Promise.reject(new Error('Unknown URL'));
     });
@@ -50,18 +51,16 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
 
     render(<CommissionerDashboard />);
 
-    // Should show loading indicator or menu
-    const content = screen.queryByText(/Commissioner/i) || screen.queryByText(/Menu/i);
-    // Component should render something
-    expect(screen.getByRole('heading', { level: 1 }) || content).toBeDefined();
+    expect(screen.getByText(/Entering The War Room/i)).toBeInTheDocument();
   });
 
   test('fetches commissioner data on mount', async () => {
     apiClient.get.mockImplementation((url) => {
-      if (url === '/auth/me') {
-        return Promise.resolve({
-          data: { user_id: 1, username: 'commissioner', is_commissioner: true },
-        });
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
+      }
+      if (url === '/owners') {
+        return Promise.resolve({ data: [] });
       }
       return Promise.reject(new Error('Unknown URL'));
     });
@@ -69,7 +68,8 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
     render(<CommissionerDashboard />);
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+      expect(apiClient.get).toHaveBeenCalledWith('/leagues/1/settings');
+      expect(apiClient.get).toHaveBeenCalledWith('/owners');
     });
   });
 

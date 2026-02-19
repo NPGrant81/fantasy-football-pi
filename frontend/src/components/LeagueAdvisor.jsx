@@ -67,7 +67,7 @@ export default function ChatInterface({ initialQuery = '' }) {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading]);
+  }, [input, isLoading, userInfo.leagueId, userInfo.username]);
 
   // --- 1.2 AUTO-SCROLL ENGINE ---
   useEffect(() => {

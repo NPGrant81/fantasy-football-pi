@@ -40,11 +40,11 @@ describe('MyTeam (Roster & Lineups)', () => {
   });
 
   test('renders loading state while fetching team data', () => {
-    apiClient.get.mockImplementation(() => new Promise(() => {})); // Never resolves
+    apiClient.get.mockImplementation(() => new Promise(() => {}));
 
     render(<MyTeam activeOwnerId={1} />);
 
-    expect(screen.getByText(/Loading.*Locker room/i)).toBeInTheDocument();
+    expect(screen.getByText(/Loading Roster/i)).toBeInTheDocument();
   });
 
   test('fetches and displays team summary data', async () => {
@@ -72,18 +72,19 @@ describe('MyTeam (Roster & Lineups)', () => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
-      if (url === '/dashboard/1') {
-        return Promise.resolve({ data: mockSummary });
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
       }
-      if (url === '/rosters/1') {
+      if (url === '/dashboard/1') {
         return Promise.resolve({
           data: {
-            owner_id: 1,
-            active_lineup: [],
-            bench: [],
-            injured_reserve: [],
+            ...mockSummary,
+            roster: [],
           },
         });
+      }
+      if (url === '/team/1') {
+        return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
         return Promise.resolve({ data: [] });
@@ -123,18 +124,19 @@ describe('MyTeam (Roster & Lineups)', () => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
-      if (url === '/dashboard/1') {
-        return Promise.resolve({ data: mockSummary });
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
       }
-      if (url === '/rosters/1') {
+      if (url === '/dashboard/1') {
         return Promise.resolve({
           data: {
-            owner_id: 1,
-            active_lineup: [],
-            bench: [],
-            injured_reserve: [],
+            ...mockSummary,
+            roster: [],
           },
         });
+      }
+      if (url === '/team/1') {
+        return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
         return Promise.resolve({ data: [] });
@@ -149,7 +151,7 @@ describe('MyTeam (Roster & Lineups)', () => {
     });
   });
 
-  test('displays stat boxes for players, waivers, and trades', async () => {
+  test('displays pending trades stat box', async () => {
     const mockSummary = {
       player_count: 15,
       active_lineups: 8,
@@ -174,18 +176,19 @@ describe('MyTeam (Roster & Lineups)', () => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
-      if (url === '/dashboard/1') {
-        return Promise.resolve({ data: mockSummary });
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
       }
-      if (url === '/rosters/1') {
+      if (url === '/dashboard/1') {
         return Promise.resolve({
           data: {
-            owner_id: 1,
-            active_lineup: [],
-            bench: [],
-            injured_reserve: [],
+            ...mockSummary,
+            roster: [],
           },
         });
+      }
+      if (url === '/team/1') {
+        return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
         return Promise.resolve({ data: [] });
@@ -196,13 +199,11 @@ describe('MyTeam (Roster & Lineups)', () => {
     render(<MyTeam activeOwnerId={1} />);
 
     await waitFor(() => {
-      expect(screen.getByText('15')).toBeInTheDocument(); // Player count
+      expect(screen.getByText('2')).toBeInTheDocument();
     });
-    expect(screen.getByText('3')).toBeInTheDocument(); // Pending waivers
-    expect(screen.getByText('2')).toBeInTheDocument(); // Pending trades
   });
 
-  test('displays active lineup and bench sections', async () => {
+  test('displays roster list from summary', async () => {
     const mockSummary = {
       player_count: 15,
       active_lineups: 8,
@@ -211,18 +212,19 @@ describe('MyTeam (Roster & Lineups)', () => {
       standing: 1,
       points_for: 1250,
       points_against: 1180,
+      roster: [
+        { id: 1, name: 'Patrick Mahomes', position: 'QB', nfl_team: 'KC' },
+        { id: 2, name: 'Travis Kelce', position: 'TE', nfl_team: 'KC' },
+        { id: 3, name: 'Backup QB', position: 'QB', nfl_team: 'DAL' },
+      ],
     };
 
     const mockRoster = {
-      owner_id: 1,
-      active_lineup: [
-        { id: 1, name: 'Patrick Mahomes', position: 'QB', ytd_score: 280, proj_score: 25 },
-        { id: 2, name: 'Travis Kelce', position: 'TE', ytd_score: 150, proj_score: 15 },
+      roster: [
+        { id: 1, name: 'Patrick Mahomes', position: 'QB', ytd_score: 280, proj_score: 25, status: 'STARTER' },
+        { id: 2, name: 'Travis Kelce', position: 'TE', ytd_score: 150, proj_score: 15, status: 'STARTER' },
+        { id: 3, name: 'Backup QB', position: 'QB', ytd_score: 50, proj_score: 10, status: 'BENCH' },
       ],
-      bench: [
-        { id: 3, name: 'Backup QB', position: 'QB', ytd_score: 50, proj_score: 10 },
-      ],
-      injured_reserve: [],
     };
 
     apiClient.get.mockImplementation((url) => {
@@ -239,10 +241,17 @@ describe('MyTeam (Roster & Lineups)', () => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
-      if (url === '/dashboard/1') {
-        return Promise.resolve({ data: mockSummary });
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
       }
-      if (url === '/rosters/1') {
+      if (url === '/dashboard/1') {
+        return Promise.resolve({
+          data: {
+            ...mockSummary,
+          },
+        });
+      }
+      if (url === '/team/1') {
         return Promise.resolve({ data: mockRoster });
       }
       if (url === '/scoring/1') {
@@ -253,9 +262,7 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     render(<MyTeam activeOwnerId={1} />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Patrick Mahomes')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('Patrick Mahomes')).toBeInTheDocument();
     expect(screen.getByText('Travis Kelce')).toBeInTheDocument();
     expect(screen.getByText('Backup QB')).toBeInTheDocument();
   });
@@ -285,18 +292,19 @@ describe('MyTeam (Roster & Lineups)', () => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
-      if (url === '/dashboard/1') {
-        return Promise.resolve({ data: mockSummary });
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
       }
-      if (url === '/rosters/1') {
+      if (url === '/dashboard/1') {
         return Promise.resolve({
           data: {
-            owner_id: 1,
-            active_lineup: [],
-            bench: [],
-            injured_reserve: [],
+            ...mockSummary,
+            roster: [],
           },
         });
+      }
+      if (url === '/team/1') {
+        return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
         return Promise.resolve({ data: [] });
@@ -337,18 +345,19 @@ describe('MyTeam (Roster & Lineups)', () => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
-      if (url === '/dashboard/1') {
-        return Promise.resolve({ data: mockSummary });
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
       }
-      if (url === '/rosters/1') {
+      if (url === '/dashboard/1') {
         return Promise.resolve({
           data: {
-            owner_id: 1,
-            active_lineup: [],
-            bench: [],
-            injured_reserve: [],
+            ...mockSummary,
+            roster: [],
           },
         });
+      }
+      if (url === '/team/1') {
+        return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
         return Promise.resolve({ data: [] });

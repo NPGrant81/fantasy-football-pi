@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import axios from 'axios';
 import { vi } from 'vitest';
 
@@ -38,11 +39,11 @@ describe('LeagueSelector', () => {
     await waitFor(() => expect(axios.get).toHaveBeenCalled());
 
     // Click create toggle
-    screen.getByText('+ Create New League').click();
+    const user = userEvent.setup();
+    await user.click(screen.getByText('+ Create New League'));
     const input = screen.getByPlaceholderText(/e.g. Dynasty 2026/i);
-    input.value = 'NewLeague';
-    // fire event by clicking SAVE
-    screen.getByText('SAVE').click();
+    await user.type(input, 'NewLeague');
+    await user.click(screen.getByText('SAVE'));
 
     await waitFor(() => expect(axios.post).toHaveBeenCalled());
     expect(screen.getByText('NewLeague')).toBeInTheDocument();

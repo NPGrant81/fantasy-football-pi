@@ -38,8 +38,8 @@ describe('GameCenter (Match Details)', () => {
       away_score: 118,
       home_projected: 130,
       away_projected: 120,
-      home_starters: [],
-      away_starters: [],
+      home_roster: [],
+      away_roster: [],
     };
 
     apiClient.get.mockResolvedValue({ data: mockGame });
@@ -53,8 +53,8 @@ describe('GameCenter (Match Details)', () => {
     await waitFor(() => {
       expect(screen.getByText(/Week 5/i)).toBeInTheDocument();
     });
-    expect(screen.getByText(/Runaway Train/i)).toBeInTheDocument();
-    expect(screen.getByText(/The Legends/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /Runaway Train/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /The Legends/i })).toBeInTheDocument();
   });
 
   test('displays home and away team starters', async () => {
@@ -67,11 +67,11 @@ describe('GameCenter (Match Details)', () => {
       away_score: 118,
       home_projected: 130,
       away_projected: 120,
-      home_starters: [
+      home_roster: [
         { player_id: 1, name: 'Patrick Mahomes', position: 'QB', nfl_team: 'KC', projected: 25 },
         { player_id: 2, name: 'Travis Kelce', position: 'TE', nfl_team: 'KC', projected: 15 },
       ],
-      away_starters: [
+      away_roster: [
         { player_id: 3, name: 'Josh Allen', position: 'QB', nfl_team: 'BUF', projected: 23 },
         { player_id: 4, name: 'Stefon Diggs', position: 'WR', nfl_team: 'BUF', projected: 12 },
       ],
@@ -99,13 +99,13 @@ describe('GameCenter (Match Details)', () => {
       away_score: 95,
       home_projected: 105,
       away_projected: 100,
-      home_starters: [
+      home_roster: [
         { player_id: 1, name: 'QB1', position: 'QB', nfl_team: 'KC', projected: 25 },
         { player_id: 2, name: 'RB1', position: 'RB', nfl_team: 'KC', projected: 15 },
         { player_id: 3, name: 'WR1', position: 'WR', nfl_team: 'KC', projected: 12 },
         { player_id: 4, name: 'TE1', position: 'TE', nfl_team: 'KC', projected: 10 },
       ],
-      away_starters: [],
+      away_roster: [],
     };
 
     apiClient.get.mockResolvedValue({ data: mockGame });
@@ -130,8 +130,8 @@ describe('GameCenter (Match Details)', () => {
       away_score: 95,
       home_projected: 105,
       away_projected: 100,
-      home_starters: [],
-      away_starters: [
+      home_roster: [],
+      away_roster: [
         { player_id: 1, name: 'Player', position: 'QB', nfl_team: 'KC', projected: 20 },
       ],
     };
@@ -156,8 +156,8 @@ describe('GameCenter (Match Details)', () => {
       away_score: 95,
       home_projected: 105,
       away_projected: 100,
-      home_starters: [],
-      away_starters: [],
+      home_roster: [],
+      away_roster: [],
     };
 
     apiClient.get.mockResolvedValue({ data: mockGame });
@@ -168,7 +168,7 @@ describe('GameCenter (Match Details)', () => {
       expect(screen.getByText(/Week 5/i)).toBeInTheDocument();
     });
 
-    const backLink = screen.getByRole('link', { name: '' }); // Back arrow icon
+    const backLink = screen.getByRole('link', { name: /back to matchups/i });
     expect(backLink).toHaveAttribute('href', '/matchups');
   });
 
@@ -177,9 +177,8 @@ describe('GameCenter (Match Details)', () => {
 
     render(<GameCenter />);
 
-    // Should show loading then empty state
     await waitFor(() => {
-      expect(screen.queryByText(/Loading Matchup Data/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/Matchup data unavailable/i)).toBeInTheDocument();
     });
   });
 
@@ -196,8 +195,8 @@ describe('GameCenter (Match Details)', () => {
         away_score: 95,
         home_projected: 105,
         away_projected: 100,
-        home_starters: [],
-        away_starters: [],
+        home_roster: [],
+        away_roster: [],
       },
     });
 
@@ -218,10 +217,10 @@ describe('GameCenter (Match Details)', () => {
       away_score: 95,
       home_projected: 105,
       away_projected: 100,
-      home_starters: [
+      home_roster: [
         { player_id: 1, name: 'Star Player', position: 'QB', nfl_team: 'KC', projected: 27.5 },
       ],
-      away_starters: [],
+      away_roster: [],
     };
 
     apiClient.get.mockResolvedValue({ data: mockGame });

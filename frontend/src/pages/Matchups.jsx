@@ -96,6 +96,7 @@ export default function Matchups() {
           <button
             onClick={() => handleWeekChange('prev')}
             disabled={week === 1}
+            aria-label="Previous week"
             className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"
           >
             <FiChevronLeft size={24} className="text-white" />
@@ -123,6 +124,7 @@ export default function Matchups() {
           <button
             onClick={() => handleWeekChange('next')}
             disabled={week === 17}
+            aria-label="Next week"
             className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"
           >
             <FiChevronRight size={24} className="text-white" />
@@ -132,6 +134,7 @@ export default function Matchups() {
         <div className="flex justify-center border-t border-slate-800 pt-4">
           <button
             onClick={() => setShowProjected(!showProjected)}
+            aria-label="Toggle projected scores"
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-950 border border-slate-700 hover:border-slate-500 transition"
           >
             <span

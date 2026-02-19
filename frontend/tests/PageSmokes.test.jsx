@@ -86,9 +86,8 @@ describe('SiteAdmin (Smoke Test)', () => {
 
     render(<SiteAdmin />);
 
-    // Component should attempt to load admin data
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalled();
+      expect(screen.getByText(/Site Admin/i)).toBeInTheDocument();
     });
   });
 });

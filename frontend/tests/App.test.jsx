@@ -45,7 +45,7 @@ describe('App (basic)', () => {
 
   test('renders login screen when no token present', () => {
     render(<App />);
-    expect(screen.getByText(/WAR ROOM LOGIN/i)).toBeInTheDocument();
+    expect(screen.getByText(/FantasyFootball-PI Login/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter username/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter password/i)).toBeInTheDocument();
     // Test for new League ID input (from recent changes)
@@ -57,6 +57,7 @@ describe('App (basic)', () => {
 
   test('uses token to fetch /auth/me and shows app when valid', async () => {
     localStorage.setItem('fantasyToken', 'fake-token');
+    localStorage.setItem('fantasyLeagueId', '1');
     apiClient.get.mockResolvedValue({
       data: { user_id: 7, username: 'alice' },
     });
@@ -97,7 +98,13 @@ describe('App (basic)', () => {
     await user.click(submitButton);
 
     // Verify token endpoint was called
-    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/auth/token', expect.any(Object)));
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/auth/token',
+        expect.any(Object),
+        expect.any(Object)
+      )
+    );
 
     // Verify league ID from form input is saved (not from server response)
     await waitFor(() => {

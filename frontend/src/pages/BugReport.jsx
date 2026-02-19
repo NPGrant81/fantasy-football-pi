@@ -1,11 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import apiClient from '@api/client';
+
+const PAGE_MAP = {
+  '/': 'Home',
+  '/draft': 'Draft',
+  '/team': 'My Team',
+  '/matchups': 'Matchups',
+  '/waivers': 'Waiver Wire',
+  '/commissioner': 'Commissioner',
+  '/admin': 'Admin',
+  '/bug-report': 'Bug Report',
+};
 
 export default function BugReport() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [issueType, setIssueType] = useState('bug');
-  const [pageName, setPageName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [saveEmail, setSaveEmail] = useState(true);
   const [status, setStatus] = useState({ type: '', message: '' });
@@ -22,7 +32,9 @@ export default function BugReport() {
   }, []);
 
   const pageUrl = window.location.pathname;
-  const pageOptions = [
+  const defaultPageName = PAGE_MAP[pageUrl] || 'Other';
+  const [pageName, setPageName] = useState(defaultPageName);
+  const pageOptions = useMemo(() => [
     'Home',
     'Draft',
     'My Team',
@@ -33,23 +45,7 @@ export default function BugReport() {
     'Admin',
     'Bug Report',
     'Other',
-  ];
-
-  useEffect(() => {
-    if (!pageName) {
-      const map = {
-        '/': 'Home',
-        '/draft': 'Draft',
-        '/team': 'My Team',
-        '/matchups': 'Matchups',
-        '/waivers': 'Waiver Wire',
-        '/commissioner': 'Commissioner',
-        '/admin': 'Admin',
-        '/bug-report': 'Bug Report',
-      };
-      setPageName(map[pageUrl] || 'Other');
-    }
-  }, [pageName, pageUrl]);
+  ], []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

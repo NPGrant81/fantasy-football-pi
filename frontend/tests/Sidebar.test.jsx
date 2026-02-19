@@ -2,11 +2,18 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
+vi.mock('../src/api/client', () => ({
+  default: {
+    get: vi.fn(),
+  },
+}));
+
 vi.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
 }));
 
 import Sidebar from '../src/components/Sidebar';
+import apiClient from '../src/api/client';
 
 describe('Sidebar (Navigation)', () => {
   const defaultProps = {
@@ -16,9 +23,22 @@ describe('Sidebar (Navigation)', () => {
     leagueId: 1,
   };
 
+  beforeEach(() => {
+    vi.resetAllMocks();
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { is_commissioner: false } });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+  });
+
   test('renders when isOpen is true', () => {
     render(<Sidebar {...defaultProps} />);
-    expect(screen.getByText(/Menu/i)).toBeInTheDocument();
+    expect(screen.getByText(/FANTASY/i)).toBeInTheDocument();
   });
 
   test('does not render when isOpen is false', () => {
@@ -56,7 +76,7 @@ describe('Sidebar (Navigation)', () => {
 
   test('has settings section', () => {
     render(<Sidebar {...defaultProps} />);
-    expect(screen.getByText(/Settings/i)).toBeInTheDocument();
+    expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
   test('calls onClose when navigation link is clicked', async () => {

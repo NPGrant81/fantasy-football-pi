@@ -11,6 +11,8 @@ import TradeRulesModal from '../components/commissioner/TradeRulesModal';
 // Professional Imports
 import apiClient from '@api/client';
 import LeagueAdvisor from '../components/LeagueAdvisor';
+import { getPosColor } from '../utils/uiHelpers';
+import { normalizePos } from '../utils/draftHelpers';
 
 // --- 1.1 CONSTANTS & HELPERS (Outside Render) ---
 const POS_RANK = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5, K: 6 };

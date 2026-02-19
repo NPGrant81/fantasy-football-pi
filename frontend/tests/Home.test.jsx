@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => ({
@@ -36,7 +36,8 @@ describe('Home (League Dashboard)', () => {
     await waitFor(() => {
       expect(screen.getByText(/THE BIG SHOW/i)).toBeInTheDocument();
     });
-    expect(screen.getByText(/Welcome back.*alice/i)).toBeInTheDocument();
+    expect(screen.getByText(/Welcome back,/i)).toBeInTheDocument();
+    expect(screen.getByText('alice')).toBeInTheDocument();
   });
 
   test('renders standings table with owners', async () => {
@@ -64,11 +65,13 @@ describe('Home (League Dashboard)', () => {
     await waitFor(() => {
       expect(screen.getByText('Runaway Train')).toBeInTheDocument();
     });
-    expect(screen.getByText('The Legends')).toBeInTheDocument();
-    expect(screen.getByText('Sky Club')).toBeInTheDocument();
-    expect(screen.getByText('alice')).toBeInTheDocument();
-    expect(screen.getByText('bob')).toBeInTheDocument();
-    expect(screen.getByText('charlie')).toBeInTheDocument();
+    const standingsTable = screen.getByRole('table');
+    const tableScope = within(standingsTable);
+    expect(tableScope.getByText('The Legends')).toBeInTheDocument();
+    expect(tableScope.getByText('Sky Club')).toBeInTheDocument();
+    expect(tableScope.getByText('alice')).toBeInTheDocument();
+    expect(tableScope.getByText('bob')).toBeInTheDocument();
+    expect(tableScope.getByText('charlie')).toBeInTheDocument();
   });
 
   test('displays ranking (1st place highlighted in yellow)', async () => {

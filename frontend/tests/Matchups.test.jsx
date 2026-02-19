@@ -167,7 +167,7 @@ describe('Matchups (Weekly Matchups)', () => {
       expect(screen.getByText('120')).toBeInTheDocument(); // Projected
     });
 
-    const toggleButton = screen.getByRole('button', { name: /toggle/i });
+    const toggleButton = screen.getByLabelText(/Toggle projected scores/i);
     const user = userEvent.setup();
     await user.click(toggleButton);
 
@@ -228,7 +228,7 @@ describe('Matchups (Weekly Matchups)', () => {
       expect(screen.getByText('Team A')).toBeInTheDocument();
     });
 
-    const nextButton = screen.getByRole('button', { name: /next/i });
+    const nextButton = screen.getByLabelText(/Next week/i);
     const user = userEvent.setup();
     await user.click(nextButton);
 
@@ -256,12 +256,12 @@ describe('Matchups (Weekly Matchups)', () => {
     render(<Matchups />);
 
     await waitFor(() => {
-      const prevButton = screen.getByRole('button', { name: /prev/i });
+      const prevButton = screen.getByLabelText(/Previous week/i);
       expect(prevButton).toBeDisabled();
     });
   });
 
-  test('disables next button when on week 17', async () => {
+  test('next button is enabled on week 1', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me') {
         return Promise.resolve({
@@ -279,10 +279,9 @@ describe('Matchups (Weekly Matchups)', () => {
 
     render(<Matchups />);
 
-    // We'd need to navigate to week 17 for this test
-    // Simplified version: just check the component renders
     await waitFor(() => {
-      expect(screen.getByText(/Matchups/i)).toBeInTheDocument();
+      const nextButton = screen.getByLabelText(/Next week/i);
+      expect(nextButton).not.toBeDisabled();
     });
   });
 
@@ -311,7 +310,7 @@ describe('Matchups (Weekly Matchups)', () => {
 
     // At startup, should show loading (component initializes with loading: true)
     await waitFor(() => {
-      expect(screen.getByText(/Loading Matchup Data/i)).toBeInTheDocument();
+      expect(screen.getByText(/Loading Week 1/i)).toBeInTheDocument();
     });
 
     // Resolve the promise
@@ -319,7 +318,7 @@ describe('Matchups (Weekly Matchups)', () => {
 
     // Wait for loading to disappear
     await waitFor(() => {
-      expect(screen.queryByText(/Loading Matchup Data/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Loading Week 1/i)).not.toBeInTheDocument();
     });
   });
 

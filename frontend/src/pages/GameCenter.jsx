@@ -8,7 +8,7 @@ import apiClient from '@api/client';
 
 // --- 1.1 SUB-COMPONENTS (Declared Outside) ---
 // This prevents React from re-creating the component definition on every render.
-const RosterColumn = ({ players, teamName, colorClass }) => (
+const RosterColumn = ({ players = [], teamName, colorClass }) => (
   <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
     <div className="bg-slate-950/50 p-3 border-b border-slate-800 text-center">
       <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs">
@@ -84,10 +84,18 @@ export default function GameCenter() {
   // --- 2.1 RENDER LOGIC (The View) ---
 
   // 2.1.1 Handle Loading & Empty States
-  if (loading || !game) {
+  if (loading) {
     return (
       <div className="text-center py-20 text-slate-500 animate-pulse font-black uppercase tracking-widest">
         Loading Matchup Data...
+      </div>
+    );
+  }
+
+  if (!game) {
+    return (
+      <div className="text-center py-20 text-slate-500 font-black uppercase tracking-widest">
+        Matchup data unavailable.
       </div>
     );
   }
@@ -98,6 +106,7 @@ export default function GameCenter() {
       <div className="flex items-center gap-4">
         <Link
           to="/matchups"
+          aria-label="Back to matchups"
           className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition shadow-lg"
         >
           <FiArrowLeft size={20} />
