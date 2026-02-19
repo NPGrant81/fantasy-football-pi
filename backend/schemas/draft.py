@@ -7,6 +7,7 @@ class DraftPickBase(BaseModel):
     owner_id: int
     amount: int
     session_id: str
+    year: Optional[int] = None
 
 # What we need to CREATE a pick (Input)
 class DraftPickCreate(DraftPickBase):

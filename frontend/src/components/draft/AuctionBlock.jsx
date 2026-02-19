@@ -62,11 +62,18 @@ export default function AuctionBlock({
                 className="p-3 hover:bg-slate-800 cursor-pointer flex justify-between items-center border-b border-slate-800 last:border-0 transition"
               >
                 <span className="font-bold text-slate-200">{p.name}</span>
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded font-black border ${getPosColor(p.position)}`}
-                >
-                  {normalizePos(p.position)}
-                </span>
+                <div className="flex items-center gap-2">
+                  {p.espn_id && (
+                    <span className="text-[9px] uppercase tracking-widest text-slate-400 border border-slate-700 px-2 py-0.5 rounded">
+                      ESPN
+                    </span>
+                  )}
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded font-black border ${getPosColor(p.position)}`}
+                  >
+                    {normalizePos(p.position)}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
@@ -91,7 +98,7 @@ export default function AuctionBlock({
           </option>
           {owners.map((o) => (
             <option key={o.id} value={o.id}>
-              {o.username}
+              {o.team_name ? `${o.team_name} — ${o.username}` : o.username}
             </option>
           ))}
         </select>

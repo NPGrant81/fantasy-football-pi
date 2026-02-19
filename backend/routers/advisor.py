@@ -9,6 +9,12 @@ import models
 router = APIRouter(prefix="/advisor", tags=["AI"])
 
 
+@router.get("/status")
+def get_advisor_status():
+    api_key = os.environ.get("GEMINI_API_KEY")
+    return {"enabled": bool(api_key)}
+
+
 class AdvisorRequest(BaseModel):
     user_query: str
     username: str = None

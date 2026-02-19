@@ -39,6 +39,7 @@ class DraftPickCreate(BaseModel):
     player_id: int 
     amount: int
     session_id: str
+    year: int | None = None
 
 # --- 3. STANDARD ENDPOINTS (From main.py - The ones working NOW) ---
 
@@ -73,10 +74,15 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Owner not found")
 
     # 2. Save to Database
+    year_value = pick.year
+    if year_value is None:
+        settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == owner.league_id).first()
+        year_value = settings.draft_year if settings and settings.draft_year else datetime.utcnow().year
+
     new_pick = models.DraftPick(
         player_id=pick.player_id,
         owner_id=pick.owner_id,
-        year=2026,
+        year=year_value,
         amount=pick.amount,
         session_id=pick.session_id,
         league_id=owner.league_id,

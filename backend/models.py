@@ -55,6 +55,7 @@ class LeagueSettings(Base):
         "QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1
     })
     waiver_deadline = Column(String, nullable=True)  # ISO format string, set by commissioner
+    draft_year = Column(Integer, nullable=True)
     
     league = relationship("League", back_populates="settings")
 
@@ -92,6 +93,19 @@ class DraftPick(Base):
     owner = relationship("User", back_populates="picks")
     player = relationship("Player", back_populates="draft_pick")
     league = relationship("League", back_populates="draft_picks")
+
+# --- 5.1 DRAFT BUDGETS ---
+class DraftBudget(Base):
+    __tablename__ = "draft_budgets"
+    __table_args__ = (
+        UniqueConstraint("league_id", "owner_id", "year", name="uq_budget_league_owner_year"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"))
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    year = Column(Integer, index=True)
+    total_budget = Column(Integer, default=200)
 
 # --- 6. MATCHUP TABLE ---
 class Matchup(Base):

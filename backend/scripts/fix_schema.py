@@ -27,6 +27,12 @@ with engine.connect() as connection:
         "✅ Success! 'espn_id' column added to players.",
     )
 
+    run_safe(
+        connection,
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS draft_year INTEGER",
+        "✅ Success! 'draft_year' column added to league_settings.",
+    )
+
     # Weekly stats archive table
     run_safe(
         connection,
@@ -50,4 +56,19 @@ with engine.connect() as connection:
         connection,
         "ALTER TABLE bug_reports ADD COLUMN IF NOT EXISTS github_issue_url VARCHAR",
         "✅ Success! 'github_issue_url' column added to bug_reports.",
+    )
+
+    run_safe(
+        connection,
+        """
+        CREATE TABLE IF NOT EXISTS draft_budgets (
+            id SERIAL PRIMARY KEY,
+            league_id INTEGER REFERENCES leagues(id),
+            owner_id INTEGER REFERENCES users(id),
+            year INTEGER,
+            total_budget INTEGER DEFAULT 200,
+            CONSTRAINT uq_budget_league_owner_year UNIQUE (league_id, owner_id, year)
+        )
+        """,
+        "✅ Success! 'draft_budgets' table created.",
     )

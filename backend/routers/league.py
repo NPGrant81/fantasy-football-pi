@@ -51,7 +51,16 @@ class LeagueConfigFull(BaseModel):
     salary_cap: int
     starting_slots: Dict[str, int]
     waiver_deadline: Optional[str] = None
+    draft_year: Optional[int] = None
     scoring_rules: List[ScoringRuleSchema]
+
+class BudgetEntry(BaseModel):
+    owner_id: int
+    total_budget: int
+
+class BudgetUpdateRequest(BaseModel):
+    year: int
+    budgets: List[BudgetEntry]
 
 # --- Endpoints ---
 
@@ -202,6 +211,7 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
         salary_cap=settings.salary_cap,
         starting_slots=settings.starting_slots or {},
         waiver_deadline=settings.waiver_deadline,
+        draft_year=settings.draft_year,
         scoring_rules=[
             ScoringRuleSchema(category=r.category, description=r.description, points=r.points) 
             for r in rules
@@ -221,6 +231,8 @@ def update_league_settings(
     settings.salary_cap = config.salary_cap
     settings.starting_slots = config.starting_slots
     settings.waiver_deadline = config.waiver_deadline
+    if config.draft_year is not None:
+        settings.draft_year = config.draft_year
     
     # 2. Update Rules (Nuclear Option: Delete old, add new)
     # This is the easiest way to handle edits/deletes without complex logic
@@ -238,6 +250,78 @@ def update_league_settings(
     
     db.commit()
     return {"message": "League configuration saved!"}
+
+# --- NEW: SET LEAGUE DRAFT YEAR ---
+@router.post("/{league_id}/draft-year")
+def set_league_draft_year(
+    league_id: int,
+    payload: Dict[str, int],
+    current_user: models.User = Depends(check_is_commissioner),
+    db: Session = Depends(get_db)
+):
+    year = payload.get("year")
+    if not year:
+        raise HTTPException(status_code=400, detail="year is required")
+
+    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league_id).first()
+    if not settings:
+        settings = models.LeagueSettings(league_id=league_id)
+        db.add(settings)
+
+    settings.draft_year = year
+    db.commit()
+    return {"message": "Draft year updated", "draft_year": settings.draft_year}
+
+# --- NEW: GET/SET DRAFT BUDGETS ---
+@router.get("/{league_id}/budgets")
+def get_league_budgets(
+    league_id: int,
+    year: int = Query(...),
+    db: Session = Depends(get_db)
+):
+    owners = db.query(models.User).filter(models.User.league_id == league_id).all()
+    budgets = db.query(models.DraftBudget).filter(
+        models.DraftBudget.league_id == league_id,
+        models.DraftBudget.year == year
+    ).all()
+    budget_map = {b.owner_id: b.total_budget for b in budgets}
+
+    return [
+        {
+            "owner_id": owner.id,
+            "username": owner.username,
+            "team_name": owner.team_name,
+            "total_budget": budget_map.get(owner.id),
+        }
+        for owner in owners
+    ]
+
+@router.post("/{league_id}/budgets")
+def update_league_budgets(
+    league_id: int,
+    payload: BudgetUpdateRequest,
+    current_user: models.User = Depends(check_is_commissioner),
+    db: Session = Depends(get_db)
+):
+    year = payload.year
+    for entry in payload.budgets:
+        existing = db.query(models.DraftBudget).filter(
+            models.DraftBudget.league_id == league_id,
+            models.DraftBudget.owner_id == entry.owner_id,
+            models.DraftBudget.year == year
+        ).first()
+        if existing:
+            existing.total_budget = entry.total_budget
+        else:
+            db.add(models.DraftBudget(
+                league_id=league_id,
+                owner_id=entry.owner_id,
+                year=year,
+                total_budget=entry.total_budget
+            ))
+
+    db.commit()
+    return {"message": "Budgets updated", "year": year}
 
 # --- NEW: USER MANAGEMENT ENDPOINTS ---
 

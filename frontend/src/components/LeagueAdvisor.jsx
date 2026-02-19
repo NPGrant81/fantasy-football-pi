@@ -33,12 +33,13 @@ export default function ChatInterface({ initialQuery = '' }) {
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true);
   const scrollRef = useRef(null);
 
   // --- 2.1 MESSAGE HANDLER (Defined early for use in effects) ---
   const handleSendMessage = useCallback(async (queryOverride = null) => {
     const activeQuery = queryOverride || input;
-    if (!activeQuery.trim() || isLoading) return;
+    if (!activeQuery.trim() || isLoading || !isAvailable) return;
 
     // 2.1.1 LOCAL UPDATE
     setMessages((prev) => [...prev, { role: 'user', text: activeQuery }]);
@@ -67,7 +68,14 @@ export default function ChatInterface({ initialQuery = '' }) {
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, userInfo.leagueId, userInfo.username]);
+  }, [input, isLoading, isAvailable, userInfo.leagueId, userInfo.username]);
+
+  useEffect(() => {
+    apiClient
+      .get('/advisor/status')
+      .then((res) => setIsAvailable(Boolean(res.data?.enabled)))
+      .catch(() => setIsAvailable(false));
+  }, []);
 
   // --- 1.2 AUTO-SCROLL ENGINE ---
   useEffect(() => {
@@ -106,6 +114,11 @@ export default function ChatInterface({ initialQuery = '' }) {
 
           {/* MESSAGE VIEWPORT */}
           <div className={`flex-1 overflow-y-auto p-4 space-y-4 max-h-[350px] min-h-[200px] custom-scrollbar ${bgColors.section}`}> 
+            {!isAvailable && (
+              <div className="rounded-lg border border-yellow-700 bg-yellow-900/30 p-3 text-xs text-yellow-200">
+                Advisor is offline. Set `GEMINI_API_KEY` on the backend to enable chat.
+              </div>
+            )}
             {messages.map((msg, i) => (
               <div
                 key={i}
@@ -168,7 +181,7 @@ export default function ChatInterface({ initialQuery = '' }) {
               />
               <button
                 onClick={() => handleSendMessage()}
-                disabled={isLoading}
+                disabled={isLoading || !isAvailable}
                 className={`${bgColors.accent} hover:bg-blue-500 ${textColors.main} p-2 rounded-lg transition disabled:opacity-30 active:scale-95`}
               >
                 <FiSend />
