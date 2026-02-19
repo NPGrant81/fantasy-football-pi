@@ -1,7 +1,7 @@
 // frontend/src/pages/Home.jsx
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
-import FeedPill from './components/FeedPill';
+import FeedPill from '../../components/feeds/FeedPill';
 import { FiAward, FiActivity } from 'react-icons/fi';
 
 export default function Home({ username }) {
