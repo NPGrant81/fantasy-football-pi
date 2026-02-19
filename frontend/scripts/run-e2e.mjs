@@ -53,8 +53,13 @@ async function runForPort(port) {
     return { ok: false, baseUrl };
   }
 
-  const cypressArgs = ['run', 'e2e:run', '--', '--config', `baseUrl=${baseUrl}`];
-  const cypressProcess = spawn(npmCmd, cypressArgs, { stdio: 'inherit', shell: useShell });
+  const cypressArgs = ['run', 'e2e:run'];
+  const cypressEnv = { ...process.env, CYPRESS_BASE_URL: baseUrl };
+  const cypressProcess = spawn(npmCmd, cypressArgs, { 
+    stdio: 'inherit', 
+    shell: useShell,
+    env: cypressEnv 
+  });
 
   const exitCode = await new Promise((resolve) => {
     cypressProcess.on('exit', resolve);
