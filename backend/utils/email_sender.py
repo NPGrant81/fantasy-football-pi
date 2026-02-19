@@ -78,8 +78,9 @@ def send_bug_report_email(report, support_email=None):
         <h2>New Bug Report</h2>
         <p><strong>Title:</strong> {report['title']}</p>
         <p><strong>Description:</strong><br/>{report['description']}</p>
-        <p><strong>Severity:</strong> {report.get('severity') or 'Not specified'}</p>
-        <p><strong>Page:</strong> {report.get('page_url') or 'Not provided'}</p>
+        <p><strong>Issue Type:</strong> {report.get('issue_type') or 'Not specified'}</p>
+        <p><strong>Page Name:</strong> {report.get('page_name') or 'Not provided'}</p>
+        <p><strong>Page URL:</strong> {report.get('page_url') or 'Not provided'}</p>
         <p><strong>Reporter Email:</strong> {report.get('email') or 'Not provided'}</p>
         <p><strong>Reported At:</strong> {report.get('created_at') or 'Just now'}</p>
     </div>
@@ -90,7 +91,9 @@ def send_bug_report_email(report, support_email=None):
         print(f"📧 [SIMULATION] Bug Report Email to: {support_email}")
         print(f"🪲 Title: {report['title']}")
         print(f"📝 Description: {report['description']}")
-        print(f"🔗 Page: {report.get('page_url') or 'Not provided'}")
+        print(f"🏷️ Issue Type: {report.get('issue_type') or 'Not specified'}")
+        print(f"📄 Page Name: {report.get('page_name') or 'Not provided'}")
+        print(f"🔗 Page URL: {report.get('page_url') or 'Not provided'}")
         print(f"📨 Reporter Email: {report.get('email') or 'Not provided'}")
         print("=" * 50 + "\n")
         return True

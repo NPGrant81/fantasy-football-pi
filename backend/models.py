@@ -144,8 +144,9 @@ class BugReport(Base):
     email = Column(String, nullable=True)
     title = Column(String, nullable=False)
     description = Column(String, nullable=False)
+    page_name = Column(String, nullable=True)
+    issue_type = Column(String, nullable=True)
     page_url = Column(String, nullable=True)
-    severity = Column(String, nullable=True)
     status = Column(String, default="OPEN")
     created_at = Column(String, nullable=True)
 

@@ -4,7 +4,8 @@ import apiClient from '@api/client';
 export default function BugReport() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [severity, setSeverity] = useState('');
+  const [issueType, setIssueType] = useState('bug');
+  const [pageName, setPageName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [saveEmail, setSaveEmail] = useState(true);
   const [status, setStatus] = useState({ type: '', message: '' });
@@ -21,6 +22,34 @@ export default function BugReport() {
   }, []);
 
   const pageUrl = window.location.pathname;
+  const pageOptions = [
+    'Home',
+    'Draft',
+    'My Team',
+    'Matchups',
+    'Game Center',
+    'Waiver Wire',
+    'Commissioner',
+    'Admin',
+    'Bug Report',
+    'Other',
+  ];
+
+  useEffect(() => {
+    if (!pageName) {
+      const map = {
+        '/': 'Home',
+        '/draft': 'Draft',
+        '/team': 'My Team',
+        '/matchups': 'Matchups',
+        '/waivers': 'Waiver Wire',
+        '/commissioner': 'Commissioner',
+        '/admin': 'Admin',
+        '/bug-report': 'Bug Report',
+      };
+      setPageName(map[pageUrl] || 'Other');
+    }
+  }, [pageName, pageUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,14 +63,15 @@ export default function BugReport() {
       await apiClient.post('/feedback/bug', {
         title,
         description,
+        page_name: pageName || null,
+        issue_type: issueType || null,
         page_url: pageUrl,
-        severity: severity || null,
         contact_email: contactEmail || null,
       });
 
       setTitle('');
       setDescription('');
-      setSeverity('');
+      setIssueType('bug');
       setStatus({ type: 'success', message: 'Bug report submitted. Thank you!' });
     } catch (err) {
       const detail = err.response?.data?.detail || 'Unable to submit report.';
@@ -106,30 +136,45 @@ export default function BugReport() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-              Severity
+              Page Name
             </label>
             <select
               className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-white focus:border-yellow-500 outline-none"
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value)}
+              value={pageName}
+              onChange={(e) => setPageName(e.target.value)}
             >
-              <option value="">Select severity</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
+              <option value="">Select page</option>
+              {pageOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-              Page
+              Issue Type
             </label>
-            <input
-              className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-slate-400"
-              value={pageUrl}
-              readOnly
-            />
+            <select
+              className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-white focus:border-yellow-500 outline-none"
+              value={issueType}
+              onChange={(e) => setIssueType(e.target.value)}
+            >
+              <option value="bug">Bug</option>
+              <option value="feature">Feature</option>
+            </select>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+            Page URL
+          </label>
+          <input
+            className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-slate-400"
+            value={pageUrl}
+            readOnly
+          />
         </div>
 
         <div>

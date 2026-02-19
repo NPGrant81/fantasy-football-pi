@@ -15,8 +15,9 @@ router = APIRouter(prefix="/feedback", tags=["Feedback"])
 class BugReportCreate(BaseModel):
     title: str
     description: str
+    page_name: Optional[str] = None
+    issue_type: Optional[str] = None
     page_url: Optional[str] = None
-    severity: Optional[str] = None
     contact_email: Optional[str] = None
 
 
@@ -34,8 +35,9 @@ def create_bug_report(
         email=payload.contact_email or current_user.email,
         title=payload.title.strip(),
         description=payload.description.strip(),
+        page_name=payload.page_name,
+        issue_type=payload.issue_type,
         page_url=payload.page_url,
-        severity=payload.severity,
         status="OPEN",
         created_at=datetime.utcnow().isoformat()
     )
@@ -48,7 +50,8 @@ def create_bug_report(
         {
             "title": report.title,
             "description": report.description,
-            "severity": report.severity,
+            "issue_type": report.issue_type,
+            "page_name": report.page_name,
             "page_url": report.page_url,
             "email": report.email,
             "created_at": report.created_at,
