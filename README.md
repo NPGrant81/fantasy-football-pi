@@ -4,7 +4,7 @@
 
 This repository contains a FastAPI backend and a React (Vite + Tailwind) frontend for running an auction-style fantasy football league.
 
-## Documentation Appendix
+## Project Docs
 
 - Core architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - UI/UX reference: [UI_REFERENCE.md](UI_REFERENCE.md)
