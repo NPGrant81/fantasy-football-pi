@@ -61,15 +61,6 @@ def get_leagues(db: Session = Depends(get_db)):
     leagues = db.query(models.League).all()
     return [LeagueSummary(id=l.id, name=l.name) for l in leagues]
 
-# --- NEW: GET /leagues/{league_id} ---
-@router.get("/{league_id}", response_model=LeagueSummary)
-def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
-    league = db.query(models.League).filter(models.League.id == league_id).first()
-    if not league:
-        raise HTTPException(status_code=404, detail="League not found")
-    return LeagueSummary(id=league.id, name=league.name)
-
-
 # --- NEW: GET /league/owners?league_id= ---
 # This is a GET endpoint to match the frontend call, but is defined here for convenience.
 @router.get("/owners")
@@ -79,6 +70,14 @@ def get_league_owners(league_id: int = Query(...), db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="League not found")
     owners = db.query(models.User).filter(models.User.league_id == league_id).all()
     return [{"id": o.id, "username": o.username, "team_name": o.team_name} for o in owners]
+
+# --- NEW: GET /leagues/{league_id} ---
+@router.get("/{league_id}", response_model=LeagueSummary)
+def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
+    league = db.query(models.League).filter(models.League.id == league_id).first()
+    if not league:
+        raise HTTPException(status_code=404, detail="League not found")
+    return LeagueSummary(id=league.id, name=league.name)
 
 @router.get("/{league_id}/news", response_model=List[LeagueNewsItem])
 def get_league_news(
