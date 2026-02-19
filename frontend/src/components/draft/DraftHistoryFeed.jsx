@@ -28,16 +28,34 @@ export default function DraftHistoryFeed({ history = [], owners = [] }) {
                 key={pick.id || `${pick.player_id}-${pick.timestamp}`}
                 className="mx-1"
               >
-                <span className="text-yellow-400 mr-2">{owner?.username || 'Ghost Owner'}</span>
-                <span className="uppercase font-black tracking-tight mr-2">{pick.player_name}</span>
-                <span className={`text-[9px] font-black px-2 py-0.5 rounded border mr-2 ${getPosColor(pick.position)}`}>{normalizePos(pick.position)}</span>
-                <span className="text-green-400 font-mono font-black text-xs mr-2">${pick.amount}</span>
-                <span className="text-slate-500 font-mono">{new Date(pick.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                <span className="text-yellow-400 mr-2">
+                  {owner?.username || 'Ghost Owner'}
+                </span>
+                <span className="uppercase font-black tracking-tight mr-2">
+                  {pick.player_name}
+                </span>
+                <span
+                  className={`text-[9px] font-black px-2 py-0.5 rounded border mr-2 ${getPosColor(pick.position)}`}
+                >
+                  {normalizePos(pick.position)}
+                </span>
+                <span className="text-green-400 font-mono font-black text-xs mr-2">
+                  ${pick.amount}
+                </span>
+                <span className="text-slate-500 font-mono">
+                  {new Date(pick.timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                  })}
+                </span>
               </FeedPill>
             );
           })
         ) : (
-          <span className="text-slate-600 italic text-sm px-4">Waiting for the first nomination...</span>
+          <span className="text-slate-600 italic text-sm px-4">
+            Waiting for the first nomination...
+          </span>
         )}
       </div>
       {/* Marquee animation CSS */}

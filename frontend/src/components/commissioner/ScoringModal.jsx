@@ -1,7 +1,15 @@
 import React from 'react';
 import { FiX, FiSave } from 'react-icons/fi';
 
-export default function ScoringModal({ open, onClose, settings, onChange, onSave, activeTab, setActiveTab }) {
+export default function ScoringModal({
+  open,
+  onClose,
+  settings,
+  onChange,
+  onSave,
+  activeTab,
+  setActiveTab,
+}) {
   if (!open) return null;
 
   return (
@@ -13,7 +21,9 @@ export default function ScoringModal({ open, onClose, settings, onChange, onSave
         >
           <FiX size={24} />
         </button>
-        <h2 className="text-2xl font-black mb-6 text-white">Edit Scoring Rules</h2>
+        <h2 className="text-2xl font-black mb-6 text-white">
+          Edit Scoring Rules
+        </h2>
         <div className="flex gap-4 mb-6">
           {settings?.scoring_rules?.map((rule, idx) => (
             <button
@@ -26,17 +36,22 @@ export default function ScoringModal({ open, onClose, settings, onChange, onSave
           ))}
         </div>
         <div className="space-y-4">
-          {settings?.scoring_rules?.filter(r => r.category === activeTab).map((rule, idx) => (
-            <div key={idx} className="flex flex-col gap-2 bg-slate-800 p-4 rounded-lg">
-              <label className="font-bold text-slate-300">{rule.name}</label>
-              <input
-                type="number"
-                className="p-2 rounded bg-slate-900 text-white border border-slate-700"
-                value={rule.value}
-                onChange={e => onChange(idx, 'value', e.target.value)}
-              />
-            </div>
-          ))}
+          {settings?.scoring_rules
+            ?.filter((r) => r.category === activeTab)
+            .map((rule, idx) => (
+              <div
+                key={idx}
+                className="flex flex-col gap-2 bg-slate-800 p-4 rounded-lg"
+              >
+                <label className="font-bold text-slate-300">{rule.name}</label>
+                <input
+                  type="number"
+                  className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+                  value={rule.value}
+                  onChange={(e) => onChange(idx, 'value', e.target.value)}
+                />
+              </div>
+            ))}
         </div>
         <button
           className="mt-8 w-full bg-green-600 hover:bg-green-500 text-black py-3 rounded-lg font-black uppercase flex items-center justify-center gap-2"

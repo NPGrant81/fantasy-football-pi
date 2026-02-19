@@ -34,18 +34,21 @@ export default function BugReport() {
   const pageUrl = window.location.pathname;
   const defaultPageName = PAGE_MAP[pageUrl] || 'Other';
   const [pageName, setPageName] = useState(defaultPageName);
-  const pageOptions = useMemo(() => [
-    'Home',
-    'Draft',
-    'My Team',
-    'Matchups',
-    'Game Center',
-    'Waiver Wire',
-    'Commissioner',
-    'Admin',
-    'Bug Report',
-    'Other',
-  ], []);
+  const pageOptions = useMemo(
+    () => [
+      'Home',
+      'Draft',
+      'My Team',
+      'Matchups',
+      'Game Center',
+      'Waiver Wire',
+      'Commissioner',
+      'Admin',
+      'Bug Report',
+      'Other',
+    ],
+    []
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,10 +88,10 @@ export default function BugReport() {
         <h1 className="text-2xl font-black text-white uppercase tracking-tight">
           Bug Report
         </h1>
-          <p className="text-slate-400 mt-2">
-            Tell us what went wrong and where it happened. We will open a GitHub
-            issue and log the report for review.
-          </p>
+        <p className="text-slate-400 mt-2">
+          Tell us what went wrong and where it happened. We will open a GitHub
+          issue and log the report for review.
+        </p>
       </div>
 
       <form

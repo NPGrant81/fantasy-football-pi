@@ -23,25 +23,33 @@ export default function CommishAdmin() {
           className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
           onClick={() => navigate('/manage-users')}
         >
-          MANAGE<br />OWNERS
+          MANAGE
+          <br />
+          OWNERS
         </button>
         <button
           className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
           onClick={() => navigate('/commissioner/manage-scoring-rules')}
         >
-          MANAGE<br />SCORING RULES
+          MANAGE
+          <br />
+          SCORING RULES
         </button>
         <button
           className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
           onClick={() => navigate('/commissioner/manage-waiver-rules')}
         >
-          MANAGE<br />WAIVER RULES
+          MANAGE
+          <br />
+          WAIVER RULES
         </button>
         <button
           className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
           onClick={() => navigate('/commissioner/manage-trades')}
         >
-          MANAGE<br />TRADES
+          MANAGE
+          <br />
+          TRADES
         </button>
       </div>
     </div>

@@ -26,9 +26,24 @@ export default function ManageScoringRules() {
         // setRules(res.data);
         // Demo: load from CSV (see scoring_logic.csv)
         setRules([
-          { event: 'Number of Passing TDs', range: '1-999', value: '6 points each', positions: 'QB, RB, WR, TE' },
-          { event: 'Passing Yards', range: '1-999', value: '.10 points each', positions: 'QB, RB, WR, TE' },
-          { event: 'Number of Rushing TDs', range: '1-999', value: '10 points each', positions: 'QB, RB, WR, TE' },
+          {
+            event: 'Number of Passing TDs',
+            range: '1-999',
+            value: '6 points each',
+            positions: 'QB, RB, WR, TE',
+          },
+          {
+            event: 'Passing Yards',
+            range: '1-999',
+            value: '.10 points each',
+            positions: 'QB, RB, WR, TE',
+          },
+          {
+            event: 'Number of Rushing TDs',
+            range: '1-999',
+            value: '10 points each',
+            positions: 'QB, RB, WR, TE',
+          },
         ]);
       } catch (err) {
         setMessage('Failed to load scoring rules');
@@ -80,7 +95,10 @@ export default function ManageScoringRules() {
   return (
     <div className="p-8 max-w-4xl mx-auto text-white min-h-screen">
       <h1 className="text-3xl font-black mb-6">Manage Scoring Rules</h1>
-      <form onSubmit={handleSubmit} className="mb-8 bg-slate-800 p-6 rounded-xl shadow">
+      <form
+        onSubmit={handleSubmit}
+        className="mb-8 bg-slate-800 p-6 rounded-xl shadow"
+      >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <input
             name="event"
@@ -121,7 +139,10 @@ export default function ManageScoringRules() {
           <button
             type="button"
             className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded"
-            onClick={() => { setForm(defaultRule); setEditingIndex(null); }}
+            onClick={() => {
+              setForm(defaultRule);
+              setEditingIndex(null);
+            }}
           >
             Cancel
           </button>

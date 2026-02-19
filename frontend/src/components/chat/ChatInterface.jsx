@@ -22,36 +22,42 @@ export default function ChatInterface({ initialQuery = '' }) {
   const scrollRef = useRef(null);
 
   // --- 2.1 MESSAGE HANDLER (Defined early for use in effects) ---
-  const handleSendMessage = useCallback(async (queryOverride = null) => {
-    const activeQuery = queryOverride || input;
-    if (!activeQuery.trim() || isLoading) return;
+  const handleSendMessage = useCallback(
+    async (queryOverride = null) => {
+      const activeQuery = queryOverride || input;
+      if (!activeQuery.trim() || isLoading) return;
 
-    // 2.1.1 LOCAL UPDATE
-    setMessages((prev) => [...prev, { role: 'user', text: activeQuery }]);
-    if (!queryOverride) setInput('');
-    setIsLoading(true);
+      // 2.1.1 LOCAL UPDATE
+      setMessages((prev) => [...prev, { role: 'user', text: activeQuery }]);
+      if (!queryOverride) setInput('');
+      setIsLoading(true);
 
-    try {
-      // 2.1.2 EXECUTION: POST with JSON body (Fixes the 422 error)
-      const res = await apiClient.post('/advisor/ask', {
-        user_query: activeQuery,
-      });
+      try {
+        // 2.1.2 EXECUTION: POST with JSON body (Fixes the 422 error)
+        const res = await apiClient.post('/advisor/ask', {
+          user_query: activeQuery,
+        });
 
-      // 2.1.3 SUCCESS
-      setMessages((prev) => [...prev, { role: 'ai', text: res.data.response }]);
-    } catch (err) {
-      console.error('Neural Link Error:', err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'ai',
-          text: '⚠️ The neural link to the Pi is down. Check your connection.',
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [input, isLoading]);
+        // 2.1.3 SUCCESS
+        setMessages((prev) => [
+          ...prev,
+          { role: 'ai', text: res.data.response },
+        ]);
+      } catch (err) {
+        console.error('Neural Link Error:', err);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'ai',
+            text: '⚠️ The neural link to the Pi is down. Check your connection.',
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [input, isLoading]
+  );
 
   // --- 1.2 AUTO-SCROLL ENGINE ---
   useEffect(() => {
@@ -67,17 +73,25 @@ export default function ChatInterface({ initialQuery = '' }) {
 
   // --- 3.1 RENDER: CONTAINER ---
   return (
-    <div className={`${bgColors.main} border ${borderColors.main} rounded-2xl flex flex-col h-[500px] shadow-2xl overflow-hidden`}>
+    <div
+      className={`${bgColors.main} border ${borderColors.main} rounded-2xl flex flex-col h-[500px] shadow-2xl overflow-hidden`}
+    >
       {/* 3.2 HEADER */}
-      <div className={`${bgColors.header} p-4 border-b ${borderColors.main} flex justify-between items-center`}>
-        <h3 className={`font-black uppercase tracking-tighter ${textColors.main} italic`}>
+      <div
+        className={`${bgColors.header} p-4 border-b ${borderColors.main} flex justify-between items-center`}
+      >
+        <h3
+          className={`font-black uppercase tracking-tighter ${textColors.main} italic`}
+        >
           War Room Advisor
         </h3>
         <GeminiBadge />
       </div>
 
       {/* 3.3 MESSAGE VIEWPORT */}
-      <div className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar ${bgColors.section}`}>
+      <div
+        className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar ${bgColors.section}`}
+      >
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -93,14 +107,15 @@ export default function ChatInterface({ initialQuery = '' }) {
               <ReactMarkdown
                 components={{
                   strong: ({ ...props }) => (
-                    <span className={`font-bold ${textColors.warning}`} {...props} />
+                    <span
+                      className={`font-bold ${textColors.warning}`}
+                      {...props}
+                    />
                   ),
                   ul: ({ ...props }) => (
                     <ul className="list-disc pl-5 space-y-1 my-2" {...props} />
                   ),
-                  li: ({ ...props }) => (
-                    <li className="pl-1" {...props} />
-                  ),
+                  li: ({ ...props }) => <li className="pl-1" {...props} />,
                 }}
               >
                 {msg.text}
@@ -112,7 +127,9 @@ export default function ChatInterface({ initialQuery = '' }) {
         {/* 3.4 LOADING INDICATOR */}
         {isLoading && (
           <div className="flex justify-start">
-            <div className={`${bgColors.main} p-3 rounded-2xl rounded-tl-none border ${borderColors.main}`}>
+            <div
+              className={`${bgColors.main} p-3 rounded-2xl rounded-tl-none border ${borderColors.main}`}
+            >
               <span className="flex gap-1">
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></span>
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
@@ -126,7 +143,9 @@ export default function ChatInterface({ initialQuery = '' }) {
 
       {/* 3.5 INPUT AREA */}
       <div className={`p-4 ${bgColors.main} border-t ${borderColors.main}`}>
-        <div className={`flex gap-2 ${bgColors.card} p-1 rounded-xl border ${borderColors.main} focus-within:${borderColors.accent} transition-colors`}>
+        <div
+          className={`flex gap-2 ${bgColors.card} p-1 rounded-xl border ${borderColors.main} focus-within:${borderColors.accent} transition-colors`}
+        >
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}

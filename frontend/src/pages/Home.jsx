@@ -13,15 +13,20 @@ export default function Home({ username }) {
   useEffect(() => {
     if (!leagueId) return;
     // Fetch league name
-    apiClient.get(`/leagues/${leagueId}`)
-      .then(res => setLeagueName(res.data.name))
+    apiClient
+      .get(`/leagues/${leagueId}`)
+      .then((res) => setLeagueName(res.data.name))
       .catch(() => setLeagueName('League'));
     // Fetch standings (owners, sorted by points for desc, then W-L)
-    apiClient.get(`/leagues/owners?league_id=${leagueId}`)
-      .then(res => setStandings(res.data))
+    apiClient
+      .get(`/leagues/owners?league_id=${leagueId}`)
+      .then((res) => setStandings(res.data))
       .catch(() => setStandings([]));
     // Fetch news (stub: replace with real endpoint if available)
-    apiClient.get(`/leagues/${leagueId}/news`).then(res => setNews(res.data)).catch(() => setNews([]));
+    apiClient
+      .get(`/leagues/${leagueId}/news`)
+      .then((res) => setNews(res.data))
+      .catch(() => setNews([]));
   }, [leagueId]);
   // --- 1.1 CONFIGURATION ---
   // Note: This page currently serves as a static landing.
@@ -67,14 +72,27 @@ export default function Home({ username }) {
               <tbody>
                 {standings.length > 0 ? (
                   standings.map((owner, idx) => (
-                    <tr key={owner.id} className="border-b border-slate-800 hover:bg-slate-800/50">
-                      <td className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-400'}`}>{idx + 1}</td>
-                      <td className="px-4 py-3 font-medium text-white">{owner.team_name || owner.username}</td>
+                    <tr
+                      key={owner.id}
+                      className="border-b border-slate-800 hover:bg-slate-800/50"
+                    >
+                      <td
+                        className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-400'}`}
+                      >
+                        {idx + 1}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-white">
+                        {owner.team_name || owner.username}
+                      </td>
                       <td className="px-4 py-3">{owner.username}</td>
                     </tr>
                   ))
                 ) : (
-                  <tr><td colSpan={3} className="text-center py-6 text-slate-500">No owners found for this league.</td></tr>
+                  <tr>
+                    <td colSpan={3} className="text-center py-6 text-slate-500">
+                      No owners found for this league.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -90,16 +108,24 @@ export default function Home({ username }) {
             </h2>
           </div>
           <div className="space-y-3">
-            {news.length > 0 ? news.map((item, idx) => (
-              <FeedPill
-                key={idx}
-                className={`w-full justify-between gap-3 ${item.type === 'info' ? 'border-l-2 border-green-500' : 'border-l-2 border-yellow-500'}`}
-              >
-                <span className="text-slate-300 font-bold truncate">{item.title}</span>
-                <span className="text-slate-500 text-xs shrink-0">{item.timestamp}</span>
-              </FeedPill>
-            )) : (
-              <div className="text-center text-xs text-slate-600 mt-4 italic">End of feed</div>
+            {news.length > 0 ? (
+              news.map((item, idx) => (
+                <FeedPill
+                  key={idx}
+                  className={`w-full justify-between gap-3 ${item.type === 'info' ? 'border-l-2 border-green-500' : 'border-l-2 border-yellow-500'}`}
+                >
+                  <span className="text-slate-300 font-bold truncate">
+                    {item.title}
+                  </span>
+                  <span className="text-slate-500 text-xs shrink-0">
+                    {item.timestamp}
+                  </span>
+                </FeedPill>
+              ))
+            ) : (
+              <div className="text-center text-xs text-slate-600 mt-4 italic">
+                End of feed
+              </div>
             )}
           </div>
         </div>

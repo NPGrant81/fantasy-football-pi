@@ -97,9 +97,13 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
       await apiClient.post('/waivers/drop', { player_id: playerToDropId });
 
       // 2.2.2 Immediately claim the new player
-          {waiverDeadline && (
-            <div className="mt-1 text-xs text-blue-300 font-mono">Waivers process every Wednesday at 10am ET</div>
-          )}
+      {
+        waiverDeadline && (
+          <div className="mt-1 text-xs text-blue-300 font-mono">
+            Waivers process every Wednesday at 10am ET
+          </div>
+        );
+      }
       await handleClaim(pendingPlayer);
 
       // 2.2.3 Close modal and refresh roster
@@ -131,20 +135,24 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
             AVAILABLE FREE AGENTS
           </p>
           <div className="mt-2 text-slate-400 text-sm font-bold">
-            User: <span className="text-white">{username || 'Unknown'}</span> | League: <span className="text-yellow-400">{leagueName || 'Unknown'}</span>
+            User: <span className="text-white">{username || 'Unknown'}</span> |
+            League:{' '}
+            <span className="text-yellow-400">{leagueName || 'Unknown'}</span>
             {waiverDeadline && (
-              <div className="mt-1 text-xs text-blue-300 font-mono">Waiver Deadline: {waiverDeadline}</div>
+              <div className="mt-1 text-xs text-blue-300 font-mono">
+                Waiver Deadline: {waiverDeadline}
+              </div>
             )}
           </div>
         </div>
 
         <div className="flex gap-4 w-full md:w-auto">
-            <GlobalSearch
-              onPlayerSelect={(player) => {
-                setSearchQuery(player.name);
-                setActiveTab(player.position);
-              }}
-            />
+          <GlobalSearch
+            onPlayerSelect={(player) => {
+              setSearchQuery(player.name);
+              setActiveTab(player.position);
+            }}
+          />
         </div>
       </div>
 

@@ -104,7 +104,11 @@ function App() {
           className="bg-slate-800 p-8 rounded-lg shadow-2xl w-96 border border-slate-700"
         >
           <div className="flex flex-col items-center mb-6">
-            <img src={import.meta.env.BASE_URL + 'src/assets/react.svg'} alt="FantasyFootball-PI Logo" className="w-16 h-16 mb-2" />
+            <img
+              src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
+              alt="FantasyFootball-PI Logo"
+              className="w-16 h-16 mb-2"
+            />
             <h2 className="text-3xl font-black text-center text-yellow-500 tracking-tighter">
               FantasyFootball-PI Login
             </h2>
@@ -149,7 +153,9 @@ function App() {
                 onChange={(e) => setLeagueInput(e.target.value)}
                 placeholder="Enter league ID (default: 1)"
               />
-              <p className="text-xs text-slate-500 mt-1">Default: 1 (The Big Show)</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Default: 1 (The Big Show)
+              </p>
             </div>
           </div>
           <button
@@ -187,7 +193,13 @@ function App() {
           <Route path="/" element={<Home username={username} />} />
           <Route
             path="/draft"
-            element={<DraftBoard token={token} activeOwnerId={activeOwnerId} activeLeagueId={activeLeagueId} />}
+            element={
+              <DraftBoard
+                token={token}
+                activeOwnerId={activeOwnerId}
+                activeLeagueId={activeLeagueId}
+              />
+            }
           />
           <Route
             path="/team"
@@ -199,7 +211,13 @@ function App() {
           <Route path="/commissioner" element={<CommissionerDashboard />} />
           <Route
             path="/waivers"
-            element={<Waivers activeOwnerId={activeOwnerId} username={username} leagueName={activeLeagueId} />}
+            element={
+              <Waivers
+                activeOwnerId={activeOwnerId}
+                username={username}
+                leagueName={activeLeagueId}
+              />
+            }
           />
           <Route path="/bug-report" element={<BugReport />} />
           <Route path="*" element={<Navigate to="/" />} />

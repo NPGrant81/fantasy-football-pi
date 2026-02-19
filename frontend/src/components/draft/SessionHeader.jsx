@@ -1,6 +1,13 @@
 import { FiClock, FiUsers, FiAlertTriangle } from 'react-icons/fi';
 
-export default function SessionHeader({ sessionId, rosterSize, leagueName, isCommissioner, leagueId, onFinalize }) {
+export default function SessionHeader({
+  sessionId,
+  rosterSize,
+  leagueName,
+  isCommissioner,
+  leagueId,
+  onFinalize,
+}) {
   // --- 1.1 SAFETY LOGIC ---
   const handleFinalize = () => {
     if (

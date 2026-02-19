@@ -1,12 +1,19 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { FiUser, FiAlertTriangle, FiTrendingUp, FiRepeat, FiBell, FiPlus, FiList } from 'react-icons/fi';
+import {
+  FiUser,
+  FiAlertTriangle,
+  FiTrendingUp,
+  FiRepeat,
+  FiBell,
+  FiPlus,
+  FiList,
+} from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 // --- Commissioner Modal Imports ---
 import ScoringRulesModal from '../components/commissioner/ScoringRulesModal';
 import OwnerManagementModal from '../components/commissioner/OwnerManagementModal';
 import WaiverWireRulesModal from '../components/commissioner/WaiverWireRulesModal';
 import TradeRulesModal from '../components/commissioner/TradeRulesModal';
-
 
 // Professional Imports
 import apiClient from '@api/client';
@@ -178,7 +185,12 @@ export default function MyTeam({ activeOwnerId }) {
   const [showWaivers, setShowWaivers] = useState(false);
   const [showTrades, setShowTrades] = useState(false);
   // --- USER/LEAGUE CONTEXT ---
-  const [userInfo, setUserInfo] = useState({ username: '', leagueName: '', leagueId: null, is_commissioner: false });
+  const [userInfo, setUserInfo] = useState({
+    username: '',
+    leagueName: '',
+    leagueId: null,
+    is_commissioner: false,
+  });
   const [scoringRules, setScoringRules] = useState([]);
   const [summary, setSummary] = useState(null);
   useEffect(() => {
@@ -192,17 +204,31 @@ export default function MyTeam({ activeOwnerId }) {
           const leagueRes = await apiClient.get(`/leagues/${leagueId}`);
           leagueName = leagueRes.data.name;
           // Fetch scoring rules
-          const settingsRes = await apiClient.get(`/leagues/${leagueId}/settings`);
+          const settingsRes = await apiClient.get(
+            `/leagues/${leagueId}/settings`
+          );
           setScoringRules(settingsRes.data.scoring_rules || []);
         }
-        setUserInfo({ username: userRes.data.username, leagueName, leagueId, is_commissioner });
+        setUserInfo({
+          username: userRes.data.username,
+          leagueName,
+          leagueId,
+          is_commissioner,
+        });
         // Fetch dashboard summary for locker room
         if (userRes.data.user_id) {
-          const dashRes = await apiClient.get(`/dashboard/${userRes.data.user_id}`);
+          const dashRes = await apiClient.get(
+            `/dashboard/${userRes.data.user_id}`
+          );
           setSummary(dashRes.data);
         }
       } catch (err) {
-        setUserInfo({ username: '', leagueName: '', leagueId: null, is_commissioner: false });
+        setUserInfo({
+          username: '',
+          leagueName: '',
+          leagueId: null,
+          is_commissioner: false,
+        });
         setScoringRules([]);
         setSummary(null);
       }
@@ -239,7 +265,7 @@ export default function MyTeam({ activeOwnerId }) {
         })
         .catch((err) => {
           setRosterState([]);
-          console.error('Roster fetch failed', err)
+          console.error('Roster fetch failed', err);
         })
         .finally(() => setLoading(false));
     }
@@ -298,10 +324,30 @@ export default function MyTeam({ activeOwnerId }) {
   // --- COMMISSIONER ACCESS BUTTON ---
   const commissionerControls = userInfo.is_commissioner && (
     <div className="flex flex-wrap gap-4 mb-6">
-      <button onClick={() => setShowScoring(true)} className="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded font-bold">Scoring Rules</button>
-      <button onClick={() => setShowOwners(true)} className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold">Owner Management</button>
-      <button onClick={() => setShowWaivers(true)} className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded font-bold">Waiver Wire Rules</button>
-      <button onClick={() => setShowTrades(true)} className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded font-bold">Trade Rules</button>
+      <button
+        onClick={() => setShowScoring(true)}
+        className="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded font-bold"
+      >
+        Scoring Rules
+      </button>
+      <button
+        onClick={() => setShowOwners(true)}
+        className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold"
+      >
+        Owner Management
+      </button>
+      <button
+        onClick={() => setShowWaivers(true)}
+        className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded font-bold"
+      >
+        Waiver Wire Rules
+      </button>
+      <button
+        onClick={() => setShowTrades(true)}
+        className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded font-bold"
+      >
+        Trade Rules
+      </button>
     </div>
   );
 
@@ -317,9 +363,18 @@ export default function MyTeam({ activeOwnerId }) {
     <div className="max-w-6xl mx-auto p-6 text-white min-h-screen">
       {commissionerControls}
       {/* Commissioner Modals */}
-      <ScoringRulesModal open={showScoring} onClose={() => setShowScoring(false)} />
-      <OwnerManagementModal open={showOwners} onClose={() => setShowOwners(false)} />
-      <WaiverWireRulesModal open={showWaivers} onClose={() => setShowWaivers(false)} />
+      <ScoringRulesModal
+        open={showScoring}
+        onClose={() => setShowScoring(false)}
+      />
+      <OwnerManagementModal
+        open={showOwners}
+        onClose={() => setShowOwners(false)}
+      />
+      <WaiverWireRulesModal
+        open={showWaivers}
+        onClose={() => setShowWaivers(false)}
+      />
       <TradeRulesModal open={showTrades} onClose={() => setShowTrades(false)} />
 
       {/* HEADER SECTION */}

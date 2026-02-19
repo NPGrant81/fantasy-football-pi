@@ -31,7 +31,9 @@ export default function Matchups() {
         const userRes = await apiClient.get('/auth/me');
         let leagueName = '';
         if (userRes.data.league_id) {
-          const leagueRes = await apiClient.get(`/leagues/${userRes.data.league_id}`);
+          const leagueRes = await apiClient.get(
+            `/leagues/${userRes.data.league_id}`
+          );
           leagueName = leagueRes.data.name;
         }
         setUserInfo({ username: userRes.data.username, leagueName });
@@ -84,10 +86,12 @@ export default function Matchups() {
       {/* USER/LEAGUE CONTEXT */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
         <div className="text-lg font-bold text-white">
-          User: <span className="text-yellow-400">{userInfo.username || '...'}</span>
+          User:{' '}
+          <span className="text-yellow-400">{userInfo.username || '...'}</span>
         </div>
         <div className="text-lg font-bold text-white">
-          League: <span className="text-blue-400">{userInfo.leagueName || '...'}</span>
+          League:{' '}
+          <span className="text-blue-400">{userInfo.leagueName || '...'}</span>
         </div>
       </div>
       {/* 2.2 WEEK SELECTOR & HEADER */}

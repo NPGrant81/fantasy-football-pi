@@ -38,7 +38,9 @@ const OwnerCard = memo(
             >
               {owner.team_name || owner.username}
             </div>
-            <div className="text-xs text-slate-400 font-mono truncate">Owner: {owner.username}</div>
+            <div className="text-xs text-slate-400 font-mono truncate">
+              Owner: {owner.username}
+            </div>
           </div>
           <div className="text-right w-1/3">
             <div

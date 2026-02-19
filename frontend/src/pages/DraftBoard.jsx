@@ -1,15 +1,13 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import apiClient from '@api/client';
 import { useDraftTimer } from '@hooks/useDraftTimer';
-import { getOwnerStats, normalizePos, ROSTER_SIZE } from '@utils';
+import { getOwnerStats, ROSTER_SIZE } from '@utils';
 import {
   OwnerCard,
   AuctionBlock,
   SessionHeader,
   DraftHistoryFeed,
 } from '@components/draft';
-// import { ROSTER_SIZE } from '@utils/constants';
-import { ChatInterface } from '@components/chat';
 
 export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   // --- 1.1 STATE MANAGEMENT ---
@@ -35,6 +33,13 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     return `TEST_${new Date().toISOString().slice(0, 10)}`;
   }, [activeLeagueId, draftYear]);
 
+  const effectiveWinnerId = useMemo(() => {
+    if (owners.length === 0) return winnerId;
+    return owners.some((owner) => owner.id === winnerId)
+      ? winnerId
+      : owners[0].id;
+  }, [owners, winnerId]);
+
   // --- 1.2 THE ENGINE (Logic Actions) ---
 
   const fetchHistory = useCallback(() => {
@@ -48,7 +53,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   // We define this first, but we remove the 'reset' dependency.
   // The timer will now handle its own reset when handleDraft is triggered by the clock.
   const handleDraft = useCallback(async () => {
-    if (!winnerId || !playerName) return;
+    if (!effectiveWinnerId || !playerName) return;
     const foundPlayer = players.find(
       (p) => p.name.toLowerCase() === playerName.toLowerCase()
     );
@@ -56,7 +61,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       return;
 
     const payload = {
-      owner_id: winnerId,
+      owner_id: effectiveWinnerId,
       player_id: foundPlayer.id,
       amount: bidAmount,
       session_id: sessionId,
@@ -74,12 +79,13 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       alert('Draft failed! ' + (err.response?.data?.detail || 'Error'));
     }
   }, [
-    winnerId,
+    effectiveWinnerId,
     playerName,
     players,
     history,
     bidAmount,
     sessionId,
+    draftYear,
     fetchHistory,
   ]);
 
@@ -117,31 +123,43 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   useEffect(() => {
     if (token && activeLeagueId) {
       const leagueIdInt = parseInt(activeLeagueId, 10);
-      if (!isNaN(leagueIdInt)) {
-        apiClient.get(`/leagues/owners?league_id=${leagueIdInt}`).then((res) => setOwners(res.data));
-      } else {
-        setOwners([]);
+      if (isNaN(leagueIdInt)) {
         console.error('Invalid league_id:', activeLeagueId);
+        return undefined;
       }
+      apiClient
+        .get(`/leagues/owners?league_id=${leagueIdInt}`)
+        .then((res) => setOwners(res.data))
+        .catch(() => setOwners([]));
       apiClient.get('/players/').then((res) => setPlayers(res.data));
       fetchHistory();
       // Fetch league name and user info
-      apiClient.get(`/leagues/${activeLeagueId}`).then((res) => setLeagueName(res.data.name)).catch(() => setLeagueName('League'));
-      apiClient.get('/auth/me').then((res) => {
-        setIsCommissioner(res.data.is_commissioner);
-        setUsername(res.data.username);
-      }).catch(() => {
-        setIsCommissioner(false);
-        setUsername('');
-      });
-      apiClient.get(`/leagues/${activeLeagueId}/settings`).then((res) => {
-        if (res.data?.draft_year) {
-          setDraftYear(res.data.draft_year);
-        }
-      }).catch(() => {});
+      apiClient
+        .get(`/leagues/${activeLeagueId}`)
+        .then((res) => setLeagueName(res.data.name))
+        .catch(() => setLeagueName('League'));
+      apiClient
+        .get('/auth/me')
+        .then((res) => {
+          setIsCommissioner(res.data.is_commissioner);
+          setUsername(res.data.username);
+        })
+        .catch(() => {
+          setIsCommissioner(false);
+          setUsername('');
+        });
+      apiClient
+        .get(`/leagues/${activeLeagueId}/settings`)
+        .then((res) => {
+          if (res.data?.draft_year) {
+            setDraftYear(res.data.draft_year);
+          }
+        })
+        .catch(() => {});
       const interval = setInterval(fetchHistory, 3000);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [token, activeLeagueId, fetchHistory]);
 
   useEffect(() => {
@@ -163,13 +181,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       });
   }, [activeLeagueId, draftYear]);
 
-  useEffect(() => {
-    if (owners.length === 0) return;
-    if (!owners.some((owner) => owner.id === winnerId)) {
-      setWinnerId(owners[0].id);
-    }
-  }, [owners, winnerId]);
-
   // --- 1.4 DERIVED CALCULATIONS ---
   const currentNominatorId = useMemo(() => {
     if (owners.length === 0) return null;
@@ -179,8 +190,10 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   }, [owners, history.length]);
 
   const activeStats = useMemo(() => {
-    return winnerId ? getOwnerStats(winnerId, history, budgetMap) : null;
-  }, [winnerId, history, budgetMap]);
+    return effectiveWinnerId
+      ? getOwnerStats(effectiveWinnerId, history, budgetMap)
+      : null;
+  }, [effectiveWinnerId, history, budgetMap]);
 
   // --- 2.1 RENDER ---
   return (
@@ -188,8 +201,16 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       <div className="max-w-[1800px] mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* USER/LEAGUE CONTEXT */}
         <div className="mb-4 text-xs text-slate-400">
-          <span>User: <span className="font-bold text-blue-300">{username || '...'}</span></span>
-          <span className="ml-4">League: <span className="font-bold text-yellow-400">{leagueName || '...'}</span></span>
+          <span>
+            User:{' '}
+            <span className="font-bold text-blue-300">{username || '...'}</span>
+          </span>
+          <span className="ml-4">
+            League:{' '}
+            <span className="font-bold text-yellow-400">
+              {leagueName || '...'}
+            </span>
+          </span>
         </div>
         {/* LEFT COLUMN */}
         <div className="lg:col-span-9 space-y-6">
@@ -213,7 +234,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
               }}
               posFilter={posFilter}
               setPosFilter={setPosFilter}
-              winnerId={winnerId}
+              winnerId={effectiveWinnerId}
               setWinnerId={setWinnerId}
               owners={owners}
               activeStats={activeStats}
@@ -238,13 +259,15 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
                   owner={owner}
                   stats={getOwnerStats(owner.id, history, budgetMap)}
                   isNominator={owner.id === currentNominatorId}
-                  isSelectedWinner={owner.id === winnerId}
+                  isSelectedWinner={owner.id === effectiveWinnerId}
                   myPicks={history.filter((h) => h.owner_id === owner.id)}
                   players={players}
                 />
               ))
             ) : (
-              <div className="col-span-full text-center text-slate-500 py-10 text-lg font-bold">No owners found for this league.</div>
+              <div className="col-span-full text-center text-slate-500 py-10 text-lg font-bold">
+                No owners found for this league.
+              </div>
             )}
           </div>
         </div>

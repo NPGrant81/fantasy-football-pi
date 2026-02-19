@@ -16,7 +16,10 @@ export default function ChatInterface({ initialQuery = '' }) {
     async function fetchUserLeague() {
       try {
         const userRes = await apiClient.get('/auth/me');
-        setUserInfo({ username: userRes.data.username, leagueId: userRes.data.league_id });
+        setUserInfo({
+          username: userRes.data.username,
+          leagueId: userRes.data.league_id,
+        });
       } catch (err) {
         setUserInfo({ username: '', leagueId: null });
       }
@@ -37,38 +40,44 @@ export default function ChatInterface({ initialQuery = '' }) {
   const scrollRef = useRef(null);
 
   // --- 2.1 MESSAGE HANDLER (Defined early for use in effects) ---
-  const handleSendMessage = useCallback(async (queryOverride = null) => {
-    const activeQuery = queryOverride || input;
-    if (!activeQuery.trim() || isLoading || !isAvailable) return;
+  const handleSendMessage = useCallback(
+    async (queryOverride = null) => {
+      const activeQuery = queryOverride || input;
+      if (!activeQuery.trim() || isLoading || !isAvailable) return;
 
-    // 2.1.1 LOCAL UPDATE
-    setMessages((prev) => [...prev, { role: 'user', text: activeQuery }]);
-    if (!queryOverride) setInput('');
-    setIsLoading(true);
+      // 2.1.1 LOCAL UPDATE
+      setMessages((prev) => [...prev, { role: 'user', text: activeQuery }]);
+      if (!queryOverride) setInput('');
+      setIsLoading(true);
 
-    try {
-      // 2.1.2 EXECUTION: JSON body delivery (Standard-compliant)
-      const res = await apiClient.post('/advisor/ask', {
-        user_query: activeQuery,
-        username: userInfo.username,
-        league_id: userInfo.leagueId,
-      });
+      try {
+        // 2.1.2 EXECUTION: JSON body delivery (Standard-compliant)
+        const res = await apiClient.post('/advisor/ask', {
+          user_query: activeQuery,
+          username: userInfo.username,
+          league_id: userInfo.leagueId,
+        });
 
-      // 2.1.3 SUCCESS
-      setMessages((prev) => [...prev, { role: 'ai', text: res.data.response }]);
-    } catch (err) {
-      console.error('Neural Link Error:', err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'ai',
-          text: '⚠️ The neural link to the Pi is down. Check your connection.',
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [input, isLoading, isAvailable, userInfo.leagueId, userInfo.username]);
+        // 2.1.3 SUCCESS
+        setMessages((prev) => [
+          ...prev,
+          { role: 'ai', text: res.data.response },
+        ]);
+      } catch (err) {
+        console.error('Neural Link Error:', err);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'ai',
+            text: '⚠️ The neural link to the Pi is down. Check your connection.',
+          },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [input, isLoading, isAvailable, userInfo.leagueId, userInfo.username]
+  );
 
   useEffect(() => {
     apiClient
@@ -95,10 +104,16 @@ export default function ChatInterface({ initialQuery = '' }) {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* 3.2 CHAT WINDOW */}
       {isOpen && (
-        <div className={`mb-4 w-[450px] flex flex-col ${bgColors.main} border ${borderColors.main} rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up`}>
+        <div
+          className={`mb-4 w-[450px] flex flex-col ${bgColors.main} border ${borderColors.main} rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up`}
+        >
           {/* HEADER */}
-          <div className={`${bgColors.header} p-4 border-b ${borderColors.main} flex justify-between items-center`}>
-            <h3 className={`font-black uppercase tracking-tighter ${textColors.main} italic`}>
+          <div
+            className={`${bgColors.header} p-4 border-b ${borderColors.main} flex justify-between items-center`}
+          >
+            <h3
+              className={`font-black uppercase tracking-tighter ${textColors.main} italic`}
+            >
               War Room Advisor
             </h3>
             <div className="flex items-center gap-3">
@@ -113,10 +128,13 @@ export default function ChatInterface({ initialQuery = '' }) {
           </div>
 
           {/* MESSAGE VIEWPORT */}
-          <div className={`flex-1 overflow-y-auto p-4 space-y-4 max-h-[350px] min-h-[200px] custom-scrollbar ${bgColors.section}`}> 
+          <div
+            className={`flex-1 overflow-y-auto p-4 space-y-4 max-h-[350px] min-h-[200px] custom-scrollbar ${bgColors.section}`}
+          >
             {!isAvailable && (
               <div className="rounded-lg border border-yellow-700 bg-yellow-900/30 p-3 text-xs text-yellow-200">
-                Advisor is offline. Set `GEMINI_API_KEY` on the backend to enable chat.
+                Advisor is offline. Set `GEMINI_API_KEY` on the backend to
+                enable chat.
               </div>
             )}
             {messages.map((msg, i) => (
@@ -145,9 +163,7 @@ export default function ChatInterface({ initialQuery = '' }) {
                           {...props}
                         />
                       ),
-                      li: ({ ...props }) => (
-                        <li className="pl-1" {...props} />
-                      ),
+                      li: ({ ...props }) => <li className="pl-1" {...props} />,
                     }}
                   >
                     {msg.text}
@@ -157,7 +173,9 @@ export default function ChatInterface({ initialQuery = '' }) {
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className={`${bgColors.main} p-3 rounded-2xl rounded-tl-none border ${borderColors.main}`}>
+                <div
+                  className={`${bgColors.main} p-3 rounded-2xl rounded-tl-none border ${borderColors.main}`}
+                >
                   <span className="flex gap-1">
                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></span>
                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
@@ -171,7 +189,9 @@ export default function ChatInterface({ initialQuery = '' }) {
 
           {/* INPUT AREA */}
           <div className={`p-4 ${bgColors.main} border-t ${borderColors.main}`}>
-            <div className={`flex gap-2 ${bgColors.card} p-1 rounded-xl border ${borderColors.main} focus-within:${borderColors.accent} transition-colors`}>
+            <div
+              className={`flex gap-2 ${bgColors.card} p-1 rounded-xl border ${borderColors.main} focus-within:${borderColors.accent} transition-colors`}
+            >
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

@@ -1,10 +1,15 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from google import genai
 from sqlalchemy.orm import Session
 from database import get_db
-import models 
+import models
+
+# Optional import for testing environments
+try:
+    from google import genai
+except ImportError:
+    genai = None 
 
 router = APIRouter(prefix="/advisor", tags=["AI"])
 
@@ -23,10 +28,10 @@ class AdvisorRequest(BaseModel):
 
 @router.post("/ask")
 def ask_gemini(request: AdvisorRequest, db: Session = Depends(get_db)):
-    # 1. Check for API Key (Lazy Load)
+    # 1. Check for API Key and genai availability (Lazy Load)
     api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return {"response": "⚠️ The Commissioner is offline. (Missing GEMINI_API_KEY in .env)"}
+    if not api_key or not genai:
+        return {"response": "⚠️ The Commissioner is offline. (Missing GEMINI_API_KEY or genai package)"}
 
     # 2. FETCH CONTEXT (League-specific rules)
     rules = []

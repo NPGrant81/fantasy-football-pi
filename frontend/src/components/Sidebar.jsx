@@ -13,7 +13,12 @@ import {
   FiHome,
   FiAlertTriangle,
 } from 'react-icons/fi';
-import { menuGradients, bgColors, textColors, borderColors } from '../utils/uiHelpers';
+import {
+  menuGradients,
+  bgColors,
+  textColors,
+  borderColors,
+} from '../utils/uiHelpers';
 
 // 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
 const MenuBlock = ({ to, title, desc, icon: Icon, gradient, onClick }) => (
@@ -46,12 +51,14 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
 
   useEffect(() => {
     if (leagueId) {
-      apiClient.get(`/leagues/${leagueId}`)
-        .then(res => setLeagueName(res.data.name))
+      apiClient
+        .get(`/leagues/${leagueId}`)
+        .then((res) => setLeagueName(res.data.name))
         .catch(() => setLeagueName('League'));
     }
-    apiClient.get('/auth/me')
-      .then(res => setIsCommissioner(res.data.is_commissioner))
+    apiClient
+      .get('/auth/me')
+      .then((res) => setIsCommissioner(res.data.is_commissioner))
       .catch(() => setIsCommissioner(false));
   }, [leagueId]);
   return (
@@ -70,12 +77,18 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
       >
         <div className="p-6 flex justify-between items-center border-b border-slate-800 bg-slate-950">
           <div className="flex items-center gap-2">
-            <img src={import.meta.env.BASE_URL + 'src/assets/react.svg'} alt="FantasyFootball-PI Logo" className="w-7 h-7" />
+            <img
+              src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
+              alt="FantasyFootball-PI Logo"
+              className="w-7 h-7"
+            />
             <h2 className="text-2xl font-black text-white tracking-tighter">
               FANTASY<span className="text-yellow-500">Pi</span>
             </h2>
           </div>
-          <p className="text-xs text-slate-500">{leagueName ? leagueName : 'League'}</p>
+          <p className="text-xs text-slate-500">
+            {leagueName ? leagueName : 'League'}
+          </p>
           <button
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full"
@@ -155,7 +168,8 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             onClick={onClose}
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
           >
-            <FiAlertTriangle className="text-yellow-400" /> <span>Report a Bug</span>
+            <FiAlertTriangle className="text-yellow-400" />{' '}
+            <span>Report a Bug</span>
           </Link>
 
           <Link

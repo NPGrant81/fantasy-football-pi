@@ -15,12 +15,18 @@ from routers import (
 
 load_dotenv()
 
+app = FastAPI(title="Fantasy Football War Room API")
+
 # --- 1. DATABASE SETUP ---
 # Note: create_all does not handle migrations. 
 # Use Alembic if you add more columns later.
-models.Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title="Fantasy Football War Room API")
+@app.on_event("startup")
+async def startup_event():
+    """Create database tables on app startup, not on import."""
+    try:
+        models.Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"Warning: Could not initialize database tables: {e}")
 
 # --- 2. SECURITY: CORS ---
 app.add_middleware(
