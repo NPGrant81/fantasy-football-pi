@@ -12,6 +12,8 @@
 import React from 'react';
 import DraftValueBoard from '../../components/charts/DraftValueBoard';
 import ManagerTrendChart from '../../components/charts/ManagerTrendChart';
+import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
+import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import './AnalyticsDashboard.css';
 
 const AnalyticsDashboard = () => {
@@ -29,6 +31,14 @@ const AnalyticsDashboard = () => {
         
         <div className="chart-card">
           <ManagerTrendChart />
+        </div>
+
+        <div className="chart-card">
+          <WeeklyMatchupChart />
+        </div>
+        
+        <div className="chart-card">
+          <PlayerHeatmap />
         </div>
       </div>
     </div>
