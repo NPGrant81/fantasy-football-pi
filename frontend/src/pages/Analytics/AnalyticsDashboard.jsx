@@ -23,12 +23,12 @@ const AnalyticsDashboard = () => {
         <h1>📊 League Analytics</h1>
         <p>Advanced insights and visualizations for your fantasy league</p>
       </div>
-      
+
       <div className="charts-grid">
         <div className="chart-card">
           <DraftValueBoard />
         </div>
-        
+
         <div className="chart-card">
           <ManagerTrendChart />
         </div>
@@ -36,7 +36,7 @@ const AnalyticsDashboard = () => {
         <div className="chart-card">
           <WeeklyMatchupChart />
         </div>
-        
+
         <div className="chart-card">
           <PlayerHeatmap />
         </div>

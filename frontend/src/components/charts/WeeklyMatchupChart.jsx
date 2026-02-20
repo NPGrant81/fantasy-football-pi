@@ -10,7 +10,14 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const WeeklyMatchupChart = () => {
   const [selectedWeek, setSelectedWeek] = useState(6);
@@ -138,8 +145,22 @@ const WeeklyMatchupChart = () => {
   };
 
   return (
-    <div style={{ height: '500px', padding: '20px', backgroundColor: '#2a2a2a', borderRadius: '8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+    <div
+      style={{
+        height: '500px',
+        padding: '20px',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '8px',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+        }}
+      >
         <h3 style={{ color: '#ffffff', margin: 0 }}>
           📊 Weekly Matchup Comparison
         </h3>

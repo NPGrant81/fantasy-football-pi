@@ -1,18 +1,18 @@
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
+import js from '@eslint/js';
+import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
 
 // --- 1.1 GLOBAL IGNORES ---
 // 1.1.1 Ignore build artifacts and dependency folders
 export default [
   {
-    ignores: ['dist', 'node_modules'],
+    ignores: ['dist', 'node_modules', 'coverage'],
   },
 
   {
     files: ['**/*.{js,jsx}'],
-    
+
     // --- 2.1 BASE CONFIGURATIONS ---
     // 2.1.1 Use recommended configs directly (no 'extends' in flat config)
     ...js.configs.recommended,
@@ -44,16 +44,22 @@ export default [
       ...reactHooks.configs.recommended.rules,
 
       // 4.1.2 React 17+ doesn't need React imported in every JSX file
-      "react/react-in-jsx-scope": "off",
+      'react/react-in-jsx-scope': 'off',
 
       // 4.1.3 Set to 'warn' so GitHub Actions pass, but you see the clutter
-      "no-unused-vars": "warn",
+      'no-unused-vars': [
+        'warn',
+        {
+          varsIgnorePattern: '^(React|[A-Z].*)$',
+          argsIgnorePattern: '^_',
+        },
+      ],
 
       // 4.1.4 Disable prop-types if you aren't using them (common in modern React)
-      "react/prop-types": "off",
+      'react/prop-types': 'off',
 
       // 4.1.5 Warn on undefined variables (like the __dirname issue we fixed)
-      "no-undef": "warn",
+      'no-undef': 'warn',
 
       // 4.1.6 Vite-specific HMR safety
       'react-refresh/only-export-components': [
@@ -79,4 +85,4 @@ export default [
       'no-undef': 'warn',
     },
   },
-]
+];

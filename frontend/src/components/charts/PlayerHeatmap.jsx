@@ -24,7 +24,13 @@ ChartJS.register(
 
 const PlayerHeatmap = () => {
   // Mock player performance data (weeks 1-6)
-  const players = ['C. McCaffrey', 'T. Hill', 'J. Chase', 'B. Hall', 'T. Kelce'];
+  const players = [
+    'C. McCaffrey',
+    'T. Hill',
+    'J. Chase',
+    'B. Hall',
+    'T. Kelce',
+  ];
   const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'];
 
   // Fantasy points scored each week (mock data)
@@ -81,7 +87,8 @@ const PlayerHeatmap = () => {
         borderColor: 'rgba(255, 255, 255, 0.2)',
         borderWidth: 1,
         width: ({ chart }) => (chart.chartArea || {}).width / weeks.length - 1,
-        height: ({ chart }) => (chart.chartArea || {}).height / players.length - 1,
+        height: ({ chart }) =>
+          (chart.chartArea || {}).height / players.length - 1,
       },
     ],
   };
@@ -141,11 +148,32 @@ const PlayerHeatmap = () => {
   };
 
   return (
-    <div style={{ height: '500px', padding: '20px', backgroundColor: '#2a2a2a', borderRadius: '8px' }}>
-      <h3 style={{ color: '#ffffff', marginTop: 0, marginBottom: '10px', textAlign: 'center' }}>
+    <div
+      style={{
+        height: '500px',
+        padding: '20px',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '8px',
+      }}
+    >
+      <h3
+        style={{
+          color: '#ffffff',
+          marginTop: 0,
+          marginBottom: '10px',
+          textAlign: 'center',
+        }}
+      >
         🔥 Player Performance Heatmap
       </h3>
-      <p style={{ color: '#cccccc', fontSize: '14px', textAlign: 'center', marginBottom: '20px' }}>
+      <p
+        style={{
+          color: '#cccccc',
+          fontSize: '14px',
+          textAlign: 'center',
+          marginBottom: '20px',
+        }}
+      >
         Weekly fantasy points by player (Green = Hot 🔥, Red = Cold ❄️)
       </p>
       <Chart type="matrix" data={data} options={options} />

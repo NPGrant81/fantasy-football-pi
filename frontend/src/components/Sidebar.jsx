@@ -13,10 +13,7 @@ import {
   FiHome,
   FiAlertTriangle,
 } from 'react-icons/fi';
-import {
-  menuGradients,
-  borderColors,
-} from '../utils/uiHelpers';
+import { menuGradients, borderColors } from '../utils/uiHelpers';
 
 // 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
 const MenuBlock = ({ to, title, desc, icon: Icon, gradient, onClick }) => (

@@ -36,7 +36,7 @@ ChartJS.register(
 const ManagerTrendChart = () => {
   // Sample weekly scoring data for 4 managers
   const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'];
-  
+
   const managersData = [
     {
       teamName: 'The Big Show',
@@ -66,7 +66,7 @@ const ManagerTrendChart = () => {
 
   const data = {
     labels: weeks,
-    datasets: managersData.map(manager => ({
+    datasets: managersData.map((manager) => ({
       label: manager.teamName,
       data: manager.scores,
       borderColor: manager.color,
@@ -104,10 +104,10 @@ const ManagerTrendChart = () => {
         borderWidth: 1,
         padding: 12,
         callbacks: {
-          label: function(context) {
+          label: function (context) {
             return `${context.dataset.label}: ${context.parsed.y} points`;
-          }
-        }
+          },
+        },
       },
     },
     scales: {
@@ -152,11 +152,32 @@ const ManagerTrendChart = () => {
   };
 
   return (
-    <div style={{ height: '500px', padding: '20px', backgroundColor: '#2a2a2a', borderRadius: '8px' }}>
-      <h3 style={{ color: '#ffffff', marginTop: 0, marginBottom: '20px', textAlign: 'center' }}>
+    <div
+      style={{
+        height: '500px',
+        padding: '20px',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '8px',
+      }}
+    >
+      <h3
+        style={{
+          color: '#ffffff',
+          marginTop: 0,
+          marginBottom: '20px',
+          textAlign: 'center',
+        }}
+      >
         📈 Manager Performance Trends
       </h3>
-      <p style={{ color: '#cccccc', fontSize: '14px', textAlign: 'center', marginBottom: '20px' }}>
+      <p
+        style={{
+          color: '#cccccc',
+          fontSize: '14px',
+          textAlign: 'center',
+          marginBottom: '20px',
+        }}
+      >
         Weekly scoring trends across the season
       </p>
       <Line data={data} options={options} />

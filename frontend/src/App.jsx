@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import apiClient from '@api/client';
@@ -21,9 +20,9 @@ const DraftBoard = lazy(() => import('./pages/DraftBoard'));
 const Waivers = lazy(() => import('./pages/WaiverWire'));
 const SiteAdmin = lazy(() => import('./pages/admin/SiteAdmin'));
 const BugReport = lazy(() => import('./pages/BugReport'));
-const AnalyticsDashboard = lazy(() => import('./pages/Analytics/AnalyticsDashboard'));
-
-/* eslint-enable no-unused-vars */
+const AnalyticsDashboard = lazy(
+  () => import('./pages/Analytics/AnalyticsDashboard')
+);
 
 function App() {
   // --- 1.1 GLOBAL STATE ---
