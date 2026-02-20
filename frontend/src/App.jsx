@@ -21,6 +21,8 @@ const DraftBoard = lazy(() => import('./pages/DraftBoard'));
 const Waivers = lazy(() => import('./pages/WaiverWire'));
 const SiteAdmin = lazy(() => import('./pages/admin/SiteAdmin'));
 const BugReport = lazy(() => import('./pages/BugReport'));
+const AnalyticsDashboard = lazy(() => import('./pages/Analytics/AnalyticsDashboard'));
+
 /* eslint-enable no-unused-vars */
 
 function App() {
@@ -227,6 +229,7 @@ function App() {
               }
             />
             <Route path="/bug-report" element={<BugReport />} />
+            <Route path="/analytics" element={<AnalyticsDashboard />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Suspense>
