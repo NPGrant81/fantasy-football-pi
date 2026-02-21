@@ -114,6 +114,7 @@ export default function CommissionerDashboard() {
           badge="OWNERS"
           title="Invite/Manage Team Owners"
           description="Invite new owners, manage teams, and verify league access."
+          onClick={() => navigate('/commissioner/manage-owners')}
           loading={false}
           actionLabel="Manage Owners"
           accent={{
