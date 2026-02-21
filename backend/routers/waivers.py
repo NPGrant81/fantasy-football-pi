@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models  # Assuming models.py is in the backend root 
 from pydantic import BaseModel
+from typing import Optional
 from core.security import get_current_user  # Point to the new home of your bouncers
 
 # 1.1.1 IMPORT the service logic we just built
@@ -18,6 +19,7 @@ router = APIRouter(
 class WaiverClaimSchema(BaseModel):
     player_id: int
     bid_amount: int = 0
+    drop_player_id: Optional[int] = None
 
 class DropPlayerSchema(BaseModel):
     player_id: int
@@ -38,7 +40,8 @@ def submit_waiver_claim(
         db=db, 
         user=current_user, 
         player_id=claim.player_id, 
-        bid=claim.bid_amount
+        bid=claim.bid_amount,
+        drop_id=claim.drop_player_id,
     )
     
     return {

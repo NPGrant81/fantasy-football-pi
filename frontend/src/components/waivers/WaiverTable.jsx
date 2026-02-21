@@ -6,6 +6,56 @@ export default function WaiverTable({
   processingId,
   loading = false,
 }) {
+  const [sortField, setSortField] = React.useState('name');
+  const [sortDirection, setSortDirection] = React.useState('asc');
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortField(field);
+    setSortDirection('asc');
+  };
+
+  const sortedPlayers = React.useMemo(() => {
+    const list = [...players];
+    const directionFactor = sortDirection === 'asc' ? 1 : -1;
+
+    list.sort((left, right) => {
+      if (sortField === 'projected_points') {
+        const a = Number(left.projected_points ?? 0);
+        const b = Number(right.projected_points ?? 0);
+        return (a - b) * directionFactor;
+      }
+
+      const a = String(left[sortField] ?? '').toLowerCase();
+      const b = String(right[sortField] ?? '').toLowerCase();
+      return a.localeCompare(b) * directionFactor;
+    });
+
+    return list;
+  }, [players, sortField, sortDirection]);
+
+  const sortIndicator = (field) => {
+    if (sortField !== field) return '↕';
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
+
+  const SortHeader = ({ field, label, align = 'left' }) => (
+    <th className={`px-4 py-3 ${align === 'right' ? 'text-right' : ''}`}>
+      <button
+        type="button"
+        onClick={() => toggleSort(field)}
+        className="inline-flex items-center gap-1 hover:text-white"
+      >
+        <span>{label}</span>
+        <span className="text-[10px]">{sortIndicator(field)}</span>
+      </button>
+    </th>
+  );
+
   if (loading) {
     return (
       <div className="p-20 text-center animate-pulse text-slate-500 font-black uppercase tracking-widest">
@@ -27,15 +77,15 @@ export default function WaiverTable({
       <table className="w-full text-left text-sm text-slate-300">
         <thead className="bg-slate-950/70 text-xs uppercase tracking-wider text-slate-500">
           <tr>
-            <th className="px-4 py-3">Player</th>
-            <th className="px-4 py-3">Pos</th>
-            <th className="px-4 py-3">Team</th>
-            <th className="px-4 py-3">Projected</th>
+            <SortHeader field="name" label="Player" />
+            <SortHeader field="position" label="Pos" />
+            <SortHeader field="nfl_team" label="Team" />
+            <SortHeader field="projected_points" label="Projected" />
             <th className="px-4 py-3 text-right">Action</th>
           </tr>
         </thead>
         <tbody>
-          {players.map((player) => (
+          {sortedPlayers.map((player) => (
             <tr key={player.id} className="border-t border-slate-800 hover:bg-slate-800/30">
               <td className="px-4 py-3 font-bold text-white">{player.name}</td>
               <td className="px-4 py-3">{player.position}</td>

@@ -1,12 +1,41 @@
 # backend/services/waiver_service.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from datetime import datetime
 import models
+
+
+def _validate_commissioner_waiver_rules(db: Session, user: models.User) -> int:
+    settings = (
+        db.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == user.league_id)
+        .first()
+    )
+
+    roster_limit = settings.roster_size if settings and settings.roster_size else 14
+
+    if settings and settings.waiver_deadline:
+        raw_deadline = settings.waiver_deadline.strip()
+        try:
+            parsed_deadline = datetime.fromisoformat(raw_deadline.replace("Z", "+00:00"))
+            now = datetime.now(parsed_deadline.tzinfo) if parsed_deadline.tzinfo else datetime.now()
+            if now > parsed_deadline:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Waiver claims are closed by commissioner rule (deadline: {settings.waiver_deadline}).",
+                )
+        except ValueError:
+            pass
+
+    return roster_limit
+
 
 def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop_id: int = None):
     # 1.1 VALIDATION: Check for League ID
     if not user.league_id:
         raise HTTPException(status_code=400, detail="User not in a league.")
+
+    roster_limit = _validate_commissioner_waiver_rules(db, user)
 
     # 1.2 VALIDATION: Is target player already taken?
     existing = db.query(models.DraftPick).filter(
@@ -36,7 +65,7 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
             models.DraftPick.owner_id == user.id,
             models.DraftPick.league_id == user.league_id
         ).count()
-        if roster_count >= 14:
+        if roster_count >= roster_limit:
             raise HTTPException(status_code=400, detail="Roster full! Select a player to drop.")
 
     # 3.1 EXECUTION: Create pick record
