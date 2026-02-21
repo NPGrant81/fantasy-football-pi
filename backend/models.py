@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
-from database import Base
+from backend.database import Base
 
 # --- 1. USER TABLE ---
 class User(Base):
@@ -203,16 +203,26 @@ class TradeProposal(Base):
     created_at = Column(String, nullable=True)
 
 
-# --- 12. LINEUP SUBMISSIONS ---
-class LineupSubmission(Base):
-    __tablename__ = "lineup_submissions"
-    __table_args__ = (
-        UniqueConstraint("league_id", "owner_id", "season", "week", name="uq_lineup_submission_week"),
-    )
-
+# --- 13. UNMATCHED PLAYERS (Dead Letter Queue) ---
+class UnmatchedPlayer(Base):
+    __tablename__ = "unmatched_players"
     id = Column(Integer, primary_key=True, index=True)
-    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    season = Column(Integer, index=True)
-    week = Column(Integer, index=True)
-    submitted_at = Column(String, nullable=True)
+    source = Column(String, index=True)  # e.g., 'Yahoo', 'ESPN', etc.
+    scraped_name = Column(String, index=True)
+    team = Column(String, nullable=True)
+    position = Column(String, nullable=True)
+    extra_data = Column(JSON, nullable=True)  # Any additional info (raw row, etc.)
+    created_at = Column(String, nullable=True)
+
+# --- 14. MANUAL PLAYER MAPPINGS ---
+class ManualPlayerMapping(Base):
+    __tablename__ = "manual_player_mappings"
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String, index=True)
+    scraped_name = Column(String, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    mapped_at = Column(String, nullable=True)
+    # Optionally: team, position, notes
+    team = Column(String, nullable=True)
+    position = Column(String, nullable=True)
+    notes = Column(String, nullable=True)

@@ -11,7 +11,7 @@ from core.security import get_password_hash, check_is_commissioner
 # Import All Routers
 from routers import (
     admin, team, matchups, league, advisor,
-    dashboard, players, waivers, draft, auth, feedback, trades, platform_tools
+    dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl
 )
 
 load_dotenv()
@@ -81,6 +81,7 @@ app.include_router(players.router)
 app.include_router(waivers.router)
 app.include_router(trades.router)
 app.include_router(feedback.router)
+app.include_router(etl.router)
 
 # --- 4. THE AUTO-SEEDER ---
 @app.on_event("startup")
