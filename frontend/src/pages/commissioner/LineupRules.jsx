@@ -14,11 +14,11 @@ export default function LineupRules() {
   const [success, setSuccess] = useState('');
   const [baseConfig, setBaseConfig] = useState(null);
 
-  const [rosterSize, setRosterSize] = useState(10);
-  const [qbLimit, setQbLimit] = useState(1);
-  const [rbLimit, setRbLimit] = useState(2);
-  const [wrLimit, setWrLimit] = useState(2);
-  const [teLimit, setTeLimit] = useState(1);
+  const [activeRosterSize, setActiveRosterSize] = useState(9);
+  const [qbLimit, setQbLimit] = useState(3);
+  const [rbLimit, setRbLimit] = useState(5);
+  const [wrLimit, setWrLimit] = useState(5);
+  const [teLimit, setTeLimit] = useState(3);
   const [kEnabled, setKEnabled] = useState(true);
   const [allowPartialLineup, setAllowPartialLineup] = useState(false);
   const [requireWeeklySubmit, setRequireWeeklySubmit] = useState(true);
@@ -37,12 +37,12 @@ export default function LineupRules() {
         const slots = config.starting_slots || {};
 
         setBaseConfig(config);
-        setRosterSize(clamp(config.roster_size ?? 10, 5, 12));
-        setQbLimit(clamp(slots.QB ?? 1, 1, 3));
-        setRbLimit(clamp(slots.RB ?? 2, 1, 5));
-        setWrLimit(clamp(slots.WR ?? 2, 1, 5));
-        setTeLimit(clamp(slots.TE ?? 1, 1, 3));
-        setKEnabled(Number(slots.K ?? 1) === 1);
+        setActiveRosterSize(clamp(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12));
+        setQbLimit(clamp(slots.MAX_QB ?? 3, 1, 3));
+        setRbLimit(clamp(slots.MAX_RB ?? 5, 1, 5));
+        setWrLimit(clamp(slots.MAX_WR ?? 5, 1, 5));
+        setTeLimit(clamp(slots.MAX_TE ?? 3, 1, 3));
+        setKEnabled(Number(slots.MAX_K ?? 1) === 1);
         setAllowPartialLineup(Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1);
         setRequireWeeklySubmit(Number(slots.REQUIRE_WEEKLY_SUBMIT ?? 1) === 1);
       } catch (err) {
@@ -56,8 +56,8 @@ export default function LineupRules() {
   }, [leagueId]);
 
   const totalCoreSlots = useMemo(
-    () => qbLimit + rbLimit + wrLimit + teLimit + (kEnabled ? 1 : 0) + 1,
-    [qbLimit, rbLimit, wrLimit, teLimit, kEnabled]
+    () => 1 + 1 + 1 + 1 + (kEnabled ? 1 : 0) + 1,
+    [kEnabled]
   );
 
   const saveRules = async () => {
@@ -70,19 +70,19 @@ export default function LineupRules() {
     try {
       const nextStartingSlots = {
         ...(baseConfig.starting_slots || {}),
-        QB: clamp(qbLimit, 1, 3),
-        RB: clamp(rbLimit, 1, 5),
-        WR: clamp(wrLimit, 1, 5),
-        TE: clamp(teLimit, 1, 3),
-        K: kEnabled ? 1 : 0,
-        DEF: 1,
+        ACTIVE_ROSTER_SIZE: clamp(activeRosterSize, 5, 12),
+        MAX_QB: clamp(qbLimit, 1, 3),
+        MAX_RB: clamp(rbLimit, 1, 5),
+        MAX_WR: clamp(wrLimit, 1, 5),
+        MAX_TE: clamp(teLimit, 1, 3),
+        MAX_K: kEnabled ? 1 : 0,
+        MAX_DEF: 1,
         ALLOW_PARTIAL_LINEUP: allowPartialLineup ? 1 : 0,
         REQUIRE_WEEKLY_SUBMIT: requireWeeklySubmit ? 1 : 0,
       };
 
       const payload = {
         ...baseConfig,
-        roster_size: clamp(rosterSize, 5, 12),
         starting_slots: nextStartingSlots,
       };
 
@@ -137,14 +137,14 @@ export default function LineupRules() {
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-6">
         <div>
           <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
-            Roster Size (5 - 12)
+            Total Active Roster Required (5 - 12)
           </label>
           <input
             type="number"
             min={5}
             max={12}
-            value={rosterSize}
-            onChange={(e) => setRosterSize(clamp(e.target.value, 5, 12))}
+            value={activeRosterSize}
+            onChange={(e) => setActiveRosterSize(clamp(e.target.value, 5, 12))}
             className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
           />
         </div>
@@ -185,7 +185,7 @@ export default function LineupRules() {
         </div>
 
         <div className="text-xs text-slate-400 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2">
-          Current total core slots: <span className="font-black text-white">{totalCoreSlots}</span>
+          Minimum required core starters by position: <span className="font-black text-white">{totalCoreSlots}</span>
         </div>
 
         <div className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-3">

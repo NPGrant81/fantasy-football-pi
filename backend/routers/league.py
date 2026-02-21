@@ -67,12 +67,6 @@ class BudgetUpdateRequest(BaseModel):
 def validate_lineup_rules(config: LeagueConfigFull) -> None:
     slots = config.starting_slots or {}
 
-    if config.roster_size < 5 or config.roster_size > 12:
-        raise HTTPException(
-            status_code=400,
-            detail="Roster size must be between 5 and 12.",
-        )
-
     def parse_int(key: str, default: int = 0) -> int:
         value = slots.get(key, default)
         try:
@@ -83,12 +77,19 @@ def validate_lineup_rules(config: LeagueConfigFull) -> None:
                 detail=f"{key} must be an integer.",
             )
 
-    qb = parse_int("QB", 1)
-    rb = parse_int("RB", 2)
-    wr = parse_int("WR", 2)
-    te = parse_int("TE", 1)
-    k = parse_int("K", 1)
-    defense = parse_int("DEF", 1)
+    active_roster_size = parse_int("ACTIVE_ROSTER_SIZE", 9)
+    if active_roster_size < 5 or active_roster_size > 12:
+        raise HTTPException(
+            status_code=400,
+            detail="ACTIVE_ROSTER_SIZE must be between 5 and 12.",
+        )
+
+    qb = parse_int("MAX_QB", 3)
+    rb = parse_int("MAX_RB", 5)
+    wr = parse_int("MAX_WR", 5)
+    te = parse_int("MAX_TE", 3)
+    k = parse_int("MAX_K", 1)
+    defense = parse_int("MAX_DEF", 1)
 
     rules = {
         "QB": (qb, 1, 3),
@@ -100,14 +101,14 @@ def validate_lineup_rules(config: LeagueConfigFull) -> None:
         if actual < minimum or actual > maximum:
             raise HTTPException(
                 status_code=400,
-                detail=f"{pos} must be between {minimum} and {maximum}.",
+                detail=f"MAX_{pos} must be between {minimum} and {maximum}.",
             )
 
     if k < 0 or k > 1:
-        raise HTTPException(status_code=400, detail="K must be 0 or 1.")
+        raise HTTPException(status_code=400, detail="MAX_K must be 0 or 1.")
 
     if defense != 1:
-        raise HTTPException(status_code=400, detail="DEF must be exactly 1.")
+        raise HTTPException(status_code=400, detail="MAX_DEF must be exactly 1.")
 
     allow_partial = parse_int("ALLOW_PARTIAL_LINEUP", 0)
     if allow_partial not in (0, 1):
@@ -264,6 +265,13 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
                 "K": 1,
                 "DEF": 1,
                 "FLEX": 1,
+                "ACTIVE_ROSTER_SIZE": 9,
+                "MAX_QB": 3,
+                "MAX_RB": 5,
+                "MAX_WR": 5,
+                "MAX_TE": 3,
+                "MAX_K": 1,
+                "MAX_DEF": 1,
                 "ALLOW_PARTIAL_LINEUP": 0,
                 "REQUIRE_WEEKLY_SUBMIT": 1,
             },

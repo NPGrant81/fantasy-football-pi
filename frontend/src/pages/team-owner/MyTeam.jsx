@@ -38,6 +38,30 @@ const DEFAULT_STARTER_SLOTS = {
   FLEX: 1,
 };
 
+const MIN_ACTIVE_REQUIREMENTS = {
+  QB: 1,
+  RB: 1,
+  WR: 1,
+  TE: 1,
+  K: 0,
+  DEF: 1,
+};
+
+const DEFAULT_MAX_POSITION_LIMITS = {
+  QB: 3,
+  RB: 5,
+  WR: 5,
+  TE: 3,
+  K: 1,
+  DEF: 1,
+};
+
+const clampInt = (value, min, max) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return min;
+  return Math.max(min, Math.min(max, Math.trunc(parsed)));
+};
+
 const normalizePosition = (position) => {
   if (position === 'TD' || position === 'DST') return 'DEF';
   return position;
@@ -238,6 +262,11 @@ export default function MyTeam({ activeOwnerId }) {
   const [starterRequirements, setStarterRequirements] = useState(
     DEFAULT_STARTER_SLOTS
   );
+  const [activeRosterRequired, setActiveRosterRequired] = useState(9);
+  const [maxPositionLimits, setMaxPositionLimits] = useState(
+    DEFAULT_MAX_POSITION_LIMITS
+  );
+  const [allowPartialLineup, setAllowPartialLineup] = useState(false);
   const [summary, setSummary] = useState(null);
   useEffect(() => {
     async function fetchUserLeague() {
@@ -267,13 +296,29 @@ export default function MyTeam({ activeOwnerId }) {
             const settingsRes = await apiClient.get(
               `/leagues/${leagueId}/settings`
             );
+            const slots = settingsRes.data.starting_slots || {};
             setScoringRules(settingsRes.data.scoring_rules || []);
             setStarterRequirements(
-              normalizeStartingSlots(settingsRes.data.starting_slots)
+              normalizeStartingSlots(slots)
             );
+            setActiveRosterRequired(
+              clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12)
+            );
+            setMaxPositionLimits({
+              QB: clampInt(slots.MAX_QB ?? 3, 1, 3),
+              RB: clampInt(slots.MAX_RB ?? 5, 1, 5),
+              WR: clampInt(slots.MAX_WR ?? 5, 1, 5),
+              TE: clampInt(slots.MAX_TE ?? 3, 1, 3),
+              K: clampInt(slots.MAX_K ?? 1, 0, 1),
+              DEF: 1,
+            });
+            setAllowPartialLineup(Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1);
           } catch {
             setScoringRules([]);
             setStarterRequirements(DEFAULT_STARTER_SLOTS);
+            setActiveRosterRequired(9);
+            setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
+            setAllowPartialLineup(false);
           }
         }
         setUserInfo({
@@ -315,6 +360,9 @@ export default function MyTeam({ activeOwnerId }) {
         });
         setScoringRules([]);
         setStarterRequirements(DEFAULT_STARTER_SLOTS);
+        setActiveRosterRequired(9);
+        setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
+        setAllowPartialLineup(false);
         setSummary(null);
         setMyTradeRoster([]);
         setLeagueOwners([]);
@@ -431,8 +479,7 @@ export default function MyTeam({ activeOwnerId }) {
     [weeklyPlan.sits, sortByPreference]
   );
 
-  const currentStarterValidationErrors = useMemo(() => {
-    const slots = normalizeStartingSlots(starterRequirements);
+  const lineupRuleSnapshot = useMemo(() => {
     const currentStarters = rosterState.filter((player) => player.status === 'STARTER');
     const counts = { QB: 0, RB: 0, WR: 0, TE: 0, DEF: 0, K: 0 };
 
@@ -444,45 +491,51 @@ export default function MyTeam({ activeOwnerId }) {
     }
 
     const errors = [];
-    const totalRequired = Object.values(slots).reduce(
-      (sum, count) => sum + Number(count || 0),
-      0
-    );
+    if (currentStarters.length < activeRosterRequired && !allowPartialLineup) {
+      errors.push('not enough players');
+    }
+    if (currentStarters.length > activeRosterRequired) {
+      errors.push('too many players');
+    }
 
-    if (currentStarters.length < totalRequired) errors.push('not enough players');
-    if (currentStarters.length > totalRequired) errors.push('too many players');
-
-    for (const [position, requiredCount] of Object.entries(slots)) {
-      if (position === 'FLEX') continue;
-      const required = Number(requiredCount || 0);
-      if (required <= 0) continue;
+    const tierRows = Object.entries(MIN_ACTIVE_REQUIREMENTS).map(([position, minimum]) => {
+      const maximum = Number(maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]);
       const actual = Number(counts[position] || 0);
-      if (actual < required) errors.push(`not enough ${position}`);
-      if (actual > required) errors.push(`too many ${position}`);
-    }
+      const meetsMin = actual >= minimum;
+      const meetsMax = actual <= maximum;
 
-    const requiredFlex = Number(slots.FLEX || 0);
-    if (requiredFlex > 0) {
-      const extraFlexEligible =
-        Math.max(0, counts.RB - Number(slots.RB || 0)) +
-        Math.max(0, counts.WR - Number(slots.WR || 0)) +
-        Math.max(0, counts.TE - Number(slots.TE || 0));
+      if (!meetsMin && !allowPartialLineup) errors.push(`not enough ${position}`);
+      if (!meetsMax) errors.push(`too many ${position}`);
 
-      if (extraFlexEligible < requiredFlex) errors.push(FLEX_NOT_ENOUGH_ERROR);
-      if (extraFlexEligible > requiredFlex) errors.push(FLEX_TOO_MANY_ERROR);
-    }
+      return {
+        position,
+        minimum,
+        maximum,
+        actual,
+        valid: (allowPartialLineup || meetsMin) && meetsMax,
+      };
+    });
 
-    return errors;
-  }, [rosterState, starterRequirements]);
+    return {
+      errors,
+      counts,
+      tierRows,
+      totalActive: currentStarters.length,
+      totalRequired: activeRosterRequired,
+      totalValid:
+        currentStarters.length <= activeRosterRequired &&
+        (allowPartialLineup || currentStarters.length >= activeRosterRequired),
+    };
+  }, [rosterState, activeRosterRequired, maxPositionLimits, allowPartialLineup]);
+
+  const currentStarterValidationErrors = useMemo(
+    () => lineupRuleSnapshot.errors,
+    [lineupRuleSnapshot.errors]
+  );
 
   const lineupValidationErrors = useMemo(
-    () => [
-      ...new Set([
-        ...currentStarterValidationErrors,
-        ...(weeklyPlan.validationErrors || []),
-      ]),
-    ],
-    [currentStarterValidationErrors, weeklyPlan.validationErrors]
+    () => [...new Set(currentStarterValidationErrors)],
+    [currentStarterValidationErrors]
   );
 
   const canEditLineup =
@@ -1070,36 +1123,45 @@ export default function MyTeam({ activeOwnerId }) {
           </div>
         </div>
 
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+            Position Tier Rules:
+          </span>
+          {lineupRuleSnapshot.tierRows.map((tier) => {
+            const tooltip = `${tier.position}: min ${tier.minimum}, max ${tier.maximum}, current ${tier.actual}`;
+            return (
+              <span
+                key={`tier-${tier.position}`}
+                title={tooltip}
+                className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
+                  tier.valid
+                    ? 'border-green-700/60 bg-green-900/20 text-green-300'
+                    : 'border-red-700/60 bg-red-900/20 text-red-300'
+                }`}
+              >
+                {tier.position} {tier.actual} ({tier.minimum}-{tier.maximum})
+              </span>
+            );
+          })}
+        </div>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-            Requirements:
+            Overall Active Requirement:
           </span>
-          {Object.entries(weeklyPlan.slots || {})
-            .filter(([, count]) => Number(count || 0) > 0)
-            .map(([position, requiredCount]) => {
-              const actualCount = Number(weeklyPlan.actualSlotCounts?.[position] || 0);
-              const isMet = actualCount === Number(requiredCount);
-              const tooltip = isMet
-                ? `${getSlotLabel(position)}: requirement met (${actualCount}/${requiredCount})`
-                : `${getSlotLabel(position)}: need ${requiredCount}, currently ${actualCount}`;
-              return (
-                <span
-                  key={`slot-${position}`}
-                  title={tooltip}
-                  className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
-                    isMet
-                      ? 'border-green-700/60 bg-green-900/20 text-green-300'
-                      : 'border-red-700/60 bg-red-900/20 text-red-300'
-                  }`}
-                >
-                  {getSlotLabel(position)} {actualCount}/{requiredCount}
-                </span>
-              );
-            })}
+          <span
+            className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
+              lineupRuleSnapshot.totalValid
+                ? 'border-green-700/60 bg-green-900/20 text-green-300'
+                : 'border-red-700/60 bg-red-900/20 text-red-300'
+            }`}
+            title={`Need ${lineupRuleSnapshot.totalRequired} active starters. Currently ${lineupRuleSnapshot.totalActive}.`}
+          >
+            Active {lineupRuleSnapshot.totalActive}/{lineupRuleSnapshot.totalRequired}
+          </span>
         </div>
         <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-          <span className="text-green-300">Green = valid</span> •{' '}
-          <span className="text-red-300">Red = invalid</span> • FLEX = extra RB/WR/TE starter slot
+          <span className="text-green-300">Green = valid tier</span> •{' '}
+          <span className="text-red-300">Red = invalid tier</span>
         </p>
 
         {lineupValidationErrors.length > 0 && (
