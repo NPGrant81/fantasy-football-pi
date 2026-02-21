@@ -13,6 +13,48 @@ This repository contains a FastAPI backend and a React (Vite + Tailwind) fronten
 - Issue status tracker: [ISSUE_STATUS.md](ISSUE_STATUS.md)
 - PR handoff notes: [PR_NOTES.md](PR_NOTES.md)
 - Permissions notes: [permissions.md](permissions.md)
+- API inventory + full page matrix: [API_PAGE_MATRIX.md](API_PAGE_MATRIX.md)
+
+## API Overview (Condensed)
+
+### Internal APIs (app-owned)
+
+- **Auth:** `/auth/*`
+- **League:** `/leagues/*`
+- **Team:** `/team/*`
+- **Dashboard:** `/dashboard/*`
+- **Players:** `/players/*`
+- **Draft:** `/draft/*` and `/draft-history`
+- **Matchups:** `/matchups/*`
+- **Waivers:** `/waivers/*`
+- **Trades:** `/trades/*`
+- **Feedback:** `/feedback/*`
+- **Advisor:** `/advisor/*`
+- **Admin tools:** `/admin/*`
+
+### External APIs / integrations
+
+- **Google Gemini** via backend advisor route (`/advisor/ask`)
+- **GitHub REST API** via bug report flow (`/feedback/bug`)
+- **ESPN NFL endpoints** via backend ingestion scripts
+
+### Page → API matrix (high level)
+
+| Frontend route/page | Main APIs |
+|---|---|
+| Login (`App.jsx`) | `POST /auth/token` |
+| Home (`/`) | `GET /leagues/{id}`, `GET /leagues/owners`, `GET /leagues/{id}/news` |
+| Draft (`/draft`) | `GET /draft/history`, `POST /draft/pick`, `GET /players`, `GET /players/search`, `GET /leagues/*` |
+| My Team (`/team`, `/team/:ownerId`) | `GET /auth/me`, `GET /team/{ownerId}`, `GET /dashboard/{ownerId}`, `POST /trades/propose`, `GET /players/{id}/season-details` |
+| Matchups (`/matchups`) | `GET /matchups/week/{week}`, plus `GET /auth/me`, `GET /leagues/{id}` |
+| Game Center (`/matchup/:id`) | `GET /matchups/{id}` |
+| Waiver Wire (`/waivers`) | `GET /players/waiver-wire`, `POST /waivers/claim`, `GET /dashboard/{ownerId}`, `GET /leagues/*` |
+| Commissioner (`/commissioner`) | `GET/PUT /leagues/{id}/settings`, `GET /leagues/owners`, `GET /trades/pending`, budget + draft-year endpoints |
+| Site Admin (`/admin`) | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft` |
+| Bug Report (`/bug-report`) | `PUT /auth/email`, `POST /feedback/bug` |
+| Analytics (`/analytics`) | No direct API call in dashboard shell (chart components may evolve) |
+
+For the full endpoint-level matrix (including notes and gaps), see [API_PAGE_MATRIX.md](API_PAGE_MATRIX.md).
 
 ## CI
 
