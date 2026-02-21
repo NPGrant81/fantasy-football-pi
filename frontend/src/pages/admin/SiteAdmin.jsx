@@ -23,11 +23,17 @@ export default function SiteAdmin() {
   const runSync = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.post('/admin/tools/sync-nfl');
+      // Sync can take 2+ minutes with ESPN API calls, so use longer timeout
+      const res = await apiClient.post('/admin/tools/sync-nfl', {}, { timeout: 300000 });
       showToast(res.data.detail || 'Sync Started! Players added.', 'success');
       setLastSync(new Date().toLocaleTimeString());
     } catch (err) {
-      const errorMsg = err.response?.data?.detail || 'Sync Failed';
+      console.error('Sync error:', err);
+      const errorMsg = 
+        err.response?.data?.detail || 
+        err.response?.statusText || 
+        err.message || 
+        'Sync Failed - Check console for details';
       showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
