@@ -21,14 +21,17 @@ def get_safe_player(db: Session, pool, position, owner_id):
     db.flush() 
     return filler
 
-def seed_draft(db: Session):
+def seed_draft(db: Session, league_id: int | None = None):
     print("🎲 SEEDING DRAFT: Fast-Forwarding to Season Start...")
 
     # 1.1 DATA: Fetch owners and shuffle position pools
-    owners = db.query(models.User).filter(models.User.league_id.isnot(None)).all()
+    owners_query = db.query(models.User).filter(models.User.league_id.isnot(None))
+    if league_id is not None:
+        owners_query = owners_query.filter(models.User.league_id == league_id)
+    owners = owners_query.all()
     if not owners:
         print("❌ No owners found!")
-        return
+        return {"owners": 0, "picks_created": 0}
 
     pools = {
         'QB': db.query(models.Player).filter(models.Player.position == 'QB').all(),
@@ -40,7 +43,9 @@ def seed_draft(db: Session):
     }
     for pool in pools.values(): random.shuffle(pool)
 
-    # 2.1 EXECUTION: 12-Team Draft Loop
+    picks_created = 0
+
+    # 2.1 EXECUTION: Draft Loop
     for owner in owners:
         starters = []
         # 2.1.1 CORE STARTERS
@@ -67,6 +72,7 @@ def seed_draft(db: Session):
                 player_id=player.id, league_id=owner.league_id, amount=random.randint(15,60),
                 session_id="TEST_2026-UAT"
             ))
+            picks_created += 1
 
         # 2.1.3 BENCH: 5 Slots using safe logic
         for _ in range(5):
@@ -78,6 +84,8 @@ def seed_draft(db: Session):
                 player_id=bench_player.id, league_id=owner.league_id, amount=random.randint(1,10),
                 session_id="TEST_2026-UAT"
             ))
+            picks_created += 1
     
     db.commit()
     print("✨ DRAFT SEEDING SUCCESSFUL.")
+    return {"owners": len(owners), "picks_created": picks_created}

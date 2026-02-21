@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import models
 from core import security
+from uat.seed_draft import seed_draft
 
 # --- 1.1 LEAGUE MANAGEMENT (COMMISSIONER) ---
 
@@ -144,3 +145,64 @@ def sync_initial_nfl_data(db: Session):
         print(f"NFL Sync error: {str(exc)}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Sync failed: {str(exc)}")
+
+
+def _get_league_by_name(db: Session, league_name: str = "The Big Show"):
+    league = db.query(models.League).filter(models.League.name == league_name).first()
+    if not league:
+        raise HTTPException(status_code=404, detail=f"League not found: {league_name}")
+    return league
+
+
+def uat_draft_reset(db: Session, league_name: str = "The Big Show"):
+    league = _get_league_by_name(db, league_name)
+
+    users = db.query(models.User).filter(models.User.league_id == league.id).all()
+    user_ids = [user.id for user in users]
+
+    draft_deleted = db.query(models.DraftPick).filter(models.DraftPick.league_id == league.id).delete()
+    waiver_deleted = db.query(models.WaiverClaim).filter(models.WaiverClaim.league_id == league.id).delete()
+
+    trade_deleted = 0
+    if user_ids:
+        trade_deleted = db.query(models.TradeProposal).filter(
+            models.TradeProposal.league_id == league.id
+        ).delete()
+
+    matchup_deleted = db.query(models.Matchup).filter(models.Matchup.league_id == league.id).delete()
+
+    league.draft_status = "PRE_DRAFT"
+    db.commit()
+
+    return {
+        "league": league.name,
+        "draft_picks_deleted": draft_deleted,
+        "waiver_claims_deleted": waiver_deleted,
+        "trade_proposals_deleted": trade_deleted,
+        "matchups_deleted": matchup_deleted,
+        "draft_status": league.draft_status,
+    }
+
+
+def uat_team_reset(db: Session, league_name: str = "The Big Show"):
+    league = _get_league_by_name(db, league_name)
+
+    owners = db.query(models.User).filter(models.User.league_id == league.id).all()
+    if len(owners) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 owners in league for team reset")
+
+    sync_stats = sync_initial_nfl_data(db)
+    reset_stats = uat_draft_reset(db, league_name=league_name)
+    seed_stats = seed_draft(db, league_id=league.id)
+
+    league.draft_status = "ACTIVE"
+    db.commit()
+
+    return {
+        "league": league.name,
+        "owners": len(owners),
+        "sync": sync_stats,
+        "reset": reset_stats,
+        "seed": seed_stats,
+        "draft_status": league.draft_status,
+    }
