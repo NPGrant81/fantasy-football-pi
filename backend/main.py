@@ -11,7 +11,7 @@ from core.security import get_password_hash, check_is_commissioner
 # Import All Routers
 from routers import (
     admin, team, matchups, league, advisor,
-    dashboard, players, waivers, draft, auth, feedback, trades
+    dashboard, players, waivers, draft, auth, feedback, trades, platform_tools
 )
 
 load_dotenv()
@@ -65,6 +65,9 @@ app.include_router(
     admin.router, 
     dependencies=[Depends(check_is_commissioner)] 
 )
+
+# PLATFORM TOOLS: Require superuser status
+app.include_router(platform_tools.router)
 
 # STANDARD: Included without redundant prefixes
 app.include_router(auth.router)

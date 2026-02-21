@@ -25,13 +25,3 @@ def reset_league(
 ):
     return admin_service.reset_league_rosters(db, admin.league_id)
 
-# --- 2.2 PLATFORM TOOLS (Keep these here or move to platform_admin.py) ---
-
-@router.post("/tools/sync-nfl")
-def sync_nfl(db: Session = Depends(get_db)):
-    # 2.2.1 Sync NFL player data from ESPN API
-    try:
-        success = admin_service.sync_initial_nfl_data(db)
-        return {"message": "NFL player data synced successfully!", "detail": "Players, positions, and defenses updated from ESPN API."}
-    except Exception as err:
-        raise HTTPException(status_code=500, detail=str(err))
