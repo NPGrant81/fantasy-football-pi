@@ -43,7 +43,7 @@ export default function WaiverTable({
     return sortDirection === 'asc' ? '↑' : '↓';
   };
 
-  const SortHeader = ({ field, label, align = 'left' }) => (
+  const renderSortHeader = (field, label, align = 'left') => (
     <th className={`px-4 py-3 ${align === 'right' ? 'text-right' : ''}`}>
       <button
         type="button"
@@ -77,10 +77,10 @@ export default function WaiverTable({
       <table className="w-full text-left text-sm text-slate-300">
         <thead className="bg-slate-950/70 text-xs uppercase tracking-wider text-slate-500">
           <tr>
-            <SortHeader field="name" label="Player" />
-            <SortHeader field="position" label="Pos" />
-            <SortHeader field="nfl_team" label="Team" />
-            <SortHeader field="projected_points" label="Projected" />
+            {renderSortHeader('name', 'Player')}
+            {renderSortHeader('position', 'Pos')}
+            {renderSortHeader('nfl_team', 'Team')}
+            {renderSortHeader('projected_points', 'Projected')}
             <th className="px-4 py-3 text-right">Action</th>
           </tr>
         </thead>

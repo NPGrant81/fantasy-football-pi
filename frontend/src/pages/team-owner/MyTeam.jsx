@@ -191,6 +191,8 @@ export default function MyTeam({ activeOwnerId }) {
   const [showTrades, setShowTrades] = useState(false);
   const [showProposeTrade, setShowProposeTrade] = useState(false);
   const [leagueOwners, setLeagueOwners] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [myTradeRoster, setMyTradeRoster] = useState([]);
   const [targetRoster, setTargetRoster] = useState([]);
   const [proposalToUserId, setProposalToUserId] = useState('');
   const [offeredPlayerId, setOfferedPlayerId] = useState('');
@@ -215,10 +217,12 @@ export default function MyTeam({ activeOwnerId }) {
     async function fetchUserLeague() {
       try {
         const userRes = await apiClient.get('/auth/me');
+        const loggedInUserId = Number(userRes.data.user_id);
         let leagueName = '';
         let leagueId = userRes.data.league_id;
         let draftStatus = 'PRE_DRAFT';
         let is_commissioner = userRes.data.is_commissioner;
+        setCurrentUserId(loggedInUserId);
         if (leagueId) {
           const leagueRes = await apiClient.get(`/leagues/${leagueId}`);
           leagueName = leagueRes.data.name;
@@ -239,14 +243,22 @@ export default function MyTeam({ activeOwnerId }) {
           is_commissioner,
         });
         // Fetch dashboard summary for locker room
-        const summaryOwnerId = viewedOwnerId || userRes.data.user_id;
+        const summaryOwnerId = viewedOwnerId || loggedInUserId;
         if (summaryOwnerId) {
           const dashRes = await apiClient.get(
             `/dashboard/${summaryOwnerId}`
           );
           setSummary(dashRes.data);
         }
+
+        if (loggedInUserId) {
+          const myDashRes = await apiClient.get(`/dashboard/${loggedInUserId}`);
+          setMyTradeRoster(Array.isArray(myDashRes.data?.roster) ? myDashRes.data.roster : []);
+        } else {
+          setMyTradeRoster([]);
+        }
       } catch (err) {
+        setCurrentUserId(null);
         setUserInfo({
           username: '',
           leagueName: '',
@@ -256,6 +268,7 @@ export default function MyTeam({ activeOwnerId }) {
         });
         setScoringRules([]);
         setSummary(null);
+        setMyTradeRoster([]);
         setLeagueOwners([]);
       }
     }
@@ -291,6 +304,7 @@ export default function MyTeam({ activeOwnerId }) {
     direction: 'desc',
   });
   const [activeFilter, setActiveFilter] = useState('ALL');
+  const canProposeTrade = !!currentUserId && (!viewedOwnerId || viewedOwnerId === currentUserId);
 
   // --- 1.3 DATA RETRIEVAL (The Engine) ---
   const fetchTeam = useCallback(() => {
@@ -351,6 +365,14 @@ export default function MyTeam({ activeOwnerId }) {
   const bench = processedPlayers.filter((p) => p.status === 'BENCH');
 
   const handleSubmitTradeProposal = async () => {
+    if (!canProposeTrade) {
+      setToast({
+        message: 'Trades can only be proposed from your own roster page.',
+        type: 'error',
+      });
+      return;
+    }
+
     if (!proposalToUserId || !offeredPlayerId || !requestedPlayerId) {
       setToast({ message: 'Select manager and both players.', type: 'error' });
       return;
@@ -493,14 +515,16 @@ export default function MyTeam({ activeOwnerId }) {
         </div>
         {/* STAT BOXES */}
         <div className="flex gap-4">
-          <button
-            onClick={() => setShowProposeTrade(true)}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl min-w-[140px]"
-          >
-            <div className="flex items-center justify-center gap-2">
-              <FiSend className="text-base" /> Propose Trade
-            </div>
-          </button>
+          {canProposeTrade && (
+            <button
+              onClick={() => setShowProposeTrade(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl min-w-[140px]"
+            >
+              <div className="flex items-center justify-center gap-2">
+                <FiSend className="text-base" /> Propose Trade
+              </div>
+            </button>
+          )}
 
           <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center min-w-[140px] shadow-2xl">
             <FiRepeat className="mx-auto mb-2 text-blue-400 text-2xl" />
@@ -512,7 +536,7 @@ export default function MyTeam({ activeOwnerId }) {
         </div>
       </div>
 
-      {showProposeTrade && (
+      {showProposeTrade && canProposeTrade && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
@@ -539,7 +563,7 @@ export default function MyTeam({ activeOwnerId }) {
                 >
                   <option value="">Select manager</option>
                   {leagueOwners
-                    .filter((owner) => owner.id !== viewedOwnerId)
+                    .filter((owner) => owner.id !== currentUserId)
                     .map((owner) => (
                       <option key={owner.id} value={owner.id}>
                         {owner.team_name || owner.username}
@@ -558,7 +582,7 @@ export default function MyTeam({ activeOwnerId }) {
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
                 >
                   <option value="">Select your player</option>
-                  {(summary?.roster || []).map((player) => (
+                  {myTradeRoster.map((player) => (
                     <option key={player.id} value={player.id}>
                       {player.name} ({player.position})
                     </option>
