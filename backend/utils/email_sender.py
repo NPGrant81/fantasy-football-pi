@@ -4,7 +4,7 @@ import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-def send_invite_email(to_email, username, temp_password):
+def send_invite_email(to_email, username, temp_password, league_id=None):
     """
     Sends an invitation email with temporary credentials.
     """
@@ -26,6 +26,7 @@ def send_invite_email(to_email, username, temp_password):
             <ul>
                 <li>Username: <b>{username}</b></li>
                 <li>Password: <b>{temp_password}</b></li>
+                <li>League ID: <b>{league_id if league_id is not None else 'Ask commissioner'}</b></li>
             </ul>
         </div>
         
@@ -40,6 +41,7 @@ def send_invite_email(to_email, username, temp_password):
         print(f"📧 [SIMULATION] Sending Email to: {to_email}")
         print(f"👤 User: {username}")
         print(f"🔑 Password: {temp_password}")
+        print(f"🏟️ League ID: {league_id if league_id is not None else 'Ask commissioner'}")
         print("="*50 + "\n")
         return True
 

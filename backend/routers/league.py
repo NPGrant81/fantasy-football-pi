@@ -34,6 +34,7 @@ class LeagueNewsItem(BaseModel):
 class AddMemberRequest(BaseModel):
     username: str
     email: Optional[str] = None # Now accepts email
+    league_id: Optional[int] = None
 
 # NEW: Schema for updating settings
 class SettingsUpdate(BaseModel):
@@ -147,7 +148,15 @@ def get_league_owners(league_id: int = Query(...), db: Session = Depends(get_db)
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
     owners = db.query(models.User).filter(models.User.league_id == league_id).all()
-    return [{"id": o.id, "username": o.username, "team_name": o.team_name} for o in owners]
+    return [
+        {
+            "id": o.id,
+            "username": o.username,
+            "email": o.email,
+            "team_name": o.team_name,
+        }
+        for o in owners
+    ]
 
 # --- NEW: GET /leagues/{league_id} ---
 @router.get("/{league_id}", response_model=LeagueSummary)
@@ -430,9 +439,13 @@ def update_league_budgets(
 def add_league_member(
     league_id: int, 
     request: AddMemberRequest, 
+    current_user: models.User = Depends(check_is_commissioner),
     db: Session = Depends(get_db)
 ):
     """Move a specific user into this league."""
+    if current_user.league_id != league_id:
+        raise HTTPException(status_code=403, detail="Commissioner can only manage members in their league")
+
     user = db.query(models.User).filter(models.User.username == request.username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -445,9 +458,13 @@ def add_league_member(
 def remove_league_member(
     league_id: int, 
     user_id: int, 
+    current_user: models.User = Depends(check_is_commissioner),
     db: Session = Depends(get_db)
 ):
     """Kick a user out of the league (Make them a Free Agent)."""
+    if current_user.league_id != league_id:
+        raise HTTPException(status_code=403, detail="Commissioner can only manage members in their league")
+
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -463,9 +480,13 @@ def remove_league_member(
 @router.post("/owners")
 def create_owner(
     request: AddMemberRequest, 
+    current_user: models.User = Depends(check_is_commissioner),
     db: Session = Depends(get_db)
 ):
     """Invite a new user with an auto-generated 8-char password."""
+
+    if request.league_id and request.league_id != current_user.league_id:
+        raise HTTPException(status_code=403, detail="Commissioner can only add owners to their league")
     
     # 1. Check if username exists
     if db.query(models.User).filter(models.User.username == request.username).first():
@@ -483,12 +504,32 @@ def create_owner(
     from core.security import get_password_hash
     hashed_pw = get_password_hash(temp_password)
     
-    # Create the user (assigning them to NO league initially, forcing a recruit step, 
-    # OR you can assign them to league_id=1 if you want auto-add)
+    owner_limit = None
+    if request.league_id:
+        league_settings = db.query(models.LeagueSettings).filter(
+            models.LeagueSettings.league_id == request.league_id
+        ).first()
+        if league_settings and league_settings.starting_slots:
+            owner_limit = int(
+                league_settings.starting_slots.get("OWNER_LIMIT", 0) or 0
+            )
+        if owner_limit and owner_limit > 0:
+            current_count = db.query(models.User).filter(
+                models.User.league_id == request.league_id,
+                models.User.username.not_in(["Free Agent", "Obsolete"]),
+            ).count()
+            if current_count >= owner_limit:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"League owner limit reached ({owner_limit}).",
+                )
+
+    # Create the user and auto-assign to league when provided
     new_user = models.User(
         username=request.username, 
         email=request.email,
-        hashed_password=hashed_pw
+        hashed_password=hashed_pw,
+        league_id=request.league_id,
     )
     db.add(new_user)
     db.commit()
@@ -496,15 +537,57 @@ def create_owner(
 
     # 5. Send the Email (or print to console)
     if request.email:
-        send_invite_email(request.email, request.username, temp_password)
+        send_invite_email(
+            request.email,
+            request.username,
+            temp_password,
+            request.league_id,
+        )
     else:
         # Fallback if no email provided: print to console anyway
         print(f"User created without email. Temp Password: {temp_password}")
     
     return {
         "message": f"Invite sent to {request.email or 'Console'}!",
+        "league_id": request.league_id,
         # In production, DO NOT return the password here. For now, it helps debugging.
         "debug_password": temp_password 
+    }
+
+
+@router.put("/owners/{owner_id}")
+def update_owner(
+    owner_id: int,
+    request: AddMemberRequest,
+    current_user: models.User = Depends(check_is_commissioner),
+    db: Session = Depends(get_db),
+):
+    owner = db.query(models.User).filter(models.User.id == owner_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+
+    if request.username != owner.username:
+        existing = db.query(models.User).filter(models.User.username == request.username).first()
+        if existing and existing.id != owner.id:
+            raise HTTPException(status_code=400, detail="Username taken.")
+        owner.username = request.username
+
+    if request.email != owner.email:
+        if request.email:
+            existing_email = db.query(models.User).filter(models.User.email == request.email).first()
+            if existing_email and existing_email.id != owner.id:
+                raise HTTPException(status_code=400, detail="Email already in use.")
+        owner.email = request.email
+
+    db.commit()
+    return {
+        "message": "Owner updated.",
+        "owner": {
+            "id": owner.id,
+            "username": owner.username,
+            "email": owner.email,
+            "league_id": owner.league_id,
+        },
     }
 # backend/routers/league.py (Add to bottom)
 
