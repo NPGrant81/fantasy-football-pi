@@ -481,10 +481,11 @@ def search_players(q: str, db: Session = Depends(get_db)):
     if len(q) < 2:
         return []
     
-    # We use ilike for case-insensitive searching
-    # We search the 'name' column (or 'first_name'/'last_name' depending on your model)
+    # Search for players in relevant fantasy positions only
+    allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
     results = db.query(models.Player).filter(
-        models.Player.name.ilike(f"%{q}%")
+        models.Player.name.ilike(f"%{q}%"),
+        models.Player.position.in_(allowed_positions)
     ).limit(10).all()
     
     return results

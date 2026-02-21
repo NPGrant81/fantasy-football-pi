@@ -110,5 +110,8 @@ def get_player_season_details(
 # --- NEW: GET /players/ ---
 @router.get("/")
 def get_all_players(db: Session = Depends(get_db)):
-    """Return all players (for draft board, etc)."""
-    return db.query(models.Player).all()
+    """Return all relevant fantasy players (QB, RB, WR, TE, K, DEF) from active NFL rosters."""
+    allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
+    return db.query(models.Player).filter(
+        models.Player.position.in_(allowed_positions)
+    ).order_by(models.Player.position, models.Player.name).all()

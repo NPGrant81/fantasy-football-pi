@@ -3,10 +3,17 @@ from sqlalchemy.orm import Session
 from sqlalchemy import not_
 import models
 
+# Only relevant fantasy positions from active NFL rosters
+ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
+
 # 1.1.1 SERVICE: Search ALL players with position filtering
 def search_all_players(db: Session, query_str: str, pos: str = "ALL"):
     search_term = f"%{query_str.strip()}%"
-    query = db.query(models.Player).filter(models.Player.name.ilike(search_term))
+    # Always filter to relevant positions
+    query = db.query(models.Player).filter(
+        models.Player.name.ilike(search_term),
+        models.Player.position.in_(ALLOWED_POSITIONS)
+    )
     
     if pos != "ALL":
         query = query.filter(models.Player.position == pos)
@@ -20,7 +27,8 @@ def get_league_free_agents(db: Session, league_id: int):
         models.DraftPick.league_id == league_id
     )
     
-    # Return players NOT in that subquery
+    # Return only relevant position players NOT owned in this league
     return db.query(models.Player).filter(
-        ~models.Player.id.in_(owned_ids_query)
+        ~models.Player.id.in_(owned_ids_query),
+        models.Player.position.in_(ALLOWED_POSITIONS)
     ).limit(50).all()

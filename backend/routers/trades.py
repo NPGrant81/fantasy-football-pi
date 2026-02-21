@@ -94,7 +94,8 @@ def get_pending_trades(
     )
 
     users = {u.id: u for u in db.query(models.User).filter(models.User.league_id == current_user.league_id).all()}
-    players = {p.id: p for p in db.query(models.Player).all()}
+    allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
+    players = {p.id: p for p in db.query(models.Player).filter(models.Player.position.in_(allowed_positions)).all()}
 
     rows = []
     for trade in proposals:

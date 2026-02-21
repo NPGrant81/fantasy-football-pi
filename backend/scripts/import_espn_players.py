@@ -13,7 +13,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ESPN_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
 ESPN_ROSTER_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/roster"
 
-ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K"}
+# Only import players in relevant fantasy positions from active NFL rosters
+ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
 
 
 def get_json(url, params=None, timeout=30):
