@@ -1,26 +1,8 @@
 // frontend/src/pages/Dashboard.jsx
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { FiTrendingUp, FiRepeat, FiBell, FiPlus, FiList } from 'react-icons/fi';
-
-// Professional Imports
-import apiClient from '@api/client';
-import { _getPosColor } from '../utils/uiHelpers';
-import { _normalizePos } from '../utils/draftHelpers';
-import { ChatInterface } from '@components/chat';
+import React from 'react';
 
 export default function Dashboard({ ownerId }) {
-  const [_summary, _setSummary] = useState(null);
-
-  useEffect(() => {
-    if (!ownerId) return;
-
-    // Using the centralized client instead of hardcoded localhost
-    apiClient
-      .get(`/dashboard/${ownerId}`)
-      .then((res) => setSummary(res.data))
-      .catch((err) => console.error('Dashboard fetch failed', err));
-  }, [ownerId]);
+  void ownerId;
 
   // Commissioner dashboard is now dedicated to league management only.
   return (

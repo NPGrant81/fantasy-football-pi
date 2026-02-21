@@ -201,3 +201,18 @@ class TradeProposal(Base):
     note = Column(String, nullable=True)
     status = Column(String, default="PENDING")
     created_at = Column(String, nullable=True)
+
+
+# --- 12. LINEUP SUBMISSIONS ---
+class LineupSubmission(Base):
+    __tablename__ = "lineup_submissions"
+    __table_args__ = (
+        UniqueConstraint("league_id", "owner_id", "season", "week", name="uq_lineup_submission_week"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    season = Column(Integer, index=True)
+    week = Column(Integer, index=True)
+    submitted_at = Column(String, nullable=True)

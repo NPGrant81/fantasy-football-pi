@@ -18,7 +18,7 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
         setLeagues(res.data);
         setLoading(false);
       })
-      .catch((_err) => {
+      .catch((err) => {
         console.error('Could not fetch leagues:', err);
         setLoading(false);
       });
@@ -36,7 +36,7 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
         setNewLeagueName('');
         setIsCreating(false);
       })
-      .catch((err) => alert('Error creating league. Name might be taken.'));
+      .catch(() => alert('Error creating league. Name might be taken.'));
   };
 
   return (

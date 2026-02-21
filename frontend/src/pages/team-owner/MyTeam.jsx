@@ -21,166 +21,182 @@ import TradeRulesModal from '../commissioner/components/TradeRulesModal';
 // Professional Imports
 import apiClient from '@api/client';
 import LeagueAdvisor from '../../components/LeagueAdvisor';
-import { getPosColor } from '../../utils/uiHelpers';
-import { normalizePos } from '../../utils/draftHelpers';
 import Toast from '../../components/Toast';
 
 // --- 1.1 CONSTANTS & HELPERS (Outside Render) ---
-const POS_RANK = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5, K: 6 };
+const POS_RANK = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5, K: 6, FLEX: 7 };
+const FLEX_SLOT_LABEL = 'FLEX (RB/WR/TE)';
+const FLEX_NOT_ENOUGH_ERROR = 'not enough FLEX (needs extra RB/WR/TE starter)';
+const FLEX_TOO_MANY_ERROR = 'too many FLEX-eligible starters (RB/WR/TE)';
+const DEFAULT_STARTER_SLOTS = {
+  QB: 1,
+  RB: 2,
+  WR: 2,
+  TE: 1,
+  DEF: 1,
+  K: 1,
+  FLEX: 1,
+};
 
-const FilterButton = ({ label, activeFilter, setActiveFilter }) => (
-  <button
-    onClick={() => setActiveFilter(label)}
-    className={`px-3 py-1 rounded text-xs font-bold transition-all ${
-      activeFilter === label
-        ? 'bg-yellow-500 text-black shadow-lg scale-105'
-        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
-    }`}
-  >
-    {label}
-  </button>
-);
+const normalizePosition = (position) => {
+  if (position === 'TD' || position === 'DST') return 'DEF';
+  return position;
+};
 
-const RosterTable = ({
-  title,
-  players,
-  titleColor,
-  emptyMsg,
-  totalYTD,
-  totalProj,
-  sortConfig,
-  handleSort,
-}) => (
-  <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl mb-8 animate-fade-in-up">
-    <div
-      className={`p-4 border-b border-slate-800 flex justify-between items-center ${titleColor} bg-slate-950/50`}
-    >
-      <h3 className="font-bold uppercase tracking-wider flex items-center gap-2">
-        {title}{' '}
-        <span className="text-xs opacity-60 bg-black/30 px-2 py-1 rounded">
-          {players.length}
-        </span>
-      </h3>
+const toProjectedPoints = (player) => {
+  const value = Number(
+    player?.projected_points ?? player?.proj_score ?? player?.projected ?? 0
+  );
+  return Number.isFinite(value) ? value : 0;
+};
 
-      {title === 'Active Lineup' && (
-        <div className="flex gap-4 text-xs font-mono">
-          <div className="text-right">
-            <div className="text-slate-500 uppercase">Total YTD</div>
-            <div className="font-bold text-white">{totalYTD}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-slate-500 uppercase">Total Proj</div>
-            <div className="font-bold text-blue-400">{totalProj}</div>
-          </div>
-        </div>
-      )}
-    </div>
+const normalizeStartingSlots = (slots) => {
+  const merged = { ...DEFAULT_STARTER_SLOTS };
+  if (!slots || typeof slots !== 'object') return merged;
 
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm text-slate-400">
-        <thead className="bg-slate-950 text-xs uppercase font-bold text-slate-500 border-b border-slate-800 cursor-pointer select-none">
-          <tr>
-            <th
-              className="px-6 py-3 hover:text-white transition"
-              onClick={() => handleSort('position_rank')}
-            >
-              Pos{' '}
-              {sortConfig.key === 'position_rank' &&
-                (sortConfig.direction === 'asc' ? '↓' : '↑')}
-            </th>
-            <th
-              className="px-6 py-3 hover:text-white transition"
-              onClick={() => handleSort('name')}
-            >
-              Player{' '}
-              {sortConfig.key === 'name' &&
-                (sortConfig.direction === 'asc' ? '↓' : '↑')}
-            </th>
-            <th
-              className="px-6 py-3 hover:text-white transition"
-              onClick={() => handleSort('bye_week')}
-            >
-              Bye{' '}
-              {sortConfig.key === 'bye_week' &&
-                (sortConfig.direction === 'asc' ? '↓' : '↑')}
-            </th>
-            <th
-              className="px-6 py-3 text-right hover:text-white transition"
-              onClick={() => handleSort('ytd_score')}
-            >
-              YTD{' '}
-              {sortConfig.key === 'ytd_score' &&
-                (sortConfig.direction === 'asc' ? '↓' : '↑')}
-            </th>
-            <th
-              className="px-6 py-3 text-right hover:text-white transition"
-              onClick={() => handleSort('proj_score')}
-            >
-              Proj{' '}
-              {sortConfig.key === 'proj_score' &&
-                (sortConfig.direction === 'asc' ? '↓' : '↑')}
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-800">
-          {players.map((p) => (
-            <tr
-              key={p.player_id}
-              className="hover:bg-slate-800/50 transition duration-150"
-            >
-              <td className="px-6 py-4">
-                <span
-                  className={`px-2 py-1 rounded text-xs font-bold border ${
-                    p.position === 'QB'
-                      ? 'text-red-300 border-red-900 bg-red-900/20'
-                      : p.position === 'RB'
-                        ? 'text-green-300 border-green-900 bg-green-900/20'
-                        : p.position === 'WR'
-                          ? 'text-blue-300 border-blue-900 bg-blue-900/20'
-                          : p.position === 'TE'
-                            ? 'text-orange-300 border-orange-900 bg-orange-900/20'
-                            : 'text-slate-300 border-slate-600'
-                  }`}
-                >
-                  {p.position}
-                </span>
-              </td>
-              <td className="px-6 py-4 font-bold text-white">
-                {p.name}
-                <div className="text-[10px] font-normal text-slate-500">
-                  {p.nfl_team}
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                {p.bye_week === 8 ? (
-                  <span className="text-red-500 font-bold flex gap-1 items-center">
-                    <FiAlertTriangle /> W8
-                  </span>
-                ) : (
-                  `Week ${p.bye_week}`
-                )}
-              </td>
-              <td className="px-6 py-4 text-right font-mono">{p.ytd_score}</td>
-              <td className="px-6 py-4 text-right font-mono text-blue-400 font-bold">
-                {p.proj_score}
-              </td>
-            </tr>
-          ))}
-          {players.length === 0 && (
-            <tr>
-              <td
-                colSpan="6"
-                className="text-center py-8 text-slate-600 italic"
-              >
-                {emptyMsg}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
+  for (const [key, value] of Object.entries(slots)) {
+    const normalizedKey = String(key).toUpperCase();
+    if (Object.hasOwn(merged, normalizedKey)) {
+      const parsed = Number(value);
+      merged[normalizedKey] = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    }
+  }
+
+  return merged;
+};
+
+const getSlotLabel = (position) =>
+  position === 'FLEX' ? FLEX_SLOT_LABEL : position;
+
+const getPlayerSlotLabel = (player) =>
+  getSlotLabel(player?.slot_assigned || normalizePosition(player?.position));
+
+const buildWeeklyStartSitPlan = (roster, week, starterSlots) => {
+  const slots = normalizeStartingSlots(starterSlots);
+  const players = (Array.isArray(roster) ? roster : []).map((player) => ({
+    ...player,
+    position: normalizePosition(player.position),
+    projected_for_week: toProjectedPoints(player),
+    bye_week: player.bye_week ?? null,
+  }));
+
+  const byePlayers = [];
+  const availablePlayers = [];
+
+  for (const player of players) {
+    if (player.bye_week && Number(player.bye_week) === Number(week)) {
+      byePlayers.push(player);
+    } else {
+      availablePlayers.push(player);
+    }
+  }
+
+  const pools = {
+    QB: availablePlayers
+      .filter((p) => p.position === 'QB')
+      .sort((a, b) => b.projected_for_week - a.projected_for_week),
+    RB: availablePlayers
+      .filter((p) => p.position === 'RB')
+      .sort((a, b) => b.projected_for_week - a.projected_for_week),
+    WR: availablePlayers
+      .filter((p) => p.position === 'WR')
+      .sort((a, b) => b.projected_for_week - a.projected_for_week),
+    TE: availablePlayers
+      .filter((p) => p.position === 'TE')
+      .sort((a, b) => b.projected_for_week - a.projected_for_week),
+    DEF: availablePlayers
+      .filter((p) => p.position === 'DEF')
+      .sort((a, b) => b.projected_for_week - a.projected_for_week),
+    K: availablePlayers
+      .filter((p) => p.position === 'K')
+      .sort((a, b) => b.projected_for_week - a.projected_for_week),
+  };
+
+  const selectedIds = new Set();
+  const starters = [];
+  const actualSlotCounts = {};
+
+  for (const [position, slotCount] of Object.entries(slots)) {
+    if (position === 'FLEX' || slotCount <= 0) continue;
+
+    const pool = pools[position] || [];
+    for (let index = 0; index < slotCount && index < pool.length; index += 1) {
+      starters.push({ ...pool[index], slot_assigned: position });
+      selectedIds.add(pool[index].id);
+      actualSlotCounts[position] = (actualSlotCounts[position] || 0) + 1;
+    }
+  }
+
+  const flexPool = [...(pools.RB || []), ...(pools.WR || []), ...(pools.TE || [])]
+    .filter((player) => !selectedIds.has(player.id))
+    .sort((a, b) => b.projected_for_week - a.projected_for_week);
+
+  const flexSlots = slots.FLEX || 0;
+  for (
+    let flexIndex = 0;
+    flexIndex < flexSlots && flexIndex < flexPool.length;
+    flexIndex += 1
+  ) {
+    starters.push({
+      ...flexPool[flexIndex],
+      slot_assigned: 'FLEX',
+      display_position: `${normalizePosition(flexPool[flexIndex].position)} • ${FLEX_SLOT_LABEL}`,
+    });
+    selectedIds.add(flexPool[flexIndex].id);
+    actualSlotCounts.FLEX = (actualSlotCounts.FLEX || 0) + 1;
+  }
+
+  const sits = availablePlayers.filter((player) => !selectedIds.has(player.id));
+
+  const totalRequired = Object.values(slots).reduce(
+    (sum, count) => sum + Number(count || 0),
+    0
+  );
+
+  const validationErrors = [];
+  if (starters.length < totalRequired) validationErrors.push('not enough players');
+  if (starters.length > totalRequired) validationErrors.push('too many players');
+
+  for (const [position, requiredCount] of Object.entries(slots)) {
+    const required = Number(requiredCount || 0);
+    if (required <= 0) continue;
+    const actual = Number(actualSlotCounts[position] || 0);
+    if (actual < required) {
+      validationErrors.push(
+        position === 'FLEX'
+          ? FLEX_NOT_ENOUGH_ERROR
+          : `not enough ${position}`
+      );
+    }
+    if (actual > required) {
+      validationErrors.push(
+        position === 'FLEX' ? FLEX_TOO_MANY_ERROR : `too many ${position}`
+      );
+    }
+  }
+
+  return {
+    starters,
+    sits,
+    byePlayers,
+    slots,
+    totalRequired,
+    actualSlotCounts,
+    validationErrors,
+  };
+};
+
+const sortRosterByHierarchy = (players) => {
+  return [...(players || [])].sort((left, right) => {
+    const leftPos = normalizePosition(left.position);
+    const rightPos = normalizePosition(right.position);
+    const positionDiff = (POS_RANK[leftPos] || 99) - (POS_RANK[rightPos] || 99);
+    if (positionDiff !== 0) return positionDiff;
+    const projDiff = toProjectedPoints(right) - toProjectedPoints(left);
+    if (projDiff !== 0) return projDiff;
+    return String(left.name || '').localeCompare(String(right.name || ''));
+  });
+};
 
 export default function MyTeam({ activeOwnerId }) {
   const viewedOwnerId = activeOwnerId ? Number(activeOwnerId) : null;
@@ -200,6 +216,12 @@ export default function MyTeam({ activeOwnerId }) {
   const [proposalNote, setProposalNote] = useState('');
   const [toast, setToast] = useState(null);
   const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
+  const [showLineupValidationModal, setShowLineupValidationModal] =
+    useState(false);
+  const [draggingPlayerId, setDraggingPlayerId] = useState(null);
+  const [submittingRoster, setSubmittingRoster] = useState(false);
+  const [lineupSubmittedForWeek, setLineupSubmittedForWeek] = useState(false);
+  const [baselineLineupStatus, setBaselineLineupStatus] = useState({});
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerPerformance, setPlayerPerformance] = useState(null);
   const [playerPerformanceLoading, setPlayerPerformanceLoading] =
@@ -212,7 +234,10 @@ export default function MyTeam({ activeOwnerId }) {
     draftStatus: 'PRE_DRAFT',
     is_commissioner: false,
   });
-  const [_scoringRules, setScoringRules] = useState([]);
+  const [, setScoringRules] = useState([]);
+  const [starterRequirements, setStarterRequirements] = useState(
+    DEFAULT_STARTER_SLOTS
+  );
   const [summary, setSummary] = useState(null);
   useEffect(() => {
     async function fetchUserLeague() {
@@ -243,8 +268,12 @@ export default function MyTeam({ activeOwnerId }) {
               `/leagues/${leagueId}/settings`
             );
             setScoringRules(settingsRes.data.scoring_rules || []);
+            setStarterRequirements(
+              normalizeStartingSlots(settingsRes.data.starting_slots)
+            );
           } catch {
             setScoringRules([]);
+            setStarterRequirements(DEFAULT_STARTER_SLOTS);
           }
         }
         setUserInfo({
@@ -275,7 +304,7 @@ export default function MyTeam({ activeOwnerId }) {
             setMyTradeRoster([]);
           }
         }
-      } catch (_err) {
+      } catch {
         setCurrentUserId(null);
         setUserInfo({
           username: '',
@@ -285,6 +314,7 @@ export default function MyTeam({ activeOwnerId }) {
           is_commissioner: false,
         });
         setScoringRules([]);
+        setStarterRequirements(DEFAULT_STARTER_SLOTS);
         setSummary(null);
         setMyTradeRoster([]);
         setLeagueOwners([]);
@@ -314,14 +344,10 @@ export default function MyTeam({ activeOwnerId }) {
   // --- 1.2 STATE MANAGEMENT ---
   const [teamData, setTeamData] = useState(null);
   const [rosterState, setRosterState] = useState([]);
+  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [startSitSort, setStartSitSort] = useState('position');
   // FIX: Start loading as true to avoid sync setState inside useEffect
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({
-    key: 'proj_score',
-    direction: 'desc',
-  });
-  const [activeFilter, setActiveFilter] = useState('ALL');
   const canProposeTrade =
     !!currentUserId && (!viewedOwnerId || viewedOwnerId === currentUserId);
 
@@ -330,16 +356,28 @@ export default function MyTeam({ activeOwnerId }) {
     if (activeOwnerId) {
       // apiClient handles the Base URL and the token automatically via interceptors
       apiClient
-        .get(`/team/${activeOwnerId}`)
+        .get(`/team/${activeOwnerId}?week=${selectedWeek}`)
         .then((res) => {
           setTeamData(res.data);
-          const roster = Array.isArray(res.data.roster) ? res.data.roster : [];
+          setLineupSubmittedForWeek(Boolean(res.data?.lineup_submitted));
+          const roster = Array.isArray(res.data.players)
+            ? res.data.players
+            : Array.isArray(res.data.roster)
+              ? res.data.roster
+              : [];
           const processedRoster = roster.map((p) => ({
             ...p,
             status: p.status || 'BENCH',
-            position_rank: POS_RANK[p.position] || 99,
+            player_id: p.player_id || p.id,
+            position: normalizePosition(p.position),
+            position_rank: POS_RANK[normalizePosition(p.position)] || 99,
           }));
           setRosterState(processedRoster);
+          const baseline = {};
+          processedRoster.forEach((player) => {
+            baseline[String(player.player_id)] = player.status || 'BENCH';
+          });
+          setBaselineLineupStatus(baseline);
         })
         .catch((err) => {
           setRosterState([]);
@@ -347,41 +385,220 @@ export default function MyTeam({ activeOwnerId }) {
         })
         .finally(() => setLoading(false));
     }
-  }, [activeOwnerId]);
+  }, [activeOwnerId, selectedWeek]);
 
   useEffect(() => {
     fetchTeam();
   }, [fetchTeam]);
 
   // --- 1.4 UTILITIES & DERIVED STATE ---
-  const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc')
-      direction = 'desc';
-    setSortConfig({ key, direction });
+  const weekOptions = useMemo(
+    () => Array.from({ length: 18 }, (_, index) => index + 1),
+    []
+  );
+
+  const weeklyPlan = useMemo(
+    () => buildWeeklyStartSitPlan(rosterState, selectedWeek, starterRequirements),
+    [rosterState, selectedWeek, starterRequirements]
+  );
+
+  const sortByPreference = useCallback(
+    (players) => {
+      const list = [...players];
+      if (startSitSort === 'position') {
+        return list.sort((left, right) => {
+          const leftPos = normalizePosition(left.position).split('/')[0];
+          const rightPos = normalizePosition(right.position).split('/')[0];
+          const positionDiff =
+            (POS_RANK[leftPos] || 99) - (POS_RANK[rightPos] || 99);
+          if (positionDiff !== 0) return positionDiff;
+          return right.projected_for_week - left.projected_for_week;
+        });
+      }
+      return list.sort(
+        (left, right) => right.projected_for_week - left.projected_for_week
+      );
+    },
+    [startSitSort]
+  );
+
+  const sortedStartRecommendations = useMemo(
+    () => sortByPreference(weeklyPlan.starters),
+    [weeklyPlan.starters, sortByPreference]
+  );
+  const sortedSitRecommendations = useMemo(
+    () => sortByPreference(weeklyPlan.sits),
+    [weeklyPlan.sits, sortByPreference]
+  );
+
+  const currentStarterValidationErrors = useMemo(() => {
+    const slots = normalizeStartingSlots(starterRequirements);
+    const currentStarters = rosterState.filter((player) => player.status === 'STARTER');
+    const counts = { QB: 0, RB: 0, WR: 0, TE: 0, DEF: 0, K: 0 };
+
+    for (const player of currentStarters) {
+      const position = normalizePosition(player.position);
+      if (Object.hasOwn(counts, position)) {
+        counts[position] += 1;
+      }
+    }
+
+    const errors = [];
+    const totalRequired = Object.values(slots).reduce(
+      (sum, count) => sum + Number(count || 0),
+      0
+    );
+
+    if (currentStarters.length < totalRequired) errors.push('not enough players');
+    if (currentStarters.length > totalRequired) errors.push('too many players');
+
+    for (const [position, requiredCount] of Object.entries(slots)) {
+      if (position === 'FLEX') continue;
+      const required = Number(requiredCount || 0);
+      if (required <= 0) continue;
+      const actual = Number(counts[position] || 0);
+      if (actual < required) errors.push(`not enough ${position}`);
+      if (actual > required) errors.push(`too many ${position}`);
+    }
+
+    const requiredFlex = Number(slots.FLEX || 0);
+    if (requiredFlex > 0) {
+      const extraFlexEligible =
+        Math.max(0, counts.RB - Number(slots.RB || 0)) +
+        Math.max(0, counts.WR - Number(slots.WR || 0)) +
+        Math.max(0, counts.TE - Number(slots.TE || 0));
+
+      if (extraFlexEligible < requiredFlex) errors.push(FLEX_NOT_ENOUGH_ERROR);
+      if (extraFlexEligible > requiredFlex) errors.push(FLEX_TOO_MANY_ERROR);
+    }
+
+    return errors;
+  }, [rosterState, starterRequirements]);
+
+  const lineupValidationErrors = useMemo(
+    () => [
+      ...new Set([
+        ...currentStarterValidationErrors,
+        ...(weeklyPlan.validationErrors || []),
+      ]),
+    ],
+    [currentStarterValidationErrors, weeklyPlan.validationErrors]
+  );
+
+  const canEditLineup =
+    !!currentUserId && (!viewedOwnerId || viewedOwnerId === currentUserId);
+
+  const hasUnsavedLineupChanges = useMemo(() => {
+    if (!rosterState.length) return false;
+    return rosterState.some((player) => {
+      const baselineStatus = baselineLineupStatus[String(player.player_id)] || 'BENCH';
+      return (player.status || 'BENCH') !== baselineStatus;
+    });
+  }, [rosterState, baselineLineupStatus]);
+
+  const activeLineupPlayers = useMemo(
+    () => sortRosterByHierarchy(rosterState.filter((player) => player.status === 'STARTER')),
+    [rosterState]
+  );
+
+  const benchLineupPlayers = useMemo(
+    () => sortRosterByHierarchy(rosterState.filter((player) => player.status !== 'STARTER')),
+    [rosterState]
+  );
+
+  const movePlayerToStatus = useCallback(
+    (playerId, targetStatus) => {
+      if (!canEditLineup) return;
+      setRosterState((prev) => {
+        const target = prev.find((player) => Number(player.player_id) === Number(playerId));
+        if (!target) return prev;
+        if (target.is_locked) {
+          setToast({
+            message: `${target.name} is locked for Week ${selectedWeek} (game already started).`,
+            type: 'error',
+          });
+          return prev;
+        }
+        return prev.map((player) =>
+          Number(player.player_id) === Number(playerId)
+            ? { ...player, status: targetStatus }
+            : player
+        );
+      });
+    },
+    [canEditLineup, selectedWeek]
+  );
+
+  const handleDragStart = useCallback(
+    (player) => {
+      if (!canEditLineup || player.is_locked) return;
+      setDraggingPlayerId(player.player_id);
+    },
+    [canEditLineup]
+  );
+
+  const handleDropToStatus = useCallback(
+    (targetStatus) => {
+      if (!draggingPlayerId) return;
+      movePlayerToStatus(draggingPlayerId, targetStatus);
+      setDraggingPlayerId(null);
+    },
+    [draggingPlayerId, movePlayerToStatus]
+  );
+
+  const submitRoster = async () => {
+    if (!canEditLineup) return;
+    if (lineupValidationErrors.length > 0) {
+      setShowLineupValidationModal(true);
+      setToast({
+        message: 'Fix lineup validation issues before submitting roster.',
+        type: 'error',
+      });
+      return;
+    }
+
+    setSubmittingRoster(true);
+    try {
+      const starterIds = rosterState
+        .filter((player) => player.status === 'STARTER')
+        .map((player) => Number(player.player_id));
+
+      await apiClient.post('/team/lineup', {
+        week: selectedWeek,
+        starter_player_ids: starterIds,
+      });
+
+      await apiClient.post('/team/submit-lineup', {
+        week: selectedWeek,
+      });
+
+      setToast({
+        message: `Week ${selectedWeek} roster submitted successfully.`,
+        type: 'success',
+      });
+      fetchTeam();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail) && detail.length > 0) {
+        setToast({ message: detail.join(', '), type: 'error' });
+      } else {
+        setToast({
+          message: detail || 'Failed to submit roster.',
+          type: 'error',
+        });
+      }
+    } finally {
+      setSubmittingRoster(false);
+    }
   };
 
-  const processedPlayers = useMemo(() => {
-    let players = [...rosterState];
-    if (activeFilter !== 'ALL')
-      players = players.filter((p) => p.position === activeFilter);
-    if (searchTerm)
-      players = players.filter((p) =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-
-    players.sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key])
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      if (a[sortConfig.key] > b[sortConfig.key])
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return players;
-  }, [rosterState, searchTerm, sortConfig, activeFilter]);
-
-  const starters = processedPlayers.filter((p) => p.status === 'STARTER');
-  const _bench = processedPlayers.filter((p) => p.status === 'BENCH');
+  useEffect(() => {
+    if (lineupValidationErrors.length > 0) {
+      setShowLineupValidationModal(true);
+    } else {
+      setShowLineupValidationModal(false);
+    }
+  }, [lineupValidationErrors.length, selectedWeek]);
 
   const handleSubmitTradeProposal = async () => {
     if (!canProposeTrade) {
@@ -442,13 +659,6 @@ export default function MyTeam({ activeOwnerId }) {
       setPlayerPerformanceLoading(false);
     }
   };
-
-  const totalYTD = starters
-    .reduce((sum, p) => sum + (p.ytd_score || 0), 0)
-    .toFixed(2);
-  const totalProj = starters
-    .reduce((sum, p) => sum + (p.proj_score || 0), 0)
-    .toFixed(2);
 
   // --- 2.1 RENDER LOGIC (The View) ---
 
@@ -535,6 +745,13 @@ export default function MyTeam({ activeOwnerId }) {
         </div>
         {/* STAT BOXES */}
         <div className="flex gap-4">
+          <Link
+            to="/waivers"
+            className="bg-green-600 hover:bg-green-500 text-black px-5 py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl min-w-[140px] flex items-center justify-center gap-2"
+          >
+            <FiPlus className="text-base" /> Waiver Wire
+          </Link>
+
           {canProposeTrade && (
             <button
               onClick={() => setShowProposeTrade(true)}
@@ -777,6 +994,38 @@ export default function MyTeam({ activeOwnerId }) {
         </div>
       )}
 
+      {showLineupValidationModal && lineupValidationErrors.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-red-800/60 bg-slate-900 p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-lg font-black uppercase tracking-wider text-red-300">
+                <FiAlertTriangle /> Lineup Validation
+              </h3>
+              <button
+                onClick={() => setShowLineupValidationModal(false)}
+                className="rounded-full border border-slate-700 p-2 text-slate-300 hover:text-white"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="rounded-lg border border-red-900/40 bg-red-900/10 p-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-red-200">
+                Week {selectedWeek} requirements are not satisfied:
+              </p>
+              <ul className="space-y-1 text-sm text-red-100">
+                {lineupValidationErrors.map((error) => (
+                  <li key={error} className="flex items-center gap-2">
+                    <span>•</span>
+                    <span>{error}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <Toast
           message={toast.message}
@@ -785,93 +1034,321 @@ export default function MyTeam({ activeOwnerId }) {
         />
       )}
 
-      {/* MAIN CONTENT GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* LEFT COLUMN: ROSTER (8 Cols) */}
-        <div className="lg:col-span-8 bg-slate-900/40 border border-slate-800 rounded-[2.5rem] p-8 backdrop-blur-sm">
-          <h2 className="text-2xl font-black uppercase italic mb-8 flex items-center gap-3 text-slate-200">
-            <FiTrendingUp className="text-green-500" /> Active Roster
-          </h2>
-          <div className="grid grid-cols-1 gap-3">
-            {summary.roster.map((player) => (
-              <button
-                type="button"
-                key={player.id}
-                onClick={() => openPlayerPerformance(player)}
-                className="flex justify-between items-center p-5 bg-slate-950/50 border border-slate-800/50 rounded-2xl hover:border-blue-500/50 hover:bg-slate-900/50 transition-all duration-300 group"
-              >
-                <div className="flex items-center gap-5">
-                  <span
-                    className={`text-[10px] font-black px-3 py-1.5 rounded-md shadow-lg ${getPosColor(player.position)}`}
-                  >
-                    {normalizePos(player.position)}
-                  </span>
-                  <span className="font-bold text-xl tracking-tight group-hover:text-blue-400 transition-colors">
-                    {player.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-slate-500 font-mono text-sm font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-lg border border-slate-800">
-                    {player.nfl_team}
-                  </span>
-                </div>
-              </button>
-            ))}
+      <div className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-black uppercase tracking-wider text-white">
+              Start/Sit Sorter
+            </h3>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Weekly lineup recommendations based on commissioner starter rules, projected points, and bye weeks
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Week
+            </label>
+            <select
+              value={selectedWeek}
+              onChange={(event) => setSelectedWeek(Number(event.target.value))}
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
+            >
+              {weekOptions.map((week) => (
+                <option key={week} value={week}>
+                  Week {week}
+                </option>
+              ))}
+            </select>
+            <select
+              value={startSitSort}
+              onChange={(event) => setStartSitSort(event.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
+            >
+              <option value="projected">Sort: Projected</option>
+              <option value="position">Sort: Hierarchy (QB/RB/WR/TE/DEF)</option>
+            </select>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: SIDEBAR (4 Cols) */}
-        <div className="lg:col-span-4 space-y-8">
-          {/* WAIVER QUICK ACTION */}
-          <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-[80px] group-hover:bg-green-500/10 transition-all"></div>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-black uppercase italic flex items-center gap-2 text-green-400 tracking-tighter text-xl">
-                <FiList /> Waiver Wire
-              </h3>
-              <span className="text-[10px] bg-green-900/30 text-green-400 px-3 py-1 rounded-full border border-green-800/50 font-black">
-                PRIORITY #4
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+            Requirements:
+          </span>
+          {Object.entries(weeklyPlan.slots || {})
+            .filter(([, count]) => Number(count || 0) > 0)
+            .map(([position, requiredCount]) => {
+              const actualCount = Number(weeklyPlan.actualSlotCounts?.[position] || 0);
+              const isMet = actualCount === Number(requiredCount);
+              const tooltip = isMet
+                ? `${getSlotLabel(position)}: requirement met (${actualCount}/${requiredCount})`
+                : `${getSlotLabel(position)}: need ${requiredCount}, currently ${actualCount}`;
+              return (
+                <span
+                  key={`slot-${position}`}
+                  title={tooltip}
+                  className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
+                    isMet
+                      ? 'border-green-700/60 bg-green-900/20 text-green-300'
+                      : 'border-red-700/60 bg-red-900/20 text-red-300'
+                  }`}
+                >
+                  {getSlotLabel(position)} {actualCount}/{requiredCount}
+                </span>
+              );
+            })}
+        </div>
+        <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          <span className="text-green-300">Green = valid</span> •{' '}
+          <span className="text-red-300">Red = invalid</span> • FLEX = extra RB/WR/TE starter slot
+        </p>
+
+        {lineupValidationErrors.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowLineupValidationModal(true)}
+            className="mb-4 inline-flex items-center gap-2 rounded-lg border border-red-800/50 bg-red-900/20 px-3 py-2 text-xs font-black uppercase tracking-wider text-red-200"
+          >
+            <FiAlertTriangle />
+            Lineup has validation issues ({lineupValidationErrors.length})
+          </button>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-green-900/60 bg-green-900/10 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-black uppercase tracking-widest text-green-300">
+                Recommended Starts
+              </h4>
+              <span className="rounded bg-green-900/30 px-2 py-1 text-xs font-bold text-green-200">
+                {sortedStartRecommendations.length}
               </span>
             </div>
-            <p className="text-sm text-slate-400 mb-8 leading-relaxed">
-              The wire is hot. Browse available free agents to fortify your
-              lineup before the next window.
-            </p>
-            <Link
-              to="/waivers"
-              className="flex items-center justify-center gap-3 w-full py-4 bg-green-600 hover:bg-green-500 text-black rounded-2xl font-black uppercase tracking-widest transition shadow-[0_10px_20px_rgba(22,163,74,0.2)] active:scale-95"
-            >
-              <FiPlus className="text-xl" /> Find Players
-            </Link>
+            <div className="space-y-2">
+              {sortedStartRecommendations.map((player) => (
+                <div
+                  key={`start-${player.id}`}
+                  className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
+                >
+                  <div>
+                    <div className="text-sm font-bold text-white">{player.name}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                      {getPlayerSlotLabel(player)} • {player.nfl_team}
+                    </div>
+                  </div>
+                  <div className="text-sm font-mono font-bold text-green-300">
+                    {Number(player.projected_for_week || 0).toFixed(1)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* LEAGUE ALERTS */}
-          <div className="bg-slate-900/80 border border-slate-800 p-8 rounded-[2.5rem]">
-            <h3 className="font-black uppercase italic mb-6 flex items-center gap-2 text-slate-200 tracking-tighter text-xl">
-              <FiBell className="text-blue-400" /> Sit-Rep
-            </h3>
-            <ul className="space-y-6">
-              <li className="relative pl-6">
-                <div className="absolute left-0 top-1 w-1 h-10 bg-purple-500 rounded-full"></div>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
-                  Waiver Deadline
-                </p>
-                <p className="text-white font-black text-lg">
-                  2d 14h REMAINING
-                </p>
-              </li>
-              <li className="relative pl-6 opacity-60">
-                <div className="absolute left-0 top-1 w-1 h-10 bg-blue-500 rounded-full"></div>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
-                  Draft Status
-                </p>
-                <p className="text-white font-black text-lg tracking-tight uppercase">
-                  Draft Finalized
-                </p>
-              </li>
-            </ul>
+          <div className="rounded-xl border border-red-900/60 bg-red-900/10 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-black uppercase tracking-widest text-red-300">
+                Recommended Sits
+              </h4>
+              <span className="rounded bg-red-900/30 px-2 py-1 text-xs font-bold text-red-200">
+                {sortedSitRecommendations.length + weeklyPlan.byePlayers.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {weeklyPlan.byePlayers.map((player) => (
+                <div
+                  key={`bye-${player.id}`}
+                  className="flex items-center justify-between rounded-lg border border-orange-800/60 bg-orange-900/20 px-3 py-2"
+                >
+                  <div>
+                    <div className="text-sm font-bold text-white">{player.name}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-orange-300">
+                      BYE WEEK • {normalizePosition(player.position)} • {player.nfl_team}
+                    </div>
+                  </div>
+                  <div className="text-xs font-black uppercase tracking-wider text-orange-300">
+                    Sit
+                  </div>
+                </div>
+              ))}
+              {sortedSitRecommendations.map((player) => (
+                <div
+                  key={`sit-${player.id}`}
+                  className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
+                >
+                  <div>
+                    <div className="text-sm font-bold text-white">{player.name}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                      {getPlayerSlotLabel(player)} • {player.nfl_team}
+                    </div>
+                  </div>
+                  <div className="text-sm font-mono font-bold text-red-300">
+                    {Number(player.projected_for_week || 0).toFixed(1)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-black uppercase tracking-wider text-white">
+              Lineup Builder (Drag & Drop)
+            </h3>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Move players between Active and Bench. Started players are locked for this week.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {hasUnsavedLineupChanges && (
+              <span className="rounded-md border border-yellow-700/60 bg-yellow-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-yellow-300">
+                Unsaved Changes
+              </span>
+            )}
+            {lineupSubmittedForWeek && (
+              <span className="rounded-md border border-green-700/60 bg-green-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-green-300">
+                Week {selectedWeek} Submitted
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={submitRoster}
+              disabled={submittingRoster || !canEditLineup}
+              className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${
+                submittingRoster || !canEditLineup
+                  ? 'cursor-not-allowed bg-slate-800 text-slate-500'
+                  : 'bg-blue-600 text-white hover:bg-blue-500'
+              }`}
+            >
+              {submittingRoster ? 'Submitting...' : 'Submit Roster'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div
+            className="rounded-xl border border-green-900/60 bg-green-900/10 p-4"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => handleDropToStatus('STARTER')}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-black uppercase tracking-widest text-green-300">
+                Active
+              </h4>
+              <span className="rounded bg-green-900/30 px-2 py-1 text-xs font-bold text-green-200">
+                {activeLineupPlayers.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {activeLineupPlayers.map((player) => (
+                <button
+                  key={`active-${player.player_id}`}
+                  type="button"
+                  draggable={canEditLineup && !player.is_locked}
+                  onDragStart={() => handleDragStart(player)}
+                  onClick={() => openPlayerPerformance(player)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left ${
+                    player.is_locked
+                      ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                      : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-white">{player.name}</div>
+                      <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                        {normalizePosition(player.position)} • {player.nfl_team}
+                      </div>
+                    </div>
+                    <div className="text-sm font-mono font-bold text-green-300">
+                      {Number(toProjectedPoints(player)).toFixed(1)}
+                    </div>
+                  </div>
+                  {player.is_locked && (
+                    <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                      Locked (game started)
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="rounded-xl border border-slate-700 bg-slate-900/30 p-4"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => handleDropToStatus('BENCH')}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-sm font-black uppercase tracking-widest text-slate-300">
+                Bench
+              </h4>
+              <span className="rounded bg-slate-800 px-2 py-1 text-xs font-bold text-slate-300">
+                {benchLineupPlayers.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {benchLineupPlayers.map((player) => (
+                <button
+                  key={`bench-${player.player_id}`}
+                  type="button"
+                  draggable={canEditLineup && !player.is_locked}
+                  onDragStart={() => handleDragStart(player)}
+                  onClick={() => openPlayerPerformance(player)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left ${
+                    player.is_locked
+                      ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                      : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-white">{player.name}</div>
+                      <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                        {normalizePosition(player.position)} • {player.nfl_team}
+                      </div>
+                    </div>
+                    <div className="text-sm font-mono font-bold text-slate-300">
+                      {Number(toProjectedPoints(player)).toFixed(1)}
+                    </div>
+                  </div>
+                  {player.is_locked && (
+                    <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                      Locked (game started)
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-slate-900/80 border border-slate-800 p-8 rounded-[2.5rem]">
+        <h3 className="font-black uppercase italic mb-6 flex items-center gap-2 text-slate-200 tracking-tighter text-xl">
+          <FiBell className="text-blue-400" /> Sit-Rep
+        </h3>
+        <ul className="space-y-6">
+          <li className="relative pl-6">
+            <div className="absolute left-0 top-1 w-1 h-10 bg-purple-500 rounded-full"></div>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
+              Waiver Deadline
+            </p>
+            <p className="text-white font-black text-lg">
+              2d 14h REMAINING
+            </p>
+          </li>
+          <li className="relative pl-6 opacity-60">
+            <div className="absolute left-0 top-1 w-1 h-10 bg-blue-500 rounded-full"></div>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
+              Draft Status
+            </p>
+            <p className="text-white font-black text-lg tracking-tight uppercase">
+              Draft Finalized
+            </p>
+          </li>
+        </ul>
       </div>
     </div>
   );

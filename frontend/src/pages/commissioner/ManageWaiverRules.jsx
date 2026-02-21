@@ -13,7 +13,7 @@ export default function ManageWaiverRules() {
         // Assume leagueId is 1 for demo; replace with real league context
         const res = await apiClient.get('/leagues/1/settings');
         setWaiverDeadline(res.data.waiver_deadline || '');
-      } catch (_err) {
+      } catch {
         setMessage('Failed to load waiver rules');
       }
     }
@@ -31,7 +31,7 @@ export default function ManageWaiverRules() {
         waiver_deadline: waiverDeadline,
       });
       setMessage('Waiver deadline updated!');
-    } catch (_err) {
+    } catch {
       setMessage('Failed to update waiver deadline');
     } finally {
       setLoading(false);

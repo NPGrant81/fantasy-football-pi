@@ -129,7 +129,7 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
                   })),
                 });
                 onClose();
-              } catch (_err) {
+              } catch {
                 alert('Failed to save budgets.');
               } finally {
                 setSaving(false);

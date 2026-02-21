@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi';
 import apiClient from '@api/client';
 import Toast from '@components/Toast';
+import AdminActionCard from '@components/admin/AdminActionCard';
 
 export default function SiteAdmin() {
   const [loading, setLoading] = useState(false);
@@ -45,8 +46,11 @@ export default function SiteAdmin() {
     try {
       const res = await apiClient.post('/admin/create-test-league');
       showToast(res.data.message || 'League Generated!', 'success');
-    } catch (_err) {
-      showToast('Failed to create Test League', 'error');
+    } catch (err) {
+      showToast(
+        err.response?.data?.detail || err.message || 'Failed to create Test League',
+        'error'
+      );
     } finally {
       setLoading(false);
     }
@@ -61,7 +65,7 @@ export default function SiteAdmin() {
       setLastSync('Draft Reset: ' + new Date().toLocaleTimeString());
       showToast('Draft history purged!', 'success');
     } catch (err) {
-      showToast('Reset failed', 'error');
+      showToast(err.response?.data?.detail || err.message || 'Reset failed', 'error');
     } finally {
       setLoading(false);
     }
@@ -120,109 +124,98 @@ export default function SiteAdmin() {
           <p className="text-slate-400 text-sm">
             System-level and maintenance tools
           </p>
+          {lastSync && (
+            <p className="text-xs text-slate-500 mt-1">Last action: {lastSync}</p>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl hover:border-blue-500/30 transition">
-          <div className="flex justify-between items-start mb-4">
-            <FiDatabase className="text-blue-400 text-3xl" />
-            <div className="bg-blue-900/30 text-blue-400 text-xs font-bold px-2 py-1 rounded">
-              DATA
-            </div>
-          </div>
-          <h3 className="text-xl font-bold mb-2">NFL Reality Sync</h3>
-          <p className="text-slate-400 text-sm mb-6 min-h-[40px]">
-            Force a refresh of all player teams, injury statuses, and bye weeks.
-          </p>
-          <button
-            onClick={runSync}
-            disabled={loading}
-            className={`w-full py-3 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition ${loading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
-          >
-            <FiRefreshCw className={loading ? 'animate-spin' : ''} />
-            {loading ? 'Syncing...' : 'Run Sync'}
-          </button>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl hover:border-yellow-500/30 transition">
-          <div className="flex justify-between items-start mb-4">
-            <FiBox className="text-yellow-400 text-3xl" />
-            <div className="bg-yellow-900/30 text-yellow-400 text-xs font-bold px-2 py-1 rounded">
-              SANDBOX
-            </div>
-          </div>
-          <h3 className="text-xl font-bold mb-2">Test League Gen</h3>
-          <p className="text-slate-400 text-sm mb-6 min-h-[40px]">
-            Create "Test League 2026" with 12 dummy owners for testing.
-          </p>
-          <button
-            onClick={runTestLeague}
-            disabled={loading}
-            className={`w-full py-3 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition ${loading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-yellow-600 hover:bg-yellow-500 text-white'}`}
-          >
-            <FiTool />
-            {loading ? 'Working...' : 'Generate League'}
-          </button>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl hover:border-red-500/30 transition">
-          <div className="flex justify-between items-start mb-4">
-            <FiTrash2 className="text-red-400 text-3xl" />
-            <div className="bg-red-900/30 text-red-400 text-xs font-bold px-2 py-1 rounded">
-              DANGER
-            </div>
-          </div>
-          <h3 className="text-xl font-bold mb-2">Reset Draft</h3>
-          <p className="text-slate-400 text-sm mb-6 min-h-[40px]">
-            Wipe all current draft picks and reset the board for a fresh start.
-          </p>
-          <button
-            onClick={resetDraft}
-            disabled={loading}
-            className={`w-full py-3 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition ${loading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500 text-white'}`}
-          >
-            <FiTrash2 />
-            {loading ? 'Resetting...' : 'Reset Board'}
-          </button>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl hover:border-purple-500/30 transition">
-          <div className="flex justify-between items-start mb-4">
-            <FiTrash2 className="text-purple-400 text-3xl" />
-            <div className="bg-purple-900/30 text-purple-400 text-xs font-bold px-2 py-1 rounded">
-              UAT
-            </div>
-          </div>
-          <h3 className="text-xl font-bold mb-2">UAT Draft Reset</h3>
-          <p className="text-slate-400 text-sm mb-6 min-h-[40px]">
-            Reset draft artifacts for The Big Show so UAT draft validation can run from a clean state.
-          </p>
-          <button
-            onClick={runUatDraftReset}
-            disabled={loading}
-            className={`w-full py-3 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition ${loading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white'}`}
-          >
-            <FiTrash2 />
-            {loading ? 'Resetting...' : 'Run UAT Draft Reset'}
-          </button>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl hover:border-green-500/30 transition">
-          <div className="flex justify-between items-start mb-4">
-            <FiUsers className="text-green-400 text-3xl" />
-            <div className="bg-green-900/30 text-green-400 text-xs font-bold px-2 py-1 rounded">
-              UAT
-            </div>
-          </div>
-          <h3 className="text-xl font-bold mb-2">UAT Team Reset</h3>
-          <p className="text-slate-400 text-sm mb-6 min-h-[40px]">
-            Populate teams with starter and bench rosters for in-season UAT (waivers, trades, commissioner actions).
-          </p>
-          <button
-            onClick={runUatTeamReset}
-            disabled={loading}
-            className={`w-full py-3 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition ${loading ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}
-          >
-            <FiUsers />
-            {loading ? 'Seeding...' : 'Run UAT Team Reset'}
-          </button>
-        </div>
+        <AdminActionCard
+          icon={FiRefreshCw}
+          badge="DATA"
+          title="NFL Reality Sync"
+          description="Force a refresh of all player teams, injury statuses, and bye weeks."
+          onClick={runSync}
+          disabled={loading}
+          loading={loading}
+          loadingLabel="Syncing..."
+          actionLabel="Run Sync"
+          iconSpinsOnLoading
+          accent={{
+            hoverBorder: 'hover:border-blue-500/30',
+            icon: 'text-blue-400',
+            badge: 'bg-blue-900/30 text-blue-400',
+            button: 'bg-blue-600 hover:bg-blue-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiBox}
+          badge="SANDBOX"
+          title="Test League Gen"
+          description='Create "Test League 2026" with 12 dummy owners for testing.'
+          onClick={runTestLeague}
+          disabled={loading}
+          loading={loading}
+          loadingLabel="Working..."
+          actionLabel="Generate League"
+          accent={{
+            hoverBorder: 'hover:border-yellow-500/30',
+            icon: 'text-yellow-400',
+            badge: 'bg-yellow-900/30 text-yellow-400',
+            button: 'bg-yellow-600 hover:bg-yellow-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiTrash2}
+          badge="DANGER"
+          title="Reset Draft"
+          description="Wipe all current draft picks and reset the board for a fresh start."
+          onClick={resetDraft}
+          disabled={loading}
+          loading={loading}
+          loadingLabel="Resetting..."
+          actionLabel="Reset Board"
+          accent={{
+            hoverBorder: 'hover:border-red-500/30',
+            icon: 'text-red-400',
+            badge: 'bg-red-900/30 text-red-400',
+            button: 'bg-red-600 hover:bg-red-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiTrash2}
+          badge="UAT"
+          title="UAT Draft Reset"
+          description="Reset draft artifacts for The Big Show so UAT draft validation can run from a clean state."
+          onClick={runUatDraftReset}
+          disabled={loading}
+          loading={loading}
+          loadingLabel="Resetting..."
+          actionLabel="Run UAT Draft Reset"
+          accent={{
+            hoverBorder: 'hover:border-purple-500/30',
+            icon: 'text-purple-400',
+            badge: 'bg-purple-900/30 text-purple-400',
+            button: 'bg-purple-600 hover:bg-purple-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiUsers}
+          badge="UAT"
+          title="UAT Team Reset"
+          description="Populate teams with starter and bench rosters for in-season UAT (waivers, trades, commissioner actions)."
+          onClick={runUatTeamReset}
+          disabled={loading}
+          loading={loading}
+          loadingLabel="Seeding..."
+          actionLabel="Run UAT Team Reset"
+          accent={{
+            hoverBorder: 'hover:border-green-500/30',
+            icon: 'text-green-400',
+            badge: 'bg-green-900/30 text-green-400',
+            button: 'bg-green-600 hover:bg-green-500 text-white',
+          }}
+        />
       </div>
       {toast && (
         <Toast

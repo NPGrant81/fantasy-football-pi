@@ -3,42 +3,22 @@ import {
   FiSettings,
   FiUsers,
   FiShield,
-  FiChevronLeft,
-  FiSave,
-  FiPlus,
-  FiTrash2,
-  FiUserPlus,
-  FiUserX,
   FiActivity,
-  FiUserCheck,
   FiDollarSign,
+  FiTool,
 } from 'react-icons/fi';
 
 // Professional Imports
 import apiClient from '@api/client';
 import DraftBudgetsModal from './components/DraftBudgetsModal';
+import AdminActionCard from '@components/admin/AdminActionCard';
 
 // --- 1.1 STATIC DATA (Declared Outside to avoid re-creations) ---
-const SCORING_MENU = {
-  Passing: [
-    'Passing TD (6 pts)',
-    'Bonus: Pass TD Length (40-49 yds)',
-    'Passing Yards (0.1 pt per yard)',
-  ],
-  Rushing: ['Rushing TD (10 pts)', 'Rushing Yards (0.3 pt per yard)'],
-  // ... (keep your full list here)
-};
-
 export default function CommissionerDashboard() {
   // --- 1.2 STATE MANAGEMENT ---
-  const [_view, _setView] = useState('menu');
-  const [settings, setSettings] = useState(null);
-  const [allUsers, setAllUsers] = useState([]);
+  const [, setSettings] = useState(null);
+  const [, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true); // 1.2.1 Start true to prevent cascading renders
-  const [_unsavedChanges, _setUnsavedChanges] = useState(false);
-  const [_activeTab, _setActiveTab] = useState('Passing');
-  const [newOwnerName, setNewOwnerName] = useState('');
-  const [newOwnerEmail, setNewOwnerEmail] = useState('');
   const [showBudgets, setShowBudgets] = useState(false);
 
   const leagueId = localStorage.getItem('fantasyLeagueId');
@@ -68,45 +48,6 @@ export default function CommissionerDashboard() {
     loadData();
   }, [loadData]);
 
-  // --- 1.4 EVENT HANDLERS ---
-  const _handleUpdate = (field, value) => {
-    setSettings({ ...settings, [field]: value });
-    _setUnsavedChanges(true);
-  };
-
-  const _handleRuleChange = (idx, field, val) => {
-    const n = [...settings.scoring_rules];
-    n[idx][field] = val;
-    setSettings({ ...settings, scoring_rules: n });
-    _setUnsavedChanges(true);
-  };
-
-  const _saveSettings = async () => {
-    try {
-      await apiClient.put(`/leagues/${leagueId}/settings`, settings);
-      alert('Settings Secured.');
-      _setUnsavedChanges(false);
-    } catch (_err) {
-      alert('Error saving settings.');
-    }
-  };
-
-  const _handleCreateOwner = async () => {
-    if (!newOwnerName) return;
-    try {
-      await apiClient.post(`/leagues/owners`, {
-        username: newOwnerName,
-        email: newOwnerEmail,
-      });
-      alert(`User ${newOwnerName} drafted to the platform.`);
-      setNewOwnerName('');
-      setNewOwnerEmail('');
-      loadData();
-    } catch (err) {
-      alert('Creation failed: ' + (err.response?.data?.detail || err.message));
-    }
-  };
-
   // --- 2.1 RENDER LOGIC ---
 
   if (loading) {
@@ -118,83 +59,95 @@ export default function CommissionerDashboard() {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto text-white">
-      <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-8">
-        Commissioner Control Panel
-      </h1>
+    <div className="p-8 max-w-6xl mx-auto text-white min-h-screen">
+      <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">
+        <FiTool className="text-4xl text-yellow-500" />
+        <div>
+          <h1 className="text-4xl font-black uppercase italic tracking-tighter">
+            Commissioner Control Panel
+          </h1>
+          <p className="text-slate-400 text-sm">
+            League-level controls and configuration tools
+          </p>
+        </div>
+      </div>
       <DraftBudgetsModal
         open={showBudgets}
         onClose={() => setShowBudgets(false)}
         leagueId={leagueId}
       />
-      {/* Commissioner Modals */}
-      <div className="space-y-6">
-        <div className="bg-slate-900 border border-yellow-700 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-yellow-400 mb-2 flex items-center gap-2">
-            <FiDollarSign /> Set Draft Budgets
-          </h2>
-          <p className="text-slate-400 mb-2">
-            Assign draft budgets for each owner and season.
-          </p>
-          <button
-            className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded font-bold"
-            onClick={() => setShowBudgets(true)}
-          >
-            Edit Draft Budgets
-          </button>
-        </div>
-        {/* Scoring Rules Modal Stub */}
-        <div className="bg-slate-900 border border-purple-700 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-purple-400 mb-2 flex items-center gap-2">
-            <FiSettings /> Set Scoring Rules
-          </h2>
-          <p className="text-slate-400 mb-2">
-            Configure how points are awarded for all league actions.
-          </p>
-          {/* TODO: Implement scoring rules modal */}
-          <button className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded font-bold">
-            Edit Scoring Rules
-          </button>
-        </div>
-        {/* Owner Management Modal Stub */}
-        <div className="bg-slate-900 border border-blue-700 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-blue-400 mb-2 flex items-center gap-2">
-            <FiUsers /> Invite/Manage Team Owners
-          </h2>
-          <p className="text-slate-400 mb-2">
-            Invite new owners, manage teams, and verify league access.
-          </p>
-          {/* TODO: Implement owner management modal */}
-          <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold">
-            Manage Owners
-          </button>
-        </div>
-        {/* Waiver Wire Rules Modal Stub */}
-        <div className="bg-slate-900 border border-green-700 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-green-400 mb-2 flex items-center gap-2">
-            <FiActivity /> Set Waiver Wire Rules
-          </h2>
-          <p className="text-slate-400 mb-2">
-            Set rules for waiver claims, priorities, and deadlines.
-          </p>
-          {/* TODO: Implement waiver wire rules modal */}
-          <button className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold">
-            Edit Waiver Rules
-          </button>
-        </div>
-        {/* Trade Rules Modal Stub */}
-        <div className="bg-slate-900 border border-yellow-700 rounded-xl p-6">
-          <h2 className="text-2xl font-bold text-yellow-400 mb-2 flex items-center gap-2">
-            <FiShield /> Set Trade Rules
-          </h2>
-          <p className="text-slate-400 mb-2">
-            Configure trade review, veto, and deadlines.
-          </p>
-          {/* TODO: Implement trade rules modal */}
-          <button className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded font-bold">
-            Edit Trade Rules
-          </button>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <AdminActionCard
+          icon={FiDollarSign}
+          badge="LEAGUE"
+          title="Set Draft Budgets"
+          description="Assign draft budgets for each owner and season."
+          onClick={() => setShowBudgets(true)}
+          loading={false}
+          actionLabel="Edit Draft Budgets"
+          accent={{
+            hoverBorder: 'hover:border-yellow-500/30',
+            icon: 'text-yellow-400',
+            badge: 'bg-yellow-900/30 text-yellow-400',
+            button: 'bg-yellow-500 hover:bg-yellow-400 text-black',
+          }}
+        />
+        <AdminActionCard
+          icon={FiSettings}
+          badge="RULES"
+          title="Set Scoring Rules"
+          description="Configure how points are awarded for all league actions."
+          loading={false}
+          actionLabel="Edit Scoring Rules"
+          accent={{
+            hoverBorder: 'hover:border-purple-500/30',
+            icon: 'text-purple-400',
+            badge: 'bg-purple-900/30 text-purple-400',
+            button: 'bg-purple-600 hover:bg-purple-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiUsers}
+          badge="OWNERS"
+          title="Invite/Manage Team Owners"
+          description="Invite new owners, manage teams, and verify league access."
+          loading={false}
+          actionLabel="Manage Owners"
+          accent={{
+            hoverBorder: 'hover:border-blue-500/30',
+            icon: 'text-blue-400',
+            badge: 'bg-blue-900/30 text-blue-400',
+            button: 'bg-blue-600 hover:bg-blue-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiActivity}
+          badge="WAIVERS"
+          title="Set Waiver Wire Rules"
+          description="Set rules for waiver claims, priorities, and deadlines."
+          loading={false}
+          actionLabel="Edit Waiver Rules"
+          accent={{
+            hoverBorder: 'hover:border-green-500/30',
+            icon: 'text-green-400',
+            badge: 'bg-green-900/30 text-green-400',
+            button: 'bg-green-600 hover:bg-green-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiShield}
+          badge="TRADES"
+          title="Set Trade Rules"
+          description="Configure trade review, veto, and deadlines."
+          loading={false}
+          actionLabel="Edit Trade Rules"
+          accent={{
+            hoverBorder: 'hover:border-yellow-500/30',
+            icon: 'text-yellow-400',
+            badge: 'bg-yellow-900/30 text-yellow-400',
+            button: 'bg-yellow-500 hover:bg-yellow-400 text-black',
+          }}
+        />
       </div>
     </div>
   );

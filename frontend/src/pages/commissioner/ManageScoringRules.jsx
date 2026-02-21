@@ -44,7 +44,7 @@ export default function ManageScoringRules() {
             positions: 'QB, RB, WR, TE',
           },
         ]);
-      } catch (_err) {
+      } catch {
         setMessage('Failed to load scoring rules');
       } finally {
         setLoading(false);

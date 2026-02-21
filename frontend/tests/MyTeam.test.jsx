@@ -81,7 +81,7 @@ describe('MyTeam (Roster & Lineups)', () => {
           },
         });
       }
-      if (url === '/team/1') {
+      if (url.startsWith('/team/1?week=')) {
         return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
@@ -133,7 +133,7 @@ describe('MyTeam (Roster & Lineups)', () => {
           },
         });
       }
-      if (url === '/team/1') {
+      if (url.startsWith('/team/1?week=')) {
         return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
@@ -185,7 +185,7 @@ describe('MyTeam (Roster & Lineups)', () => {
           },
         });
       }
-      if (url === '/team/1') {
+      if (url.startsWith('/team/1?week=')) {
         return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
@@ -249,7 +249,7 @@ describe('MyTeam (Roster & Lineups)', () => {
           },
         });
       }
-      if (url === '/team/1') {
+      if (url.startsWith('/team/1?week=')) {
         return Promise.resolve({ data: mockRoster });
       }
       if (url === '/scoring/1') {
@@ -260,9 +260,10 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     render(<MyTeam activeOwnerId={1} />);
 
-    expect(await screen.findByText('Patrick Mahomes')).toBeInTheDocument();
-    expect(screen.getByText('Travis Kelce')).toBeInTheDocument();
-    expect(screen.getByText('Backup QB')).toBeInTheDocument();
+    const mahomesEntries = await screen.findAllByText('Patrick Mahomes');
+    expect(mahomesEntries.length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Travis Kelce').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Backup QB').length).toBeGreaterThan(0);
   });
 
   test('shows commissioner controls when user is commissioner', async () => {
@@ -301,7 +302,7 @@ describe('MyTeam (Roster & Lineups)', () => {
           },
         });
       }
-      if (url === '/team/1') {
+      if (url.startsWith('/team/1?week=')) {
         return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
@@ -354,7 +355,7 @@ describe('MyTeam (Roster & Lineups)', () => {
           },
         });
       }
-      if (url === '/team/1') {
+      if (url.startsWith('/team/1?week=')) {
         return Promise.resolve({ data: { roster: [] } });
       }
       if (url === '/scoring/1') {
@@ -378,7 +379,7 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     await waitFor(() => {
       // Should fail gracefully without crashing
-      const _content = screen.queryByText(/Loading.*Locker room/i);
+      screen.queryByText(/Loading.*Locker room/i);
       // Will either show loading or error state, both are acceptable
     });
 
