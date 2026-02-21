@@ -29,7 +29,9 @@ def reset_league(
 
 @router.post("/tools/sync-nfl")
 def sync_nfl(db: Session = Depends(get_db)):
-    # 2.2.1 Simple pass-through to service
-    success = admin_service.sync_initial_nfl_data(db)
-    if not success: return {"message": "Already populated"}
-    return {"message": "NFL Sync Complete"}
+    # 2.2.1 Sync NFL player data from ESPN API
+    try:
+        success = admin_service.sync_initial_nfl_data(db)
+        return {"message": "NFL player data synced successfully!", "detail": "Players, positions, and defenses updated from ESPN API."}
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=str(err))

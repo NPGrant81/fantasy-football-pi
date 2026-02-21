@@ -13,7 +13,7 @@ import Toast from '@components/Toast';
 export default function SiteAdmin() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const [_lastSync, _setLastSync] = useState(null);
+  const [lastSync, setLastSync] = useState(null);
 
   const showToast = (message, type) => {
     setToast({ message, type });
