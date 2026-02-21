@@ -21,6 +21,7 @@ const GameCenter = lazy(() => import('./pages/matchups/GameCenter'));
 const CommissionerDashboard = lazy(
   () => import('./pages/commissioner/CommissionerDashboard')
 );
+const LineupRules = lazy(() => import('./pages/commissioner/LineupRules'));
 const Home = lazy(() => import('./pages/home/Home'));
 const DraftBoard = lazy(() => import('./pages/DraftBoard'));
 const Waivers = lazy(() => import('./pages/WaiverWire'));
@@ -232,6 +233,10 @@ function App() {
             <Route path="/matchup/:id" element={<GameCenter />} />
             <Route path="/admin" element={<SiteAdmin />} />
             <Route path="/commissioner" element={<CommissionerDashboard />} />
+            <Route
+              path="/commissioner/lineup-rules"
+              element={<LineupRules />}
+            />
             <Route
               path="/waivers"
               element={

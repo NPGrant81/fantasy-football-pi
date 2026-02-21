@@ -63,6 +63,66 @@ class BudgetUpdateRequest(BaseModel):
     year: int
     budgets: List[BudgetEntry]
 
+
+def validate_lineup_rules(config: LeagueConfigFull) -> None:
+    slots = config.starting_slots or {}
+
+    if config.roster_size < 5 or config.roster_size > 12:
+        raise HTTPException(
+            status_code=400,
+            detail="Roster size must be between 5 and 12.",
+        )
+
+    def parse_int(key: str, default: int = 0) -> int:
+        value = slots.get(key, default)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{key} must be an integer.",
+            )
+
+    qb = parse_int("QB", 1)
+    rb = parse_int("RB", 2)
+    wr = parse_int("WR", 2)
+    te = parse_int("TE", 1)
+    k = parse_int("K", 1)
+    defense = parse_int("DEF", 1)
+
+    rules = {
+        "QB": (qb, 1, 3),
+        "RB": (rb, 1, 5),
+        "WR": (wr, 1, 5),
+        "TE": (te, 1, 3),
+    }
+    for pos, (actual, minimum, maximum) in rules.items():
+        if actual < minimum or actual > maximum:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{pos} must be between {minimum} and {maximum}.",
+            )
+
+    if k < 0 or k > 1:
+        raise HTTPException(status_code=400, detail="K must be 0 or 1.")
+
+    if defense != 1:
+        raise HTTPException(status_code=400, detail="DEF must be exactly 1.")
+
+    allow_partial = parse_int("ALLOW_PARTIAL_LINEUP", 0)
+    if allow_partial not in (0, 1):
+        raise HTTPException(
+            status_code=400,
+            detail="ALLOW_PARTIAL_LINEUP must be 0 or 1.",
+        )
+
+    require_submit = parse_int("REQUIRE_WEEKLY_SUBMIT", 1)
+    if require_submit not in (0, 1):
+        raise HTTPException(
+            status_code=400,
+            detail="REQUIRE_WEEKLY_SUBMIT must be 0 or 1.",
+        )
+
 # --- Endpoints ---
 
 @router.get("/", response_model=List[LeagueSummary])
@@ -196,7 +256,17 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
             league_id=league_id,
             roster_size=14,
             salary_cap=200,
-            starting_slots={"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1},
+            starting_slots={
+                "QB": 1,
+                "RB": 2,
+                "WR": 2,
+                "TE": 1,
+                "K": 1,
+                "DEF": 1,
+                "FLEX": 1,
+                "ALLOW_PARTIAL_LINEUP": 0,
+                "REQUIRE_WEEKLY_SUBMIT": 1,
+            },
             waiver_deadline=None
         )
         db.add(settings)
@@ -241,8 +311,15 @@ def update_league_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    validate_lineup_rules(config)
+
     # 1. Update Settings
     settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league_id).first()
+    if not settings:
+        settings = models.LeagueSettings(league_id=league_id)
+        db.add(settings)
+        db.flush()
+
     settings.roster_size = config.roster_size
     settings.salary_cap = config.salary_cap
     settings.starting_slots = config.starting_slots

@@ -10,6 +10,7 @@ vi.mock('../src/api/client', () => ({
 
 vi.mock('react-router-dom', () => ({
   useParams: () => ({}),
+  useNavigate: () => vi.fn(),
 }));
 
 import CommissionerDashboard from '../src/pages/commissioner/CommissionerDashboard';

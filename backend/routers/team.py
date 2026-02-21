@@ -131,6 +131,7 @@ def get_current_year() -> int:
 
 def validate_lineup_requirements(starters: List[models.DraftPick], settings: models.LeagueSettings) -> List[str]:
     slots = settings.starting_slots or {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1}
+    allow_partial_lineup = int(slots.get("ALLOW_PARTIAL_LINEUP", 0) or 0) == 1
     required_qb = int(slots.get("QB", 0) or 0)
     required_rb = int(slots.get("RB", 0) or 0)
     required_wr = int(slots.get("WR", 0) or 0)
@@ -149,7 +150,7 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
 
     errors: List[str] = []
     total_required = required_qb + required_rb + required_wr + required_te + required_k + required_def + required_flex
-    if len(starters) < total_required:
+    if len(starters) < total_required and not allow_partial_lineup:
         errors.append("not enough players")
     if len(starters) > total_required:
         errors.append("too many players")
@@ -163,13 +164,13 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
         "DEF": required_def,
     }
     for pos, required in position_requirements.items():
-        if counts[pos] < required:
+        if counts[pos] < required and not allow_partial_lineup:
             errors.append(f"not enough {pos}")
         if counts[pos] > required and pos not in ["RB", "WR", "TE"]:
             errors.append(f"too many {pos}")
 
     extra_flex = max(0, counts["RB"] - required_rb) + max(0, counts["WR"] - required_wr) + max(0, counts["TE"] - required_te)
-    if extra_flex < required_flex:
+    if extra_flex < required_flex and not allow_partial_lineup:
         errors.append("not enough FLEX (needs extra RB/WR/TE starter)")
     if extra_flex > required_flex:
         errors.append("too many FLEX-eligible starters (RB/WR/TE)")

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FiSettings,
   FiUsers,
@@ -20,6 +21,7 @@ export default function CommissionerDashboard() {
   const [, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true); // 1.2.1 Start true to prevent cascading renders
   const [showBudgets, setShowBudgets] = useState(false);
+  const navigate = useNavigate();
 
   const leagueId = localStorage.getItem('fantasyLeagueId');
 
@@ -95,10 +97,11 @@ export default function CommissionerDashboard() {
         <AdminActionCard
           icon={FiSettings}
           badge="RULES"
-          title="Set Scoring Rules"
-          description="Configure how points are awarded for all league actions."
+          title="Edit Lineup Rules"
+          description="Control roster size, position limits, and lineup submission behavior."
+          onClick={() => navigate('/commissioner/lineup-rules')}
           loading={false}
-          actionLabel="Edit Scoring Rules"
+          actionLabel="Edit Lineup Rules"
           accent={{
             hoverBorder: 'hover:border-purple-500/30',
             icon: 'text-purple-400',
