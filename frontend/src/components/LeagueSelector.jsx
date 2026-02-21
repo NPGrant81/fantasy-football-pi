@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
-export default function LeagueSelector({ onLeagueSelect, token }) {
+export default function LeagueSelector({ onLeagueSelect, _token }) {
   const [leagues, setLeagues] = useState([]);
   const [newLeagueName, setNewLeagueName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -9,7 +9,7 @@ export default function LeagueSelector({ onLeagueSelect, token }) {
 
   // --- 1. FETCH LEAGUES (Runs immediately) ---
   useEffect(() => {
-    // FIX A: Removed "if (!token) return" so it loads even if you aren't logged in yet.
+    // FIX A: Removed "if (!_token) return" so it loads even if you aren't logged in yet.
 
     // FIX B: Changed url from '/league/' to '/leagues/' (Plural)
     axios
@@ -18,7 +18,7 @@ export default function LeagueSelector({ onLeagueSelect, token }) {
         setLeagues(res.data);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch((_err) => {
         console.error('Could not fetch leagues:', err);
         setLoading(false);
       });

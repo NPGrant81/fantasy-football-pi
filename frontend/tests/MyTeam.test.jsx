@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => ({
@@ -13,18 +12,17 @@ vi.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
 }));
 
-// Mock the internal components to avoid testing them
 vi.mock('../src/pages/commissioner/components/ScoringRulesModal', () => ({
-  default: ({ open, onClose }) => open ? <div data-testid="scoring-modal">Scoring Modal</div> : null,
+  default: ({ open, _onClose }) => open ? <div data-testid="scoring-modal">Scoring Modal</div> : null,
 }));
 vi.mock('../src/pages/commissioner/components/OwnerManagementModal', () => ({
-  default: ({ open, onClose }) => open ? <div data-testid="owner-modal">Owner Modal</div> : null,
+  default: ({ open, _onClose }) => open ? <div data-testid="owner-modal">Owner Modal</div> : null,
 }));
 vi.mock('../src/pages/commissioner/components/WaiverWireRulesModal', () => ({
-  default: ({ open, onClose }) => open ? <div data-testid="waiver-modal">Waiver Modal</div> : null,
+  default: ({ open, _onClose }) => open ? <div data-testid="waiver-modal">Waiver Modal</div> : null,
 }));
 vi.mock('../src/pages/commissioner/components/TradeRulesModal', () => ({
-  default: ({ open, onClose }) => open ? <div data-testid="trade-modal">Trade Modal</div> : null,
+  default: ({ open, _onClose }) => open ? <div data-testid="trade-modal">Trade Modal</div> : null,
 }));
 vi.mock('../src/components/LeagueAdvisor', () => ({
   default: () => <div data-testid="league-advisor">League Advisor</div>,
@@ -380,7 +378,7 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     await waitFor(() => {
       // Should fail gracefully without crashing
-      const content = screen.queryByText(/Loading.*Locker room/i);
+      const _content = screen.queryByText(/Loading.*Locker room/i);
       // Will either show loading or error state, both are acceptable
     });
 

@@ -52,7 +52,7 @@ export default function Matchups() {
           leagueName = leagueRes.data.name;
         }
         setUserInfo({ username: userRes.data.username, leagueName });
-      } catch (err) {
+      } catch (_err) {
         setUserInfo({ username: '', leagueName: '' });
       }
     }

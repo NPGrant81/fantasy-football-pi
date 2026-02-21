@@ -22,25 +22,25 @@ const MenuBlock = ({ to, title, desc, icon, gradient, onClick }) => {
 
   return (
     <Link
-    to={to}
-    onClick={onClick}
-    className={`group relative overflow-hidden block w-full text-left p-4 mb-3 rounded-xl border ${borderColors.main} hover:border-white transition-all shadow-lg ${gradient}`}
-  >
-    <div className="flex items-center gap-4 relative z-10">
-      <div className="p-3 bg-black/20 rounded-lg text-white">
-        <Icon size={24} />
+      to={to}
+      onClick={onClick}
+      className={`group relative overflow-hidden block w-full text-left p-4 mb-3 rounded-xl border ${borderColors.main} hover:border-white transition-all shadow-lg ${gradient}`}
+    >
+      <div className="flex items-center gap-4 relative z-10">
+        <div className="p-3 bg-black/20 rounded-lg text-white">
+          <Icon size={24} />
+        </div>
+        <div>
+          <h3 className="font-black text-lg text-white leading-none uppercase italic tracking-tighter">
+            {title}
+          </h3>
+          <p className="text-xs text-white/80 mt-1 font-medium">{desc}</p>
+        </div>
       </div>
-      <div>
-        <h3 className="font-black text-lg text-white leading-none uppercase italic tracking-tighter">
-          {title}
-        </h3>
-        <p className="text-xs text-white/80 mt-1 font-medium">{desc}</p>
-      </div>
-    </div>
-    <Icon
-      size={80}
-      className="absolute -bottom-4 -right-4 opacity-10 rotate-12 text-white"
-    />
+      <Icon
+        size={80}
+        className="absolute -bottom-4 -right-4 opacity-10 rotate-12 text-white"
+      />
     </Link>
   );
 };

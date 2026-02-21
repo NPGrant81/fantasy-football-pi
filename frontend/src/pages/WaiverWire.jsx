@@ -149,7 +149,9 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
         `${pendingPlayer.name} added. Player dropped successfully.`,
         'success'
       );
-      setPlayers((prev) => prev.filter((player) => player.id !== pendingPlayer.id));
+      setPlayers((prev) =>
+        prev.filter((player) => player.id !== pendingPlayer.id)
+      );
 
       // 2.2.3 Close modal and refresh roster
       setIsDropModalOpen(false);
@@ -237,12 +239,16 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
             Waiver Wire Locked
           </h2>
           <p className="mt-3 text-sm font-bold text-slate-200">
-            The draft is currently active. Waiver claims open when the draft is finalized.
+            The draft is currently active. Waiver claims open when the draft is
+            finalized.
           </p>
         </div>
       ) : (
         <>
-          <WaiverPositionTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+          <WaiverPositionTabs
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
 
           <div className="mt-8">
             <WaiverTable
@@ -269,7 +275,9 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
             <h3 className="text-lg font-black uppercase tracking-wider text-white">
               Confirm Waiver Action
             </h3>
-            <p className="mt-3 text-sm text-slate-300">{confirmAction.message}</p>
+            <p className="mt-3 text-sm text-slate-300">
+              {confirmAction.message}
+            </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setConfirmAction(null)}

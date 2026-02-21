@@ -13,7 +13,7 @@ import Toast from '@components/Toast';
 export default function SiteAdmin() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const [lastSync, setLastSync] = useState(null);
+  const [_lastSync, _setLastSync] = useState(null);
 
   const showToast = (message, type) => {
     setToast({ message, type });
@@ -39,7 +39,7 @@ export default function SiteAdmin() {
     try {
       const res = await apiClient.post('/admin/create-test-league');
       showToast(res.data.message || 'League Generated!', 'success');
-    } catch (err) {
+    } catch (_err) {
       showToast('Failed to create Test League', 'error');
     } finally {
       setLoading(false);

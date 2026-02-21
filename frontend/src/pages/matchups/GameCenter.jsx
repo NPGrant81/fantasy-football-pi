@@ -150,8 +150,8 @@ export default function GameCenter() {
           </button>
           {showScoreInfo && (
             <div className="absolute right-0 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300 shadow-xl">
-              Projected totals are calculated from each team&apos;s current starters
-              and your league scoring rules.
+              Projected totals are calculated from each team&apos;s current
+              starters and your league scoring rules.
             </div>
           )}
         </div>

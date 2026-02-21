@@ -86,7 +86,10 @@ export default function WaiverTable({
         </thead>
         <tbody>
           {sortedPlayers.map((player) => (
-            <tr key={player.id} className="border-t border-slate-800 hover:bg-slate-800/30">
+            <tr
+              key={player.id}
+              className="border-t border-slate-800 hover:bg-slate-800/30"
+            >
               <td className="px-4 py-3 font-bold text-white">{player.name}</td>
               <td className="px-4 py-3">{player.position}</td>
               <td className="px-4 py-3">{player.nfl_team || '-'}</td>

@@ -1,6 +1,5 @@
 // frontend/src/components/Toast.jsx
 import React, { useEffect } from 'react';
-import { bgColors, textColors, borderColors } from '../utils/uiHelpers';
 import { FiCheckCircle, FiAlertCircle, FiInfo, FiX } from 'react-icons/fi';
 
 export default function Toast({ message, type = 'success', onClose }) {

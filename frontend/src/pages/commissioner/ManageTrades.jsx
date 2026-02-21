@@ -14,7 +14,7 @@ export default function ManageTrades() {
         // Replace with real endpoint and league context as needed
         const res = await apiClient.get('/trades/pending');
         setTrades(res.data);
-      } catch (err) {
+      } catch (_err) {
         setMessage('Failed to load trades');
       } finally {
         setLoading(false);
@@ -30,7 +30,7 @@ export default function ManageTrades() {
       await apiClient.post(`/trades/${tradeId}/${action}`);
       setTrades(trades.filter((t) => t.id !== tradeId));
       setMessage(`Trade ${action}d successfully!`);
-    } catch (err) {
+    } catch (_err) {
       setMessage(`Failed to ${action} trade`);
     }
   };

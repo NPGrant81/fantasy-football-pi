@@ -31,12 +31,12 @@ const SCORING_MENU = {
 
 export default function CommissionerDashboard() {
   // --- 1.2 STATE MANAGEMENT ---
-  const [view, setView] = useState('menu');
+  const [_view, _setView] = useState('menu');
   const [settings, setSettings] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true); // 1.2.1 Start true to prevent cascading renders
-  const [unsavedChanges, setUnsavedChanges] = useState(false);
-  const [activeTab, setActiveTab] = useState('Passing');
+  const [_unsavedChanges, _setUnsavedChanges] = useState(false);
+  const [_activeTab, _setActiveTab] = useState('Passing');
   const [newOwnerName, setNewOwnerName] = useState('');
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
   const [showBudgets, setShowBudgets] = useState(false);
@@ -69,29 +69,29 @@ export default function CommissionerDashboard() {
   }, [loadData]);
 
   // --- 1.4 EVENT HANDLERS ---
-  const handleUpdate = (field, value) => {
+  const _handleUpdate = (field, value) => {
     setSettings({ ...settings, [field]: value });
-    setUnsavedChanges(true);
+    _setUnsavedChanges(true);
   };
 
-  const handleRuleChange = (idx, field, val) => {
+  const _handleRuleChange = (idx, field, val) => {
     const n = [...settings.scoring_rules];
     n[idx][field] = val;
     setSettings({ ...settings, scoring_rules: n });
-    setUnsavedChanges(true);
+    _setUnsavedChanges(true);
   };
 
-  const saveSettings = async () => {
+  const _saveSettings = async () => {
     try {
       await apiClient.put(`/leagues/${leagueId}/settings`, settings);
       alert('Settings Secured.');
-      setUnsavedChanges(false);
-    } catch (err) {
+      _setUnsavedChanges(false);
+    } catch (_err) {
       alert('Error saving settings.');
     }
   };
 
-  const handleCreateOwner = async () => {
+  const _handleCreateOwner = async () => {
     if (!newOwnerName) return;
     try {
       await apiClient.post(`/leagues/owners`, {

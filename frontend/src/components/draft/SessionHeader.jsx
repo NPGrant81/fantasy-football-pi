@@ -5,7 +5,7 @@ export default function SessionHeader({
   rosterSize,
   leagueName,
   isCommissioner,
-  leagueId,
+  _leagueId,
   onFinalize,
 }) {
   // --- 1.1 SAFETY LOGIC ---

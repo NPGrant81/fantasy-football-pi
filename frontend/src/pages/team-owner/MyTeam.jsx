@@ -202,7 +202,8 @@ export default function MyTeam({ activeOwnerId }) {
   const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerPerformance, setPlayerPerformance] = useState(null);
-  const [playerPerformanceLoading, setPlayerPerformanceLoading] = useState(false);
+  const [playerPerformanceLoading, setPlayerPerformanceLoading] =
+    useState(false);
   // --- USER/LEAGUE CONTEXT ---
   const [userInfo, setUserInfo] = useState({
     username: '',
@@ -211,7 +212,7 @@ export default function MyTeam({ activeOwnerId }) {
     draftStatus: 'PRE_DRAFT',
     is_commissioner: false,
   });
-  const [scoringRules, setScoringRules] = useState([]);
+  const [_scoringRules, setScoringRules] = useState([]);
   const [summary, setSummary] = useState(null);
   useEffect(() => {
     async function fetchUserLeague() {
@@ -227,13 +228,24 @@ export default function MyTeam({ activeOwnerId }) {
           const leagueRes = await apiClient.get(`/leagues/${leagueId}`);
           leagueName = leagueRes.data.name;
           draftStatus = leagueRes.data.draft_status || 'PRE_DRAFT';
-          const ownersRes = await apiClient.get(`/leagues/owners?league_id=${leagueId}`);
-          setLeagueOwners(ownersRes.data || []);
-          // Fetch scoring rules
-          const settingsRes = await apiClient.get(
-            `/leagues/${leagueId}/settings`
-          );
-          setScoringRules(settingsRes.data.scoring_rules || []);
+
+          try {
+            const ownersRes = await apiClient.get(
+              `/leagues/owners?league_id=${leagueId}`
+            );
+            setLeagueOwners(ownersRes.data || []);
+          } catch {
+            setLeagueOwners([]);
+          }
+
+          try {
+            const settingsRes = await apiClient.get(
+              `/leagues/${leagueId}/settings`
+            );
+            setScoringRules(settingsRes.data.scoring_rules || []);
+          } catch {
+            setScoringRules([]);
+          }
         }
         setUserInfo({
           username: userRes.data.username,
@@ -245,19 +257,25 @@ export default function MyTeam({ activeOwnerId }) {
         // Fetch dashboard summary for locker room
         const summaryOwnerId = viewedOwnerId || loggedInUserId;
         if (summaryOwnerId) {
-          const dashRes = await apiClient.get(
-            `/dashboard/${summaryOwnerId}`
-          );
+          const dashRes = await apiClient.get(`/dashboard/${summaryOwnerId}`);
           setSummary(dashRes.data);
         }
 
-        if (loggedInUserId) {
-          const myDashRes = await apiClient.get(`/dashboard/${loggedInUserId}`);
-          setMyTradeRoster(Array.isArray(myDashRes.data?.roster) ? myDashRes.data.roster : []);
-        } else {
+        if (!loggedInUserId) {
           setMyTradeRoster([]);
+        } else {
+          try {
+            const myDashRes = await apiClient.get(
+              `/dashboard/${loggedInUserId}`
+            );
+            setMyTradeRoster(
+              Array.isArray(myDashRes.data?.roster) ? myDashRes.data.roster : []
+            );
+          } catch {
+            setMyTradeRoster([]);
+          }
         }
-      } catch (err) {
+      } catch (_err) {
         setCurrentUserId(null);
         setUserInfo({
           username: '',
@@ -304,7 +322,8 @@ export default function MyTeam({ activeOwnerId }) {
     direction: 'desc',
   });
   const [activeFilter, setActiveFilter] = useState('ALL');
-  const canProposeTrade = !!currentUserId && (!viewedOwnerId || viewedOwnerId === currentUserId);
+  const canProposeTrade =
+    !!currentUserId && (!viewedOwnerId || viewedOwnerId === currentUserId);
 
   // --- 1.3 DATA RETRIEVAL (The Engine) ---
   const fetchTeam = useCallback(() => {
@@ -362,7 +381,7 @@ export default function MyTeam({ activeOwnerId }) {
   }, [rosterState, searchTerm, sortConfig, activeFilter]);
 
   const starters = processedPlayers.filter((p) => p.status === 'STARTER');
-  const bench = processedPlayers.filter((p) => p.status === 'BENCH');
+  const _bench = processedPlayers.filter((p) => p.status === 'BENCH');
 
   const handleSubmitTradeProposal = async () => {
     if (!canProposeTrade) {
@@ -395,7 +414,8 @@ export default function MyTeam({ activeOwnerId }) {
       fetchTeam();
     } catch (err) {
       setToast({
-        message: err.response?.data?.detail || 'Failed to submit trade proposal.',
+        message:
+          err.response?.data?.detail || 'Failed to submit trade proposal.',
         type: 'error',
       });
     }
@@ -651,7 +671,9 @@ export default function MyTeam({ activeOwnerId }) {
                 </h3>
                 <p className="text-sm text-slate-400">
                   {selectedPlayer?.name}{' '}
-                  {selectedPlayer?.position ? `• ${selectedPlayer.position}` : ''}
+                  {selectedPlayer?.position
+                    ? `• ${selectedPlayer.position}`
+                    : ''}
                 </p>
               </div>
               <button
@@ -670,27 +692,41 @@ export default function MyTeam({ activeOwnerId }) {
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                   <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
-                    <div className="text-[10px] uppercase text-slate-500">Games</div>
+                    <div className="text-[10px] uppercase text-slate-500">
+                      Games
+                    </div>
                     <div className="text-xl font-black text-white">
                       {playerPerformance.games_played}
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
-                    <div className="text-[10px] uppercase text-slate-500">Total Pts</div>
+                    <div className="text-[10px] uppercase text-slate-500">
+                      Total Pts
+                    </div>
                     <div className="text-xl font-black text-blue-400">
-                      {Number(playerPerformance.total_fantasy_points || 0).toFixed(2)}
+                      {Number(
+                        playerPerformance.total_fantasy_points || 0
+                      ).toFixed(2)}
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
-                    <div className="text-[10px] uppercase text-slate-500">Avg / Game</div>
+                    <div className="text-[10px] uppercase text-slate-500">
+                      Avg / Game
+                    </div>
                     <div className="text-xl font-black text-white">
-                      {Number(playerPerformance.average_fantasy_points || 0).toFixed(2)}
+                      {Number(
+                        playerPerformance.average_fantasy_points || 0
+                      ).toFixed(2)}
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
-                    <div className="text-[10px] uppercase text-slate-500">Best Week</div>
+                    <div className="text-[10px] uppercase text-slate-500">
+                      Best Week
+                    </div>
                     <div className="text-xl font-black text-green-400">
-                      {Number(playerPerformance.best_week_points || 0).toFixed(2)}
+                      {Number(playerPerformance.best_week_points || 0).toFixed(
+                        2
+                      )}
                     </div>
                   </div>
                 </div>
@@ -709,12 +745,17 @@ export default function MyTeam({ activeOwnerId }) {
                         <thead className="bg-slate-900 text-xs uppercase text-slate-500">
                           <tr>
                             <th className="px-4 py-2">Week</th>
-                            <th className="px-4 py-2 text-right">Fantasy Pts</th>
+                            <th className="px-4 py-2 text-right">
+                              Fantasy Pts
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {playerPerformance.weekly.map((row) => (
-                            <tr key={row.week} className="border-t border-slate-800">
+                            <tr
+                              key={row.week}
+                              className="border-t border-slate-800"
+                            >
                               <td className="px-4 py-2">Week {row.week}</td>
                               <td className="px-4 py-2 text-right font-mono text-blue-400">
                                 {Number(row.fantasy_points || 0).toFixed(2)}

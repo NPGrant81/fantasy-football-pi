@@ -7,7 +7,7 @@
  * Padding and margins for clean spacing
  */
 
- .analytics-dashboard {
+.analytics-dashboard {
   padding: 40px 20px;
   background-color: #1a1a1a;
   min-height: 100vh;
@@ -45,7 +45,9 @@
   border-radius: 12px;
   padding: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .chart-card:hover {
@@ -59,11 +61,11 @@
     grid-template-columns: 1fr;
     gap: 20px;
   }
-  
+
   .dashboard-header h1 {
     font-size: 2rem;
   }
-  
+
   .analytics-dashboard {
     padding: 20px 10px;
   }
