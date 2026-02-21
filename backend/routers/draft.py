@@ -73,6 +73,12 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
 
+    league = None
+    if owner.league_id:
+        league = db.query(models.League).filter(models.League.id == owner.league_id).first()
+        if league and (league.draft_status or "PRE_DRAFT") != "COMPLETED":
+            league.draft_status = "ACTIVE"
+
     # 2. Save to Database
     year_value = pick.year
     if year_value is None:

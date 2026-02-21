@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import apiClient from '@api/client';
 import './App.css';
 
@@ -23,6 +23,11 @@ const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
 );
+
+function TeamRoute({ fallbackOwnerId }) {
+  const { ownerId } = useParams();
+  return <MyTeam activeOwnerId={ownerId || fallbackOwnerId} />;
+}
 
 function App() {
   // --- 1.1 GLOBAL STATE ---
@@ -212,6 +217,10 @@ function App() {
             <Route
               path="/team"
               element={<MyTeam activeOwnerId={activeOwnerId} />}
+            />
+            <Route
+              path="/team/:ownerId"
+              element={<TeamRoute fallbackOwnerId={activeOwnerId} />}
             />
             <Route path="/matchups" element={<Matchups />} />
             <Route path="/matchup/:id" element={<GameCenter />} />

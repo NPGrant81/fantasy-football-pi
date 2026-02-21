@@ -186,3 +186,18 @@ class PlayerWeeklyStat(Base):
     created_at = Column(String, nullable=True)
 
     player = relationship("Player")
+
+
+# --- 11. TRADE PROPOSALS ---
+class TradeProposal(Base):
+    __tablename__ = "trade_proposals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    from_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    to_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    offered_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    requested_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    note = Column(String, nullable=True)
+    status = Column(String, default="PENDING")
+    created_at = Column(String, nullable=True)

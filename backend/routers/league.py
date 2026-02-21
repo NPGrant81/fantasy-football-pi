@@ -23,6 +23,7 @@ class LeagueCreate(BaseModel):
 class LeagueSummary(BaseModel):
     id: int
     name: str
+    draft_status: str
 
 class LeagueNewsItem(BaseModel):
     type: str
@@ -68,7 +69,14 @@ class BudgetUpdateRequest(BaseModel):
 def get_leagues(db: Session = Depends(get_db)):
     """List all available leagues."""
     leagues = db.query(models.League).all()
-    return [LeagueSummary(id=l.id, name=l.name) for l in leagues]
+    return [
+        LeagueSummary(
+            id=l.id,
+            name=l.name,
+            draft_status=l.draft_status or "PRE_DRAFT",
+        )
+        for l in leagues
+    ]
 
 # --- NEW: GET /league/owners?league_id= ---
 # This is a GET endpoint to match the frontend call, but is defined here for convenience.
@@ -86,7 +94,11 @@ def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
-    return LeagueSummary(id=league.id, name=league.name)
+    return LeagueSummary(
+        id=league.id,
+        name=league.name,
+        draft_status=league.draft_status or "PRE_DRAFT",
+    )
 
 @router.get("/{league_id}/news", response_model=List[LeagueNewsItem])
 def get_league_news(
@@ -155,7 +167,11 @@ def create_league(league_data: LeagueCreate, db: Session = Depends(get_db)):
     db.add_all(default_rules)
     db.commit()
 
-    return LeagueSummary(id=new_league.id, name=new_league.name)
+    return LeagueSummary(
+        id=new_league.id,
+        name=new_league.name,
+        draft_status=new_league.draft_status or "PRE_DRAFT",
+    )
 
 @router.post("/join")
 def join_league(league_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):

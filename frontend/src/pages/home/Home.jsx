@@ -107,9 +107,21 @@ export default function Home({ username }) {
                         {idx + 1}
                       </td>
                       <td className="px-4 py-3 font-medium text-white">
-                        {owner.team_name || owner.username}
+                        <Link
+                          to={`/team/${owner.id}`}
+                          className="hover:text-blue-400 transition-colors"
+                        >
+                          {owner.team_name || owner.username}
+                        </Link>
                       </td>
-                      <td className="px-4 py-3">{owner.username}</td>
+                      <td className="px-4 py-3">
+                        <Link
+                          to={`/team/${owner.id}`}
+                          className="hover:text-blue-400 transition-colors"
+                        >
+                          {owner.username}
+                        </Link>
+                      </td>
                     </tr>
                   ))
                 ) : (

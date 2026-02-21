@@ -7,6 +7,9 @@ import {
   FiBell,
   FiPlus,
   FiList,
+  FiSend,
+  FiX,
+  FiBarChart2,
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 // --- Commissioner Modal Imports ---
@@ -20,6 +23,7 @@ import apiClient from '@api/client';
 import LeagueAdvisor from '../../components/LeagueAdvisor';
 import { getPosColor } from '../../utils/uiHelpers';
 import { normalizePos } from '../../utils/draftHelpers';
+import Toast from '../../components/Toast';
 
 // --- 1.1 CONSTANTS & HELPERS (Outside Render) ---
 const POS_RANK = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5, K: 6 };
@@ -179,16 +183,30 @@ const RosterTable = ({
 );
 
 export default function MyTeam({ activeOwnerId }) {
+  const viewedOwnerId = activeOwnerId ? Number(activeOwnerId) : null;
   // --- 0.1 Commissioner Modal State ---
   const [showScoring, setShowScoring] = useState(false);
   const [showOwners, setShowOwners] = useState(false);
   const [showWaivers, setShowWaivers] = useState(false);
   const [showTrades, setShowTrades] = useState(false);
+  const [showProposeTrade, setShowProposeTrade] = useState(false);
+  const [leagueOwners, setLeagueOwners] = useState([]);
+  const [targetRoster, setTargetRoster] = useState([]);
+  const [proposalToUserId, setProposalToUserId] = useState('');
+  const [offeredPlayerId, setOfferedPlayerId] = useState('');
+  const [requestedPlayerId, setRequestedPlayerId] = useState('');
+  const [proposalNote, setProposalNote] = useState('');
+  const [toast, setToast] = useState(null);
+  const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [playerPerformance, setPlayerPerformance] = useState(null);
+  const [playerPerformanceLoading, setPlayerPerformanceLoading] = useState(false);
   // --- USER/LEAGUE CONTEXT ---
   const [userInfo, setUserInfo] = useState({
     username: '',
     leagueName: '',
     leagueId: null,
+    draftStatus: 'PRE_DRAFT',
     is_commissioner: false,
   });
   const [scoringRules, setScoringRules] = useState([]);
@@ -199,10 +217,14 @@ export default function MyTeam({ activeOwnerId }) {
         const userRes = await apiClient.get('/auth/me');
         let leagueName = '';
         let leagueId = userRes.data.league_id;
+        let draftStatus = 'PRE_DRAFT';
         let is_commissioner = userRes.data.is_commissioner;
         if (leagueId) {
           const leagueRes = await apiClient.get(`/leagues/${leagueId}`);
           leagueName = leagueRes.data.name;
+          draftStatus = leagueRes.data.draft_status || 'PRE_DRAFT';
+          const ownersRes = await apiClient.get(`/leagues/owners?league_id=${leagueId}`);
+          setLeagueOwners(ownersRes.data || []);
           // Fetch scoring rules
           const settingsRes = await apiClient.get(
             `/leagues/${leagueId}/settings`
@@ -213,12 +235,14 @@ export default function MyTeam({ activeOwnerId }) {
           username: userRes.data.username,
           leagueName,
           leagueId,
+          draftStatus,
           is_commissioner,
         });
         // Fetch dashboard summary for locker room
-        if (userRes.data.user_id) {
+        const summaryOwnerId = viewedOwnerId || userRes.data.user_id;
+        if (summaryOwnerId) {
           const dashRes = await apiClient.get(
-            `/dashboard/${userRes.data.user_id}`
+            `/dashboard/${summaryOwnerId}`
           );
           setSummary(dashRes.data);
         }
@@ -227,14 +251,35 @@ export default function MyTeam({ activeOwnerId }) {
           username: '',
           leagueName: '',
           leagueId: null,
+          draftStatus: 'PRE_DRAFT',
           is_commissioner: false,
         });
         setScoringRules([]);
         setSummary(null);
+        setLeagueOwners([]);
       }
     }
     fetchUserLeague();
-  }, []);
+  }, [viewedOwnerId]);
+
+  useEffect(() => {
+    async function loadTargetRoster() {
+      if (!proposalToUserId) {
+        setTargetRoster([]);
+        setRequestedPlayerId('');
+        return;
+      }
+
+      try {
+        const res = await apiClient.get(`/dashboard/${proposalToUserId}`);
+        setTargetRoster(res.data?.roster || []);
+      } catch {
+        setTargetRoster([]);
+      }
+    }
+
+    loadTargetRoster();
+  }, [proposalToUserId]);
   // --- 1.2 STATE MANAGEMENT ---
   const [teamData, setTeamData] = useState(null);
   const [rosterState, setRosterState] = useState([]);
@@ -304,6 +349,57 @@ export default function MyTeam({ activeOwnerId }) {
 
   const starters = processedPlayers.filter((p) => p.status === 'STARTER');
   const bench = processedPlayers.filter((p) => p.status === 'BENCH');
+
+  const handleSubmitTradeProposal = async () => {
+    if (!proposalToUserId || !offeredPlayerId || !requestedPlayerId) {
+      setToast({ message: 'Select manager and both players.', type: 'error' });
+      return;
+    }
+
+    try {
+      await apiClient.post('/trades/propose', {
+        to_user_id: Number(proposalToUserId),
+        offered_player_id: Number(offeredPlayerId),
+        requested_player_id: Number(requestedPlayerId),
+        note: proposalNote,
+      });
+
+      setToast({ message: 'Trade proposal submitted.', type: 'success' });
+      setShowProposeTrade(false);
+      setProposalToUserId('');
+      setOfferedPlayerId('');
+      setRequestedPlayerId('');
+      setProposalNote('');
+      fetchTeam();
+    } catch (err) {
+      setToast({
+        message: err.response?.data?.detail || 'Failed to submit trade proposal.',
+        type: 'error',
+      });
+    }
+  };
+
+  const openPlayerPerformance = async (player) => {
+    setSelectedPlayer(player);
+    setShowPlayerPerformance(true);
+    setPlayerPerformanceLoading(true);
+
+    try {
+      const currentSeason = new Date().getFullYear();
+      const res = await apiClient.get(
+        `/players/${player.id}/season-details?season=${currentSeason}`
+      );
+      setPlayerPerformance(res.data);
+    } catch {
+      setPlayerPerformance(null);
+      setToast({
+        message: 'Unable to load player season details right now.',
+        type: 'error',
+      });
+    } finally {
+      setPlayerPerformanceLoading(false);
+    }
+  };
 
   const totalYTD = starters
     .reduce((sum, p) => sum + (p.ytd_score || 0), 0)
@@ -389,9 +485,23 @@ export default function MyTeam({ activeOwnerId }) {
               #{summary.standing} Place
             </span>
           </p>
+          {userInfo.draftStatus === 'ACTIVE' && (
+            <p className="mt-3 inline-flex items-center gap-2 rounded-lg border border-orange-500/40 bg-orange-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-orange-300">
+              Draft Active • Waiver Wire Locked
+            </p>
+          )}
         </div>
         {/* STAT BOXES */}
         <div className="flex gap-4">
+          <button
+            onClick={() => setShowProposeTrade(true)}
+            className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl min-w-[140px]"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <FiSend className="text-base" /> Propose Trade
+            </div>
+          </button>
+
           <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center min-w-[140px] shadow-2xl">
             <FiRepeat className="mx-auto mb-2 text-blue-400 text-2xl" />
             <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest">
@@ -402,6 +512,214 @@ export default function MyTeam({ activeOwnerId }) {
         </div>
       </div>
 
+      {showProposeTrade && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-lg font-black uppercase tracking-wider text-white">
+                Propose Trade
+              </h3>
+              <button
+                onClick={() => setShowProposeTrade(false)}
+                className="rounded-full border border-slate-700 p-2 text-slate-300 hover:text-white"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Trade With
+                </label>
+                <select
+                  value={proposalToUserId}
+                  onChange={(e) => setProposalToUserId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                >
+                  <option value="">Select manager</option>
+                  {leagueOwners
+                    .filter((owner) => owner.id !== viewedOwnerId)
+                    .map((owner) => (
+                      <option key={owner.id} value={owner.id}>
+                        {owner.team_name || owner.username}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  You Offer
+                </label>
+                <select
+                  value={offeredPlayerId}
+                  onChange={(e) => setOfferedPlayerId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                >
+                  <option value="">Select your player</option>
+                  {(summary?.roster || []).map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.name} ({player.position})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  You Request
+                </label>
+                <select
+                  value={requestedPlayerId}
+                  onChange={(e) => setRequestedPlayerId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                  disabled={!proposalToUserId}
+                >
+                  <option value="">Select requested player</option>
+                  {targetRoster.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.name} ({player.position})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Note (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={proposalNote}
+                  onChange={(e) => setProposalNote(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                  placeholder="Add context for commissioner review"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowProposeTrade(false)}
+                className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-bold text-slate-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitTradeProposal}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500"
+              >
+                Submit Proposal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPlayerPerformance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black uppercase tracking-wider text-white">
+                  Season Performance
+                </h3>
+                <p className="text-sm text-slate-400">
+                  {selectedPlayer?.name}{' '}
+                  {selectedPlayer?.position ? `• ${selectedPlayer.position}` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPlayerPerformance(false)}
+                className="rounded-full border border-slate-700 p-2 text-slate-300 hover:text-white"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {playerPerformanceLoading ? (
+              <div className="py-10 text-center text-slate-400 animate-pulse">
+                Loading season details...
+              </div>
+            ) : playerPerformance ? (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                  <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">Games</div>
+                    <div className="text-xl font-black text-white">
+                      {playerPerformance.games_played}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">Total Pts</div>
+                    <div className="text-xl font-black text-blue-400">
+                      {Number(playerPerformance.total_fantasy_points || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">Avg / Game</div>
+                    <div className="text-xl font-black text-white">
+                      {Number(playerPerformance.average_fantasy_points || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">Best Week</div>
+                    <div className="text-xl font-black text-green-400">
+                      {Number(playerPerformance.best_week_points || 0).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-700 overflow-hidden">
+                  <div className="bg-slate-950 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <FiBarChart2 /> Weekly Breakdown
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {(playerPerformance.weekly || []).length === 0 ? (
+                      <div className="p-6 text-center text-slate-500">
+                        No weekly performance data yet for this season.
+                      </div>
+                    ) : (
+                      <table className="w-full text-left text-sm text-slate-300">
+                        <thead className="bg-slate-900 text-xs uppercase text-slate-500">
+                          <tr>
+                            <th className="px-4 py-2">Week</th>
+                            <th className="px-4 py-2 text-right">Fantasy Pts</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {playerPerformance.weekly.map((row) => (
+                            <tr key={row.week} className="border-t border-slate-800">
+                              <td className="px-4 py-2">Week {row.week}</td>
+                              <td className="px-4 py-2 text-right font-mono text-blue-400">
+                                {Number(row.fantasy_points || 0).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="py-10 text-center text-slate-500">
+                No season details available.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {/* LEFT COLUMN: ROSTER (8 Cols) */}
@@ -411,8 +729,10 @@ export default function MyTeam({ activeOwnerId }) {
           </h2>
           <div className="grid grid-cols-1 gap-3">
             {summary.roster.map((player) => (
-              <div
+              <button
+                type="button"
                 key={player.id}
+                onClick={() => openPlayerPerformance(player)}
                 className="flex justify-between items-center p-5 bg-slate-950/50 border border-slate-800/50 rounded-2xl hover:border-blue-500/50 hover:bg-slate-900/50 transition-all duration-300 group"
               >
                 <div className="flex items-center gap-5">
@@ -430,7 +750,7 @@ export default function MyTeam({ activeOwnerId }) {
                     {player.nfl_team}
                   </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

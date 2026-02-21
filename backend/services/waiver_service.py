@@ -35,6 +35,13 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
     if not user.league_id:
         raise HTTPException(status_code=400, detail="User not in a league.")
 
+    league = db.query(models.League).filter(models.League.id == user.league_id).first()
+    if league and (league.draft_status or "PRE_DRAFT") == "ACTIVE":
+        raise HTTPException(
+            status_code=400,
+            detail="Waiver wire is locked while the draft is active.",
+        )
+
     roster_limit = _validate_commissioner_waiver_rules(db, user)
 
     # 1.2 VALIDATION: Is target player already taken?
@@ -84,6 +91,13 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
     return new_pick
 
 def process_drop(db: Session, user: models.User, player_id: int):
+    league = db.query(models.League).filter(models.League.id == user.league_id).first()
+    if league and (league.draft_status or "PRE_DRAFT") == "ACTIVE":
+        raise HTTPException(
+            status_code=400,
+            detail="Waiver wire is locked while the draft is active.",
+        )
+
     # (Keep your existing process_drop logic here)
     pick = db.query(models.DraftPick).filter(
         models.DraftPick.player_id == player_id,

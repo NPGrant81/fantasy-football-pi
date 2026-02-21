@@ -17,6 +17,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   const [activeTab, setActiveTab] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [waiverDeadline, setWaiverDeadline] = useState(null); // New state for waiver deadline
+  const [draftStatus, setDraftStatus] = useState('PRE_DRAFT');
   const [rosterSizeLimit, setRosterSizeLimit] = useState(14);
   const [toast, setToast] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -55,12 +56,16 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
         // Try to get leagueId from leagueName if possible, else skip
         // If leagueName is actually the league ID, use it directly
         if (leagueName) {
+          const leagueRes = await apiClient.get(`/leagues/${leagueName}`);
+          setDraftStatus(leagueRes.data?.draft_status || 'PRE_DRAFT');
+
           const res = await apiClient.get(`/leagues/${leagueName}/settings`);
           setWaiverDeadline(res.data.waiver_deadline);
           setRosterSizeLimit(res.data.roster_size || 14);
         }
       } catch {
         setWaiverDeadline(null);
+        setDraftStatus('PRE_DRAFT');
         setRosterSizeLimit(14);
       }
     };
@@ -74,6 +79,11 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
 
   // --- 2.1 ACTION: CLAIM PLAYER ---
   const executeClaim = async (player) => {
+    if (draftStatus === 'ACTIVE') {
+      showToast('Waiver wire is locked while the draft is active.', 'error');
+      return;
+    }
+
     if (myRoster.length >= rosterSizeLimit) {
       setPendingPlayer(player);
       setIsDropModalOpen(true);
@@ -118,6 +128,11 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   // --- 2.2 ACTION: DROP & ADD (The Swap) ---
   const executeDropAndAdd = async (playerToDropId) => {
     try {
+      if (draftStatus === 'ACTIVE') {
+        showToast('Waiver wire is locked while the draft is active.', 'error');
+        return;
+      }
+
       if (!pendingPlayer) {
         showToast('No pending waiver claim selected.', 'error');
         return;
@@ -216,16 +231,29 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
       </div>
 
       {/* 2.4 UI: TABS & TABLE */}
-      <WaiverPositionTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+      {draftStatus === 'ACTIVE' ? (
+        <div className="mt-10 rounded-2xl border border-orange-500/40 bg-orange-900/20 p-8 text-center">
+          <h2 className="text-xl font-black uppercase tracking-wider text-orange-300">
+            Waiver Wire Locked
+          </h2>
+          <p className="mt-3 text-sm font-bold text-slate-200">
+            The draft is currently active. Waiver claims open when the draft is finalized.
+          </p>
+        </div>
+      ) : (
+        <>
+          <WaiverPositionTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div className="mt-8">
-        <WaiverTable
-          players={filteredPlayers}
-          onClaim={handleClaim}
-          processingId={processingId}
-          loading={loading}
-        />
-      </div>
+          <div className="mt-8">
+            <WaiverTable
+              players={filteredPlayers}
+              onClaim={handleClaim}
+              processingId={processingId}
+              loading={loading}
+            />
+          </div>
+        </>
+      )}
 
       {/* 2.5 UI: DROP MODAL (Hidden by default) */}
       <DropPlayerModal
