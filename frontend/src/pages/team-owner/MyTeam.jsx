@@ -82,7 +82,8 @@ const normalizeStartingSlots = (slots) => {
     const normalizedKey = String(key).toUpperCase();
     if (Object.hasOwn(merged, normalizedKey)) {
       const parsed = Number(value);
-      merged[normalizedKey] = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+      merged[normalizedKey] =
+        Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     }
   }
 
@@ -151,7 +152,11 @@ const buildWeeklyStartSitPlan = (roster, week, starterSlots) => {
     }
   }
 
-  const flexPool = [...(pools.RB || []), ...(pools.WR || []), ...(pools.TE || [])]
+  const flexPool = [
+    ...(pools.RB || []),
+    ...(pools.WR || []),
+    ...(pools.TE || []),
+  ]
     .filter((player) => !selectedIds.has(player.id))
     .sort((a, b) => b.projected_for_week - a.projected_for_week);
 
@@ -178,8 +183,10 @@ const buildWeeklyStartSitPlan = (roster, week, starterSlots) => {
   );
 
   const validationErrors = [];
-  if (starters.length < totalRequired) validationErrors.push('not enough players');
-  if (starters.length > totalRequired) validationErrors.push('too many players');
+  if (starters.length < totalRequired)
+    validationErrors.push('not enough players');
+  if (starters.length > totalRequired)
+    validationErrors.push('too many players');
 
   for (const [position, requiredCount] of Object.entries(slots)) {
     const required = Number(requiredCount || 0);
@@ -187,9 +194,7 @@ const buildWeeklyStartSitPlan = (roster, week, starterSlots) => {
     const actual = Number(actualSlotCounts[position] || 0);
     if (actual < required) {
       validationErrors.push(
-        position === 'FLEX'
-          ? FLEX_NOT_ENOUGH_ERROR
-          : `not enough ${position}`
+        position === 'FLEX' ? FLEX_NOT_ENOUGH_ERROR : `not enough ${position}`
       );
     }
     if (actual > required) {
@@ -298,9 +303,7 @@ export default function MyTeam({ activeOwnerId }) {
             );
             const slots = settingsRes.data.starting_slots || {};
             setScoringRules(settingsRes.data.scoring_rules || []);
-            setStarterRequirements(
-              normalizeStartingSlots(slots)
-            );
+            setStarterRequirements(normalizeStartingSlots(slots));
             setActiveRosterRequired(
               clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12)
             );
@@ -312,7 +315,9 @@ export default function MyTeam({ activeOwnerId }) {
               K: clampInt(slots.MAX_K ?? 1, 0, 1),
               DEF: 1,
             });
-            setAllowPartialLineup(Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1);
+            setAllowPartialLineup(
+              Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1
+            );
           } catch {
             setScoringRules([]);
             setStarterRequirements(DEFAULT_STARTER_SLOTS);
@@ -446,7 +451,8 @@ export default function MyTeam({ activeOwnerId }) {
   );
 
   const weeklyPlan = useMemo(
-    () => buildWeeklyStartSitPlan(rosterState, selectedWeek, starterRequirements),
+    () =>
+      buildWeeklyStartSitPlan(rosterState, selectedWeek, starterRequirements),
     [rosterState, selectedWeek, starterRequirements]
   );
 
@@ -480,7 +486,9 @@ export default function MyTeam({ activeOwnerId }) {
   );
 
   const lineupRuleSnapshot = useMemo(() => {
-    const currentStarters = rosterState.filter((player) => player.status === 'STARTER');
+    const currentStarters = rosterState.filter(
+      (player) => player.status === 'STARTER'
+    );
     const counts = { QB: 0, RB: 0, WR: 0, TE: 0, DEF: 0, K: 0 };
 
     for (const player of currentStarters) {
@@ -498,23 +506,28 @@ export default function MyTeam({ activeOwnerId }) {
       errors.push('too many players');
     }
 
-    const tierRows = Object.entries(MIN_ACTIVE_REQUIREMENTS).map(([position, minimum]) => {
-      const maximum = Number(maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]);
-      const actual = Number(counts[position] || 0);
-      const meetsMin = actual >= minimum;
-      const meetsMax = actual <= maximum;
+    const tierRows = Object.entries(MIN_ACTIVE_REQUIREMENTS).map(
+      ([position, minimum]) => {
+        const maximum = Number(
+          maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
+        );
+        const actual = Number(counts[position] || 0);
+        const meetsMin = actual >= minimum;
+        const meetsMax = actual <= maximum;
 
-      if (!meetsMin && !allowPartialLineup) errors.push(`not enough ${position}`);
-      if (!meetsMax) errors.push(`too many ${position}`);
+        if (!meetsMin && !allowPartialLineup)
+          errors.push(`not enough ${position}`);
+        if (!meetsMax) errors.push(`too many ${position}`);
 
-      return {
-        position,
-        minimum,
-        maximum,
-        actual,
-        valid: (allowPartialLineup || meetsMin) && meetsMax,
-      };
-    });
+        return {
+          position,
+          minimum,
+          maximum,
+          actual,
+          valid: (allowPartialLineup || meetsMin) && meetsMax,
+        };
+      }
+    );
 
     return {
       errors,
@@ -526,7 +539,12 @@ export default function MyTeam({ activeOwnerId }) {
         currentStarters.length <= activeRosterRequired &&
         (allowPartialLineup || currentStarters.length >= activeRosterRequired),
     };
-  }, [rosterState, activeRosterRequired, maxPositionLimits, allowPartialLineup]);
+  }, [
+    rosterState,
+    activeRosterRequired,
+    maxPositionLimits,
+    allowPartialLineup,
+  ]);
 
   const currentStarterValidationErrors = useMemo(
     () => lineupRuleSnapshot.errors,
@@ -544,18 +562,25 @@ export default function MyTeam({ activeOwnerId }) {
   const hasUnsavedLineupChanges = useMemo(() => {
     if (!rosterState.length) return false;
     return rosterState.some((player) => {
-      const baselineStatus = baselineLineupStatus[String(player.player_id)] || 'BENCH';
+      const baselineStatus =
+        baselineLineupStatus[String(player.player_id)] || 'BENCH';
       return (player.status || 'BENCH') !== baselineStatus;
     });
   }, [rosterState, baselineLineupStatus]);
 
   const activeLineupPlayers = useMemo(
-    () => sortRosterByHierarchy(rosterState.filter((player) => player.status === 'STARTER')),
+    () =>
+      sortRosterByHierarchy(
+        rosterState.filter((player) => player.status === 'STARTER')
+      ),
     [rosterState]
   );
 
   const benchLineupPlayers = useMemo(
-    () => sortRosterByHierarchy(rosterState.filter((player) => player.status !== 'STARTER')),
+    () =>
+      sortRosterByHierarchy(
+        rosterState.filter((player) => player.status !== 'STARTER')
+      ),
     [rosterState]
   );
 
@@ -563,7 +588,9 @@ export default function MyTeam({ activeOwnerId }) {
     (playerId, targetStatus) => {
       if (!canEditLineup) return;
       setRosterState((prev) => {
-        const target = prev.find((player) => Number(player.player_id) === Number(playerId));
+        const target = prev.find(
+          (player) => Number(player.player_id) === Number(playerId)
+        );
         if (!target) return prev;
         if (target.is_locked) {
           setToast({
@@ -722,35 +749,8 @@ export default function MyTeam({ activeOwnerId }) {
   if (!teamData)
     return <div className="text-red-500 p-8">Error loading team.</div>;
 
-  // --- COMMISSIONER ACCESS BUTTON ---
-  const commissionerControls = userInfo.is_commissioner && (
-    <div className="flex flex-wrap gap-4 mb-6">
-      <button
-        onClick={() => setShowScoring(true)}
-        className="bg-purple-700 hover:bg-purple-600 text-white px-4 py-2 rounded font-bold"
-      >
-        Scoring Rules
-      </button>
-      <button
-        onClick={() => setShowOwners(true)}
-        className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold"
-      >
-        Owner Management
-      </button>
-      <button
-        onClick={() => setShowWaivers(true)}
-        className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded font-bold"
-      >
-        Waiver Wire Rules
-      </button>
-      <button
-        onClick={() => setShowTrades(true)}
-        className="bg-yellow-500 hover:bg-yellow-400 text-black px-4 py-2 rounded font-bold"
-      >
-        Trade Rules
-      </button>
-    </div>
-  );
+  const controlButtonClass =
+    'px-4 py-2 rounded font-bold text-sm whitespace-nowrap';
 
   // --- LOCKER ROOM/ROSTER/WAIVER UI (from Dashboard.jsx) ---
   if (!summary)
@@ -762,7 +762,6 @@ export default function MyTeam({ activeOwnerId }) {
 
   return (
     <div className="max-w-6xl mx-auto p-6 text-white min-h-screen">
-      {commissionerControls}
       {/* Commissioner Modals */}
       <ScoringRulesModal
         open={showScoring}
@@ -779,28 +778,44 @@ export default function MyTeam({ activeOwnerId }) {
       <TradeRulesModal open={showTrades} onClose={() => setShowTrades(false)} />
 
       {/* HEADER SECTION */}
-      <div className="flex justify-between items-end mb-12 border-b border-slate-800 pb-8">
-        <div>
-          <h1 className="text-6xl font-black italic uppercase tracking-tighter leading-none">
-            Your Locker Room
-          </h1>
-          <p className="text-slate-400 mt-4 flex items-center gap-2">
-            Current Standing:{' '}
-            <span className="bg-purple-600 text-white px-3 py-1 rounded-lg font-black italic">
-              #{summary.standing} Place
-            </span>
-          </p>
-          {userInfo.draftStatus === 'ACTIVE' && (
-            <p className="mt-3 inline-flex items-center gap-2 rounded-lg border border-orange-500/40 bg-orange-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-orange-300">
-              Draft Active • Waiver Wire Locked
-            </p>
+      <div className="mb-12 border-b border-slate-800 pb-8">
+        <h1 className="text-6xl font-black italic uppercase tracking-tighter leading-none">
+          Your Locker Room
+        </h1>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-2 lg:overflow-x-auto">
+          {userInfo.is_commissioner && (
+            <>
+              <button
+                onClick={() => setShowScoring(true)}
+                className={`${controlButtonClass} bg-purple-700 hover:bg-purple-600 text-white`}
+              >
+                Scoring Rules
+              </button>
+              <button
+                onClick={() => setShowOwners(true)}
+                className={`${controlButtonClass} bg-blue-700 hover:bg-blue-600 text-white`}
+              >
+                Owner Management
+              </button>
+              <button
+                onClick={() => setShowWaivers(true)}
+                className={`${controlButtonClass} bg-green-700 hover:bg-green-600 text-white`}
+              >
+                Waiver Wire Rules
+              </button>
+              <button
+                onClick={() => setShowTrades(true)}
+                className={`${controlButtonClass} bg-yellow-500 hover:bg-yellow-400 text-black`}
+              >
+                Trade Rules
+              </button>
+            </>
           )}
-        </div>
-        {/* STAT BOXES */}
-        <div className="flex gap-4">
+
           <Link
             to="/waivers"
-            className="bg-green-600 hover:bg-green-500 text-black px-5 py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl min-w-[140px] flex items-center justify-center gap-2"
+            className={`${controlButtonClass} inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-black`}
           >
             <FiPlus className="text-base" /> Waiver Wire
           </Link>
@@ -808,21 +823,35 @@ export default function MyTeam({ activeOwnerId }) {
           {canProposeTrade && (
             <button
               onClick={() => setShowProposeTrade(true)}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl min-w-[140px]"
+              className={`${controlButtonClass} bg-blue-600 hover:bg-blue-500 text-white`}
             >
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                 <FiSend className="text-base" /> Propose Trade
               </div>
             </button>
           )}
 
-          <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-center min-w-[140px] shadow-2xl">
-            <FiRepeat className="mx-auto mb-2 text-blue-400 text-2xl" />
-            <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest">
-              Pending Trades
-            </div>
-            <div className="text-3xl font-black">{summary.pending_trades}</div>
+          <div
+            className={`${controlButtonClass} inline-flex items-center gap-2 border border-slate-700 bg-slate-900 text-slate-200`}
+          >
+            <FiRepeat className="text-base text-blue-400" />
+            <span className="uppercase">Pending Trades</span>
+            <span className="font-black">{summary.pending_trades}</span>
           </div>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3 text-slate-400">
+          <p className="flex items-center gap-2">
+            Current Standing:{' '}
+            <span className="bg-purple-600 text-white px-3 py-1 rounded-lg font-black italic">
+              #{summary.standing} Place
+            </span>
+          </p>
+          {userInfo.draftStatus === 'ACTIVE' && (
+            <p className="inline-flex items-center gap-2 rounded-lg border border-orange-500/40 bg-orange-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-orange-300">
+              Draft Active • Waiver Wire Locked
+            </p>
+          )}
         </div>
       </div>
 
@@ -1094,7 +1123,8 @@ export default function MyTeam({ activeOwnerId }) {
               Start/Sit Sorter
             </h3>
             <p className="text-xs uppercase tracking-wide text-slate-400">
-              Weekly lineup recommendations based on commissioner starter rules, projected points, and bye weeks
+              Weekly lineup recommendations based on commissioner starter rules,
+              projected points, and bye weeks
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -1118,7 +1148,9 @@ export default function MyTeam({ activeOwnerId }) {
               className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
             >
               <option value="projected">Sort: Projected</option>
-              <option value="position">Sort: Hierarchy (QB/RB/WR/TE/DEF)</option>
+              <option value="position">
+                Sort: Hierarchy (QB/RB/WR/TE/DEF)
+              </option>
             </select>
           </div>
         </div>
@@ -1156,7 +1188,8 @@ export default function MyTeam({ activeOwnerId }) {
             }`}
             title={`Need ${lineupRuleSnapshot.totalRequired} active starters. Currently ${lineupRuleSnapshot.totalActive}.`}
           >
-            Active {lineupRuleSnapshot.totalActive}/{lineupRuleSnapshot.totalRequired}
+            Active {lineupRuleSnapshot.totalActive}/
+            {lineupRuleSnapshot.totalRequired}
           </span>
         </div>
         <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -1192,7 +1225,9 @@ export default function MyTeam({ activeOwnerId }) {
                   className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
                 >
                   <div>
-                    <div className="text-sm font-bold text-white">{player.name}</div>
+                    <div className="text-sm font-bold text-white">
+                      {player.name}
+                    </div>
                     <div className="text-[11px] uppercase tracking-wide text-slate-400">
                       {getPlayerSlotLabel(player)} • {player.nfl_team}
                     </div>
@@ -1221,9 +1256,12 @@ export default function MyTeam({ activeOwnerId }) {
                   className="flex items-center justify-between rounded-lg border border-orange-800/60 bg-orange-900/20 px-3 py-2"
                 >
                   <div>
-                    <div className="text-sm font-bold text-white">{player.name}</div>
+                    <div className="text-sm font-bold text-white">
+                      {player.name}
+                    </div>
                     <div className="text-[11px] uppercase tracking-wide text-orange-300">
-                      BYE WEEK • {normalizePosition(player.position)} • {player.nfl_team}
+                      BYE WEEK • {normalizePosition(player.position)} •{' '}
+                      {player.nfl_team}
                     </div>
                   </div>
                   <div className="text-xs font-black uppercase tracking-wider text-orange-300">
@@ -1237,7 +1275,9 @@ export default function MyTeam({ activeOwnerId }) {
                   className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
                 >
                   <div>
-                    <div className="text-sm font-bold text-white">{player.name}</div>
+                    <div className="text-sm font-bold text-white">
+                      {player.name}
+                    </div>
                     <div className="text-[11px] uppercase tracking-wide text-slate-400">
                       {getPlayerSlotLabel(player)} • {player.nfl_team}
                     </div>
@@ -1259,7 +1299,8 @@ export default function MyTeam({ activeOwnerId }) {
               Lineup Builder (Drag & Drop)
             </h3>
             <p className="text-xs uppercase tracking-wide text-slate-400">
-              Move players between Active and Bench. Started players are locked for this week.
+              Move players between Active and Bench. Started players are locked
+              for this week.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -1318,7 +1359,9 @@ export default function MyTeam({ activeOwnerId }) {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-bold text-white">{player.name}</div>
+                      <div className="text-sm font-bold text-white">
+                        {player.name}
+                      </div>
                       <div className="text-[11px] uppercase tracking-wide text-slate-400">
                         {normalizePosition(player.position)} • {player.nfl_team}
                       </div>
@@ -1366,7 +1409,9 @@ export default function MyTeam({ activeOwnerId }) {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-bold text-white">{player.name}</div>
+                      <div className="text-sm font-bold text-white">
+                        {player.name}
+                      </div>
                       <div className="text-[11px] uppercase tracking-wide text-slate-400">
                         {normalizePosition(player.position)} • {player.nfl_team}
                       </div>
@@ -1397,9 +1442,7 @@ export default function MyTeam({ activeOwnerId }) {
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
               Waiver Deadline
             </p>
-            <p className="text-white font-black text-lg">
-              2d 14h REMAINING
-            </p>
+            <p className="text-white font-black text-lg">2d 14h REMAINING</p>
           </li>
           <li className="relative pl-6 opacity-60">
             <div className="absolute left-0 top-1 w-1 h-10 bg-blue-500 rounded-full"></div>

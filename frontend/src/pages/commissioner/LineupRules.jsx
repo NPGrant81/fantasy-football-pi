@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { FiChevronLeft, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 import apiClient from '@api/client';
 
-const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || min));
+const clamp = (value, min, max) =>
+  Math.max(min, Math.min(max, Number(value) || min));
 
 export default function LineupRules() {
   const leagueId = localStorage.getItem('fantasyLeagueId');
@@ -150,10 +151,34 @@ export default function LineupRules() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <RuleInput label="QB (1-3)" value={qbLimit} min={1} max={3} onChange={setQbLimit} />
-          <RuleInput label="RB (1-5)" value={rbLimit} min={1} max={5} onChange={setRbLimit} />
-          <RuleInput label="WR (1-5)" value={wrLimit} min={1} max={5} onChange={setWrLimit} />
-          <RuleInput label="TE (1-3)" value={teLimit} min={1} max={3} onChange={setTeLimit} />
+          <RuleInput
+            label="QB (1-3)"
+            value={qbLimit}
+            min={1}
+            max={3}
+            onChange={setQbLimit}
+          />
+          <RuleInput
+            label="RB (1-5)"
+            value={rbLimit}
+            min={1}
+            max={5}
+            onChange={setRbLimit}
+          />
+          <RuleInput
+            label="WR (1-5)"
+            value={wrLimit}
+            min={1}
+            max={5}
+            onChange={setWrLimit}
+          />
+          <RuleInput
+            label="TE (1-3)"
+            value={teLimit}
+            min={1}
+            max={3}
+            onChange={setTeLimit}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -185,13 +210,18 @@ export default function LineupRules() {
         </div>
 
         <div className="text-xs text-slate-400 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2">
-          Minimum required core starters by position: <span className="font-black text-white">{totalCoreSlots}</span>
+          Minimum required core starters by position:{' '}
+          <span className="font-black text-white">{totalCoreSlots}</span>
         </div>
 
         <div className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Other ideas</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+            Other ideas
+          </p>
           <ul className="text-sm text-slate-300 list-disc ml-5 space-y-1">
-            <li>Position-specific bench minimums (e.g., at least one backup RB).</li>
+            <li>
+              Position-specific bench minimums (e.g., at least one backup RB).
+            </li>
             <li>Auto-reject invalid lineups before weekly deadline.</li>
             <li>Optional FLEX enable/disable by league type.</li>
           </ul>
@@ -214,7 +244,9 @@ export default function LineupRules() {
 function RuleInput({ label, value, min, max, onChange }) {
   return (
     <div>
-      <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">{label}</label>
+      <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+        {label}
+      </label>
       <input
         type="number"
         min={min}

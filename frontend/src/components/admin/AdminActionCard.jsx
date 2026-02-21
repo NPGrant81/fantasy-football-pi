@@ -38,7 +38,9 @@ export default function AdminActionCard({
         disabled={disabled}
         className={`w-full py-3 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition ${buttonClass}`}
       >
-        <IconComponent className={iconSpinsOnLoading && loading ? 'animate-spin' : ''} />
+        <IconComponent
+          className={iconSpinsOnLoading && loading ? 'animate-spin' : ''}
+        />
         {loading ? loadingLabel : actionLabel}
       </button>
     </div>

@@ -6,6 +6,7 @@ import {
   FiBox,
   FiTrash2,
   FiUsers,
+  FiShield,
 } from 'react-icons/fi';
 import apiClient from '@api/client';
 import Toast from '@components/Toast';
@@ -25,15 +26,19 @@ export default function SiteAdmin() {
     setLoading(true);
     try {
       // Sync can take 2+ minutes with ESPN API calls, so use longer timeout
-      const res = await apiClient.post('/admin/tools/sync-nfl', {}, { timeout: 300000 });
+      const res = await apiClient.post(
+        '/admin/tools/sync-nfl',
+        {},
+        { timeout: 300000 }
+      );
       showToast(res.data.detail || 'Sync Started! Players added.', 'success');
       setLastSync(new Date().toLocaleTimeString());
     } catch (err) {
       console.error('Sync error:', err);
-      const errorMsg = 
-        err.response?.data?.detail || 
-        err.response?.statusText || 
-        err.message || 
+      const errorMsg =
+        err.response?.data?.detail ||
+        err.response?.statusText ||
+        err.message ||
         'Sync Failed - Check console for details';
       showToast(errorMsg, 'error');
     } finally {
@@ -48,7 +53,9 @@ export default function SiteAdmin() {
       showToast(res.data.message || 'League Generated!', 'success');
     } catch (err) {
       showToast(
-        err.response?.data?.detail || err.message || 'Failed to create Test League',
+        err.response?.data?.detail ||
+          err.message ||
+          'Failed to create Test League',
         'error'
       );
     } finally {
@@ -65,14 +72,21 @@ export default function SiteAdmin() {
       setLastSync('Draft Reset: ' + new Date().toLocaleTimeString());
       showToast('Draft history purged!', 'success');
     } catch (err) {
-      showToast(err.response?.data?.detail || err.message || 'Reset failed', 'error');
+      showToast(
+        err.response?.data?.detail || err.message || 'Reset failed',
+        'error'
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const runUatDraftReset = async () => {
-    if (!window.confirm('⚠️ This will clear draft picks, waivers, trades, and matchups for The Big Show. Continue?'))
+    if (
+      !window.confirm(
+        '⚠️ This will clear draft picks, waivers, trades, and matchups for The Big Show. Continue?'
+      )
+    )
       return;
 
     setLoading(true);
@@ -93,12 +107,20 @@ export default function SiteAdmin() {
   };
 
   const runUatTeamReset = async () => {
-    if (!window.confirm('⚠️ This will sync NFL data and auto-seed full rosters (starter + bench) for UAT. Continue?'))
+    if (
+      !window.confirm(
+        '⚠️ This will sync NFL data and auto-seed full rosters (starter + bench) for UAT. Continue?'
+      )
+    )
       return;
 
     setLoading(true);
     try {
-      const res = await apiClient.post('/admin/tools/uat-team-reset', {}, { timeout: 300000 });
+      const res = await apiClient.post(
+        '/admin/tools/uat-team-reset',
+        {},
+        { timeout: 300000 }
+      );
       showToast(res.data.detail || 'UAT Team Reset complete', 'success');
       setLastSync('UAT Team Reset: ' + new Date().toLocaleTimeString());
     } catch (err) {
@@ -113,6 +135,10 @@ export default function SiteAdmin() {
     }
   };
 
+  const openCommissionerManagement = () => {
+    window.location.assign('/admin/manage-commissioners');
+  };
+
   return (
     <div className="p-8 max-w-6xl mx-auto text-white min-h-screen">
       <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">
@@ -125,7 +151,9 @@ export default function SiteAdmin() {
             System-level and maintenance tools
           </p>
           {lastSync && (
-            <p className="text-xs text-slate-500 mt-1">Last action: {lastSync}</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Last action: {lastSync}
+            </p>
           )}
         </div>
       </div>
@@ -197,6 +225,22 @@ export default function SiteAdmin() {
             icon: 'text-purple-400',
             badge: 'bg-purple-900/30 text-purple-400',
             button: 'bg-purple-600 hover:bg-purple-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiShield}
+          badge="ACCESS"
+          title="Invite/Manage Commissioners"
+          description="Invite new commissioners, edit commissioner details, and remove commissioner access."
+          onClick={openCommissionerManagement}
+          disabled={loading}
+          loading={false}
+          actionLabel="Manage Commissioners"
+          accent={{
+            hoverBorder: 'hover:border-indigo-500/30',
+            icon: 'text-indigo-400',
+            badge: 'bg-indigo-900/30 text-indigo-400',
+            button: 'bg-indigo-600 hover:bg-indigo-500 text-white',
           }}
         />
         <AdminActionCard
