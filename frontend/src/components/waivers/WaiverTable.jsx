@@ -1,117 +1,59 @@
-// src/pages/WaiverWire.jsx
-import React, { useEffect, useState, useCallback } from 'react';
-import { FiSearch, FiRefreshCw } from 'react-icons/fi';
-import apiClient from '@api/client';
-import { WaiverTable, WaiverPositionTabs } from '@components/waivers';
+import React from 'react';
 
-export default function WaiverWire({ token }) {
-  const [players, setPlayers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null);
-  const [activeTab, setActiveTab] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // --- SALVAGED LOGIC: FETCHING ---
-  const fetchWaivers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get('/players/waiver-wire', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPlayers(res.data);
-    } catch (err) {
-      console.error('Failed to fetch waivers', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (token) fetchWaivers();
-  }, [token, fetchWaivers]);
-
-  // --- SALVAGED LOGIC: CLAIMING ---
-  const handleClaim = async (player) => {
-    if (!window.confirm(`Add ${player.name} to your roster?`)) return;
-
-    setProcessingId(player.id);
-    try {
-      await apiClient.post(
-        '/waivers/claim',
-        { player_id: player.id, bid_amount: 0 },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      // OPTIMISTIC UI: Remove from local state immediately
-      setPlayers((prev) => prev.filter((p) => p.id !== player.id));
-      alert(`🎉 ${player.name} successfully claimed!`);
-    } catch (err) {
-      alert(err.response?.data?.detail || 'Claim failed');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  // --- FILTERING LOGIC ---
-  const filteredPlayers = players.filter((p) => {
-    const matchesTab = activeTab === 'ALL' || p.position === activeTab;
-    const matchesSearch = p.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
-
-  if (loading)
+export default function WaiverTable({
+  players = [],
+  onClaim,
+  processingId,
+  loading = false,
+}) {
+  if (loading) {
     return (
       <div className="p-20 text-center animate-pulse text-slate-500 font-black uppercase tracking-widest">
         Scanning the wire...
       </div>
     );
+  }
+
+  if (!players.length) {
+    return (
+      <div className="p-12 text-center text-slate-500 font-bold border border-slate-800 rounded-2xl bg-slate-900/40">
+        No available players found.
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
-        <div>
-          <h1 className="text-6xl font-black uppercase italic tracking-tighter text-white">
-            Waiver Wire
-          </h1>
-          <p className="text-slate-400 mt-2 font-bold uppercase text-xs tracking-widest">
-            Available Free Agents • Season 2026
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="relative flex-grow md:w-64">
-            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search Free Agents..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-12 pr-4 text-white focus:border-yellow-500 outline-none transition"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <button
-            onClick={fetchWaivers}
-            className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-slate-400 hover:text-white transition active:scale-95"
-          >
-            <FiRefreshCw className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
-
-      {/* TABS COMPONENT */}
-      <WaiverPositionTabs activeTab={activeTab} setActiveTab={setActiveTab} />
-
-      {/* TABLE COMPONENT */}
-      <div className="mt-6">
-        <WaiverTable
-          players={filteredPlayers}
-          onClaim={handleClaim}
-          processingId={processingId}
-        />
-      </div>
+    <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-900/40">
+      <table className="w-full text-left text-sm text-slate-300">
+        <thead className="bg-slate-950/70 text-xs uppercase tracking-wider text-slate-500">
+          <tr>
+            <th className="px-4 py-3">Player</th>
+            <th className="px-4 py-3">Pos</th>
+            <th className="px-4 py-3">Team</th>
+            <th className="px-4 py-3">Projected</th>
+            <th className="px-4 py-3 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {players.map((player) => (
+            <tr key={player.id} className="border-t border-slate-800 hover:bg-slate-800/30">
+              <td className="px-4 py-3 font-bold text-white">{player.name}</td>
+              <td className="px-4 py-3">{player.position}</td>
+              <td className="px-4 py-3">{player.nfl_team || '-'}</td>
+              <td className="px-4 py-3">{player.projected_points ?? 0}</td>
+              <td className="px-4 py-3 text-right">
+                <button
+                  onClick={() => onClaim(player)}
+                  disabled={processingId === player.id}
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold uppercase text-white hover:bg-blue-500 disabled:opacity-60"
+                >
+                  {processingId === player.id ? 'Claiming...' : 'Claim'}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { FiSearch, FiRefreshCw } from 'react-icons/fi';
 import GlobalSearch from '../components/GlobalSearch';
 import apiClient from '@api/client';
 import {
@@ -7,9 +6,8 @@ import {
   WaiverPositionTabs,
   DropPlayerModal,
 } from '@components/waivers';
-import { ChatInterface } from '@components/chat';
 
-export default function WaiverWire({ token, ownerId, username, leagueName }) {
+export default function WaiverWire({ ownerId, username, leagueName }) {
   // --- 1.1 STATE MANAGEMENT ---
   const [players, setPlayers] = useState([]);
   const [myRoster, setMyRoster] = useState([]); // Needed for the Drop Modal
@@ -42,7 +40,7 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
   }, [ownerId]);
 
   useEffect(() => {
-    if (token && ownerId) fetchWaivers();
+    if (ownerId) fetchWaivers();
     // Fetch waiver deadline from league settings
     const fetchWaiverDeadline = async () => {
       try {
@@ -62,7 +60,7 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
       setLoading(false);
     }, 10000);
     return () => clearTimeout(timeout);
-  }, [token, ownerId, fetchWaivers, leagueName]);
+  }, [ownerId, fetchWaivers, leagueName]);
 
   // --- 2.1 ACTION: CLAIM PLAYER ---
   const handleClaim = async (player) => {
@@ -164,6 +162,7 @@ export default function WaiverWire({ token, ownerId, username, leagueName }) {
           players={filteredPlayers}
           onClaim={handleClaim}
           processingId={processingId}
+          loading={loading}
         />
       </div>
 

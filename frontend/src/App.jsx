@@ -221,7 +221,7 @@ function App() {
               path="/waivers"
               element={
                 <Waivers
-                  activeOwnerId={activeOwnerId}
+                  ownerId={activeOwnerId}
                   username={username}
                   leagueName={activeLeagueId}
                 />
