@@ -39,9 +39,11 @@ def sync_initial_nfl_data(db: Session):
     """
     Sync NFL player data from ESPN API.
     This imports or updates all active roster players in the allowed fantasy positions.
+    Returns a dict with sync statistics.
     """
     import time
     import requests
+    import traceback
     
     ESPN_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
     ESPN_ROSTER_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/roster"
@@ -78,12 +80,14 @@ def sync_initial_nfl_data(db: Session):
             existing.name = name
             existing.position = position
             existing.nfl_team = team_abbr
+            db.flush()
             return existing, False
         player = models.Player(
             name=name, position=position, nfl_team=team_abbr,
             espn_id=espn_id, bye_week=None,
         )
         db.add(player)
+        db.flush()
         return player, True
     
     def upsert_defense(team_abbr):
@@ -93,12 +97,14 @@ def sync_initial_nfl_data(db: Session):
             existing.name = f"{team_abbr} Defense"
             existing.position = "DEF"
             existing.nfl_team = team_abbr
+            db.flush()
             return False
         defense = models.Player(
             name=f"{team_abbr} Defense", position="DEF", nfl_team=team_abbr,
             espn_id=espn_id, bye_week=None,
         )
         db.add(defense)
+        db.flush()
         return True
     
     try:
@@ -131,7 +137,10 @@ def sync_initial_nfl_data(db: Session):
             time.sleep(0.1)
         
         db.commit()
-        return True
+        print(f"NFL Sync: {added} added, {updated} updated, {def_added} defenses, {skipped} skipped")
+        return {"added": added, "updated": updated, "defenses": def_added, "skipped": skipped}
     except Exception as exc:
         db.rollback()
+        print(f"NFL Sync error: {str(exc)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Sync failed: {str(exc)}")
