@@ -73,7 +73,9 @@ export default function BugReport() {
       setIssueType('bug');
       setStatus({
         type: 'success',
-        message: 'Bug report submitted. Thank you!',
+        message: response.data?.issue_warning
+          ? `Bug report submitted. ${response.data.issue_warning}`
+          : 'Bug report submitted. Thank you!',
         issueUrl: response.data?.issue_url || '',
       });
     } catch (err) {

@@ -56,15 +56,17 @@ def create_bug_report(
         "created_at": report.created_at,
     }
 
+    issue_warning = None
     try:
         issue = create_bug_issue(issue_payload)
         report.github_issue_url = issue.get("html_url")
         db.commit()
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"GitHub issue creation failed: {exc}")
+        issue_warning = f"GitHub issue not created: {exc}"
 
     return {
         "message": "Bug report submitted",
         "report_id": report.id,
         "issue_url": report.github_issue_url,
+        "issue_warning": issue_warning,
     }
