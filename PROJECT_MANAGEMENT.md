@@ -1,3 +1,16 @@
+---
+
+## Draft Value Database & API Integration (Issue #56, #57)
+
+Story: Create a database that pulls in information from source APIs (ESPN, Yahoo, Draftsharks) for fantasy football draft purposes.
+
+Tasks:
+- Design and implement draft value database/table
+- Integrate API scripts for ESPN, Yahoo, Draftsharks
+- Normalize and cleanse data for blending with player, draft, and team tables
+- Expose draft value endpoints for frontend consumption
+- Add UI components/pages for draft value analysis and player info
+- Document data flow and ERD updates
 # Project Management
 
 **Date:** February 20, 2026  

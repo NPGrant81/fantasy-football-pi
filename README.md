@@ -123,3 +123,105 @@ Files added for testing
 
 
 See the `backend/` and `frontend/` folders for additional installation and usage details.
+
+---
+
+## Draft Value Database & Data Integration
+
+This project now includes a database for fantasy football draft value information, sourced from multiple APIs and platforms. The database is designed to support draft analysis, player valuation, and integration with historical and current draft results.
+
+### Minimum Fields:
+- Key (for joining to player tables)
+- Player Name
+- Position
+- Team
+- Year
+- Draft Value
+- Bye Week
+
+### Optional/Normalized Fields:
+- Position Rank (e.g., WR2, RB1)
+- Projected Points
+- ADP (Average Draft Position)
+
+### Data Sources:
+- ESPN
+- Yahoo ([Yahoo Draft Analysis](https://football.fantasysports.yahoo.com/f1/draftanalysis?type=salcap))
+- Draftsharks ([Draftsharks ADP](https://www.draftsharks.com/adp/superflex/ppr/sleeper/12))
+
+### Example API Integration Code
+
+#### ESPN
+```python
+from espn_api.football import League
+import pandas as pd
+
+# Initialize connection
+league = League(
+	league_id=12345678,
+	year=2025,
+	espn_s2='YOUR_ESPN_S2_COOKIE',
+	swid='YOUR_SWID_COOKIE'
+)
+
+# Fetch Top 300 Players
+top_players = league.free_agents(size=300)
+
+# Parse and export
+draft_kit = []
+for rank, player in enumerate(top_players, start=1):
+	draft_kit.append({
+		'Rank': rank,
+		'Name': player.name,
+		'Position': player.position,
+		'Pro Team': player.proTeam,
+		'Projected Points': player.projected_total_points
+	})
+df = pd.DataFrame(draft_kit)
+print(df.head(15))
+# df.to_json('draft_rankings_2025.json', orient='records')
+```
+
+#### Yahoo
+```python
+from yahoo_oauth import OAuth2
+import pandas as pd
+
+oauth = OAuth2(None, None, from_file='oauth2.json')
+top_players = []
+for start in range(0, 100, 25):
+	url = f"https://fantasysports.yahooapis.com/fantasy/v2/game/nfl/players;sort=ADP;start={start}?format=json"
+	response = oauth.session.get(url)
+	if response.status_code == 200:
+		data = response.json()
+		try:
+			players_data = data['fantasy_content']['game'][1]['players']
+			for key in players_data.keys():
+				if key != 'count':
+					player_info = players_data[key]['player']
+					name = player_info[0][2]['name']['full']
+					position = player_info[0][4]['display_position']
+					nfl_team = player_info[0][5]['editorial_team_abbr']
+					adp = "N/A"
+					for item in player_info[1:]:
+						if 'average_pick' in item:
+							adp = item['average_pick']
+					top_players.append({
+						'Name': name,
+						'Position': position,
+						'Team': nfl_team.upper(),
+						'ADP': adp
+					})
+		except KeyError:
+			print("Reached the end of the available player list or encountered an unexpected JSON structure.")
+			break
+	else:
+		print(f"Failed to fetch data: {response.status_code}")
+df = pd.DataFrame(top_players)
+print(df.head(15))
+```
+
+#### Draftsharks
+See [Draftsharks ADP](https://www.draftsharks.com/adp/superflex/ppr/sleeper/12) for manual or scripted data extraction.
+
+---

@@ -1,3 +1,9 @@
+---
+
+## Draft Value Database & API Integration
+
+- [x] Issue #56: Create draft value database for fantasy football draft purposes
+- [x] Issue #57: Create APIs to pull in draft value information from ESPN, Yahoo, Draftsharks
 # GitHub Issues Status Report
 **Date:** February 18, 2026  
 **Branch:** main

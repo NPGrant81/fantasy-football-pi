@@ -37,6 +37,36 @@ Why this works:
 • Scalability: New features (like Trades or Playoff Brackets) have a clear, predetermined home in the directory tree.
 • AI Coordination: Maintaining this file helps AI tools understand your specific architectural invariants, leading to better code suggestions.
 
+---
+
+## Draft Value Database & Data Flow
+
+The platform now includes a dedicated database/table for fantasy football draft value information, sourced from ESPN, Yahoo, Draftsharks, and other APIs. This table is designed to be joined with player, draft, and team tables for analysis and reporting.
+
+### Minimum Fields:
+- Key (for joining to player tables)
+- Player Name
+- Position
+- Team
+- Year
+- Draft Value
+- Bye Week
+
+### Optional/Normalized Fields:
+- Position Rank (e.g., WR2, RB1)
+- Projected Points
+- ADP (Average Draft Position)
+
+### Data Normalization:
+All optional fields are normalized to ensure consistency across sources. Position Rank, ADP, and Projected Points are mapped to standard formats for blending and reporting.
+
+### ERD/Data Flow Update:
+- Draft Value table connects to Player, Draft, and Team tables via Key, Player Name, Position, and Year.
+- Data is sourced via backend scripts/APIs and cleansed before insertion.
+- Historical and current year data are consolidated for seamless integration.
+
+---
+
 4. Frontend Architecture, Naming, and Testing
 The frontend is a Vite + React SPA in `frontend/`.
 

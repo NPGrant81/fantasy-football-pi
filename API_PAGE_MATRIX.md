@@ -35,6 +35,17 @@ Base URL (frontend client): `http://127.0.0.1:8000`
 | Google Gemini | Python `google.genai` client | AI responses for league advisor | `POST /advisor/ask` in `backend/routers/advisor.py` |
 | GitHub REST API | `https://api.github.com` via `requests` | Create bug issues from in-app reports | `POST /feedback/bug` → `backend/utils/github_issues.py` |
 | ESPN public NFL endpoints | `https://site.api.espn.com/apis/site/v2/sports/football/nfl/*` | Player/stats ingestion scripts | `backend/scripts/import_espn_players.py`, `backend/scripts/archive_weekly_stats.py` |
+| Yahoo Fantasy API | `https://football.fantasysports.yahoo.com/f1/draftanalysis?type=salcap` | Draft value ingestion | `backend/scripts/import_yahoo_players.py` |
+| Draftsharks ADP | `https://www.draftsharks.com/adp/superflex/ppr/sleeper/12` | Draft value ingestion | `backend/scripts/import_draftsharks_players.py` |
+## Draft Value API & Page Mapping
+
+New endpoints and pages for draft value integration:
+
+| Area | Endpoint(s) | Used by |
+|---|---|---|
+| Draft Value | `GET /draft-value/players`, `GET /draft-value/{year}` | Draft analysis, player info, commissioner tools |
+
+Draft value data is sourced from ESPN, Yahoo, and Draftsharks APIs, normalized, and exposed via these endpoints for frontend consumption.
 
 ---
 
