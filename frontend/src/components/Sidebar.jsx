@@ -7,6 +7,7 @@ import {
   FiGrid,
   FiUsers,
   FiActivity,
+  FiBarChart2,
   FiTrendingUp,
   FiSettings,
   FiShield,
@@ -16,8 +17,11 @@ import {
 import { menuGradients, borderColors } from '../utils/uiHelpers';
 
 // 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
-const MenuBlock = ({ to, title, desc, icon: Icon, gradient, onClick }) => (
-  <Link
+const MenuBlock = ({ to, title, desc, icon, gradient, onClick }) => {
+  const Icon = icon;
+
+  return (
+    <Link
     to={to}
     onClick={onClick}
     className={`group relative overflow-hidden block w-full text-left p-4 mb-3 rounded-xl border ${borderColors.main} hover:border-white transition-all shadow-lg ${gradient}`}
@@ -37,8 +41,9 @@ const MenuBlock = ({ to, title, desc, icon: Icon, gradient, onClick }) => (
       size={80}
       className="absolute -bottom-4 -right-4 opacity-10 rotate-12 text-white"
     />
-  </Link>
-);
+    </Link>
+  );
+};
 
 export default function Sidebar({ isOpen, onClose, username, leagueId }) {
   const [leagueName, setLeagueName] = useState('');
@@ -140,6 +145,15 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             desc="Bids & Free Agents"
             icon={FiTrendingUp}
             gradient={menuGradients.waivers}
+            onClick={onClose}
+          />
+
+          <MenuBlock
+            to="/analytics"
+            title="Analytics"
+            desc="League Charts"
+            icon={FiBarChart2}
+            gradient={menuGradients.matchups}
             onClick={onClose}
           />
 

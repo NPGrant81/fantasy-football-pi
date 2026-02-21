@@ -47,6 +47,9 @@ describe('LeagueAdvisor (chat)', () => {
         '/advisor/ask',
         expect.objectContaining({
           user_query: 'Who should I draft?',
+        }),
+        expect.objectContaining({
+          timeout: 30000,
         })
       )
     );

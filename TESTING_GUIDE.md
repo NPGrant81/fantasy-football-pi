@@ -202,11 +202,55 @@ python -m pytest tests/ -v --cov=. --cov-report=html  # With coverage
 ### Frontend
 ```powershell
 cd frontend
-npm install  # If needed
+npm install
+npm run verify
 npm run test
 npm run test:coverage
 npm run e2e  # End-to-end tests (requires running app)
 ```
+
+### Frontend Dependency Guardrail (React 19)
+
+If `npm install` fails with peer dependency resolution errors, align testing libraries to React 19:
+
+```powershell
+cd frontend
+npm install -D @testing-library/react@latest @testing-library/user-event@latest
+npm install
+```
+
+Then rerun `npm run dev` before commit to confirm all runtime imports resolve.
+
+---
+
+## PRE-COMMIT VERIFICATION (REQUIRED)
+
+Run before every commit touching frontend code:
+
+```powershell
+cd frontend
+npm install
+npm run verify
+```
+
+Pass criteria:
+- No build/import-analysis errors
+- No lint errors in changed files
+- Tests pass for impacted areas
+
+If dependencies were changed in this branch:
+
+```powershell
+# Frontend lock refresh
+cd frontend
+npm install
+
+# Backend lock refresh
+cd ../backend
+python -m pip freeze > requirements-lock.txt
+```
+
+Then rerun verification before commit.
 
 ---
 

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from sqlalchemy import text
 
 # Internal Imports
 import models
@@ -17,6 +18,23 @@ load_dotenv()
 
 app = FastAPI(title="Fantasy Football War Room API")
 
+
+def ensure_runtime_schema() -> None:
+    """Apply minimal non-destructive schema fixes required by active routes."""
+    statements = [
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS draft_year INTEGER",
+        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
+    ]
+
+    with engine.connect() as connection:
+        for statement in statements:
+            try:
+                connection.execute(text(statement))
+                connection.commit()
+            except Exception as exc:
+                connection.rollback()
+                print(f"Warning: Could not apply runtime schema fix ({statement}): {exc}")
+
 # --- 1. DATABASE SETUP ---
 # Note: create_all does not handle migrations. 
 # Use Alembic if you add more columns later.
@@ -25,6 +43,7 @@ async def startup_event():
     """Create database tables on app startup, not on import."""
     try:
         models.Base.metadata.create_all(bind=engine)
+        ensure_runtime_schema()
     except Exception as e:
         print(f"Warning: Could not initialize database tables: {e}")
 

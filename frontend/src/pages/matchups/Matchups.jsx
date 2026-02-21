@@ -8,6 +8,7 @@ import {
   FiActivity,
   FiToggleRight,
   FiToggleLeft,
+  FiInfo,
 } from 'react-icons/fi';
 
 // Professional Imports
@@ -20,6 +21,20 @@ export default function Matchups() {
   const [week, setWeek] = useState(1);
   const [games, setGames] = useState([]);
   const [showProjected, setShowProjected] = useState(true);
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
+
+  useEffect(() => {
+    if (!showScoreInfo) return;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowScoreInfo(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showScoreInfo]);
 
   // 1.1.1 Initialize as true to handle the initial mount without a sync setState
   const [loading, setLoading] = useState(true);
@@ -136,27 +151,53 @@ export default function Matchups() {
         </div>
 
         <div className="flex justify-center border-t border-slate-800 pt-4">
-          <button
-            onClick={() => setShowProjected(!showProjected)}
-            aria-label="Toggle projected scores"
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-950 border border-slate-700 hover:border-slate-500 transition"
-          >
-            <span
-              className={`text-xs font-bold uppercase ${!showProjected ? 'text-white' : 'text-slate-500'}`}
+          <div className="relative flex items-center gap-2">
+            <button
+              onClick={() => setShowProjected(!showProjected)}
+              aria-label="Toggle projected scores"
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-950 border border-slate-700 hover:border-slate-500 transition"
             >
-              Actual
-            </span>
-            {showProjected ? (
-              <FiToggleRight size={24} className="text-blue-400" />
-            ) : (
-              <FiToggleLeft size={24} className="text-slate-500" />
-            )}
-            <span
-              className={`text-xs font-bold uppercase ${showProjected ? 'text-blue-400' : 'text-slate-500'}`}
+              <span
+                className={`text-xs font-bold uppercase ${!showProjected ? 'text-white' : 'text-slate-500'}`}
+              >
+                Actual
+              </span>
+              {showProjected ? (
+                <FiToggleRight size={24} className="text-blue-400" />
+              ) : (
+                <FiToggleLeft size={24} className="text-slate-500" />
+              )}
+              <span
+                className={`text-xs font-bold uppercase ${showProjected ? 'text-blue-400' : 'text-slate-500'}`}
+              >
+                Projected
+              </span>
+            </button>
+
+            <div
+              className="relative"
+              onMouseEnter={() => setShowScoreInfo(true)}
+              onMouseLeave={() => setShowScoreInfo(false)}
             >
-              Projected
-            </span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setShowScoreInfo((prev) => !prev)}
+                aria-label="Explain scoring values"
+                aria-expanded={showScoreInfo}
+                className="h-8 w-8 rounded-full bg-slate-950 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition flex items-center justify-center"
+              >
+                <FiInfo size={14} />
+              </button>
+
+              {showScoreInfo && (
+                <div className="absolute right-0 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300 shadow-xl z-20">
+                  {showProjected
+                    ? 'Projected shows the expected team total based on current starters and league scoring rules.'
+                    : 'Actual shows the current recorded matchup total from live/completed scoring updates.'}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

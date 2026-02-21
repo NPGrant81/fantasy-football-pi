@@ -19,7 +19,7 @@ export default function ChatInterface({ initialQuery = '' }) {
           username: userRes.data.username,
           leagueId: userRes.data.league_id,
         });
-      } catch (err) {
+      } catch {
         setUserInfo({ username: '', leagueId: null });
       }
     }
@@ -36,7 +36,18 @@ export default function ChatInterface({ initialQuery = '' }) {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAvailable, setIsAvailable] = useState(true);
+  const [retryQuery, setRetryQuery] = useState('');
+  const [isRetryCooldown, setIsRetryCooldown] = useState(false);
   const scrollRef = useRef(null);
+  const retryCooldownRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (retryCooldownRef.current) {
+        clearTimeout(retryCooldownRef.current);
+      }
+    };
+  }, []);
 
   // --- 2.1 MESSAGE HANDLER (Defined early for use in effects) ---
   const handleSendMessage = useCallback(
@@ -47,28 +58,44 @@ export default function ChatInterface({ initialQuery = '' }) {
       // 2.1.1 LOCAL UPDATE
       setMessages((prev) => [...prev, { role: 'user', text: activeQuery }]);
       if (!queryOverride) setInput('');
+      setRetryQuery('');
       setIsLoading(true);
 
       try {
         // 2.1.2 EXECUTION: JSON body delivery (Standard-compliant)
-        const res = await apiClient.post('/advisor/ask', {
-          user_query: activeQuery,
-          username: userInfo.username,
-          league_id: userInfo.leagueId,
-        });
+        const res = await apiClient.post(
+          '/advisor/ask',
+          {
+            user_query: activeQuery,
+            username: userInfo.username,
+            league_id: userInfo.leagueId,
+          },
+          {
+            timeout: 30000,
+          }
+        );
 
         // 2.1.3 SUCCESS
         setMessages((prev) => [
           ...prev,
           { role: 'ai', text: res.data.response },
         ]);
-      } catch (err) {
-        console.error('Neural Link Error:', err);
+        setRetryQuery('');
+      } catch (error) {
+        console.error('Neural Link Error:', error);
+        const isTimeout =
+          error?.code === 'ECONNABORTED' ||
+          (typeof error?.message === 'string' &&
+            error.message.toLowerCase().includes('timeout'));
+        setRetryQuery(isTimeout ? activeQuery : '');
+
         setMessages((prev) => [
           ...prev,
           {
             role: 'ai',
-            text: '⚠️ The neural link to the Pi is down. Check your connection.',
+            text: isTimeout
+              ? '⚠️ The advisor is still thinking and timed out. Please retry in a few seconds, or ask a shorter question.'
+              : '⚠️ The neural link to the Pi is down. Check your connection.',
           },
         ]);
       } finally {
@@ -84,6 +111,15 @@ export default function ChatInterface({ initialQuery = '' }) {
       .then((res) => setIsAvailable(Boolean(res.data?.enabled)))
       .catch(() => setIsAvailable(false));
   }, []);
+
+  const handleRetry = () => {
+    if (!retryQuery || isLoading || isRetryCooldown) return;
+    setIsRetryCooldown(true);
+    handleSendMessage(retryQuery);
+    retryCooldownRef.current = setTimeout(() => {
+      setIsRetryCooldown(false);
+    }, 1500);
+  };
 
   // --- 1.2 AUTO-SCROLL ENGINE ---
   useEffect(() => {
@@ -188,6 +224,17 @@ export default function ChatInterface({ initialQuery = '' }) {
 
           {/* INPUT AREA */}
           <div className={`p-4 ${bgColors.main} border-t ${borderColors.main}`}>
+            {retryQuery && !isLoading && (
+              <div className="mb-2 flex justify-end">
+                <button
+                  onClick={handleRetry}
+                  disabled={isRetryCooldown}
+                  className={`text-xs ${textColors.warning} hover:underline disabled:opacity-60 disabled:no-underline`}
+                >
+                  Retry last question
+                </button>
+              </div>
+            )}
             <div
               className={`flex gap-2 ${bgColors.card} p-1 rounded-xl border ${borderColors.main} focus-within:${borderColors.accent} transition-colors`}
             >

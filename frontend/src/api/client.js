@@ -5,7 +5,7 @@ import axios from 'axios';
 const apiClient = axios.create({
   // 1.1.1 Use environment variables if available, fallback to localhost for Pi dev
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000',
-  timeout: 8000, // Increased to 8s for slower Raspberry Pi responses
+  timeout: 30000, // 30s default to tolerate slower local/AI-backed responses
   headers: {
     'Content-Type': 'application/json',
   },

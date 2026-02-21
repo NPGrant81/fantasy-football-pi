@@ -49,6 +49,20 @@ pip install -r requirements.txt
 pytest -q
 ```
 
+- Reproducible backend install (frozen set):
+
+```bash
+cd backend
+pip install -r requirements-lock.txt
+```
+
+- Refresh backend freeze after dependency changes:
+
+```bash
+cd backend
+python -m pip freeze > requirements-lock.txt
+```
+
 CI behavior
 
 - The GitHub Actions workflow `.github/workflows/ci.yml` runs both backend (`pytest`) and frontend (`vitest`) tests on push and PR to `main`. The badge above links to the workflow run history.

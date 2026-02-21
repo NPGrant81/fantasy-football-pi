@@ -1,7 +1,7 @@
 // frontend/src/pages/GameCenter.jsx
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FiArrowLeft } from 'react-icons/fi';
+import { FiArrowLeft, FiInfo } from 'react-icons/fi';
 
 // Professional Imports
 import apiClient from '@api/client';
@@ -59,6 +59,20 @@ export default function GameCenter() {
   // --- 1.2 STATE & PARAMS ---
   const { id } = useParams();
   const [game, setGame] = useState(null);
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
+
+  useEffect(() => {
+    if (!showScoreInfo) return;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowScoreInfo(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showScoreInfo]);
 
   // Start with loading: true to avoid synchronous setState inside useEffect
   const [loading, setLoading] = useState(true);
@@ -119,6 +133,28 @@ export default function GameCenter() {
       {/* 2.3 SCOREBOARD BANNER */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-2xl flex justify-between items-center relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-transparent to-red-600 opacity-50"></div>
+
+        <div
+          className="absolute top-3 right-3 z-20"
+          onMouseEnter={() => setShowScoreInfo(true)}
+          onMouseLeave={() => setShowScoreInfo(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setShowScoreInfo((prev) => !prev)}
+            aria-label="Explain scoring values"
+            aria-expanded={showScoreInfo}
+            className="h-8 w-8 rounded-full bg-slate-950 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition flex items-center justify-center"
+          >
+            <FiInfo size={14} />
+          </button>
+          {showScoreInfo && (
+            <div className="absolute right-0 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300 shadow-xl">
+              Projected totals are calculated from each team&apos;s current starters
+              and your league scoring rules.
+            </div>
+          )}
+        </div>
 
         {/* Home Side */}
         <div className="text-center z-10 w-1/3">

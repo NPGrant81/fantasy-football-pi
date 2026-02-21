@@ -1,8 +1,9 @@
 // frontend/src/pages/Home.jsx
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { Link } from 'react-router-dom';
 import FeedPill from '../../components/feeds/FeedPill';
-import { FiAward, FiActivity } from 'react-icons/fi';
+import { FiAward, FiActivity, FiBarChart2 } from 'react-icons/fi';
 
 export default function Home({ username }) {
   const [standings, setStandings] = useState([]);
@@ -48,6 +49,30 @@ export default function Home({ username }) {
           to access the War Room.
         </p>
       </div>
+
+      <Link
+        to="/analytics"
+        className="block bg-slate-900/50 border border-slate-800 rounded-xl p-4 shadow-xl hover:border-blue-500/60 transition"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-900/20 border border-blue-900/50">
+              <FiBarChart2 className="text-blue-400" size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                League Insights
+              </h2>
+              <p className="text-xs text-slate-400">
+                View analytics charts and performance trends
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-blue-400 uppercase">
+            Open
+          </span>
+        </div>
+      </Link>
 
       {/* 2.2 STANDINGS & ACTIVITY GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

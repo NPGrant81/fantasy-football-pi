@@ -1,4 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => ({
@@ -9,6 +10,13 @@ vi.mock('../src/api/client', () => ({
 
 import Home from '../src/pages/home/Home';
 import apiClient from '../src/api/client';
+
+const renderHome = (username = 'alice') =>
+  render(
+    <MemoryRouter>
+      <Home username={username} />
+    </MemoryRouter>
+  );
 
 describe('Home (League Dashboard)', () => {
   beforeEach(() => {
@@ -31,7 +39,7 @@ describe('Home (League Dashboard)', () => {
       return Promise.reject(new Error('Unknown URL'));
     });
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     await waitFor(() => {
       expect(screen.getByText(/THE BIG SHOW/i)).toBeInTheDocument();
@@ -60,7 +68,7 @@ describe('Home (League Dashboard)', () => {
       return Promise.reject(new Error('Unknown URL'));
     });
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     await waitFor(() => {
       expect(screen.getByText('Runaway Train')).toBeInTheDocument();
@@ -93,7 +101,7 @@ describe('Home (League Dashboard)', () => {
       return Promise.reject(new Error('Unknown URL'));
     });
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     await waitFor(() => {
       const rankCells = screen.getAllByText('1');
@@ -120,7 +128,7 @@ describe('Home (League Dashboard)', () => {
       return Promise.reject(new Error('Unknown URL'));
     });
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     await waitFor(() => {
       expect(screen.getByText('Season Started')).toBeInTheDocument();
@@ -142,7 +150,7 @@ describe('Home (League Dashboard)', () => {
       return Promise.reject(new Error('Unknown URL'));
     });
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     await waitFor(() => {
       expect(screen.getByText(/End of feed/i)).toBeInTheDocument();
@@ -163,7 +171,7 @@ describe('Home (League Dashboard)', () => {
       return Promise.reject(new Error('Unknown URL'));
     });
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     await waitFor(() => {
       expect(screen.getByText(/No owners found/i)).toBeInTheDocument();
@@ -186,7 +194,7 @@ describe('Home (League Dashboard)', () => {
       return Promise.reject(new Error('Unknown URL'));
     });
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/leagues/5');
@@ -198,7 +206,7 @@ describe('Home (League Dashboard)', () => {
   test('does not fetch data when league ID is missing', () => {
     localStorage.removeItem('fantasyLeagueId');
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     // Should not make API calls when league ID is not available
     expect(apiClient.get).not.toHaveBeenCalled();
@@ -207,7 +215,7 @@ describe('Home (League Dashboard)', () => {
   test('handles API errors gracefully', async () => {
     apiClient.get.mockRejectedValue(new Error('API Error'));
 
-    render(<Home username="alice" />);
+    renderHome('alice');
 
     await waitFor(() => {
       // Should still render the page structure

@@ -130,6 +130,7 @@ class ScoringRule(Base):
     id = Column(Integer, primary_key=True, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"))
     category = Column(String) 
+    description = Column(String, nullable=True)
     points = Column(Float, default=0) 
     
     league = relationship("League", back_populates="scoring_rules")

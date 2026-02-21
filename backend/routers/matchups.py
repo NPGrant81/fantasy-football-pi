@@ -88,17 +88,22 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
         away = db.query(models.User).filter(models.User.id == game.away_team_id).first()
         
         if home and away:
+            home_roster = get_team_starters(db, home.id)
+            away_roster = get_team_starters(db, away.id)
+            home_total_proj = sum(p.projected for p in home_roster)
+            away_total_proj = sum(p.projected for p in away_roster)
+
             results.append(MatchupSchema(
                 id=game.id,
                 week=game.week,
                 home_team=home.username,
                 home_team_id=home.id,
                 home_score=game.home_score,
-                home_projected=game.home_projected,
+                home_projected=home_total_proj,
                 away_team=away.username,
                 away_team_id=away.id,
                 away_score=game.away_score,
-                away_projected=game.away_projected,
+                away_projected=away_total_proj,
                 is_completed=game.is_completed,
                 label=label,
                 date_range=date_str

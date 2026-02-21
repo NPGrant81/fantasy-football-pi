@@ -19,7 +19,18 @@ export default function ChatInterface({ initialQuery = '' }) {
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [retryQuery, setRetryQuery] = useState('');
+  const [isRetryCooldown, setIsRetryCooldown] = useState(false);
   const scrollRef = useRef(null);
+  const retryCooldownRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (retryCooldownRef.current) {
+        clearTimeout(retryCooldownRef.current);
+      }
+    };
+  }, []);
 
   // --- 2.1 MESSAGE HANDLER (Defined early for use in effects) ---
   const handleSendMessage = useCallback(
@@ -30,26 +41,42 @@ export default function ChatInterface({ initialQuery = '' }) {
       // 2.1.1 LOCAL UPDATE
       setMessages((prev) => [...prev, { role: 'user', text: activeQuery }]);
       if (!queryOverride) setInput('');
+      setRetryQuery('');
       setIsLoading(true);
 
       try {
         // 2.1.2 EXECUTION: POST with JSON body (Fixes the 422 error)
-        const res = await apiClient.post('/advisor/ask', {
-          user_query: activeQuery,
-        });
+        const res = await apiClient.post(
+          '/advisor/ask',
+          {
+            user_query: activeQuery,
+          },
+          {
+            timeout: 30000,
+          }
+        );
 
         // 2.1.3 SUCCESS
         setMessages((prev) => [
           ...prev,
           { role: 'ai', text: res.data.response },
         ]);
+        setRetryQuery('');
       } catch (err) {
         console.error('Neural Link Error:', err);
+        const isTimeout =
+          err?.code === 'ECONNABORTED' ||
+          (typeof err?.message === 'string' &&
+            err.message.toLowerCase().includes('timeout'));
+        setRetryQuery(isTimeout ? activeQuery : '');
+
         setMessages((prev) => [
           ...prev,
           {
             role: 'ai',
-            text: '⚠️ The neural link to the Pi is down. Check your connection.',
+            text: isTimeout
+              ? '⚠️ The advisor is still thinking and timed out. Please retry in a few seconds, or ask a shorter question.'
+              : '⚠️ The neural link to the Pi is down. Check your connection.',
           },
         ]);
       } finally {
@@ -70,6 +97,15 @@ export default function ChatInterface({ initialQuery = '' }) {
       handleSendMessage(initialQuery);
     }
   }, [initialQuery, handleSendMessage]);
+
+  const handleRetry = () => {
+    if (!retryQuery || isLoading || isRetryCooldown) return;
+    setIsRetryCooldown(true);
+    handleSendMessage(retryQuery);
+    retryCooldownRef.current = setTimeout(() => {
+      setIsRetryCooldown(false);
+    }, 1500);
+  };
 
   // --- 3.1 RENDER: CONTAINER ---
   return (
@@ -143,6 +179,17 @@ export default function ChatInterface({ initialQuery = '' }) {
 
       {/* 3.5 INPUT AREA */}
       <div className={`p-4 ${bgColors.main} border-t ${borderColors.main}`}>
+        {retryQuery && !isLoading && (
+          <div className="mb-2 flex justify-end">
+            <button
+              onClick={handleRetry}
+              disabled={isRetryCooldown}
+              className={`text-xs ${textColors.warning} hover:underline disabled:opacity-60 disabled:no-underline`}
+            >
+              Retry last question
+            </button>
+          </div>
+        )}
         <div
           className={`flex gap-2 ${bgColors.card} p-1 rounded-xl border ${borderColors.main} focus-within:${borderColors.accent} transition-colors`}
         >

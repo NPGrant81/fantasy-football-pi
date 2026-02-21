@@ -33,6 +33,12 @@ with engine.connect() as connection:
         "✅ Success! 'draft_year' column added to league_settings.",
     )
 
+    run_safe(
+        connection,
+        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
+        "✅ Success! 'description' column added to scoring_rules.",
+    )
+
     # Weekly stats archive table
     run_safe(
         connection,

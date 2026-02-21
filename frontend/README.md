@@ -4,10 +4,24 @@ Vite + React frontend for the Fantasy Football PI app.
 
 ## Quick Start
 
-- Install: `npm ci --legacy-peer-deps`
+- Install: `npm install`
 - Run dev server: `npm run dev`
 - Run tests: `npm test -- --run`
 - Run lint: `npm run lint`
+- Verify pre-commit checks: `npm run verify`
+
+## Dependency Compatibility (React 19)
+
+- This project uses React 19.
+- Keep `@testing-library/react` and `@testing-library/user-event` on current versions (React 19 compatible).
+- If install fails with peer dependency errors, run:
+
+```bash
+npm install -D @testing-library/react@latest @testing-library/user-event@latest
+npm install
+```
+
+This prevents broken installs where runtime deps (like `chart.js`) are missing and Vite fails with import-analysis errors.
 
 ## Folder Map (Canonical Structure)
 
@@ -66,3 +80,16 @@ Before opening a PR, verify:
 - [ ] `App.jsx` imports use canonical feature-folder page paths.
 - [ ] Any temporary top-level `src/pages/*.jsx` wrappers are either justified or removed once imports/tests are migrated.
 - [ ] `npm run lint` and affected tests pass.
+
+## Pre-Commit Checklist (Frontend Runtime + Tests)
+
+Before committing frontend changes, run this sequence:
+
+```bash
+npm install
+npm run verify
+```
+
+Expected outcome:
+- Build completes without unresolved import errors (for example `chart.js` in analytics charts).
+- Lint and tests pass for changed areas.
