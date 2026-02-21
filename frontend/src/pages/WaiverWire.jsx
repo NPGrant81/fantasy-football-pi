@@ -17,6 +17,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   const [activeTab, setActiveTab] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [waiverDeadline, setWaiverDeadline] = useState(null); // New state for waiver deadline
+  const [rosterSizeLimit, setRosterSizeLimit] = useState(14);
   const [toast, setToast] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
 
@@ -56,9 +57,11 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
         if (leagueName) {
           const res = await apiClient.get(`/leagues/${leagueName}/settings`);
           setWaiverDeadline(res.data.waiver_deadline);
+          setRosterSizeLimit(res.data.roster_size || 14);
         }
       } catch {
         setWaiverDeadline(null);
+        setRosterSizeLimit(14);
       }
     };
     fetchWaiverDeadline();
@@ -71,6 +74,13 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
 
   // --- 2.1 ACTION: CLAIM PLAYER ---
   const executeClaim = async (player) => {
+    if (myRoster.length >= rosterSizeLimit) {
+      setPendingPlayer(player);
+      setIsDropModalOpen(true);
+      showToast('Roster full. Choose a player to drop first.', 'info');
+      return;
+    }
+
     setProcessingId(player.id);
     try {
       // 2.1.1 Attempt the claim
@@ -81,6 +91,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
 
       // 2.1.2 Success: Update UI
       setPlayers((prev) => prev.filter((p) => p.id !== player.id));
+      setMyRoster((prev) => [...prev, player]);
       showToast(`${player.name} added to your roster.`, 'success');
     } catch (err) {
       // 2.1.3 Handle "Roster Full" specifically
