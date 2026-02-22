@@ -176,7 +176,17 @@ The configuration executes several checks:
   front-end dependencies and runs the linter to catch missing packages or
   syntax issues.
 
-These hooks help prevent the CI errors you’ve seen when new items appear.
+Additional pre-push hooks run slower tasks before code leaves your workstation:
+
+* **unit-tests** – executes the full backend test suite (and installs required
+  dependencies) so failing tests stop a push. This keeps the remote repo in a
+  working state even if you forget to run `pytest` locally.
+* **e2e-tests** – bootstraps the frontend and runs Cypress end-to-end tests.
+  This provides early warning for integration regressions before CI takes over.
+
+These pre-push checks are optional but recommended for developers with local
+resources; you can skip them with `SKIP=unit-tests,e2e-tests git push` if the
+run time becomes burdensome.
 
 These hooks help prevent the CI errors you’ve seen when new items appear.
 
