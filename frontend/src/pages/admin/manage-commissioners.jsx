@@ -6,23 +6,28 @@ export default function ManageCommissioners() {
   const [commissioners, setCommissioners] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const [invite, setInvite] = useState({ username: '', email: '', league_id: '' });
+  const [invite, setInvite] = useState({
+    username: '',
+    email: '',
+    league_id: '',
+  });
 
   const showToast = (message, type) => {
     setToast({ message, type });
   };
 
-  const fetchCommissioners = async () => {
+  const fetchCommissioners = React.useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiClient.get('/admin/tools/commissioners');
       setCommissioners(res.data);
-    } catch (error) {
+    } catch {
+      // error handled generically; avoid unused variable warning
       showToast('Failed to fetch commissioners', 'error');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCommissioners();
@@ -35,11 +40,8 @@ export default function ManageCommissioners() {
       showToast(res.data.message || 'Commissioner invited!', 'success');
       setInvite({ username: '', email: '', league_id: '' });
       fetchCommissioners();
-    } catch (error) {
-      showToast(
-        error.response?.data?.detail || error.message || 'Invite failed',
-        'error'
-      );
+    } catch {
+      showToast('Invite failed', 'error');
     } finally {
       setLoading(false);
     }
@@ -52,7 +54,7 @@ export default function ManageCommissioners() {
       await apiClient.delete(`/admin/tools/commissioners/${id}`);
       showToast('Commissioner access removed.', 'success');
       fetchCommissioners();
-    } catch (error) {
+    } catch {
       showToast('Failed to remove commissioner', 'error');
     } finally {
       setLoading(false);
@@ -67,21 +69,21 @@ export default function ManageCommissioners() {
           type="text"
           placeholder="Username"
           value={invite.username}
-          onChange={e => setInvite({ ...invite, username: e.target.value })}
+          onChange={(e) => setInvite({ ...invite, username: e.target.value })}
           className="mr-2 p-2 rounded bg-slate-800 text-white"
         />
         <input
           type="email"
           placeholder="Email"
           value={invite.email}
-          onChange={e => setInvite({ ...invite, email: e.target.value })}
+          onChange={(e) => setInvite({ ...invite, email: e.target.value })}
           className="mr-2 p-2 rounded bg-slate-800 text-white"
         />
         <input
           type="text"
           placeholder="League ID (optional)"
           value={invite.league_id}
-          onChange={e => setInvite({ ...invite, league_id: e.target.value })}
+          onChange={(e) => setInvite({ ...invite, league_id: e.target.value })}
           className="mr-2 p-2 rounded bg-slate-800 text-white"
         />
         <button
@@ -93,12 +95,18 @@ export default function ManageCommissioners() {
         </button>
       </div>
       <ul className="divide-y divide-slate-700">
-        {commissioners.map(c => (
+        {commissioners.map((c) => (
           <li key={c.id} className="py-3 flex items-center justify-between">
             <span>
               <strong>{c.username}</strong> ({c.email || 'No email'})
-              {c.league_id && <span className="ml-2 text-xs text-slate-400">League: {c.league_id}</span>}
-              {c.is_superuser && <span className="ml-2 text-xs text-yellow-400">Superuser</span>}
+              {c.league_id && (
+                <span className="ml-2 text-xs text-slate-400">
+                  League: {c.league_id}
+                </span>
+              )}
+              {c.is_superuser && (
+                <span className="ml-2 text-xs text-yellow-400">Superuser</span>
+              )}
             </span>
             {!c.is_superuser && (
               <button
