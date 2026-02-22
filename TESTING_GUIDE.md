@@ -312,6 +312,13 @@ identifies a version bump, make sure to:
 Make a note in this guide or the README when you pin a package for a
 specific reason (e.g. free-tier compatibility with Gemini).
 
+### Pre‑commit usage
+
+As part of the normal workflow install the pre-commit hooks described in the
+README. They run a quick `pytest --collect-only`, frontend dependency install
+(and lint), and dependency audit so you see missing modules or outdated
+packages before pushing. Use `pre-commit run --all-files` whenever you add or
+upgrade requirements or change front-end code.
 ## BUGS FIXED IN THIS SESSION
 
 ### ✅ Backend

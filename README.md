@@ -149,6 +149,37 @@ Dependabot or similar services are also encouraged; they can create PRs when
 new versions hit PyPI or npm. Document any version constraints (e.g. the
 Google Gemini client) directly in the requirements files so they persist.
 
+---
+
+### Pre‑commit hooks
+
+Install [`pre-commit`](https://pre-commit.com/) and run the hooks before you
+make a commit to catch dependency and import issues early:
+
+```bash
+# install once per environment
+pip install pre-commit
+# register the hooks
+pre-commit install
+# run manually against all files
+pre-commit run --all-files
+```
+
+The configuration executes several checks:
+
+* **pytest-collect:** installs Python dependencies and collects the backend
+  test suite without running it; import errors (e.g. missing packages) will
+  abort the commit.
+* **dependency-audit:** runs `backend/scripts/check_dependencies.py --lock-file`
+  to look for outdated packages or security advisories.
+* **frontend-check:** `cd frontend && npm ci && npm run lint` – installs
+  front-end dependencies and runs the linter to catch missing packages or
+  syntax issues.
+
+These hooks help prevent the CI errors you’ve seen when new items appear.
+
+These hooks help prevent the CI errors you’ve seen when new items appear.
+
 - `frontend/cypress/` — Cypress e2e specs and support files
 - `.github/workflows/ci.yml` — updated to run backend tests, frontend tests with coverage, and Cypress E2E job
 

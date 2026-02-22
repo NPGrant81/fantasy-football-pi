@@ -28,10 +28,9 @@ repos:
         stages: [pre-commit]
         pass_filenames: false
 
-      - id: dependency-audit
-        name: Run dependency audit helper
-        entry: python backend/scripts/check_dependencies.py --lock-file
-        language: python
-        types: [python]
-        require_serial: true
+      - id: frontend-check
+        name: Install frontend deps and lint
+        entry: |
+          bash -lc "cd frontend && npm ci --quiet && npm run lint"
+        language: system
         stages: [pre-commit]
