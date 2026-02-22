@@ -27,6 +27,11 @@ fsspec==2026.1.0
 # Legacy clients (google-ai-generativelanguage, google-generativeai) removed.
 google-genai==1.64.0
 
+# dependencies needed by ETL tests
+# yahoo_oauth provides OAuth2 helper used in etl/extract/extract_yahoo.py
+# added to avoid import errors during CI collection
+yahoo_oauth
+
 google-api-core==2.29.0
 google-api-python-client==2.190.0
 google-auth==2.48.0

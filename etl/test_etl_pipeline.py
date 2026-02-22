@@ -13,7 +13,18 @@ import logging
 import json
 import traceback
 from datetime import datetime
-from etl.extract.extract_yahoo import fetch_yahoo_top_players, transform_yahoo_players
+
+# yahoo_oauth is an optional third‑party dependency; if it's not installed the
+# Yahoo-related tests should be skipped rather than causing an import error.
+try:
+    from etl.extract.extract_yahoo import fetch_yahoo_top_players, transform_yahoo_players
+except ImportError as exc:
+    fetch_yahoo_top_players = None
+    transform_yahoo_players = None
+    yahoo_import_error = exc
+else:
+    yahoo_import_error = None
+
 from etl.extract.extract_draftsharks import scrape_draft_sharks_adp, transform_draftsharks_adp
 from etl.extract.extract_espn_pdf import scrape_espn_2025_pdf
 from etl.load.load_to_postgres import load_normalized_source_to_db
@@ -45,6 +56,11 @@ SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 notifier = SlackNotifier(SLACK_WEBHOOK_URL)
 
 def test_yahoo_etl(season=2025):
+    # skip the entire test if imports failed
+    import pytest
+    if yahoo_import_error:
+        pytest.skip(f"Yahoo ETL dependencies missing: {yahoo_import_error}")
+
     logger.info(json.dumps({"event": "start", "step": "yahoo_etl"}))
     players = fetch_yahoo_top_players()
     norm_df = pd.DataFrame(transform_yahoo_players(players))
