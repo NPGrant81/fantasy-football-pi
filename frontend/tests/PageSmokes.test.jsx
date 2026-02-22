@@ -120,8 +120,9 @@ describe('SiteAdmin (Smoke Test)', () => {
   test('clicking the commissioner button uses router navigation', async () => {
     apiClient.get.mockResolvedValue({ data: {} });
 
-    const { getByText } = render(<SiteAdmin />);
-    const button = getByText(/Invite\/Manage Commissioners/i);
+    const { getByRole } = render(<SiteAdmin />);
+    // find the action button specifically by role + accessible name
+    const button = getByRole('button', { name: /Manage Commissioners/i });
 
     button.click();
     expect(mockNavigate).toHaveBeenCalledWith('/admin/manage-commissioners');
