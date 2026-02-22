@@ -31,6 +31,13 @@ repos:
       - id: frontend-check
         name: Install frontend deps and lint
         entry: |
-          bash -lc "cd frontend && npm ci --quiet && npm run lint"
-        language: system
+          python - <<'PY'
+          import subprocess, os, sys
+          cwd = os.path.join(os.getcwd(), 'frontend')
+          print('Installing frontend dependencies...')
+          subprocess.check_call(['npm', 'ci', '--silent'], cwd=cwd)
+          print('Running frontend linter...')
+          subprocess.check_call(['npm', 'run', 'lint'], cwd=cwd)
+          PY
+        language: python
         stages: [pre-commit]
