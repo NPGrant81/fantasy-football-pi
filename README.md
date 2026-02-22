@@ -6,14 +6,17 @@ This repository contains a FastAPI backend and a React (Vite + Tailwind) fronten
 
 ## Project Docs
 
-- Core architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
-- UI/UX reference: [UI_REFERENCE.md](UI_REFERENCE.md)
-- Testing guide: [TESTING_GUIDE.md](TESTING_GUIDE.md)
-- Testing session summary: [TESTING_SESSION_SUMMARY.md](TESTING_SESSION_SUMMARY.md)
-- Issue status tracker: [ISSUE_STATUS.md](ISSUE_STATUS.md)
-- PR handoff notes: [PR_NOTES.md](PR_NOTES.md)
-- Permissions notes: [permissions.md](permissions.md)
-- API inventory + full page matrix: [API_PAGE_MATRIX.md](API_PAGE_MATRIX.md)
+Most of the project’s supporting documentation lives in the `docs/`
+subdirectory; refer to that folder for the latest material.
+
+- Core architecture: [ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- UI/UX reference: [UI_REFERENCE.md](docs/UI_REFERENCE.md)
+- Testing guide (backend-specific): `backend/TESTING_GUIDE.md`
+- Testing session summary: [TESTING_SESSION_SUMMARY.md](docs/TESTING_SESSION_SUMMARY.md)
+- Issue status tracker: [ISSUE_STATUS.md](docs/ISSUE_STATUS.md)
+- PR handoff notes: [PR_NOTES.md](docs/PR_NOTES.md)
+- Permissions notes: [permissions.md](docs/permissions.md)
+- API inventory + full page matrix: [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md)
 
 ## API Overview (Condensed)
 
@@ -56,7 +59,7 @@ This repository contains a FastAPI backend and a React (Vite + Tailwind) fronten
 | Bug Report (`/bug-report`) | `PUT /auth/email`, `POST /feedback/bug` |
 | Analytics (`/analytics`) | No direct API call in dashboard shell (chart components may evolve) |
 
-For the full endpoint-level matrix (including notes and gaps), see [API_PAGE_MATRIX.md](API_PAGE_MATRIX.md).
+For the full endpoint-level matrix (including notes and gaps), see [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md).
 
 ## CI
 

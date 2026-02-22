@@ -12,21 +12,21 @@ export default function ManageCommissioners() {
     setToast({ message, type });
   };
 
-  useEffect(() => {
-    fetchCommissioners();
-  }, []);
-
   const fetchCommissioners = async () => {
     setLoading(true);
     try {
       const res = await apiClient.get('/admin/tools/commissioners');
       setCommissioners(res.data);
-    } catch (err) {
+    } catch (error) {
       showToast('Failed to fetch commissioners', 'error');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCommissioners();
+  }, [fetchCommissioners]);
 
   const inviteCommissioner = async () => {
     setLoading(true);
@@ -35,9 +35,9 @@ export default function ManageCommissioners() {
       showToast(res.data.message || 'Commissioner invited!', 'success');
       setInvite({ username: '', email: '', league_id: '' });
       fetchCommissioners();
-    } catch (err) {
+    } catch (error) {
       showToast(
-        err.response?.data?.detail || err.message || 'Invite failed',
+        error.response?.data?.detail || error.message || 'Invite failed',
         'error'
       );
     } finally {
@@ -52,7 +52,7 @@ export default function ManageCommissioners() {
       await apiClient.delete(`/admin/tools/commissioners/${id}`);
       showToast('Commissioner access removed.', 'success');
       fetchCommissioners();
-    } catch (err) {
+    } catch (error) {
       showToast('Failed to remove commissioner', 'error');
     } finally {
       setLoading(false);

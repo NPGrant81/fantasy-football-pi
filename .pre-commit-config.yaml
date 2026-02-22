@@ -41,3 +41,61 @@ repos:
           PY
         language: python
         stages: [pre-commit]
+
+      - id: style-fix
+        name: Run frontend style fixer (eslint/prettier)
+        entry: |
+          python - <<'PY'
+          import subprocess, os
+          cwd = os.path.join(os.getcwd(), 'frontend')
+          print('Running eslint --fix and prettier')
+          subprocess.check_call(['npm', 'run', 'lint:fix'], cwd=cwd)
+          subprocess.check_call(['npx', 'prettier', '--write', 'src/**/*.{js,jsx}'], cwd=cwd)
+          PY
+        language: python
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: pytest-collect
+@@
+        pass_filenames: false
+        
+      - id: dependency-audit
+        name: Run dependency audit helper
+        entry: python backend/scripts/check_dependencies.py
+        language: python
+        args: ["--lock-file"]
+        always_run: true
+        require_serial: true
+        stages: [pre-commit]
+        pass_filenames: false
++
+      - id: unit-tests
+        name: Run backend unit tests (pre-push)
+        entry: |
+          python - <<'PY'
+          import subprocess, sys, glob
+          # install deps just in case
+          subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "backend/requirements.txt"])
+          if glob.glob("etl/requirements*.txt"):
+              for f in glob.glob("etl/requirements*.txt"):
+                  subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", f])
+          sys.exit(subprocess.call([sys.executable, "-m", "pytest", "backend", "-q"]))
+          PY
+        language: python
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: e2e-tests
+        name: Run Cypress E2E tests (pre-push)
+        entry: |
+          python - <<'PY'
+          import subprocess, os
+          cwd = os.path.join(os.getcwd(), 'frontend')
+          subprocess.check_call(['npm', 'ci', '--silent'], cwd=cwd)
+          subprocess.check_call(['npm', 'run', 'e2e'], cwd=cwd)
+          PY
+        language: python
+        stages: [pre-push]
+        pass_filenames: false

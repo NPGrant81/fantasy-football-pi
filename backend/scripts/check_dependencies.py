@@ -67,9 +67,17 @@ def run_audit():
 def main():
     parser = argparse.ArgumentParser(description="Dependency maintenance helper")
     parser.add_argument("--lock-file", action="store_true", help="also include requirements-lock.txt")
+    # ignore any filename arguments that pre-commit or other tools may append
+    parser.add_argument("files", nargs="*", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     print("Checking for outdated packages...")
+    # ensure a couple of known useful packages are installed in this environment
+    try:
+        import httpx  # required by tests
+    except ImportError:
+        print("Installing missing httpx package for tests...")
+        run(f"{sys.executable} -m pip install httpx")
     outdated = list_outdated()
     if outdated:
         print(f"Found {len(outdated)} outdated packages:\n")
