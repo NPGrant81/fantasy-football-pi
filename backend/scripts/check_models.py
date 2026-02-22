@@ -1,5 +1,5 @@
 # backend/check_models.py
-import google.generativeai as genai
+from google import genai  # use unified google-genai SDK (>=1.64.0)
 import os
 from dotenv import load_dotenv
 

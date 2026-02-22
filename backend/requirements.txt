@@ -21,13 +21,16 @@ fastapi==0.129.0
 fastparquet==2025.12.0
 flake8==7.3.0
 fsspec==2026.1.0
-google-ai-generativelanguage==0.6.15
+# Google Gemini now uses a unified SDK `google-genai`.
+# Version 1.64.0 (Feb 2026) is the first fully stable release and is the last
+# known working version for the free‑tier models; upgrade with caution.
+# Legacy clients (google-ai-generativelanguage, google-generativeai) removed.
+google-genai==1.64.0
+
 google-api-core==2.29.0
 google-api-python-client==2.190.0
 google-auth==2.48.0
 google-auth-httplib2==0.3.0
-google-genai==1.62.0
-google-generativeai==0.8.6
 googleapis-common-protos==1.72.0
 greenlet==3.3.1
 grpcio==1.78.0

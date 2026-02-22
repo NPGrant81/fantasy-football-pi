@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
-from backend.database import Base
+from database import Base
 
 # --- 1. USER TABLE ---
 class User(Base):
@@ -30,6 +30,7 @@ class User(Base):
 # --- 2. LEAGUE TABLE ---
 class League(Base):
     __tablename__ = "leagues"
+    __table_args__ = {"extend_existing": True}
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     draft_status = Column(String, default="PRE_DRAFT") 

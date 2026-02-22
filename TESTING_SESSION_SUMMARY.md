@@ -36,7 +36,7 @@
 |-----|--------|----------|-----|
 | Test imports using `from backend...` | ✅ FIXED | CRITICAL | Use sys.path.insert for relative imports |
 | Missing psycopg2 database driver | ✅ FIXED | CRITICAL | Installed psycopg2-binary |
-| Missing google-generativeai | ✅ FIXED | HIGH | Installed google-generativeai |
+| Missing google-genai (>=1.64.0) | ✅ FIXED | HIGH | Installed google-genai |
 | Async tests not running | ✅ FIXED | HIGH | Installed pytest-asyncio |
 | Bcrypt initialization issues | ✅ FIXED | MEDIUM | Made test resilient to environment |
 | Import path in test_utils.py | ✅ FIXED | MEDIUM | Changed backend.utils to relative import |

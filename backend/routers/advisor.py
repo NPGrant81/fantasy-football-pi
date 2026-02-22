@@ -6,6 +6,9 @@ from database import get_db
 import models
 
 # Optional import for testing environments
+# the `google-genai` SDK (>=1.64.0) provides the `genai` namespace
+# older packages such as google-generativeai or google-ai-generativelanguage
+# have been removed from requirements.
 try:
     from google import genai
 except ImportError:

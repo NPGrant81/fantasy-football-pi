@@ -34,7 +34,9 @@ This repository contains a FastAPI backend and a React (Vite + Tailwind) fronten
 
 ### External APIs / integrations
 
-- **Google Gemini** via backend advisor route (`/advisor/ask`)
+- **Google Gemini** via backend advisor route (`/advisor/ask`) using the unified `google-genai` SDK (>=1.64.0).
+  This replaces the earlier `google-ai-generativelanguage`/`google-generativeai` packages and is required for compatibility
+  with Gemini's latest free‑tier models as of February 2026.
 - **GitHub REST API** via bug report flow (`/feedback/bug`)
 - **ESPN NFL endpoints** via backend ingestion scripts
 
@@ -118,6 +120,35 @@ Coverage and E2E
 Files added for testing
 
 - `frontend/tests/` — unit tests (Vitest + RTL)
+
+---
+
+## 📦 Dependency Maintenance
+
+Keeping dependencies current is critical for security and stability. This
+repo ships with a helper script and a scheduled check:
+
+```bash
+# from workspace root
+python backend/scripts/check_dependencies.py
+```
+
+The script reports outdated packages and runs `pip audit` for known
+vulnerabilities; it also writes a summary to `dependency-report.md`.
+
+Automation is provided via `.github/workflows/dependency-check.yml`, which runs
+the helper on the first of every month (and on demand).  The workflow fails if
+any outdated packages or audit advisories are found, making it easy to spot
+when a maintenance action is needed.  Alternatively you can schedule the
+script yourself with cron or another task runner.
+
+When the helper flags a major upgrade or security fix, update
+`requirements.txt` and regenerate the lock file (`python -m pip freeze > backend/requirements-lock.txt`),
+then run tests.
+Dependabot or similar services are also encouraged; they can create PRs when
+new versions hit PyPI or npm. Document any version constraints (e.g. the
+Google Gemini client) directly in the requirements files so they persist.
+
 - `frontend/cypress/` — Cypress e2e specs and support files
 - `.github/workflows/ci.yml` — updated to run backend tests, frontend tests with coverage, and Cypress E2E job
 

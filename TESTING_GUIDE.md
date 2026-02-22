@@ -297,12 +297,27 @@ Pattern:
 
 ---
 
+## DEPENDENCY MAINTENANCE
+
+Run `backend/scripts/check_dependencies.py` periodically to list outdated
+packages and surface security advisories. A GitHub Actions workflow
+(`.github/workflows/dependency-check.yml`) is provided, which executes the
+script on the first of every month and on manual dispatch. When the report
+identifies a version bump, make sure to:
+
+1. Update `requirements.txt` (and `requirements-lock.txt` if used).
+2. Run `python -m pip freeze > requirements-lock.txt`.
+3. Execute the test suite to verify nothing breaks.
+
+Make a note in this guide or the README when you pin a package for a
+specific reason (e.g. free-tier compatibility with Gemini).
+
 ## BUGS FIXED IN THIS SESSION
 
 ### ✅ Backend
 1. Fixed test import paths (sys.path.insert)
 2. Installed psycopg2-binary database driver
-3. Installed google-generativeai for AI router tests
+3. Installed google-genai (>=1.64.0) for AI router tests
 4. Fixed async test support (pytest-asyncio)
 5. Installed missing passlib/bcrypt dependencies
 6. Made bcrypt test resilient to environment issues

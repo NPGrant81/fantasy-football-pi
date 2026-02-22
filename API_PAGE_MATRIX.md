@@ -32,7 +32,7 @@ Base URL (frontend client): `http://127.0.0.1:8000`
 
 | Service | Integration point | Purpose | Internal entrypoint |
 |---|---|---|---|
-| Google Gemini | Python `google.genai` client | AI responses for league advisor | `POST /advisor/ask` in `backend/routers/advisor.py` |
+| Google Gemini | Python `google.genai` client (via `google-genai` SDK ≥1.64.0) | AI responses for league advisor | `POST /advisor/ask` in `backend/routers/advisor.py` |
 | GitHub REST API | `https://api.github.com` via `requests` | Create bug issues from in-app reports | `POST /feedback/bug` → `backend/utils/github_issues.py` |
 | ESPN public NFL endpoints | `https://site.api.espn.com/apis/site/v2/sports/football/nfl/*` | Player/stats ingestion scripts | `backend/scripts/import_espn_players.py`, `backend/scripts/archive_weekly_stats.py` |
 | Yahoo Fantasy API | `https://football.fantasysports.yahoo.com/f1/draftanalysis?type=salcap` | Draft value ingestion | `backend/scripts/import_yahoo_players.py` |
