@@ -30,7 +30,12 @@ export default defineConfig({
       // 3.1.1 Proxy Rules: Routes API calls to your Raspberry Pi / Local Python Backend
       '/auth': 'http://127.0.0.1:8000',
       '/draft': 'http://127.0.0.1:8000',
-      '/admin': 'http://127.0.0.1:8000',
+      // only proxy the actual admin API endpoints; the client-side UI also uses
+      // /admin paths, so forwarding everything breaks SPA routing (see
+      // Manage Commissioners page). narrowing prevents 404s on reload.
+      '/admin/tools': 'http://127.0.0.1:8000',
+      '/admin/create-test-league': 'http://127.0.0.1:8000',
+      '/admin/reset-draft': 'http://127.0.0.1:8000',
       '/league': 'http://127.0.0.1:8000',
       '/players': 'http://127.0.0.1:8000',
       '/advisor': 'http://127.0.0.1:8000',

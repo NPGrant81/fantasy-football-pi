@@ -135,8 +135,13 @@ export default function SiteAdmin() {
     }
   };
 
+  const navigate = useNavigate();
+
   const openCommissionerManagement = () => {
-    window.location.assign('/admin/manage-commissioners');
+    // client-side navigation avoids hitting Vite dev proxy (which forwards
+    // `/admin` paths to the Python backend). using history keeps the SPA
+    // route working even on hard reloads.
+    navigate('/admin/manage-commissioners');
   };
 
   return (

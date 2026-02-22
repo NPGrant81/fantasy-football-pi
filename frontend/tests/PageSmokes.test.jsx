@@ -10,6 +10,14 @@ vi.mock('../src/api/client', () => ({
 
 import DraftBoard from '../src/pages/DraftBoard';
 import WaiverWire from '../src/pages/WaiverWire';
+
+// react-router navigation is used in SiteAdmin; mock the hook so we can
+// assert it's called instead of allowing an actual router to run.
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 import SiteAdmin from '../src/pages/admin/SiteAdmin';
 import apiClient from '../src/api/client';
 
@@ -107,5 +115,15 @@ describe('SiteAdmin (Smoke Test)', () => {
     await waitFor(() => {
       expect(screen.getByText(/Site Admin/i)).toBeInTheDocument();
     });
+  });
+
+  test('clicking the commissioner button uses router navigation', async () => {
+    apiClient.get.mockResolvedValue({ data: {} });
+
+    const { getByText } = render(<SiteAdmin />);
+    const button = getByText(/Invite\/Manage Commissioners/i);
+
+    button.click();
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/manage-commissioners');
   });
 });
