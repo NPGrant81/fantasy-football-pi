@@ -4,14 +4,15 @@ anyio==4.12.1
 bcrypt==5.0.0
 certifi==2026.1.4
 cffi==2.0.0
+cfgv==3.5.0
 charset-normalizer==3.4.4
 click==8.3.1
 colorama==0.4.6
 cryptography==46.0.5
+distlib==0.4.0
 ecdsa==0.19.1
 fastapi==0.129.0
-# unified Gemini SDK entry – keep this locked at 1.64.0 for free-tier compatibility
-google-genai==1.64.0
+filelock==3.24.3
 google-api-core==2.25.2
 google-api-python-client==2.190.0
 google-auth==2.49.0.dev0
@@ -22,11 +23,15 @@ grpcio==1.78.0
 grpcio-status==1.71.2
 h11==0.16.0
 httplib2==0.31.2
+identify==2.6.16
 idna==3.11
 iniconfig==2.3.0
+nodeenv==1.10.0
 packaging==26.0
 passlib==1.7.4
+platformdirs==4.9.2
 pluggy==1.6.0
+pre_commit==4.5.1
 proto-plus==1.27.1
 protobuf==5.29.6
 psycopg2-binary==2.9.11
@@ -42,6 +47,7 @@ pytest-asyncio==1.3.0
 python-dotenv==1.2.1
 python-jose==3.5.0
 python-multipart==0.0.22
+PyYAML==6.0.3
 requests==2.32.5
 rsa==4.9.1
 six==1.17.0
@@ -53,3 +59,4 @@ typing_extensions==4.15.0
 uritemplate==4.2.0
 urllib3==2.6.3
 uvicorn==0.41.0
+virtualenv==20.38.0

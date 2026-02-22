@@ -1,0 +1,37 @@
+repos:
+  - repo: local
+    hooks:
+      - id: pytest-collect
+        name: Run pytest collection to catch import errors
+        entry: |
+          python - <<'PY'
+          import sys, glob, subprocess
+          # ensure test dependencies are available
+          subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "backend/requirements.txt"])
+          if glob.glob("etl/requirements*.txt"):
+              for f in glob.glob("etl/requirements*.txt"):
+                  subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", f])
+          import pytest
+          sys.exit(pytest.main(["backend","--collect-only","-q"]))
+          PY
+        language: python
+        stages: [pre-commit]
+        pass_filenames: false
+
+      - id: dependency-audit
+        name: Run dependency audit helper
+        entry: python backend/scripts/check_dependencies.py
+        language: python
+        args: ["--lock-file"]
+        always_run: true
+        require_serial: true
+        stages: [pre-commit]
+        pass_filenames: false
+
+      - id: dependency-audit
+        name: Run dependency audit helper
+        entry: python backend/scripts/check_dependencies.py --lock-file
+        language: python
+        types: [python]
+        require_serial: true
+        stages: [pre-commit]

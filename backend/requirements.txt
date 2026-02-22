@@ -32,6 +32,10 @@ google-genai==1.64.0
 # added to avoid import errors during CI collection
 yahoo_oauth
 
+# developer tooling
+pre-commit
+httpx
+
 google-api-core==2.29.0
 google-api-python-client==2.190.0
 google-auth==2.48.0
