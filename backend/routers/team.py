@@ -226,34 +226,41 @@ def get_any_team(
     db: Session = Depends(get_db)
 ):
     """View ANY user's team (for 'League' pages)."""
-    owner = db.query(models.User).filter(models.User.id == owner_id).first()
-    if not owner:
-        raise HTTPException(status_code=404, detail="Owner not found")
+    try:
+        owner = db.query(models.User).filter(models.User.id == owner_id).first()
+        if not owner:
+            raise HTTPException(status_code=404, detail="Owner not found")
 
-    picks = db.query(models.DraftPick).filter(
-        models.DraftPick.owner_id == owner.id,
-        models.DraftPick.league_id == owner.league_id
-    ).all()
+        picks = db.query(models.DraftPick).filter(
+            models.DraftPick.owner_id == owner.id,
+            models.DraftPick.league_id == owner.league_id
+        ).all()
 
-    season = get_current_year()
-    locked_ids = get_locked_player_ids(db, [pick.player_id for pick in picks], season, week)
-    sorted_players = organize_roster(picks, db, locked_player_ids=locked_ids)
+        season = get_current_year()
+        locked_ids = get_locked_player_ids(db, [pick.player_id for pick in picks], season, week)
+        sorted_players = organize_roster(picks, db, locked_player_ids=locked_ids)
 
-    submitted = db.query(models.LineupSubmission).filter(
-        models.LineupSubmission.owner_id == owner.id,
-        models.LineupSubmission.league_id == owner.league_id,
-        models.LineupSubmission.season == season,
-        models.LineupSubmission.week == week,
-    ).first()
+        submitted = db.query(models.LineupSubmission).filter(
+            models.LineupSubmission.owner_id == owner.id,
+            models.LineupSubmission.league_id == owner.league_id,
+            models.LineupSubmission.season == season,
+            models.LineupSubmission.week == week,
+        ).first()
 
-    team_name = owner.team_name if owner.team_name else f"Team {owner.username}"
+        team_name = owner.team_name if owner.team_name else f"Team {owner.username}"
 
-    return RosterView(
-        team_name=team_name,
-        owner_id=owner.id,
-        players=sorted_players,
-        lineup_submitted=bool(submitted)
-    )
+        return RosterView(
+            team_name=team_name,
+            owner_id=owner.id,
+            players=sorted_players,
+            lineup_submitted=bool(submitted)
+        )
+    except Exception as exc:
+        # log stack trace so server log contains the error
+        import traceback, sys
+        traceback.print_exc(file=sys.stderr)
+        # re-raise to preserve standard FastAPI error handling
+        raise
 
 
 @router.post("/lineup")

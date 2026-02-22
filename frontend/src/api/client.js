@@ -3,8 +3,10 @@ import axios from 'axios';
 
 // --- 1.1 CONFIGURATION ---
 const apiClient = axios.create({
-  // 1.1.1 Use environment variables if available, fallback to localhost for Pi dev
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000',
+  // 1.1.1 Use env var when explicitly provided (production builds) otherwise
+  // default to a relative base so Vite's dev proxy can handle the request.
+  // Setting the var to an empty string is also acceptable.
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 30000, // 30s default to tolerate slower local/AI-backed responses
   headers: {
     'Content-Type': 'application/json',

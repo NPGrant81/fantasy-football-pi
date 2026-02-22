@@ -60,6 +60,18 @@ class LeagueSettings(Base):
     
     league = relationship("League", back_populates="settings")
 
+# --- 3.1 LINEUP SUBMISSIONS ---
+class LineupSubmission(Base):
+    __tablename__ = "lineup_submissions"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    season = Column(Integer, index=True, nullable=False)
+    week = Column(Integer, index=True, nullable=False)
+    submitted_at = Column(String, nullable=True)
+
+    # relationships could be added if needed
+
 # --- 4. PLAYER TABLE ---
 class Player(Base):
     __tablename__ = "players"

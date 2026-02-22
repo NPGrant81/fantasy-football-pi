@@ -36,6 +36,7 @@ export default defineConfig({
       '/admin/tools': 'http://127.0.0.1:8000',
       '/admin/create-test-league': 'http://127.0.0.1:8000',
       '/admin/reset-draft': 'http://127.0.0.1:8000',
+      '/team': 'http://127.0.0.1:8000',           // restored so UI routes avoid CORS and cookies flow
       '/league': 'http://127.0.0.1:8000',
       '/players': 'http://127.0.0.1:8000',
       '/advisor': 'http://127.0.0.1:8000',
