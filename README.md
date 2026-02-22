@@ -173,6 +173,12 @@ pre-commit run --all-files
 
 The configuration executes several checks:
 
+> **Note:** the API allows requests from the Vite dev server by default. If
+> you're still seeing CORS errors during local development, start the backend
+> with `ALLOW_ALL_ORIGINS=1 uvicorn backend.main:app --reload` to permit any
+> origin (useful when accessing via IP address or another host).  Do **not**
+> enable this in production.
+
 * **pytest-collect:** installs Python dependencies and collects the backend
   test suite without running it; import errors (e.g. missing packages) will
   abort the commit.

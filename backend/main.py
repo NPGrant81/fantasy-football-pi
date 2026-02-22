@@ -48,9 +48,15 @@ async def startup_event():
         print(f"Warning: Could not initialize database tables: {e}")
 
 # --- 2. SECURITY: CORS ---
+# Allow development origins; when running locally we accept any origin to
+# simplify front-end testing.  In production this should be locked down.
+allowed = ["*"] if os.getenv("ALLOW_ALL_ORIGINS") == "1" else [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=allowed,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
