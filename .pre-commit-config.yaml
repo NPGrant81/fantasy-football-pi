@@ -18,6 +18,13 @@ repos:
         stages: [pre-commit]
         pass_filenames: false
 
+      - id: refresh-docs-index
+        name: Regenerate docs/INDEX.md
+        entry: python scripts/refresh_docs_index.py
+        language: python
+        stages: [pre-commit]
+        pass_filenames: false
+
       - id: dependency-audit
         name: Run dependency audit helper
         entry: python backend/scripts/check_dependencies.py
@@ -58,7 +65,6 @@ repos:
   - repo: local
     hooks:
       - id: pytest-collect
-@@
         pass_filenames: false
         
       - id: dependency-audit
@@ -70,7 +76,6 @@ repos:
         require_serial: true
         stages: [pre-commit]
         pass_filenames: false
-+
       - id: unit-tests
         name: Run backend unit tests (pre-push)
         entry: |

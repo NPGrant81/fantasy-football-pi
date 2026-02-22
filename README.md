@@ -8,6 +8,9 @@ This repository contains a FastAPI backend and a React (Vite + Tailwind) fronten
 
 Most of the project’s supporting documentation lives in the `docs/`
 subdirectory; see [INDEX.md](docs/INDEX.md) for a navigable table of contents.
+The index is regenerated automatically by a pre-commit hook and staged for you
+whenever any file in `docs/` changes, so you don’t have to remember to run it
+or commit it yourself.
 
 - Core architecture: [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - UI/UX reference: [UI_REFERENCE.md](docs/UI_REFERENCE.md)
