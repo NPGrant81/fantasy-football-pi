@@ -125,8 +125,10 @@ describe('WaiverWire (Smoke Test)', () => {
       const { getByText, queryByText } = render(<WaiverRules leagueId={1} />);
       await waitFor(() => {
         expect(getByText(/Waiver Wire Rules/i)).toBeInTheDocument();
-        // deadline text may be a single letter 'D'; ensure the label appears
         expect(getByText(/Waiver Deadline/i)).toBeInTheDocument();
+        expect(getByText(/Starting FAAB Budget/i)).toBeInTheDocument();
+        expect(getByText(/Waiver System/i)).toBeInTheDocument();
+        expect(getByText(/Tie-breaker/i)).toBeInTheDocument();
         expect(getByText(/12/)).toBeInTheDocument(); // roster size always shown
       });
       expect(queryByText(/Edit Waiver Rules/i)).toBeNull();
@@ -173,9 +175,12 @@ describe('ManageWaiverRules (Smoke Test)', () => {
   test('renders without crashing and shows existing settings', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url.startsWith('/leagues/1/settings')) {
-        return Promise.resolve({ data: { waiver_deadline: '2026-09-01', roster_size: 14 } });
+        return Promise.resolve({ data: { waiver_deadline: '2026-09-01', starting_waiver_budget: 100, waiver_system: 'FAAB', waiver_tiebreaker: 'standings', roster_size: 14 } });
       }
       if (url === '/waivers/claims') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/leagues/1/waiver-budgets') {
         return Promise.resolve({ data: [] });
       }
       return Promise.resolve({ data: [] });
@@ -186,15 +191,20 @@ describe('ManageWaiverRules (Smoke Test)', () => {
     await waitFor(() => {
       expect(container).toBeInTheDocument();
       expect(getByLabelText(/Roster Size Limit/i)).toBeInTheDocument();
+      expect(getByLabelText(/Starting FAAB Budget/i)).toBeInTheDocument();
+      expect(screen.getByText(/Owner ID/i)).toBeInTheDocument();
     });
   });
 
   test('allows updating waiver deadline', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url.startsWith('/leagues/1/settings')) {
-        return Promise.resolve({ data: { waiver_deadline: 'old', roster_size: 16 } });
+        return Promise.resolve({ data: { waiver_deadline: 'old', starting_waiver_budget: 120, waiver_system: 'PRIORITY', waiver_tiebreaker: 'priority', roster_size: 16 } });
       }
       if (url === '/waivers/claims') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/leagues/1/waiver-budgets') {
         return Promise.resolve({ data: [] });
       }
       return Promise.resolve({ data: [] });
@@ -205,13 +215,15 @@ describe('ManageWaiverRules (Smoke Test)', () => {
     await waitFor(() => expect(getByLabelText(/Waiver Deadline/i)).toBeInTheDocument());
     expect(getByLabelText(/Roster Size Limit/i).value).toBe('16');
     fireEvent.change(getByLabelText(/Waiver Deadline/i), { target: { value: 'new-deadline' } });
-    fireEvent.change(getByLabelText(/Trade Deadline/i), { target: { value: 'new-trade' } });
+    fireEvent.change(getByLabelText(/Starting FAAB Budget/i), { target: { value: '150' } });
+    fireEvent.change(getByLabelText(/Waiver System/i), { target: { value: 'BOTH' } });
+    fireEvent.change(getByLabelText(/Tie-breaker/i), { target: { value: 'timestamp' } });
     fireEvent.change(getByLabelText(/Roster Size Limit/i), { target: { value: '18' } });
     fireEvent.click(getByText(/Update Waiver Rules/i));
     await waitFor(() => expect(getByText(/Waiver rules updated!/i)).toBeInTheDocument());
     expect(apiClient.put).toHaveBeenCalledWith(
       '/leagues/1/settings',
-      expect.objectContaining({ waiver_deadline: 'new-deadline', roster_size: 18 })
+      expect.objectContaining({ waiver_deadline: 'new-deadline', starting_waiver_budget: 150, waiver_system: 'BOTH', waiver_tiebreaker: 'timestamp', roster_size: 18 })
     );
   });
 
