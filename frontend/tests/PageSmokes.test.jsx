@@ -173,7 +173,7 @@ describe('ManageWaiverRules (Smoke Test)', () => {
   test('renders without crashing and shows existing settings', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url.startsWith('/leagues/1/settings')) {
-        return Promise.resolve({ data: { waiver_deadline: '2026-09-01', trade_deadline: '2026-09-15', roster_size: 14 } });
+        return Promise.resolve({ data: { waiver_deadline: '2026-09-01', roster_size: 14 } });
       }
       if (url === '/waivers/claims') {
         return Promise.resolve({ data: [] });
@@ -192,7 +192,7 @@ describe('ManageWaiverRules (Smoke Test)', () => {
   test('allows updating waiver deadline', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url.startsWith('/leagues/1/settings')) {
-        return Promise.resolve({ data: { waiver_deadline: 'old', trade_deadline: 'oldtrade', roster_size: 16 } });
+        return Promise.resolve({ data: { waiver_deadline: 'old', roster_size: 16 } });
       }
       if (url === '/waivers/claims') {
         return Promise.resolve({ data: [] });
@@ -211,7 +211,7 @@ describe('ManageWaiverRules (Smoke Test)', () => {
     await waitFor(() => expect(getByText(/Waiver rules updated!/i)).toBeInTheDocument());
     expect(apiClient.put).toHaveBeenCalledWith(
       '/leagues/1/settings',
-      expect.objectContaining({ waiver_deadline: 'new-deadline', trade_deadline: 'new-trade', roster_size: 18 })
+      expect.objectContaining({ waiver_deadline: 'new-deadline', roster_size: 18 })
     );
   });
 
