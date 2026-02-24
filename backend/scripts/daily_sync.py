@@ -42,3 +42,5 @@ def sync_nfl_reality():
 
 if __name__ == "__main__":
     sync_nfl_reality()
+
+# end of file - trigger a new push for CI
