@@ -121,6 +121,8 @@ class DraftBudget(Base):
     id = Column(Integer, primary_key=True, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"))
     owner_id = Column(Integer, ForeignKey("users.id"))
+    year = Column(Integer, index=True)
+    total_budget = Column(Integer, default=200)
 
 
 # --- 5.2 WAIVER BUDGETS (for FAAB tracking) ---

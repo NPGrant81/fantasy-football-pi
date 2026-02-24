@@ -52,7 +52,7 @@ def client(api_db):
 def test_get_waiver_budgets_empty(client):
     # league must exist first
     league = models.League(name="Test League")
-    db = client.app.dependency_overrides[get_db]().__next__()[0]
+    db = client.app.dependency_overrides[get_db]().__next__()
     db.add(league)
     db.commit()
 
@@ -64,7 +64,7 @@ def test_get_waiver_budgets_empty(client):
 def test_get_waiver_budgets_with_record(client):
     league = models.League(name="Test League2")
     user = models.User(username="bob", hashed_password="x")
-    db = client.app.dependency_overrides[get_db]().__next__()[0]
+    db = client.app.dependency_overrides[get_db]().__next__()
     db.add_all([league, user])
     db.commit()
 
