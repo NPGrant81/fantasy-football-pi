@@ -64,7 +64,8 @@ export default function Matchups() {
     // is initialized as true or set during week-change transitions.
     try {
       const res = await apiClient.get(`/matchups/week/${week}`);
-      setGames(res.data);
+      // some backends may wrap or return object; ensure we always store an array
+      setGames(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Matchup feed failed:', err);
     } finally {
