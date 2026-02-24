@@ -240,11 +240,6 @@ describe('Home (League Dashboard)', () => {
     pfHeader.click(); // toggle descending
     expect(rows[1]).toHaveTextContent('A');
   });
-      expect(apiClient.get).toHaveBeenCalledWith('/leagues/5');
-      expect(apiClient.get).toHaveBeenCalledWith('/leagues/owners?league_id=5');
-      expect(apiClient.get).toHaveBeenCalledWith('/leagues/5/news');
-    });
-  });
 
   test('does not fetch data when league ID is missing', () => {
     localStorage.removeItem('fantasyLeagueId');

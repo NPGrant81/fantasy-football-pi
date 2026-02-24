@@ -5,39 +5,61 @@ export default function BracketAccordion() {
   const [open, setOpen] = useState(false);
   const [bracket, setBracket] = useState(null);
   const [loading, setLoading] = useState(false);
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  // avoid accessing localStorage during SSR or before it exists
+  const [leagueId, setLeagueId] = useState(null);
   const season = new Date().getFullYear();
 
   useEffect(() => {
-    if (open && leagueId) {
-      setLoading(true);
-      apiClient
-        .get(`/playoffs/bracket?league_id=${leagueId}&season=${season}`)
-        .then((res) => setBracket(res.data))
-        .catch(() => setBracket(null))
-        .finally(() => setLoading(false));
+    if (typeof window !== 'undefined' && window.localStorage) {
+      setLeagueId(window.localStorage.getItem('fantasyLeagueId'));
     }
+  }, []);
+
+  useEffect(() => {
+    // only fetch when the panel opens and we have a league id
+    if (!open || !leagueId) return;
+
+    const fetchBracket = async () => {
+      setLoading(true);
+      try {
+        const res = await apiClient.get(
+          `/playoffs/bracket?league_id=${leagueId}&season=${season}`
+        );
+        setBracket(res.data);
+      } catch {
+        setBracket(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBracket();
   }, [open, leagueId, season]);
 
   const renderMatches = (matches) => {
-    if (!matches) return null;
-    return matches.map((m) => (
-      <div
-        key={m.match_id}
-        className="border border-slate-700 rounded p-2 mb-2 bg-slate-900/30"
-      >
-        <div className="text-xs text-slate-400">{m.match_id}</div>
-        {m.is_bye ? (
-          <div className="text-sm text-yellow-400">BYE → seed {m.team_1_id}</div>
-        ) : (
-          <div className="text-sm flex justify-between">
-            <span>#{m.team_1_id || 'TBD'}</span>
-            <span>vs</span>
-            <span>#{m.team_2_id || 'TBD'}</span>
-          </div>
-        )}
-      </div>
-    ));
+    if (!matches || !Array.isArray(matches)) return null;
+    return matches.map((m = {}) => {
+      const id = m.match_id || 'unknown';
+      return (
+        <div
+          key={id}
+          className="border border-slate-700 rounded p-2 mb-2 bg-slate-900/30"
+        >
+          <div className="text-xs text-slate-400">{id}</div>
+          {m.is_bye ? (
+            <div className="text-sm text-yellow-400">
+              BYE → seed {m.team_1_id || 'TBD'}
+            </div>
+          ) : (
+            <div className="text-sm flex justify-between">
+              <span>#{m.team_1_id || 'TBD'}</span>
+              <span>vs</span>
+              <span>#{m.team_2_id || 'TBD'}</span>
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   return (

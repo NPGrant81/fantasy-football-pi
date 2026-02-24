@@ -113,31 +113,32 @@ export default function Home({ username }) {
               </thead>
               <tbody>
                 {standings.length > 0 ? (
-                  {/** apply sorting */}
-                  {[...standings]
-                    .sort((a, b) => {
-                      let av = a[sortField] || 0;
-                      let bv = b[sortField] || 0;
-                      if (sortField === 'team_name' || sortField === 'username') {
-                        av = av.toLowerCase();
-                        bv = bv.toLowerCase();
-                      }
-                      if (av < bv) return sortAsc ? -1 : 1;
-                      if (av > bv) return sortAsc ? 1 : -1;
-                      return 0;
-                    })
-                    .map((owner, idx) => (
-                    <tr
-                      key={owner.id}
-                      className="border-b border-slate-800 hover:bg-slate-800/50"
-                    >
-                      <td
-                        className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-400'}`}
+                  <>
+                    {/* apply sorting */}
+                    {[...standings]
+                      .sort((a, b) => {
+                        let av = a[sortField] || 0;
+                        let bv = b[sortField] || 0;
+                        if (sortField === 'team_name' || sortField === 'username') {
+                          av = av.toLowerCase();
+                          bv = bv.toLowerCase();
+                        }
+                        if (av < bv) return sortAsc ? -1 : 1;
+                        if (av > bv) return sortAsc ? 1 : -1;
+                        return 0;
+                      })
+                      .map((owner, idx) => (
+                      <tr
+                        key={owner.id}
+                        className="border-b border-slate-800 hover:bg-slate-800/50"
                       >
-                        {idx + 1}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-white">
-                        <Link
+                        <td
+                          className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-400'}`}
+                        >
+                          {idx + 1}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-white">
+                          <Link
                           to={`/team/${owner.id}`}
                           className="hover:text-blue-400 transition-colors"
                         >
@@ -158,7 +159,8 @@ export default function Home({ username }) {
                       <td className="px-4 py-3">{owner.pf}</td>
                       <td className="px-4 py-3">{owner.pa}</td>
                     </tr>
-                  ))
+                  ))}
+                </>
                 ) : (
                   <tr>
                     <td colSpan={3} className="text-center py-6 text-slate-500">

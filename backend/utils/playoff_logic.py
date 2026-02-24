@@ -26,8 +26,18 @@ def tiebreaker_winner(team_a: Dict[str, Any], team_b: Dict[str, Any],
             return team_a
         elif b_val > a_val:
             return team_b
-    # fallback to seed advantage
-    return team_a if team_a.get("seed", 0) < team_b.get("seed", 0) else team_b
+
+    # fallback to seed advantage; handle missing seeds safely
+    a_seed = team_a.get("seed")
+    b_seed = team_b.get("seed")
+    if a_seed is None and b_seed is None:
+        # if no seed info available, arbitrarily choose team_a for consistency
+        return team_a
+    if a_seed is None:
+        return team_b
+    if b_seed is None:
+        return team_a
+    return team_a if a_seed < b_seed else team_b
 
 
 def generate_round2_matches(round1_winners: List[Dict[str, Any]],
@@ -37,8 +47,11 @@ def generate_round2_matches(round1_winners: List[Dict[str, Any]],
     The default behaviour pairs highest seed vs lowest remaining seed in order.
     Assumes each item has at least ``id`` and ``seed`` fields.
     """
-    remaining = bye_teams + round1_winners
-    remaining.sort(key=lambda t: t.get("seed", 0))
+    # combine and drop any None placeholders which might arise from
+    # incomplete DB records or bye-handling quirks.
+    remaining = [t for t in (bye_teams + round1_winners) if t]
+    # ensure seeds default to 0 when explicitly None (get default only when key missing)
+    remaining.sort(key=lambda t: t.get("seed") if t.get("seed") is not None else 0)
     matches: List[Dict[str, Any]] = []
     total = len(remaining)
     for i in range(total // 2):
@@ -172,6 +185,17 @@ def extract_round_winners(matches: List[Dict[str, Any]],
         else:
             t1 = m.get("team_1")
             t2 = m.get("team_2")
+            # guard against malformed entries
+            if not t1 and not t2:
+                # nothing to do for this match
+                continue
+            if not t1:
+                winners.append(t2)
+                continue
+            if not t2:
+                winners.append(t1)
+                continue
+
             s1 = m.get("team_1_score", 0) or 0
             s2 = m.get("team_2_score", 0) or 0
             if s1 > s2:

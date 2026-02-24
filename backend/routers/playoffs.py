@@ -20,10 +20,10 @@ class PlayoffSettingsSchema(BaseModel):
     playoff_tiebreakers: List[str]
 
 class SettingsUpdateRequest(BaseModel):
-    playoff_qualifiers: Optional[int]
-    playoff_reseed: Optional[bool]
-    playoff_consolation: Optional[bool]
-    playoff_tiebreakers: Optional[List[str]]
+    playoff_qualifiers: Optional[int] = None
+    playoff_reseed: Optional[bool] = None
+    playoff_consolation: Optional[bool] = None
+    playoff_tiebreakers: Optional[List[str]] = None
 
 class GenerateRequest(BaseModel):
     league_id: int
