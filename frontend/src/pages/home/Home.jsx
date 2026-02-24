@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
 import FeedPill from '../../components/feeds/FeedPill';
-import BracketAccordion from '../../components/BracketAccordion';
+import BracketAccordion from './components/BracketAccordion';
 import { FiAward, FiActivity, FiBarChart2 } from 'react-icons/fi';
 
 export default function Home({ username }) {
