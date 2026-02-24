@@ -1,10 +1,10 @@
 import React from 'react';
 import { FiTool } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 
 export default function CommishAdmin() {
-  const navigate = (path) => {
-    window.location.href = path;
-  };
+  const navigate = useNavigate();
+
   return (
     <div className="p-8 max-w-6xl mx-auto text-white min-h-screen">
       <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">

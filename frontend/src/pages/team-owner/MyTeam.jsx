@@ -397,6 +397,16 @@ export default function MyTeam({ activeOwnerId }) {
     fetchUserLeague();
   }, [viewedOwnerId]);
 
+  // weeklyPlan always derives from the actual roster state (used for both display and
+  // initializing recommended view).  We swap to recState manually when rendering
+  // the recommended view rather than making weeklyPlan depend on recState, which
+  // would create circular updates.
+  const weeklyPlan = useMemo(
+    () =>
+      buildWeeklyStartSitPlan(rosterState, selectedWeek, starterRequirements),
+    [rosterState, selectedWeek, starterRequirements]
+  );
+
   // initialize recommended state when entering recommended view or when the
   // underlying roster/plan changes.  We deliberately compute from weeklyPlan
   // (which uses the actual roster) so that recState is seeded correctly and
@@ -483,16 +493,6 @@ export default function MyTeam({ activeOwnerId }) {
   const weekOptions = useMemo(
     () => Array.from({ length: 18 }, (_, index) => index + 1),
     []
-  );
-
-  // weeklyPlan always derives from the actual roster state (used for both display and
-  // initializing recommended view).  We swap to recState manually when rendering
-  // the recommended view rather than making weeklyPlan depend on recState, which
-  // would create circular updates.
-  const weeklyPlan = useMemo(
-    () =>
-      buildWeeklyStartSitPlan(rosterState, selectedWeek, starterRequirements),
-    [rosterState, selectedWeek, starterRequirements]
   );
 
   const sortByPreference = useCallback(
