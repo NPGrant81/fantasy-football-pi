@@ -86,7 +86,7 @@ export default function ManageWaiverRules() {
 
       await apiClient.put('/leagues/1/settings', payload);
       setMessage('Waiver rules updated successfully.');
-    } catch (err) {
+    } catch {
       setMessage('Failed to update waiver rules.');
     } finally {
       setLoading(false);
@@ -111,7 +111,9 @@ export default function ManageWaiverRules() {
           onChange={(e) => setWaiverDeadline(e.target.value)}
           placeholder="e.g. 2026-09-01T10:00:00Z or 'Wednesdays at 10am ET'"
         />
-        <label htmlFor="starting-budget" className="block mb-2 font-bold">Starting FAAB Budget</label>
+        <label htmlFor="starting-budget" className="block mb-2 font-bold">
+          Starting FAAB Budget
+        </label>
         <input
           id="starting-budget"
           type="number"
@@ -121,7 +123,9 @@ export default function ManageWaiverRules() {
           onChange={(e) => setStartingBudget(e.target.value)}
           placeholder="e.g. 100"
         />
-        <label htmlFor="waiver-system" className="block mb-2 font-bold">Waiver System</label>
+        <label htmlFor="waiver-system" className="block mb-2 font-bold">
+          Waiver System
+        </label>
         <select
           id="waiver-system"
           value={waiverSystem}
@@ -132,7 +136,9 @@ export default function ManageWaiverRules() {
           <option value="PRIORITY">Priority</option>
           <option value="BOTH">Both</option>
         </select>
-        <label htmlFor="tiebreaker-rule" className="block mb-2 font-bold">Tie-breaker rule</label>
+        <label htmlFor="tiebreaker-rule" className="block mb-2 font-bold">
+          Tie-breaker rule
+        </label>
         <select
           id="tiebreaker-rule"
           value={tieBreaker}
@@ -144,7 +150,9 @@ export default function ManageWaiverRules() {
           <option value="timestamp">Earliest timestamp</option>
         </select>
 
-        <label htmlFor="roster-size" className="block mb-2 font-bold">Roster Size Limit</label>
+        <label htmlFor="roster-size" className="block mb-2 font-bold">
+          Roster Size Limit
+        </label>
         <input
           id="roster-size"
           type="number"

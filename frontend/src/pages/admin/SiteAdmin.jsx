@@ -56,7 +56,9 @@ export default function SiteAdmin() {
       showToast('Invalid year', 'error');
       return;
     }
-    let week = window.prompt('Enter week number (leave blank for full season):');
+    let week = window.prompt(
+      'Enter week number (leave blank for full season):'
+    );
     if (week !== null && week.trim() === '') {
       week = undefined;
     } else if (week !== null) {

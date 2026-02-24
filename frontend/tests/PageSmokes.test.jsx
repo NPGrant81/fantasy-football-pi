@@ -211,8 +211,11 @@ describe('ManageWaiverRules (Smoke Test)', () => {
     apiClient.put.mockResolvedValue({ data: {} });
 
     const { getByLabelText, getByText } = render(<ManageWaiverRules />);
-    await waitFor(() => expect(getByLabelText(/Waiver Deadline/i)).toBeInTheDocument());
-    expect(getByLabelText(/Roster Size Limit/i).value).toBe('16');
+    await waitFor(() => {
+      expect(getByLabelText(/Waiver Deadline/i)).toBeInTheDocument();
+      // roster size loads after the settings fetch resolves
+      expect(getByLabelText(/Roster Size Limit/i).value).toBe('16');
+    });
     fireEvent.change(getByLabelText(/Waiver Deadline/i), { target: { value: 'new-deadline' } });
     fireEvent.change(getByLabelText(/Starting FAAB Budget/i), { target: { value: '150' } });
     fireEvent.change(getByLabelText(/Waiver System/i), { target: { value: 'BOTH' } });
