@@ -3,10 +3,22 @@ import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
 import FeedPill from '../../components/feeds/FeedPill';
+import BracketAccordion from '../../components/BracketAccordion';
 import { FiAward, FiActivity, FiBarChart2 } from 'react-icons/fi';
 
 export default function Home({ username }) {
   const [standings, setStandings] = useState([]);
+  const [sortField, setSortField] = useState('wins');
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
   const [news, setNews] = useState([]);
   const [leagueName, setLeagueName] = useState('');
   const leagueId = localStorage.getItem('fantasyLeagueId');
@@ -75,6 +87,8 @@ export default function Home({ username }) {
       </Link>
 
       {/* 2.2 STANDINGS & ACTIVITY GRID */}
+      {/* 2.1.5 PLAYOFF BRACKET (COLLAPSIBLE) */}
+      <BracketAccordion />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 2.2.1 STANDINGS MODULE */}
         <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-xl p-6 shadow-xl">
@@ -90,13 +104,29 @@ export default function Home({ username }) {
               <thead className="text-xs text-slate-500 uppercase bg-slate-950/50">
                 <tr>
                   <th className="px-4 py-3">Rank</th>
-                  <th className="px-4 py-3">Team</th>
-                  <th className="px-4 py-3">Owner</th>
+                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('team_name')}>Team</th>
+                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('username')}>Owner</th>
+                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('wins')}>W-L-T</th>
+                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('pf')}>PF</th>
+                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('pa')}>PA</th>
                 </tr>
               </thead>
               <tbody>
                 {standings.length > 0 ? (
-                  standings.map((owner, idx) => (
+                  {/** apply sorting */}
+                  {[...standings]
+                    .sort((a, b) => {
+                      let av = a[sortField] || 0;
+                      let bv = b[sortField] || 0;
+                      if (sortField === 'team_name' || sortField === 'username') {
+                        av = av.toLowerCase();
+                        bv = bv.toLowerCase();
+                      }
+                      if (av < bv) return sortAsc ? -1 : 1;
+                      if (av > bv) return sortAsc ? 1 : -1;
+                      return 0;
+                    })
+                    .map((owner, idx) => (
                     <tr
                       key={owner.id}
                       className="border-b border-slate-800 hover:bg-slate-800/50"
@@ -122,6 +152,11 @@ export default function Home({ username }) {
                           {owner.username}
                         </Link>
                       </td>
+                      <td className="px-4 py-3">
+                        {owner.wins}-{owner.losses}-{owner.ties}
+                      </td>
+                      <td className="px-4 py-3">{owner.pf}</td>
+                      <td className="px-4 py-3">{owner.pa}</td>
                     </tr>
                   ))
                 ) : (

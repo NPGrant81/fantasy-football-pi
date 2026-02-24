@@ -48,11 +48,11 @@ describe('Home (League Dashboard)', () => {
     expect(screen.getByText('alice')).toBeInTheDocument();
   });
 
-  test('renders standings table with owners', async () => {
+  test('renders standings table with owners including stats', async () => {
     const mockOwners = [
-      { id: 1, username: 'alice', team_name: 'Runaway Train' },
-      { id: 2, username: 'bob', team_name: 'The Legends' },
-      { id: 3, username: 'charlie', team_name: 'Sky Club' },
+      { id: 1, username: 'alice', team_name: 'Runaway Train', wins: 2, losses: 1, ties: 0, pf: 250, pa: 200 },
+      { id: 2, username: 'bob', team_name: 'The Legends', wins: 1, losses: 2, ties: 0, pf: 180, pa: 220 },
+      { id: 3, username: 'charlie', team_name: 'Sky Club', wins: 0, losses: 3, ties: 0, pf: 150, pa: 260 },
     ];
 
     apiClient.get.mockImplementation((url) => {
@@ -80,6 +80,11 @@ describe('Home (League Dashboard)', () => {
     expect(tableScope.getByText('alice')).toBeInTheDocument();
     expect(tableScope.getByText('bob')).toBeInTheDocument();
     expect(tableScope.getByText('charlie')).toBeInTheDocument();
+
+    // verify stats columns rendered
+    expect(tableScope.getByText('2-1-0')).toBeInTheDocument();
+    expect(tableScope.getByText('250')).toBeInTheDocument();
+    expect(tableScope.getByText('200')).toBeInTheDocument();
   });
 
   test('displays ranking (1st place highlighted in yellow)', async () => {
@@ -178,25 +183,63 @@ describe('Home (League Dashboard)', () => {
     });
   });
 
-  test('fetches data from correct league ID from localStorage', async () => {
-    localStorage.setItem('fantasyLeagueId', '5');
-
+  test('bracket accordion fetches and displays matches', async () => {
+    const bracketData = {
+      championship: [
+        { match_id: 'm1', round: 1, is_bye: true, team_1_id: 1, team_2_id: null, winner_to: 'r2_m1' },
+      ],
+      consolation: [],
+    };
     apiClient.get.mockImplementation((url) => {
-      if (url === '/leagues/5') {
-        return Promise.resolve({ data: { name: 'Custom League' } });
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
       }
-      if (url === '/leagues/owners?league_id=5') {
+      if (url === '/leagues/owners?league_id=1') {
         return Promise.resolve({ data: [] });
       }
-      if (url === '/leagues/5/news') {
+      if (url === '/leagues/1/news') {
         return Promise.resolve({ data: [] });
+      }
+      if (url.startsWith('/playoffs/bracket')) {
+        return Promise.resolve({ data: bracketData });
       }
       return Promise.reject(new Error('Unknown URL'));
     });
 
     renderHome('alice');
 
+    // open accordion
+    const summary = screen.getByText(/playoff bracket/i);
+    summary.click();
+
     await waitFor(() => {
+      expect(screen.getByText(/m1/)).toBeInTheDocument();
+    });
+  });
+
+  test('sorting headers reorder standings', async () => {
+    const mockOwners = [
+      { id: 1, username: 'zeta', team_name: 'Z', wins: 1, losses:0, ties:0, pf: 100, pa: 50 },
+      { id: 2, username: 'alpha', team_name: 'A', wins: 2, losses:0, ties:0, pf: 150, pa: 60 },
+    ];
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'L' } });
+      if (url === '/leagues/owners?league_id=1') return Promise.resolve({ data: mockOwners });
+      if (url === '/leagues/1/news') return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderHome('alice');
+    await waitFor(() => screen.getByText('Z'));
+    // click PF header to sort ascending
+    const pfHeader = screen.getByText('PF');
+    pfHeader.click();
+    // after sorting ascending, Z (100) should appear before A (150)
+    const rows = screen.getAllByRole('row');
+    expect(rows[1]).toHaveTextContent('Z');
+    pfHeader.click(); // toggle descending
+    expect(rows[1]).toHaveTextContent('A');
+  });
       expect(apiClient.get).toHaveBeenCalledWith('/leagues/5');
       expect(apiClient.get).toHaveBeenCalledWith('/leagues/owners?league_id=5');
       expect(apiClient.get).toHaveBeenCalledWith('/leagues/5/news');

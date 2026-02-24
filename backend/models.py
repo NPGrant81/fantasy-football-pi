@@ -16,9 +16,12 @@ class User(Base):
     
     # 1.2 LEAGUE INFO
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
-    division = Column(String, nullable=True)
+    # new division mapping -- optional FK
+    division_id = Column(Integer, ForeignKey("divisions.id"), nullable=True)
     team_name = Column(String, nullable=True)
 
+    # relationships
+    division_obj = relationship("Division", back_populates="users")
     # Relationships
     league = relationship("League", back_populates="users") 
     picks = relationship("DraftPick", back_populates="owner")
@@ -40,9 +43,11 @@ class League(Base):
     users = relationship("User", back_populates="league")
     scoring_rules = relationship("ScoringRule", back_populates="league")
     settings = relationship("LeagueSettings", back_populates="league", uselist=False)
+    divisions = relationship("Division", back_populates="league")
     matchups = relationship("Matchup", back_populates="league")
     draft_picks = relationship("DraftPick", back_populates="league")
     waiver_claims = relationship("WaiverClaim", back_populates="league")
+    playoff_snapshots = relationship("PlayoffSnapshot", back_populates="league")
 
 # --- 3. LEAGUE SETTINGS ---
 class LeagueSettings(Base):
@@ -61,6 +66,12 @@ class LeagueSettings(Base):
     waiver_tiebreaker = Column(String, default='standings')
     trade_deadline = Column(String, nullable=True)   # new trade deadline option
     draft_year = Column(Integer, nullable=True)
+
+    # --- Playoff configuration ---
+    playoff_qualifiers = Column(Integer, default=6)
+    playoff_reseed = Column(Boolean, default=False)
+    playoff_consolation = Column(Boolean, default=True)
+    playoff_tiebreakers = Column(JSON, default=["points_for", "head_to_head", "division_wins", "wins"])
     
     league = relationship("League", back_populates="settings")
 
@@ -77,6 +88,19 @@ class LineupSubmission(Base):
     # relationships could be added if needed
 
 # --- 4. PLAYER TABLE ---
+
+# --- 3.2 DIVISIONS ---
+class Division(Base):
+    __tablename__ = "divisions"
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"))
+    name = Column(String, nullable=False)
+
+    league = relationship("League", back_populates="divisions")
+    users = relationship("User", back_populates="division_obj")
+
+# modify User to reference Division
+# insert after user class definition modifications
 class Player(Base):
     __tablename__ = "players"
     id = Column(Integer, primary_key=True, index=True)
@@ -92,6 +116,36 @@ class Player(Base):
     draft_pick = relationship("DraftPick", back_populates="player", uselist=False)
 
 # --- 5. DRAFT PICK TABLE ---
+
+# --- 4.1 PLAYOFF SNAPSHOTS ---
+class PlayoffSnapshot(Base):
+    __tablename__ = "playoff_snapshots"
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"))
+    season = Column(Integer, index=True)
+    data = Column(JSON, nullable=False)  # full bracket structure
+    created_at = Column(String, nullable=True)
+
+    league = relationship("League", back_populates="playoff_snapshots")
+
+
+# --- 4.2 PLAYOFF MATCHES (CURRENT STATE) ---
+class PlayoffMatch(Base):
+    __tablename__ = "playoff_matches"
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"))
+    season = Column(Integer, index=True)
+    match_id = Column(String, index=True)
+    round = Column(Integer, nullable=False)
+    team_1_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    team_2_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    team_1_score = Column(Float, nullable=True)
+    team_2_score = Column(Float, nullable=True)
+    is_bye = Column(Boolean, default=False)
+    winner_to = Column(String, nullable=True)
+
+    league = relationship("League")
+
 class DraftPick(Base):
     __tablename__ = "draft_picks"
     id = Column(Integer, primary_key=True, index=True)

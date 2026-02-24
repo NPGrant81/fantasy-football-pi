@@ -154,20 +154,66 @@ def get_leagues(db: Session = Depends(get_db)):
 # --- NEW: GET /league/owners?league_id= ---
 # This is a GET endpoint to match the frontend call, but is defined here for convenience.
 @router.get("/owners")
-def get_league_owners(league_id: int = Query(...), db: Session = Depends(get_db)):
+def get_league_owners(league_id: int = Query(...),
+                      group_by_division: bool = Query(False),
+                      db: Session = Depends(get_db)):
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
     owners = db.query(models.User).filter(models.User.league_id == league_id).all()
-    return [
-        {
-            "id": o.id,
-            "username": o.username,
-            "email": o.email,
-            "team_name": o.team_name,
-        }
-        for o in owners
-    ]
+
+    def calc_stats(owner_id: int) -> dict:
+        """Return aggregated W/L/T, PF, PA for a single owner."""
+        w = l = t = pf = pa = 0
+        matches = db.query(models.Matchup).filter(
+            or_(
+                models.Matchup.home_team_id == owner_id,
+                models.Matchup.away_team_id == owner_id,
+            )
+        ).all()
+        for m in matches:
+            # skip not-yet-played
+            if not m.is_completed:
+                continue
+            if m.home_team_id == owner_id:
+                score = m.home_score or 0
+                opp = m.away_score or 0
+            else:
+                score = m.away_score or 0
+                opp = m.home_score or 0
+            pf += score
+            pa += opp
+            if score > opp:
+                w += 1
+            elif score < opp:
+                l += 1
+            else:
+                t += 1
+        return {"wins": w, "losses": l, "ties": t, "pf": pf, "pa": pa}
+
+    owners_data = []
+    for o in owners:
+        stats = calc_stats(o.id)
+        owners_data.append(
+            {
+                "id": o.id,
+                "username": o.username,
+                "email": o.email,
+                "team_name": o.team_name,
+                "division_id": o.division_id,
+                "division_name": o.division_obj.name if o.division_obj else None,
+                **stats,
+            }
+        )
+
+    # optionally group by division as secondary sort
+    if group_by_division:
+        owners_data.sort(
+            key=lambda o: (o.get("division_id") or 0, -o["wins"], -o["pf"])
+        )
+    else:
+        owners_data.sort(key=lambda o: (-o["wins"], -o["pf"]))
+    return owners_data
 
 # --- NEW: GET /leagues/{league_id} ---
 @router.get("/{league_id}", response_model=LeagueSummary)

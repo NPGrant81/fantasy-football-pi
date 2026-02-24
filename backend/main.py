@@ -12,7 +12,7 @@ from core.security import get_password_hash, check_is_commissioner
 # Import All Routers
 from routers import (
     admin, admin_tools, team, matchups, league, advisor,
-    dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl
+    dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs
 )
 
 load_dotenv()
@@ -89,6 +89,7 @@ app.include_router(draft.router)
 app.include_router(team.router)
 app.include_router(matchups.router)
 app.include_router(league.router)
+app.include_router(playoffs.router)  # new playoff endpoints
 app.include_router(advisor.router)
 app.include_router(dashboard.router)
 app.include_router(players.router) 
