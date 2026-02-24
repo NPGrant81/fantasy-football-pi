@@ -92,9 +92,9 @@ frontend/src/
 │   ├── commissioner/
 │   │   ├── CommissionerDashboard.jsx
 │   │   └── components/     # Components used only by commissioner pages
-│   └── admin/
-│       └── SiteAdmin.jsx
-├── analytics/             # Dashboard and metrics pages (optional feature)
+│   ├── admin/
+│   │   └── SiteAdmin.jsx
+│   └── analytics/          # Dashboard and metrics pages (optional feature)
 ├── App.jsx                 # Router and auth/league guards
 └── main.jsx                # App bootstrap
 
