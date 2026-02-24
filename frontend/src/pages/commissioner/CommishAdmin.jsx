@@ -37,9 +37,9 @@ export default function CommishAdmin() {
         </button>
         <button
           className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
-          onClick={() => navigate('/commissioner/manage-waiver-rules')}
+          onClick={() => navigate('/waiver-rules')}
         >
-          MANAGE
+          EDIT
           <br />
           WAIVER RULES
         </button>

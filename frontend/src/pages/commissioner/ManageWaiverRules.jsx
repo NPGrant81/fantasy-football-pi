@@ -3,8 +3,11 @@ import apiClient from '@api/client';
 
 export default function ManageWaiverRules() {
   const [waiverDeadline, setWaiverDeadline] = useState('');
+  const [rosterSize, setRosterSize] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [claims, setClaims] = useState([]); // waiver claim history for auditors
+  const [claimsLoading, setClaimsLoading] = useState(false);
 
   // Fetch current waiver deadline on mount
   useEffect(() => {
@@ -13,12 +16,27 @@ export default function ManageWaiverRules() {
         // Assume leagueId is 1 for demo; replace with real league context
         const res = await apiClient.get('/leagues/1/settings');
         setWaiverDeadline(res.data.waiver_deadline || '');
+        setRosterSize(res.data.roster_size ? String(res.data.roster_size) : '');
       } catch {
         setMessage('Failed to load waiver rules');
       }
     }
     fetchWaiverSettings();
+    fetchClaims();
   }, []);
+
+  // fetch historical waiver claims (commissioner only)
+  const fetchClaims = async () => {
+    setClaimsLoading(true);
+    try {
+      const res = await apiClient.get('/waivers/claims');
+      setClaims(res.data || []);
+    } catch {
+      // ignore failures for now
+    } finally {
+      setClaimsLoading(false);
+    }
+  };
 
   // Handle form submit
   const handleSubmit = async (e) => {
@@ -26,13 +44,18 @@ export default function ManageWaiverRules() {
     setLoading(true);
     setMessage('');
     try {
-      // PATCH/PUT to update waiver_deadline (assume leagueId 1)
-      await apiClient.put('/leagues/1/settings', {
+      // fetch existing settings to satisfy backend schema
+      const existingRes = await apiClient.get('/leagues/1/settings');
+      const existing = existingRes.data || {};
+      const payload = {
+        ...existing,
         waiver_deadline: waiverDeadline,
-      });
-      setMessage('Waiver deadline updated!');
+        roster_size: rosterSize ? Number(rosterSize) : existing.roster_size,
+      };
+      await apiClient.put('/leagues/1/settings', payload);
+      setMessage('Waiver rules updated!');
     } catch {
-      setMessage('Failed to update waiver deadline');
+      setMessage('Failed to update waiver rules');
     } finally {
       setLoading(false);
     }
@@ -55,6 +78,18 @@ export default function ManageWaiverRules() {
           onChange={(e) => setWaiverDeadline(e.target.value)}
           placeholder="e.g. 2026-09-01T10:00:00Z or 'Wednesdays at 10am ET'"
         />
+
+        <label className="block mb-2 font-bold">
+          Roster Size Limit
+        </label>
+        <input
+          type="number"
+          min="1"
+          className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700 mb-4"
+          value={rosterSize}
+          onChange={(e) => setRosterSize(e.target.value)}
+          placeholder="e.g. 14"
+        />
         <button
           type="submit"
           className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded"
@@ -69,7 +104,47 @@ export default function ManageWaiverRules() {
         <div className="text-slate-300">
           <strong>Waiver Deadline:</strong> {waiverDeadline || 'Not set'}
         </div>
-        {/* Add more waiver rules here as needed */}
+        <div className="text-slate-300">
+          <strong>Roster Size Limit:</strong> {rosterSize || 'Default'}
+        </div>
+      </div>
+
+      <div className="mt-10">
+        <h2 className="text-xl font-bold mb-4">Waiver Claim History</h2>
+        {claimsLoading ? (
+          <p className="text-slate-400">Loading history...</p>
+        ) : claims.length ? (
+          <div className="overflow-x-auto bg-slate-900 rounded-xl p-4">
+            <table className="w-full text-sm text-slate-300">
+              <thead className="text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">Time</th>
+                  <th className="px-3 py-2">User</th>
+                  <th className="px-3 py-2">Player</th>
+                  <th className="px-3 py-2">Dropped</th>
+                  <th className="px-3 py-2">Bid</th>
+                  <th className="px-3 py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {claims.map((c) => (
+                  <tr key={c.id} className="border-t border-slate-800">
+                    <td className="px-3 py-2 text-xs font-mono text-slate-400">
+                      {c.id /* no timestamp field yet */}
+                    </td>
+                    <td className="px-3 py-2">{c.username || c.user_id}</td>
+                    <td className="px-3 py-2">{c.player_name || c.player_id}</td>
+                    <td className="px-3 py-2">{c.drop_player_name || '-'}</td>
+                    <td className="px-3 py-2">{c.bid_amount}</td>
+                    <td className="px-3 py-2 capitalize">{c.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-slate-400 italic">No claims recorded yet.</p>
+        )}
       </div>
     </div>
   );

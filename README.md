@@ -56,7 +56,7 @@ or commit it yourself.
 | My Team (`/team`, `/team/:ownerId`) | `GET /auth/me`, `GET /team/{ownerId}`, `GET /dashboard/{ownerId}`, `POST /trades/propose`, `GET /players/{id}/season-details` |
 | Matchups (`/matchups`) | `GET /matchups/week/{week}`, plus `GET /auth/me`, `GET /leagues/{id}` |
 | Game Center (`/matchup/:id`) | `GET /matchups/{id}` |
-| Waiver Wire (`/waivers`) | `GET /players/waiver-wire`, `POST /waivers/claim`, `GET /dashboard/{ownerId}`, `GET /leagues/*` |
+| Waiver Wire (`/waivers`) | `GET /players/waiver-wire`, `POST /waivers/claim`, `GET /waivers/claims` (commissioner audit), `GET /dashboard/{ownerId}`, `GET /leagues/*` |
 | Commissioner (`/commissioner`) | `GET/PUT /leagues/{id}/settings`, `GET /leagues/owners`, `GET /trades/pending`, budget + draft-year endpoints |
 | Site Admin (`/admin`) | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft` |
 | Bug Report (`/bug-report`) | `PUT /auth/email`, `POST /feedback/bug` |

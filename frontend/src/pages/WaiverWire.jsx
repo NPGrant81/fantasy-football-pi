@@ -219,6 +219,14 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
                 Waiver Deadline: {waiverDeadline}
               </div>
             )}
+            <div className="mt-1 text-xs">
+              <a
+                href="/waiver-rules"
+                className="underline text-blue-400 hover:text-blue-200"
+              >
+                View waiver rules
+              </a>
+            </div>
           </div>
         </div>
 

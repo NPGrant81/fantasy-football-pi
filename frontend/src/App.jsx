@@ -26,9 +26,13 @@ const ManageOwners = lazy(() => import('./pages/commissioner/ManageOwners'));
 const Home = lazy(() => import('./pages/home/Home'));
 const DraftBoard = lazy(() => import('./pages/DraftBoard'));
 const Waivers = lazy(() => import('./pages/WaiverWire'));
+const WaiverRules = lazy(() => import('./pages/WaiverRules'));
 const SiteAdmin = lazy(() => import('./pages/admin/SiteAdmin'));
 const ManageCommissioners = lazy(
   () => import('./pages/admin/ManageCommissioners')
+);
+const ManageWaiverRules = lazy(
+  () => import('./pages/commissioner/ManageWaiverRules')
 );
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
@@ -250,6 +254,10 @@ function App() {
               element={<ManageOwners />}
             />
             <Route
+              path="/commissioner/manage-waiver-rules"
+              element={<ManageWaiverRules />}
+            />
+            <Route
               path="/waivers"
               element={
                 <Waivers
@@ -258,6 +266,10 @@ function App() {
                   leagueName={activeLeagueId}
                 />
               }
+            />
+            <Route
+              path="/waiver-rules"
+              element={<WaiverRules leagueId={activeLeagueId} />}
             />
             <Route path="/bug-report" element={<BugReport />} />
             <Route path="/analytics" element={<AnalyticsDashboard />} />

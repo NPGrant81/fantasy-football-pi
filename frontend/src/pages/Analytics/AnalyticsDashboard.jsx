@@ -17,6 +17,39 @@ import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import './AnalyticsDashboard.css';
 
 const AnalyticsDashboard = () => {
+  const [selected, setSelected] = React.useState(null); // null, 'draft','manager','weekly','heatmap'
+
+  const renderChart = () => {
+    switch (selected) {
+      case 'draft':
+        return (
+          <div className="chart-card">
+            <DraftValueBoard />
+          </div>
+        );
+      case 'manager':
+        return (
+          <div className="chart-card">
+            <ManagerTrendChart />
+          </div>
+        );
+      case 'weekly':
+        return (
+          <div className="chart-card">
+            <WeeklyMatchupChart />
+          </div>
+        );
+      case 'heatmap':
+        return (
+          <div className="chart-card">
+            <PlayerHeatmap />
+          </div>
+        );
+      default:
+        return <p className="no-selection">Select a chart above to display it.</p>;
+    }
+  };
+
   return (
     <div className="analytics-dashboard">
       <div className="dashboard-header">
@@ -24,22 +57,35 @@ const AnalyticsDashboard = () => {
         <p>Advanced insights and visualizations for your fantasy league</p>
       </div>
 
+      <div className="button-row">
+        <button
+          className={selected === 'draft' ? 'active' : ''}
+          onClick={() => setSelected('draft')}
+        >
+          Draft Value Analysis
+        </button>
+        <button
+          className={selected === 'manager' ? 'active' : ''}
+          onClick={() => setSelected('manager')}
+        >
+          Manager Performance Trends
+        </button>
+        <button
+          className={selected === 'weekly' ? 'active' : ''}
+          onClick={() => setSelected('weekly')}
+        >
+          Weekly Matchup Comparison
+        </button>
+        <button
+          className={selected === 'heatmap' ? 'active' : ''}
+          onClick={() => setSelected('heatmap')}
+        >
+          Player Heatmap
+        </button>
+      </div>
+
       <div className="charts-grid">
-        <div className="chart-card">
-          <DraftValueBoard />
-        </div>
-
-        <div className="chart-card">
-          <ManagerTrendChart />
-        </div>
-
-        <div className="chart-card">
-          <WeeklyMatchupChart />
-        </div>
-
-        <div className="chart-card">
-          <PlayerHeatmap />
-        </div>
+        {renderChart()}
       </div>
     </div>
   );
