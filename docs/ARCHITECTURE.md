@@ -10,6 +10,8 @@ backend/
 ├── routers/           # 1.3 FastAPI route definitions (The Front Door)
 ├── services/          # 1.4 Business logic and DB operations (The Engine)
 ├── scripts/           # 1.5 CLI tools (Reset, Seed, Sync)
+#    * **Placement rule:** any helper/debugging scripts that run in Python
+#      should live here under `backend/scripts/` rather than the project root.
 ├── models.py          # 1.6 SQLAlchemy database models
 ├── database.py        # 1.7 Database engine and session setup
 └── main.py            # 1.8 Application entry point
@@ -34,7 +36,7 @@ Seeding & Maintenance
 One-time setup tasks and destructive actions (like resetting the draft) are isolated in the scripts/ folder. This ensures that "nuclear" logic is never accidentally executed by the web server.
 Why this works:
 • Separation of Concerns: You can update the "Waiver Claim" logic in the service layer without touching the API endpoint in the router.
-• Scalability: New features (like Trades or Playoff Brackets) have a clear, predetermined home in the directory tree.
+• Scalability: New features (like Trades or Playoff Brackets) have a clear, predetermined home in the directory tree—e.g. backend routers under `routers/` with companion logic in `services/` or `utils/`, and corresponding UI under `frontend/pages/`.
 • AI Coordination: Maintaining this file helps AI tools understand your specific architectural invariants, leading to better code suggestions.
 
 ---
