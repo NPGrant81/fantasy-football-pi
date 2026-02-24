@@ -5,6 +5,7 @@ vi.mock('../src/api/client', () => ({
   default: {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(), // added for settings updates
   },
 }));
 
@@ -124,7 +125,8 @@ describe('WaiverWire (Smoke Test)', () => {
       const { getByText, queryByText } = render(<WaiverRules leagueId={1} />);
       await waitFor(() => {
         expect(getByText(/Waiver Wire Rules/i)).toBeInTheDocument();
-        expect(getByText(/D/)).toBeInTheDocument();
+        // deadline text may be a single letter 'D'; ensure the label appears
+        expect(getByText(/Waiver Deadline/i)).toBeInTheDocument();
         expect(getByText(/12/)).toBeInTheDocument(); // roster size always shown
       });
       expect(queryByText(/Edit Waiver Rules/i)).toBeNull();

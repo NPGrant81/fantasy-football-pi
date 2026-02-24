@@ -398,19 +398,6 @@ export default function MyTeam({ activeOwnerId }) {
   }, [viewedOwnerId]);
 
 
-  // initialize recommended state when entering recommended view or when the
-  // underlying roster/plan changes.  We deliberately compute from weeklyPlan
-  // (which uses the actual roster) so that recState is seeded correctly and
-  // does not later force an update cycle.
-  useEffect(() => {
-    if (viewMode !== 'recommended') return;
-    const starts = (weeklyPlan.starters || []).map((p) => ({ ...p, status: 'STARTER' }));
-    const sits = [
-      ...(weeklyPlan.sits || []),
-      ...(weeklyPlan.byePlayers || []),
-    ].map((p) => ({ ...p, status: 'BENCH' }));
-    setRecState([...starts, ...sits]);
-  }, [viewMode, weeklyPlan.starters, weeklyPlan.sits, weeklyPlan.byePlayers]);
 
   useEffect(() => {
     async function loadTargetRoster() {
@@ -443,6 +430,20 @@ export default function MyTeam({ activeOwnerId }) {
       buildWeeklyStartSitPlan(rosterState, selectedWeek, starterRequirements),
     [rosterState, selectedWeek, starterRequirements]
   );
+
+  // initialize recommended state when entering recommended view or when the
+  // underlying roster/plan changes.  We deliberately compute from weeklyPlan
+  // (which uses the actual roster) so that recState is seeded correctly and
+  // does not later force an update cycle.
+  useEffect(() => {
+    if (viewMode !== 'recommended') return;
+    const starts = (weeklyPlan.starters || []).map((p) => ({ ...p, status: 'STARTER' }));
+    const sits = [
+      ...(weeklyPlan.sits || []),
+      ...(weeklyPlan.byePlayers || []),
+    ].map((p) => ({ ...p, status: 'BENCH' }));
+    setRecState([...starts, ...sits]);
+  }, [viewMode, weeklyPlan.starters, weeklyPlan.sits, weeklyPlan.byePlayers]);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [startSitSort, setStartSitSort] = useState('position');
   // FIX: Start loading as true to avoid sync setState inside useEffect
