@@ -197,9 +197,9 @@ This project uses **Agile Story numbering** to organize features and tasks with 
   - [#34](https://github.com/NPGrant81/fantasy-football-pi/issues/34) - Backend Integration
   - [#35](https://github.com/NPGrant81/fantasy-football-pi/issues/35) - Testing
   - [#36](https://github.com/NPGrant81/fantasy-football-pi/issues/36) - Documentation
-- **Status:** ⏳ PLANNED
+- **Status:** ✅ COMPLETED
 - **Priority:** High
-- **Details:** Commissioner UI to manage waiver rules, processing times, bidding settings
+- **Details:** Commissioner UI to manage waiver deadlines, starting FAAB budget, system type (FAAB/priority/both), tie‑breaker rule, roster limits, and audit trail. Owner budgets can be inspected.
 
 ### Story 8.2: Commissioner - Scoring Rules Page
 - **GitHub Issue:** [#37](https://github.com/NPGrant81/fantasy-football-pi/issues/37)

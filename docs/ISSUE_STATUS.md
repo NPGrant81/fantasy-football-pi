@@ -35,10 +35,10 @@
 
 ### Story 5.2-5.4: Waiver System
 - **Status:** ✅ COMPLETED
-- **Frontend:** [WaiverWire.jsx](frontend/src/pages/WaiverWire.jsx) with bid management
-- **Backend:** `/waivers` router with processing logic, notifications, blind bidding
-- **Details:** Full waiver processing with blind bid management and result notifications
-- **Verification:** Waivers processed on schedule, results posted
+- **Frontend:** [WaiverWire.jsx](frontend/src/pages/WaiverWire.jsx) with bid management; new `WaiverRules.jsx` and commissioner pages for rules/budgets
+- **Backend:** `/waivers` router with processing logic, notifications, blind bidding; `/leagues/{id}/settings` supports new budget/system/tiebreaker fields; `/leagues/{id}/waiver-budgets` endpoint added
+- **Details:** Full waiver processing with blind bid management, result notifications, and commissioner‑configurable budgets/rules
+- **Verification:** Waivers processed on schedule, results posted; rules editable by commissioner; budget data accessible
 
 ### Story 3.1: Team Customization
 - **Status:** ✅ COMPLETED

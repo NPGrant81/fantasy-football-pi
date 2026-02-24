@@ -16,7 +16,7 @@ Base URL (frontend client): `http://127.0.0.1:8000`
 | Area | Endpoint(s) | Used by |
 |---|---|---|
 | Auth | `POST /auth/token`, `GET /auth/me`, `PUT /auth/email`, `POST /auth/register` | Login flow, user context, bug report email save |
-| League | `GET /leagues/{id}`, `GET /leagues/owners?league_id=`, `GET /leagues/{id}/news`, `GET/PUT /leagues/{id}/settings`, `POST /leagues/{id}/draft-year`, `GET /leagues/{id}/budgets` | Home, Draft, My Team, Matchups, Waivers, Commissioner |
+| League | `GET /leagues/{id}`, `GET /leagues/owners?league_id=`, `GET /leagues/{id}/news`, `GET/PUT /leagues/{id}/settings`, `POST /leagues/{id}/draft-year`, `GET /leagues/{id}/budgets`, `GET /leagues/{id}/waiver-budgets` | Home, Draft, My Team, Matchups, Waivers, Commissioner |
 | Team | `GET /team/{owner_id}` | My Team |
 | Dashboard | `GET /dashboard/{owner_id}` | My Team, Waiver Wire |
 | Players | `GET /players/`, `GET /players/search`, `GET /players/waiver-wire`, `GET /players/{player_id}/season-details` | Draft, Waiver Wire, My Team |
@@ -65,7 +65,7 @@ Notes:
 | `/matchups` Matchups | `GET /auth/me`, `GET /leagues/{league_id}`, `GET /matchups/week/{week}` |
 | `/matchup/:id` Game Center | `GET /matchups/{id}` |
 | `/waivers` Waiver Wire | `GET /players/waiver-wire`, `GET /dashboard/{ownerId}`, `GET /leagues/{leagueId}`, `GET /leagues/{leagueId}/settings`, `POST /waivers/claim` |
-| `/commissioner` Commissioner Dashboard + modals | `GET /leagues/{leagueId}/settings`, `GET /leagues/owners?league_id={leagueId}`, `PUT /leagues/{leagueId}/settings`, `POST /leagues/owners`, `GET /trades/pending`, `POST /trades/{tradeId}/{action}` (frontend reference), `POST /leagues/{leagueId}/draft-year`, `POST /leagues/{leagueId}/budgets` |
+| `/commissioner` Commissioner Dashboard + modals | `GET /leagues/{leagueId}/settings` (includes waiver rules and budget metadata), `GET /leagues/{leagueId}/waiver-budgets`, `GET /leagues/owners?league_id={leagueId}`, `PUT /leagues/{leagueId}/settings`, `POST /leagues/owners`, `GET /trades/pending`, `POST /trades/{tradeId}/{action}` (frontend reference), `POST /leagues/{leagueId}/draft-year`, `POST /leagues/{leagueId}/budgets` |
 | `/admin` Site Admin | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft` |
 | `/bug-report` Bug Report | `PUT /auth/email`, `POST /feedback/bug` |
 | `/analytics` Analytics Dashboard | No direct API call in `AnalyticsDashboard.jsx` (chart components may evolve later) |
