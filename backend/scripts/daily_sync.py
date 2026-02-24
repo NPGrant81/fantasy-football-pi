@@ -14,7 +14,8 @@ import models
 def sync_nfl_reality():
     # import here to avoid requiring the package in lightweight test runs
     try:
-        import nfl_data_py as nfl
+        # optional; may not be installed in minimal environments
+        import nfl_data_py as nfl  # type: ignore[import]
     except ImportError:
         print("⚠️ nfl_data_py not installed; skipping reality sync")
         return
