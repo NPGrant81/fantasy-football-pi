@@ -56,6 +56,9 @@ class LeagueSettings(Base):
         "QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1
     })
     waiver_deadline = Column(String, nullable=True)  # ISO format string, set by commissioner
+    starting_waiver_budget = Column(Integer, default=100)
+    waiver_system = Column(String, default='FAAB')
+    waiver_tiebreaker = Column(String, default='standings')
     trade_deadline = Column(String, nullable=True)   # new trade deadline option
     draft_year = Column(Integer, nullable=True)
     
@@ -118,6 +121,23 @@ class DraftBudget(Base):
     id = Column(Integer, primary_key=True, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"))
     owner_id = Column(Integer, ForeignKey("users.id"))
+
+
+# --- 5.2 WAIVER BUDGETS (for FAAB tracking) ---
+class WaiverBudget(Base):
+    __tablename__ = "waiver_budgets"
+    __table_args__ = (
+        UniqueConstraint("league_id", "owner_id", name="uq_waiver_league_owner"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"))
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    starting_budget = Column(Integer, default=0)
+    remaining_budget = Column(Integer, default=0)
+    spent_budget = Column(Integer, default=0)
+
+    # relationships can be added if needed
     year = Column(Integer, index=True)
     total_budget = Column(Integer, default=200)
 

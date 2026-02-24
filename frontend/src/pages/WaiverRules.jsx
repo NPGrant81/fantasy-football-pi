@@ -28,7 +28,9 @@ export default function WaiverRules({ leagueId }) {
 
   if (rules === null) {
     return (
-      <div className="p-8 text-center text-slate-400">Loading waiver rules...</div>
+      <div className="p-8 text-center text-slate-400">
+        Loading waiver rules...
+      </div>
     );
   }
 
@@ -37,16 +39,20 @@ export default function WaiverRules({ leagueId }) {
       <h1 className="text-4xl font-black mb-6">Waiver Wire Rules</h1>
       <div className="bg-slate-800 p-6 rounded-xl shadow space-y-4">
         <div>
-          <strong>Waiver Deadline:</strong>{' '}
-          {rules.waiver_deadline || 'Not set'}
+          <strong>Waiver Deadline:</strong> {rules.waiver_deadline || 'Not set'}
         </div>
         <div>
-          <strong>Trade Deadline:</strong>{' '}
-          {rules.trade_deadline || 'Not set'}
+          <strong>Starting FAAB Budget:</strong>{' '}
+          {rules.starting_waiver_budget ?? 'N/A'}
         </div>
         <div>
-          <strong>Roster Size Limit:</strong>{' '}
-          {rules.roster_size || 'Default'}
+          <strong>Waiver System:</strong> {rules.waiver_system || 'N/A'}
+        </div>
+        <div>
+          <strong>Tie-breaker:</strong> {rules.waiver_tiebreaker || 'N/A'}
+        </div>
+        <div>
+          <strong>Roster Size Limit:</strong> {rules.roster_size || 'Default'}
         </div>
       </div>
 

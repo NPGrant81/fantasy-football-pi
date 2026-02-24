@@ -53,6 +53,9 @@ class LeagueConfigFull(BaseModel):
     salary_cap: int
     starting_slots: Dict[str, int]
     waiver_deadline: Optional[str] = None
+    starting_waiver_budget: Optional[int] = None
+    waiver_system: Optional[str] = None
+    waiver_tiebreaker: Optional[str] = None
     trade_deadline: Optional[str] = None  # new field
     draft_year: Optional[int] = None
     scoring_rules: List[ScoringRuleSchema]
@@ -64,6 +67,13 @@ class BudgetEntry(BaseModel):
 class BudgetUpdateRequest(BaseModel):
     year: int
     budgets: List[BudgetEntry]
+
+# --- Waiver-specific schemas ---
+class WaiverBudgetSchema(BaseModel):
+    owner_id: int
+    starting_budget: int
+    remaining_budget: int
+    spent_budget: int
 
 
 def validate_lineup_rules(config: LeagueConfigFull) -> None:
@@ -257,6 +267,23 @@ def join_league(league_id: int, current_user: models.User = Depends(get_current_
 
 # --- NEW: LEAGUE SETTINGS ENDPOINTS ---
 
+# --- Waiver budget endpoint ---
+@router.get("/{league_id}/waiver-budgets", response_model=List[WaiverBudgetSchema])
+def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
+    records = (
+        db.query(models.WaiverBudget)
+        .filter(models.WaiverBudget.league_id == league_id)
+        .all()
+    )
+    return [
+        WaiverBudgetSchema(
+            owner_id=r.owner_id,
+            starting_budget=r.starting_budget,
+            remaining_budget=r.remaining_budget,
+            spent_budget=r.spent_budget,
+        )
+        for r in records
+    ]
 @router.get("/{league_id}/settings", response_model=LeagueConfigFull)
 def get_league_settings(league_id: int, db: Session = Depends(get_db)):
     # 1. Get Settings (Roster, Cap)
@@ -286,6 +313,9 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
                 "REQUIRE_WEEKLY_SUBMIT": 1,
             },
             waiver_deadline=None,
+            starting_waiver_budget=100,
+            waiver_system='FAAB',
+            waiver_tiebreaker='standings',
             trade_deadline=None
         )
         db.add(settings)
@@ -316,6 +346,9 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
         salary_cap=settings.salary_cap,
         starting_slots=settings.starting_slots or {},
         waiver_deadline=settings.waiver_deadline,
+        starting_waiver_budget=settings.starting_waiver_budget,
+        waiver_system=settings.waiver_system,
+        waiver_tiebreaker=settings.waiver_tiebreaker,
         draft_year=settings.draft_year,
         scoring_rules=[
             ScoringRuleSchema(category=r.category, description=r.description, points=r.points) 
@@ -343,6 +376,9 @@ def update_league_settings(
     settings.salary_cap = config.salary_cap
     settings.starting_slots = config.starting_slots
     settings.waiver_deadline = config.waiver_deadline
+    settings.starting_waiver_budget = config.starting_waiver_budget
+    settings.waiver_system = config.waiver_system
+    settings.waiver_tiebreaker = config.waiver_tiebreaker
     settings.trade_deadline = getattr(config, 'trade_deadline', None)
     if config.draft_year is not None:
         settings.draft_year = config.draft_year

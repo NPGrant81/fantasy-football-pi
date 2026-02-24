@@ -25,6 +25,9 @@ def ensure_runtime_schema() -> None:
     statements = [
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS draft_year INTEGER",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_deadline VARCHAR",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS starting_waiver_budget INTEGER DEFAULT 100",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS waiver_system VARCHAR",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS waiver_tiebreaker VARCHAR",
         "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
     ]
 

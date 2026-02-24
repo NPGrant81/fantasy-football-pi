@@ -397,8 +397,6 @@ export default function MyTeam({ activeOwnerId }) {
     fetchUserLeague();
   }, [viewedOwnerId]);
 
-
-
   useEffect(() => {
     async function loadTargetRoster() {
       if (!proposalToUserId) {
@@ -437,7 +435,10 @@ export default function MyTeam({ activeOwnerId }) {
   // does not later force an update cycle.
   useEffect(() => {
     if (viewMode !== 'recommended') return;
-    const starts = (weeklyPlan.starters || []).map((p) => ({ ...p, status: 'STARTER' }));
+    const starts = (weeklyPlan.starters || []).map((p) => ({
+      ...p,
+      status: 'STARTER',
+    }));
     const sits = [
       ...(weeklyPlan.sits || []),
       ...(weeklyPlan.byePlayers || []),
@@ -521,9 +522,7 @@ export default function MyTeam({ activeOwnerId }) {
   // actual roster or the user-modifiable recState when in "recommended" mode.
   const sortedStartRecommendations = useMemo(() => {
     if (viewMode === 'recommended') {
-      return sortByPreference(
-        recState.filter((p) => p.status === 'STARTER')
-      );
+      return sortByPreference(recState.filter((p) => p.status === 'STARTER'));
     }
     return sortByPreference(weeklyPlan.starters);
   }, [viewMode, recState, weeklyPlan.starters, sortByPreference]);
@@ -663,7 +662,8 @@ export default function MyTeam({ activeOwnerId }) {
         // recommended view
         setRecState((prev) => {
           const target = prev.find(
-            (player) => Number(player.id || player.player_id) === Number(playerId)
+            (player) =>
+              Number(player.id || player.player_id) === Number(playerId)
           );
           if (!target) return prev;
           return prev.map((player) =>
@@ -1292,7 +1292,9 @@ export default function MyTeam({ activeOwnerId }) {
           <button
             onClick={() => setViewMode('recommended')}
             className={`px-4 py-2 rounded ${
-              viewMode === 'recommended' ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-300'
+              viewMode === 'recommended'
+                ? 'bg-green-600 text-white'
+                : 'bg-slate-700 text-slate-300'
             }`}
           >
             Recommended
@@ -1300,7 +1302,9 @@ export default function MyTeam({ activeOwnerId }) {
           <button
             onClick={() => setViewMode('actual')}
             className={`px-4 py-2 rounded ${
-              viewMode === 'actual' ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-300'
+              viewMode === 'actual'
+                ? 'bg-green-600 text-white'
+                : 'bg-slate-700 text-slate-300'
             }`}
           >
             Actual
@@ -1397,144 +1401,146 @@ export default function MyTeam({ activeOwnerId }) {
 
       {viewMode === 'actual' && (
         <div className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-black uppercase tracking-wider text-white">
-              Lineup Builder (Drag & Drop)
-            </h3>
-            <p className="text-xs uppercase tracking-wide text-slate-400">
-              Move players between Active and Bench. Started players are locked
-              for this week.
-            </p>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-black uppercase tracking-wider text-white">
+                Lineup Builder (Drag & Drop)
+              </h3>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Move players between Active and Bench. Started players are
+                locked for this week.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {hasUnsavedLineupChanges && (
+                <span className="rounded-md border border-yellow-700/60 bg-yellow-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-yellow-300">
+                  Unsaved Changes
+                </span>
+              )}
+              {lineupSubmittedForWeek && (
+                <span className="rounded-md border border-green-700/60 bg-green-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-green-300">
+                  Week {selectedWeek} Submitted
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={submitRoster}
+                disabled={submittingRoster || !canEditLineup}
+                className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${
+                  submittingRoster || !canEditLineup
+                    ? 'cursor-not-allowed bg-slate-800 text-slate-500'
+                    : 'bg-blue-600 text-white hover:bg-blue-500'
+                }`}
+              >
+                {submittingRoster ? 'Submitting...' : 'Submit Roster'}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {hasUnsavedLineupChanges && (
-              <span className="rounded-md border border-yellow-700/60 bg-yellow-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-yellow-300">
-                Unsaved Changes
-              </span>
-            )}
-            {lineupSubmittedForWeek && (
-              <span className="rounded-md border border-green-700/60 bg-green-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-green-300">
-                Week {selectedWeek} Submitted
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={submitRoster}
-              disabled={submittingRoster || !canEditLineup}
-              className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${
-                submittingRoster || !canEditLineup
-                  ? 'cursor-not-allowed bg-slate-800 text-slate-500'
-                  : 'bg-blue-600 text-white hover:bg-blue-500'
-              }`}
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div
+              className="rounded-xl border border-green-900/60 bg-green-900/10 p-4"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => handleDropToStatus('STARTER')}
             >
-              {submittingRoster ? 'Submitting...' : 'Submit Roster'}
-            </button>
-          </div>
-        </div>
+              <div className="mb-3 flex items-center justify-between">
+                <h4 className="text-sm font-black uppercase tracking-widest text-green-300">
+                  Active
+                </h4>
+                <span className="rounded bg-green-900/30 px-2 py-1 text-xs font-bold text-green-200">
+                  {activeLineupPlayers.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {activeLineupPlayers.map((player) => (
+                  <button
+                    key={`active-${player.player_id}`}
+                    type="button"
+                    draggable={canEditLineup && !player.is_locked}
+                    onDragStart={() => handleDragStart(player)}
+                    onClick={() => openPlayerPerformance(player)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left ${
+                      player.is_locked
+                        ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                        : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-bold text-white">
+                          {player.name}
+                        </div>
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                          {normalizePosition(player.position)} •{' '}
+                          {player.nfl_team}
+                        </div>
+                      </div>
+                      <div className="text-sm font-mono font-bold text-green-300">
+                        {Number(toProjectedPoints(player)).toFixed(1)}
+                      </div>
+                    </div>
+                    {player.is_locked && (
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                        Locked (game started)
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div
-            className="rounded-xl border border-green-900/60 bg-green-900/10 p-4"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => handleDropToStatus('STARTER')}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-black uppercase tracking-widest text-green-300">
-                Active
-              </h4>
-              <span className="rounded bg-green-900/30 px-2 py-1 text-xs font-bold text-green-200">
-                {activeLineupPlayers.length}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {activeLineupPlayers.map((player) => (
-                <button
-                  key={`active-${player.player_id}`}
-                  type="button"
-                  draggable={canEditLineup && !player.is_locked}
-                  onDragStart={() => handleDragStart(player)}
-                  onClick={() => openPlayerPerformance(player)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left ${
-                    player.is_locked
-                      ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
-                      : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-bold text-white">
-                        {player.name}
+            <div
+              className="rounded-xl border border-slate-700 bg-slate-900/30 p-4"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => handleDropToStatus('BENCH')}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h4 className="text-sm font-black uppercase tracking-widest text-slate-300">
+                  Bench
+                </h4>
+                <span className="rounded bg-slate-800 px-2 py-1 text-xs font-bold text-slate-300">
+                  {benchLineupPlayers.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {benchLineupPlayers.map((player) => (
+                  <button
+                    key={`bench-${player.player_id}`}
+                    type="button"
+                    draggable={canEditLineup && !player.is_locked}
+                    onDragStart={() => handleDragStart(player)}
+                    onClick={() => openPlayerPerformance(player)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left ${
+                      player.is_locked
+                        ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                        : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-bold text-white">
+                          {player.name}
+                        </div>
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                          {normalizePosition(player.position)} •{' '}
+                          {player.nfl_team}
+                        </div>
                       </div>
-                      <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                        {normalizePosition(player.position)} • {player.nfl_team}
-                      </div>
-                    </div>
-                    <div className="text-sm font-mono font-bold text-green-300">
-                      {Number(toProjectedPoints(player)).toFixed(1)}
-                    </div>
-                  </div>
-                  {player.is_locked && (
-                    <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
-                      Locked (game started)
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div
-            className="rounded-xl border border-slate-700 bg-slate-900/30 p-4"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => handleDropToStatus('BENCH')}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-black uppercase tracking-widest text-slate-300">
-                Bench
-              </h4>
-              <span className="rounded bg-slate-800 px-2 py-1 text-xs font-bold text-slate-300">
-                {benchLineupPlayers.length}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {benchLineupPlayers.map((player) => (
-                <button
-                  key={`bench-${player.player_id}`}
-                  type="button"
-                  draggable={canEditLineup && !player.is_locked}
-                  onDragStart={() => handleDragStart(player)}
-                  onClick={() => openPlayerPerformance(player)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left ${
-                    player.is_locked
-                      ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
-                      : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-bold text-white">
-                        {player.name}
-                      </div>
-                      <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                        {normalizePosition(player.position)} • {player.nfl_team}
+                      <div className="text-sm font-mono font-bold text-slate-300">
+                        {Number(toProjectedPoints(player)).toFixed(1)}
                       </div>
                     </div>
-                    <div className="text-sm font-mono font-bold text-slate-300">
-                      {Number(toProjectedPoints(player)).toFixed(1)}
-                    </div>
-                  </div>
-                  {player.is_locked && (
-                    <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
-                      Locked (game started)
-                    </div>
-                  )}
-                </button>
-              ))}
+                    {player.is_locked && (
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                        Locked (game started)
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
       )}
 
       <div className="bg-slate-900/80 border border-slate-800 p-8 rounded-[2.5rem]">

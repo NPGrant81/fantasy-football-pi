@@ -46,7 +46,9 @@ const AnalyticsDashboard = () => {
           </div>
         );
       default:
-        return <p className="no-selection">Select a chart above to display it.</p>;
+        return (
+          <p className="no-selection">Select a chart above to display it.</p>
+        );
     }
   };
 
@@ -84,9 +86,7 @@ const AnalyticsDashboard = () => {
         </button>
       </div>
 
-      <div className="charts-grid">
-        {renderChart()}
-      </div>
+      <div className="charts-grid">{renderChart()}</div>
     </div>
   );
 };
