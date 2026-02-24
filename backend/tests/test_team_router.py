@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
 from database import get_db
-from main import app
+from backend.main import app
 
 
 @pytest.fixture
