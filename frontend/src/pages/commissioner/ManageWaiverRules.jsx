@@ -32,7 +32,7 @@ export default function ManageWaiverRules() {
     setClaimsLoading(true);
     try {
       const res = await apiClient.get('/waivers/claims');
-      setClaims(res.data || []);
+      setClaims(Array.isArray(res.data) ? res.data : []);
     } catch {
       // ignore failures for now
     } finally {
