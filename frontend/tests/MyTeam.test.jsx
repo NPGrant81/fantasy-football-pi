@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => ({
@@ -423,6 +423,70 @@ describe('MyTeam (Roster & Lineups)', () => {
     await waitFor(() => {
       expect(screen.queryByText(/Scoring Rules/i)).not.toBeInTheDocument();
     });
+  });
+
+  test('toggles between recommended and actual lineup views', async () => {
+    // provide a simple roster with one starter and one bench to ensure both views render
+    const mockSummary = {
+      player_count: 2,
+      active_lineups: 1,
+      pending_waivers: 0,
+      pending_trades: 0,
+      standing: 1,
+      points_for: 100,
+      points_against: 90,
+    };
+    const mockRoster = {
+      roster: [
+        { id: 1, name: 'Starter Player', position: 'RB', nfl_team: 'NE', status: 'STARTER' },
+        { id: 2, name: 'Bench Player', position: 'WR', nfl_team: 'DAL', status: 'BENCH' },
+      ],
+    };
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: {
+            user_id: 1,
+            username: 'alice',
+            league_id: 1,
+            is_commissioner: false,
+          },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
+      }
+      if (url === '/dashboard/1') {
+        return Promise.resolve({ data: { ...mockSummary, roster: [] } });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({ data: mockRoster });
+      }
+      if (url === '/scoring/1') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    render(<MyTeam activeOwnerId={1} />);
+
+    // default mode is actual
+    await waitFor(() => expect(screen.getByText(/Lineup Builder/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /Recommended/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Actual/i })).toBeInTheDocument();
+
+    // switch to recommended
+    fireEvent.click(screen.getByRole('button', { name: /Recommended/i }));
+    await waitFor(() => expect(screen.getByText(/Start\/Sit Sorter/i)).toBeInTheDocument());
+    expect(screen.queryByText(/Lineup Builder/i)).toBeNull();
+
+    // back to actual
+    fireEvent.click(screen.getByRole('button', { name: /Actual/i }));
+    await waitFor(() => expect(screen.getByText(/Lineup Builder/i)).toBeInTheDocument());
   });
 
   test('handles API errors gracefully', async () => {

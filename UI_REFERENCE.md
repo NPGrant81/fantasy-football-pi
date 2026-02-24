@@ -126,5 +126,6 @@ New UI components/pages are being added for draft value analysis and player info
 - **Player Info Modal/Page:** Shows draft value, projected points, ADP, and position rank for each player, sourced from the new database.
 - **Commissioner Tools:** Allows commissioners to review, update, and normalize draft value data for league setup and draft prep.
 - **Waiver Rules Page:** Commissioner interface for setting waiver deadlines, roster limits and auditing claim history (see ManageWaiverRules.jsx).
+- **Roster Page (MyTeam):** users can toggle between the auto‑generated "Recommended Starts/Sits" view and the editable "Actual Lineup" drag‑and‑drop builder to manage weekly lineups.
 
 These features are accessible from the main dashboard, draft board, and commissioner pages.

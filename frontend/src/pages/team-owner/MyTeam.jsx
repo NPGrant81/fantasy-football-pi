@@ -276,6 +276,9 @@ export default function MyTeam({ activeOwnerId }) {
   const [waiverDeadlineSetting, setWaiverDeadlineSetting] = useState(null);
   const [tradeDeadlineSetting, setTradeDeadlineSetting] = useState(null);
 
+  const [viewMode, setViewMode] = useState('actual'); // 'actual' or 'recommended'
+  const [recState, setRecState] = useState([]); // recommended lineup state
+
   const computeRemaining = (iso) => {
     if (!iso) return '';
     const then = Date.parse(iso);
@@ -394,6 +397,20 @@ export default function MyTeam({ activeOwnerId }) {
     fetchUserLeague();
   }, [viewedOwnerId]);
 
+  // initialize recommended state when entering recommended view or when the
+  // underlying roster/plan changes.  We deliberately compute from weeklyPlan
+  // (which uses the actual roster) so that recState is seeded correctly and
+  // does not later force an update cycle.
+  useEffect(() => {
+    if (viewMode !== 'recommended') return;
+    const starts = (weeklyPlan.starters || []).map((p) => ({ ...p, status: 'STARTER' }));
+    const sits = [
+      ...(weeklyPlan.sits || []),
+      ...(weeklyPlan.byePlayers || []),
+    ].map((p) => ({ ...p, status: 'BENCH' }));
+    setRecState([...starts, ...sits]);
+  }, [viewMode, weeklyPlan.starters, weeklyPlan.sits, weeklyPlan.byePlayers]);
+
   useEffect(() => {
     async function loadTargetRoster() {
       if (!proposalToUserId) {
@@ -468,6 +485,10 @@ export default function MyTeam({ activeOwnerId }) {
     []
   );
 
+  // weeklyPlan always derives from the actual roster state (used for both display and
+  // initializing recommended view).  We swap to recState manually when rendering
+  // the recommended view rather than making weeklyPlan depend on recState, which
+  // would create circular updates.
   const weeklyPlan = useMemo(
     () =>
       buildWeeklyStartSitPlan(rosterState, selectedWeek, starterRequirements),
@@ -494,14 +515,26 @@ export default function MyTeam({ activeOwnerId }) {
     [startSitSort]
   );
 
-  const sortedStartRecommendations = useMemo(
-    () => sortByPreference(weeklyPlan.starters),
-    [weeklyPlan.starters, sortByPreference]
-  );
-  const sortedSitRecommendations = useMemo(
-    () => sortByPreference(weeklyPlan.sits),
-    [weeklyPlan.sits, sortByPreference]
-  );
+  // depending on viewMode we either use the weekly plan computed from the
+  // actual roster or the user-modifiable recState when in "recommended" mode.
+  const sortedStartRecommendations = useMemo(() => {
+    if (viewMode === 'recommended') {
+      return sortByPreference(
+        recState.filter((p) => p.status === 'STARTER')
+      );
+    }
+    return sortByPreference(weeklyPlan.starters);
+  }, [viewMode, recState, weeklyPlan.starters, sortByPreference]);
+
+  const sortedSitRecommendations = useMemo(() => {
+    if (viewMode === 'recommended') {
+      return sortByPreference(recState.filter((p) => p.status === 'SIT'));
+    }
+    return sortByPreference(weeklyPlan.sits);
+  }, [viewMode, recState, weeklyPlan.sits, sortByPreference]);
+
+  // bye players are always based on the actual weekly plan
+  const byePlayers = weeklyPlan.byePlayers;
 
   const lineupRuleSnapshot = useMemo(() => {
     const currentStarters = rosterState.filter(
@@ -605,32 +638,47 @@ export default function MyTeam({ activeOwnerId }) {
   const movePlayerToStatus = useCallback(
     (playerId, targetStatus) => {
       if (!canEditLineup) return;
-      setRosterState((prev) => {
-        const target = prev.find(
-          (player) => Number(player.player_id) === Number(playerId)
-        );
-        if (!target) return prev;
-        if (target.is_locked) {
-          setToast({
-            message: `${target.name} is locked for Week ${selectedWeek} (game already started).`,
-            type: 'error',
-          });
-          return prev;
-        }
-        return prev.map((player) =>
-          Number(player.player_id) === Number(playerId)
-            ? { ...player, status: targetStatus }
-            : player
-        );
-      });
+      if (viewMode === 'actual') {
+        setRosterState((prev) => {
+          const target = prev.find(
+            (player) => Number(player.player_id) === Number(playerId)
+          );
+          if (!target) return prev;
+          if (target.is_locked) {
+            setToast({
+              message: `${target.name} is locked for Week ${selectedWeek} (game already started).`,
+              type: 'error',
+            });
+            return prev;
+          }
+          return prev.map((player) =>
+            Number(player.player_id) === Number(playerId)
+              ? { ...player, status: targetStatus }
+              : player
+          );
+        });
+      } else {
+        // recommended view
+        setRecState((prev) => {
+          const target = prev.find(
+            (player) => Number(player.id || player.player_id) === Number(playerId)
+          );
+          if (!target) return prev;
+          return prev.map((player) =>
+            Number(player.id || player.player_id) === Number(playerId)
+              ? { ...player, status: targetStatus }
+              : player
+          );
+        });
+      }
     },
-    [canEditLineup, selectedWeek]
+    [canEditLineup, selectedWeek, viewMode]
   );
 
   const handleDragStart = useCallback(
     (player) => {
       if (!canEditLineup || player.is_locked) return;
-      setDraggingPlayerId(player.player_id);
+      setDraggingPlayerId(player.player_id || player.id);
     },
     [canEditLineup]
   );
@@ -1237,91 +1285,116 @@ export default function MyTeam({ activeOwnerId }) {
           </button>
         )}
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-green-900/60 bg-green-900/10 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-black uppercase tracking-widest text-green-300">
-                Recommended Starts
-              </h4>
-              <span className="rounded bg-green-900/30 px-2 py-1 text-xs font-bold text-green-200">
-                {sortedStartRecommendations.length}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {sortedStartRecommendations.map((player) => (
-                <div
-                  key={`start-${player.id}`}
-                  className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
-                >
-                  <div>
-                    <div className="text-sm font-bold text-white">
-                      {player.name}
-                    </div>
-                    <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                      {getPlayerSlotLabel(player)} • {player.nfl_team}
-                    </div>
-                  </div>
-                  <div className="text-sm font-mono font-bold text-green-300">
-                    {Number(player.projected_for_week || 0).toFixed(1)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-red-900/60 bg-red-900/10 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-black uppercase tracking-widest text-red-300">
-                Recommended Sits
-              </h4>
-              <span className="rounded bg-red-900/30 px-2 py-1 text-xs font-bold text-red-200">
-                {sortedSitRecommendations.length + weeklyPlan.byePlayers.length}
-              </span>
-            </div>
-            <div className="space-y-2">
-              {weeklyPlan.byePlayers.map((player) => (
-                <div
-                  key={`bye-${player.id}`}
-                  className="flex items-center justify-between rounded-lg border border-orange-800/60 bg-orange-900/20 px-3 py-2"
-                >
-                  <div>
-                    <div className="text-sm font-bold text-white">
-                      {player.name}
-                    </div>
-                    <div className="text-[11px] uppercase tracking-wide text-orange-300">
-                      BYE WEEK • {normalizePosition(player.position)} •{' '}
-                      {player.nfl_team}
-                    </div>
-                  </div>
-                  <div className="text-xs font-black uppercase tracking-wider text-orange-300">
-                    Sit
-                  </div>
-                </div>
-              ))}
-              {sortedSitRecommendations.map((player) => (
-                <div
-                  key={`sit-${player.id}`}
-                  className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
-                >
-                  <div>
-                    <div className="text-sm font-bold text-white">
-                      {player.name}
-                    </div>
-                    <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                      {getPlayerSlotLabel(player)} • {player.nfl_team}
-                    </div>
-                  </div>
-                  <div className="text-sm font-mono font-bold text-red-300">
-                    {Number(player.projected_for_week || 0).toFixed(1)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* view mode toggle */}
+        <div className="mb-4 flex gap-3">
+          <button
+            onClick={() => setViewMode('recommended')}
+            className={`px-4 py-2 rounded ${
+              viewMode === 'recommended' ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-300'
+            }`}
+          >
+            Recommended
+          </button>
+          <button
+            onClick={() => setViewMode('actual')}
+            className={`px-4 py-2 rounded ${
+              viewMode === 'actual' ? 'bg-green-600 text-white' : 'bg-slate-700 text-slate-300'
+            }`}
+          >
+            Actual
+          </button>
         </div>
+
+        {viewMode === 'recommended' && (
+          <>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-green-900/60 bg-green-900/10 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-green-300">
+                    Recommended Starts
+                  </h4>
+                  <span className="rounded bg-green-900/30 px-2 py-1 text-xs font-bold text-green-200">
+                    {sortedStartRecommendations.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {sortedStartRecommendations.map((player) => (
+                    <div
+                      key={`start-${player.id}`}
+                      className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-white">
+                          {player.name}
+                        </div>
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                          {getPlayerSlotLabel(player)} • {player.nfl_team}
+                        </div>
+                      </div>
+                      <div className="text-sm font-mono font-bold text-green-300">
+                        {Number(player.projected_for_week || 0).toFixed(1)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-red-900/60 bg-red-900/10 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-red-300">
+                    Recommended Sits
+                  </h4>
+                  <span className="rounded bg-red-900/30 px-2 py-1 text-xs font-bold text-red-200">
+                    {sortedSitRecommendations.length + byePlayers.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {byePlayers.map((player) => (
+                    <div
+                      key={`bye-${player.id}`}
+                      className="flex items-center justify-between rounded-lg border border-orange-800/60 bg-orange-900/20 px-3 py-2"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-white">
+                          {player.name}
+                        </div>
+                        <div className="text-[11px] uppercase tracking-wide text-orange-300">
+                          BYE WEEK • {normalizePosition(player.position)} •{' '}
+                          {player.nfl_team}
+                        </div>
+                      </div>
+                      <div className="text-xs font-black uppercase tracking-wider text-orange-300">
+                        Sit
+                      </div>
+                    </div>
+                  ))}
+                  {sortedSitRecommendations.map((player) => (
+                    <div
+                      key={`sit-${player.id}`}
+                      className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
+                    >
+                      <div>
+                        <div className="text-sm font-bold text-white">
+                          {player.name}
+                        </div>
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                          {getPlayerSlotLabel(player)} • {player.nfl_team}
+                        </div>
+                      </div>
+                      <div className="text-sm font-mono font-bold text-red-300">
+                        {Number(player.projected_for_week || 0).toFixed(1)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+      {viewMode === 'actual' && (
+        <div className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-xl font-black uppercase tracking-wider text-white">
@@ -1460,6 +1533,7 @@ export default function MyTeam({ activeOwnerId }) {
           </div>
         </div>
       </div>
+      )}
 
       <div className="bg-slate-900/80 border border-slate-800 p-8 rounded-[2.5rem]">
         <h3 className="font-black uppercase italic mb-6 flex items-center gap-2 text-slate-200 tracking-tighter text-xl">
