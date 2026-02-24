@@ -53,6 +53,14 @@ export default function ManageWaiverRules() {
         ...existing,
         waiver_deadline: waiverDeadline,
         trade_deadline: tradeDeadline,
+        roster_size: rosterSize ? Number(rosterSize) : undefined,
+      };
+
+      await apiClient.put('/leagues/1/settings', payload);
+      setMessage('Waiver rules updated successfully.');
+    } catch (err) {
+      setMessage('Failed to update waiver rules.');
+    } finally {
       setLoading(false);
     }
   };
