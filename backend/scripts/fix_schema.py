@@ -30,6 +30,7 @@ with engine.connect() as connection:
     run_safe(
         connection,
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS draft_year INTEGER",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_deadline VARCHAR",
         "✅ Success! 'draft_year' column added to league_settings.",
     )
 

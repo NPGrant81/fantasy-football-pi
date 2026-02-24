@@ -3,6 +3,7 @@ import apiClient from '@api/client';
 
 export default function ManageWaiverRules() {
   const [waiverDeadline, setWaiverDeadline] = useState('');
+  const [tradeDeadline, setTradeDeadline] = useState('');
   const [rosterSize, setRosterSize] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -16,6 +17,7 @@ export default function ManageWaiverRules() {
         // Assume leagueId is 1 for demo; replace with real league context
         const res = await apiClient.get('/leagues/1/settings');
         setWaiverDeadline(res.data.waiver_deadline || '');
+        setTradeDeadline(res.data.trade_deadline || '');
         setRosterSize(res.data.roster_size ? String(res.data.roster_size) : '');
       } catch {
         setMessage('Failed to load waiver rules');
@@ -50,13 +52,7 @@ export default function ManageWaiverRules() {
       const payload = {
         ...existing,
         waiver_deadline: waiverDeadline,
-        roster_size: rosterSize ? Number(rosterSize) : existing.roster_size,
-      };
-      await apiClient.put('/leagues/1/settings', payload);
-      setMessage('Waiver rules updated!');
-    } catch {
-      setMessage('Failed to update waiver rules');
-    } finally {
+        trade_deadline: tradeDeadline,
       setLoading(false);
     }
   };
@@ -77,6 +73,17 @@ export default function ManageWaiverRules() {
           value={waiverDeadline}
           onChange={(e) => setWaiverDeadline(e.target.value)}
           placeholder="e.g. 2026-09-01T10:00:00Z or 'Wednesdays at 10am ET'"
+        />
+
+        <label className="block mb-2 font-bold">
+          Trade Deadline (ISO or description)
+        </label>
+        <input
+          type="text"
+          className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700 mb-4"
+          value={tradeDeadline}
+          onChange={(e) => setTradeDeadline(e.target.value)}
+          placeholder="e.g. 2026-09-10T12:00:00Z or 'Fridays at 5pm ET'"
         />
 
         <label className="block mb-2 font-bold">
@@ -103,6 +110,9 @@ export default function ManageWaiverRules() {
         <h2 className="text-xl font-bold mb-2">Current Waiver Rules</h2>
         <div className="text-slate-300">
           <strong>Waiver Deadline:</strong> {waiverDeadline || 'Not set'}
+        </div>
+        <div className="text-slate-300">
+          <strong>Trade Deadline:</strong> {tradeDeadline || 'Not set'}
         </div>
         <div className="text-slate-300">
           <strong>Roster Size Limit:</strong> {rosterSize || 'Default'}

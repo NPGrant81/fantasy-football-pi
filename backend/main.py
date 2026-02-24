@@ -24,6 +24,7 @@ def ensure_runtime_schema() -> None:
     """Apply minimal non-destructive schema fixes required by active routes."""
     statements = [
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS draft_year INTEGER",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_deadline VARCHAR",
         "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
     ]
 

@@ -56,6 +56,7 @@ class LeagueSettings(Base):
         "QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1
     })
     waiver_deadline = Column(String, nullable=True)  # ISO format string, set by commissioner
+    trade_deadline = Column(String, nullable=True)   # new trade deadline option
     draft_year = Column(Integer, nullable=True)
     
     league = relationship("League", back_populates="settings")

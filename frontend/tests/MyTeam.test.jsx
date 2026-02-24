@@ -71,7 +71,13 @@ describe('MyTeam (Roster & Lineups)', () => {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
       if (url === '/leagues/1/settings') {
-        return Promise.resolve({ data: { scoring_rules: [] } });
+        return Promise.resolve({
+          data: {
+            scoring_rules: [],
+            waiver_deadline: '2099-01-01T00:00:00Z',
+            trade_deadline: '2099-01-02T00:00:00Z',
+          },
+        });
       }
       if (url === '/dashboard/1') {
         return Promise.resolve({
@@ -94,7 +100,55 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Your Locker Room/i)).toBeInTheDocument();
+      expect(screen.getByText(/Waiver Deadline/i)).toBeInTheDocument();
+      expect(screen.getByText(/Trade Deadline/i)).toBeInTheDocument();
     });
+  });
+
+  test('does not show deadlines when draft active', async () => {
+    const mockSummary = {
+      player_count: 10,
+      active_lineups: 5,
+      pending_waivers: 1,
+      pending_trades: 0,
+      standing: 1,
+      points_for: 500,
+      points_against: 400,
+    };
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: {
+            user_id: 1,
+            username: 'alice',
+            league_id: 1,
+            is_commissioner: false,
+          },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show', draft_status: 'ACTIVE' } });
+      }
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [], waiver_deadline: '2099-01-01T00:00:00Z', trade_deadline: '2099-01-02T00:00:00Z' } });
+      }
+      if (url === '/dashboard/1') {
+        return Promise.resolve({ data: { ...mockSummary, roster: [] } });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({ data: { roster: [] } });
+      }
+      if (url === '/scoring/1') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    render(<MyTeam activeOwnerId={1} />);
+    await waitFor(() => expect(screen.getByText(/Draft Active/i)).toBeInTheDocument());
+    expect(screen.queryByText(/Waiver Deadline/i)).toBeNull();
+    expect(screen.queryByText(/Trade Deadline/i)).toBeNull();
   });
 
   test('displays team standing', async () => {

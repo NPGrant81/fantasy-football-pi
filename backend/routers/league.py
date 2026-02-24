@@ -53,6 +53,7 @@ class LeagueConfigFull(BaseModel):
     salary_cap: int
     starting_slots: Dict[str, int]
     waiver_deadline: Optional[str] = None
+    trade_deadline: Optional[str] = None  # new field
     draft_year: Optional[int] = None
     scoring_rules: List[ScoringRuleSchema]
 
@@ -284,7 +285,8 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
                 "ALLOW_PARTIAL_LINEUP": 0,
                 "REQUIRE_WEEKLY_SUBMIT": 1,
             },
-            waiver_deadline=None
+            waiver_deadline=None,
+            trade_deadline=None
         )
         db.add(settings)
         db.commit()
@@ -341,6 +343,7 @@ def update_league_settings(
     settings.salary_cap = config.salary_cap
     settings.starting_slots = config.starting_slots
     settings.waiver_deadline = config.waiver_deadline
+    settings.trade_deadline = getattr(config, 'trade_deadline', None)
     if config.draft_year is not None:
         settings.draft_year = config.draft_year
     

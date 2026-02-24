@@ -41,6 +41,10 @@ export default function WaiverRules({ leagueId }) {
           {rules.waiver_deadline || 'Not set'}
         </div>
         <div>
+          <strong>Trade Deadline:</strong>{' '}
+          {rules.trade_deadline || 'Not set'}
+        </div>
+        <div>
           <strong>Roster Size Limit:</strong>{' '}
           {rules.roster_size || 'Default'}
         </div>

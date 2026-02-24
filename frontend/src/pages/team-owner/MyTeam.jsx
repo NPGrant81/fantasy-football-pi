@@ -273,6 +273,22 @@ export default function MyTeam({ activeOwnerId }) {
   );
   const [allowPartialLineup, setAllowPartialLineup] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [waiverDeadlineSetting, setWaiverDeadlineSetting] = useState(null);
+  const [tradeDeadlineSetting, setTradeDeadlineSetting] = useState(null);
+
+  const computeRemaining = (iso) => {
+    if (!iso) return '';
+    const then = Date.parse(iso);
+    if (isNaN(then)) return '';
+    const diff = then - Date.now();
+    if (diff <= 0) return '';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hrs = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return `${days}d ${hrs}h REMAINING`;
+  };
+
+  const waiverRemaining = computeRemaining(waiverDeadlineSetting);
+  const tradeRemaining = computeRemaining(tradeDeadlineSetting);
   useEffect(() => {
     async function fetchUserLeague() {
       try {
@@ -303,6 +319,8 @@ export default function MyTeam({ activeOwnerId }) {
             );
             const slots = settingsRes.data.starting_slots || {};
             setScoringRules(settingsRes.data.scoring_rules || []);
+            setWaiverDeadlineSetting(settingsRes.data.waiver_deadline || null);
+            setTradeDeadlineSetting(settingsRes.data.trade_deadline || null);
             setStarterRequirements(normalizeStartingSlots(slots));
             setActiveRosterRequired(
               clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12)
@@ -847,6 +865,17 @@ export default function MyTeam({ activeOwnerId }) {
               #{summary.standing} Place
             </span>
           </p>
+          {/* deadlines indicators */}
+          {waiverRemaining && userInfo.draftStatus !== 'ACTIVE' && (
+            <p className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-blue-300">
+              Waiver Deadline: {waiverRemaining}
+            </p>
+          )}
+          {tradeRemaining && userInfo.draftStatus !== 'ACTIVE' && (
+            <p className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/40 bg-yellow-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-yellow-300">
+              Trade Deadline: {tradeRemaining}
+            </p>
+          )}
           {userInfo.draftStatus === 'ACTIVE' && (
             <p className="inline-flex items-center gap-2 rounded-lg border border-orange-500/40 bg-orange-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-orange-300">
               Draft Active • Waiver Wire Locked
