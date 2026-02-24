@@ -146,9 +146,9 @@ This project uses **Agile Story numbering** to organize features and tasks with 
 - **Complexity:** Medium - theme system implementation
 
 ### Story 7.3: Bug Reporting Form
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED
 - **Priority:** Low
-- **Notes:** User feedback mechanism for bug reports
+- **Notes:** Users can submit bug or feature reports via `/bug-report` page; backend stores entries and opens GitHub issues automatically (with warning on failure).
 - **Complexity:** Low - form + email/storage
 
 ### Story 1.2: Historical Data Archiving

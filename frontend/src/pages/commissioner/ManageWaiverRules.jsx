@@ -100,18 +100,20 @@ export default function ManageWaiverRules() {
         onSubmit={handleSubmit}
         className="mb-8 bg-slate-800 p-6 rounded-xl shadow"
       >
-        <label className="block mb-2 font-bold">
+        <label htmlFor="waiver-deadline" className="block mb-2 font-bold">
           Waiver Deadline (ISO format or description)
         </label>
         <input
+          id="waiver-deadline"
           type="text"
           className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700 mb-4"
           value={waiverDeadline}
           onChange={(e) => setWaiverDeadline(e.target.value)}
           placeholder="e.g. 2026-09-01T10:00:00Z or 'Wednesdays at 10am ET'"
         />
-        <label className="block mb-2 font-bold">Starting FAAB Budget</label>
+        <label htmlFor="starting-budget" className="block mb-2 font-bold">Starting FAAB Budget</label>
         <input
+          id="starting-budget"
           type="number"
           min="0"
           className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700 mb-4"
@@ -119,8 +121,9 @@ export default function ManageWaiverRules() {
           onChange={(e) => setStartingBudget(e.target.value)}
           placeholder="e.g. 100"
         />
-        <label className="block mb-2 font-bold">Waiver System</label>
+        <label htmlFor="waiver-system" className="block mb-2 font-bold">Waiver System</label>
         <select
+          id="waiver-system"
           value={waiverSystem}
           onChange={(e) => setWaiverSystem(e.target.value)}
           className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700 mb-4"
@@ -129,8 +132,9 @@ export default function ManageWaiverRules() {
           <option value="PRIORITY">Priority</option>
           <option value="BOTH">Both</option>
         </select>
-        <label className="block mb-2 font-bold">Tie-breaker rule</label>
+        <label htmlFor="tiebreaker-rule" className="block mb-2 font-bold">Tie-breaker rule</label>
         <select
+          id="tiebreaker-rule"
           value={tieBreaker}
           onChange={(e) => setTieBreaker(e.target.value)}
           className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700 mb-4"
@@ -140,8 +144,9 @@ export default function ManageWaiverRules() {
           <option value="timestamp">Earliest timestamp</option>
         </select>
 
-        <label className="block mb-2 font-bold">Roster Size Limit</label>
+        <label htmlFor="roster-size" className="block mb-2 font-bold">Roster Size Limit</label>
         <input
+          id="roster-size"
           type="number"
           min="1"
           className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700 mb-4"

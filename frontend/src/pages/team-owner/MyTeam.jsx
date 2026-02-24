@@ -418,6 +418,7 @@ export default function MyTeam({ activeOwnerId }) {
   // --- 1.2 STATE MANAGEMENT ---
   const [teamData, setTeamData] = useState(null);
   const [rosterState, setRosterState] = useState([]);
+  const [selectedWeek, setSelectedWeek] = useState(1);
 
   // weeklyPlan always derives from the actual roster state (used for both display and
   // initializing recommended view).  We swap to recState manually when rendering
@@ -445,7 +446,6 @@ export default function MyTeam({ activeOwnerId }) {
     ].map((p) => ({ ...p, status: 'BENCH' }));
     setRecState([...starts, ...sits]);
   }, [viewMode, weeklyPlan.starters, weeklyPlan.sits, weeklyPlan.byePlayers]);
-  const [selectedWeek, setSelectedWeek] = useState(1);
   const [startSitSort, setStartSitSort] = useState('position');
   // FIX: Start loading as true to avoid sync setState inside useEffect
   const [loading, setLoading] = useState(true);
