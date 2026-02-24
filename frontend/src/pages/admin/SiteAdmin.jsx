@@ -47,6 +47,48 @@ export default function SiteAdmin() {
     }
   };
 
+  const runScheduleImport = async () => {
+    // ask for year and optional week
+    let year = window.prompt('Enter season year to import (e.g. 2026):');
+    if (!year) return;
+    year = parseInt(year, 10);
+    if (isNaN(year)) {
+      showToast('Invalid year', 'error');
+      return;
+    }
+    let week = window.prompt('Enter week number (leave blank for full season):');
+    if (week !== null && week.trim() === '') {
+      week = undefined;
+    } else if (week !== null) {
+      week = parseInt(week, 10);
+      if (isNaN(week)) {
+        showToast('Invalid week', 'error');
+        return;
+      }
+    }
+
+    setLoading(true);
+    try {
+      const res = await apiClient.post(
+        '/admin/tools/import-nfl-schedule',
+        { year, week },
+        { timeout: 300000 }
+      );
+      showToast(res.data.detail || 'Import started', 'success');
+      setLastSync(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error('Import error:', err);
+      const errorMsg =
+        err.response?.data?.detail ||
+        err.response?.statusText ||
+        err.message ||
+        'Schedule import failed';
+      showToast(errorMsg, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const runTestLeague = async () => {
     setLoading(true);
     try {
@@ -180,6 +222,24 @@ export default function SiteAdmin() {
             icon: 'text-blue-400',
             badge: 'bg-blue-900/30 text-blue-400',
             button: 'bg-blue-600 hover:bg-blue-500 text-white',
+          }}
+        />
+        <AdminActionCard
+          icon={FiDatabase}
+          badge="DATA"
+          title="Import NFL Schedule"
+          description="Fetch and store the NFL schedule for a given season/week."
+          onClick={runScheduleImport}
+          disabled={loading}
+          loading={loading}
+          loadingLabel="Importing..."
+          actionLabel="Run Import"
+          iconSpinsOnLoading
+          accent={{
+            hoverBorder: 'hover:border-green-500/30',
+            icon: 'text-green-400',
+            badge: 'bg-green-900/30 text-green-400',
+            button: 'bg-green-600 hover:bg-green-500 text-white',
           }}
         />
         <AdminActionCard

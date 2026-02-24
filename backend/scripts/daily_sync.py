@@ -5,11 +5,20 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # backend/scripts/daily_sync.py
-import nfl_data_py as nfl
+# nfl_data_py is an optional dependency used by the reality sync.
+# import lazily inside the function so that tests that import `main` will not
+# fail if the package isn't installed.
 from database import SessionLocal
 import models
 
 def sync_nfl_reality():
+    # import here to avoid requiring the package in lightweight test runs
+    try:
+        import nfl_data_py as nfl
+    except ImportError:
+        print("⚠️ nfl_data_py not installed; skipping reality sync")
+        return
+
     db = SessionLocal()
     print("🔄 Pulling latest NFL roster data...")
     

@@ -16,6 +16,7 @@ Base URL (frontend client): `http://127.0.0.1:8000`
 | Area | Endpoint(s) | Used by |
 |---|---|---|
 | Auth | `POST /auth/token`, `GET /auth/me`, `PUT /auth/email`, `POST /auth/register` | Login flow, user context, bug report email save |
+| NFL | `GET /nfl/schedule/{year}/{week}` | Weekly matchups page, analytics, imported data |
 | League | `GET /leagues/{id}`, `GET /leagues/owners?league_id=`, `GET /leagues/{id}/news`, `GET/PUT /leagues/{id}/settings`, `POST /leagues/{id}/draft-year`, `GET /leagues/{id}/budgets`, `GET /leagues/{id}/waiver-budgets` | Home, Draft, My Team, Matchups, Waivers, Commissioner |
 | Team | `GET /team/{owner_id}` | My Team |
 | Dashboard | `GET /dashboard/{owner_id}` | My Team, Waiver Wire |
@@ -26,7 +27,7 @@ Base URL (frontend client): `http://127.0.0.1:8000`
 | Trades | `POST /trades/propose`, `GET /trades/pending` | My Team, Commissioner |
 | Feedback | `POST /feedback/bug` | Bug Report |
 | Advisor (AI wrapper) | `GET /advisor/status`, `POST /advisor/ask` | Global advisor widget |
-| Admin tools | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft` | Site Admin |
+| Admin tools | `POST /admin/tools/sync-nfl`, `POST /admin/tools/import-nfl-schedule`, `POST /admin/create-test-league`, `POST /admin/reset-draft` | Site Admin |
 
 ## External APIs (third-party)
 

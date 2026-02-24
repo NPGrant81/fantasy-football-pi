@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => ({
@@ -293,5 +293,27 @@ describe('SiteAdmin (Smoke Test)', () => {
 
     button.click();
     expect(mockNavigate).toHaveBeenCalledWith('/admin/manage-commissioners');
+  });
+
+  test('import schedule button prompts and calls backend', async () => {
+    apiClient.post.mockResolvedValue({ data: { detail: 'Import started' } });
+    // first prompt returns year, second returns week
+    const promptSpy = vi
+      .spyOn(window, 'prompt')
+      .mockImplementation((msg) => (msg.toLowerCase().includes('week') ? '1' : '2025'));
+
+    const { getByRole } = render(<SiteAdmin />);
+    const button = getByRole('button', { name: /Run Import/i });
+
+    await act(async () => {
+      button.click();
+    });
+
+    expect(promptSpy).toHaveBeenCalled();
+    expect(apiClient.post).toHaveBeenCalledWith(
+      '/admin/tools/import-nfl-schedule',
+      { year: 2025, week: 1 },
+      { timeout: 300000 }
+    );
   });
 });

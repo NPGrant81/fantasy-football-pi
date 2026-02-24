@@ -11,8 +11,8 @@ from core.security import get_password_hash, check_is_commissioner
 
 # Import All Routers
 from routers import (
-    admin, team, matchups, league, advisor,
-    dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl
+    admin, admin_tools, team, matchups, league, advisor,
+    dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl
 )
 
 load_dotenv()
@@ -80,6 +80,9 @@ app.include_router(
 # PLATFORM TOOLS: Require superuser status
 app.include_router(platform_tools.router)
 
+# ADMIN TOOLS: commissioner‑level maintenance helpers (schedule import, etc.)
+app.include_router(admin_tools.router)
+
 # STANDARD: Included without redundant prefixes
 app.include_router(auth.router)
 app.include_router(draft.router)
@@ -93,6 +96,7 @@ app.include_router(waivers.router)
 app.include_router(trades.router)
 app.include_router(feedback.router)
 app.include_router(etl.router)
+app.include_router(nfl.router)
 
 # --- 4. THE AUTO-SEEDER ---
 @app.on_event("startup")

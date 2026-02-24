@@ -129,6 +129,48 @@ Files added for testing
 
 ---
 
+## NFL Schedule Import
+
+The backend ships with a helper script to ingest the official NFL schedule from
+ESPN and store it locally.  You can invoke the script directly (see examples
+below) or use the new **Site Admin → NFL Schedule Import** button, which
+posts to `/admin/tools/import-nfl-schedule` with the desired year/week.  Run it
+once each week (or more frequently during
+game days) so the `/matchups/week/{week}` API returns real data.
+
+```bash
+# from repo root
+cd backend
+# make sure DATABASE_URL points at the correct database (`fantasy_football`)
+python scripts/import_nfl_schedule.py 2026 1   # load week 1 of 2026 season
+python scripts/import_nfl_schedule.py 2026     # load entire season
+```
+
+You can automate this with a cron job or a GitHub Action.  Example workflow
+snippet:
+
+```yaml
+name: nfl-schedule
+on:
+  schedule:
+    - cron: '0 0 * * MON'  # every Monday
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Import schedule
+        run: |
+          cd backend
+          python scripts/import_nfl_schedule.py $(date +%Y) # current year
+```
+
 ## 📦 Dependency Maintenance
 
 Keeping dependencies current is critical for security and stability. This

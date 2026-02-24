@@ -143,6 +143,22 @@ class WaiverBudget(Base):
     year = Column(Integer, index=True)
     total_budget = Column(Integer, default=200)
 
+
+# --- 5.3 NFL SCHEDULE ---
+class NFLGame(Base):
+    __tablename__ = "nfl_games"
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(String, unique=True, index=True)
+    season = Column(Integer, index=True)
+    week = Column(Integer, index=True)
+    home_team_id = Column(Integer)
+    away_team_id = Column(Integer)
+    kickoff = Column(String, nullable=True)  # ISO timestamp
+    status = Column(String, default="PRE")
+    home_score = Column(Integer, default=0)
+    away_score = Column(Integer, default=0)
+    # additional fields (odds, venue, etc.) can be added later
+
 # --- 6. MATCHUP TABLE ---
 class Matchup(Base):
     __tablename__ = "matchups"
