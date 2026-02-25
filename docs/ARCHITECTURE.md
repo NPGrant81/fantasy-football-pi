@@ -12,6 +12,9 @@ backend/
 ├── scripts/           # 1.5 CLI tools (Reset, Seed, Sync)
 #    * **Placement rule:** any helper/debugging scripts that run in Python
 #      should live here under `backend/scripts/` rather than the project root.
+#    * **Import utilities** – e.g. `import_scoring_rules.py` sanitizes CSVs for
+#      commissioner's scoring rule bulk uploads, handling Excel date quirks,
+#      ranges, and position mappings.
 ├── models.py          # 1.6 SQLAlchemy database models
 ├── database.py        # 1.7 Database engine and session setup
 └── main.py            # 1.8 Application entry point
