@@ -21,30 +21,32 @@ if __name__ == "__main__" or __package__ in (None, ""):
     models = importlib.import_module("backend.models")
     dbmod = importlib.import_module("backend.database")
     secmod = importlib.import_module("backend.core.security")
+    # load routers package and each submodule explicitly
     routers_pkg = importlib.import_module("backend.routers")
+    # the package itself may not yet have attributes for each router, so import
+    # them individually and bind to names below
+    admin = importlib.import_module("backend.routers.admin")
+    admin_tools = importlib.import_module("backend.routers.admin_tools")
+    team = importlib.import_module("backend.routers.team")
+    matchups = importlib.import_module("backend.routers.matchups")
+    league = importlib.import_module("backend.routers.league")
+    advisor = importlib.import_module("backend.routers.advisor")
+    dashboard = importlib.import_module("backend.routers.dashboard")
+    players = importlib.import_module("backend.routers.players")
+    waivers = importlib.import_module("backend.routers.waivers")
+    draft = importlib.import_module("backend.routers.draft")
+    auth = importlib.import_module("backend.routers.auth")
+    feedback = importlib.import_module("backend.routers.feedback")
+    trades = importlib.import_module("backend.routers.trades")
+    platform_tools = importlib.import_module("backend.routers.platform_tools")
+    etl = importlib.import_module("backend.routers.etl")
+    nfl = importlib.import_module("backend.routers.nfl")
+    playoffs = importlib.import_module("backend.routers.playoffs")
 
     engine = dbmod.engine
     SessionLocal = dbmod.SessionLocal
     get_password_hash = secmod.get_password_hash
     check_is_commissioner = secmod.check_is_commissioner
-
-    admin = routers_pkg.admin
-    admin_tools = routers_pkg.admin_tools
-    team = routers_pkg.team
-    matchups = routers_pkg.matchups
-    league = routers_pkg.league
-    advisor = routers_pkg.advisor
-    dashboard = routers_pkg.dashboard
-    players = routers_pkg.players
-    waivers = routers_pkg.waivers
-    draft = routers_pkg.draft
-    auth = routers_pkg.auth
-    feedback = routers_pkg.feedback
-    trades = routers_pkg.trades
-    platform_tools = routers_pkg.platform_tools
-    etl = routers_pkg.etl
-    nfl = routers_pkg.nfl
-    playoffs = routers_pkg.playoffs
 else:
     # normal package imports
     from . import models
