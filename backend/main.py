@@ -77,7 +77,7 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_qualifiers INTEGER DEFAULT 6",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_reseed BOOLEAN DEFAULT FALSE",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_consolation BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_tiebreakers JSON DEFAULT '["points_for","head_to_head","division_wins","wins"]'",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_tiebreakers JSON DEFAULT '[\"points_for\",\"head_to_head\",\"division_wins\",\"wins\"]'",
         "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS division_id INTEGER",  # added for divisions feature
     ]
