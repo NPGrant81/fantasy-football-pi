@@ -104,11 +104,36 @@ export default function Home({ username }) {
               <thead className="text-xs text-slate-500 uppercase bg-slate-950/50">
                 <tr>
                   <th className="px-4 py-3">Rank</th>
-                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('team_name')}>Team</th>
-                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('username')}>Owner</th>
-                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('wins')}>W-L-T</th>
-                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('pf')}>PF</th>
-                  <th className="px-4 py-3 cursor-pointer" onClick={() => handleSort('pa')}>PA</th>
+                  <th
+                    className="px-4 py-3 cursor-pointer"
+                    onClick={() => handleSort('team_name')}
+                  >
+                    Team
+                  </th>
+                  <th
+                    className="px-4 py-3 cursor-pointer"
+                    onClick={() => handleSort('username')}
+                  >
+                    Owner
+                  </th>
+                  <th
+                    className="px-4 py-3 cursor-pointer"
+                    onClick={() => handleSort('wins')}
+                  >
+                    W-L-T
+                  </th>
+                  <th
+                    className="px-4 py-3 cursor-pointer"
+                    onClick={() => handleSort('pf')}
+                  >
+                    PF
+                  </th>
+                  <th
+                    className="px-4 py-3 cursor-pointer"
+                    onClick={() => handleSort('pa')}
+                  >
+                    PA
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -119,7 +144,10 @@ export default function Home({ username }) {
                       .sort((a, b) => {
                         let av = a[sortField] || 0;
                         let bv = b[sortField] || 0;
-                        if (sortField === 'team_name' || sortField === 'username') {
+                        if (
+                          sortField === 'team_name' ||
+                          sortField === 'username'
+                        ) {
                           av = av.toLowerCase();
                           bv = bv.toLowerCase();
                         }
@@ -128,39 +156,39 @@ export default function Home({ username }) {
                         return 0;
                       })
                       .map((owner, idx) => (
-                      <tr
-                        key={owner.id}
-                        className="border-b border-slate-800 hover:bg-slate-800/50"
-                      >
-                        <td
-                          className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-400'}`}
+                        <tr
+                          key={owner.id}
+                          className="border-b border-slate-800 hover:bg-slate-800/50"
                         >
-                          {idx + 1}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-white">
-                          <Link
-                          to={`/team/${owner.id}`}
-                          className="hover:text-blue-400 transition-colors"
-                        >
-                          {owner.team_name || owner.username}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          to={`/team/${owner.id}`}
-                          className="hover:text-blue-400 transition-colors"
-                        >
-                          {owner.username}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3">
-                        {owner.wins}-{owner.losses}-{owner.ties}
-                      </td>
-                      <td className="px-4 py-3">{owner.pf}</td>
-                      <td className="px-4 py-3">{owner.pa}</td>
-                    </tr>
-                  ))}
-                </>
+                          <td
+                            className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-400'}`}
+                          >
+                            {idx + 1}
+                          </td>
+                          <td className="px-4 py-3 font-medium text-white">
+                            <Link
+                              to={`/team/${owner.id}`}
+                              className="hover:text-blue-400 transition-colors"
+                            >
+                              {owner.team_name || owner.username}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link
+                              to={`/team/${owner.id}`}
+                              className="hover:text-blue-400 transition-colors"
+                            >
+                              {owner.username}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3">
+                            {owner.wins}-{owner.losses}-{owner.ties}
+                          </td>
+                          <td className="px-4 py-3">{owner.pf}</td>
+                          <td className="px-4 py-3">{owner.pa}</td>
+                        </tr>
+                      ))}
+                  </>
                 ) : (
                   <tr>
                     <td colSpan={3} className="text-center py-6 text-slate-500">

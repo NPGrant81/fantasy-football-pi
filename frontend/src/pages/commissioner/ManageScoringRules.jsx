@@ -45,7 +45,7 @@ export default function ManageScoringRules() {
             description: 'Passing Yards',
             range_min: 1,
             range_max: 999,
-            point_value: 0.10,
+            point_value: 0.1,
             calculation_type: 'per_unit',
             applicable_positions: 'QB, RB, WR, TE',
           },
@@ -85,7 +85,11 @@ export default function ManageScoringRules() {
       setMessage('Required fields missing.');
       return;
     }
-    if (form.range_min !== '' && form.range_max !== '' && Number(form.range_min) > Number(form.range_max)) {
+    if (
+      form.range_min !== '' &&
+      form.range_max !== '' &&
+      Number(form.range_min) > Number(form.range_max)
+    ) {
       setMessage('Range min must be <= max.');
       return;
     }
@@ -233,7 +237,9 @@ export default function ManageScoringRules() {
                 <tr key={idx} className="bg-slate-800 hover:bg-slate-700">
                   <td>{rule.category}</td>
                   <td>{rule.event_name}</td>
-                  <td>{rule.range_min}-{rule.range_max}</td>
+                  <td>
+                    {rule.range_min}-{rule.range_max}
+                  </td>
                   <td>{rule.point_value}</td>
                   <td>{rule.calculation_type}</td>
                   <td>{rule.applicable_positions}</td>
