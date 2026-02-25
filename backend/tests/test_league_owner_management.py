@@ -198,3 +198,45 @@ def test_get_league_owners_returns_stats(db_session):
     grouped = get_league_owners(league_id=league.id, group_by_division=True, db=db_session)
     # first owner should belong to division1 (West id maybe?) after sorting; ensure field present
     assert 'division_id' in grouped[0]
+
+
+def test_update_scoring_rules_storage(db_session):
+    # verify that the extended scoring rule fields are saved correctly
+    league = models.League(name="ScoreLeague")
+    db_session.add(league)
+    db_session.commit()
+    db_session.refresh(league)
+
+    commish = models.User(username="commish", email=None, hashed_password="h", is_commissioner=True, league_id=league.id)
+    db_session.add(commish)
+    db_session.commit()
+
+    from routers.league import LeagueConfigFull, ScoringRuleSchema, update_league_settings
+
+    config = LeagueConfigFull(
+        roster_size=10,
+        salary_cap=200,
+        starting_slots={"QB":1},
+        scoring_rules=[
+            ScoringRuleSchema(
+                category="passing",
+                event_name="Passing Yards",
+                description="Yards gained",
+                range_min=0,
+                range_max=999,
+                point_value=0.1,
+                calculation_type="per_unit",
+                applicable_positions=["QB"],
+            )
+        ],
+    )
+    # call router function directly
+    update_league_settings(league_id=league.id, config=config, current_user=commish, db=db_session)
+
+    saved = db_session.query(models.ScoringRule).filter(models.ScoringRule.league_id == league.id).all()
+    assert len(saved) == 1
+    rule = saved[0]
+    assert rule.event_name == "Passing Yards"
+    assert float(rule.range_max) == 999
+    assert rule.calculation_type == "per_unit"
+    assert rule.applicable_positions == ["QB"]

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, Numeric, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -234,11 +234,23 @@ class Matchup(Base):
 class ScoringRule(Base):
     __tablename__ = "scoring_rules"
     id = Column(Integer, primary_key=True, index=True)
-    league_id = Column(Integer, ForeignKey("leagues.id"))
-    category = Column(String) 
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    category = Column(String, nullable=False)            # high‑level grouping
+    event_name = Column(String(100), nullable=False)     # textual rule name
     description = Column(String, nullable=True)
-    points = Column(Float, default=0) 
-    
+
+    range_min = Column(Numeric(10, 2), nullable=False, default=0)
+    range_max = Column(Numeric(10, 2), nullable=False, default=9999.99)
+
+    point_value = Column(Numeric(10, 2), nullable=False)
+    calculation_type = Column(String, nullable=False, default="flat_bonus")
+
+    # list of position codes/names; see docs for JSON usage
+    applicable_positions = Column(JSON, nullable=False, default=list)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
     league = relationship("League", back_populates="scoring_rules")
 
 # --- 8. WAIVER CLAIMS ---

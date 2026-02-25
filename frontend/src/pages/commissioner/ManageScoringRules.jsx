@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
 
 const defaultRule = {
-  event: '',
-  range: '',
-  value: '',
-  positions: '',
+  category: '',
+  event_name: '',
+  description: '',
+  range_min: '',
+  range_max: '',
+  point_value: '',
+  calculation_type: 'flat_bonus',
+  applicable_positions: '',
 };
 
 export default function ManageScoringRules() {
@@ -26,22 +30,34 @@ export default function ManageScoringRules() {
         // Demo: load from CSV (see scoring_logic.csv)
         setRules([
           {
-            event: 'Number of Passing TDs',
-            range: '1-999',
-            value: '6 points each',
-            positions: 'QB, RB, WR, TE',
+            category: 'passing',
+            event_name: 'Number of Passing TDs',
+            description: 'Number of Passing TDs',
+            range_min: 1,
+            range_max: 999,
+            point_value: 6,
+            calculation_type: 'flat_bonus',
+            applicable_positions: 'QB, RB, WR, TE',
           },
           {
-            event: 'Passing Yards',
-            range: '1-999',
-            value: '.10 points each',
-            positions: 'QB, RB, WR, TE',
+            category: 'passing',
+            event_name: 'Passing Yards',
+            description: 'Passing Yards',
+            range_min: 1,
+            range_max: 999,
+            point_value: 0.10,
+            calculation_type: 'per_unit',
+            applicable_positions: 'QB, RB, WR, TE',
           },
           {
-            event: 'Number of Rushing TDs',
-            range: '1-999',
-            value: '10 points each',
-            positions: 'QB, RB, WR, TE',
+            category: 'rushing',
+            event_name: 'Number of Rushing TDs',
+            description: 'Number of Rushing TDs',
+            range_min: 1,
+            range_max: 999,
+            point_value: 10,
+            calculation_type: 'flat_bonus',
+            applicable_positions: 'QB, RB, WR, TE',
           },
         ]);
       } catch {
@@ -60,8 +76,17 @@ export default function ManageScoringRules() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setMessage('');
-    if (!form.event || !form.range || !form.value || !form.positions) {
-      setMessage('All fields are required.');
+    if (
+      !form.category ||
+      !form.event_name ||
+      !form.point_value ||
+      !form.applicable_positions
+    ) {
+      setMessage('Required fields missing.');
+      return;
+    }
+    if (form.range_min !== '' && form.range_max !== '' && Number(form.range_min) > Number(form.range_max)) {
+      setMessage('Range min must be <= max.');
       return;
     }
     if (editingIndex !== null) {
@@ -100,33 +125,69 @@ export default function ManageScoringRules() {
       >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <input
-            name="event"
-            value={form.event}
+            name="category"
+            value={form.category}
             onChange={handleChange}
-            placeholder="Event"
+            placeholder="Category"
             className="p-2 rounded bg-slate-900 text-white border border-slate-700"
           />
           <input
-            name="range"
-            value={form.range}
+            name="event_name"
+            value={form.event_name}
             onChange={handleChange}
-            placeholder="Range (e.g. 1-999)"
+            placeholder="Event Name"
             className="p-2 rounded bg-slate-900 text-white border border-slate-700"
           />
           <input
-            name="value"
-            value={form.value}
+            name="description"
+            value={form.description}
+            onChange={handleChange}
+            placeholder="Description"
+            className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+          />
+          <div className="flex gap-2">
+            <input
+              name="range_min"
+              value={form.range_min}
+              onChange={handleChange}
+              placeholder="Min"
+              className="p-2 rounded bg-slate-900 text-white border border-slate-700 flex-1"
+            />
+            <input
+              name="range_max"
+              value={form.range_max}
+              onChange={handleChange}
+              placeholder="Max"
+              className="p-2 rounded bg-slate-900 text-white border border-slate-700 flex-1"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <input
+            name="point_value"
+            value={form.point_value}
             onChange={handleChange}
             placeholder="Point Value"
             className="p-2 rounded bg-slate-900 text-white border border-slate-700"
           />
-          <input
-            name="positions"
-            value={form.positions}
+          <select
+            name="calculation_type"
+            value={form.calculation_type}
             onChange={handleChange}
-            placeholder="Positions (e.g. QB, RB)"
+            className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+          >
+            <option value="flat_bonus">Flat Bonus</option>
+            <option value="per_unit">Per Unit</option>
+          </select>
+          <input
+            name="applicable_positions"
+            value={form.applicable_positions}
+            onChange={handleChange}
+            placeholder="Positions (comma-separated)"
             className="p-2 rounded bg-slate-900 text-white border border-slate-700"
           />
+          {/* empty slot to keep grid aligned */}
+          <div />
         </div>
         <button
           type="submit"
@@ -158,9 +219,11 @@ export default function ManageScoringRules() {
           <table className="w-full text-left border-separate border-spacing-y-2">
             <thead>
               <tr className="text-slate-400 text-sm">
+                <th>Category</th>
                 <th>Event</th>
                 <th>Range</th>
                 <th>Value</th>
+                <th>Type</th>
                 <th>Positions</th>
                 <th></th>
               </tr>
@@ -168,10 +231,12 @@ export default function ManageScoringRules() {
             <tbody>
               {rules.map((rule, idx) => (
                 <tr key={idx} className="bg-slate-800 hover:bg-slate-700">
-                  <td>{rule.event}</td>
-                  <td>{rule.range}</td>
-                  <td>{rule.value}</td>
-                  <td>{rule.positions}</td>
+                  <td>{rule.category}</td>
+                  <td>{rule.event_name}</td>
+                  <td>{rule.range_min}-{rule.range_max}</td>
+                  <td>{rule.point_value}</td>
+                  <td>{rule.calculation_type}</td>
+                  <td>{rule.applicable_positions}</td>
                   <td>
                     <button
                       className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-1 px-4 rounded mr-2"

@@ -45,8 +45,13 @@ class SettingsUpdate(BaseModel):
 # --- UPDATED SCHEMA (Supports Rules + Settings) ---
 class ScoringRuleSchema(BaseModel):
     category: str
+    event_name: str
     description: Optional[str] = None
-    points: float
+    range_min: float = 0
+    range_max: float = 9999.99
+    point_value: float
+    calculation_type: str = "flat_bonus"  # per_unit|flat_bonus
+    applicable_positions: List[str] = []
 
 class LeagueConfigFull(BaseModel):
     roster_size: int
@@ -286,10 +291,50 @@ def create_league(league_data: LeagueCreate, db: Session = Depends(get_db)):
 
     # 4. Create Default Scoring Rules
     default_rules = [
-        models.ScoringRule(league_id=new_league.id, category="Passing", description="Passing TD", points=4.0),
-        models.ScoringRule(league_id=new_league.id, category="Passing", description="Interception", points=-2.0),
-        models.ScoringRule(league_id=new_league.id, category="Rushing", description="Rushing TD", points=6.0),
-        models.ScoringRule(league_id=new_league.id, category="Receiving", description="Reception (PPR)", points=1.0),
+        models.ScoringRule(
+            league_id=new_league.id,
+            category="passing",
+            event_name="Passing TD",
+            description="Passing TD",
+            range_min=0,
+            range_max=9999,
+            point_value=4.0,
+            calculation_type="flat_bonus",
+            applicable_positions=["QB","RB","WR","TE"],
+        ),
+        models.ScoringRule(
+            league_id=new_league.id,
+            category="passing",
+            event_name="Interception",
+            description="Interception",
+            range_min=0,
+            range_max=9999,
+            point_value=-2.0,
+            calculation_type="flat_bonus",
+            applicable_positions=["QB","RB","WR","TE"],
+        ),
+        models.ScoringRule(
+            league_id=new_league.id,
+            category="rushing",
+            event_name="Rushing TD",
+            description="Rushing TD",
+            range_min=0,
+            range_max=9999,
+            point_value=6.0,
+            calculation_type="flat_bonus",
+            applicable_positions=["QB","RB","WR","TE"],
+        ),
+        models.ScoringRule(
+            league_id=new_league.id,
+            category="receiving",
+            event_name="Reception (PPR)",
+            description="Reception (PPR)",
+            range_min=0,
+            range_max=9999,
+            point_value=1.0,
+            calculation_type="flat_bonus",
+            applicable_positions=["QB","RB","WR","TE"],
+        ),
     ]
     db.add_all(default_rules)
     db.commit()
@@ -374,12 +419,72 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
     # --- SELF-HEALING: If no rules exist, create them now! ---
     if not rules:
         default_rules = [
-            models.ScoringRule(league_id=league_id, category="Passing", description="Passing TD", points=4.0),
-            models.ScoringRule(league_id=league_id, category="Passing", description="Interception", points=-2.0),
-            models.ScoringRule(league_id=league_id, category="Rushing", description="Rushing TD", points=6.0),
-            models.ScoringRule(league_id=league_id, category="Receiving", description="Reception (PPR)", points=1.0),
-            models.ScoringRule(league_id=league_id, category="Kicking", description="Field Goal Made", points=3.0),
-            models.ScoringRule(league_id=league_id, category="Defense", description="Sack", points=1.0),
+            models.ScoringRule(
+                league_id=league_id,
+                category="passing",
+                event_name="Passing TD",
+                description="Passing TD",
+                range_min=0,
+                range_max=9999,
+                point_value=4.0,
+                calculation_type="flat_bonus",
+                applicable_positions=["QB","RB","WR","TE"],
+            ),
+            models.ScoringRule(
+                league_id=league_id,
+                category="passing",
+                event_name="Interception",
+                description="Interception",
+                range_min=0,
+                range_max=9999,
+                point_value=-2.0,
+                calculation_type="flat_bonus",
+                applicable_positions=["QB","RB","WR","TE"],
+            ),
+            models.ScoringRule(
+                league_id=league_id,
+                category="rushing",
+                event_name="Rushing TD",
+                description="Rushing TD",
+                range_min=0,
+                range_max=9999,
+                point_value=6.0,
+                calculation_type="flat_bonus",
+                applicable_positions=["QB","RB","WR","TE"],
+            ),
+            models.ScoringRule(
+                league_id=league_id,
+                category="receiving",
+                event_name="Reception (PPR)",
+                description="Reception (PPR)",
+                range_min=0,
+                range_max=9999,
+                point_value=1.0,
+                calculation_type="flat_bonus",
+                applicable_positions=["QB","RB","WR","TE"],
+            ),
+            models.ScoringRule(
+                league_id=league_id,
+                category="kicking",
+                event_name="Field Goal Made",
+                description="Field Goal Made",
+                range_min=0,
+                range_max=9999,
+                point_value=3.0,
+                calculation_type="flat_bonus",
+                applicable_positions=["ALL"],
+            ),
+            models.ScoringRule(
+                league_id=league_id,
+                category="defense",
+                event_name="Sack",
+                description="Sack",
+                range_min=0,
+                range_max=9999,
+                point_value=1.0,
+                calculation_type="flat_bonus",
+                applicable_positions=["ALL"],
+            ),
         ]
         db.add_all(default_rules)
         db.commit()
@@ -397,7 +502,16 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
         waiver_tiebreaker=settings.waiver_tiebreaker,
         draft_year=settings.draft_year,
         scoring_rules=[
-            ScoringRuleSchema(category=r.category, description=r.description, points=r.points) 
+            ScoringRuleSchema(
+                category=r.category,
+                event_name=r.event_name,
+                description=r.description,
+                range_min=float(r.range_min),
+                range_max=float(r.range_max),
+                point_value=float(r.point_value),
+                calculation_type=r.calculation_type,
+                applicable_positions=r.applicable_positions or [],
+            )
             for r in rules
         ]
     )
@@ -438,8 +552,13 @@ def update_league_settings(
         new_rules.append(models.ScoringRule(
             league_id=league_id,
             category=r.category,
+            event_name=r.event_name,
             description=r.description,
-            points=r.points
+            range_min=r.range_min,
+            range_max=r.range_max,
+            point_value=r.point_value,
+            calculation_type=r.calculation_type,
+            applicable_positions=r.applicable_positions,
         ))
     db.add_all(new_rules)
     
