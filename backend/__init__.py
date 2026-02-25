@@ -8,7 +8,7 @@
 import sys
 from importlib import import_module
 
-for alias in ("models", "database", "models_draft_value", "utils"):
+for alias in ("models", "database", "models_draft_value", "utils", "core", "services", "routers", "schemas"):
     if alias not in sys.modules:
         try:
             sys.modules[alias] = import_module(f"backend.{alias}")

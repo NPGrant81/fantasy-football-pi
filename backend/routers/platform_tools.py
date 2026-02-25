@@ -9,10 +9,12 @@ from pydantic import BaseModel
 from typing import Optional
 import secrets
 import string
-from ..database import get_db
-from ..core.security import get_current_active_superuser, get_password_hash
-from .. import models
-from ..services import admin_service
+# use top-level aliases so module can be imported as either
+# `backend.routers.platform_tools` or simply `routers.platform_tools`
+from database import get_db
+from core.security import get_current_active_superuser, get_password_hash
+import models
+import services.admin_service as admin_service
 from utils.email_sender import send_invite_email
 
 router = APIRouter(prefix="/admin/tools", tags=["Platform Tools"])
@@ -67,10 +69,13 @@ def create_commissioner(
     alphabet = string.ascii_letters + string.digits
     temp_password = ''.join(secrets.choice(alphabet) for _ in range(8))
 
+    # bcrypt has a 72-byte input limit; truncate just in case any
+    # upstream code accidentally generates something longer (seen in tests).
+    hashed = get_password_hash(temp_password[:72])
     new_commissioner = models.User(
         username=request.username,
         email=request.email,
-        hashed_password=get_password_hash(temp_password),
+        hashed_password=hashed,
         is_commissioner=True,
         league_id=request.league_id,
     )

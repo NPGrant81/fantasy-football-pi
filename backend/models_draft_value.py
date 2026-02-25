@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, JSON, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+# use generic JSON to allow sqlite tests; Postgres will use native JSON/JSONB automatically
+# from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 # ensure Base always comes from backend.database regardless of context
 import importlib
@@ -26,7 +27,7 @@ class PlatformProjection(Base):
     adp = Column(Float, nullable=True)
     auction_value = Column(Float, nullable=True)
     position_rank = Column(Integer, nullable=True)
-    raw_json = Column(JSONB, nullable=True)  # Store raw payload for audit/debug
+    raw_json = Column(JSON, nullable=True)  # Store raw payload for audit/debug
     created_at = Column(String, nullable=True)
 
 # --- 3. DRAFT VALUES (AGGREGATED/CONSENSUS TABLE) ---

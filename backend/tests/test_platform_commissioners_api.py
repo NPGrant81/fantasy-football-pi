@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.core.security import get_current_active_superuser
+from routers.platform_tools import get_current_active_superuser
 from backend.database import get_db
 from backend.main import app
 
@@ -79,8 +79,10 @@ def test_create_and_list_commissioner_for_superuser(client, api_db, monkeypatch)
 
     app.dependency_overrides[get_current_active_superuser] = allow_superuser
 
-    monkeypatch.setattr('routers.platform_tools.get_password_hash', lambda _value: 'hashed-test-password')
-    monkeypatch.setattr('routers.platform_tools.send_invite_email', lambda *args, **kwargs: True)
+    # patch both alias paths in case module loaded under backend or bare name
+    for modname in ('routers.platform_tools', 'backend.routers.platform_tools'):
+        monkeypatch.setattr(f"{modname}.get_password_hash", lambda _value: 'hashed-test-password', raising=False)
+        monkeypatch.setattr(f"{modname}.send_invite_email", lambda *args, **kwargs: True, raising=False)
 
     create_res = client.post(
         '/admin/tools/commissioners',

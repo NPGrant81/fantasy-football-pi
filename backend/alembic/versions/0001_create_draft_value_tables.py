@@ -36,7 +36,7 @@ def upgrade():
         sa.Column('adp', sa.Float(), nullable=True),
         sa.Column('auction_value', sa.Float(), nullable=True),
         sa.Column('position_rank', sa.Integer(), nullable=True),
-        sa.Column('raw_json', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('raw_json', sa.JSON(), nullable=True),
         sa.Column('created_at', sa.String(), nullable=True),
         sa.ForeignKeyConstraint(['player_id'], ['players.id'], ),
         sa.PrimaryKeyConstraint('id')
