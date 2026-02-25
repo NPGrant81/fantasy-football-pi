@@ -3,9 +3,9 @@ from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from database import get_db
-import models
-from core.security import get_current_user, check_is_commissioner # Use our new auth system
+from ..database import get_db
+from .. import models
+from ..core.security import get_current_user, check_is_commissioner # Use our new auth system
 import secrets
 import string
 from utils.email_sender import send_invite_email

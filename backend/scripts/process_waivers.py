@@ -1,5 +1,5 @@
 # backend/scripts/process_waivers.py
-from database import SessionLocal
+from backend.database import SessionLocal
 import models
 
 def run_waiver_cycle(league_id):

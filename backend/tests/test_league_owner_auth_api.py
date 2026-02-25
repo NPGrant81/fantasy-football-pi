@@ -11,8 +11,8 @@ from sqlalchemy.pool import StaticPool
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from core.security import check_is_commissioner
-from database import get_db
+from backend.core.security import check_is_commissioner
+from backend.database import get_db
 from backend.main import app
 
 

@@ -2,8 +2,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from database import get_db
-import models
+from ..database import get_db
+from .. import models
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, JSON, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-from database import Base
+from backend.database import Base
 
 # --- 1. PLAYER ID MAPPINGS ---
 class PlayerIDMapping(Base):

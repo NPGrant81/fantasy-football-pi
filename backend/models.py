@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, Numeric, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import relationship
-from database import Base
+from backend.database import Base
 
 # --- 1. USER TABLE ---
 class User(Base):

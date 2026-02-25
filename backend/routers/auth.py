@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 # 1.1.1 INFRASTRUCTURE: Use the new Security Core
-from core import security
-import models
+from ..core import security
+from .. import models
 import schemas 
-from database import get_db
+from ..database import get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 

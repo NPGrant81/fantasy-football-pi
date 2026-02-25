@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 import requests
 from sqlalchemy.orm import Session
-from database import SessionLocal, engine
+from backend.database import SessionLocal, engine
 import models
 
 # Add the parent directory (backend) to the system path

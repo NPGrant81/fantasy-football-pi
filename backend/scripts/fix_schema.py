@@ -1,4 +1,4 @@
-from database import engine
+from backend.database import engine
 from sqlalchemy import text
 
 def run_safe(connection, statement, success_msg):

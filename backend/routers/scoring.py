@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from typing import List
 
 # Import your new structure
-from database import get_db
-import models
+from ..database import get_db
+from .. import models
 import schemas
-from core.security import check_is_commissioner
+from ..core.security import check_is_commissioner
 
 router = APIRouter(
     prefix="/scoring",

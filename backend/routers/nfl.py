@@ -4,8 +4,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
-import models
-from database import get_db
+from .. import models
+from ..database import get_db
 
 router = APIRouter(prefix="/nfl", tags=["NFL"])
 

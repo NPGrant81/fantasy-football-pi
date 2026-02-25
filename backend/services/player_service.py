@@ -1,7 +1,7 @@
 # backend/services/player_service.py
 from sqlalchemy.orm import Session
 from sqlalchemy import not_
-import models
+from .. import models
 
 # Only relevant fantasy positions from active NFL rosters
 ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}

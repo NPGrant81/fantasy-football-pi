@@ -9,8 +9,8 @@ from sqlalchemy.pool import StaticPool
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from database import get_db
-from main import app
+from backend.database import get_db
+from backend.main import app
 from fastapi.testclient import TestClient
 
 

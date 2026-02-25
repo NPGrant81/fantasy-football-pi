@@ -2,8 +2,8 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from database import get_db
-import models
+from ..database import get_db
+from .. import models
 
 # Optional import for testing environments
 # the `google-genai` SDK (>=1.64.0) provides the `genai` namespace

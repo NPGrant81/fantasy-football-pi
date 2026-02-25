@@ -8,7 +8,7 @@ import os
 # Add backend directory to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import Base  # noqa
+from backend.database import Base  # noqa
 import models  # noqa
 import models_draft_value  # noqa
 

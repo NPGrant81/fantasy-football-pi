@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from routers.league import (
+from backend.routers.league import (
     AddMemberRequest,
     add_league_member,
     create_owner,
@@ -211,7 +211,7 @@ def test_update_scoring_rules_storage(db_session):
     db_session.add(commish)
     db_session.commit()
 
-    from routers.league import LeagueConfigFull, ScoringRuleSchema, update_league_settings
+    from backend.routers.league import LeagueConfigFull, ScoringRuleSchema, update_league_settings
 
     config = LeagueConfigFull(
         roster_size=10,

@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database import engine
+from backend.database import engine
 from sqlalchemy import text
 
 # Add waiver_deadline column to league_settings if it does not exist

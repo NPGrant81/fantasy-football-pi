@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from core.security import get_current_user, check_is_commissioner
-from database import get_db
-import models
+from ..core.security import get_current_user, check_is_commissioner
+from ..database import get_db
+from .. import models
 
 router = APIRouter(prefix="/trades", tags=["Trades"])
 

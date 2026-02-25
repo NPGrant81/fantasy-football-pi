@@ -2,17 +2,16 @@ import os
 # use sqlite for the engine during tests to avoid Postgres connection errors
 os.environ['DATABASE_URL'] = 'sqlite://'
 
-import sys
-from pathlib import Path
+import os
+# use sqlite for the engine during tests to avoid Postgres connection errors
+os.environ['DATABASE_URL'] = 'sqlite://'
 
 import pytest
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import models
-from database import get_db
-from main import app
+from backend import models
+from backend.database import get_db
+from backend.main import app
 
 
 @pytest.fixture

@@ -1,5 +1,5 @@
 # backend/uat/generate_matchups.py
-from services.generate_schedule import generate_schedule
+from ..services.generate_schedule import generate_schedule
 
 def run():
     print("\n⚡ Generating matchups after seeding...")

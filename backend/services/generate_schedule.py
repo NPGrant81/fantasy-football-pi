@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 # FIX: Removed "backend." prefix since we are now INSIDE the folder
-from database import SessionLocal, engine
-import models
+from ..database import SessionLocal, engine
+from .. import models
 import random
 
 # 1. Initialize DB

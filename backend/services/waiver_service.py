@@ -1,4 +1,5 @@
 # backend/services/waiver_service.py
+from .. import models
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from datetime import datetime

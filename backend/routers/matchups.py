@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from database import get_db
-import models
+from ..database import get_db
+from .. import models
 
 router = APIRouter(
     prefix="/matchups",

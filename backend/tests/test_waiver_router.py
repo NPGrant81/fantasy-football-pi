@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from routers.waivers import list_waiver_claims
+from backend.routers.waivers import list_waiver_claims
 
 
 @pytest.fixture

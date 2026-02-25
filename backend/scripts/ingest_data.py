@@ -1,7 +1,7 @@
 import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from database import SessionLocal, engine
+from backend.database import SessionLocal, engine
 # NEW: Added 'League' to the imports
 from models import Player, User, DraftPick, Budget, Base, League
 import os

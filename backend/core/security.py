@@ -7,8 +7,11 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-import models
-from database import get_db
+from .. import models
+from .. import database
+
+# alias get_db for dependency
+get_db = database.get_db
 
 # --- 1.1 CONFIGURATION ---
 # 1.1.2 Ensure the app fails-fast if no secret key is provided in a real environment

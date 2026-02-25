@@ -1,5 +1,5 @@
 # backend/uat/run_uat_sync.py
-from database import SessionLocal, engine
+from backend.database import SessionLocal, engine
 import models
 from uat.seed_owners import seed_owners
 from uat.seed_players import seed_players

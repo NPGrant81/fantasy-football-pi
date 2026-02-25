@@ -4,16 +4,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from sqlalchemy import text
 
-# Internal Imports
-import models
-from database import engine, SessionLocal
-from core.security import get_password_hash, check_is_commissioner
-
-# Import All Routers
-from routers import (
-    admin, admin_tools, team, matchups, league, advisor,
-    dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs
-)
+# Internal imports; support running as package or as script
+try:
+    from . import models
+    from .database import engine, SessionLocal
+    from .core.security import get_password_hash, check_is_commissioner
+    from .routers import (
+        admin, admin_tools, team, matchups, league, advisor,
+        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs
+    )
+except ImportError:
+    # fallback when module executed from backend/ directory directly
+    import models
+    from database import engine, SessionLocal
+    from core.security import get_password_hash, check_is_commissioner
+    from routers import (
+        admin, admin_tools, team, matchups, league, advisor,
+        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs
+    )
 
 load_dotenv()
 

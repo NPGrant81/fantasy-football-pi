@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Set
 from pydantic import BaseModel
-from database import get_db
-import models
-from core.security import get_current_user, check_is_commissioner
+from ..database import get_db
+from .. import models
+from ..core.security import get_current_user, check_is_commissioner
 import random
 
 router = APIRouter(

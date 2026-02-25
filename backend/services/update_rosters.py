@@ -1,8 +1,8 @@
 import nfl_data_py as nfl
 import pandas as pd
 from sqlalchemy.orm import Session
-from database import SessionLocal
-import models
+from ..database import SessionLocal
+from .. import models
 
 def run_update():
     # 1. Connect to Database

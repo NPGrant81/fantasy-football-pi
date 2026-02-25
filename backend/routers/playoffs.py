@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from database import get_db
-import models
-from routers.league import get_league_owners
+from ..database import get_db
+from .. import models
+from ..routers.league import get_league_owners
 from utils import playoff_logic
 
 router = APIRouter(

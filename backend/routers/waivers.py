@@ -1,14 +1,14 @@
 # backend/routers/waivers.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from database import get_db
-import models  # Assuming models.py is in the backend root 
+from ..database import get_db
+from .. import models  # models in package root
 from pydantic import BaseModel
 from typing import Optional
-from core.security import get_current_user, get_current_active_admin  # Point to the new home of your bouncers
+from ..core.security import get_current_user, get_current_active_admin  # Point to the new home of your bouncers
 
 # 1.1.1 IMPORT the service logic we just built
-from services import waiver_service 
+from ..services import waiver_service 
 
 router = APIRouter(
     prefix="/waivers",

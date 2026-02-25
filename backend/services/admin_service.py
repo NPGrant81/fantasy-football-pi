@@ -1,9 +1,9 @@
 # backend/services/admin_service.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-import models
-from core import security
-from uat.seed_draft import seed_draft
+from .. import models
+from ..core import security
+from ..uat.seed_draft import seed_draft
 
 # --- 1.1 LEAGUE MANAGEMENT (COMMISSIONER) ---
 

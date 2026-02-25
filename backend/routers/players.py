@@ -3,10 +3,10 @@ from fastapi import APIRouter, Depends, Query
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from database import get_db
-import models
-from core.security import get_current_user, check_is_commissioner 
-from services import player_service # 2.1.1 IMPORT the service logic
+from ..database import get_db
+from .. import models
+from ..core.security import get_current_user, check_is_commissioner 
+from ..services import player_service # 2.1.1 IMPORT the service logic
 
 router = APIRouter(
     prefix="/players",

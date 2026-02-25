@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from database import get_db
+from backend.database import get_db
 from backend.main import app
 
 

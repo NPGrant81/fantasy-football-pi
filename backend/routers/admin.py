@@ -1,10 +1,10 @@
 # backend/routers/admin.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
-import models
-from core import security 
-from services import admin_service
+from ..database import get_db
+from .. import models
+from ..core import security
+from ..services import admin_service
 
 router = APIRouter(prefix="/admin", tags=["League Admin"])
 

@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 # Internal Imports
-from database import get_db
+from ..database import get_db
 import models
-from core.security import get_current_user, check_is_commissioner 
+from ..core.security import get_current_user, check_is_commissioner 
 
 # Create the router
 # Note: We removed the 'prefix' so your current frontend links (/draft-history) 

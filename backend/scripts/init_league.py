@@ -7,7 +7,7 @@ from datetime import datetime
 # 1.1.1 Path Setup
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import engine, SessionLocal, Base
+from backend.database import engine, SessionLocal, Base
 import models
 from core import security # 1.1.2 Use the professional core security module
 

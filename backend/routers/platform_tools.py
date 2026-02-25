@@ -9,10 +9,10 @@ from pydantic import BaseModel
 from typing import Optional
 import secrets
 import string
-from database import get_db
-from core.security import get_current_active_superuser, get_password_hash
-import models
-from services import admin_service
+from ..database import get_db
+from ..core.security import get_current_active_superuser, get_password_hash
+from .. import models
+from ..services import admin_service
 from utils.email_sender import send_invite_email
 
 router = APIRouter(prefix="/admin/tools", tags=["Platform Tools"])

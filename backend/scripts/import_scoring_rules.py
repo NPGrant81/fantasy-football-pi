@@ -1,16 +1,24 @@
 """CSV importer/sanitizer for league scoring rules.
 
-Usage:
-    python import_scoring_rules.py path/to/file.csv
-
-Reads a CSV with columns like Event,Range_Yds,Point_Value,PostionID and
-outputs normalized JSON records to stdout (one per line).  Designed to help
-commissioners bulk-load complex scoring rules.
-
-The sanitizer handles Excel "Jan-99" style dates, normalizes ranges to numeric
-min/max values, detects per-unit vs flat bonus rules, and maps provider numeric
-position IDs to human-readable codes including FLEX.
+This script must be executed with the project root on PYTHONPATH; we insert it
+programmatically below to simplify invocation.
 """
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Usage:
+#     python import_scoring_rules.py path/to/file.csv
+#
+# Reads a CSV with columns like Event,Range_Yds,Point_Value,PostionID and
+# outputs normalized JSON records to stdout (one per line).  Designed to help
+# commissioners bulk-load complex scoring rules.
+#
+# The sanitizer handles Excel "Jan-99" style dates, normalizes ranges to numeric
+# min/max values, detects per-unit vs flat bonus rules, and maps provider numeric
+# position IDs to human-readable codes including FLEX.
+
 
 import csv
 import json
@@ -95,17 +103,63 @@ def sanitize_row(row):
     }
 
 
+# use explicit package imports to avoid confusion between top-level and backend modules
+from backend.database import engine, SessionLocal, Base
+# models will be imported lazily within insert_rules to prevent metadata collisions
+
+
+def insert_rules(league_id, records):
+    # Use application's DB configuration
+    Session = SessionLocal
+    db = Session()
+    # make sure tables exist (optional in prod)
+    Base.metadata.create_all(bind=engine)
+
+    # import models here to ensure Base metadata has been configured and
+    # to avoid side effects when the module is imported elsewhere (e.g. tests)
+    import backend.models as models
+
+    new_rules = []
+    for r in records:
+        new_rules.append(models.ScoringRule(
+            league_id=league_id,
+            category=r.get('category',''),
+            event_name=r.get('event_name',''),
+            description=r.get('description'),
+            range_min=r.get('range_min',0),
+            range_max=r.get('range_max',0),
+            point_value=r.get('point_value',0),
+            calculation_type=r.get('calculation_type','flat_bonus'),
+            applicable_positions=r.get('applicable_positions',[]),
+        ))
+    db.add_all(new_rules)
+    db.commit()
+    print(f"Inserted {len(new_rules)} rules for league {league_id}")
+    db.close()
+
+
 def main():
     if len(sys.argv) < 2:
-        print('Usage: python import_scoring_rules.py file.csv', file=sys.stderr)
+        print('Usage: python import_scoring_rules.py file.csv [league_id]', file=sys.stderr)
         sys.exit(1)
 
     path = sys.argv[1]
+    league_id = None
+    if len(sys.argv) >= 3:
+        league_id = int(sys.argv[2])
+
     with open(path, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
+        records = []
         for row in reader:
             clean = sanitize_row(row)
-            print(json.dumps(clean))
+            if league_id is None:
+                print(json.dumps(clean))
+            else:
+                records.append(clean)
+
+    if league_id is not None and records:
+        insert_rules(league_id, records)
 
 
 if __name__ == '__main__':
