@@ -29,7 +29,7 @@ To maintain a consistent flow across routers and services, all functions follow 
 • 2.3 Response: Return the final status and payload to the client.
 3. Core Logic Layers
 Scoring Service
-The scoring_service.py is the primary engine for calculating performance. It pulls dynamic rules from the ScoringRule table, allowing different leagues to maintain unique scoring settings without code changes.
+The scoring_service.py is the primary engine for calculating performance. It pulls dynamic rules from the `scoring_rules` table, which now supports a structured representation (min/max ranges, per‑unit vs flat bonuses, and a JSON list of applicable positions). This allows commissioners to express arbitrarily complex formulas while the engine evaluates them efficiently.
 Security Bouncers
 Access control is managed via FastAPI Dependencies in core/security.py. These act as "bouncers" at the router level, preventing non-commissioners from accessing administrative endpoints.
 Seeding & Maintenance
