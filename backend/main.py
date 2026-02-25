@@ -64,6 +64,10 @@ app = FastAPI(title="Fantasy Football War Room API")
 
 def ensure_runtime_schema() -> None:
     """Apply minimal non-destructive schema fixes required by active routes."""
+    # When new columns are added to tables but upstream migrations may not have
+    # been run, we pragmatically add them here so the app can start without
+    # blowing up.  This isn't a substitute for Alembic in production, but it
+    # keeps local dev and UAT scripts from crashing.
     statements = [
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS draft_year INTEGER",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_deadline VARCHAR",
@@ -71,6 +75,7 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS waiver_system VARCHAR",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS waiver_tiebreaker VARCHAR",
         "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS division_id INTEGER",  # added for divisions feature
     ]
 
     with engine.connect() as connection:
