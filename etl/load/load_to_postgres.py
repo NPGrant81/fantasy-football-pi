@@ -8,9 +8,16 @@ import os
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from backend.models import Player
-from backend.models_draft_value import PlayerIDMapping, PlatformProjection
-from backend.database import Base
+# handle being executed from repo root or from backend/ subdirectory
+try:
+    from backend.models import Player
+    from backend.models_draft_value import PlayerIDMapping, PlatformProjection
+    from backend.database import Base
+except ImportError:
+    # cwd==backend/ => package not on path
+    from models import Player
+    from models_draft_value import PlayerIDMapping, PlatformProjection
+    from database import Base
 
 # Update this with your actual DB URL or use env var
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password123@localhost/fantasy_pi")

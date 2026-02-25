@@ -1,7 +1,11 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, JSON, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-from backend.database import Base
+# support module execution from backend/ directory by falling back
+try:
+    from backend.database import Base
+except ImportError:
+    from database import Base
 
 # --- 1. PLAYER ID MAPPINGS ---
 class PlayerIDMapping(Base):

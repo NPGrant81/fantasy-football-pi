@@ -1,7 +1,7 @@
 # backend/uat/seed_owners.py
 from sqlalchemy.orm import Session
-import models
-from core.security import get_password_hash
+from backend import models
+from backend.core.security import get_password_hash
 
 def seed_owners(db: Session):
     print("👤 SEEDING OWNERS: Creating the 12-team league...")

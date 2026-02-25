@@ -1,7 +1,7 @@
 # backend/uat/seed_draft.py
 import random
 from sqlalchemy.orm import Session
-from .. import models
+from backend import models
 
 def get_safe_player(db: Session, pool, position, owner_id):
     # 1.1 VALIDATION: Use existing player if available

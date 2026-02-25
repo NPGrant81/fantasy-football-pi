@@ -233,12 +233,18 @@ describe('Home (League Dashboard)', () => {
     await waitFor(() => screen.getByText('Z'));
     // click PF header to sort ascending
     const pfHeader = screen.getByText('PF');
+    // sort ascending
     pfHeader.click();
-    // after sorting ascending, Z (100) should appear before A (150)
-    const rows = screen.getAllByRole('row');
-    expect(rows[1]).toHaveTextContent('Z');
-    pfHeader.click(); // toggle descending
-    expect(rows[1]).toHaveTextContent('A');
+    await waitFor(() => {
+      const rowsAsc = screen.getAllByRole('row');
+      expect(rowsAsc[1]).toHaveTextContent('Z');
+    });
+    // toggle descending
+    pfHeader.click();
+    await waitFor(() => {
+      const rowsDesc = screen.getAllByRole('row');
+      expect(rowsDesc[1]).toHaveTextContent('A');
+    });
   });
 
   test('does not fetch data when league ID is missing', () => {

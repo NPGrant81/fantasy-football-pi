@@ -1,9 +1,17 @@
 # backend/uat/run_uat_sync.py
-from backend.database import SessionLocal, engine
-import models
-from uat.seed_owners import seed_owners
-from uat.seed_players import seed_players
-from uat.seed_draft import seed_draft
+# Enable running either from project root or inside backend/ by falling back
+try:
+    from backend.database import SessionLocal, engine
+    from backend import models
+    from backend.uat.seed_owners import seed_owners
+    from backend.uat.seed_players import seed_players
+    from backend.uat.seed_draft import seed_draft
+except ImportError:
+    from database import SessionLocal, engine
+    import models
+    from uat.seed_owners import seed_owners
+    from uat.seed_players import seed_players
+    from uat.seed_draft import seed_draft
 
 def run_uat():
     db = SessionLocal()
@@ -19,7 +27,7 @@ def run_uat():
     seed_draft(db)
 
     # Always generate matchups after seeding
-    from uat.generate_matchups import run as generate_matchups
+    from backend.uat.generate_matchups import run as generate_matchups
     generate_matchups()
 
     print("✨ UAT SYNC COMPLETE. Ready for testing.")
