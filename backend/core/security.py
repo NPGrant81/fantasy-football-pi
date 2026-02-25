@@ -7,8 +7,13 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from .. import models
-from .. import database
+# imports need to work whether backend is a package or we're running inside its directory
+try:
+    from .. import models
+    from .. import database
+except ImportError:
+    import models
+    import database
 
 # alias get_db for dependency
 get_db = database.get_db

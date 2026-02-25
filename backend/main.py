@@ -1,8 +1,19 @@
 import os
+import sys
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from sqlalchemy import text
+
+# fix package context when running from backend/ directory
+# (e.g. `uvicorn main:app` instead of `uvicorn backend.main:app`).
+if __package__ in (None, ""):
+    # add parent path to sys.path so `import backend` works
+    pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    parent = os.path.dirname(pkg_dir)
+    if parent not in sys.path:
+        sys.path.insert(0, parent)
+    __package__ = "backend"
 
 # Internal imports; support running as package or as script
 try:
