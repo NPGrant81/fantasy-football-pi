@@ -1,10 +1,8 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, Numeric, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import relationship
-# allow both package and script execution by falling back to bare import
-try:
-    from backend.database import Base
-except ImportError:  # when cwd == backend/ and package root isn't on path
-    from database import Base
+# import backend.database explicitly so the module is always named backend.database
+import importlib
+Base = importlib.import_module("backend.database").Base
 
 # --- 1. USER TABLE ---
 class User(Base):

@@ -7,29 +7,50 @@ from sqlalchemy import text
 
 # fix package context when running from backend/ directory
 # (e.g. `uvicorn main:app` instead of `uvicorn backend.main:app`).
-if __package__ in (None, ""):
-    # add parent path to sys.path so `import backend` works
+# We also handle script mode by importing every symbol via importlib so that
+# modules are always loaded as `backend.xxx`.  Detection starts by checking
+# whether the module is executed as __main__ or has no package name.
+if __name__ == "__main__" or __package__ in (None, ""):
     pkg_dir = os.path.dirname(os.path.abspath(__file__))
     parent = os.path.dirname(pkg_dir)
     if parent not in sys.path:
         sys.path.insert(0, parent)
-    __package__ = "backend"
+    # import everything explicitly from backend so module name is correct
+    import importlib
+    backend_pkg = importlib.import_module("backend")
+    models = importlib.import_module("backend.models")
+    dbmod = importlib.import_module("backend.database")
+    secmod = importlib.import_module("backend.core.security")
+    routers_pkg = importlib.import_module("backend.routers")
 
-# Internal imports; support running as package or as script
-try:
+    engine = dbmod.engine
+    SessionLocal = dbmod.SessionLocal
+    get_password_hash = secmod.get_password_hash
+    check_is_commissioner = secmod.check_is_commissioner
+
+    admin = routers_pkg.admin
+    admin_tools = routers_pkg.admin_tools
+    team = routers_pkg.team
+    matchups = routers_pkg.matchups
+    league = routers_pkg.league
+    advisor = routers_pkg.advisor
+    dashboard = routers_pkg.dashboard
+    players = routers_pkg.players
+    waivers = routers_pkg.waivers
+    draft = routers_pkg.draft
+    auth = routers_pkg.auth
+    feedback = routers_pkg.feedback
+    trades = routers_pkg.trades
+    platform_tools = routers_pkg.platform_tools
+    etl = routers_pkg.etl
+    nfl = routers_pkg.nfl
+    playoffs = routers_pkg.playoffs
+else:
+    # normal package imports
     from . import models
     from .database import engine, SessionLocal
     from .core.security import get_password_hash, check_is_commissioner
     from .routers import (
-        admin, admin_tools, team, matchups, league, advisor,
-        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs
-    )
-except ImportError:
-    # fallback when module executed from backend/ directory directly
-    import models
-    from database import engine, SessionLocal
-    from core.security import get_password_hash, check_is_commissioner
-    from routers import (
         admin, admin_tools, team, matchups, league, advisor,
         dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs
     )

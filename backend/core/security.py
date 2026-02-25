@@ -7,13 +7,12 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-# imports need to work whether backend is a package or we're running inside its directory
-try:
-    from .. import models
-    from .. import database
-except ImportError:
-    import models
-    import database
+# regardless of execution context, load backend modules explicitly to avoid
+# duplicate metadata objects when SQLAlchemy reflects them under two names
+import importlib
+
+models = importlib.import_module("backend.models")
+database = importlib.import_module("backend.database")
 
 # alias get_db for dependency
 get_db = database.get_db

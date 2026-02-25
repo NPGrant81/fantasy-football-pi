@@ -1,17 +1,18 @@
 # backend/uat/run_uat_sync.py
-# Enable running either from project root or inside backend/ by falling back
-try:
-    from backend.database import SessionLocal, engine
-    from backend import models
-    from backend.uat.seed_owners import seed_owners
-    from backend.uat.seed_players import seed_players
-    from backend.uat.seed_draft import seed_draft
-except ImportError:
-    from database import SessionLocal, engine
-    import models
-    from uat.seed_owners import seed_owners
-    from uat.seed_players import seed_players
-    from uat.seed_draft import seed_draft
+# Ensure parent path is in sys.path so `backend` package can be imported
+import os, sys
+if __package__ in (None, ""):
+    pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    parent = os.path.dirname(pkg_dir)
+    if parent not in sys.path:
+        sys.path.insert(0, parent)
+
+# always import via backend package name only
+from backend.database import SessionLocal, engine
+from backend import models
+from backend.uat.seed_owners import seed_owners
+from backend.uat.seed_players import seed_players
+from backend.uat.seed_draft import seed_draft
 
 def run_uat():
     db = SessionLocal()
