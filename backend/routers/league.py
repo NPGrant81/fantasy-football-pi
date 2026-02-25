@@ -503,12 +503,13 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
         draft_year=settings.draft_year,
         scoring_rules=[
             ScoringRuleSchema(
-                category=r.category,
-                event_name=r.event_name,
+                category=r.category or "",
+                event_name=r.event_name or "",
                 description=r.description,
-                range_min=float(r.range_min),
-                range_max=float(r.range_max),
-                point_value=float(r.point_value),
+                range_min=float(r.range_min) if r.range_min is not None else 0.0,
+                range_max=float(r.range_max) if r.range_max is not None else 0.0,
+                # some older rows may have NULL point_value; treat as 0
+                point_value=float(r.point_value or 0),
                 calculation_type=r.calculation_type,
                 applicable_positions=r.applicable_positions or [],
             )
