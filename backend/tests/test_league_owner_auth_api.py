@@ -3,10 +3,12 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException, status
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# ``client`` fixture is provided by backend/conftest.py; it creates a
+# TestClient with manage_lifespan=False so the app startup logic is skipped.
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -33,8 +35,10 @@ def api_db():
         db.close()
 
 
-@pytest.fixture
-def client(api_db):
+# the `client` fixture from conftest already creates a TestClient; we only
+# need to override dependencies here.
+@pytest.fixture(autouse=True)
+def override_dependencies(api_db):
     db, _ = api_db
 
     def override_get_db():
@@ -44,10 +48,7 @@ def client(api_db):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-
-    with TestClient(app) as test_client:
-        yield test_client
-
+    yield
     app.dependency_overrides.clear()
 
 

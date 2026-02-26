@@ -26,6 +26,8 @@ class DropPlayerSchema(BaseModel):
 
 
 # schema for outputting claims (used by commissioner audit)
+from pydantic import ConfigDict
+
 class WaiverClaimOut(BaseModel):
     id: int
     user_id: int
@@ -37,8 +39,7 @@ class WaiverClaimOut(BaseModel):
     bid_amount: int
     status: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- 2.1 ENDPOINTS ---
 

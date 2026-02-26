@@ -3,8 +3,9 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException, status
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+
+# `client` fixture provided by backend/conftest; it avoids running the
+# application's lifespan on every test.from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -32,21 +33,19 @@ def api_db():
         db.close()
 
 
-@pytest.fixture
-def client(api_db):
+# dependency override is handled automatically for all tests that need the
+# in-memory `api_db` fixture.  we declare this hook once and let todos use
+# the plain `client` fixture from conftest.
+@pytest.fixture(autouse=True)
+def override_db(api_db):
     db, _ = api_db
-
     def override_get_db():
         try:
             yield db
         finally:
             pass
-
     app.dependency_overrides[get_db] = override_get_db
-
-    with TestClient(app) as test_client:
-        yield test_client
-
+    yield
     app.dependency_overrides.clear()
 
 

@@ -36,3 +36,34 @@ def mock_db():
     db = Mock()
     db.query = Mock(return_value=Mock())
     return db
+
+
+# ---------------------------------------------------------------------------
+# TestClient fixtures to control lifespan behaviour
+# ---------------------------------------------------------------------------
+
+from fastapi.testclient import TestClient
+from .main import app
+
+
+@pytest.fixture
+def client():
+    """Return a TestClient without running startup/lifespan events.
+
+    This is the lightweight client that should be used by most backend
+    unit tests.  It avoids the database seeder and slow schema setup so that
+    the suite can run in milliseconds instead of seconds.
+    """
+    with TestClient(app, manage_lifespan=False) as c:
+        yield c
+
+
+@pytest.fixture
+def integration_client():
+    """Return a TestClient that executes the full lifespan.
+
+    Only use this when a test cares about the startup behaviour (e.g.
+    verifying that the admin user is seeded or runtime schemata are applied).
+    """
+    with TestClient(app, manage_lifespan=True) as c:
+        yield c

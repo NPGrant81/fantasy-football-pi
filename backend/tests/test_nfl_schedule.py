@@ -7,7 +7,7 @@ import os
 os.environ['DATABASE_URL'] = 'sqlite://'
 
 import pytest
-from fastapi.testclient import TestClient
+# client fixture from backend/conftest provides a TestClient
 
 from backend import models
 from backend.database import get_db
@@ -35,8 +35,8 @@ def api_db():
         db.close()
 
 
-@pytest.fixture
-def client(api_db):
+@pytest.fixture(autouse=True)
+def override_db(api_db):
     def override_get_db():
         try:
             yield api_db
@@ -44,8 +44,7 @@ def client(api_db):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
+    yield
     app.dependency_overrides.clear()
 
 

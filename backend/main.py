@@ -59,7 +59,30 @@ else:
 
 load_dotenv()
 
-app = FastAPI(title="Fantasy Football War Room API")
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan manager takes the place of startup/shutdown events.
+
+    Tables are created and runtime schema fixes applied before the
+    application starts accepting requests.  This guarantees ordering and
+    avoids races that were causing intermittent connection errors in CI.
+    """
+    # --- startup portion ---
+    try:
+        models.Base.metadata.create_all(bind=engine)
+        ensure_runtime_schema()
+    except Exception as e:
+        print(f"Warning: Could not initialize database tables: {e}")
+
+    yield
+
+    # --- shutdown portion ---
+    # (currently nothing to clean up here; kept for future use)
+
+app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
 
 
 def ensure_runtime_schema() -> None:
@@ -97,17 +120,10 @@ def ensure_runtime_schema() -> None:
                 print(f"Warning: Could not apply runtime schema fix ({statement}): {exc}")
 
 # --- 1. DATABASE SETUP ---
-# Note: create_all does not handle migrations. 
-# Use Alembic if you add more columns later.
-@app.on_event("startup")
-async def startup_event():
-    """Create database tables on app startup, not on import."""
-    try:
-        models.Base.metadata.create_all(bind=engine)
-        ensure_runtime_schema()
-    except Exception as e:
-        print(f"Warning: Could not initialize database tables: {e}")
-
+# The database initialization logic has been moved into the lifespan
+# manager above.  We no longer use an `@app.on_event("startup")` handler
+# because lifespan provides a more reliable ordering and allows tests to
+# bypass the routine when desired.
 # --- 2. SECURITY: CORS ---
 # Allow development origins; when running locally we accept any origin to
 # simplify front-end testing.  In production this should be locked down.
@@ -155,20 +171,13 @@ app.include_router(feedback.router)
 app.include_router(etl.router)
 app.include_router(nfl.router)
 
-# --- 4. THE AUTO-SEEDER ---
-# the actual logic has been moved to `scripts/seed.py` so that the
-# application entrypoint remains lightweight and the seeder can be run
-# manually (or be called from CI) without starting the whole server.
-@app.on_event("startup")
-def seed_database():
-    from .scripts import seed
-
-    try:
-        seed.run_seeder(SessionLocal, get_password_hash)
-    except Exception as e:
-        print(f"Seeding Error: {e}")
-    finally:
-        db.close()
+# --- 4. SEEDER (moved) ---
+# The automatic seeding logic used to live here but caused every test that
+# imported ``app`` to execute the full seeder.  It has been extracted into
+# a standalone command-line helper; run ``python -m backend.manage seed``
+# when you want to populate a new database.  This keeps TestClient from
+# unintentionally hitting the seeder and avoids mysterious ``db``
+# NameErrors.
 
 @app.get("/")
 def read_root():

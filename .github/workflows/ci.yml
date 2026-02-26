@@ -12,6 +12,23 @@ jobs:
     strategy:
       matrix:
         python-version: [3.11]
+    # spin up a postgres container for backend tests
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: fantasy_pi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:password@localhost:5432/fantasy_pi
 
     steps:
       - name: Checkout
@@ -37,11 +54,20 @@ jobs:
           # also install ETL-specific packages (used by upstream tests)
           if [ -f etl/requirements.txt ]; then pip install -r etl/requirements.txt; fi
 
+      - name: Seed database
+        run: |
+          # populate the test database before running the suite
+          python -m backend.manage seed
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
       - name: Run backend tests
         run: |
           pytest backend -q
         env:
           PYTHONPATH: .
+          DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: Run backend coverage
         if: always()
         run: |
@@ -49,6 +75,7 @@ jobs:
           pytest backend --maxfail=1 --disable-warnings -q --cov=backend --cov-report=xml:backend-coverage.xml
         env:
           PYTHONPATH: .
+          DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: Upload backend coverage artifact
         if: always()
         uses: actions/upload-artifact@v4

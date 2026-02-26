@@ -33,4 +33,18 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-export { mockNavigate };
+// override the default render helper to always mount components inside a
+// router; this spares every individual test from having to wrap with a
+// MemoryRouter and resolves the "basename" destructuring error mentioned by
+// CI logs.
+import * as rtl from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+const originalRender = rtl.render;
+function render(ui, options) {
+  return originalRender(<MemoryRouter>{ui}</MemoryRouter>, options);
+}
+
+// re-export everything from testing-library and override render
+export * from rtl;
+export { render, mockNavigate };

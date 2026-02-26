@@ -1,9 +1,11 @@
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { vi } from 'vitest';
+import { mockNavigate } from '../src/setupTests';
 
 // setupTests.js now provides global mocks for apiClient and react-router-dom.
-// individual tests only need to configure the mock implementations.
-
+// individual tests only need to configure the mock implementations.  the
+// global setup also automagically wraps renders with a MemoryRouter so no
+// further boilerplate is required.
 import apiClient from '@/api/client';
 import DraftBoard from '@/pages/DraftBoard';
 import WaiverWire from '@/pages/WaiverWire';

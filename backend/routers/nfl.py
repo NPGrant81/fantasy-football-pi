@@ -10,6 +10,8 @@ from ..database import get_db
 router = APIRouter(prefix="/nfl", tags=["NFL"])
 
 
+from pydantic import ConfigDict
+
 class NFLGameSchema(BaseModel):
     event_id: str
     season: int
@@ -21,8 +23,8 @@ class NFLGameSchema(BaseModel):
     home_score: int
     away_score: int
 
-    class Config:
-        orm_mode = True
+    # Pydantic v2 style configuration (formerly ``orm_mode``)
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/schedule/{year}/{week}", response_model=List[NFLGameSchema])

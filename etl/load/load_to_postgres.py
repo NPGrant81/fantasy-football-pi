@@ -5,19 +5,23 @@ Load normalized Yahoo draft value data into PostgreSQL tables.
 - Updates player_id_mappings with Yahoo ID.
 """
 import os
+import sys
+from pathlib import Path
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-# handle being executed from repo root or from backend/ subdirectory
-try:
-    from backend.models import Player
-    from backend.models_draft_value import PlayerIDMapping, PlatformProjection
-    from backend.database import Base
-except ImportError:
-    # cwd==backend/ => package not on path
-    from models import Player
-    from models_draft_value import PlayerIDMapping, PlatformProjection
-    from database import Base
+
+# ensure the repository root is on sys.path so that the ``backend`` package
+# can be imported regardless of the current working directory.  previously we
+# used a try/except with bare imports; that pattern confused Pylance and
+# resulted in unresolved-import errors in the Problems panel.
+repo_root = Path(__file__).parent.parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
+from backend.models import Player
+from backend.models_draft_value import PlayerIDMapping, PlatformProjection
+from backend.database import Base
 
 # Update this with your actual DB URL or use env var
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password123@localhost/fantasy_pi")

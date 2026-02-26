@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException, status
-from fastapi.testclient import TestClient
+
+# The lightweight `client` fixture in conftest supplies a TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -38,21 +39,16 @@ def api_db():
         db.close()
 
 
-@pytest.fixture
-def client(api_db):
+@pytest.fixture(autouse=True)
+def override_db(api_db):
     db, _ = api_db
-
     def override_get_db():
         try:
             yield db
         finally:
             pass
-
     app.dependency_overrides[get_db] = override_get_db
-
-    with TestClient(app) as test_client:
-        yield test_client
-
+    yield
     app.dependency_overrides.clear()
 
 

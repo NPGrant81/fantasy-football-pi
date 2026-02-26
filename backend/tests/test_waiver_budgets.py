@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import models
 from backend.database import get_db
 from backend.main import app
-from fastapi.testclient import TestClient
+# client fixture from backend/conftest supplies TestClient
 
 
 @pytest.fixture
@@ -31,21 +31,16 @@ def api_db():
         db.close()
 
 
-@pytest.fixture
-def client(api_db):
+@pytest.fixture(autouse=True)
+def override_db(api_db):
     db, _ = api_db
-
     def override_get_db():
         try:
             yield db
         finally:
             pass
-
     app.dependency_overrides[get_db] = override_get_db
-
-    with TestClient(app) as test_client:
-        yield test_client
-
+    yield
     app.dependency_overrides.clear()
 
 
