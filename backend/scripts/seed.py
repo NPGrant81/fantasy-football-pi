@@ -4,14 +4,24 @@ from sqlalchemy import text
 from .. import models
 
 
+from sqlalchemy.orm import Session as SQLAlchemySession
+
+
 def run_seeder(SessionLocal, get_password_hash):
     """Run the auto-seeding logic previously embedded in main.py.
 
-    This function accepts the SessionLocal factory and password hashing
-    helper from the caller so the module can remain "backend-agnostic" and
-    be invoked from tests or manual scripts as needed.
+    The caller may pass either the session factory (a sessionmaker) *or*
+    an already-constructed :class:`sqlalchemy.orm.Session` instance. This
+    tolerance makes the helper safer when the import context is weird (CI
+    had once passed a concrete ``Session`` object by accident).
     """
-    db = SessionLocal()
+    owns_session = False
+    if isinstance(SessionLocal, SQLAlchemySession):
+        db = SessionLocal
+    else:
+        # assume it's a factory
+        db = SessionLocal()
+        owns_session = True
     try:
         # make sure the future_draft_budget column exists before we query it
         try:
@@ -51,4 +61,5 @@ def run_seeder(SessionLocal, get_password_hash):
 
         print("Auto-Seeding Complete.")
     finally:
-        db.close()
+        if owns_session:
+            db.close()

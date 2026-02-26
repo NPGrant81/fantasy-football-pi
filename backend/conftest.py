@@ -50,20 +50,30 @@ from .main import app
 def client():
     """Return a TestClient without running startup/lifespan events.
 
-    This is the lightweight client that should be used by most backend
-    unit tests.  It avoids the database seeder and slow schema setup so that
-    the suite can run in milliseconds instead of seconds.
+    Older versions of TestClient (used in GH Actions) lack the
+    ``manage_lifespan`` keyword, so we temporarily disable the app's
+    lifespan context instead.
     """
-    with TestClient(app, manage_lifespan=False) as c:
-        yield c
+    # stash the real lifespan context so we can restore it afterwards
+    original = app.router.lifespan_context
+
+    async def noop_lifespan(app):
+        yield
+
+    app.router.lifespan_context = noop_lifespan
+    try:
+        with TestClient(app) as c:
+            yield c
+    finally:
+        app.router.lifespan_context = original
 
 
 @pytest.fixture
 def integration_client():
     """Return a TestClient that executes the full lifespan.
 
-    Only use this when a test cares about the startup behaviour (e.g.
-    verifying that the admin user is seeded or runtime schemata are applied).
+    This is identical to ``client`` but deliberately *does not* override
+    the lifespan context.  Use this sparingly in startup/integration tests.
     """
-    with TestClient(app, manage_lifespan=True) as c:
+    with TestClient(app) as c:
         yield c

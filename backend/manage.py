@@ -19,12 +19,14 @@ def cli():
 
 @cli.command()
 def seed():
-    """Execute the auto-seeder using a fresh session."""
-    db = SessionLocal()
-    try:
-        run_seeder(db, get_password_hash)
-    finally:
-        db.close()
+    """Execute the auto-seeder using the session factory.
+
+    ``run_seeder`` is already tolerant of receiving either a factory or an
+    existing ``Session``.  Passing the factory keeps the responsibility of
+    session creation/teardown inside ``run_seeder`` and avoids the TypeError
+    we saw in CI.
+    """
+    run_seeder(SessionLocal, get_password_hash)
 
 
 if __name__ == "__main__":

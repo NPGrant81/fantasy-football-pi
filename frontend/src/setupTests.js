@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+// bring in testing-library and router helpers before any code runs
+import * as rtl from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
 // Provide a basic mock for localStorage in case the environment is missing it
 if (!global.localStorage) {
   const storage = {};
@@ -37,8 +41,6 @@ vi.mock('react-router-dom', async () => {
 // router; this spares every individual test from having to wrap with a
 // MemoryRouter and resolves the "basename" destructuring error mentioned by
 // CI logs.
-import * as rtl from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 
 const originalRender = rtl.render;
 function render(ui, options) {

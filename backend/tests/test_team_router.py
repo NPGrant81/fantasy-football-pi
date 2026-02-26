@@ -5,7 +5,8 @@ import pytest
 from fastapi import HTTPException, status
 
 # `client` fixture provided by backend/conftest; it avoids running the
-# application's lifespan on every test.from sqlalchemy import create_engine
+# application's lifespan on every test.
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
