@@ -1,11 +1,15 @@
 {
   "env": {
     "browser": true,
-    "es2021": true
+    "es2021": true,
+    "node": true,
+    "vitest/globals": true
   },
   "extends": [
     "eslint:recommended",
-    "plugin:react/recommended"
+    "plugin:react/recommended",
+    "plugin:testing-library/react",
+    "plugin:vitest/recommended"
   ],
   "parserOptions": {
     "ecmaFeatures": {
@@ -15,11 +19,14 @@
     "sourceType": "module"
   },
   "plugins": [
-    "react"
+    "react",
+    "testing-library",
+    "vitest"
   ],
   "rules": {
     "react/react-in-jsx-scope": "off",
-    "no-unused-vars": "warn"
+    "no-unused-vars": "warn",
+    "vitest/expect-expect": "off"
   },
   "settings": {
     "react": {

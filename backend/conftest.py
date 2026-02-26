@@ -44,6 +44,7 @@ def mock_db():
 
 from fastapi.testclient import TestClient
 from .main import app
+from contextlib import asynccontextmanager
 
 
 @pytest.fixture
@@ -57,6 +58,7 @@ def client():
     # stash the real lifespan context so we can restore it afterwards
     original = app.router.lifespan_context
 
+    @asynccontextmanager
     async def noop_lifespan(app):
         yield
 

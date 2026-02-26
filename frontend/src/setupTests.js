@@ -48,5 +48,5 @@ function render(ui, options) {
 }
 
 // re-export everything from testing-library and override render
-export * from rtl;
+export * from '@testing-library/react';
 export { render, mockNavigate };

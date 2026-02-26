@@ -7,7 +7,7 @@ handler, eliminating the need for every test to trigger the seeder.
 
 import click
 
-from .database import SessionLocal
+from .database import SessionLocal, engine, Base
 from .scripts.seed import run_seeder
 from .core.security import get_password_hash
 
@@ -21,11 +21,15 @@ def cli():
 def seed():
     """Execute the auto-seeder using the session factory.
 
-    ``run_seeder`` is already tolerant of receiving either a factory or an
-    existing ``Session``.  Passing the factory keeps the responsibility of
-    session creation/teardown inside ``run_seeder`` and avoids the TypeError
-    we saw in CI.
+    Before seeding we must ensure the schema exists – the original
+    startup handler created the tables for us, but running the seeder as a
+    standalone command means the database can be completely empty.
     """
+    # create tables if missing (works with any SQLAlchemy dialect)
+    print("Creating database tables…")
+    Base.metadata.create_all(bind=engine)
+
+    print("Running seeder…")
     run_seeder(SessionLocal, get_password_hash)
 
 
