@@ -3,6 +3,7 @@ import pytest
 from backend.database import SessionLocal
 from backend.core.security import get_password_hash
 from backend.scripts.seed import run_seeder
+from sqlalchemy import inspect
 import models
 
 
@@ -16,7 +17,7 @@ def test_lifespan_creates_tables(integration_client):
     db = SessionLocal()
     try:
         # metadata.create_all is run in the lifespan; tables should exist
-        inspector = db.bind.dialect.get_inspector(db.bind)
+        inspector = inspect(db.bind)
         assert "users" in inspector.get_table_names()
         assert "league" in inspector.get_table_names()
     finally:

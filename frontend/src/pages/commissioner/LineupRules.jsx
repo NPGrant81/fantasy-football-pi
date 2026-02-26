@@ -61,8 +61,7 @@ export default function LineupRules() {
   }, [leagueId]);
 
   const totalCoreSlots = useMemo(
-    () =>
-      1 + 1 + 1 + 1 + (kEnabled ? 1 : 0) + 1 + (flexEnabled ? 1 : 0),
+    () => 1 + 1 + 1 + 1 + (kEnabled ? 1 : 0) + 1 + (flexEnabled ? 1 : 0),
     [kEnabled, flexEnabled]
   );
 
