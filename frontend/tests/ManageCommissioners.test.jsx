@@ -3,17 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 
-vi.mock('../src/api/client', () => ({
-  default: {
-    get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-import apiClient from '../src/api/client';
-import ManageCommissioners from '../src/pages/admin/ManageCommissioners';
+// setupTests.js provides the apiClient mock globally
+import apiClient from '@/api/client';
+import ManageCommissioners from '@/pages/admin/ManageCommissioners';
 
 function renderPage() {
   return render(

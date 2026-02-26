@@ -1,29 +1,17 @@
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { vi } from 'vitest';
 
-vi.mock('../src/api/client', () => ({
-  default: {
-    get: vi.fn(),
-    post: vi.fn(),
-    put: vi.fn(), // added for settings updates
-  },
-}));
+// setupTests.js now provides global mocks for apiClient and react-router-dom.
+// individual tests only need to configure the mock implementations.
 
-import DraftBoard from '../src/pages/DraftBoard';
-import WaiverWire from '../src/pages/WaiverWire';
-import WaiverRules from '../src/pages/WaiverRules';
-
-// react-router navigation is used in SiteAdmin; mock the hook so we can
-// assert it's called instead of allowing an actual router to run.
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', () => ({
-  useNavigate: () => mockNavigate,
-}));
-
-import ManageWaiverRules from '../src/pages/commissioner/ManageWaiverRules';
-import SiteAdmin from '../src/pages/admin/SiteAdmin';
-import CommishAdmin from '../src/pages/commissioner/CommishAdmin';
-import apiClient from '../src/api/client';
+import apiClient from '@/api/client';
+import DraftBoard from '@/pages/DraftBoard';
+import WaiverWire from '@/pages/WaiverWire';
+import WaiverRules from '@/pages/WaiverRules';
+import ManageWaiverRules from '@/pages/commissioner/ManageWaiverRules';
+import SiteAdmin from '@/pages/admin/SiteAdmin';
+import CommishAdmin from '@/pages/commissioner/CommishAdmin';
+import MyTeam from '@/pages/team-owner/MyTeam';
 
 describe('DraftBoard (Smoke Test)', () => {
   beforeEach(() => {
@@ -277,6 +265,8 @@ describe('SiteAdmin (Smoke Test)', () => {
     expect(container).toBeInTheDocument();
   });
 
+  // additional tests may follow...
+
   test('attempts to fetch admin data if available', async () => {
     apiClient.get.mockResolvedValue({ data: { admins: [] } });
 
@@ -318,5 +308,25 @@ describe('SiteAdmin (Smoke Test)', () => {
       { year: 2025, week: 1 },
       { timeout: 300000 }
     );
+  });
+});
+
+// taxi squad UI smoke test (moved to bottom)
+
+describe('MyTeam taxi support', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.resetAllMocks();
+  });
+
+  test('displays Taxi Squad heading when a taxi player exists', async () => {
+    apiClient.get.mockResolvedValue({
+      data: { players: [{ player_id: 1, name: 'TaxiPlayer', position: 'RB', nfl_team: 'X', status: 'BENCH', projected_points: 0, is_taxi: true }] },
+    });
+
+    render(<MyTeam activeOwnerId={1} />);
+    await waitFor(() => {
+      expect(screen.getByText(/Taxi Squad/i)).toBeInTheDocument();
+    });
   });
 });

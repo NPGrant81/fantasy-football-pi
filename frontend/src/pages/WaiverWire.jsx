@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GlobalSearch from '../components/GlobalSearch';
 import apiClient from '@api/client';
 import Toast from '@components/Toast';
@@ -9,6 +10,7 @@ import {
 } from '@components/waivers';
 
 export default function WaiverWire({ ownerId, username, leagueName }) {
+  const navigate = useNavigate();
   // --- 1.1 STATE MANAGEMENT ---
   const [players, setPlayers] = useState([]);
   const [myRoster, setMyRoster] = useState([]); // Needed for the Drop Modal
@@ -20,6 +22,8 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   const [draftStatus, setDraftStatus] = useState('PRE_DRAFT');
   const [rosterSizeLimit, setRosterSizeLimit] = useState(14);
   const [toast, setToast] = useState(null);
+  // show back button when possible (history stack length > 1)
+  const [showBack, setShowBack] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
 
   // Modal State
@@ -49,6 +53,9 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   }, [ownerId]);
 
   useEffect(() => {
+    // show back button if history has previous entry
+    if (window.history.length > 1) setShowBack(true);
+
     if (ownerId) fetchWaivers();
     // Fetch waiver deadline from league settings
     const fetchWaiverDeadline = async () => {
@@ -76,6 +83,8 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
     }, 10000);
     return () => clearTimeout(timeout);
   }, [ownerId, fetchWaivers, leagueName]);
+
+  // --- 2.1 ACTION: CLAIM PLAYER ---
 
   // --- 2.1 ACTION: CLAIM PLAYER ---
   const executeClaim = async (player) => {
@@ -204,6 +213,14 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
       {/* 2.3 UI: HEADER & SEARCH */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
+          {showBack && (
+            <button
+              className="text-blue-400 hover:text-blue-600 mr-4"
+              onClick={() => navigate(-1)}
+            >
+              ← Back
+            </button>
+          )}
           <h1 className="text-6xl font-black uppercase italic tracking-tighter text-white leading-none">
             Waiver Wire
           </h1>

@@ -15,6 +15,8 @@ router = APIRouter(
 
 # --- 1. SCHEMAS (Rich Data) ---
 class RosterPlayer(BaseModel):
+    # id property mirrors player_id so frontend code using either works
+    id: int
     player_id: int
     name: str
     position: str
@@ -25,6 +27,7 @@ class RosterPlayer(BaseModel):
     status: str  # "STARTER" or "BENCH"
     projected_points: float
     is_locked: bool = False
+    is_taxi: bool = False   # show taxi flag on roster
     
     class Config:
         from_attributes = True
@@ -43,6 +46,10 @@ class LineupUpdateRequest(BaseModel):
 
 class LineupSubmitRequest(BaseModel):
     week: int
+
+
+class TaxiUpdateRequest(BaseModel):
+    player_id: int
 
 # --- 2. HELPER: THE SMART ALGORITHM ---
 def organize_roster(picks, db: Session, locked_player_ids: Optional[Set[int]] = None):
@@ -98,7 +105,10 @@ def organize_roster(picks, db: Session, locked_player_ids: Optional[Set[int]] = 
     # F. Convert to Schema
     final_list = []
     for p in raw_roster:
+        # taxi picks should still appear in the roster listing (bench section)
+        # with an explicit flag so the client can segregate them visually.
         final_list.append(RosterPlayer(
+            id=p["data"].id,
             player_id=p["data"].id,
             name=p["data"].name,
             position=p["pos"],
@@ -108,7 +118,8 @@ def organize_roster(picks, db: Session, locked_player_ids: Optional[Set[int]] = 
             is_starter=(p["status"] == "STARTER"),
             status=p["status"],
             projected_points=p["points"],
-            is_locked=(p["data"].id in (locked_player_ids or set()))
+            is_locked=(p["data"].id in (locked_player_ids or set())),
+            is_taxi=bool(p["pick"].is_taxi)
         ))
         
     return final_list
@@ -130,42 +141,87 @@ def get_current_year() -> int:
 
 
 def validate_lineup_requirements(starters: List[models.DraftPick], settings: models.LeagueSettings) -> List[str]:
-    slots = settings.starting_slots or {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1, "FLEX": 1}
-    allow_partial_lineup = int(slots.get("ALLOW_PARTIAL_LINEUP", 0) or 0) == 1
+    """Validate that a proposed set of starters satisfies the league's slot rules.
+
+    The algorithm mirrors the client-side logic used in the React roster page.  It
+    attempts to assign players to each non-FLEX slot first, then fills any FLEX
+    slots with the best remaining RB/WR/TE candidates.  Errors are generated when
+    there aren't enough players to fill the required number of slots, when there
+    are too many players, or when a specific slot (including FLEX) has too many
+    or too few assigned players.
+
+    A separate `ALLOW_PARTIAL_LINEUP` flag allows teams to submit with fewer
+    than the active roster size; this only suppresses the top-level "not enough
+    players" error.  All other slot-specific requirements still apply unless
+    explicitly overridden by the caller.
+    """
+
+    # note: starting_slots JSON may contain configuration keys such as
+    # ACTIVE_ROSTER_SIZE, MAX_QB, ALLOW_PARTIAL_LINEUP, etc.  only a subset of
+    # entries actually represent position slots that should be counted.
+    raw_slots = settings.starting_slots or {
+        "QB": 1,
+        "RB": 2,
+        "WR": 2,
+        "TE": 1,
+        "K": 1,
+        "DEF": 1,
+        "FLEX": 1,
+    }
+    allow_partial_lineup = int(raw_slots.get("ALLOW_PARTIAL_LINEUP", 0) or 0) == 1
 
     required_total = int(
-        slots.get(
+        raw_slots.get(
             "ACTIVE_ROSTER_SIZE",
             int(settings.roster_size or 9),
         )
         or 0
     )
 
-    min_requirements = {
-        "QB": 1,
-        "RB": 1,
-        "WR": 1,
-        "TE": 1,
-        "K": 0,
-        "DEF": 1,
+    # only these keys correspond to actual lineup positions
+    slot_positions = {"QB", "RB", "WR", "TE", "K", "DEF", "FLEX"}
+    slots: Dict[str, int] = {
+        pos: int(raw_slots.get(pos, 0) or 0)
+        for pos in slot_positions
     }
 
-    max_limits = {
-        "QB": int(slots.get("MAX_QB", 3) or 3),
-        "RB": int(slots.get("MAX_RB", 5) or 5),
-        "WR": int(slots.get("MAX_WR", 5) or 5),
-        "TE": int(slots.get("MAX_TE", 3) or 3),
-        "K": int(slots.get("MAX_K", 1) or 1),
-        "DEF": int(slots.get("MAX_DEF", 1) or 1),
-    }
-
-    counts = {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "K": 0, "DEF": 0}
+    # --- build a simple pool of starters by position ---
+    pools = {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "K": 0, "DEF": 0}
     for pick in starters:
+        # taxi picks are not eligible for starting lineup calculations
+        if getattr(pick, "is_taxi", False):
+            continue
         position = pick.player.position if pick.player else None
         if position == "TD":
             position = "DEF"
-        if position in counts:
-            counts[position] += 1
+        if position in pools:
+            pools[position] += 1
+
+    # --- assign slots greedily, non-FLEX first ---
+    actual_slot_counts: Dict[str, int] = {}
+    for pos, slot_count in slots.items():
+        if pos == "FLEX" or not slot_count:
+            continue
+        available = pools.get(pos, 0)
+        assigned = min(slot_count, available)
+        if assigned:
+            actual_slot_counts[pos] = assigned
+
+    # handle FLEX separately using leftover RB/WR/TE players
+    flex_slots = slots.get("FLEX", 0)
+    if flex_slots > 0:
+        total_eligible = (
+            pools.get("RB", 0) + pools.get("WR", 0) + pools.get("TE", 0)
+        )
+        used_non_flex = (
+            actual_slot_counts.get("RB", 0)
+            + actual_slot_counts.get("WR", 0)
+            + actual_slot_counts.get("TE", 0)
+        )
+        remaining = max(0, total_eligible - used_non_flex)
+        flex_assigned = min(flex_slots, remaining)
+        if flex_assigned:
+            actual_slot_counts["FLEX"] = flex_assigned
 
     errors: List[str] = []
     if len(starters) < required_total and not allow_partial_lineup:
@@ -173,11 +229,26 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
     if len(starters) > required_total:
         errors.append("too many players")
 
-    for pos, minimum in min_requirements.items():
-        if counts[pos] < minimum and not allow_partial_lineup:
-            errors.append(f"not enough {pos}")
-        if counts[pos] > max_limits[pos]:
-            errors.append(f"too many {pos}")
+    # validate each configured slot
+    for pos, required_count in slots.items():
+        required = int(required_count or 0)
+        if required <= 0:
+            continue
+        actual = actual_slot_counts.get(pos, 0)
+        if actual < required:
+            if pos == "FLEX":
+                errors.append(
+                    "not enough FLEX (needs extra RB/WR/TE starter)"
+                )
+            elif not allow_partial_lineup:
+                errors.append(f"not enough {pos}")
+        if actual > required:
+            if pos == "FLEX":
+                errors.append(
+                    "too many FLEX-eligible starters (RB/WR/TE)"
+                )
+            else:
+                errors.append(f"too many {pos}")
 
     return errors
 
@@ -279,6 +350,9 @@ def update_lineup(
     starter_ids = set(payload.starter_player_ids)
 
     for pick in picks:
+        if pick.is_taxi:
+            # taxi players are never eligible to be starters
+            continue
         if pick.player_id in locked_ids:
             continue
         pick.current_status = "STARTER" if pick.player_id in starter_ids else "BENCH"
@@ -289,6 +363,49 @@ def update_lineup(
         "message": "Lineup updated",
         "locked_player_ids": list(locked_ids),
     }
+
+
+# --- 4. TAXI ENDPOINTS ---
+@router.post("/taxi/promote")
+def promote_taxi(
+    payload: TaxiUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Move a player from taxi to bench (owner only)."""
+    pick = db.query(models.DraftPick).filter(
+        models.DraftPick.owner_id == current_user.id,
+        models.DraftPick.player_id == payload.player_id,
+    ).first()
+    if not pick:
+        raise HTTPException(status_code=404, detail="Pick not found")
+    if not pick.is_taxi:
+        return {"message": "Player not on taxi squad"}
+    pick.is_taxi = False
+    db.commit()
+    return {"message": "Player promoted from taxi"}
+
+
+@router.post("/taxi/demote")
+def demote_taxi(
+    payload: TaxiUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Move a player from bench to taxi (owner only)."""
+    pick = db.query(models.DraftPick).filter(
+        models.DraftPick.owner_id == current_user.id,
+        models.DraftPick.player_id == payload.player_id,
+    ).first()
+    if not pick:
+        raise HTTPException(status_code=404, detail="Pick not found")
+    if pick.is_taxi:
+        return {"message": "Player already on taxi squad"}
+    pick.is_taxi = True
+    # also ensure it's not marked starter
+    pick.current_status = "BENCH"
+    db.commit()
+    return {"message": "Player demoted to taxi"}
 
 
 @router.post("/submit-lineup")
@@ -310,7 +427,8 @@ def submit_lineup(
         db.add(settings)
         db.flush()
 
-    starters = [pick for pick in picks if (pick.current_status or "BENCH") == "STARTER"]
+    # exclude any taxi players from the set of starters
+    starters = [pick for pick in picks if (pick.current_status or "BENCH") == "STARTER" and not pick.is_taxi]
     errors = validate_lineup_requirements(starters, settings)
     if errors:
         raise HTTPException(status_code=400, detail=errors)

@@ -21,6 +21,8 @@ export default function LineupRules() {
   const [wrLimit, setWrLimit] = useState(5);
   const [teLimit, setTeLimit] = useState(3);
   const [kEnabled, setKEnabled] = useState(true);
+  const [flexEnabled, setFlexEnabled] = useState(true);
+  const [taxiSize, setTaxiSize] = useState(0);
   const [allowPartialLineup, setAllowPartialLineup] = useState(false);
   const [requireWeeklySubmit, setRequireWeeklySubmit] = useState(true);
 
@@ -44,6 +46,8 @@ export default function LineupRules() {
         setWrLimit(clamp(slots.MAX_WR ?? 5, 1, 5));
         setTeLimit(clamp(slots.MAX_TE ?? 3, 1, 3));
         setKEnabled(Number(slots.MAX_K ?? 1) === 1);
+        setFlexEnabled(Number(slots.MAX_FLEX ?? 1) === 1);
+        setTaxiSize(clamp(slots.TAXI_SIZE ?? 0, 0, 5));
         setAllowPartialLineup(Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1);
         setRequireWeeklySubmit(Number(slots.REQUIRE_WEEKLY_SUBMIT ?? 1) === 1);
       } catch (err) {
@@ -57,8 +61,9 @@ export default function LineupRules() {
   }, [leagueId]);
 
   const totalCoreSlots = useMemo(
-    () => 1 + 1 + 1 + 1 + (kEnabled ? 1 : 0) + 1,
-    [kEnabled]
+    () =>
+      1 + 1 + 1 + 1 + (kEnabled ? 1 : 0) + 1 + (flexEnabled ? 1 : 0),
+    [kEnabled, flexEnabled]
   );
 
   const saveRules = async () => {
@@ -78,6 +83,8 @@ export default function LineupRules() {
         MAX_TE: clamp(teLimit, 1, 3),
         MAX_K: kEnabled ? 1 : 0,
         MAX_DEF: 1,
+        MAX_FLEX: flexEnabled ? 1 : 0,
+        TAXI_SIZE: clamp(taxiSize, 0, 5),
         ALLOW_PARTIAL_LINEUP: allowPartialLineup ? 1 : 0,
         REQUIRE_WEEKLY_SUBMIT: requireWeeklySubmit ? 1 : 0,
       };
@@ -181,13 +188,21 @@ export default function LineupRules() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <label className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm flex items-center justify-between">
             <span>K Enabled (0 or 1)</span>
             <input
               type="checkbox"
               checked={kEnabled}
               onChange={(e) => setKEnabled(e.target.checked)}
+            />
+          </label>
+          <label className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm flex items-center justify-between">
+            <span>Flex Enabled</span>
+            <input
+              type="checkbox"
+              checked={flexEnabled}
+              onChange={(e) => setFlexEnabled(e.target.checked)}
             />
           </label>
           <div className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm flex items-center justify-between">
@@ -197,6 +212,19 @@ export default function LineupRules() {
         </div>
 
         <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+              Taxi Squad Size (0-5)
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={5}
+              value={taxiSize}
+              onChange={(e) => setTaxiSize(clamp(e.target.value, 0, 5))}
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+            />
+          </div>
           <ToggleRow
             label="Allow teams to submit below required threshold"
             checked={allowPartialLineup}

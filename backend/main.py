@@ -78,8 +78,13 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_reseed BOOLEAN DEFAULT FALSE",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_consolation BOOLEAN DEFAULT TRUE",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_tiebreakers JSON DEFAULT '[\"points_for\",\"head_to_head\",\"division_wins\",\"wins\"]'",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS future_draft_cap INTEGER DEFAULT 0",  # required by ORM
         "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS division_id INTEGER",  # added for divisions feature
+        # new field added in recent schema; seeding logic expects it
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS future_draft_budget INTEGER DEFAULT 0",
+        # taxi support: mark picks that aren’t eligible for starting lineup
+        "ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS is_taxi BOOLEAN DEFAULT FALSE",
     ]
 
     with engine.connect() as connection:
@@ -151,40 +156,15 @@ app.include_router(etl.router)
 app.include_router(nfl.router)
 
 # --- 4. THE AUTO-SEEDER ---
+# the actual logic has been moved to `scripts/seed.py` so that the
+# application entrypoint remains lightweight and the seeder can be run
+# manually (or be called from CI) without starting the whole server.
 @app.on_event("startup")
 def seed_database():
-    db = SessionLocal()
+    from .scripts import seed
+
     try:
-        # Check for Admin User
-        nick = db.query(models.User).filter(models.User.username == "Nick Grant").first()
-        if not nick:
-            print("Auto-Seeding: Creating Nick Grant...")
-            nick = models.User(
-                username="Nick Grant",
-                email="nick@example.com",
-                hashed_password=get_password_hash("password"), 
-                is_commissioner=True,
-                is_superuser=True,
-                team_name="War Room Alpha"
-            )
-            db.add(nick)
-            db.commit()
-            db.refresh(nick)
-
-        # Check for Default League
-        test_league = db.query(models.League).filter(models.League.name == "The Big Show").first()
-        if not test_league:
-            print("Auto-Seeding: Creating 'The Big Show' League...")
-            test_league = models.League(name="The Big Show")
-            db.add(test_league)
-            db.commit()
-            db.refresh(test_league)
-            
-            # Link Nick to the new league
-            nick.league_id = test_league.id
-            db.commit()
-
-        print("Auto-Seeding Complete.")
+        seed.run_seeder(SessionLocal, get_password_hash)
     except Exception as e:
         print(f"Seeding Error: {e}")
     finally:

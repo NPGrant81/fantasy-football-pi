@@ -4,7 +4,12 @@ from fastapi import HTTPException
 # use top-level aliases so services work under both package and script imports
 import models
 import core.security as security
-from uat.seed_draft import seed_draft
+
+# `uat` is a subpackage under backend; use the full path so imports work whether
+# the backend package is loaded as a module or run from a script.  The previous
+# bare import caused ModuleNotFoundError when the working directory was the
+# project root (e.g. during uvicorn startup).
+from backend.uat.seed_draft import seed_draft
 
 # --- 1.1 LEAGUE MANAGEMENT (COMMISSIONER) ---
 

@@ -14,6 +14,8 @@ class TradeProposalCreate(BaseModel):
     to_user_id: int
     offered_player_id: int
     requested_player_id: int
+    offered_dollars: float | None = 0
+    requested_dollars: float | None = 0
     note: str | None = None
 
 
@@ -25,6 +27,14 @@ def propose_trade(
 ):
     if not current_user.league_id:
         raise HTTPException(status_code=400, detail="You must be in a league to propose a trade.")
+
+    # verify future dollar availability
+    offered = payload.offered_dollars or 0
+    requested = payload.requested_dollars or 0
+    if offered < 0 or requested < 0:
+        raise HTTPException(status_code=400, detail="Dollar amounts must be non-negative.")
+    if current_user.future_draft_budget < offered:
+        raise HTTPException(status_code=400, detail="Insufficient future draft dollars to offer.")
 
     if payload.to_user_id == current_user.id:
         raise HTTPException(status_code=400, detail="You cannot propose a trade to yourself.")
@@ -57,12 +67,21 @@ def propose_trade(
     if not requested_pick:
         raise HTTPException(status_code=400, detail="Requested player is not on that manager's roster.")
 
+    # ensure target budget can cover requested dollars
+    target_user = db.query(models.User).filter(models.User.id == payload.to_user_id).first()
+    if not target_user or target_user.league_id != current_user.league_id:
+        raise HTTPException(status_code=404, detail="Target manager not found in your league.")
+    if target_user.future_draft_budget < requested:
+        raise HTTPException(status_code=400, detail="Target manager lacks sufficient future draft dollars.")
+
     proposal = models.TradeProposal(
         league_id=current_user.league_id,
         from_user_id=current_user.id,
         to_user_id=payload.to_user_id,
         offered_player_id=payload.offered_player_id,
         requested_player_id=payload.requested_player_id,
+        offered_dollars=offered,
+        requested_dollars=requested,
         note=(payload.note or "").strip() or None,
         status="PENDING",
         created_at=datetime.utcnow().isoformat(),
@@ -73,6 +92,34 @@ def propose_trade(
     db.refresh(proposal)
 
     return {"message": "Trade proposal submitted.", "trade_id": proposal.id}
+
+
+@router.post("/{trade_id}/approve")
+def approve_trade(
+    trade_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    from ..services.trade_service import execute_trade
+    try:
+        trade = execute_trade(db, trade_id, current_user.id)
+        return {"message": "Trade approved", "trade": trade.id}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{trade_id}/reject")
+def reject_trade(
+    trade_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    from ..services.trade_service import reject_trade
+    try:
+        trade = reject_trade(db, trade_id, current_user.id)
+        return {"message": "Trade rejected", "trade": trade.id}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/pending")
@@ -112,6 +159,8 @@ def get_pending_trades(
                     {"name": f"Offer: {offered.name}" if offered else "Offer: Unknown"},
                     {"name": f"Request: {requested.name}" if requested else "Request: Unknown"},
                 ],
+                "offered_dollars": float(trade.offered_dollars or 0),
+                "requested_dollars": float(trade.requested_dollars or 0),
                 "note": trade.note,
                 "status": trade.status,
                 "created_at": trade.created_at,

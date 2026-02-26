@@ -1,29 +1,25 @@
 repos:
   - repo: local
     hooks:
+      # --- PRE-COMMIT STAGE (fast checks) ---
       - id: pytest-collect
-        name: Run pytest collection to catch import errors
-        entry: |
-          python - <<'PY'
-          import sys, glob, subprocess
-          # ensure test dependencies are available
-          subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "backend/requirements.txt"])
-          if glob.glob("etl/requirements*.txt"):
-              for f in glob.glob("etl/requirements*.txt"):
-                  subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", f])
-          import pytest
-          sys.exit(pytest.main(["backend","--collect-only","-q"]))
-          PY
-        language: python
+        name: Backend Import Check
+        entry: bash -c "export PYTHONPATH=backend && python -m pytest backend --collect-only -q"
+        language: system
         stages: [pre-commit]
         pass_filenames: false
 
       - id: refresh-docs-index
-        name: Regenerate docs/INDEX.md
-        entry: python scripts/refresh_docs_index.py
-        language: python
+        name: Regenerate Docs
+        entry: python -m scripts.refresh_docs_index
+        language: system
         stages: [pre-commit]
-        pass_filenames: false
+
+      - id: frontend-lint
+        name: Frontend Lint & Fix
+        entry: bash -c "cd frontend && npm run lint:fix && npx prettier --write 'src/**/*.{js,jsx}'"
+        language: system
+        stages: [pre-commit]
 
       - id: dependency-audit
         name: Run dependency audit helper
@@ -35,32 +31,29 @@ repos:
         stages: [pre-commit]
         pass_filenames: false
 
-      - id: frontend-check
-        name: Install frontend deps and lint
-        entry: |
-          python - <<'PY'
-          import subprocess, os, sys
-          cwd = os.path.join(os.getcwd(), 'frontend')
-          print('Installing frontend dependencies...')
-          subprocess.check_call(['npm', 'ci', '--silent'], cwd=cwd)
-          print('Running frontend linter...')
-          subprocess.check_call(['npm', 'run', 'lint'], cwd=cwd)
-          PY
-        language: python
-        stages: [pre-commit]
+  - repo: local
+    hooks:
+      # --- PRE-PUSH STAGE (heavier checks) ---
+      - id: unit-tests
+        name: Backend Unit Tests
+        entry: bash -c "export PYTHONPATH=backend && python -m pytest backend -q"
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
 
-      - id: style-fix
-        name: Run frontend style fixer (eslint/prettier)
-        entry: |
-          python - <<'PY'
-          import subprocess, os
-          cwd = os.path.join(os.getcwd(), 'frontend')
-          print('Running eslint --fix and prettier')
-          subprocess.check_call(['npm', 'run', 'lint:fix'], cwd=cwd)
-          subprocess.check_call(['npx', 'prettier', '--write', 'src/**/*.{js,jsx}'], cwd=cwd)
-          PY
-        language: python
-        stages: [pre-commit]
+      - id: alembic-check
+        name: Verify Alembic migrations apply
+        entry: bash -c "export PYTHONPATH=backend && python -m alembic check"
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: e2e-tests
+        name: Cypress E2E
+        entry: bash -c "cd frontend && npm run e2e"
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
 
   - repo: local
     hooks:
@@ -89,6 +82,13 @@ repos:
           sys.exit(subprocess.call([sys.executable, "-m", "pytest", "backend", "-q"]))
           PY
         language: python
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: alembic-check
+        name: Verify Alembic migrations apply
+        entry: python -m alembic check
+        language: system
         stages: [pre-push]
         pass_filenames: false
 

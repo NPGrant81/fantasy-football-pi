@@ -99,6 +99,22 @@ pip install -r requirements.txt
 pytest -q
 ```
 
+- **Schema migrations:** before running the app or tests you can apply
+  Alembic migrations rather than relying solely on the runtime `ALTER TABLE`
+  guards.  From the `backend` directory execute:
+  ```bash
+  python -m alembic upgrade head
+  ```
+  (ensure the `backend` folder is on your `PYTHONPATH` or invoke via
+  `PYTHONPATH=.`).
+
+- **Seeding:** the server startup still auto‑creates an admin user and
+  default league for convenience.  A more robust setup is to run a standalone
+  seeder script (`backend/scripts/seed.py`), which you can create by
+  extracting the code in `main.py`'s `seed_database` event.  This avoids
+  side‑effects during normal app launches and simplifies CI.
+
+
 - Reproducible backend install (frozen set):
 
 ```bash

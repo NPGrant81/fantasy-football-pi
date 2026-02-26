@@ -89,6 +89,30 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
     db.add(new_pick)
     db.commit()
     db.refresh(new_pick)
+
+    # record transaction history for the acquisition
+    from .transaction_service import log_transaction
+
+    log_transaction(
+        db,
+        league_id=user.league_id,
+        player_id=player_id,
+        old_owner_id=None,
+        new_owner_id=user.id,
+        transaction_type="waiver_add",
+        notes=f"waiver claim bid={bid}",
+    )
+    if drop_id:
+        log_transaction(
+            db,
+            league_id=user.league_id,
+            player_id=drop_id,
+            old_owner_id=user.id,
+            new_owner_id=None,
+            transaction_type="waiver_drop",
+            notes="auto-drop from waiver claim",
+        )
+
     return new_pick
 
 def process_drop(db: Session, user: models.User, player_id: int):
@@ -111,4 +135,17 @@ def process_drop(db: Session, user: models.User, player_id: int):
 
     db.delete(pick)
     db.commit()
+
+    # record history of manual drop
+    from .transaction_service import log_transaction
+    log_transaction(
+        db,
+        league_id=user.league_id,
+        player_id=player_id,
+        old_owner_id=user.id,
+        new_owner_id=None,
+        transaction_type="drop",
+        notes="manual roster drop",
+    )
+
     return True

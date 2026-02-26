@@ -80,7 +80,8 @@ def test_import_schedule_runs_upsert(client, api_db):
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
     # stub the upsert function so we can inspect calls
-    import scripts.import_nfl_schedule as sched
+    # note: the router imports from backend.scripts.import_nfl_schedule
+    import backend.scripts.import_nfl_schedule as sched
 
     calls = []
 

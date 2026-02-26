@@ -636,6 +636,15 @@ export default function MyTeam({ activeOwnerId }) {
     [rosterState]
   );
 
+  const benchNormal = useMemo(
+    () => benchLineupPlayers.filter((p) => !p.is_taxi),
+    [benchLineupPlayers]
+  );
+  const benchTaxi = useMemo(
+    () => benchLineupPlayers.filter((p) => p.is_taxi),
+    [benchLineupPlayers]
+  );
+
   const movePlayerToStatus = useCallback(
     (playerId, targetStatus) => {
       if (!canEditLineup) return;
@@ -1503,7 +1512,7 @@ export default function MyTeam({ activeOwnerId }) {
                 </span>
               </div>
               <div className="space-y-2">
-                {benchLineupPlayers.map((player) => (
+                {benchNormal.map((player) => (
                   <button
                     key={`bench-${player.player_id}`}
                     type="button"
@@ -1537,6 +1546,50 @@ export default function MyTeam({ activeOwnerId }) {
                     )}
                   </button>
                 ))}
+                {benchTaxi.length > 0 && (
+                  <>
+                    <div className="mt-4 text-yellow-300 font-bold uppercase">
+                      Taxi Squad
+                    </div>
+                    {benchTaxi.map((player) => (
+                      <button
+                        key={`taxi-${player.player_id}`}
+                        type="button"
+                        draggable={canEditLineup && !player.is_locked}
+                        onDragStart={() => handleDragStart(player)}
+                        onClick={() => openPlayerPerformance(player)}
+                        className={`w-full rounded-lg border px-3 py-2 text-left ${
+                          player.is_locked
+                            ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                            : 'border-yellow-800 bg-yellow-900/10 hover:border-yellow-500/50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-bold text-white">
+                              {player.name}
+                            </div>
+                            <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                              {normalizePosition(player.position)} •{' '}
+                              {player.nfl_team}
+                            </div>
+                          </div>
+                          <div className="text-sm font-mono font-bold text-slate-300">
+                            {Number(toProjectedPoints(player)).toFixed(1)}
+                          </div>
+                        </div>
+                        {player.is_locked && (
+                          <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                            Locked (game started)
+                          </div>
+                        )}
+                        <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-yellow-300">
+                          Taxi Squad
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           </div>

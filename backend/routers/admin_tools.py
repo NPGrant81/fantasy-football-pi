@@ -1,6 +1,8 @@
 # backend/routers/admin_tools.py
 from fastapi import APIRouter, BackgroundTasks, Depends
-from scripts.daily_sync import sync_nfl_reality
+# when running under the `backend` package we need the full path
+# because the top-level `scripts` package is not on sys.path by default.
+from backend.scripts.daily_sync import sync_nfl_reality
 from ..core.security import check_is_commissioner
 
 router = APIRouter(prefix="/admin/tools", tags=["Admin Tools"])
@@ -40,7 +42,9 @@ async def trigger_schedule_import(
         "week": 1   # optional
     }
     """
-    from scripts.import_nfl_schedule import upsert_games
+    # import lazily using the backend namespace for the same reason as
+    # above (package context may differ between CLI scripts and uvicorn).
+    from backend.scripts.import_nfl_schedule import upsert_games
 
     year = payload.year
     week = payload.week

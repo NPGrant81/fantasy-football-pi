@@ -21,6 +21,7 @@ class User(Base):
     # new division mapping -- optional FK
     division_id = Column(Integer, ForeignKey("divisions.id"), nullable=True)
     team_name = Column(String, nullable=True)
+    future_draft_budget = Column(Integer, default=0)  # dollars available for future drafts
 
     # relationships
     division_obj = relationship("Division", back_populates="users")
@@ -68,14 +69,50 @@ class LeagueSettings(Base):
     waiver_tiebreaker = Column(String, default='standings')
     trade_deadline = Column(String, nullable=True)   # new trade deadline option
     draft_year = Column(Integer, nullable=True)
+    future_draft_cap = Column(Integer, default=0)  # maximum dollars each owner may start with
 
     # --- Playoff configuration ---
     playoff_qualifiers = Column(Integer, default=6)
     playoff_reseed = Column(Boolean, default=False)
     playoff_consolation = Column(Boolean, default=True)
     playoff_tiebreakers = Column(JSON, default=["points_for", "head_to_head", "division_wins", "wins"])
-    
+
     league = relationship("League", back_populates="settings")
+
+
+# --- 3.5 KEEPER RULES ---
+class KeeperRules(Base):
+    __tablename__ = "keeper_rules"
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), unique=True)
+    max_keepers = Column(Integer, default=3)
+    cost_type = Column(String, default="round")
+    cost_inflation = Column(Integer, default=0)
+    deadline_date = Column(DateTime(timezone=True), nullable=True)
+    waiver_policy = Column(Boolean, default=True)
+    trade_deadline = Column(DateTime(timezone=True), nullable=True)
+    drafted_only = Column(Boolean, default=True)
+
+    league = relationship("League")
+
+# --- 3.6 KEEPER ENTRIES ---
+class Keeper(Base):
+    __tablename__ = "keepers"
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(Integer, nullable=False)
+    keep_cost = Column(Numeric, nullable=False)
+    status = Column(String, default="pending")
+    flag_waiver = Column(Boolean, default=False)
+    flag_trade = Column(Boolean, default=False)
+    flag_drop = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    league = relationship("League")
+    owner = relationship("User")
+    player = relationship("Player")
 
 # --- 3.1 LINEUP SUBMISSIONS ---
 class LineupSubmission(Base):
@@ -158,6 +195,11 @@ class DraftPick(Base):
     session_id = Column(String, default="default") 
     current_status = Column(String, default='BENCH') 
     timestamp = Column(String, nullable=True) 
+
+    # taxi flag indicates the player is on the taxi/elevated bench and not
+    # eligible for starting lineup validation.  default is false for existing
+    # data.
+    is_taxi = Column(Boolean, default=False)
 
     owner_id = Column(Integer, ForeignKey("users.id"))
     player_id = Column(Integer, ForeignKey("players.id"))
@@ -272,6 +314,24 @@ class WaiverClaim(Base):
     target_player = relationship("Player", foreign_keys=[player_id])
     drop_player = relationship("Player", foreign_keys=[drop_player_id])
 
+
+# --- 9. TRANSACTION HISTORY ---
+class TransactionHistory(Base):
+    __tablename__ = "transaction_history"
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    old_owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    new_owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    transaction_type = Column(String, nullable=False)  # draft, trade, waiver_add, waiver_drop, drop
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(String, nullable=True)
+
+    league = relationship("League")
+    player = relationship("Player")
+    old_owner = relationship("User", foreign_keys=[old_owner_id])
+    new_owner = relationship("User", foreign_keys=[new_owner_id])
+
 # --- 9. BUG REPORTS ---
 class BugReport(Base):
     __tablename__ = "bug_reports"
@@ -319,6 +379,8 @@ class TradeProposal(Base):
     offered_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     requested_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     note = Column(String, nullable=True)
+    offered_dollars = Column(Numeric, default=0)
+    requested_dollars = Column(Numeric, default=0)
     status = Column(String, default="PENDING")
     created_at = Column(String, nullable=True)
 

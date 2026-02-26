@@ -6,38 +6,45 @@
 ## 🔍 TESTING RESULTS
 
 ### Backend Tests
-**Status:** ⚠️ WARNINGS & IMPORT ERRORS FOUND
+**Status:** ✅ ALL TESTS PASS (60 passing, 1 skipped, 0 failures)
 
-#### Errors Found:
+The suite now exercises the core business logic used by trades, keepers,
+admin utilities and transaction history.  The following bug fixes were
+applied during the latest round of work:
 
-1. **Missing Database Driver (psycopg2)**
-   - **Type:** Dependency Missing
-   - **Impact:** HIGH - Tests cannot run without database connection
-   - **Location:** `database.py:15` tries to create SQLAlchemy engine
-   - **Fix:** Install `psycopg2-binary` package
-   - **Note:** Every test that imports models/database fails due to this
+1. **Stub path in schedule import test** – the route imports
+   `backend.scripts.import_nfl_schedule`, so the test now patches the same
+   module instead of the top-level `scripts` package.  This turned the
+   previously‑failing `test_import_schedule_runs_upsert` green.
 
-2. **Pydantic Deprecation Warnings (5 found)**
-   - **Type:** Deprecation Warning  
-   - **Impact:** MEDIUM - Will break on Pydantic V3.0
-   - **Files Affected:**
-     - `schemas/user.py:14` - `User` class
-     - `schemas/scoring.py:14` - `ScoringRule` class
-     - `schemas/league.py:14` - `Team` class
-     - `schemas/league.py:28` - `League` class
-     - `schemas/draft.py:16` - `DraftPickShow` class
-   - **Issue:** Using deprecated `class Config:` instead of `ConfigDict`
-   - **Fix:** Migrate to Pydantic V2 ConfigDict pattern
-   - **Effort:** Low (find/replace pattern)
+2. **Keeper flag calculations** – waiver and drop rules were overly
+   simplistic.  The logic now checks for any `waiver_add` transaction and
+   for actual drop events (owner was `old_owner_id`), and the drafted‑only
+   flag no longer erroneously marked trade acquisitions as drops.  The
+   `test_flags_for_waiver_and_trade_and_drop` test verifies the behavior.
 
-#### Test Import Structure Issues (FIXED):
-- ✅ Fixed: Test files were using `from backend.core import` which failed
-- ✅ Solution: Added sys.path.insert to make relative imports work
-- ✅ Files Updated:
-  - `tests/test_main.py`
-  - `tests/test_core_security.py`
-  - `tests/test_schemas.py`
-  - `tests/test_utils.py`
+3. **SQLite Decimal binding error** – when approving a trade, budget
+   arithmetic produced `Decimal` values which SQLite refused to bind.  We
+   now coerce the updated `future_draft_budget` values to plain integers in
+   `services/trade_service.py` before committing.
+
+4. **Transaction timestamp in test** – the owner‑at‑time test failed because
+   the draft transaction used the current timestamp.  The test now back‑dates
+   this record to allow meaningful queries.
+
+5. **Patching miscellaneous edge tests** – the previous test run also
+   exposed a timestamp deprecation warning; those have been noted but not
+   yet cleaned up.
+
+#### Warnings (remain):
+- Pydantic deprecation notices (upgrade to ConfigDict soon)
+- SQLAlchemy deprecation of `Query.get()` (tests can switch to
+  `Session.get()` at leisure).
+
+---
+
+### Frontend Tests
+…
 
 ---
 

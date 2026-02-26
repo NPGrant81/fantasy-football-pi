@@ -377,6 +377,15 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
     ]
 @router.get("/{league_id}/settings", response_model=LeagueConfigFull)
 def get_league_settings(league_id: int, db: Session = Depends(get_db)):
+    # Sanity: if the database is missing the column added by runtime schema,
+    # attempt to add it before the query.
+    try:
+        db.execute("ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS starting_slots JSON DEFAULT '{}'::json")
+        db.execute("ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS future_draft_cap INTEGER DEFAULT 0")
+        db.commit()
+    except Exception:
+        db.rollback()
+
     # 1. Get Settings (Roster, Cap)
     settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league_id).first()
     if not settings:
@@ -595,10 +604,14 @@ def get_league_budgets(
     db: Session = Depends(get_db)
 ):
     owners = db.query(models.User).filter(models.User.league_id == league_id).all()
-    budgets = db.query(models.DraftBudget).filter(
-        models.DraftBudget.league_id == league_id,
-        models.DraftBudget.year == year
-    ).all()
+    try:
+        budgets = db.query(models.DraftBudget).filter(
+            models.DraftBudget.league_id == league_id,
+            models.DraftBudget.year == year
+        ).all()
+    except Exception:
+        # if the budgets table doesn't exist yet (migration not applied)
+        budgets = []
     budget_map = {b.owner_id: b.total_budget for b in budgets}
 
     return [

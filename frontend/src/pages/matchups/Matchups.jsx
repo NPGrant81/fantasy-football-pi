@@ -1,6 +1,6 @@
 // frontend/src/pages/Matchups.jsx
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -17,6 +17,8 @@ import apiClient from '@api/client';
 export default function Matchups() {
   // --- USER/LEAGUE CONTEXT ---
   const [userInfo, setUserInfo] = useState({ username: '', leagueName: '' });
+  const navigate = useNavigate();
+  const [showBack, setShowBack] = useState(false);
   // --- 1.1 STATE MANAGEMENT ---
   const [week, setWeek] = useState(1);
   const [games, setGames] = useState([]);
@@ -41,6 +43,9 @@ export default function Matchups() {
 
   // --- 1.1.2 Fetch User/League Info ---
   useEffect(() => {
+    // show back button if history has previous entry
+    if (window.history.length > 1) setShowBack(true);
+
     async function fetchUserLeague() {
       try {
         const userRes = await apiClient.get('/auth/me');
@@ -99,7 +104,18 @@ export default function Matchups() {
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
-      {/* USER/LEAGUE CONTEXT */}
+      {/* HEADER + USER/LEAGUE CONTEXT */}
+      <div className="flex items-center justify-between mb-4">
+        {showBack && (
+          <button
+            className="text-blue-400 hover:text-blue-600 mr-4"
+            onClick={() => navigate(-1)}
+          >
+            ← Back
+          </button>
+        )}
+        <h2 className="text-xl font-bold text-white">Matchups</h2>
+      </div>
       <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
         <div className="text-lg font-bold text-white">
           User:{' '}

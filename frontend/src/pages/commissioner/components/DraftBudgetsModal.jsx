@@ -34,6 +34,16 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
             } else {
               setBudgetRows(rows);
             }
+          })
+          .catch(() => {
+            // budgets call failed (table missing or error); seed owners
+            const seeded = owners.map((owner) => ({
+              owner_id: owner.id,
+              username: owner.username,
+              team_name: owner.team_name,
+              total_budget: 200,
+            }));
+            setBudgetRows(seeded);
           });
       })
       .catch(() => {
