@@ -19,7 +19,7 @@ def test_lifespan_creates_tables(integration_client):
         # metadata.create_all is run in the lifespan; tables should exist
         inspector = inspect(db.bind)
         assert "users" in inspector.get_table_names()
-        assert "league" in inspector.get_table_names()
+        assert "leagues" in inspector.get_table_names()
     finally:
         db.close()
 

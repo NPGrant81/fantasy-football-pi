@@ -1,6 +1,5 @@
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, mockNavigate } from '../src/setupTests';
 import { vi } from 'vitest';
-import { mockNavigate } from '../src/setupTests';
 
 // setupTests.js now provides global mocks for apiClient and react-router-dom.
 // individual tests only need to configure the mock implementations.  the
@@ -323,12 +322,17 @@ describe('MyTeam taxi support', () => {
 
   test('displays Taxi Squad heading when a taxi player exists', async () => {
     apiClient.get.mockResolvedValue({
-      data: { players: [{ player_id: 1, name: 'TaxiPlayer', position: 'RB', nfl_team: 'X', status: 'BENCH', projected_points: 0, is_taxi: true }] },
+      data: {
+        roster: [
+          { player_id: 1, name: 'TaxiPlayer', position: 'RB', nfl_team: 'X', status: 'BENCH', projected_points: 0, is_taxi: true },
+        ],
+      },
     });
 
     render(<MyTeam activeOwnerId={1} />);
     await waitFor(() => {
-      expect(screen.getByText(/Taxi Squad/i)).toBeInTheDocument();
+      const matches = screen.getAllByText(/Taxi Squad/i);
+      expect(matches.length).toBeGreaterThan(0);
     });
   });
 });
