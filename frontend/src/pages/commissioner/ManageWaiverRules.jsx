@@ -94,7 +94,7 @@ export default function ManageWaiverRules() {
   };
 
   return (
-    <div className="p-8 max-w-3xl mx-auto text-white min-h-screen">
+    <div className="p-8 text-white min-h-screen">
       <h1 className="text-3xl font-black mb-6">Manage Waiver Rules</h1>
       <form
         onSubmit={handleSubmit}

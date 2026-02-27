@@ -4,7 +4,13 @@
 
 export function generateDraftValueData() {
   const positions = ['QB', 'RB', 'WR', 'TE'];
-  const sampleNames = ['Player A', 'Player B', 'Player C', 'Player D', 'Player E'];
+  const sampleNames = [
+    'Player A',
+    'Player B',
+    'Player C',
+    'Player D',
+    'Player E',
+  ];
   return sampleNames.map((name, idx) => {
     const pos = positions[idx % positions.length];
     const adp = 1 + Math.floor(Math.random() * 150);

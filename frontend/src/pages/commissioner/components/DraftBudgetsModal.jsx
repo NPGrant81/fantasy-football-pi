@@ -56,7 +56,7 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-2xl shadow-2xl">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full sm:max-w-2xl shadow-2xl">
         <h2 className="text-xl font-black text-white uppercase tracking-tight">
           Set Draft Budgets
         </h2>

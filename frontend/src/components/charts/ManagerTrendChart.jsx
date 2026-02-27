@@ -39,6 +39,12 @@ const ManagerTrendChart = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
 
+  // defensive: ensure stats is an array and log changes
+  const safeStats = Array.isArray(stats) ? stats : [];
+  React.useEffect(() => {
+    console.log('ManagerTrendChart stats received:', stats);
+  }, [stats]);
+
   React.useEffect(() => {
     const load = async () => {
       try {
@@ -73,9 +79,9 @@ const ManagerTrendChart = () => {
     return <p className="text-red-500">Error: {error}</p>;
   }
 
-  const weeks = stats.map((s) => `Week ${s.week}`);
-  const actuals = stats.map((s) => s.actual);
-  const maxima = stats.map((s) => s.max);
+  const weeks = safeStats.map((s) => `Week ${s.week}`);
+  const actuals = safeStats.map((s) => s.actual);
+  const maxima = safeStats.map((s) => s.max);
 
   const data = {
     labels: weeks,
@@ -108,7 +114,6 @@ const ManagerTrendChart = () => {
       },
     ],
   };
-
 
   const options = {
     responsive: true,

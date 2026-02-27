@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 export function useDraftTimer(initialTime = 10, onTimeUp) {
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [isActive, setIsActive] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // prevent race when clock hits zero
   const timerRef = useRef(null);
 
   // 1.1.1 Store onTimeUp in a Ref to prevent interval restarts
@@ -39,8 +40,15 @@ export function useDraftTimer(initialTime = 10, onTimeUp) {
             timerRef.current = null;
             setIsActive(false);
 
-            // Use the Ref-stored callback to avoid dependency loops
-            if (onTimeUpRef.current) onTimeUpRef.current();
+            // if already processing, ignore
+            if (!isProcessing) {
+              setIsProcessing(true);
+              // grace period before firing the callback; avoids race with "sold" event
+              setTimeout(() => {
+                if (onTimeUpRef.current) onTimeUpRef.current(true);
+                setIsProcessing(false);
+              }, 500);
+            }
 
             return 0;
           }

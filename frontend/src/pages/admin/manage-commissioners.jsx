@@ -62,7 +62,7 @@ export default function ManageCommissioners() {
   };
 
   return (
-    <div className="p-8 max-w-3xl mx-auto text-white min-h-screen">
+    <div className="p-8 text-white min-h-screen">
       <h2 className="text-2xl font-bold mb-4">Manage Commissioners</h2>
       <div className="mb-6">
         <input

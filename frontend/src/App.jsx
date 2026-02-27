@@ -13,6 +13,7 @@ import './App.css';
 import Layout from './components/Layout';
 import LeagueSelector from './components/LeagueSelector';
 import LeagueAdvisor from './components/LeagueAdvisor';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Import Pages (Lazy Loaded)
 const MyTeam = lazy(() => import('./pages/team-owner/MyTeam'));
@@ -34,6 +35,9 @@ const ManageCommissioners = lazy(
 const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
+const ManageTrades = lazy(
+  () => import('./pages/commissioner/ManageTrades')
+);
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
@@ -54,6 +58,7 @@ function App() {
     localStorage.getItem('user_id')
   );
   const [username, setUsername] = useState('');
+  const [subHeader, setSubHeader] = useState('');
 
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
@@ -86,7 +91,21 @@ function App() {
     }
   }, [token, handleLogout]);
 
-  // --- 1.4 LOGIN HANDLER ---
+  // --- 1.4 SUB‑HEADER FETCH ---
+  useEffect(() => {
+    if (!activeLeagueId) return;
+    apiClient
+      .get(`/leagues/${activeLeagueId}/settings`)
+      .then((res) => {
+        const parts = [];
+        if (res.data.waiver_deadline) parts.push(`Waiver: ${res.data.waiver_deadline}`);
+        if (res.data.trade_deadline) parts.push(`Trade: ${res.data.trade_deadline}`);
+        setSubHeader(parts.join('  |  '));
+      })
+      .catch(() => setSubHeader(''));
+  }, [activeLeagueId]);
+
+  // --- 1.5 LOGIN HANDLER ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
@@ -204,13 +223,15 @@ function App() {
     );
   }
 
-  // PATH C: FULL APP
+
   return (
-    <BrowserRouter>
-      <Layout
+    <ThemeProvider>
+      <BrowserRouter>
+        <Layout
         username={username}
         leagueId={activeLeagueId}
         onLogout={handleLogout}
+        alert={subHeader}
       >
         <Suspense
           fallback={
@@ -226,6 +247,7 @@ function App() {
                   token={token}
                   activeOwnerId={activeOwnerId}
                   activeLeagueId={activeLeagueId}
+                  setSubHeader={setSubHeader}
                 />
               }
             />
@@ -258,6 +280,10 @@ function App() {
               element={<ManageWaiverRules />}
             />
             <Route
+              path="/commissioner/manage-trades"
+              element={<ManageTrades />}
+            />
+            <Route
               path="/waivers"
               element={
                 <Waivers
@@ -279,6 +305,7 @@ function App() {
         <LeagueAdvisor />
       </Layout>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

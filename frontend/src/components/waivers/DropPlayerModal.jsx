@@ -13,7 +13,7 @@ export default function DropPlayerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
+      <div className="bg-slate-900 border border-slate-800 w-full sm:max-w-md rounded-[2.5rem] p-8 shadow-2xl">
         {/* 2. Header: Explain why they are here */}
         <h2 className="text-2xl font-black uppercase italic text-white mb-2">
           Roster Full!

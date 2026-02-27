@@ -11,6 +11,8 @@ import WaiverWire from '@/pages/WaiverWire';
 import WaiverRules from '@/pages/WaiverRules';
 import ManageWaiverRules from '@/pages/commissioner/ManageWaiverRules';
 import SiteAdmin from '@/pages/admin/SiteAdmin';
+import CommissionerDashboard from '@/pages/commissioner/CommissionerDashboard';
+import ManageTrades from '@/pages/commissioner/ManageTrades';
 import CommishAdmin from '@/pages/commissioner/CommishAdmin';
 import MyTeam from '@/pages/team-owner/MyTeam';
 
@@ -43,6 +45,38 @@ describe('DraftBoard (Smoke Test)', () => {
 
     await waitFor(() => {
       expect(container).toBeInTheDocument();
+    });
+  });
+
+  test('invokes setSubHeader when provided', async () => {
+    const mockAlert = vi.fn();
+    apiClient.get.mockImplementation((url) => {
+      if (url.startsWith('/leagues/owners')) return Promise.resolve({ data: [] });
+      if (url === '/players/') return Promise.resolve({ data: [] });
+      if (url.startsWith('/draft/history')) return Promise.resolve({ data: [] });
+      if (url.startsWith('/leagues/1/settings')) {
+        return Promise.resolve({ data: { draft_year: 2026 } });
+      }
+      if (url.startsWith('/leagues/1/budgets')) return Promise.resolve({ data: [] });
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { is_commissioner: false, username: 'alice' } });
+      }
+      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'The Big Show' } });
+      return Promise.resolve({ data: [] });
+    });
+    apiClient.post.mockResolvedValue({ data: {} });
+
+    render(
+      <DraftBoard
+        token="test-token"
+        activeOwnerId={1}
+        activeLeagueId={1}
+        setSubHeader={mockAlert}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockAlert).toHaveBeenCalledWith(expect.stringContaining('SESSION ID'));
     });
   });
 
@@ -238,16 +272,46 @@ describe('ManageWaiverRules (Smoke Test)', () => {
   });
 });
 
-describe('CommishAdmin (Smoke Test)', () => {
+describe('CommissionerDashboard (Smoke Test)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.resetAllMocks();
   });
 
-  test('button to waiver rules uses navigation', () => {
-    const { getByText } = render(<CommishAdmin />);
-    fireEvent.click(getByText(/WAIVER RULES/i));
-    expect(mockNavigate).toHaveBeenCalledWith('/waiver-rules');
+  test('cards navigate to waiver and trade pages', async () => {
+    // ensure any backend requests resolve quickly so the spinner hides
+    apiClient.get.mockResolvedValue({ data: {} });
+    // dashboard only loads when a leagueId exists
+    localStorage.setItem('fantasyLeagueId', '1');
+
+    const { getByText } = render(<CommissionerDashboard />);
+    // dashboard shows a splash screen while loading; wait for the real header
+    await waitFor(() => expect(getByText(/Commissioner Control Panel/i)).toBeInTheDocument());
+
+    fireEvent.click(getByText(/Edit Waiver Rules/i));
+    expect(mockNavigate).toHaveBeenCalledWith('/commissioner/manage-waiver-rules');
+    fireEvent.click(getByText(/Edit Trade Rules/i));
+    expect(mockNavigate).toHaveBeenCalledWith('/commissioner/manage-trades');
+  });
+});
+
+// simple smoke for ManageTrades page itself
+describe('ManageTrades (Smoke Test)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.resetAllMocks();
+  });
+
+  test('renders without crashing (no pending trades)', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/trades/pending') return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
+
+    const { container } = render(<ManageTrades />);
+    await waitFor(() => {
+      expect(container).toBeInTheDocument();
+    });
   });
 });
 

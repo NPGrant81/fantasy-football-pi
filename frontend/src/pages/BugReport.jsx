@@ -85,7 +85,7 @@ export default function BugReport() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-6 shadow-xl">
         <h1 className="text-2xl font-black text-white uppercase tracking-tight">
           Bug Report

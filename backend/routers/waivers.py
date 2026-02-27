@@ -20,6 +20,7 @@ class WaiverClaimSchema(BaseModel):
     player_id: int
     bid_amount: int = 0
     drop_player_id: Optional[int] = None
+    team_id: Optional[int] = None  # included for debugging/verification
 
 class DropPlayerSchema(BaseModel):
     player_id: int
@@ -53,12 +54,14 @@ def submit_waiver_claim(
     Submits a claim via the Waiver Service.
     """
     # 2.1.1 CALL the service to handle validations (1.x) and execution (2.x)
+    # pass team_id along so service can log/verify it if provided
     result = waiver_service.process_claim(
         db=db, 
         user=current_user, 
         player_id=claim.player_id, 
         bid=claim.bid_amount,
         drop_id=claim.drop_player_id,
+        team_id=claim.team_id,
     )
     
     return {

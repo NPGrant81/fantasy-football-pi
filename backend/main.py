@@ -155,6 +155,9 @@ app.include_router(analytics.router)
 # ADMIN TOOLS: commissioner‑level maintenance helpers (schedule import, etc.)
 app.include_router(admin_tools.router)
 
+# PLATFORM TOOLS: superuser endpoints such as commissioner management
+app.include_router(platform_tools.router)
+
 # STANDARD: Included without redundant prefixes
 app.include_router(auth.router)
 app.include_router(draft.router)

@@ -61,7 +61,7 @@ export default function CommissionerDashboard() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto text-white min-h-screen">
+    <div className="p-8 w-full text-white min-h-screen">
       <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">
         <FiTool className="text-4xl text-yellow-500" />
         <div>
@@ -129,6 +129,7 @@ export default function CommissionerDashboard() {
           badge="WAIVERS"
           title="Set Waiver Wire Rules"
           description="Set rules for waiver claims, priorities, and deadlines."
+          onClick={() => navigate('/commissioner/manage-waiver-rules')}
           loading={false}
           actionLabel="Edit Waiver Rules"
           accent={{
@@ -143,6 +144,7 @@ export default function CommissionerDashboard() {
           badge="TRADES"
           title="Set Trade Rules"
           description="Configure trade review, veto, and deadlines."
+          onClick={() => navigate('/commissioner/manage-trades')}
           loading={false}
           actionLabel="Edit Trade Rules"
           accent={{

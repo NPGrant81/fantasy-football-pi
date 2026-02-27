@@ -8,8 +8,11 @@ import {
   SessionHeader,
   DraftHistoryFeed,
 } from '@components/draft';
+import DraftBoardGrid from '@components/draft/DraftBoardGrid';
+import AuctionInterface from '@components/draft/AuctionInterface';
+import BestAvailableList from '@components/draft/BestAvailableList';
 
-export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
+export default function DraftBoard({ token, activeOwnerId, activeLeagueId, setSubHeader }) {
   // --- 1.1 STATE MANAGEMENT ---
   const [owners, setOwners] = useState([]);
   const [players, setPlayers] = useState([]);
@@ -40,6 +43,16 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       : owners[0].id;
   }, [owners, winnerId]);
 
+  // update sub-header (session id) when available
+  useEffect(() => {
+    if (setSubHeader) {
+      setSubHeader(`SESSION ID: ${sessionId}`);
+    }
+    return () => {
+      if (setSubHeader) setSubHeader('');
+    };
+  }, [sessionId, setSubHeader]);
+
   // --- 1.2 THE ENGINE (Logic Actions) ---
 
   const fetchHistory = useCallback(() => {
@@ -52,7 +65,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   // 1.2.1 THE DRAFT ACTION
   // We define this first, but we remove the 'reset' dependency.
   // The timer will now handle its own reset when handleDraft is triggered by the clock.
-  const handleDraft = useCallback(async () => {
+  const handleDraft = useCallback(async (forced = false) => {
+    console.log('handleDraft invoked, forced=', forced);
+    if (forced) {
+      console.log('timer expired, forcing draft');
+    }
     if (!effectiveWinnerId || !playerName) return;
     const foundPlayer = players.find(
       (p) => p.name.toLowerCase() === playerName.toLowerCase()
@@ -88,7 +105,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     draftYear,
     fetchHistory,
   ]);
-
   // 1.2.2 THE TIMER HOOK
   // Now that handleDraft is defined, we pass it in.
   const {
@@ -96,7 +112,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     start,
     reset,
     isActive: isTimerRunning,
-  } = useDraftTimer(10, handleDraft);
+  } = useDraftTimer(10, () => handleDraft(true)); // call with forced flag on expiry
 
   // --- 1.3 SEARCH & POLL ---
 
@@ -195,92 +211,36 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       : null;
   }, [effectiveWinnerId, history, budgetMap]);
 
-  // --- 2.1 RENDER ---
+  // --- 2.1 RENDER (content only; header provided by Layout) ---
   return (
-    <div className="bg-slate-950 min-h-screen">
-      <div className="max-w-[1800px] mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* USER/LEAGUE CONTEXT */}
-        <div className="mb-4 text-xs text-slate-400">
-          <span>
-            User:{' '}
-            <span className="font-bold text-blue-300">{username || '...'}</span>
-          </span>
-          <span className="ml-4">
-            League:{' '}
-            <span className="font-bold text-yellow-400">
-              {leagueName || '...'}
-            </span>
-          </span>
-        </div>
-        {/* LEFT COLUMN */}
-        <div className="lg:col-span-9 space-y-6">
-          <div className="sticky top-4 z-20 bg-slate-900 border-b border-yellow-600 shadow-2xl pb-6 px-6 pt-4 rounded-xl">
-            <SessionHeader
-              sessionId={sessionId}
-              rosterSize={ROSTER_SIZE}
-              leagueName={leagueName}
-              isCommissioner={isCommissioner}
-              leagueId={activeLeagueId}
-              onFinalize={() => {}}
-            />
-            <AuctionBlock
-              playerName={playerName}
-              handleSearchChange={handleSearchChange}
-              suggestions={suggestions}
-              showSuggestions={showSuggestions}
-              selectSuggestion={(p) => {
-                setPlayerName(p.name);
-                setShowSuggestions(false);
-              }}
-              posFilter={posFilter}
-              setPosFilter={setPosFilter}
-              winnerId={effectiveWinnerId}
-              setWinnerId={setWinnerId}
-              owners={owners}
-              activeStats={activeStats}
-              bidAmount={bidAmount}
-              setBidAmount={setBidAmount}
-              handleDraft={() => {
-                handleDraft();
-                reset();
-              }} // RESET CALLED HERE ON MANUAL CLICK
-              timeLeft={timeLeft}
-              isTimerRunning={isTimerRunning}
-              reset={reset}
-              start={start}
-            />
-          </div>
+    <div className="flex flex-col overflow-hidden">
+      {/* page content lives here */}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {owners.length > 0 ? (
-              owners.map((owner) => (
-                <OwnerCard
-                  key={owner.id}
-                  owner={owner}
-                  stats={getOwnerStats(owner.id, history, budgetMap)}
-                  isNominator={owner.id === currentNominatorId}
-                  isSelectedWinner={owner.id === effectiveWinnerId}
-                  myPicks={history.filter((h) => h.owner_id === owner.id)}
-                  players={players}
-                />
-              ))
-            ) : (
-              <div className="col-span-full text-center text-slate-500 py-10 text-lg font-bold">
-                No owners found for this league.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN */}
-        <div className="lg:col-span-3">
-          <div className="sticky top-4 h-[calc(100vh-2rem)]">
-            {/* DraftHistoryFeed moved to ticker at bottom */}
-          </div>
-        </div>
-      </div>
-      {/* Horizontal Draft Ticker */}
+      {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
+
+      <main className="flex-1 grid grid-cols-12 gap-0 overflow-hidden">
+        <section className="col-span-9 overflow-auto border-r border-slate-800 custom-scrollbar">
+          <DraftBoardGrid teams={owners} history={history} rosterLimit={ROSTER_SIZE} />
+        </section>
+
+        <aside className="col-span-3 flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
+          <AuctionInterface
+            currentBudget={(budgetMap[effectiveWinnerId] || 0)}
+            openSlots={ROSTER_SIZE - (getOwnerStats(effectiveWinnerId, history, budgetMap)?.totalPicks || 0)}
+            currentBid={bidAmount}
+            onBid={setBidAmount}
+          />
+          <BestAvailableList
+            players={players.filter((p) => !history.some((h) => h.player_id === p.id)).sort((a,b)=>a.rank-b.rank).slice(0,50)}
+          />
+        </aside>
+      </main>
+
+      <footer className="bg-slate-900 px-4 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
+        <span>SESSION ID: {sessionId}</span>
+        <span className="text-green-500 font-mono">SERVER STATUS: ONLINE</span>
+      </footer>
     </div>
   );
 }

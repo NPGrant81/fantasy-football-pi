@@ -243,6 +243,8 @@ export default function MyTeam({ activeOwnerId }) {
   const [offeredPlayerId, setOfferedPlayerId] = useState('');
   const [requestedPlayerId, setRequestedPlayerId] = useState('');
   const [proposalNote, setProposalNote] = useState('');
+  const [offeredDollars, setOfferedDollars] = useState('');
+  const [requestedDollars, setRequestedDollars] = useState('');
   const [toast, setToast] = useState(null);
   const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
   const [showLineupValidationModal, setShowLineupValidationModal] =
@@ -407,8 +409,10 @@ export default function MyTeam({ activeOwnerId }) {
 
       try {
         const res = await apiClient.get(`/dashboard/${proposalToUserId}`);
-        setTargetRoster(res.data?.roster || []);
-      } catch {
+        console.log('loaded target roster for', proposalToUserId, res.data);
+        setTargetRoster(Array.isArray(res.data?.roster) ? res.data.roster : []);
+      } catch (err) {
+        console.error('failed to load target roster', err);
         setTargetRoster([]);
       }
     }
@@ -538,8 +542,10 @@ export default function MyTeam({ activeOwnerId }) {
   const byePlayers = weeklyPlan.byePlayers;
 
   const lineupRuleSnapshot = useMemo(() => {
+    // ignore any taxi players when evaluating starters; they are never
+    // eligible for the active lineup and should not cause validation errors.
     const currentStarters = rosterState.filter(
-      (player) => player.status === 'STARTER'
+      (player) => player.status === 'STARTER' && !player.is_taxi
     );
     const counts = { QB: 0, RB: 0, WR: 0, TE: 0, DEF: 0, K: 0 };
 
@@ -716,9 +722,21 @@ export default function MyTeam({ activeOwnerId }) {
 
     setSubmittingRoster(true);
     try {
-      const starterIds = rosterState
-        .filter((player) => player.status === 'STARTER')
+      // filter out taxi players; backend ignores them and will otherwise
+      // treat them as missing starters which triggers validation errors.
+      const starters = rosterState.filter((player) => player.status === 'STARTER');
+      const taxiStarters = starters.filter((p) => p.is_taxi);
+      if (taxiStarters.length > 0) {
+        setToast({
+          message: 'Taxi players are not counted as starters and have been removed.',
+          type: 'error',
+        });
+      }
+      const starterIds = starters
+        .filter((p) => !p.is_taxi)
         .map((player) => Number(player.player_id));
+
+      console.log('Submitting roster payload', { week: selectedWeek, starter_player_ids: starterIds });
 
       await apiClient.post('/team/lineup', {
         week: selectedWeek,
@@ -735,6 +753,7 @@ export default function MyTeam({ activeOwnerId }) {
       });
       fetchTeam();
     } catch (err) {
+      console.error('submitRoster error', err);
       const detail = err.response?.data?.detail;
       if (Array.isArray(detail) && detail.length > 0) {
         setToast({ message: detail.join(', '), type: 'error' });
@@ -758,6 +777,14 @@ export default function MyTeam({ activeOwnerId }) {
   }, [lineupValidationErrors.length, selectedWeek]);
 
   const handleSubmitTradeProposal = async () => {
+    console.log('handleSubmitTradeProposal called', {
+      canProposeTrade,
+      proposalToUserId,
+      offeredPlayerId,
+      requestedPlayerId,
+      offeredDollars,
+      requestedDollars,
+    });
     if (!canProposeTrade) {
       setToast({
         message: 'Trades can only be proposed from your own roster page.',
@@ -776,6 +803,8 @@ export default function MyTeam({ activeOwnerId }) {
         to_user_id: Number(proposalToUserId),
         offered_player_id: Number(offeredPlayerId),
         requested_player_id: Number(requestedPlayerId),
+        offered_dollars: Number(offeredDollars) || 0,
+        requested_dollars: Number(requestedDollars) || 0,
         note: proposalNote,
       });
 
@@ -785,6 +814,8 @@ export default function MyTeam({ activeOwnerId }) {
       setOfferedPlayerId('');
       setRequestedPlayerId('');
       setProposalNote('');
+      setOfferedDollars('');
+      setRequestedDollars('');
       fetchTeam();
     } catch (err) {
       setToast({
@@ -823,7 +854,8 @@ export default function MyTeam({ activeOwnerId }) {
       await apiClient.post('/team/taxi/demote', { player_id: playerId });
       fetchTeam();
       setToast({ message: 'Player moved to taxi squad.', type: 'success' });
-    } catch (err) {
+    } catch (_err) {
+      // error is intentionally ignored; UI shows a generic message
       setToast({ message: 'Unable to move player to taxi.', type: 'error' });
     }
   };
@@ -833,8 +865,12 @@ export default function MyTeam({ activeOwnerId }) {
       await apiClient.post('/team/taxi/promote', { player_id: playerId });
       fetchTeam();
       setToast({ message: 'Player promoted from taxi.', type: 'success' });
-    } catch (err) {
-      setToast({ message: 'Unable to promote player from taxi.', type: 'error' });
+    } catch (_err) {
+      // error intentionally ignored
+      setToast({
+        message: 'Unable to promote player from taxi.',
+        type: 'error',
+      });
     }
   };
 
@@ -859,7 +895,7 @@ export default function MyTeam({ activeOwnerId }) {
     );
 
   return (
-    <div className="max-w-6xl mx-auto p-6 text-white min-h-screen">
+    <div className="w-full p-6 text-white min-h-screen">
       {/* Commissioner Modals */}
       <ScoringRulesModal
         open={showScoring}
@@ -886,25 +922,25 @@ export default function MyTeam({ activeOwnerId }) {
             <>
               <button
                 onClick={() => setShowScoring(true)}
-                className={`${controlButtonClass} bg-purple-700 hover:bg-purple-600 text-white`}
+                className={`${controlButtonClass} bg-brand-purple hover:bg-brand-purple/90 text-white`} 
               >
                 Scoring Rules
               </button>
               <button
                 onClick={() => setShowOwners(true)}
-                className={`${controlButtonClass} bg-blue-700 hover:bg-blue-600 text-white`}
+                className={`${controlButtonClass} bg-brand-cyan hover:bg-brand-cyan/90 text-white`} 
               >
                 Owner Management
               </button>
               <button
                 onClick={() => setShowWaivers(true)}
-                className={`${controlButtonClass} bg-green-700 hover:bg-green-600 text-white`}
+                className={`${controlButtonClass} bg-green-700 hover:bg-green-600 text-white`} 
               >
                 Waiver Wire Rules
               </button>
               <button
                 onClick={() => setShowTrades(true)}
-                className={`${controlButtonClass} bg-yellow-500 hover:bg-yellow-400 text-black`}
+                className={`${controlButtonClass} bg-yellow-500 hover:bg-yellow-400 text-black`} 
               >
                 Trade Rules
               </button>
@@ -913,7 +949,7 @@ export default function MyTeam({ activeOwnerId }) {
 
           <Link
             to="/waivers"
-            className={`${controlButtonClass} inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-black`}
+            className={`${controlButtonClass} inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-black`} 
           >
             <FiPlus className="text-base" /> Waiver Wire
           </Link>
@@ -921,7 +957,7 @@ export default function MyTeam({ activeOwnerId }) {
           {canProposeTrade && (
             <button
               onClick={() => setShowProposeTrade(true)}
-              className={`${controlButtonClass} bg-blue-600 hover:bg-blue-500 text-white`}
+              className={`${controlButtonClass} bg-brand-cyan hover:bg-brand-cyan/90 text-white`} 
             >
               <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                 <FiSend className="text-base" /> Propose Trade
@@ -965,8 +1001,8 @@ export default function MyTeam({ activeOwnerId }) {
       </div>
 
       {showProposeTrade && canProposeTrade && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-black/70 p-4">
+          <div className="w-full rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-lg font-black uppercase tracking-wider text-white">
                 Propose Trade
@@ -981,10 +1017,11 @@ export default function MyTeam({ activeOwnerId }) {
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                <label htmlFor="trade-with" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
                   Trade With
                 </label>
                 <select
+                  id="trade-with"
                   value={proposalToUserId}
                   onChange={(e) => setProposalToUserId(e.target.value)}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
@@ -1001,10 +1038,11 @@ export default function MyTeam({ activeOwnerId }) {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                <label htmlFor="you-offer" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
                   You Offer
                 </label>
                 <select
+                  id="you-offer"
                   value={offeredPlayerId}
                   onChange={(e) => setOfferedPlayerId(e.target.value)}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
@@ -1019,10 +1057,11 @@ export default function MyTeam({ activeOwnerId }) {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                <label htmlFor="you-request" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
                   You Request
                 </label>
                 <select
+                  id="you-request"
                   value={requestedPlayerId}
                   onChange={(e) => setRequestedPlayerId(e.target.value)}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
@@ -1035,6 +1074,40 @@ export default function MyTeam({ activeOwnerId }) {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label htmlFor="offered-dollars" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Offer $ (future draft)
+                  </label>
+                  <input
+                    id="offered-dollars"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={offeredDollars}
+                    onChange={(e) => setOfferedDollars(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                    placeholder="0"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="requested-dollars" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Request $ (future draft)
+                  </label>
+                  <input
+                    id="requested-dollars"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={requestedDollars}
+                    onChange={(e) => setRequestedDollars(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                    placeholder="0"
+                    disabled={!proposalToUserId}
+                  />
+                </div>
               </div>
 
               <div>
@@ -1071,7 +1144,7 @@ export default function MyTeam({ activeOwnerId }) {
 
       {showPlayerPerformance && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+          <div className="w-full rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black uppercase tracking-wider text-white">
@@ -1187,7 +1260,7 @@ export default function MyTeam({ activeOwnerId }) {
 
       {showLineupValidationModal && lineupValidationErrors.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-red-800/60 bg-slate-900 p-6 shadow-2xl">
+          <div className="w-full rounded-2xl border border-red-800/60 bg-brand-black p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-lg font-black uppercase tracking-wider text-red-300">
                 <FiAlertTriangle /> Lineup Validation
@@ -1541,7 +1614,10 @@ export default function MyTeam({ activeOwnerId }) {
                     draggable={canEditLineup && !player.is_locked}
                     onDragStart={() => handleDragStart(player)}
                     onClick={() => openPlayerPerformance(player)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key===' ') openPlayerPerformance(player); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ')
+                        openPlayerPerformance(player);
+                    }}
                     className={`w-full rounded-lg border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                       player.is_locked
                         ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
@@ -1595,7 +1671,10 @@ export default function MyTeam({ activeOwnerId }) {
                         draggable={canEditLineup && !player.is_locked}
                         onDragStart={() => handleDragStart(player)}
                         onClick={() => openPlayerPerformance(player)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key===' ') openPlayerPerformance(player); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ')
+                            openPlayerPerformance(player);
+                        }}
                         className={`w-full rounded-lg border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
                           player.is_locked
                             ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'

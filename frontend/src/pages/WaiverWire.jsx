@@ -209,7 +209,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   });
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="w-full p-6">
       {/* 2.3 UI: HEADER & SEARCH */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
@@ -296,7 +296,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
 
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+          <div className="w-full rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
             <h3 className="text-lg font-black uppercase tracking-wider text-white">
               Confirm Waiver Action
             </h3>

@@ -35,7 +35,7 @@ export default function WaiverRules({ leagueId }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-8 text-white">
+    <div className="p-8 text-white">
       <h1 className="text-4xl font-black mb-6">Waiver Wire Rules</h1>
       <div className="bg-slate-800 p-6 rounded-xl shadow space-y-4">
         <div>
@@ -59,7 +59,7 @@ export default function WaiverRules({ leagueId }) {
       {userInfo.is_commissioner && (
         <div className="mt-6">
           <button
-            className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded"
+            className="bg-brand-cyan hover:bg-brand-cyan/90 text-white font-bold py-2 px-6 rounded"
             onClick={() => navigate('/commissioner/manage-waiver-rules')}
           >
             Edit Waiver Rules

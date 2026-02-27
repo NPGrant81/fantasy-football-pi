@@ -23,7 +23,7 @@ export default function GlobalSearch({ onPlayerSelect }) {
   };
 
   return (
-    <div className="relative w-full max-w-md group">
+    <div className="relative w-full sm:max-w-md group">
       <div className="flex items-center bg-slate-800 border border-slate-700 rounded-full px-4 py-2 focus-within:border-purple-500 transition-all">
         <FiSearch className="text-slate-400 mr-2" />
         <input

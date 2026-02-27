@@ -134,7 +134,7 @@ export default function ChatInterface({ initialQuery = '' }) {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed ${
+              className={`w-full lg:max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed ${
                 msg.role === 'user'
                   ? `${bgColors.accent} ${textColors.main} rounded-tr-none shadow-lg shadow-blue-900/20`
                   : `${bgColors.main} text-slate-200 rounded-tl-none border ${borderColors.main}`

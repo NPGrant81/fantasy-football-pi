@@ -5,7 +5,7 @@ export default function OwnerManagementModal({ open, onClose }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-slate-900 border border-blue-700 rounded-xl p-8 w-full max-w-lg relative">
+      <div className="bg-slate-900 border border-blue-700 rounded-xl p-8 w-full sm:max-w-lg relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-blue-400 hover:text-white"

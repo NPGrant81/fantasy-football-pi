@@ -17,7 +17,9 @@ const ManagerEfficiencyLeaderboard = () => {
           setLoading(false);
           return;
         }
-        const res = await apiClient.get(`/analytics/league/${leagueId}/leaderboard`);
+        const res = await apiClient.get(
+          `/analytics/league/${leagueId}/leaderboard`
+        );
         setRows(res.data || []);
       } catch (err) {
         console.error(err);
@@ -43,7 +45,9 @@ const ManagerEfficiencyLeaderboard = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h3 className="text-white text-lg font-bold mb-4">Efficiency Leaderboard</h3>
+      <h3 className="text-white text-lg font-bold mb-4">
+        Efficiency Leaderboard
+      </h3>
       <table className="w-full text-sm table-auto">
         <thead>
           <tr className="bg-gray-700">
@@ -55,7 +59,10 @@ const ManagerEfficiencyLeaderboard = () => {
         </thead>
         <tbody>
           {rows.map((r, idx) => (
-            <tr key={r.manager_id} className={idx % 2 === 0 ? 'bg-gray-800' : 'bg-gray-900'}>
+            <tr
+              key={r.manager_id}
+              className={idx % 2 === 0 ? 'bg-gray-800' : 'bg-gray-900'}
+            >
               <td className="px-2 py-1">{idx + 1}</td>
               <td className="px-2 py-1">{r.manager_id}</td>
               <td className="px-2 py-1">{r.efficiency_display}</td>

@@ -1,7 +1,20 @@
-/* Keep your root styles, but add this for the chat window */
+/* index.css style rules: enable manual dark-mode toggle */
+@import "tailwindcss";
+/* allow the .dark class to cascade to child elements */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Global reset and full-bleed background */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #05070a; /* core brand black */
+  overflow-x: hidden;
+}
+
+/* Remove old scaffolded max-width */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
   text-align: center;
 }
 

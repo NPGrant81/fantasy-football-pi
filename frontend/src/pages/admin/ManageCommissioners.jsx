@@ -152,7 +152,7 @@ export default function ManageCommissioners() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto text-white min-h-screen">
+    <div className="p-8 text-white min-h-screen">
       <div className="flex items-center justify-between mb-8 border-b border-slate-700 pb-5">
         <div>
           <h1 className="text-4xl font-black uppercase italic tracking-tighter">

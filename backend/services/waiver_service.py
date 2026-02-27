@@ -31,10 +31,14 @@ def _validate_commissioner_waiver_rules(db: Session, user: models.User) -> int:
     return roster_limit
 
 
-def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop_id: int = None):
+def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop_id: int = None, team_id: int | None = None):
     # 1.1 VALIDATION: Check for League ID
     if not user.league_id:
         raise HTTPException(status_code=400, detail="User not in a league.")
+    # optional team_id is for debugging/diagnostics
+    if team_id and team_id != user.id:
+        # log mismatch, but don't fail the claim
+        print(f"WARNING: waiver claim team_id {team_id} does not match user.id {user.id}")
 
     league = db.query(models.League).filter(models.League.id == user.league_id).first()
     if league and (league.draft_status or "PRE_DRAFT") == "ACTIVE":

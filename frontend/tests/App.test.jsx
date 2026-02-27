@@ -3,8 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 // Mock child components to keep App render surface-level and deterministic
+let capturedLayoutProps = {};
 vi.mock('../src/components/Layout', () => ({
-  default: ({ children }) => <div data-testid="layout">{children}</div>,
+  default: (props) => {
+    capturedLayoutProps = props;
+    return <div data-testid="layout">{props.children}</div>;
+  },
 }));
 vi.mock('../src/pages/Dashboard', () => ({
   default: () => <div>Dashboard</div>,
@@ -62,16 +66,25 @@ describe('App (basic)', () => {
   test('uses token to fetch /auth/me and shows app when valid', async () => {
     localStorage.setItem('fantasyToken', 'fake-token');
     localStorage.setItem('fantasyLeagueId', '1');
-    apiClient.get.mockResolvedValue({
-      data: { user_id: 7, username: 'alice' },
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') return Promise.resolve({ data: { user_id: 7, username: 'alice' } });
+      if (url === '/leagues/1/settings')
+        return Promise.resolve({ data: { waiver_deadline: 'Thu 4pm', trade_deadline: 'Sun 8pm' } });
+      return Promise.resolve({ data: {} });
     });
 
     render(<App />);
 
-    // Wait for effect to run and children to render inside Layout
+    // Wait for primary effect
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
     expect(localStorage.getItem('fantasyToken')).toBe('fake-token');
     expect(screen.getByTestId('layout')).toBeInTheDocument();
+
+    // since league settings were fetched, Layout.alert should include our deadlines
+    await waitFor(() => {
+      expect(capturedLayoutProps.alert).toMatch(/Waiver: Thu 4pm/);
+      expect(capturedLayoutProps.alert).toMatch(/Trade: Sun 8pm/);
+    });
   });
 
   test('login form submission saves league ID from input (not from server)', async () => {

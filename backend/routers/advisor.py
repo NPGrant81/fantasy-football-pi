@@ -1,6 +1,7 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
@@ -25,8 +26,8 @@ def get_advisor_status():
 
 class AdvisorRequest(BaseModel):
     user_query: str
-    username: str = None
-    league_id: int = None
+    username: Optional[str] = None
+    league_id: Optional[int] = None
 
 
 @router.post("/ask")
@@ -50,7 +51,22 @@ def ask_gemini(request: AdvisorRequest, db: Session = Depends(get_db)):
     if not rules:
         rules_text = "Standard PPR Scoring"
     else:
-        rules_text = "\n".join([f"- {r.category}: {r.points} pts" for r in rules])
+        # use point_value since the model field is named that (previously caused a 500 error)
+        rules_text = "\n".join([f"- {r.category}: {r.point_value} pts" for r in rules])
+
+    # optional: include information about the requesting user's team if available
+    roster_line = ""
+    if request.username and request.league_id:
+        user = (
+            db.query(models.User)
+            .filter(
+                models.User.username == request.username,
+                models.User.league_id == request.league_id,
+            )
+            .first()
+        )
+        if user:
+            roster_line = f"USER TEAM: {user.team_name or 'N/A'} ({user.username})\n"
 
     # 3. CONSTRUCT PROMPT
     prompt = f"""
@@ -59,6 +75,7 @@ def ask_gemini(request: AdvisorRequest, db: Session = Depends(get_db)):
     LEAGUE SCORING RULES:
     {rules_text}
     
+    {roster_line}
     USER: {request.username or 'A user'}
     QUESTION:
     {request.user_query}

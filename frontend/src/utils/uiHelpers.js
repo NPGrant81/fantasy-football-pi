@@ -16,11 +16,11 @@ export const getPosColor = (rawPos) => {
 
 // --- 1.2 COMMON TAILWIND COLOR CLASSES ---
 export const bgColors = {
-  main: 'bg-slate-900',
-  card: 'bg-slate-950',
-  header: 'bg-slate-950/50',
-  section: 'bg-slate-950/20',
-  accent: 'bg-blue-600',
+  main: 'bg-brand-black',
+  card: 'bg-brand-black/90',
+  header: 'bg-brand-black/70',
+  section: 'bg-brand-black/50',
+  accent: 'bg-brand-cyan',
   warning: 'bg-yellow-500',
   error: 'bg-red-500',
 };
@@ -28,14 +28,14 @@ export const bgColors = {
 export const textColors = {
   main: 'text-white',
   secondary: 'text-slate-400',
-  accent: 'text-blue-600',
+  accent: 'text-brand-cyan',
   warning: 'text-yellow-500',
   error: 'text-red-500',
 };
 
 export const borderColors = {
   main: 'border-slate-800',
-  accent: 'border-blue-500',
+  accent: 'border-brand-cyan',
   warning: 'border-yellow-500',
   error: 'border-red-500',
 };
@@ -48,4 +48,15 @@ export const menuGradients = {
 };
 
 // --- 1.3 Utility for combining classes ---
+
+// position-based bg classes for the grid layout
+export const POSITION_COLORS = {
+  QB: 'bg-red-600',
+  RB: 'bg-green-600',
+  WR: 'bg-blue-500',
+  TE: 'bg-yellow-500',
+  K:  'bg-purple-500',
+  DEF:'bg-gray-500',
+};
+
 export const combineClasses = (...classes) => classes.filter(Boolean).join(' ');

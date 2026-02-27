@@ -39,15 +39,8 @@ export default function DraftHistoryFeed({ history = [], owners = [] }) {
                 >
                   {normalizePos(pick.position)}
                 </span>
-                <span className="text-green-400 font-mono font-black text-xs mr-2">
+                <span className="text-green-400 font-mono font-black text-xs">
                   ${pick.amount}
-                </span>
-                <span className="text-slate-500 font-mono">
-                  {new Date(pick.timestamp).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                  })}
                 </span>
               </FeedPill>
             );

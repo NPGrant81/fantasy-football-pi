@@ -80,4 +80,11 @@ describe('Layout (Main App Container)', () => {
     const main = container.querySelector('main');
     expect(main).toBeInTheDocument();
   });
+
+  test('renders a sub-header alert when provided', () => {
+    render(
+      <Layout username="alice" leagueId={1} alert="Waiver closes in 2h" />
+    );
+    expect(screen.getByText(/Waiver closes in 2h/i)).toBeInTheDocument();
+  });
 });

@@ -2,14 +2,15 @@
 import { useState } from 'react';
 import { FiMenu } from 'react-icons/fi';
 import Sidebar from './Sidebar';
+import ThemeToggle from './ThemeToggle';
 
-export default function Layout({ children, username, leagueId }) {
+export default function Layout({ children, username, leagueId, alert }) {
   // --- 1.1 UI STATE ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // --- 2.1 RENDER LOGIC (The Shell) ---
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans">
+    <div className="min-h-screen w-full bg-slate-950 text-white font-sans overflow-hidden">
       {/* 2.2 TOP NAVIGATION BAR */}
       <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-slate-800 h-16 px-4 flex items-center justify-between">
         {/* Mobile Trigger */}
@@ -29,9 +30,16 @@ export default function Layout({ children, username, leagueId }) {
           />
           FANTASY<span className="text-slate-600">Pi</span>
         </div>
+        {/* theme toggle */}
+        <ThemeToggle />
       </header>
 
-      {/* 2.3 NAVIGATION DRAWER */}
+      {/* 2.3 SUB‑HEADER / ALERT BAR */}
+      <div className="h-10 mt-16 bg-slate-800 text-xs text-yellow-300 flex items-center px-6">
+        {alert || '\u00A0'}
+      </div>
+
+      {/* 2.4 NAVIGATION DRAWER */}
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -40,7 +48,7 @@ export default function Layout({ children, username, leagueId }) {
       />
 
       {/* 2.4 PAGE VIEWPORT */}
-      <main className="p-4 md:p-6 max-w-7xl mx-auto animate-fade-in">
+      <main className="flex-1 w-full p-4 md:p-6 animate-fade-in">
         {/* This is where your Route elements (Dashboard, DraftBoard, etc.) render */}
         {children}
       </main>

@@ -1,0 +1,21 @@
+{
+  "scenario": "StartSitCheck",
+  "players": [
+    {
+      "id": "201",
+      "name": "Saquon Barkley",
+      "position": "RB",
+      "projected_points": 15.3,
+      "actual_points": 11.7,
+      "is_recommended": true
+    },
+    {
+      "id": "202",
+      "name": "Miles Sanders",
+      "position": "RB",
+      "projected_points": 9.8,
+      "actual_points": 14.2,
+      "is_recommended": false
+    }
+  ]
+}

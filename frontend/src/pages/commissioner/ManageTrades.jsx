@@ -36,7 +36,7 @@ export default function ManageTrades() {
   };
 
   return (
-    <div className="p-8 max-w-3xl mx-auto text-white min-h-screen">
+    <div className="p-8 text-white min-h-screen">
       <h1 className="text-3xl font-black mb-6">Manage Trades</h1>
       <p className="mb-4 text-slate-400">View and manage player trades.</p>
       {message && <div className="mb-4 text-blue-300">{message}</div>}

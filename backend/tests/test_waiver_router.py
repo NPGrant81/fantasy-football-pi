@@ -1,8 +1,11 @@
 import sys
 from pathlib import Path
+from fastapi.testclient import TestClient
 
 import pytest
 from sqlalchemy import create_engine
+
+from backend.main import app
 from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -94,3 +97,37 @@ def test_list_waiver_claims_requires_commissioner(db_session):
     with pytest.raises(HTTPException) as exc:
         list_waiver_claims(db=db_session, current_user=user)
     assert exc.value.status_code == 403
+
+
+def test_submit_claim_includes_team_id(monkeypatch, db_session):
+    league = models.League(name="LZ")
+    db_session.add(league)
+    db_session.commit()
+    user = make_user(db_session, league, username="uct", is_comm=False)
+
+    # monkeypatch service to capture arguments
+    called = {}
+    def fake_process_claim(*args, **kwargs):
+        # router will pass keywords: db, user, player_id, bid, drop_id, team_id
+        user_arg = kwargs.get('user') or (args[1] if len(args) > 1 else None)
+        called['user_id'] = user_arg.id if user_arg else None
+        called['team_id'] = kwargs.get('team_id')
+        return models.DraftPick(id=1, owner_id=user_arg.id, player_id=kwargs.get('player_id'), amount=kwargs.get('bid'))
+
+    monkeypatch.setattr('backend.routers.waivers.waiver_service',
+                        type('X', (), {'process_claim': fake_process_claim}))
+
+    # override current user dependency using actual function reference
+    from backend.routers import waivers as waiver_module
+    def fake_current():
+        return user
+    app.dependency_overrides[waiver_module.get_current_user] = fake_current
+
+    payload = {'player_id': 5, 'bid_amount': 20, 'team_id': 99}
+    client = TestClient(app)
+    resp = client.post('/waivers/claim', json=payload)
+    assert resp.status_code == 200
+    assert called['user_id'] == user.id
+    assert called['team_id'] == 99
+
+    app.dependency_overrides.clear()
