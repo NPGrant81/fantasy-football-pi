@@ -69,7 +69,7 @@ Notes:
 | `/commissioner` Commissioner Dashboard + modals | `GET /leagues/{leagueId}/settings` (includes waiver rules and budget metadata), `GET /leagues/{leagueId}/waiver-budgets`, `GET /leagues/owners?league_id={leagueId}`, `PUT /leagues/{leagueId}/settings`, `POST /leagues/owners`, `GET /trades/pending`, `POST /trades/{tradeId}/{action}` (frontend reference), `POST /leagues/{leagueId}/draft-year`, `POST /leagues/{leagueId}/budgets` |
 | `/admin` Site Admin | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft` |
 | `/bug-report` Bug Report | `PUT /auth/email`, `POST /feedback/bug` |
-| `/analytics` Analytics Dashboard | No direct API call in `AnalyticsDashboard.jsx` (chart components may evolve later) |
+| `/analytics` Analytics Dashboard | Uses `/analytics/league/{id}/leaderboard` and weekly-stats endpoints to power charts and tables |
 
 ---
 

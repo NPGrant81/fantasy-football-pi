@@ -368,6 +368,31 @@ class PlayerWeeklyStat(Base):
     player = relationship("Player")
 
 
+# --- 11. MANAGER EFFICIENCY (Analytics) ---
+class ManagerEfficiency(Base):
+    __tablename__ = "manager_efficiency"
+    __table_args__ = (
+        UniqueConstraint("league_id", "manager_id", "season", "week", name="uq_mgr_eff_league_mgr_season_week"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, index=True, nullable=False)
+    manager_id = Column(Integer, index=True, nullable=False)
+    season = Column(Integer, index=True, nullable=False)
+    week = Column(Integer, index=True, nullable=False)
+
+    actual_points_total = Column(Numeric(10, 2), default=0.00)
+    optimal_points_total = Column(Numeric(10, 2), default=0.00)
+    points_left_on_bench = Column(Numeric(10, 2))  # computed manually in ETL
+    efficiency_rating = Column(Numeric(5, 4))
+    optimal_lineup_json = Column(JSON, nullable=True)
+
+    worst_sit_player_name = Column(String, nullable=True)
+    worst_sit_points_diff = Column(Numeric(10, 2), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 # --- 11. TRADE PROPOSALS ---
 class TradeProposal(Base):
     __tablename__ = "trade_proposals"

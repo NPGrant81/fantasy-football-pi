@@ -320,19 +320,65 @@ describe('MyTeam taxi support', () => {
     vi.resetAllMocks();
   });
 
-  test('displays Taxi Squad heading when a taxi player exists', async () => {
-    apiClient.get.mockResolvedValue({
-      data: {
-        roster: [
-          { player_id: 1, name: 'TaxiPlayer', position: 'RB', nfl_team: 'X', status: 'BENCH', projected_points: 0, is_taxi: true },
-        ],
-      },
+  test('displays Taxi Squad heading when a taxi player exists and buttons work', async () => {
+    // return user info and the roster; subsequent calls can override
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { user_id: 1, username: 'test', league_id: 1, is_commissioner: false } });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({
+          data: {
+            roster: [
+              { player_id: 1, name: 'TaxiPlayer', position: 'RB', nfl_team: 'X', status: 'BENCH', projected_points: 0, is_taxi: true },
+            ],
+          },
+        });
+      }
+      // default stub
+      return Promise.resolve({ data: {} });
     });
+
+    apiClient.post.mockResolvedValue({ data: {} });
 
     render(<MyTeam activeOwnerId={1} />);
     await waitFor(() => {
       const matches = screen.getAllByText(/Taxi Squad/i);
       expect(matches.length).toBeGreaterThan(0);
     });
+
+    const promote = screen.getByText(/Promote/i);
+    fireEvent.click(promote);
+    expect(apiClient.post).toHaveBeenCalledWith('/team/taxi/promote', { player_id: 1 });
+
+    // wait for toast to clear (optional) before looking for Taxi button again
+    await waitFor(() => expect(screen.queryByText(/Player promoted from taxi/i)).toBeInTheDocument());
+    // get taxi buttons excluding toast by using getAll and picking the last
+
+    // now simulate a normal bench player and demote
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { user_id: 1, username: 'test', league_id: 1, is_commissioner: false } });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({
+          data: {
+            roster: [
+              { player_id: 2, name: 'BenchPlayer', position: 'WR', nfl_team: 'Y', status: 'BENCH', projected_points: 0, is_taxi: false },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+    render(<MyTeam activeOwnerId={1} />);
+    await waitFor(() => {
+      expect(screen.getByText('BenchPlayer')).toBeInTheDocument();
+    });
+    const taxiBtns = screen.getAllByText(/Taxi/i);
+    // last one should be the bench button, toast also matches earlier
+    const taxiBtn = taxiBtns[taxiBtns.length - 1];
+    fireEvent.click(taxiBtn);
+    expect(apiClient.post).toHaveBeenCalledWith('/team/taxi/demote', { player_id: 2 });
   });
 });

@@ -12,6 +12,7 @@
 import React from 'react';
 import DraftValueBoard from '../../components/charts/DraftValueBoard';
 import ManagerTrendChart from '../../components/charts/ManagerTrendChart';
+import ManagerEfficiencyLeaderboard from '../../components/charts/ManagerEfficiencyLeaderboard';
 import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
 import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import './AnalyticsDashboard.css';
@@ -25,6 +26,12 @@ const AnalyticsDashboard = () => {
         return (
           <div className="chart-card">
             <DraftValueBoard />
+          </div>
+        );
+      case 'efficiency':
+        return (
+          <div className="chart-card">
+            <ManagerEfficiencyLeaderboard />
           </div>
         );
       case 'manager':
@@ -65,6 +72,12 @@ const AnalyticsDashboard = () => {
           onClick={() => setSelected('draft')}
         >
           Draft Value Analysis
+        </button>
+        <button
+          className={selected === 'efficiency' ? 'active' : ''}
+          onClick={() => setSelected('efficiency')}
+        >
+          Efficiency Leaderboard
         </button>
         <button
           className={selected === 'manager' ? 'active' : ''}

@@ -126,6 +126,6 @@ New UI components/pages are being added for draft value analysis and player info
 - **Player Info Modal/Page:** Shows draft value, projected points, ADP, and position rank for each player, sourced from the new database.
 - **Commissioner Tools:** Allows commissioners to review, update, and normalize draft value data for league setup and draft prep.
 - **Waiver Rules Page:** Commissioner interface for setting waiver deadlines, starting FAAB budget, waiver system and tie‑breaker rules, plus roster limits and audit trail. Includes owner budget overview (see ManageWaiverRules.jsx).
-- **Roster Page (MyTeam):** users can toggle between the auto‑generated "Recommended Starts/Sits" view and the editable "Actual Lineup" drag‑and‑drop builder to manage weekly lineups.
+- **Roster Page (MyTeam):** users can toggle between the auto‑generated "Recommended Starts/Sits" view and the editable "Actual Lineup" drag‑and‑drop builder to manage weekly lineups. Bench players now include a small "Taxi" button (when editing) to move them to the taxi squad; taxi players are shown in a separate section with a "Promote" button to return them to the bench.
 
 These features are accessible from the main dashboard, draft board, and commissioner pages.

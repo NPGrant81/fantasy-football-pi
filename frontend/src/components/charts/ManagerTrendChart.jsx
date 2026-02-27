@@ -10,6 +10,7 @@
 // Make it responsive and animated
 
 import React from 'react';
+import apiClient from '@api/client';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,52 +35,80 @@ ChartJS.register(
 );
 
 const ManagerTrendChart = () => {
-  // Sample weekly scoring data for 4 managers
-  const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'];
+  const [stats, setStats] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
 
-  const managersData = [
-    {
-      teamName: 'The Big Show',
-      owner: 'NPGrant81',
-      scores: [110, 125, 98, 140, 115, 132],
-      color: 'rgba(54, 162, 235, 1)',
-    },
-    {
-      teamName: 'Thunder Dome',
-      owner: 'Coach_Mike',
-      scores: [85, 90, 105, 115, 108, 95],
-      color: 'rgba(255, 99, 132, 1)',
-    },
-    {
-      teamName: 'Gridiron Giants',
-      owner: 'SarahJ',
-      scores: [95, 88, 112, 102, 125, 118],
-      color: 'rgba(75, 192, 192, 1)',
-    },
-    {
-      teamName: 'End Zone Warriors',
-      owner: 'TommyT',
-      scores: [102, 115, 89, 98, 110, 103],
-      color: 'rgba(255, 206, 86, 1)',
-    },
-  ];
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        const leagueId = userRes.data?.league_id;
+        const managerId = userRes.data?.user_id;
+        if (!leagueId || !managerId) {
+          setError('Unable to determine league or user');
+          setLoading(false);
+          return;
+        }
+        const res = await apiClient.get(
+          `/analytics/league/${leagueId}/weekly-stats`,
+          { params: { manager_id: managerId } }
+        );
+        setStats(res.data || []);
+      } catch (err) {
+        console.error(err);
+        setError(err.message || 'Failed to load stats');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  // default fallback data if no stats yet or loading
+  if (loading) {
+    return <p>Loading trend chart...</p>;
+  }
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
+  }
+
+  const weeks = stats.map((s) => `Week ${s.week}`);
+  const actuals = stats.map((s) => s.actual);
+  const maxima = stats.map((s) => s.max);
 
   const data = {
     labels: weeks,
-    datasets: managersData.map((manager) => ({
-      label: manager.teamName,
-      data: manager.scores,
-      borderColor: manager.color,
-      backgroundColor: manager.color.replace('1)', '0.1)'),
-      tension: 0.3,
-      borderWidth: 3,
-      pointRadius: 6,
-      pointHoverRadius: 8,
-      pointBackgroundColor: manager.color,
-      pointBorderColor: '#ffffff',
-      pointBorderWidth: 2,
-    })),
+    datasets: [
+      {
+        label: 'Actual pts',
+        data: actuals,
+        borderColor: 'rgba(54, 162, 235, 1)',
+        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+        tension: 0.3,
+        borderWidth: 3,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+      },
+      {
+        label: 'Optimal pts',
+        data: maxima,
+        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+        tension: 0.3,
+        borderWidth: 3,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+      },
+    ],
   };
+
 
   const options = {
     responsive: true,

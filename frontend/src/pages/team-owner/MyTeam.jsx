@@ -817,6 +817,27 @@ export default function MyTeam({ activeOwnerId }) {
     }
   };
 
+  // taxi controls
+  const handleDemoteToTaxi = async (playerId) => {
+    try {
+      await apiClient.post('/team/taxi/demote', { player_id: playerId });
+      fetchTeam();
+      setToast({ message: 'Player moved to taxi squad.', type: 'success' });
+    } catch (err) {
+      setToast({ message: 'Unable to move player to taxi.', type: 'error' });
+    }
+  };
+
+  const handlePromoteFromTaxi = async (playerId) => {
+    try {
+      await apiClient.post('/team/taxi/promote', { player_id: playerId });
+      fetchTeam();
+      setToast({ message: 'Player promoted from taxi.', type: 'success' });
+    } catch (err) {
+      setToast({ message: 'Unable to promote player from taxi.', type: 'error' });
+    }
+  };
+
   // --- 2.1 RENDER LOGIC (The View) ---
 
   if (loading)
@@ -1513,16 +1534,18 @@ export default function MyTeam({ activeOwnerId }) {
               </div>
               <div className="space-y-2">
                 {benchNormal.map((player) => (
-                  <button
+                  <div
                     key={`bench-${player.player_id}`}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     draggable={canEditLineup && !player.is_locked}
                     onDragStart={() => handleDragStart(player)}
                     onClick={() => openPlayerPerformance(player)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left ${
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key===' ') openPlayerPerformance(player); }}
+                    className={`w-full rounded-lg border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                       player.is_locked
                         ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
-                        : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
+                        : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50 cursor-pointer'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -1539,12 +1562,25 @@ export default function MyTeam({ activeOwnerId }) {
                         {Number(toProjectedPoints(player)).toFixed(1)}
                       </div>
                     </div>
+                    {canEditLineup && !player.is_taxi && (
+                      <div className="mt-2 flex justify-end">
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDemoteToTaxi(player.player_id);
+                          }}
+                          className="inline-block cursor-pointer text-xs bg-yellow-600 hover:bg-yellow-500 text-black px-2 py-1 rounded"
+                        >
+                          Taxi
+                        </span>
+                      </div>
+                    )}
                     {player.is_locked && (
                       <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
                         Locked (game started)
                       </div>
                     )}
-                  </button>
+                  </div>
                 ))}
                 {benchTaxi.length > 0 && (
                   <>
@@ -1552,16 +1588,18 @@ export default function MyTeam({ activeOwnerId }) {
                       Taxi Squad
                     </div>
                     {benchTaxi.map((player) => (
-                      <button
+                      <div
                         key={`taxi-${player.player_id}`}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         draggable={canEditLineup && !player.is_locked}
                         onDragStart={() => handleDragStart(player)}
                         onClick={() => openPlayerPerformance(player)}
-                        className={`w-full rounded-lg border px-3 py-2 text-left ${
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key===' ') openPlayerPerformance(player); }}
+                        className={`w-full rounded-lg border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
                           player.is_locked
                             ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
-                            : 'border-yellow-800 bg-yellow-900/10 hover:border-yellow-500/50'
+                            : 'border-yellow-800 bg-yellow-900/10 hover:border-yellow-500/50 cursor-pointer'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -1578,6 +1616,19 @@ export default function MyTeam({ activeOwnerId }) {
                             {Number(toProjectedPoints(player)).toFixed(1)}
                           </div>
                         </div>
+                        {canEditLineup && player.is_taxi && (
+                          <div className="mt-2 flex justify-end">
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePromoteFromTaxi(player.player_id);
+                              }}
+                              className="inline-block cursor-pointer text-xs bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded"
+                            >
+                              Promote
+                            </span>
+                          </div>
+                        )}
                         {player.is_locked && (
                           <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
                             Locked (game started)
@@ -1586,7 +1637,7 @@ export default function MyTeam({ activeOwnerId }) {
                         <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-yellow-300">
                           Taxi Squad
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </>
                 )}

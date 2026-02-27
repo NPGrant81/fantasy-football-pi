@@ -42,6 +42,8 @@ if __name__ == "__main__" or __package__ in (None, ""):
     etl = importlib.import_module("backend.routers.etl")
     nfl = importlib.import_module("backend.routers.nfl")
     playoffs = importlib.import_module("backend.routers.playoffs")
+    analytics = importlib.import_module("backend.routers.analytics")
+    analytics = importlib.import_module("backend.routers.analytics")
 
     engine = dbmod.engine
     SessionLocal = dbmod.SessionLocal
@@ -54,7 +56,7 @@ else:
     from .core.security import get_password_hash, check_is_commissioner
     from .routers import (
         admin, admin_tools, team, matchups, league, advisor,
-        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs
+        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics
     )
 
 load_dotenv()
@@ -148,10 +150,8 @@ app.include_router(
     admin.router, 
     dependencies=[Depends(check_is_commissioner)] 
 )
-
-# PLATFORM TOOLS: Require superuser status
-app.include_router(platform_tools.router)
-
+# analytics endpoints are public to league members (authorization can be added later)
+app.include_router(analytics.router)
 # ADMIN TOOLS: commissioner‑level maintenance helpers (schedule import, etc.)
 app.include_router(admin_tools.router)
 
