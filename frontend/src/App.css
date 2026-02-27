@@ -1,5 +1,6 @@
 /* index.css style rules: enable manual dark-mode toggle */
-@import "tailwindcss";
+/* the tailwind directives are imported in index.css; remove the @import
+   so PostCSS doesn't try to pull in the library's JS file and choke */
 /* allow the .dark class to cascade to child elements */
 @custom-variant dark (&:where(.dark, .dark *));
 

@@ -156,6 +156,10 @@ app.include_router(analytics.router)
 app.include_router(admin_tools.router)
 
 # PLATFORM TOOLS: superuser endpoints such as commissioner management
+# (must match prefix set in routers/platform_tools.py)
+# 404 errors seen in CI tests were due to forgetting this include or
+# using a mismatched path.  If you add routes here, double‑check the
+# decorator paths and prefix.
 app.include_router(platform_tools.router)
 
 # STANDARD: Included without redundant prefixes

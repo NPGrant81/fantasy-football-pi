@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 # Base class (shared fields)
@@ -20,8 +20,7 @@ class User(UserBase):
     # We removed 'role' because it doesn't exist in your DB yet
     # We added 'league_id' so the frontend knows which league you are in
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # The Login Response (Must match routers/auth.py!)
 class Token(BaseModel):

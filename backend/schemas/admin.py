@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 # What we need to CREATE a league
@@ -10,5 +10,5 @@ class LeagueResponse(BaseModel):
     id: int
     name: str
 
-    class Config:
-        from_attributes = True # Allows reading from SQLAlchemy models
+    # Pydantic v2 style configuration; keeps `from_attributes` behaviour
+    model_config = ConfigDict(from_attributes=True) # Allows reading from SQLAlchemy models

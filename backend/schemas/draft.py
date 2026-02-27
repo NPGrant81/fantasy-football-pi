@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 # Base class (shared fields)
@@ -20,5 +20,5 @@ class DraftPickShow(DraftPickBase):
     id: int
     year: int
     
-    class Config:
-        from_attributes = True
+    # migrated from Config class to ConfigDict for Pydantic v2
+    model_config = ConfigDict(from_attributes=True)

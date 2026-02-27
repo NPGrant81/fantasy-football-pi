@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Set
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner
@@ -29,8 +29,8 @@ class RosterPlayer(BaseModel):
     is_locked: bool = False
     is_taxi: bool = False   # show taxi flag on roster
     
-    class Config:
-        from_attributes = True
+    # Pydantic v2 style
+    model_config = ConfigDict(from_attributes=True)
 
 class RosterView(BaseModel):
     team_name: str

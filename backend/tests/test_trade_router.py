@@ -88,7 +88,7 @@ def test_trade_proposal_and_approval():
     assert "trade_id" in result
     tid = result["trade_id"]
     # verify trade record exists
-    tr = db.query(models.TradeProposal).get(tid)
+    tr = db.get(models.TradeProposal, tid)
     assert tr.offered_dollars == 10
     assert tr.requested_dollars == 5
     assert tr.status == "PENDING"
@@ -102,7 +102,7 @@ def test_trade_proposal_and_approval():
     cuc = CUC(comm)
     res = approve_trade(trade_id=tid, db=db, current_user=cuc)
     assert res["message"] == "Trade approved"
-    tr2 = db.query(models.TradeProposal).get(tid)
+    tr2 = db.get(models.TradeProposal, tid)
     assert tr2.status == "APPROVED"
     # budgets adjusted
     assert owner1.future_draft_budget == 20 - 10 + 5

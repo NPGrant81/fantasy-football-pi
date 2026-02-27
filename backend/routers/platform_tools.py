@@ -17,6 +17,13 @@ import models
 import services.admin_service as admin_service
 from utils.email_sender import send_invite_email
 
+# all endpoints in this file are mounted under /admin/tools
+# tests (and the front‑end client) expect the shorter path
+#   GET/POST/PUT/DELETE /commissioners
+# so using the prefix here allows callers to simply append the resource
+# name without repeating the full path.  A typo in the decorator
+# (e.g. @router.get("/commissioner") or forgetting the prefix in
+# main.py) will result in a 404 from the tests.
 router = APIRouter(prefix="/admin/tools", tags=["Platform Tools"])
 
 

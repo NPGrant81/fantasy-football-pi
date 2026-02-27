@@ -46,6 +46,16 @@ def override_db(api_db):
     app.dependency_overrides.clear()
 
 
+def test_route_path_is_correct(client):
+    """A quick sanity check that the route is registered where the
+    frontend and other tests expect it.  Previously a missing prefix
+    caused 404s and broke CI."""
+    # url_path_for will raise a NoMatchError if the name is wrong;
+    # the returned path should include the /admin/tools prefix.
+    path = app.url_path_for("list_commissioners")
+    assert path == "/admin/tools/commissioners"
+
+
 def test_commissioner_list_returns_403_for_non_superuser(client):
     async def deny_superuser():
         raise HTTPException(

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Any
 # Import from sibling files using . syntax
 from .user import User
@@ -16,8 +16,8 @@ class Team(TeamBase):
     owner_id: int
     players: List[Any] = [] 
 
-    class Config:
-        from_attributes = True
+    # Pydantic v2 config
+    model_config = ConfigDict(from_attributes=True)
 
 class LeagueBase(BaseModel):
     name: str
@@ -30,5 +30,4 @@ class League(LeagueBase):
     users: List[User] = []
     scoring_rules: List[ScoringRule] = [] 
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
