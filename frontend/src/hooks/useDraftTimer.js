@@ -64,7 +64,7 @@ export function useDraftTimer(initialTime = 10, onTimeUp) {
         timerRef.current = null;
       }
     };
-  }, [isActive]); // Only depend on isActive to keep the timer steady
+  }, [isActive, isProcessing]); // Only depend on isActive (and isProcessing to avoid stale state)
 
   return { timeLeft, start, reset, isActive };
 }

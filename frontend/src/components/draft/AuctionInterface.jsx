@@ -3,7 +3,12 @@ import React from 'react';
 /**
  * currentBudget, openSlots, currentBid, onBid(newAmount)
  */
-export default function AuctionInterface({ currentBudget, openSlots, currentBid, onBid }) {
+export default function AuctionInterface({
+  currentBudget,
+  openSlots,
+  currentBid,
+  onBid,
+}) {
   const calculateMaxBid = (budget, slots) => {
     const reservedForOthers = slots - 1;
     const max = budget - reservedForOthers;
@@ -18,7 +23,9 @@ export default function AuctionInterface({ currentBudget, openSlots, currentBid,
   return (
     <div className="flex flex-col gap-4">
       <div className="text-center bg-black/40 p-4 rounded border border-cyan-900/50">
-        <span className="text-[10px] text-slate-500 uppercase block">Current Bid</span>
+        <span className="text-[10px] text-slate-500 uppercase block">
+          Current Bid
+        </span>
         <span className="text-4xl font-black text-green-400 font-mono">
           ${currentBid}
         </span>

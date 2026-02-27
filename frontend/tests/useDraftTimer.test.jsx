@@ -1,5 +1,6 @@
+/* global vi */
 import { render, act } from '@testing-library/react';
-import React, { useState } from 'react';
+import React from 'react';
 import { useDraftTimer } from '@hooks/useDraftTimer';
 
 describe('useDraftTimer hook', () => {

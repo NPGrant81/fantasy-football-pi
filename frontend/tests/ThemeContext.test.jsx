@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
+import { ThemeProvider } from '../src/context/ThemeContext';
+import { useTheme } from '../src/hooks/useTheme';
 import React from 'react';
 
 function Dummy() {

@@ -35,9 +35,7 @@ const ManageCommissioners = lazy(
 const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
-const ManageTrades = lazy(
-  () => import('./pages/commissioner/ManageTrades')
-);
+const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
@@ -98,8 +96,10 @@ function App() {
       .get(`/leagues/${activeLeagueId}/settings`)
       .then((res) => {
         const parts = [];
-        if (res.data.waiver_deadline) parts.push(`Waiver: ${res.data.waiver_deadline}`);
-        if (res.data.trade_deadline) parts.push(`Trade: ${res.data.trade_deadline}`);
+        if (res.data.waiver_deadline)
+          parts.push(`Waiver: ${res.data.waiver_deadline}`);
+        if (res.data.trade_deadline)
+          parts.push(`Trade: ${res.data.trade_deadline}`);
         setSubHeader(parts.join('  |  '));
       })
       .catch(() => setSubHeader(''));
@@ -223,88 +223,87 @@ function App() {
     );
   }
 
-
   return (
     <ThemeProvider>
       <BrowserRouter>
         <Layout
-        username={username}
-        leagueId={activeLeagueId}
-        onLogout={handleLogout}
-        alert={subHeader}
-      >
-        <Suspense
-          fallback={
-            <div className="p-8 text-slate-400 animate-pulse">Loading...</div>
-          }
+          username={username}
+          leagueId={activeLeagueId}
+          onLogout={handleLogout}
+          alert={subHeader}
         >
-          <Routes>
-            <Route path="/" element={<Home username={username} />} />
-            <Route
-              path="/draft"
-              element={
-                <DraftBoard
-                  token={token}
-                  activeOwnerId={activeOwnerId}
-                  activeLeagueId={activeLeagueId}
-                  setSubHeader={setSubHeader}
-                />
-              }
-            />
-            <Route
-              path="/team"
-              element={<MyTeam activeOwnerId={activeOwnerId} />}
-            />
-            <Route
-              path="/team/:ownerId"
-              element={<TeamRoute fallbackOwnerId={activeOwnerId} />}
-            />
-            <Route path="/matchups" element={<Matchups />} />
-            <Route path="/matchup/:id" element={<GameCenter />} />
-            <Route path="/admin" element={<SiteAdmin />} />
-            <Route
-              path="/admin/manage-commissioners"
-              element={<ManageCommissioners />}
-            />
-            <Route path="/commissioner" element={<CommissionerDashboard />} />
-            <Route
-              path="/commissioner/lineup-rules"
-              element={<LineupRules />}
-            />
-            <Route
-              path="/commissioner/manage-owners"
-              element={<ManageOwners />}
-            />
-            <Route
-              path="/commissioner/manage-waiver-rules"
-              element={<ManageWaiverRules />}
-            />
-            <Route
-              path="/commissioner/manage-trades"
-              element={<ManageTrades />}
-            />
-            <Route
-              path="/waivers"
-              element={
-                <Waivers
-                  ownerId={activeOwnerId}
-                  username={username}
-                  leagueName={activeLeagueId}
-                />
-              }
-            />
-            <Route
-              path="/waiver-rules"
-              element={<WaiverRules leagueId={activeLeagueId} />}
-            />
-            <Route path="/bug-report" element={<BugReport />} />
-            <Route path="/analytics" element={<AnalyticsDashboard />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </Suspense>
-        <LeagueAdvisor />
-      </Layout>
-    </BrowserRouter>
+          <Suspense
+            fallback={
+              <div className="p-8 text-slate-400 animate-pulse">Loading...</div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<Home username={username} />} />
+              <Route
+                path="/draft"
+                element={
+                  <DraftBoard
+                    token={token}
+                    activeOwnerId={activeOwnerId}
+                    activeLeagueId={activeLeagueId}
+                    setSubHeader={setSubHeader}
+                  />
+                }
+              />
+              <Route
+                path="/team"
+                element={<MyTeam activeOwnerId={activeOwnerId} />}
+              />
+              <Route
+                path="/team/:ownerId"
+                element={<TeamRoute fallbackOwnerId={activeOwnerId} />}
+              />
+              <Route path="/matchups" element={<Matchups />} />
+              <Route path="/matchup/:id" element={<GameCenter />} />
+              <Route path="/admin" element={<SiteAdmin />} />
+              <Route
+                path="/admin/manage-commissioners"
+                element={<ManageCommissioners />}
+              />
+              <Route path="/commissioner" element={<CommissionerDashboard />} />
+              <Route
+                path="/commissioner/lineup-rules"
+                element={<LineupRules />}
+              />
+              <Route
+                path="/commissioner/manage-owners"
+                element={<ManageOwners />}
+              />
+              <Route
+                path="/commissioner/manage-waiver-rules"
+                element={<ManageWaiverRules />}
+              />
+              <Route
+                path="/commissioner/manage-trades"
+                element={<ManageTrades />}
+              />
+              <Route
+                path="/waivers"
+                element={
+                  <Waivers
+                    ownerId={activeOwnerId}
+                    username={username}
+                    leagueName={activeLeagueId}
+                  />
+                }
+              />
+              <Route
+                path="/waiver-rules"
+                element={<WaiverRules leagueId={activeLeagueId} />}
+              />
+              <Route path="/bug-report" element={<BugReport />} />
+              <Route path="/analytics" element={<AnalyticsDashboard />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Suspense>
+          <LeagueAdvisor />
+        </Layout>
+      </BrowserRouter>
     </ThemeProvider>
   );
 }

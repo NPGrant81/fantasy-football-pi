@@ -1,12 +1,17 @@
 import React, { useMemo } from 'react';
-import { POSITION_COLORS } from '@utils/uiHelpers';
+import { POSITION_COLORS } from '@/constants/ui';
 
 /**
  * teams: array of owner objects { id, name, remainingBudget }
  * history: array of draft events { owner_id, player_name, position, amount }
  * rosterLimit: number of roster slots (e.g. 14)
  */
-export default function DraftBoardGrid({ teams = [], history = [], rosterLimit = 14 }) {
+export default function DraftBoardGrid({
+  teams = [],
+  history = [],
+  rosterLimit = 14,
+  highlightOwnerId = null,
+}) {
   const rosterMap = useMemo(() => {
     const map = {};
     teams.forEach((t) => (map[t.id] = []));
@@ -23,7 +28,11 @@ export default function DraftBoardGrid({ teams = [], history = [], rosterLimit =
       {teams.map((team) => (
         <div
           key={team.id}
-          className="flex flex-col border border-slate-700 min-w-[110px]"
+          className={`flex flex-col border min-w-[110px] ${
+            team.id === highlightOwnerId
+              ? 'border-cyan-400'
+              : 'border-slate-700'
+          }`}
         >
           <div className="bg-slate-800 p-2 text-center border-b border-slate-700">
             <h3 className="font-bold text-xs uppercase truncate text-white">

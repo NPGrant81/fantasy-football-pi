@@ -724,11 +724,14 @@ export default function MyTeam({ activeOwnerId }) {
     try {
       // filter out taxi players; backend ignores them and will otherwise
       // treat them as missing starters which triggers validation errors.
-      const starters = rosterState.filter((player) => player.status === 'STARTER');
+      const starters = rosterState.filter(
+        (player) => player.status === 'STARTER'
+      );
       const taxiStarters = starters.filter((p) => p.is_taxi);
       if (taxiStarters.length > 0) {
         setToast({
-          message: 'Taxi players are not counted as starters and have been removed.',
+          message:
+            'Taxi players are not counted as starters and have been removed.',
           type: 'error',
         });
       }
@@ -736,7 +739,10 @@ export default function MyTeam({ activeOwnerId }) {
         .filter((p) => !p.is_taxi)
         .map((player) => Number(player.player_id));
 
-      console.log('Submitting roster payload', { week: selectedWeek, starter_player_ids: starterIds });
+      console.log('Submitting roster payload', {
+        week: selectedWeek,
+        starter_player_ids: starterIds,
+      });
 
       await apiClient.post('/team/lineup', {
         week: selectedWeek,
@@ -922,25 +928,25 @@ export default function MyTeam({ activeOwnerId }) {
             <>
               <button
                 onClick={() => setShowScoring(true)}
-                className={`${controlButtonClass} bg-brand-purple hover:bg-brand-purple/90 text-white`} 
+                className={`${controlButtonClass} bg-brand-purple hover:bg-brand-purple/90 text-white`}
               >
                 Scoring Rules
               </button>
               <button
                 onClick={() => setShowOwners(true)}
-                className={`${controlButtonClass} bg-brand-cyan hover:bg-brand-cyan/90 text-white`} 
+                className={`${controlButtonClass} bg-brand-cyan hover:bg-brand-cyan/90 text-white`}
               >
                 Owner Management
               </button>
               <button
                 onClick={() => setShowWaivers(true)}
-                className={`${controlButtonClass} bg-green-700 hover:bg-green-600 text-white`} 
+                className={`${controlButtonClass} bg-green-700 hover:bg-green-600 text-white`}
               >
                 Waiver Wire Rules
               </button>
               <button
                 onClick={() => setShowTrades(true)}
-                className={`${controlButtonClass} bg-yellow-500 hover:bg-yellow-400 text-black`} 
+                className={`${controlButtonClass} bg-yellow-500 hover:bg-yellow-400 text-black`}
               >
                 Trade Rules
               </button>
@@ -949,7 +955,7 @@ export default function MyTeam({ activeOwnerId }) {
 
           <Link
             to="/waivers"
-            className={`${controlButtonClass} inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-black`} 
+            className={`${controlButtonClass} inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-black`}
           >
             <FiPlus className="text-base" /> Waiver Wire
           </Link>
@@ -957,7 +963,7 @@ export default function MyTeam({ activeOwnerId }) {
           {canProposeTrade && (
             <button
               onClick={() => setShowProposeTrade(true)}
-              className={`${controlButtonClass} bg-brand-cyan hover:bg-brand-cyan/90 text-white`} 
+              className={`${controlButtonClass} bg-brand-cyan hover:bg-brand-cyan/90 text-white`}
             >
               <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                 <FiSend className="text-base" /> Propose Trade
@@ -1017,7 +1023,10 @@ export default function MyTeam({ activeOwnerId }) {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="trade-with" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                <label
+                  htmlFor="trade-with"
+                  className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
+                >
                   Trade With
                 </label>
                 <select
@@ -1038,7 +1047,10 @@ export default function MyTeam({ activeOwnerId }) {
               </div>
 
               <div>
-                <label htmlFor="you-offer" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                <label
+                  htmlFor="you-offer"
+                  className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
+                >
                   You Offer
                 </label>
                 <select
@@ -1057,7 +1069,10 @@ export default function MyTeam({ activeOwnerId }) {
               </div>
 
               <div>
-                <label htmlFor="you-request" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                <label
+                  htmlFor="you-request"
+                  className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
+                >
                   You Request
                 </label>
                 <select
@@ -1078,7 +1093,10 @@ export default function MyTeam({ activeOwnerId }) {
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label htmlFor="offered-dollars" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <label
+                    htmlFor="offered-dollars"
+                    className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
+                  >
                     Offer $ (future draft)
                   </label>
                   <input
@@ -1093,7 +1111,10 @@ export default function MyTeam({ activeOwnerId }) {
                   />
                 </div>
                 <div className="flex-1">
-                  <label htmlFor="requested-dollars" className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <label
+                    htmlFor="requested-dollars"
+                    className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
+                  >
                     Request $ (future draft)
                   </label>
                   <input

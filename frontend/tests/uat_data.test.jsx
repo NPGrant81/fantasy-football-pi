@@ -1,7 +1,7 @@
 import rosterData from '../src/mock/uat_roster.json';
 import matchupData from '../src/mock/uat_matchup.json';
 import projActual from '../src/mock/uat_proj_actual.json';
-import { POSITION_COLORS } from '@utils/uiHelpers';
+import { POSITION_COLORS } from '@/constants/ui';
 
 describe('UAT mock fixtures sanity', () => {
   test('roster JSON structure is valid', () => {

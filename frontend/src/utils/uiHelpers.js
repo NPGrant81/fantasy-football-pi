@@ -50,13 +50,5 @@ export const menuGradients = {
 // --- 1.3 Utility for combining classes ---
 
 // position-based bg classes for the grid layout
-export const POSITION_COLORS = {
-  QB: 'bg-red-600',
-  RB: 'bg-green-600',
-  WR: 'bg-blue-500',
-  TE: 'bg-yellow-500',
-  K:  'bg-purple-500',
-  DEF:'bg-gray-500',
-};
 
 export const combineClasses = (...classes) => classes.filter(Boolean).join(' ');

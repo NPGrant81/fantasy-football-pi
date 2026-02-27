@@ -20,8 +20,14 @@ export default function AuctionBlock({
   isTimerRunning,
   reset,
   start,
+  nominatorId,
+  isCommissioner,
 }) {
   // --- 1.1 VALIDATION LOGIC ---
+  const nominator = owners.find((o) => o.id === nominatorId);
+  const nominatorName = nominator
+    ? nominator.team_name || nominator.username
+    : 'TBD';
   // Prevent bidding more than the owner's calculated Max Bid from draftHelpers
   const isOverBudget = activeStats && bidAmount > activeStats.maxBid;
   const canDraft = playerName && winnerId && !isOverBudget;
@@ -146,6 +152,13 @@ export default function AuctionBlock({
       </div>
 
       {/* 2.4 ACTIONS & TIMER */}
+      <div className="md:col-span-12 text-center mb-1 text-[12px] text-slate-300">
+        Nominator:{' '}
+        <span className="font-bold text-yellow-400">{nominatorName}</span>
+        {isCommissioner && (
+          <span className="ml-2 text-red-400 uppercase font-black">ADMIN</span>
+        )}
+      </div>
       <div className="md:col-span-3 flex gap-2 h-[84px]">
         <button
           onClick={handleDraft}

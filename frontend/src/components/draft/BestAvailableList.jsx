@@ -25,7 +25,9 @@ export default function BestAvailableList({ players = [] }) {
                   <span className="text-cyan-500 mr-2">{p.pos}</span>
                   {p.name}
                 </td>
-                <td className="p-2 text-right text-green-400 font-mono">${p.projectedValue}</td>
+                <td className="p-2 text-right text-green-400 font-mono">
+                  ${p.projectedValue}
+                </td>
               </tr>
             ))}
           </tbody>

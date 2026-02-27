@@ -3,16 +3,19 @@ import apiClient from '@api/client';
 import { useDraftTimer } from '@hooks/useDraftTimer';
 import { getOwnerStats, ROSTER_SIZE } from '@utils';
 import {
-  OwnerCard,
   AuctionBlock,
   SessionHeader,
   DraftHistoryFeed,
 } from '@components/draft';
 import DraftBoardGrid from '@components/draft/DraftBoardGrid';
-import AuctionInterface from '@components/draft/AuctionInterface';
 import BestAvailableList from '@components/draft/BestAvailableList';
 
-export default function DraftBoard({ token, activeOwnerId, activeLeagueId, setSubHeader }) {
+export default function DraftBoard({
+  token,
+  activeOwnerId,
+  activeLeagueId,
+  setSubHeader,
+}) {
   // --- 1.1 STATE MANAGEMENT ---
   const [owners, setOwners] = useState([]);
   const [players, setPlayers] = useState([]);
@@ -65,46 +68,49 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId, setSu
   // 1.2.1 THE DRAFT ACTION
   // We define this first, but we remove the 'reset' dependency.
   // The timer will now handle its own reset when handleDraft is triggered by the clock.
-  const handleDraft = useCallback(async (forced = false) => {
-    console.log('handleDraft invoked, forced=', forced);
-    if (forced) {
-      console.log('timer expired, forcing draft');
-    }
-    if (!effectiveWinnerId || !playerName) return;
-    const foundPlayer = players.find(
-      (p) => p.name.toLowerCase() === playerName.toLowerCase()
-    );
-    if (!foundPlayer || history.some((h) => h.player_id === foundPlayer.id))
-      return;
+  const handleDraft = useCallback(
+    async (forced = false) => {
+      console.log('handleDraft invoked, forced=', forced);
+      if (forced) {
+        console.log('timer expired, forcing draft');
+      }
+      if (!effectiveWinnerId || !playerName) return;
+      const foundPlayer = players.find(
+        (p) => p.name.toLowerCase() === playerName.toLowerCase()
+      );
+      if (!foundPlayer || history.some((h) => h.player_id === foundPlayer.id))
+        return;
 
-    const payload = {
-      owner_id: effectiveWinnerId,
-      player_id: foundPlayer.id,
-      amount: bidAmount,
-      session_id: sessionId,
-      year: draftYear,
-    };
+      const payload = {
+        owner_id: effectiveWinnerId,
+        player_id: foundPlayer.id,
+        amount: bidAmount,
+        session_id: sessionId,
+        year: draftYear,
+      };
 
-    try {
-      await apiClient.post('/draft/pick', payload);
-      setPlayerName('');
-      setBidAmount(1);
-      fetchHistory();
-      // NOTE: We don't call reset() here anymore because the hook triggers it
-      // when the button is clicked or time is up.
-    } catch (err) {
-      alert('Draft failed! ' + (err.response?.data?.detail || 'Error'));
-    }
-  }, [
-    effectiveWinnerId,
-    playerName,
-    players,
-    history,
-    bidAmount,
-    sessionId,
-    draftYear,
-    fetchHistory,
-  ]);
+      try {
+        await apiClient.post('/draft/pick', payload);
+        setPlayerName('');
+        setBidAmount(1);
+        fetchHistory();
+        // NOTE: We don't call reset() here anymore because the hook triggers it
+        // when the button is clicked or time is up.
+      } catch (err) {
+        alert('Draft failed! ' + (err.response?.data?.detail || 'Error'));
+      }
+    },
+    [
+      effectiveWinnerId,
+      playerName,
+      players,
+      history,
+      bidAmount,
+      sessionId,
+      draftYear,
+      fetchHistory,
+    ]
+  );
   // 1.2.2 THE TIMER HOOK
   // Now that handleDraft is defined, we pass it in.
   const {
@@ -212,8 +218,23 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId, setSu
   }, [effectiveWinnerId, history, budgetMap]);
 
   // --- 2.1 RENDER (content only; header provided by Layout) ---
+  // helper used by AuctionBlock to choose a suggestion
+  const selectSuggestion = useCallback((p) => {
+    setPlayerName(p.name);
+    setShowSuggestions(false);
+  }, []);
+
   return (
     <div className="flex flex-col overflow-hidden">
+      {/* banner rendered below via SessionHeader */}
+      <SessionHeader
+        sessionId={sessionId}
+        rosterSize={ROSTER_SIZE}
+        leagueName={leagueName}
+        username={username}
+        isCommissioner={isCommissioner}
+      />
+
       {/* page content lives here */}
 
       {/* ticker area */}
@@ -221,18 +242,42 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId, setSu
 
       <main className="flex-1 grid grid-cols-12 gap-0 overflow-hidden">
         <section className="col-span-9 overflow-auto border-r border-slate-800 custom-scrollbar">
-          <DraftBoardGrid teams={owners} history={history} rosterLimit={ROSTER_SIZE} />
+          <DraftBoardGrid
+            teams={owners}
+            history={history}
+            rosterLimit={ROSTER_SIZE}
+            highlightOwnerId={activeOwnerId}
+          />
         </section>
 
         <aside className="col-span-3 flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
-          <AuctionInterface
-            currentBudget={(budgetMap[effectiveWinnerId] || 0)}
-            openSlots={ROSTER_SIZE - (getOwnerStats(effectiveWinnerId, history, budgetMap)?.totalPicks || 0)}
-            currentBid={bidAmount}
-            onBid={setBidAmount}
+          <AuctionBlock
+            playerName={playerName}
+            handleSearchChange={handleSearchChange}
+            suggestions={suggestions}
+            showSuggestions={showSuggestions}
+            selectSuggestion={selectSuggestion}
+            posFilter={posFilter}
+            setPosFilter={setPosFilter}
+            winnerId={winnerId}
+            setWinnerId={setWinnerId}
+            owners={owners}
+            activeStats={activeStats}
+            bidAmount={bidAmount}
+            setBidAmount={setBidAmount}
+            handleDraft={handleDraft}
+            timeLeft={timeLeft}
+            isTimerRunning={isTimerRunning}
+            reset={reset}
+            start={start}
+            nominatorId={currentNominatorId}
+            isCommissioner={isCommissioner}
           />
           <BestAvailableList
-            players={players.filter((p) => !history.some((h) => h.player_id === p.id)).sort((a,b)=>a.rank-b.rank).slice(0,50)}
+            players={players
+              .filter((p) => !history.some((h) => h.player_id === p.id))
+              .sort((a, b) => a.rank - b.rank)
+              .slice(0, 50)}
           />
         </aside>
       </main>

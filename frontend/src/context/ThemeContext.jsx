@@ -1,10 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ThemeContext } from './ThemeContextValue';
 
-const ThemeContext = createContext({ theme: 'dark', setTheme: () => {} });
+// The provider component is the only export from this file now, which
+// keeps the module "component-only" for Fast Refresh.
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(
-    typeof localStorage !== 'undefined' ? localStorage.getItem('theme') || 'dark' : 'dark'
+    typeof localStorage !== 'undefined'
+      ? localStorage.getItem('theme') || 'dark'
+      : 'dark'
   );
 
   useEffect(() => {
@@ -23,5 +27,3 @@ export const ThemeProvider = ({ children }) => {
     </ThemeContext.Provider>
   );
 };
-
-export const useTheme = () => useContext(ThemeContext);
