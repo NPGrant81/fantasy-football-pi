@@ -45,6 +45,34 @@ describe('DraftBoard (Smoke Test)', () => {
 
     await waitFor(() => {
       expect(container).toBeInTheDocument();
+      expect(screen.getByText(/Nominator:/i)).toBeInTheDocument();
+    });
+  });
+
+  test('shows pause button for commissioner', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url.startsWith('/leagues/owners')) return Promise.resolve({ data: [] });
+      if (url === '/players/') return Promise.resolve({ data: [] });
+      if (url.startsWith('/draft/history')) return Promise.resolve({ data: [] });
+      if (url.startsWith('/leagues/1/settings')) {
+        return Promise.resolve({ data: { draft_year: 2026 } });
+      }
+      if (url.startsWith('/leagues/1/budgets')) return Promise.resolve({ data: [] });
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { is_commissioner: true, username: 'admin' } });
+      }
+      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'The Big Show' } });
+      return Promise.resolve({ data: [] });
+    });
+    apiClient.post.mockResolvedValue({ data: {} });
+
+    render(
+      <DraftBoard token="test-token" activeOwnerId={1} activeLeagueId={1} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Pause/i)).toBeInTheDocument();
+      expect(screen.getByText(/End Draft Session/i)).toBeInTheDocument();
     });
   });
 

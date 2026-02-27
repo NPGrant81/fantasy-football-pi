@@ -7,6 +7,7 @@ export default function SessionHeader({
   isCommissioner,
   _leagueId,
   onFinalize,
+  onPause,
 }) {
   // --- 1.1 SAFETY LOGIC ---
   const handleFinalize = () => {
@@ -48,13 +49,24 @@ export default function SessionHeader({
 
       {/* 2.3 ADMINISTRATIVE ACTIONS */}
       {isCommissioner && (
-        <button
-          onClick={handleFinalize}
-          className="group flex items-center gap-2 bg-red-950/40 hover:bg-red-600 border border-red-900/50 hover:border-red-400 text-red-500 hover:text-white px-4 py-1.5 rounded-full transition-all duration-300"
-        >
-          <FiAlertTriangle className="text-xs group-hover:animate-bounce" />
-          <span className="tracking-widest">End Draft Session</span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleFinalize}
+            className="group flex items-center gap-2 bg-red-950/40 hover:bg-red-600 border border-red-900/50 hover:border-red-400 text-red-500 hover:text-white px-4 py-1.5 rounded-full transition-all duration-300"
+          >
+            <FiAlertTriangle className="text-xs group-hover:animate-bounce" />
+            <span className="tracking-widest">End Draft Session</span>
+          </button>
+          {onPause && (
+            <button
+              onClick={onPause}
+              className="group flex items-center gap-1 bg-yellow-950/40 hover:bg-yellow-600 border border-yellow-900/50 hover:border-yellow-400 text-yellow-500 hover:text-white px-4 py-1.5 rounded-full transition-all duration-300"
+            >
+              <FiClock className="text-xs" />
+              <span className="tracking-widest">Pause</span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

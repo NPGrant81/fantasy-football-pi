@@ -25,6 +25,7 @@ export default function DraftBoard({
   const [leagueName, setLeagueName] = useState('');
   const [isCommissioner, setIsCommissioner] = useState(false);
   const [username, setUsername] = useState('');
+  const [isPaused, setIsPaused] = useState(false);
   const [history, setHistory] = useState([]);
   const [playerName, setPlayerName] = useState('');
   const [bidAmount, setBidAmount] = useState(1);
@@ -45,6 +46,15 @@ export default function DraftBoard({
       ? winnerId
       : owners[0].id;
   }, [owners, winnerId]);
+
+  // highlight column based on username (falls back to prop)
+  const highlightOwnerId = useMemo(() => {
+    if (owners.length > 0 && username) {
+      const mine = owners.find((o) => o.username === username);
+      if (mine) return mine.id;
+    }
+    return activeOwnerId;
+  }, [owners, username, activeOwnerId]);
 
   // update sub-header (session id) when available
   useEffect(() => {
@@ -184,6 +194,11 @@ export default function DraftBoard({
     return undefined;
   }, [token, activeLeagueId, fetchHistory]);
 
+  const handlePause = useCallback(() => {
+    setIsPaused((p) => !p);
+    // TODO: notify backend or disable interactions
+  }, []);
+
   useEffect(() => {
     if (!activeLeagueId || !draftYear) return;
     apiClient
@@ -233,6 +248,8 @@ export default function DraftBoard({
         leagueName={leagueName}
         username={username}
         isCommissioner={isCommissioner}
+        isPaused={isPaused}
+        onPause={handlePause}
       />
 
       {/* page content lives here */}
@@ -246,7 +263,7 @@ export default function DraftBoard({
             teams={owners}
             history={history}
             rosterLimit={ROSTER_SIZE}
-            highlightOwnerId={activeOwnerId}
+            highlightOwnerId={highlightOwnerId}
           />
         </section>
 

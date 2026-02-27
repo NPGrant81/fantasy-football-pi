@@ -39,7 +39,7 @@ export default function DraftBoardGrid({
               {team.name}
             </h3>
             <p className="text-[10px] text-green-400 font-mono">
-              ${(team.remaining_budget ?? team.remainingBudget) || 0}
+              {(rosterMap[team.id]?.length || 0)}&nbsp;|&nbsp;${(team.remaining_budget ?? team.remainingBudget) || 0}
             </p>
           </div>
           <div className="flex flex-col">
@@ -56,9 +56,8 @@ export default function DraftBoardGrid({
                       <span className="font-bold truncate leading-tight">
                         {player.player_name || player.name}
                       </span>
-                      <div className="flex justify-between mt-1 opacity-90">
-                        <span>{player.position}</span>
-                        <span>${player.amount || player.price}</span>
+                      <div className="text-[10px] mt-1 opacity-90">
+                        {player.position} | ${player.amount || player.price}
                       </div>
                     </>
                   ) : (

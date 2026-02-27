@@ -21,28 +21,83 @@ export default function AuctionBlock({
   reset,
   start,
   nominatorId,
+  setOverrideNominator,
   isCommissioner,
 }) {
-  // --- 1.1 VALIDATION LOGIC ---
+  // --- 1.1 LOGIC ---
   const nominator = owners.find((o) => o.id === nominatorId);
   const nominatorName = nominator
     ? nominator.team_name || nominator.username
     : 'TBD';
-  // Prevent bidding more than the owner's calculated Max Bid from draftHelpers
+
   const isOverBudget = activeStats && bidAmount > activeStats.maxBid;
   const canDraft = playerName && winnerId && !isOverBudget;
+  const maxBid = activeStats ? activeStats.maxBid : 0;
 
-  // --- 2.1 RENDER LOGIC (The View) ---
+  // --- 2.1 RENDER ---
   return (
-    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-      {/* 2.2 SEARCH & FILTERS */}
-      <div className="md:col-span-5 relative">
-        <div className="flex gap-1 mb-2 overflow-x-auto no-scrollbar">
+    <div className="flex flex-col gap-6 w-full">
+      {/* top row */}
+      <div className="flex justify-between items-center text-[12px] text-slate-300">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">Nominator:</span>
+          {isCommissioner ? (
+            <select
+              value={nominatorId || ''}
+              onChange={(e) =>
+                setOverrideNominator?.(parseInt(e.target.value) || null)
+              }
+              className="bg-slate-900 text-white border border-slate-700 rounded p-1 text-sm"
+            >
+              <option value="" disabled>
+                select owner
+              </option>
+              {owners.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.team_name || o.username}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="font-bold text-yellow-400">{nominatorName}</span>
+          )}
+          {isCommissioner && (
+            <span className="ml-2 text-red-400 uppercase font-black">
+              ADMIN
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <div
+            className={`w-16 font-mono text-2xl font-bold text-center ${
+              timeLeft <= 3 && isTimerRunning
+                ? 'text-red-500 animate-pulse'
+                : 'text-white'
+            }`}
+          >
+            {timeLeft}
+          </div>
+          <button
+            onClick={isTimerRunning ? reset : start}
+            className={`text-[10px] py-2 px-3 rounded font-black uppercase transition ${
+              isTimerRunning
+                ? 'bg-slate-700 text-slate-300 hover:bg-red-900/40'
+                : 'bg-green-600 text-white hover:bg-green-500'
+            }`}
+          >
+            {isTimerRunning ? 'RESET' : 'START'}
+          </button>
+        </div>
+      </div>
+
+      {/* search/filter area */}
+      <div className="relative w-full">
+        <div className="flex flex-wrap gap-1 mb-2">
           {['ALL', ...POSITIONS].map((pos) => (
             <button
               key={pos}
               onClick={() => setPosFilter(pos)}
-              className={`text-[10px] font-bold px-2 py-1 rounded border transition uppercase ${
+              className={`text-[10px] font-bold px-3 py-1 rounded border transition uppercase ${
                 posFilter === pos
                   ? 'bg-yellow-500 text-black border-yellow-500'
                   : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
@@ -58,14 +113,13 @@ export default function AuctionBlock({
           onChange={handleSearchChange}
           placeholder="Nominate Player..."
         />
-
         {showSuggestions && suggestions.length > 0 && (
-          <ul className="absolute z-50 w-full bg-slate-900 border border-slate-700 mt-1 rounded-lg shadow-2xl max-h-60 overflow-y-auto border-t-0 rounded-t-none">
+          <ul className="absolute z-50 w-full bg-slate-900 border border-slate-700 mt-1 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
             {suggestions.map((p) => (
               <li
                 key={p.id}
                 onClick={() => selectSuggestion(p)}
-                className="p-3 hover:bg-slate-800 cursor-pointer flex justify-between items-center border-b border-slate-800 last:border-0 transition"
+                className="p-3 hover:bg-slate-800 cursor-pointer flex justify-between items-center border-b border-slate-800 last:border-0"
               >
                 <span className="font-bold text-slate-200">{p.name}</span>
                 <div className="flex items-center gap-2">
@@ -86,15 +140,13 @@ export default function AuctionBlock({
         )}
       </div>
 
-      {/* 2.3 BIDDING & STATS */}
-      <div
-        className={`md:col-span-4 p-2 rounded border transition-colors ${isOverBudget ? 'bg-red-900/10 border-red-900/50' : 'bg-slate-800/30 border-slate-700'}`}
-      >
-        <label className="block text-slate-500 text-[10px] uppercase font-black mb-1 tracking-widest">
+      {/* bidding block */}
+      <div className="bg-slate-800/30 border border-slate-700 p-4 rounded w-full">
+        <label className="block text-slate-500 text-[10px] uppercase font-black mb-2">
           Winning Bidder
         </label>
         <select
-          className="w-full bg-slate-900 text-white border border-slate-700 rounded p-1.5 text-sm font-bold mb-2 outline-none focus:border-yellow-500"
+          className="w-full bg-slate-900 text-white border border-slate-700 rounded p-1.5 text-sm font-bold mb-4 outline-none focus:border-yellow-500"
           value={owners.some((o) => o.id === winnerId) ? winnerId : ''}
           onChange={(e) => setWinnerId(parseInt(e.target.value))}
           disabled={owners.length === 0}
@@ -109,91 +161,68 @@ export default function AuctionBlock({
           ))}
         </select>
 
-        <div className="flex items-center">
+        {/* quick bids */}
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={() => setBidAmount(Math.min(maxBid, bidAmount + 1))}
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
+          >
+            +$1
+          </button>
+          <button
+            onClick={() => setBidAmount(Math.min(maxBid, bidAmount + 5))}
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
+          >
+            +$5
+          </button>
+          <button
+            onClick={() => setBidAmount(maxBid)}
+            disabled={bidAmount >= maxBid}
+            className="flex-1 bg-red-900 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50"
+          >
+            MAX
+          </button>
+        </div>
+
+        {/* manual adjustment */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setBidAmount(Math.max(MIN_BID, bidAmount - 1))}
-            className="w-10 py-2 bg-slate-700 rounded-l hover:bg-slate-600 transition"
+            className="w-16 h-12 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-2xl"
           >
             -
           </button>
           <input
             type="number"
-            className={`flex-1 text-center bg-slate-950 text-xl font-mono font-bold border-y border-slate-700 py-1 ${isOverBudget ? 'text-red-500' : 'text-yellow-500'}`}
+            className="flex-1 text-center bg-slate-950 text-2xl font-mono font-bold border-y border-slate-700 py-2"
             value={bidAmount}
             onChange={(e) => setBidAmount(parseInt(e.target.value) || MIN_BID)}
           />
           <button
             onClick={() => setBidAmount(bidAmount + 1)}
-            className="w-10 py-2 bg-slate-700 rounded-r hover:bg-slate-600 transition"
+            className="w-16 h-12 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-2xl"
           >
             +
           </button>
         </div>
+
         {activeStats && (
-          <div
-            className={`text-[10px] font-mono mt-1.5 text-right flex justify-between px-1`}
-          >
-            <span className="text-slate-500 uppercase">
-              Available: ${activeStats.budget}
-            </span>
-            <span
-              className={
-                isOverBudget
-                  ? 'text-red-500 font-bold animate-pulse'
-                  : 'text-green-400 italic'
-              }
-            >
-              {isOverBudget
-                ? 'EXCEEDS MAX BID'
-                : `Max Bid: $${activeStats.maxBid}`}
-            </span>
+          <div className="text-[10px] font-mono mt-3 text-right">
+            Available: ${activeStats.budget} | Max Bid: ${activeStats.maxBid}
           </div>
         )}
       </div>
 
-      {/* 2.4 ACTIONS & TIMER */}
-      <div className="md:col-span-12 text-center mb-1 text-[12px] text-slate-300">
-        Nominator:{' '}
-        <span className="font-bold text-yellow-400">{nominatorName}</span>
-        {isCommissioner && (
-          <span className="ml-2 text-red-400 uppercase font-black">ADMIN</span>
-        )}
-      </div>
-      <div className="md:col-span-3 flex gap-2 h-[84px]">
+      {/* sold button row */}
+      <div className="flex justify-center">
         <button
           onClick={handleDraft}
           disabled={!canDraft}
-          className={`flex-grow font-black text-xl rounded uppercase shadow-lg transition transform active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed disabled:grayscale ${
-            canDraft
-              ? 'bg-yellow-500 hover:bg-yellow-400 text-black'
-              : 'bg-slate-700 text-slate-500'
-          }`}
+          className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black text-xl py-3 rounded disabled:opacity-40"
         >
           SOLD! 🔨
         </button>
-
-        <div className="flex flex-col gap-1 w-20">
-          <div
-            className={`h-full flex items-center justify-center font-mono text-3xl font-bold border rounded bg-black shadow-inner ${
-              timeLeft <= 3 && isTimerRunning
-                ? 'text-red-500 border-red-500 animate-pulse'
-                : 'text-white border-slate-700'
-            }`}
-          >
-            {timeLeft}
-          </div>
-          <button
-            onClick={isTimerRunning ? reset : start}
-            className={`text-[10px] py-1 rounded font-black uppercase transition ${
-              isTimerRunning
-                ? 'bg-slate-700 text-slate-300 hover:bg-red-900/40'
-                : 'bg-green-600 text-white hover:bg-green-500'
-            }`}
-          >
-            {isTimerRunning ? 'RESET' : 'START'}
-          </button>
-        </div>
       </div>
     </div>
-  );
+  ); // end root container
 }
