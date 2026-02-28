@@ -52,9 +52,36 @@ describe('Home (League Dashboard)', () => {
 
   test('renders standings table with owners including stats', async () => {
     const mockOwners = [
-      { id: 1, username: 'alice', team_name: 'Runaway Train', wins: 2, losses: 1, ties: 0, pf: 250, pa: 200 },
-      { id: 2, username: 'bob', team_name: 'The Legends', wins: 1, losses: 2, ties: 0, pf: 180, pa: 220 },
-      { id: 3, username: 'charlie', team_name: 'Sky Club', wins: 0, losses: 3, ties: 0, pf: 150, pa: 260 },
+      {
+        id: 1,
+        username: 'alice',
+        team_name: 'Runaway Train',
+        wins: 2,
+        losses: 1,
+        ties: 0,
+        pf: 250,
+        pa: 200,
+      },
+      {
+        id: 2,
+        username: 'bob',
+        team_name: 'The Legends',
+        wins: 1,
+        losses: 2,
+        ties: 0,
+        pf: 180,
+        pa: 220,
+      },
+      {
+        id: 3,
+        username: 'charlie',
+        team_name: 'Sky Club',
+        wins: 0,
+        losses: 3,
+        ties: 0,
+        pf: 150,
+        pa: 260,
+      },
     ];
 
     apiClient.get.mockImplementation((url) => {
@@ -188,7 +215,14 @@ describe('Home (League Dashboard)', () => {
   test('bracket accordion fetches and displays matches', async () => {
     const bracketData = {
       championship: [
-        { match_id: 'm1', round: 1, is_bye: true, team_1_id: 1, team_2_id: null, winner_to: 'r2_m1' },
+        {
+          match_id: 'm1',
+          round: 1,
+          is_bye: true,
+          team_1_id: 1,
+          team_2_id: null,
+          winner_to: 'r2_m1',
+        },
       ],
       consolation: [],
     };
@@ -221,12 +255,31 @@ describe('Home (League Dashboard)', () => {
 
   test('sorting headers reorder standings', async () => {
     const mockOwners = [
-      { id: 1, username: 'zeta', team_name: 'Z', wins: 1, losses:0, ties:0, pf: 100, pa: 50 },
-      { id: 2, username: 'alpha', team_name: 'A', wins: 2, losses:0, ties:0, pf: 150, pa: 60 },
+      {
+        id: 1,
+        username: 'zeta',
+        team_name: 'Z',
+        wins: 1,
+        losses: 0,
+        ties: 0,
+        pf: 100,
+        pa: 50,
+      },
+      {
+        id: 2,
+        username: 'alpha',
+        team_name: 'A',
+        wins: 2,
+        losses: 0,
+        ties: 0,
+        pf: 150,
+        pa: 60,
+      },
     ];
     apiClient.get.mockImplementation((url) => {
       if (url === '/leagues/1') return Promise.resolve({ data: { name: 'L' } });
-      if (url === '/leagues/owners?league_id=1') return Promise.resolve({ data: mockOwners });
+      if (url === '/leagues/owners?league_id=1')
+        return Promise.resolve({ data: mockOwners });
       if (url === '/leagues/1/news') return Promise.resolve({ data: [] });
       return Promise.reject(new Error('Unknown URL'));
     });

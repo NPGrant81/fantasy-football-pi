@@ -5,7 +5,14 @@ import DraftHistoryFeed from '../src/components/draft/DraftHistoryFeed';
 // simple feed item
 const sampleOwners = [{ id: 1, username: 'statsgeek' }];
 const sampleHistory = [
-  { id: 101, owner_id: 1, player_name: 'John Doe', position: 'RB', amount: 15, timestamp: '2025-01-01T00:00:00Z' },
+  {
+    id: 101,
+    owner_id: 1,
+    player_name: 'John Doe',
+    position: 'RB',
+    amount: 15,
+    timestamp: '2025-01-01T00:00:00Z',
+  },
 ];
 
 describe('DraftHistoryFeed', () => {

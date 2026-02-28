@@ -5,7 +5,10 @@ import { useDraftTimer } from '@hooks/useDraftTimer';
 
 describe('useDraftTimer hook', () => {
   function TimerTest({ initial, onTimeUp }) {
-    const { timeLeft, start, reset, isActive } = useDraftTimer(initial, onTimeUp);
+    const { timeLeft, start, reset, isActive } = useDraftTimer(
+      initial,
+      onTimeUp
+    );
     return (
       <div>
         <span data-testid="time">{timeLeft}</span>

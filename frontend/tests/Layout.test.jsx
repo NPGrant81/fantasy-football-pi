@@ -3,9 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 vi.mock('../src/components/Sidebar', () => ({
-  default: ({ isOpen, _onClose }) => (
-    isOpen ? <div data-testid="sidebar">Sidebar</div> : null
-  ),
+  default: ({ isOpen, _onClose }) =>
+    isOpen ? <div data-testid="sidebar">Sidebar</div> : null,
 }));
 
 import Layout from '../src/components/Layout';

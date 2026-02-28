@@ -9,19 +9,23 @@ This directory contains all scripts and documentation for extracting, transformi
 - `load/` — Scripts to insert/update data in the database
 
 ## Manual Player Mapping
+
 - Use a dedicated `manual_player_mappings` table or CSV for edge-case player ID overrides.
 - The ETL pipeline will always check this mapping before using automated matching.
 
 ## Workflow
+
 1. **Extract:** Download/scrape raw data from each platform. Store raw JSON as needed.
 2. **Transform:** Normalize player names, ADP, position rank, and apply manual mappings.
 3. **Load:** Insert/update the normalized and aggregated data into the database.
 
 ## Dependencies
+
 - Python 3.9+
 - pandas, requests, SQLAlchemy, psycopg2-binary, etc. (see requirements.txt)
 
 ## Running
+
 - Each stage can be run independently or as a full pipeline.
 - See individual scripts for usage instructions.
 

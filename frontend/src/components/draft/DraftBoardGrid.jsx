@@ -25,7 +25,10 @@ export default function DraftBoardGrid({
 
   // use flex container with fixed-width columns so every column is identical regardless of content
   return (
-    <div data-testid="draft-board" className="flex gap-1 p-4 bg-slate-900 w-full overflow-x-auto">
+    <div
+      data-testid="draft-board"
+      className="flex gap-1 p-4 bg-slate-900 w-full overflow-x-auto"
+    >
       {teams.map((team) => (
         <div
           key={team.id}
@@ -52,16 +55,15 @@ export default function DraftBoardGrid({
               return (
                 <div
                   key={i}
-                  className={
-                    (() => {
-                      if (!player) {
-                        return 'h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 bg-slate-900 opacity-50';
-                      }
-                      const bg = POSITION_COLORS[player.position] || 'bg-yellow-400';
-                      // base background matches position, add thin gold border for emphasis
-                      return `h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 ${bg} text-slate-100 border-2 border-slate-600`;
-                    })()
-                  }
+                  className={(() => {
+                    if (!player) {
+                      return 'h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 bg-slate-900 opacity-50';
+                    }
+                    const bg =
+                      POSITION_COLORS[player.position] || 'bg-yellow-400';
+                    // base background matches position, add thin gold border for emphasis
+                    return `h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 ${bg} text-slate-100 border-2 border-slate-600`;
+                  })()}
                 >
                   {player ? (
                     <>

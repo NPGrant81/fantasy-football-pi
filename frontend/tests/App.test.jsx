@@ -32,7 +32,9 @@ vi.mock('../src/pages/WaiverWire', () => ({
 vi.mock('../src/pages/admin/SiteAdmin', () => ({
   default: () => <div>Admin</div>,
 }));
-vi.mock('../src/pages/BugReport', () => ({ default: () => <div>BugReport</div> }));
+vi.mock('../src/pages/BugReport', () => ({
+  default: () => <div>BugReport</div>,
+}));
 
 // Mock apiClient used by App
 vi.mock('../src/api/client', () => ({
@@ -67,9 +69,12 @@ describe('App (basic)', () => {
     localStorage.setItem('fantasyToken', 'fake-token');
     localStorage.setItem('fantasyLeagueId', '1');
     apiClient.get.mockImplementation((url) => {
-      if (url === '/auth/me') return Promise.resolve({ data: { user_id: 7, username: 'alice' } });
+      if (url === '/auth/me')
+        return Promise.resolve({ data: { user_id: 7, username: 'alice' } });
       if (url === '/leagues/1/settings')
-        return Promise.resolve({ data: { waiver_deadline: 'Thu 4pm', trade_deadline: 'Sun 8pm' } });
+        return Promise.resolve({
+          data: { waiver_deadline: 'Thu 4pm', trade_deadline: 'Sun 8pm' },
+        });
       return Promise.resolve({ data: {} });
     });
 

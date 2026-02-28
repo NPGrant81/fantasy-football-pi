@@ -59,7 +59,7 @@ repos:
     hooks:
       - id: pytest-collect
         pass_filenames: false
-        
+
       - id: dependency-audit
         name: Run dependency audit helper
         entry: python backend/scripts/check_dependencies.py

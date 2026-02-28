@@ -5,9 +5,7 @@ import { POSITION_COLORS } from '../src/constants/ui';
 
 // simple fixtures
 // include alternate keys that come from API (team_name, username)
-const teams = [
-  { id: 1, team_name: 'War Alpha', remainingBudget: 187 },
-];
+const teams = [{ id: 1, team_name: 'War Alpha', remainingBudget: 187 }];
 const history = [
   { owner_id: 1, player_name: 'Player A', position: 'QB', amount: 3 },
 ];
@@ -39,7 +37,11 @@ describe('DraftBoardGrid header', () => {
 
   it('renders zeros correctly with labels', () => {
     render(
-      <DraftBoardGrid teams={[{ id: 2, name: 'Empty', remainingBudget: 0 }]} history={[]} rosterLimit={1} />
+      <DraftBoardGrid
+        teams={[{ id: 2, name: 'Empty', remainingBudget: 0 }]}
+        history={[]}
+        rosterLimit={1}
+      />
     );
     expect(screen.getByText('Empty')).toBeInTheDocument();
     expect(screen.getByText(/0 Drafted/)).toBeInTheDocument();
@@ -51,7 +53,9 @@ describe('DraftBoardGrid header', () => {
     const history2 = [
       { owner_id: 3, player_name: 'Travis Kelce', position: 'TE', amount: 20 },
     ];
-    render(<DraftBoardGrid teams={teams2} history={history2} rosterLimit={1} />);
+    render(
+      <DraftBoardGrid teams={teams2} history={history2} rosterLimit={1} />
+    );
 
     // name should wrap or at least be present in DOM
     const nameEl = screen.getByText('Travis Kelce');
@@ -84,7 +88,9 @@ describe('DraftBoardGrid header', () => {
     );
     expect(colored.length).toBe(2);
     colored.forEach((c) => {
-      expect(Object.values(POSITION_COLORS).some((cls) => c.classList.contains(cls))).toBe(true);
+      expect(
+        Object.values(POSITION_COLORS).some((cls) => c.classList.contains(cls))
+      ).toBe(true);
       expect(c.classList.contains('border-slate-600')).toBe(true);
     });
   });
@@ -95,27 +101,29 @@ import AuctionBlock from '../src/components/draft/AuctionBlock';
 
 describe('AuctionBlock layout', () => {
   it('constrains itself to a reasonable max width', () => {
-    const { container } = render(<AuctionBlock
-      playerName=""
-      handleSearchChange={() => {}}
-      suggestions={[]}
-      showSuggestions={false}
-      posFilter="ALL"
-      setPosFilter={() => {}}
-      winnerId={null}
-      setWinnerId={() => {}}
-      owners={[]}
-      activeStats={null}
-      bidAmount={1}
-      setBidAmount={() => {}}
-      handleDraft={() => {}}
-      timeLeft={0}
-      isTimerRunning={false}
-      reset={() => {}}
-      start={() => {}}
-      nominatorId={null}
-      isCommissioner={false}
-    />);
+    const { container } = render(
+      <AuctionBlock
+        playerName=""
+        handleSearchChange={() => {}}
+        suggestions={[]}
+        showSuggestions={false}
+        posFilter="ALL"
+        setPosFilter={() => {}}
+        winnerId={null}
+        setWinnerId={() => {}}
+        owners={[]}
+        activeStats={null}
+        bidAmount={1}
+        setBidAmount={() => {}}
+        handleDraft={() => {}}
+        timeLeft={0}
+        isTimerRunning={false}
+        reset={() => {}}
+        start={() => {}}
+        nominatorId={null}
+        isCommissioner={false}
+      />
+    );
     const wrapper = container.firstChild;
     expect(wrapper).toHaveClass('max-w-[240px]');
   });
@@ -126,7 +134,14 @@ import DraftBoard from '../src/pages/DraftBoard';
 
 describe('DraftBoard page layout', () => {
   it('uses col-span-3 for the sidebar section and col-span-9 for the board', () => {
-    const { container } = render(<DraftBoard token={null} activeOwnerId={1} activeLeagueId={1} setSubHeader={() => {}} />);
+    const { container } = render(
+      <DraftBoard
+        token={null}
+        activeOwnerId={1}
+        activeLeagueId={1}
+        setSubHeader={() => {}}
+      />
+    );
     const aside = container.querySelector('aside');
     expect(aside).toHaveClass('col-span-3');
     const section = container.querySelector('section');

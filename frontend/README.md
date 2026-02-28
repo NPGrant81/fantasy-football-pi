@@ -97,5 +97,6 @@ npm run verify
 ```
 
 Expected outcome:
+
 - Build completes without unresolved import errors (for example `chart.js` in analytics charts).
 - Lint and tests pass for changed areas.

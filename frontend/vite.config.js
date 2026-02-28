@@ -1,8 +1,8 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import { dirname } from 'path'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // --- 1.1 ENVIRONMENT SETUP ---
 // 1.1.1 ESM Polyfill: Defining __dirname for Vite/ESM compatibility
@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 
 export default defineConfig({
   plugins: [react()],
-  
+
   // --- 2.1 PATH RESOLUTION ---
   resolve: {
     // 2.1.1 Aliasing: Simplifies imports (e.g., import X from '@/components/X')
@@ -37,10 +37,10 @@ export default defineConfig({
       '/admin/tools': 'http://127.0.0.1:8000',
       '/admin/create-test-league': 'http://127.0.0.1:8000',
       '/admin/reset-draft': 'http://127.0.0.1:8000',
-      '/team': 'http://127.0.0.1:8000',           // restored so UI routes avoid CORS and cookies flow
+      '/team': 'http://127.0.0.1:8000', // restored so UI routes avoid CORS and cookies flow
       '/league': 'http://127.0.0.1:8000',
       '/players': 'http://127.0.0.1:8000',
       '/advisor': 'http://127.0.0.1:8000',
-    }
-  }
-})
+    },
+  },
+});

@@ -8,18 +8,54 @@
     "owner": "Nick Grant",
     "total_score": 68.8,
     "players": [
-      { "slot": "QB", "name": "Josh Allen", "pos": "QB", "score": 28.5, "status": "FINAL" },
-      { "slot": "RB1", "name": "Breece Hall", "pos": "RB", "score": 18.2, "status": "LIVE" },
-      { "slot": "WR1", "name": "A.J. Brown", "pos": "WR", "score": 22.1, "status": "LIVE" }
+      {
+        "slot": "QB",
+        "name": "Josh Allen",
+        "pos": "QB",
+        "score": 28.5,
+        "status": "FINAL"
+      },
+      {
+        "slot": "RB1",
+        "name": "Breece Hall",
+        "pos": "RB",
+        "score": 18.2,
+        "status": "LIVE"
+      },
+      {
+        "slot": "WR1",
+        "name": "A.J. Brown",
+        "pos": "WR",
+        "score": 22.1,
+        "status": "LIVE"
+      }
     ]
   },
   "away_team": {
     "owner": "Draft Dodger",
     "total_score": 65.9,
     "players": [
-      { "slot": "QB", "name": "Patrick Mahomes", "pos": "QB", "score": 21.4, "status": "FINAL" },
-      { "slot": "RB1", "name": "Christian McCaffrey", "pos": "RB", "score": 32.1, "status": "FINAL" },
-      { "slot": "WR1", "name": "Garrett Wilson", "pos": "WR", "score": 12.4, "status": "LIVE" }
+      {
+        "slot": "QB",
+        "name": "Patrick Mahomes",
+        "pos": "QB",
+        "score": 21.4,
+        "status": "FINAL"
+      },
+      {
+        "slot": "RB1",
+        "name": "Christian McCaffrey",
+        "pos": "RB",
+        "score": 32.1,
+        "status": "FINAL"
+      },
+      {
+        "slot": "WR1",
+        "name": "Garrett Wilson",
+        "pos": "WR",
+        "score": 12.4,
+        "status": "LIVE"
+      }
     ]
   }
 }

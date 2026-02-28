@@ -30,7 +30,6 @@ function Dummy() {
   );
 }
 
-
 describe('ThemeContext', () => {
   beforeEach(() => localStorage.clear());
 

@@ -32,7 +32,9 @@ describe('ManageCommissioners', () => {
         },
       ],
     });
-    apiClient.put.mockResolvedValue({ data: { message: 'Commissioner updated.' } });
+    apiClient.put.mockResolvedValue({
+      data: { message: 'Commissioner updated.' },
+    });
 
     renderPage();
 
@@ -43,11 +45,14 @@ describe('ManageCommissioners', () => {
     await userEvent.click(screen.getByRole('button', { name: /Update/i }));
 
     await waitFor(() => {
-      expect(apiClient.put).toHaveBeenCalledWith('/admin/tools/commissioners/21', {
-        username: 'Comm Alpha',
-        email: 'comma@test.com',
-        league_id: 1,
-      });
+      expect(apiClient.put).toHaveBeenCalledWith(
+        '/admin/tools/commissioners/21',
+        {
+          username: 'Comm Alpha',
+          email: 'comma@test.com',
+          league_id: 1,
+        }
+      );
     });
   });
 
@@ -63,16 +68,22 @@ describe('ManageCommissioners', () => {
         },
       ],
     });
-    apiClient.delete.mockResolvedValue({ data: { message: 'Commissioner access removed.' } });
+    apiClient.delete.mockResolvedValue({
+      data: { message: 'Commissioner access removed.' },
+    });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     renderPage();
 
-    const removeButton = await screen.findByRole('button', { name: /Remove Access/i });
+    const removeButton = await screen.findByRole('button', {
+      name: /Remove Access/i,
+    });
     await userEvent.click(removeButton);
 
     await waitFor(() => {
-      expect(apiClient.delete).toHaveBeenCalledWith('/admin/tools/commissioners/21');
+      expect(apiClient.delete).toHaveBeenCalledWith(
+        '/admin/tools/commissioners/21'
+      );
       expect(screen.queryByDisplayValue('Comm A')).not.toBeInTheDocument();
     });
   });
@@ -88,7 +99,9 @@ describe('ManageCommissioners', () => {
       },
     ];
 
-    apiClient.get.mockImplementation(() => Promise.resolve({ data: commissioners }));
+    apiClient.get.mockImplementation(() =>
+      Promise.resolve({ data: commissioners })
+    );
 
     apiClient.post.mockImplementation(() => {
       commissioners = [
@@ -117,19 +130,30 @@ describe('ManageCommissioners', () => {
       await screen.findByPlaceholderText('Commissioner name'),
       'Comm B'
     );
-    await userEvent.type(screen.getByPlaceholderText('Email address'), 'commb@test.com');
-    await userEvent.type(screen.getByPlaceholderText('League ID (optional)'), '2');
+    await userEvent.type(
+      screen.getByPlaceholderText('Email address'),
+      'commb@test.com'
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText('League ID (optional)'),
+      '2'
+    );
 
     await userEvent.click(screen.getByRole('button', { name: /Send Invite/i }));
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith('/admin/tools/commissioners', {
-        username: 'Comm B',
-        email: 'commb@test.com',
-        league_id: 2,
-      });
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/admin/tools/commissioners',
+        {
+          username: 'Comm B',
+          email: 'commb@test.com',
+          league_id: 2,
+        }
+      );
       expect(screen.getByText(/League ID: 2/i)).toBeInTheDocument();
-      expect(screen.getByText(/Temporary password: Comm1234/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Temporary password: Comm1234/i)
+      ).toBeInTheDocument();
     });
   });
 });

@@ -5,7 +5,11 @@ import { vi } from 'vitest';
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: undefined }),
   useNavigate: () => vi.fn(),
-  Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+  Link: ({ to, children, ...props }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('../src/api/client', () => ({

@@ -9,20 +9,28 @@ vi.mock('../src/api/client', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+  Link: ({ to, children, ...props }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('../src/pages/commissioner/components/ScoringRulesModal', () => ({
-  default: ({ open, _onClose }) => open ? <div data-testid="scoring-modal">Scoring Modal</div> : null,
+  default: ({ open, _onClose }) =>
+    open ? <div data-testid="scoring-modal">Scoring Modal</div> : null,
 }));
 vi.mock('../src/pages/commissioner/components/OwnerManagementModal', () => ({
-  default: ({ open, _onClose }) => open ? <div data-testid="owner-modal">Owner Modal</div> : null,
+  default: ({ open, _onClose }) =>
+    open ? <div data-testid="owner-modal">Owner Modal</div> : null,
 }));
 vi.mock('../src/pages/commissioner/components/WaiverWireRulesModal', () => ({
-  default: ({ open, _onClose }) => open ? <div data-testid="waiver-modal">Waiver Modal</div> : null,
+  default: ({ open, _onClose }) =>
+    open ? <div data-testid="waiver-modal">Waiver Modal</div> : null,
 }));
 vi.mock('../src/pages/commissioner/components/TradeRulesModal', () => ({
-  default: ({ open, _onClose }) => open ? <div data-testid="trade-modal">Trade Modal</div> : null,
+  default: ({ open, _onClose }) =>
+    open ? <div data-testid="trade-modal">Trade Modal</div> : null,
 }));
 vi.mock('../src/components/LeagueAdvisor', () => ({
   default: () => <div data-testid="league-advisor">League Advisor</div>,
@@ -129,10 +137,18 @@ describe('MyTeam (Roster & Lineups)', () => {
         });
       }
       if (url === '/leagues/1') {
-        return Promise.resolve({ data: { name: 'The Big Show', draft_status: 'ACTIVE' } });
+        return Promise.resolve({
+          data: { name: 'The Big Show', draft_status: 'ACTIVE' },
+        });
       }
       if (url === '/leagues/1/settings') {
-        return Promise.resolve({ data: { scoring_rules: [], waiver_deadline: '2099-01-01T00:00:00Z', trade_deadline: '2099-01-02T00:00:00Z' } });
+        return Promise.resolve({
+          data: {
+            scoring_rules: [],
+            waiver_deadline: '2099-01-01T00:00:00Z',
+            trade_deadline: '2099-01-02T00:00:00Z',
+          },
+        });
       }
       if (url === '/dashboard/1') {
         return Promise.resolve({ data: { ...mockSummary, roster: [] } });
@@ -147,7 +163,9 @@ describe('MyTeam (Roster & Lineups)', () => {
     });
 
     render(<MyTeam activeOwnerId={1} />);
-    await waitFor(() => expect(screen.getByText(/Draft Active/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Draft Active/i)).toBeInTheDocument()
+    );
     // deadlines may still render briefly; the presence of the Draft Active message is the key assertion
   });
 
@@ -273,9 +291,30 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     const mockRoster = {
       roster: [
-        { id: 1, name: 'Patrick Mahomes', position: 'QB', ytd_score: 280, proj_score: 25, status: 'STARTER' },
-        { id: 2, name: 'Travis Kelce', position: 'TE', ytd_score: 150, proj_score: 15, status: 'STARTER' },
-        { id: 3, name: 'Backup QB', position: 'QB', ytd_score: 50, proj_score: 10, status: 'BENCH' },
+        {
+          id: 1,
+          name: 'Patrick Mahomes',
+          position: 'QB',
+          ytd_score: 280,
+          proj_score: 25,
+          status: 'STARTER',
+        },
+        {
+          id: 2,
+          name: 'Travis Kelce',
+          position: 'TE',
+          ytd_score: 150,
+          proj_score: 15,
+          status: 'STARTER',
+        },
+        {
+          id: 3,
+          name: 'Backup QB',
+          position: 'QB',
+          ytd_score: 50,
+          proj_score: 10,
+          status: 'BENCH',
+        },
       ],
     };
 
@@ -438,8 +477,20 @@ describe('MyTeam (Roster & Lineups)', () => {
     };
     const mockRoster = {
       roster: [
-        { id: 1, name: 'Starter Player', position: 'RB', nfl_team: 'NE', status: 'STARTER' },
-        { id: 2, name: 'Bench Player', position: 'WR', nfl_team: 'DAL', status: 'BENCH' },
+        {
+          id: 1,
+          name: 'Starter Player',
+          position: 'RB',
+          nfl_team: 'NE',
+          status: 'STARTER',
+        },
+        {
+          id: 2,
+          name: 'Bench Player',
+          position: 'WR',
+          nfl_team: 'DAL',
+          status: 'BENCH',
+        },
       ],
     };
 
@@ -475,27 +526,50 @@ describe('MyTeam (Roster & Lineups)', () => {
     render(<MyTeam activeOwnerId={1} />);
 
     // default mode is actual
-    await waitFor(() => expect(screen.getByText(/Lineup Builder/i)).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Recommended/i })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText(/Lineup Builder/i)).toBeInTheDocument()
+    );
+    expect(
+      screen.getByRole('button', { name: /Recommended/i })
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Actual/i })).toBeInTheDocument();
 
     // switch to recommended
     fireEvent.click(screen.getByRole('button', { name: /Recommended/i }));
-    await waitFor(() => expect(screen.getByText(/Start\/Sit Sorter/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Start\/Sit Sorter/i)).toBeInTheDocument()
+    );
     expect(screen.queryByText(/Lineup Builder/i)).toBeNull();
 
     // back to actual
     fireEvent.click(screen.getByRole('button', { name: /Actual/i }));
-    await waitFor(() => expect(screen.getByText(/Lineup Builder/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Lineup Builder/i)).toBeInTheDocument()
+    );
   });
 
   // new tests for taxi filtering and trade modal
   test('submitRoster excludes taxi players from payload', async () => {
-    const mockSummary = { player_count: 15, active_lineups: 8, pending_waivers: 2, pending_trades: 1, standing: 3, points_for: 1250, points_against: 1180 };
+    const mockSummary = {
+      player_count: 15,
+      active_lineups: 8,
+      pending_waivers: 2,
+      pending_trades: 1,
+      standing: 3,
+      points_for: 1250,
+      points_against: 1180,
+    };
 
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me')
-        return Promise.resolve({ data: { user_id: 1, username: 'alice', league_id: 1, is_commissioner: false } });
+        return Promise.resolve({
+          data: {
+            user_id: 1,
+            username: 'alice',
+            league_id: 1,
+            is_commissioner: false,
+          },
+        });
       if (url === '/leagues/1')
         return Promise.resolve({ data: { name: 'The Big Show' } });
       if (url === '/leagues/1/settings')
@@ -503,16 +577,44 @@ describe('MyTeam (Roster & Lineups)', () => {
           data: {
             scoring_rules: [],
             // require only one active slot so taxi player becomes surplus
-            starting_slots: { ACTIVE_ROSTER_SIZE: 1, QB: 1, RB: 0, WR: 0, TE: 0, K: 0, DEF: 0, FLEX: 0, ALLOW_PARTIAL_LINEUP: 1 },
+            starting_slots: {
+              ACTIVE_ROSTER_SIZE: 1,
+              QB: 1,
+              RB: 0,
+              WR: 0,
+              TE: 0,
+              K: 0,
+              DEF: 0,
+              FLEX: 0,
+              ALLOW_PARTIAL_LINEUP: 1,
+            },
           },
         });
       if (url === '/dashboard/1')
         return Promise.resolve({ data: { ...mockSummary, roster: [] } });
       if (url.startsWith('/team/1?week=')) {
-        return Promise.resolve({ data: { roster: [
-            { id: 101, player_id: 101, name: 'QB1', position: 'QB', status: 'STARTER', is_taxi: false },
-            { id: 102, player_id: 102, name: 'RB1', position: 'RB', status: 'STARTER', is_taxi: true }
-          ] } });
+        return Promise.resolve({
+          data: {
+            roster: [
+              {
+                id: 101,
+                player_id: 101,
+                name: 'QB1',
+                position: 'QB',
+                status: 'STARTER',
+                is_taxi: false,
+              },
+              {
+                id: 102,
+                player_id: 102,
+                name: 'RB1',
+                position: 'RB',
+                status: 'STARTER',
+                is_taxi: true,
+              },
+            ],
+          },
+        });
       }
       if (url === '/scoring/1') return Promise.resolve({ data: [] });
       return Promise.reject(new Error('Unknown URL'));
@@ -540,17 +642,36 @@ describe('MyTeam (Roster & Lineups)', () => {
   test('trade modal shows dollar inputs and sends them', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me')
-        return Promise.resolve({ data: { user_id: 1, username: 'alice', league_id: 1, is_commissioner: false } });
+        return Promise.resolve({
+          data: {
+            user_id: 1,
+            username: 'alice',
+            league_id: 1,
+            is_commissioner: false,
+          },
+        });
       if (url === '/leagues/1')
         return Promise.resolve({ data: { name: 'The Big Show' } });
       if (url === '/leagues/1/settings')
-        return Promise.resolve({ data: { scoring_rules: [], waiver_deadline: null, trade_deadline: null } });
+        return Promise.resolve({
+          data: {
+            scoring_rules: [],
+            waiver_deadline: null,
+            trade_deadline: null,
+          },
+        });
       if (url === '/dashboard/1')
-        return Promise.resolve({ data: { roster: [{ id: 201, name: 'P1', position: 'WR' }] } });
+        return Promise.resolve({
+          data: { roster: [{ id: 201, name: 'P1', position: 'WR' }] },
+        });
       if (url === '/dashboard/2')
-        return Promise.resolve({ data: { roster: [{ id: 301, name: 'Other', position: 'RB' }] } });
+        return Promise.resolve({
+          data: { roster: [{ id: 301, name: 'Other', position: 'RB' }] },
+        });
       if (url === '/leagues/owners?league_id=1')
-        return Promise.resolve({ data: [{ id: 2, username: 'bob', team_name: 'Bob Team' }] });
+        return Promise.resolve({
+          data: [{ id: 2, username: 'bob', team_name: 'Bob Team' }],
+        });
       if (url.startsWith('/team/1?week='))
         return Promise.resolve({ data: { roster: [] } });
       if (url === '/scoring/1') return Promise.resolve({ data: [] });
@@ -561,11 +682,19 @@ describe('MyTeam (Roster & Lineups)', () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     render(<MyTeam activeOwnerId={1} />);
-    await waitFor(() => expect(screen.getByText(/Propose Trade/i)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Propose Trade/i)).toBeInTheDocument()
+    );
     fireEvent.click(screen.getByRole('button', { name: /Propose Trade/i }));
-    expect(screen.getByLabelText(/Offer \$ \(future draft\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Request \$ \(future draft\)/i)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/Trade With/i), { target: { value: '2' } });
+    expect(
+      screen.getByLabelText(/Offer \$ \(future draft\)/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Request \$ \(future draft\)/i)
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Trade With/i), {
+      target: { value: '2' },
+    });
     // wait for target roster to load an actual option to request
     await waitFor(() => {
       const reqSel = screen.getByLabelText(/You Request/i);
@@ -577,9 +706,15 @@ describe('MyTeam (Roster & Lineups)', () => {
     const optionValue = reqSelect.children[1].value;
     fireEvent.change(reqSelect, { target: { value: optionValue } });
 
-    fireEvent.change(screen.getByLabelText(/You Offer/i), { target: { value: '201' } });
-    fireEvent.change(screen.getByLabelText(/Offer \$ \(future draft\)/i), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText(/Request \$ \(future draft\)/i), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText(/You Offer/i), {
+      target: { value: '201' },
+    });
+    fireEvent.change(screen.getByLabelText(/Offer \$ \(future draft\)/i), {
+      target: { value: '5' },
+    });
+    fireEvent.change(screen.getByLabelText(/Request \$ \(future draft\)/i), {
+      target: { value: '3' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /Submit Proposal/i }));
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -593,20 +728,24 @@ describe('MyTeam (Roster & Lineups)', () => {
           requestedDollars: '3',
         })
       );
-      expect(apiClient.post).toHaveBeenCalledWith('/trades/propose', expect.objectContaining({
-        to_user_id: 2,
-        offered_player_id: 201,
-        requested_player_id: Number(optionValue),
-        offered_dollars: 5,
-        requested_dollars: 3,
-      }));
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/trades/propose',
+        expect.objectContaining({
+          to_user_id: 2,
+          offered_player_id: 201,
+          requested_player_id: Number(optionValue),
+          offered_dollars: 5,
+          requested_dollars: 3,
+        })
+      );
     });
     consoleSpy.mockRestore();
   });
 
-
   test('handles API errors gracefully', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     apiClient.get.mockRejectedValue(new Error('API Error'));
 
     render(<MyTeam activeOwnerId={1} />);

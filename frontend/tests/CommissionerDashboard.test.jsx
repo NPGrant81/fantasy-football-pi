@@ -70,7 +70,9 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
   });
 
   test('handles errors gracefully', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     apiClient.get.mockRejectedValue(new Error('API Error'));
 
     render(<CommissionerDashboard />);

@@ -1,8 +1,8 @@
 # Contributing to Fantasy Football PI
 
-Thank you for your interest in contributing!  This project follows a strict
+Thank you for your interest in contributing! This project follows a strict
 "Debug‑First" workflow to keep the frontend maintainable and prevent
-"works on my machine" bugs.  Please read the sections below before opening a
+"works on my machine" bugs. Please read the sections below before opening a
 PR.
 
 ---
@@ -10,20 +10,20 @@ PR.
 ## Frontend Verification & Debugging Standards
 
 To ensure data integrity and system reliability, all frontend development
-must follow the **Debug‑First protocol**.  "It works on my screen" is not a
+must follow the **Debug‑First protocol**. "It works on my screen" is not a
 sufficient test.
 
 1. **Mandatory Breakpoint Audit**
    - Every new or modified `.jsx` module must be verified using the VS Code
-     Debugger (not just console.log).  You must explicitly inspect three
+     Debugger (not just console.log). You must explicitly inspect three
      lifecycle stages of the component:
      1. **The Data Fetch (Entry):** Place a breakpoint at the start of every
-        `useEffect` or custom hook that initiates an API call.  Verify that
+        `useEffect` or custom hook that initiates an API call. Verify that
         parameters (like `leagueId` or `token`) are valid and not `undefined`
         before the request is fired.
      2. **The Transformation (Data Receipt):** Place a breakpoint immediately
-        after an `await apiClient...` call or inside a `.then()` handler.  In
-        the *Variables* pane, inspect the raw `response.data` and confirm its
+        after an `await apiClient...` call or inside a `.then()` handler. In
+        the _Variables_ pane, inspect the raw `response.data` and confirm its
         shape matches what the component expects (e.g. `is_taxi` is a
         boolean, not a string).
      3. **The User Action (Handler):** Place a breakpoint on the first line of
@@ -35,7 +35,7 @@ sufficient test.
    - The codebase uses **PascalCase** for all React component file names
      (e.g. `ManageCommissioners.jsx`).
    - Never commit two files whose names differ only by case (e.g.,
-     `manage-commissioners.jsx` vs. `ManageCommissioners.jsx`).  This causes
+     `manage-commissioners.jsx` vs. `ManageCommissioners.jsx`). This causes
      module resolution failures in CI/CD and production (Netlify, Vercel,
      etc.).
    - Before committing, run `git ls-files` or inspect your editor to ensure the
@@ -86,26 +86,26 @@ hit breakpoints as you interact with the UI.
 
 1. **Resolve existing file collision.**
    - The `src/pages/admin` directory currently contains both
-     `manage-commissioners.jsx` and `ManageCommissioners.jsx`.  The latter is
+     `manage-commissioners.jsx` and `ManageCommissioners.jsx`. The latter is
      the version actually imported by `App.jsx` and covered by tests; the
      lowercase file is stale and should be deleted immediately.
    - Rename or remove duplicates as necessary; always keep file names in
-     PascalCase.  This fix should be committed before work continues on any
+     PascalCase. This fix should be committed before work continues on any
      frontend features.
 
 2. **Audit critical pages.**
    - Before adding new UI (e.g. Taxi Squad) or touching existing logic
      (LineupRules, WaiverRules, etc.), set breakpoints in each module’s
      fetch hooks and handlers as described above and walk through them using
-     the VS Code debugger.  Capture a screenshot of the *Variables* pane for
+     the VS Code debugger. Capture a screenshot of the _Variables_ pane for
      at least one component to prove the audit was done.
 
-3. **Follow the DoD on every PR.**  Any pull request lacking one of the three
+3. **Follow the DoD on every PR.** Any pull request lacking one of the three
    DoD checks (tests, debugger walkthrough, clean console) should be
    rejected until the developer demonstrates compliance.
 
 ---
 
 By adhering to these standards, the frontend stops being a black box and
-becomes a maintainable, predictable codebase.  Thank you for taking this
-extra step!  👏
+becomes a maintainable, predictable codebase. Thank you for taking this
+extra step! 👏

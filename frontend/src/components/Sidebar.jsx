@@ -12,6 +12,7 @@ import {
   FiSettings,
   FiShield,
   FiHome,
+  FiAward,
   FiAlertTriangle,
 } from 'react-icons/fi';
 import { menuGradients, borderColors } from '../utils/uiHelpers';

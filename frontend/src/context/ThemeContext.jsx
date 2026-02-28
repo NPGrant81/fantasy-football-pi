@@ -17,7 +17,9 @@ function getInitialTheme() {
   }
 
   // fall back to system preference
-  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+  const prefersDark = window.matchMedia?.(
+    '(prefers-color-scheme: dark)'
+  )?.matches;
   return prefersDark ? 'dark' : 'light';
 }
 

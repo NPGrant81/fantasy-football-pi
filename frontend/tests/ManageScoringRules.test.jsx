@@ -17,10 +17,18 @@ describe('ManageScoringRules page', () => {
 
   test('can add a new rule to list', () => {
     render(<ManageScoringRules />);
-    fireEvent.change(screen.getByPlaceholderText(/Category/i), { target: { value: 'passing' } });
-    fireEvent.change(screen.getByPlaceholderText(/Event Name/i), { target: { value: 'Test' } });
-    fireEvent.change(screen.getByPlaceholderText(/Point Value/i), { target: { value: '1' } });
-    fireEvent.change(screen.getByPlaceholderText(/Positions/i), { target: { value: 'QB' } });
+    fireEvent.change(screen.getByPlaceholderText(/Category/i), {
+      target: { value: 'passing' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Event Name/i), {
+      target: { value: 'Test' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Point Value/i), {
+      target: { value: '1' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Positions/i), {
+      target: { value: 'QB' },
+    });
     fireEvent.click(screen.getByText(/Add Rule/i));
     expect(screen.getByText('Test')).toBeInTheDocument();
   });

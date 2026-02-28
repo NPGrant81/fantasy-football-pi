@@ -8,7 +8,11 @@ vi.mock('../src/api/client', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+  Link: ({ to, children, ...props }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 import AnalyticsDashboard from '../src/pages/Analytics/AnalyticsDashboard';
@@ -33,9 +37,15 @@ describe('AnalyticsDashboard', () => {
     apiClient.get
       .mockResolvedValueOnce({ data: { user_id: 5, league_id: 10 } })
       // second call returns leaderboard rows
-      .mockResolvedValueOnce({ data: [
-        { manager_id: 5, efficiency_display: '94.2%', personality: 'Tactician' },
-      ] });
+      .mockResolvedValueOnce({
+        data: [
+          {
+            manager_id: 5,
+            efficiency_display: '94.2%',
+            personality: 'Tactician',
+          },
+        ],
+      });
 
     render(<AnalyticsDashboard />);
 
@@ -45,7 +55,9 @@ describe('AnalyticsDashboard', () => {
       expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
     });
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/analytics/league/10/leaderboard');
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/analytics/league/10/leaderboard'
+      );
     });
 
     expect(await screen.findByText('94.2%')).toBeInTheDocument();
@@ -55,10 +67,12 @@ describe('AnalyticsDashboard', () => {
   test('loads manager trend chart data on click', async () => {
     apiClient.get
       .mockResolvedValueOnce({ data: { user_id: 7, league_id: 12 } })
-      .mockResolvedValueOnce({ data: [
-        { week: 1, actual: 100, max: 110, efficiency: 0.91 },
-        { week: 2, actual: 105, max: 120, efficiency: 0.875 },
-      ] });
+      .mockResolvedValueOnce({
+        data: [
+          { week: 1, actual: 100, max: 110, efficiency: 0.91 },
+          { week: 2, actual: 105, max: 120, efficiency: 0.875 },
+        ],
+      });
 
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByText(/Manager Performance Trends/i));
@@ -74,6 +88,8 @@ describe('AnalyticsDashboard', () => {
     });
 
     // loading message should disappear
-    await waitFor(() => expect(screen.queryByText(/Loading trend chart/i)).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText(/Loading trend chart/i)).not.toBeInTheDocument()
+    );
   });
 });

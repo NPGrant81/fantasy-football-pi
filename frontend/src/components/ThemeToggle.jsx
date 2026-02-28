@@ -28,7 +28,11 @@ export default function ThemeToggle() {
           (isDark ? 'left-0.5' : 'right-0.5')
         }
       >
-        {isDark ? <FiMoon className="text-sm text-gray-800" /> : <FiSun className="text-sm text-yellow-400" />}
+        {isDark ? (
+          <FiMoon className="text-sm text-gray-800" />
+        ) : (
+          <FiSun className="text-sm text-yellow-400" />
+        )}
       </div>
     </button>
   );

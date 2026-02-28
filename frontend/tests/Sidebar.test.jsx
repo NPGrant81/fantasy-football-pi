@@ -9,7 +9,11 @@ vi.mock('../src/api/client', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+  Link: ({ to, children, ...props }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 import Sidebar from '../src/components/Sidebar';

@@ -48,26 +48,26 @@ or commit it yourself.
 
 ### Page → API matrix (high level)
 
-| Frontend route/page | Main APIs |
-|---|---|
-| Login (`App.jsx`) | `POST /auth/token` |
-| Home (`/`) | `GET /leagues/{id}`, `GET /leagues/owners`, `GET /leagues/{id}/news` |
-| Draft (`/draft`) | `GET /draft/history`, `POST /draft/pick`, `GET /players`, `GET /players/search`, `GET /leagues/*` |
-| My Team (`/team`, `/team/:ownerId`) | `GET /auth/me`, `GET /team/{ownerId}`, `GET /dashboard/{ownerId}`, `POST /trades/propose`, `GET /players/{id}/season-details` |
-| Matchups (`/matchups`) | `GET /matchups/week/{week}`, plus `GET /auth/me`, `GET /leagues/{id}` |
-| Game Center (`/matchup/:id`) | `GET /matchups/{id}` |
-| Waiver Wire (`/waivers`) | `GET /players/waiver-wire`, `POST /waivers/claim`, `GET /waivers/claims` (commissioner audit), `GET /dashboard/{ownerId}`, `GET /leagues/*` |
-| Commissioner (`/commissioner`) | `GET/PUT /leagues/{id}/settings` (including waiver rules and budgets), `GET /leagues/owners`, `GET /trades/pending`, `GET /leagues/{id}/waiver-budgets`, budget + draft-year endpoints |
-| Site Admin (`/admin`) | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft` |
-| Bug Report (`/bug-report`) | `PUT /auth/email`, `POST /feedback/bug` |
-| Analytics (`/analytics`) | Fetches league/manager data from `/analytics/*` endpoints; dashboard includes efficiency leaderboard and trend charts |
+| Frontend route/page                 | Main APIs                                                                                                                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Login (`App.jsx`)                   | `POST /auth/token`                                                                                                                                                                     |
+| Home (`/`)                          | `GET /leagues/{id}`, `GET /leagues/owners`, `GET /leagues/{id}/news`                                                                                                                   |
+| Draft (`/draft`)                    | `GET /draft/history`, `POST /draft/pick`, `GET /players`, `GET /players/search`, `GET /leagues/*`                                                                                      |
+| My Team (`/team`, `/team/:ownerId`) | `GET /auth/me`, `GET /team/{ownerId}`, `GET /dashboard/{ownerId}`, `POST /trades/propose`, `GET /players/{id}/season-details`                                                          |
+| Matchups (`/matchups`)              | `GET /matchups/week/{week}`, plus `GET /auth/me`, `GET /leagues/{id}`                                                                                                                  |
+| Game Center (`/matchup/:id`)        | `GET /matchups/{id}`                                                                                                                                                                   |
+| Waiver Wire (`/waivers`)            | `GET /players/waiver-wire`, `POST /waivers/claim`, `GET /waivers/claims` (commissioner audit), `GET /dashboard/{ownerId}`, `GET /leagues/*`                                            |
+| Commissioner (`/commissioner`)      | `GET/PUT /leagues/{id}/settings` (including waiver rules and budgets), `GET /leagues/owners`, `GET /trades/pending`, `GET /leagues/{id}/waiver-budgets`, budget + draft-year endpoints |
+| Site Admin (`/admin`)               | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft`                                                                                              |
+| Bug Report (`/bug-report`)          | `PUT /auth/email`, `POST /feedback/bug`                                                                                                                                                |
+| Analytics (`/analytics`)            | Fetches league/manager data from `/analytics/*` endpoints; dashboard includes efficiency leaderboard and trend charts                                                                  |
 
 For the full endpoint-level matrix (including notes and gaps), see [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md).
 
 ## CI
 
- - **GitHub Actions:** The repository runs backend tests on push and PR via `.github/workflows/ci.yml`.
- - **Badge:** [![CI](https://github.com/NPGrant81/fantasy-football-pi/actions/workflows/ci.yml/badge.svg)](https://github.com/NPGrant81/fantasy-football-pi/actions/workflows/ci.yml)
+- **GitHub Actions:** The repository runs backend tests on push and PR via `.github/workflows/ci.yml`.
+- **Badge:** [![CI](https://github.com/NPGrant81/fantasy-football-pi/actions/workflows/ci.yml/badge.svg)](https://github.com/NPGrant81/fantasy-football-pi/actions/workflows/ci.yml)
 
 ---
 
@@ -101,19 +101,20 @@ pytest -q
 
 - **Schema migrations:** before running the app or tests you can apply
   Alembic migrations rather than relying solely on the runtime `ALTER TABLE`
-  guards.  From the `backend` directory execute:
+  guards. From the `backend` directory execute:
+
   ```bash
   python -m alembic upgrade head
   ```
+
   (ensure the `backend` folder is on your `PYTHONPATH` or invoke via
   `PYTHONPATH=.`).
 
 - **Seeding:** the server startup still auto‑creates an admin user and
-  default league for convenience.  A more robust setup is to run a standalone
+  default league for convenience. A more robust setup is to run a standalone
   seeder script (`backend/scripts/seed.py`), which you can create by
-  extracting the code in `main.py`'s `seed_database` event.  This avoids
+  extracting the code in `main.py`'s `seed_database` event. This avoids
   side‑effects during normal app launches and simplifies CI.
-
 
 - Reproducible backend install (frozen set):
 
@@ -148,9 +149,9 @@ Files added for testing
 ## NFL Schedule Import
 
 The backend ships with a helper script to ingest the official NFL schedule from
-ESPN and store it locally.  You can invoke the script directly (see examples
+ESPN and store it locally. You can invoke the script directly (see examples
 below) or use the new **Site Admin → NFL Schedule Import** button, which
-posts to `/admin/tools/import-nfl-schedule` with the desired year/week.  Run it
+posts to `/admin/tools/import-nfl-schedule` with the desired year/week. Run it
 once each week (or more frequently during
 game days) so the `/matchups/week/{week}` API returns real data.
 
@@ -162,14 +163,14 @@ python scripts/import_nfl_schedule.py 2026 1   # load week 1 of 2026 season
 python scripts/import_nfl_schedule.py 2026     # load entire season
 ```
 
-You can automate this with a cron job or a GitHub Action.  Example workflow
+You can automate this with a cron job or a GitHub Action. Example workflow
 snippet:
 
 ```yaml
 name: nfl-schedule
 on:
   schedule:
-    - cron: '0 0 * * MON'  # every Monday
+    - cron: "0 0 * * MON" # every Monday
 jobs:
   import:
     runs-on: ubuntu-latest
@@ -178,7 +179,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
       - name: Import schedule
@@ -201,9 +202,9 @@ The script reports outdated packages and runs `pip audit` for known
 vulnerabilities; it also writes a summary to `dependency-report.md`.
 
 Automation is provided via `.github/workflows/dependency-check.yml`, which runs
-the helper on the first of every month (and on demand).  The workflow fails if
+the helper on the first of every month (and on demand). The workflow fails if
 any outdated packages or audit advisories are found, making it easy to spot
-when a maintenance action is needed.  Alternatively you can schedule the
+when a maintenance action is needed. Alternatively you can schedule the
 script yourself with cron or another task runner.
 
 When the helper flags a major upgrade or security fix, update
@@ -234,24 +235,24 @@ The configuration executes several checks:
 > **Note:** the API allows requests from the Vite dev server by default. If
 > you're still seeing CORS errors during local development, start the backend
 > with `ALLOW_ALL_ORIGINS=1 uvicorn backend.main:app --reload` to permit any
-> origin (useful when accessing via IP address or another host).  Do **not**
+> origin (useful when accessing via IP address or another host). Do **not**
 > enable this in production.
 
-* **pytest-collect:** installs Python dependencies and collects the backend
+- **pytest-collect:** installs Python dependencies and collects the backend
   test suite without running it; import errors (e.g. missing packages) will
   abort the commit.
-* **dependency-audit:** runs `backend/scripts/check_dependencies.py --lock-file`
+- **dependency-audit:** runs `backend/scripts/check_dependencies.py --lock-file`
   to look for outdated packages or security advisories.
-* **frontend-check:** `cd frontend && npm ci && npm run lint` – installs
+- **frontend-check:** `cd frontend && npm ci && npm run lint` – installs
   front-end dependencies and runs the linter to catch missing packages or
   syntax issues.
 
 Additional pre-push hooks run slower tasks before code leaves your workstation:
 
-* **unit-tests** – executes the full backend test suite (and installs required
+- **unit-tests** – executes the full backend test suite (and installs required
   dependencies) so failing tests stop a push. This keeps the remote repo in a
   working state even if you forget to run `pytest` locally.
-* **e2e-tests** – bootstraps the frontend and runs Cypress end-to-end tests.
+- **e2e-tests** – bootstraps the frontend and runs Cypress end-to-end tests.
   This provides early warning for integration regressions before CI takes over.
 
 These pre-push checks are optional but recommended for developers with local
@@ -263,7 +264,6 @@ These hooks help prevent the CI errors you’ve seen when new items appear.
 - `frontend/cypress/` — Cypress e2e specs and support files
 - `.github/workflows/ci.yml` — updated to run backend tests, frontend tests with coverage, and Cypress E2E job
 
-
 See the `backend/` and `frontend/` folders for additional installation and usage details.
 
 ---
@@ -273,6 +273,7 @@ See the `backend/` and `frontend/` folders for additional installation and usage
 This project now includes a database for fantasy football draft value information, sourced from multiple APIs and platforms. The database is designed to support draft analysis, player valuation, and integration with historical and current draft results.
 
 ### Minimum Fields:
+
 - Key (for joining to player tables)
 - Player Name
 - Position
@@ -282,11 +283,13 @@ This project now includes a database for fantasy football draft value informatio
 - Bye Week
 
 ### Optional/Normalized Fields:
+
 - Position Rank (e.g., WR2, RB1)
 - Projected Points
 - ADP (Average Draft Position)
 
 ### Data Sources:
+
 - ESPN
 - Yahoo ([Yahoo Draft Analysis](https://football.fantasysports.yahoo.com/f1/draftanalysis?type=salcap))
 - Draftsharks ([Draftsharks ADP](https://www.draftsharks.com/adp/superflex/ppr/sleeper/12))
@@ -294,6 +297,7 @@ This project now includes a database for fantasy football draft value informatio
 ### Example API Integration Code
 
 #### ESPN
+
 ```python
 from espn_api.football import League
 import pandas as pd
@@ -325,6 +329,7 @@ print(df.head(15))
 ```
 
 #### Yahoo
+
 ```python
 from yahoo_oauth import OAuth2
 import pandas as pd
@@ -364,6 +369,7 @@ print(df.head(15))
 ```
 
 #### Draftsharks
+
 See [Draftsharks ADP](https://www.draftsharks.com/adp/superflex/ppr/sleeper/12) for manual or scripted data extraction.
 
 ---

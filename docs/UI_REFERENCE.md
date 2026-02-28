@@ -16,6 +16,7 @@ This file consolidates the prior `UI_EVALUATION.md` and `FRONTEND_UI_NOTES.md` i
 3. Authenticated user with league → `Layout` + routed pages
 
 Strengths:
+
 - Good base dark-theme contrast and visual hierarchy
 
 ## High-Impact Improvements
@@ -23,40 +24,49 @@ Strengths:
 ### 1) Login form validation + loading feedback
 
 Problems:
+
 - Generic error feedback
 
 Recommendations:
+
 - Distinguish error types (`401`, network, throttling, server)
 
 ### 2) Initial auth-check loading state
 
 Problems:
+
 - Potential blank/flicker while `/auth/me` resolves
 
 Recommendations:
+
 - Show a small loading shell while token validation is in flight
 
 ### 3) Responsive login container
 
 Problems:
+
 - Fixed width patterns are fragile on narrow screens
 
 Recommendations:
+
 - Keep spacing responsive (`p-6 sm:p-8`)
 
 ### 4) Accessibility pass
 
 Recommendations:
+
 - Improve focus ring visibility
 
 ### 5) Authentication/state architecture cleanup
 
 Recommendations:
+
 - Keep `App.jsx` focused on route orchestration
 
 ### 6) Error handling + resilience
 
 Recommendations:
+
 - Optionally protect async effects against unmounted updates
 
 ## Suggested Priority
@@ -82,19 +92,24 @@ Recommendations:
 ## Testing Targets
 
 ### Unit / component tests
+
 - `LoginForm`:
   - required field validation
   - submit success path
   - submit failure variants
 
 ### Hook tests (if extracting `useAuth`)
+
 - logout clears state + storage
 
 ### App integration tests
+
 - no league selected → `LeagueSelector` path
 
 ## Notes for Future Contributors
+
 - Treat auth/login UX as a critical path: clarity, responsiveness, and error specificity matter.
+
 ---
 
 ## Draft Value UI & Analysis

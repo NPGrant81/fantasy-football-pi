@@ -34,7 +34,12 @@ describe('ManageOwners', () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/leagues/1/settings') {
         return Promise.resolve({
-          data: { roster_size: 14, salary_cap: 200, starting_slots: { OWNER_LIMIT: 12 }, scoring_rules: [] },
+          data: {
+            roster_size: 14,
+            salary_cap: 200,
+            starting_slots: { OWNER_LIMIT: 12 },
+            scoring_rules: [],
+          },
         });
       }
       if (url === '/leagues/owners?league_id=1') {
@@ -67,7 +72,12 @@ describe('ManageOwners', () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/leagues/1/settings') {
         return Promise.resolve({
-          data: { roster_size: 14, salary_cap: 200, starting_slots: { OWNER_LIMIT: 12 }, scoring_rules: [] },
+          data: {
+            roster_size: 14,
+            salary_cap: 200,
+            starting_slots: { OWNER_LIMIT: 12 },
+            scoring_rules: [],
+          },
         });
       }
       if (url === '/leagues/owners?league_id=1') {
@@ -77,7 +87,9 @@ describe('ManageOwners', () => {
       }
       return Promise.reject(new Error(`Unexpected URL: ${url}`));
     });
-    apiClient.delete.mockResolvedValue({ data: { message: 'User removed from league.' } });
+    apiClient.delete.mockResolvedValue({
+      data: { message: 'User removed from league.' },
+    });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     renderPage();
@@ -97,7 +109,12 @@ describe('ManageOwners', () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/leagues/1/settings') {
         return Promise.resolve({
-          data: { roster_size: 14, salary_cap: 200, starting_slots: { OWNER_LIMIT: 12 }, scoring_rules: [] },
+          data: {
+            roster_size: 14,
+            salary_cap: 200,
+            starting_slots: { OWNER_LIMIT: 12 },
+            scoring_rules: [],
+          },
         });
       }
       if (url === '/leagues/owners?league_id=1') {
@@ -107,19 +124,26 @@ describe('ManageOwners', () => {
     });
 
     apiClient.post.mockImplementation(() => {
-      owners = [
-        ...owners,
-        { id: 11, username: 'Bob', email: 'bob@test.com' },
-      ];
+      owners = [...owners, { id: 11, username: 'Bob', email: 'bob@test.com' }];
       return Promise.resolve({
-        data: { message: 'Invite sent', league_id: 1, debug_password: 'Temp1234' },
+        data: {
+          message: 'Invite sent',
+          league_id: 1,
+          debug_password: 'Temp1234',
+        },
       });
     });
 
     renderPage();
 
-    await userEvent.type(await screen.findByPlaceholderText('Owner name'), 'Bob');
-    await userEvent.type(screen.getByPlaceholderText('Email address'), 'bob@test.com');
+    await userEvent.type(
+      await screen.findByPlaceholderText('Owner name'),
+      'Bob'
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText('Email address'),
+      'bob@test.com'
+    );
     await userEvent.click(screen.getByRole('button', { name: /Send Invite/i }));
 
     await waitFor(() => {
@@ -129,7 +153,9 @@ describe('ManageOwners', () => {
         league_id: 1,
       });
       expect(screen.getByText(/League ID: 1/i)).toBeInTheDocument();
-      expect(screen.getByText(/Temporary password: Temp1234/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Temporary password: Temp1234/i)
+      ).toBeInTheDocument();
     });
   });
 });

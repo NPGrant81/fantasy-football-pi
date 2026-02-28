@@ -62,7 +62,6 @@ export default function Home({ username }) {
         </p>
       </div>
 
-
       {/* 2.2 STANDINGS & ACTIVITY GRID */}
       {/* 2.1.5 PLAYOFF BRACKET (COLLAPSIBLE) */}
       <BracketAccordion />

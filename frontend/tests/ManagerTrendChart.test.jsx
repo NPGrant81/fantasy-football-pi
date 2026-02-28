@@ -18,14 +18,20 @@ describe('ManagerTrendChart', () => {
   test('renders without crashing when API returns non-array stats', async () => {
     apiClient.get.mockResolvedValue({ data: { league_id: 1, user_id: 1 } });
     // first call is /auth/me, second is the analytics endpoint
-    apiClient.get.mockImplementationOnce(() => Promise.resolve({ data: { league_id: 1, user_id: 1 } }));
-    apiClient.get.mockImplementationOnce(() => Promise.resolve({ data: { error: 'no data' } }));
+    apiClient.get.mockImplementationOnce(() =>
+      Promise.resolve({ data: { league_id: 1, user_id: 1 } })
+    );
+    apiClient.get.mockImplementationOnce(() =>
+      Promise.resolve({ data: { error: 'no data' } })
+    );
 
     render(<ManagerTrendChart />);
 
     // component should render the chart container (heading) without crashing
     await waitFor(() => {
-      expect(screen.getByText(/Manager Performance Trends/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Manager Performance Trends/i)
+      ).toBeInTheDocument();
     });
   });
 });

@@ -23,14 +23,14 @@ The player import system was bringing in irrelevant player data:
 
 Only the following positions are now imported and available:
 
-| Position | Role |
-|----------|------|
-| **QB** | Quarterback |
-| **RB** | Running Back |
-| **WR** | Wide Receiver |
-| **TE** | Tight End |
-| **K** | Kicker |
-| **DEF** | Defense/Special Teams |
+| Position | Role                  |
+| -------- | --------------------- |
+| **QB**   | Quarterback           |
+| **RB**   | Running Back          |
+| **WR**   | Wide Receiver         |
+| **TE**   | Tight End             |
+| **K**    | Kicker                |
+| **DEF**  | Defense/Special Teams |
 
 ✅ These are the **only positions tradeable/draftable** in standard fantasy football leagues.
 
@@ -56,11 +56,13 @@ ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
 ### 2. **Player Service** (`backend/services/player_service.py`)
 
 #### Added Position Constants
+
 ```python
 ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
 ```
 
 #### Updated `search_all_players()`
+
 ```python
 # Always filter results to relevant positions
 query = db.query(models.Player).filter(
@@ -72,6 +74,7 @@ query = db.query(models.Player).filter(
 **Impact:** Player search now only returns fantasy-relevant matches.
 
 #### Updated `get_league_free_agents()`
+
 ```python
 return db.query(models.Player).filter(
     ~models.Player.id.in_(owned_ids_query),
@@ -86,6 +89,7 @@ return db.query(models.Player).filter(
 ### 3. **Players Router** (`backend/routers/players.py`)
 
 #### GET `/players/` - All Players Endpoint
+
 ```python
 @router.get("/")
 def get_all_players(db: Session = Depends(get_db)):
@@ -97,6 +101,7 @@ def get_all_players(db: Session = Depends(get_db)):
 ```
 
 **Improvements:**
+
 - ✅ Filters by position
 - ✅ Orders results for better UX (position first, then alphabetical)
 - ✅ Updated docstring to clarify scope
@@ -106,6 +111,7 @@ def get_all_players(db: Session = Depends(get_db)):
 ### 4. **League Router** (`backend/routers/league.py`)
 
 #### Search Players Endpoint
+
 ```python
 allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
 results = db.query(models.Player).filter(
@@ -121,6 +127,7 @@ results = db.query(models.Player).filter(
 ### 5. **Trades Router** (`backend/routers/trades.py`)
 
 #### Trade Lookups
+
 ```python
 allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
 players = {p.id: p for p in db.query(models.Player).filter(
@@ -134,13 +141,13 @@ players = {p.id: p for p in db.query(models.Player).filter(
 
 ## API Endpoints Updated ✅
 
-| Endpoint | Changes |
-|----------|---------|
-| `GET /players/` | Position filtering + ordering |
-| `GET /players/search?q=name&pos=QB` | Enforces position filtering |
-| `GET /players/waiver-wire` | Free agents filtered by position |
-| `GET /leagues/search-players` | League search respects positions |
-| `GET /trades/pending` | Trade lookups filtered |
+| Endpoint                            | Changes                          |
+| ----------------------------------- | -------------------------------- |
+| `GET /players/`                     | Position filtering + ordering    |
+| `GET /players/search?q=name&pos=QB` | Enforces position filtering      |
+| `GET /players/waiver-wire`          | Free agents filtered by position |
+| `GET /leagues/search-players`       | League search respects positions |
+| `GET /trades/pending`               | Trade lookups filtered           |
 
 ---
 
@@ -149,18 +156,20 @@ players = {p.id: p for p in db.query(models.Player).filter(
 ### Before vs After
 
 **Before Import:**
+
 ```
 Total Players in DB: ~2,500+ (all NFL players)
 Relevant Players: ~500-600 (QB, RB, WR, TE, K)
 Free Agents: 2,000+ (mostly irrelevant)
 
-User Experience: 
+User Experience:
 - ❌ Draft board cluttered with unusable players
 - ❌ Search returns irrelevant results
 - ❌ Free agent pool unrealistic
 ```
 
 **After Import (Next Run):**
+
 ```
 Total Players in DB: ~500-600 (only relevant positions)
 Relevant Players: ~500-600 (QB, RB, WR, TE, K, DEF)
@@ -177,6 +186,7 @@ User Experience:
 ## Testing Recommendations
 
 ### 1. Test Import
+
 ```bash
 cd backend
 python scripts/import_espn_players.py
@@ -184,6 +194,7 @@ python scripts/import_espn_players.py
 ```
 
 ### 2. Verify Database
+
 ```bash
 # Check player positions
 SELECT DISTINCT position FROM players ORDER BY position;
@@ -191,6 +202,7 @@ SELECT DISTINCT position FROM players ORDER BY position;
 ```
 
 ### 3. Test Endpoints
+
 ```bash
 # Test player search
 curl "http://localhost:8000/players/search?q=mahomes"
@@ -206,11 +218,13 @@ curl "http://localhost:8000/players/waiver-wire"
 ## Performance Impact
 
 ✅ **Database Query Optimization**
+
 - Fewer results to fetch → Faster queries
 - Index on `position` column → Efficient filtering
 - Limited result sets (10-50 rows) → Reduced memory usage
 
 📊 **Expected Improvement:**
+
 - Query time: ~5-10ms faster
 - Memory: ~70% less data in result sets
 - Bandwidth: ~60-70% reduction in API response size
@@ -222,6 +236,7 @@ curl "http://localhost:8000/players/waiver-wire"
 ⚠️ **Breaking Change:** Clients expecting "all players" will now get filtered results. If any frontend code relies on non-fantasy positions (LS, OL, P), it will break.
 
 **Migration:**
+
 - ✅ Frontend already filters by these positions
 - ✅ No breaking changes to endpoint contracts
 - ✅ All existing draft logic still works

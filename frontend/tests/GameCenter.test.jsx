@@ -3,7 +3,11 @@ import { vi } from 'vitest';
 
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: '1' }),
-  Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
+  Link: ({ to, children, ...props }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('../src/api/client', () => ({
@@ -53,8 +57,12 @@ describe('GameCenter (Match Details)', () => {
     await waitFor(() => {
       expect(screen.getByText(/Week 5/i)).toBeInTheDocument();
     });
-    expect(screen.getByRole('heading', { level: 2, name: /Runaway Train/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /The Legends/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: /Runaway Train/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: /The Legends/i })
+    ).toBeInTheDocument();
   });
 
   test('displays home and away team starters', async () => {
@@ -68,12 +76,36 @@ describe('GameCenter (Match Details)', () => {
       home_projected: 130,
       away_projected: 120,
       home_roster: [
-        { player_id: 1, name: 'Patrick Mahomes', position: 'QB', nfl_team: 'KC', projected: 25 },
-        { player_id: 2, name: 'Travis Kelce', position: 'TE', nfl_team: 'KC', projected: 15 },
+        {
+          player_id: 1,
+          name: 'Patrick Mahomes',
+          position: 'QB',
+          nfl_team: 'KC',
+          projected: 25,
+        },
+        {
+          player_id: 2,
+          name: 'Travis Kelce',
+          position: 'TE',
+          nfl_team: 'KC',
+          projected: 15,
+        },
       ],
       away_roster: [
-        { player_id: 3, name: 'Josh Allen', position: 'QB', nfl_team: 'BUF', projected: 23 },
-        { player_id: 4, name: 'Stefon Diggs', position: 'WR', nfl_team: 'BUF', projected: 12 },
+        {
+          player_id: 3,
+          name: 'Josh Allen',
+          position: 'QB',
+          nfl_team: 'BUF',
+          projected: 23,
+        },
+        {
+          player_id: 4,
+          name: 'Stefon Diggs',
+          position: 'WR',
+          nfl_team: 'BUF',
+          projected: 12,
+        },
       ],
     };
 
@@ -100,10 +132,34 @@ describe('GameCenter (Match Details)', () => {
       home_projected: 105,
       away_projected: 100,
       home_roster: [
-        { player_id: 1, name: 'QB1', position: 'QB', nfl_team: 'KC', projected: 25 },
-        { player_id: 2, name: 'RB1', position: 'RB', nfl_team: 'KC', projected: 15 },
-        { player_id: 3, name: 'WR1', position: 'WR', nfl_team: 'KC', projected: 12 },
-        { player_id: 4, name: 'TE1', position: 'TE', nfl_team: 'KC', projected: 10 },
+        {
+          player_id: 1,
+          name: 'QB1',
+          position: 'QB',
+          nfl_team: 'KC',
+          projected: 25,
+        },
+        {
+          player_id: 2,
+          name: 'RB1',
+          position: 'RB',
+          nfl_team: 'KC',
+          projected: 15,
+        },
+        {
+          player_id: 3,
+          name: 'WR1',
+          position: 'WR',
+          nfl_team: 'KC',
+          projected: 12,
+        },
+        {
+          player_id: 4,
+          name: 'TE1',
+          position: 'TE',
+          nfl_team: 'KC',
+          projected: 10,
+        },
       ],
       away_roster: [],
     };
@@ -132,7 +188,13 @@ describe('GameCenter (Match Details)', () => {
       away_projected: 100,
       home_roster: [],
       away_roster: [
-        { player_id: 1, name: 'Player', position: 'QB', nfl_team: 'KC', projected: 20 },
+        {
+          player_id: 1,
+          name: 'Player',
+          position: 'QB',
+          nfl_team: 'KC',
+          projected: 20,
+        },
       ],
     };
 
@@ -173,7 +235,9 @@ describe('GameCenter (Match Details)', () => {
   });
 
   test('handles API error gracefully', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     apiClient.get.mockRejectedValue(new Error('API Error'));
 
     render(<GameCenter />);
@@ -221,7 +285,13 @@ describe('GameCenter (Match Details)', () => {
       home_projected: 105,
       away_projected: 100,
       home_roster: [
-        { player_id: 1, name: 'Star Player', position: 'QB', nfl_team: 'KC', projected: 27.5 },
+        {
+          player_id: 1,
+          name: 'Star Player',
+          position: 'QB',
+          nfl_team: 'KC',
+          projected: 27.5,
+        },
       ],
       away_roster: [],
     };

@@ -1,4 +1,5 @@
 # Testing Guide & Bug Report
+
 **Date:** February 18, 2026
 
 ---
@@ -6,30 +7,31 @@
 ## 🔍 TESTING RESULTS
 
 ### Backend Tests
+
 **Status:** ✅ ALL TESTS PASS (60 passing, 1 skipped, 0 failures)
 
 The suite now exercises the core business logic used by trades, keepers,
-admin utilities and transaction history.  The following bug fixes were
+admin utilities and transaction history. The following bug fixes were
 applied during the latest round of work:
 
 1. **Stub path in schedule import test** – the route imports
    `backend.scripts.import_nfl_schedule`, so the test now patches the same
-   module instead of the top-level `scripts` package.  This turned the
+   module instead of the top-level `scripts` package. This turned the
    previously‑failing `test_import_schedule_runs_upsert` green.
 
 2. **Keeper flag calculations** – waiver and drop rules were overly
-   simplistic.  The logic now checks for any `waiver_add` transaction and
+   simplistic. The logic now checks for any `waiver_add` transaction and
    for actual drop events (owner was `old_owner_id`), and the drafted‑only
-   flag no longer erroneously marked trade acquisitions as drops.  The
+   flag no longer erroneously marked trade acquisitions as drops. The
    `test_flags_for_waiver_and_trade_and_drop` test verifies the behavior.
 
 3. **SQLite Decimal binding error** – when approving a trade, budget
-   arithmetic produced `Decimal` values which SQLite refused to bind.  We
+   arithmetic produced `Decimal` values which SQLite refused to bind. We
    now coerce the updated `future_draft_budget` values to plain integers in
    `services/trade_service.py` before committing.
 
 4. **Transaction timestamp in test** – the owner‑at‑time test failed because
-   the draft transaction used the current timestamp.  The test now back‑dates
+   the draft transaction used the current timestamp. The test now back‑dates
    this record to allow meaningful queries.
 
 5. **Patching miscellaneous edge tests** – the previous test run also
@@ -37,6 +39,7 @@ applied during the latest round of work:
    yet cleaned up.
 
 #### Warnings (remain):
+
 - Pydantic deprecation notices (upgrade to ConfigDict soon)
 - SQLAlchemy deprecation of `Query.get()` (tests can switch to
   `Session.get()` at leisure).
@@ -44,20 +47,22 @@ applied during the latest round of work:
 ---
 
 ### Frontend Tests
+
 …
 
 ---
 
 ### Frontend Tests
+
 **Status:** ⚠️ IMPORT + TEST UPDATES NEEDED
 
 #### Issues Found:
+
 1. **Vitest Missing Path Aliases** (FIXED)
    - **Error:** `Failed to resolve import "@api/client"`
    - **Root Cause:** vitest.config.js didn't include resolve.alias configuration
    - **Fix:** Updated vitest.config.js to match vite.config.js aliases
    - **Files Updated:** `frontend/vitest.config.js`
-   
 2. **Tests Not Updated for Login Form Changes** (FIXED)
    - **Test File:** `frontend/tests/App.test.jsx`
    - **Issue:** Mock checklist not testing new League ID input field
@@ -78,10 +83,11 @@ applied during the latest round of work:
 ### Backend Test Results: 5 PASSED, 3 FAILED
 
 #### Test Run Output:
+
 - ✅ `test_create_access_token_and_decode` - PASSED
 - ✅ `test_user_create_and_token_models` - PASSED
 - ✅ `test_is_player_locked_future_and_past` - PASSED
-- ✅ `test_send_invite_email_simulation` - PASSED 
+- ✅ `test_send_invite_email_simulation` - PASSED
 - ✅ `test_calculate_waiver_priority_simple` - PASSED
 - ❌ `test_password_hash_and_verify` - FAILED
 - ❌ `test_check_is_commissioner_allows_and_denies` - FAILED
@@ -90,6 +96,7 @@ applied during the latest round of work:
 ### Critical Bugs Found:
 
 #### Bug 1: BCrypt Password Hashing Failure
+
 - **Test:** `test_password_hash_and_verify`
 - **Error:** `ValueError: password cannot be longer than 72 bytes`
 - **Root Cause:** Bcrypt has a 72-byte limit; test password "supersecret" is fine, but the passlib/bcrypt interaction is broken
@@ -102,6 +109,7 @@ applied during the latest round of work:
 - **Priority:** CRITICAL
 
 #### Bug 2: Async Test Function Not Marked Properly
+
 - **Test:** `test_check_is_commissioner_allows_and_denies`
 - **Error:** `async def functions are not natively supported`
 - **Root Cause:** Test is async but pytest-asyncio not installed
@@ -110,6 +118,7 @@ applied during the latest round of work:
 - **Priority:** HIGH
 
 #### Bug 3: Import Path Still Broken in One Test
+
 - **Test:** `test_is_transaction_window_open_monkeypatch`
 - **Error:** `ModuleNotFoundError: No module named 'backend'`
 - **Root Cause:** Test file has `import backend.utils.league_calendar` (line 18)
@@ -120,11 +129,13 @@ applied during the latest round of work:
 ### Deprecation Warnings (7 warnings):
 
 #### SQLAlchemy 2.0 Deprecation
+
 - **Location:** `database.py:18`
 - **Issue:** `declarative_base()` should be `sqlalchemy.orm.declarative_base()`
 - **Type:** WARNING (not breaking yet)
 
 #### Pydantic V2 Deprecation (6 warnings)
+
 - **Files:** Same 6 files as before
 - **Impact:** Will break on Pydantic V3.0
 - **Type:** WARNING (still working, but deprecated)
@@ -132,7 +143,8 @@ applied during the latest round of work:
 ### Priority 1 (CRITICAL) - Blocking Tests
 
 #### Backend
-1. **Install psycopg2-binary** 
+
+1. **Install psycopg2-binary**
    - Command: `pip install psycopg2-binary`
    - Enables: All backend tests to run
    - Estimated fix: 2 minutes
@@ -140,28 +152,32 @@ applied during the latest round of work:
 ### Priority 2 (HIGH) - Code Quality
 
 #### Backend
-2. **Migrate Pydantic Schemas to V2** 
+
+2. **Migrate Pydantic Schemas to V2**
    - **Pattern to replace:**
+
      ```python
      # OLD (Deprecated)
      class UserSchema(BaseModel):
          username: str
-         
+
          class Config:
              from_attributes = True
-     
+
      # NEW (Pydantic V2)
      from pydantic import ConfigDict
-     
+
      class UserSchema(BaseModel):
          model_config = ConfigDict(from_attributes=True)
          username: str
      ```
+
    - **Files:** 5 schema files
    - **Estimated effort:** 10 minutes (bulk find/replace)
    - **Benefit:** Future-proof for Pydantic V3.0
 
 #### Frontend
+
 3. **Update App.test.jsx for Login Form Changes**
    - Add test for new "League ID" input field
    - Test default value of `leagueInput` = "1"
@@ -182,6 +198,7 @@ applied during the latest round of work:
 ## 📋 RECOMMENDED FIX ORDER
 
 ### Immediate (Session)
+
 1. ✅ Fix backend test imports (DONE)
 2. ⏳ Install psycopg2-binary
 3. ⏳ Run backend tests successfully
@@ -190,6 +207,7 @@ applied during the latest round of work:
 6. ⏳ Document bugs found
 
 ### Follow-up Session
+
 7. Migrate Pydantic schemas to V2 ConfigDict
 8. Fix any failing tests from step 3 & 5
 9. Add new test files for coverage
@@ -199,6 +217,7 @@ applied during the latest round of work:
 ## TESTING COMMANDS
 
 ### Backend
+
 ```powershell
 cd backend
 pip install psycopg2-binary
@@ -207,6 +226,7 @@ python -m pytest tests/ -v --cov=. --cov-report=html  # With coverage
 ```
 
 ### Frontend
+
 ```powershell
 cd frontend
 npm install
@@ -241,6 +261,7 @@ npm run verify
 ```
 
 Pass criteria:
+
 - No build/import-analysis errors
 - No lint errors in changed files
 - Tests pass for impacted areas
@@ -264,12 +285,14 @@ Then rerun verification before commit.
 ## PYDANTIC V2 MIGRATION CHECKLIST
 
 Files requiring migration:
+
 - [ ] `backend/schemas/user.py` (1 class)
 - [ ] `backend/schemas/scoring.py` (1 class)
 - [ ] `backend/schemas/league.py` (2 classes)
 - [ ] `backend/schemas/draft.py` (1 class)
 
 Pattern:
+
 1. Remove `class Config:` block
 2. Add import: `from pydantic import ConfigDict`
 3. Add class variable: `model_config = ConfigDict(...)`
@@ -280,14 +303,17 @@ Pattern:
 ## RECENT CHANGES AFFECTING TESTS
 
 ### Login Form Enhancement (Commit `ee31db4`)
+
 **File:** `frontend/src/App.jsx`
 **Changes:**
+
 - Added `leagueInput` state with default value "1"
 - Added new form input for "League ID"
 - Modified `handleLogin` to use `leagueInput` instead of server response
 - Removed reliance on `league_id` from `/auth/token` response
 
 **Test Impact:**
+
 - `App.test.jsx` test "renders login screen" may fail on new placeholder check
 - Need to verify new League ID field is rendered
 - Need to test default value persists
@@ -326,9 +352,11 @@ README. They run a quick `pytest --collect-only`, frontend dependency install
 (and lint), and dependency audit so you see missing modules or outdated
 packages before pushing. Use `pre-commit run --all-files` whenever you add or
 upgrade requirements or change front-end code.
+
 ## BUGS FIXED IN THIS SESSION
 
 ### ✅ Backend
+
 1. Fixed test import paths (sys.path.insert)
 2. Installed psycopg2-binary database driver
 3. Installed google-genai (>=1.64.0) for AI router tests
@@ -337,12 +365,13 @@ upgrade requirements or change front-end code.
 6. Made bcrypt test resilient to environment issues
 
 ### ✅ Frontend
+
 1. Added path aliases to vitest.config.js
 2. Updated App.test.jsx for login form changes
 3. Added comprehensive login form tests
 4. Added userEvent for interactive testing
 
 ### Current Test Results:
+
 - **Backend:** 7 passed, 1 skipped (bcrypt env issue), 6 warnings
 - **Frontend:** Ready to run after path fix
-

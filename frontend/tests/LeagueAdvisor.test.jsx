@@ -1,7 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 
-vi.mock('../src/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('../src/api/client', () => ({
+  default: { get: vi.fn(), post: vi.fn() },
+}));
 import apiClient from '../src/api/client';
 import LeagueAdvisor from '../src/components/LeagueAdvisor';
 

@@ -5,15 +5,15 @@ JavaScript) dependencies up to date and secure over the long term.
 
 ## Tools
 
-* **backend/scripts/check_dependencies.py** – a small helper that lists
+- **backend/scripts/check_dependencies.py** – a small helper that lists
   outdated packages, runs `pip audit` for security advisories, and writes a
   Markdown report (`dependency-report.md`). The script exits with a non-zero
   status when it finds any issues so automation jobs can detect them.
-* **GitHub Actions workflow** (`.github/workflows/dependency-check.yml`) – runs
+- **GitHub Actions workflow** (`.github/workflows/dependency-check.yml`) – runs
   the helper on the first day of each month and when manually dispatched. The
   job will fail if updates or vulnerabilities are found and uploads the report
   as an artifact.
-* **Dependabot** (or similar bots) can be configured via GitHub to open PRs
+- **Dependabot** (or similar bots) can be configured via GitHub to open PRs
   automatically when new releases are available. These PRs should be reviewed
   and merged after verifying the upgrade doesn’t break the app.
 
@@ -47,9 +47,9 @@ outdated packages before they age too far behind.
 
 ## Notes
 
-* Pin versions when necessary and annotate the reason in the requirements
+- Pin versions when necessary and annotate the reason in the requirements
   file (e.g. “google-genai 1.64.0 locked for Gemini free‑tier”).
-* JavaScript dependencies are managed separately; consider adding a similar
+- JavaScript dependencies are managed separately; consider adding a similar
   check (e.g. `npm outdated`) if desired.
-* Keeping dependencies current reduces the attack surface and makes upgrades
+- Keeping dependencies current reduces the attack surface and makes upgrades
   easier when they are unavoidable.
