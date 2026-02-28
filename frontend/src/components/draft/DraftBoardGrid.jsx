@@ -57,21 +57,20 @@ export default function DraftBoardGrid({
                   key={i}
                   className={(() => {
                     if (!player) {
-                      return 'h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 bg-slate-900 opacity-50';
+                      return 'h-20 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 bg-slate-900 opacity-50';
                     }
                     const bg =
                       POSITION_COLORS[player.position] || 'bg-yellow-400';
                     // base background matches position, add thin gold border for emphasis
-                    return `h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 ${bg} text-slate-100 border-2 border-slate-600`;
+                    return `h-20 flex flex-col justify-between items-center border-r border-b border-slate-700 p-1 ${bg} text-slate-100 border-2 border-slate-600`;
                   })()}
                 >
                   {player ? (
                     <>
-                      <span className="text-sm font-semibold text-slate-100 break-words text-center">
+                      <span className="text-sm font-semibold text-slate-100 break-words text-center leading-tight">
                         {player.player_name || player.name}
                       </span>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-tighter mt-1">
-                        {player.position ? `${player.position} | ` : ''}
+                      <span className="text-xs text-slate-400 uppercase tracking-tighter mt-1">
                         {player.amount || player.price
                           ? `$${player.amount || player.price}`
                           : ''}

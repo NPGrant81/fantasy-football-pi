@@ -28,6 +28,10 @@ describe('DraftBoardGrid header', () => {
     const columnDiv = headerDiv.parentElement;
     expect(columnDiv).toHaveClass('w-[100px]');
 
+    // ensure empty cells are tall enough for two-line names
+    const emptyCell = screen.getAllByText('OPEN')[0].closest('div');
+    expect(emptyCell).toHaveClass('h-20');
+
     // stats line should contain count and remaining budget
     const statsEl = screen.getByText(/1 \|/);
     expect(statsEl).toBeInTheDocument();
@@ -44,7 +48,8 @@ describe('DraftBoardGrid header', () => {
       />
     );
     expect(screen.getByText('Empty')).toBeInTheDocument();
-    expect(screen.getByText(/0 Drafted/)).toBeInTheDocument();
+    // header now shows count followed by pipe character rather than the word "Drafted"
+    expect(screen.getByText(/0 \|/)).toBeInTheDocument();
     expect(screen.getByText(/\$0 Remaining/)).toBeInTheDocument();
   });
 
@@ -62,7 +67,8 @@ describe('DraftBoardGrid header', () => {
     expect(nameEl).toBeInTheDocument();
     expect(nameEl).toHaveClass('break-words');
 
-    expect(screen.getByText(/TE\s*\|\s*\$?\s*20/)).toBeInTheDocument();
+    // price should display on its own line, position removed
+    expect(screen.getByText(/\$?\s*20/)).toBeInTheDocument();
     // drafted cell background should be gold for any player
     const cell = nameEl.closest('div'); // the immediate div is the cell
     // background should correspond to the player's position color
