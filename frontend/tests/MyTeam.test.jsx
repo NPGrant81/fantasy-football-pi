@@ -529,14 +529,17 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     render(<MyTeam activeOwnerId={1} />);
 
-    // default mode is actual
+    // default mode is actual; sub-header should include our week/sort selectors and toggle
     await waitFor(() =>
       expect(screen.getByText(/Lineup Builder/i)).toBeInTheDocument()
     );
-    expect(
-      screen.getByRole('button', { name: /Recommended/i })
-    ).toBeInTheDocument();
+    // verify the week selector label is shown
+    expect(screen.getByLabelText(/Week/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Recommended/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Actual/i })).toBeInTheDocument();
+    // legend should now live near the toggle
+    expect(screen.getByText(/Green = valid tier/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Position Tier Rules:/i)).toBeNull();
 
     // switch to recommended
     fireEvent.click(screen.getByRole('button', { name: /Recommended/i }));
@@ -550,6 +553,9 @@ describe('MyTeam (Roster & Lineups)', () => {
     await waitFor(() =>
       expect(screen.getByText(/Lineup Builder/i)).toBeInTheDocument()
     );
+    // the active accordion headers should render based on tier rows
+    expect(screen.getByText(/QB/i)).toBeInTheDocument();
+    expect(screen.getByText(/RB/i)).toBeInTheDocument();
   });
 
   // new tests for taxi filtering and trade modal
