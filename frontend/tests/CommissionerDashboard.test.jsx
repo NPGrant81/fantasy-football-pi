@@ -84,4 +84,20 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
 
     consoleErrorSpy.mockRestore();
   });
+
+  test('shows keeper rules card', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: {} });
+      }
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    render(<CommissionerDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText(/Keeper Rules/i)).toBeInTheDocument();
+    });
+  });
 });

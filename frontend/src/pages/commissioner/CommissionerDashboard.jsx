@@ -7,6 +7,7 @@ import {
   FiActivity,
   FiDollarSign,
   FiTool,
+  FiRepeat,
 } from 'react-icons/fi';
 
 // Professional Imports
@@ -152,6 +153,21 @@ export default function CommissionerDashboard() {
             icon: 'text-yellow-400',
             badge: 'bg-yellow-900/30 text-yellow-400',
             button: 'bg-yellow-500 hover:bg-yellow-400 text-black',
+          }}
+        />
+        <AdminActionCard
+          icon={FiRepeat}
+          badge="KEEPERS"
+          title="Keeper Rules"
+          description="Configure keeper limits, values, and veto/reset."
+          onClick={() => navigate('/commissioner/keeper-rules')}
+          loading={false}
+          actionLabel="Edit Keeper Rules"
+          accent={{
+            hoverBorder: 'hover:border-indigo-500/30',
+            icon: 'text-indigo-400',
+            badge: 'bg-indigo-900/30 text-indigo-400',
+            button: 'bg-indigo-600 hover:bg-indigo-500 text-white',
           }}
         />
       </div>

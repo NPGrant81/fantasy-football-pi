@@ -17,6 +17,7 @@ import DraftBoard from '@/pages/DraftBoard';
 import WaiverWire from '@/pages/WaiverWire';
 import WaiverRules from '@/pages/WaiverRules';
 import ManageWaiverRules from '@/pages/commissioner/ManageWaiverRules';
+import ManageKeeperRules from '@/pages/commissioner/ManageKeeperRules';
 import SiteAdmin from '@/pages/admin/SiteAdmin';
 import CommissionerDashboard from '@/pages/commissioner/CommissionerDashboard';
 import ManageTrades from '@/pages/commissioner/ManageTrades';
@@ -59,6 +60,14 @@ describe('DraftBoard (Smoke Test)', () => {
     await waitFor(() => {
       expect(container).toBeInTheDocument();
       expect(screen.getByText(/Nominator:/i)).toBeInTheDocument();
+    });
+  });
+
+  test('ManageKeeperRules renders without crashing', async () => {
+    // reuse the same mocks above
+    render(<ManageKeeperRules />);
+    await waitFor(() => {
+      expect(screen.getByText(/Keeper Rules/i)).toBeInTheDocument();
     });
   });
 

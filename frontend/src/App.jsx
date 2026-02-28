@@ -36,6 +36,7 @@ const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
 const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
+const KeeperRules = lazy(() => import('./pages/commissioner/ManageKeeperRules'));
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
@@ -282,6 +283,10 @@ function App() {
               <Route
                 path="/commissioner/manage-trades"
                 element={<ManageTrades />}
+              />
+              <Route
+                path="/commissioner/keeper-rules"
+                element={<KeeperRules />}
               />
               <Route
                 path="/waivers"

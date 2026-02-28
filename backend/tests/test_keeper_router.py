@@ -120,10 +120,14 @@ def test_admin_settings_and_actions():
     upd.waiver_policy = True
     upd.trade_deadline = None
     upd.drafted_only = True
+    upd.cost_type = "round"
+    upd.cost_inflation = 5
 
     update_keeper_settings(update=upd, db=db_session, current_user=current_comm)
     outs = get_keeper_settings(db=db_session, current_user=current_comm)
     assert outs.max_keepers == 2
+    assert outs.cost_type == "round"
+    assert outs.cost_inflation == 5
 
     # save some keepers for both owners
     p = make_player(db_session, "X")

@@ -38,6 +38,7 @@ class KeeperPageResponse(BaseModel):
     max_allowed: int
     estimated_budget: int
     effective_budget: int
+    ineligible: List[int] = []
 
 class SubmitKeepersRequest(BaseModel):
     players: List[KeeperSelectionSchema]
@@ -79,6 +80,11 @@ def get_my_keepers(
 
     rules = db.query(models.KeeperRules).filter(models.KeeperRules.league_id == current_user.league_id).first()
     max_allowed = rules.max_keepers if rules else len(selections)
+    ineligible_ids: list[int] = []
+    if rules and rules.max_years_per_player is not None:
+        # any player whose years_kept_count >= max should be flagged
+        limit = rules.max_years_per_player
+        ineligible_ids = [k.player_id for k in keepers if k.years_kept_count >= limit]
 
     return KeeperPageResponse(
         selections=selections,
@@ -87,6 +93,7 @@ def get_my_keepers(
         max_allowed=max_allowed,
         estimated_budget=keeper_service.project_budget(db, current_user.id),
         effective_budget=keeper_service.get_effective_budget(db, current_user.id),
+        ineligible=ineligible_ids,
     )
 
 @router.post("/")
@@ -257,6 +264,8 @@ class KeeperSettingsOut(BaseModel):
     waiver_policy: bool
     trade_deadline: Optional[datetime]
     drafted_only: bool
+    cost_type: str
+    cost_inflation: int
 
 class KeeperSettingsUpdate(BaseModel):
     max_keepers: Optional[int] = None
@@ -265,6 +274,8 @@ class KeeperSettingsUpdate(BaseModel):
     waiver_policy: Optional[bool] = None
     trade_deadline: Optional[datetime] = None
     drafted_only: Optional[bool] = None
+    cost_type: Optional[str] = None
+    cost_inflation: Optional[int] = None
 
 @router.get("/settings", response_model=KeeperSettingsOut)
 def get_keeper_settings(
@@ -287,6 +298,8 @@ def get_keeper_settings(
         waiver_policy=rules.waiver_policy,
         trade_deadline=rules.trade_deadline,
         drafted_only=rules.drafted_only,
+        cost_type=rules.cost_type,
+        cost_inflation=rules.cost_inflation,
     )
 
 @router.put("/settings")

@@ -950,6 +950,12 @@ export default function MyTeam({ activeOwnerId }) {
               >
                 Trade Rules
               </button>
+              <Link
+                to="/commissioner/keeper-rules"
+                className={`${controlButtonClass} bg-indigo-600 hover:bg-indigo-500 text-white`}
+              >
+                Keeper Rules
+              </Link>
             </>
           )}
 

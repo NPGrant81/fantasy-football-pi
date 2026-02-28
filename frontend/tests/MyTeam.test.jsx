@@ -412,6 +412,7 @@ describe('MyTeam (Roster & Lineups)', () => {
       expect(screen.getByText(/Scoring Rules/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/Owner Management/i)).toBeInTheDocument();
+    expect(screen.getByText(/Keeper Rules/i)).toBeInTheDocument();
   });
 
   test('hides commissioner controls when user is not commissioner', async () => {
@@ -463,6 +464,7 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     await waitFor(() => {
       expect(screen.queryByText(/Scoring Rules/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Keeper Rules/i)).not.toBeInTheDocument();
     });
   });
 
