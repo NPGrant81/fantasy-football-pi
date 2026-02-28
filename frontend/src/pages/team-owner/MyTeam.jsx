@@ -959,6 +959,12 @@ export default function MyTeam({ activeOwnerId }) {
           >
             <FiPlus className="text-base" /> Waiver Wire
           </Link>
+          <Link
+            to="/keepers"
+            className={`${controlButtonClass} inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white`}
+          >
+            <FiRepeat className="text-base" /> Manage Keepers
+          </Link>
 
           {canProposeTrade && (
             <button

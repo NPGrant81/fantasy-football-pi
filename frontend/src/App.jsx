@@ -40,6 +40,7 @@ const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
 );
+const Keepers = lazy(() => import('./pages/Keepers'));
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
@@ -297,6 +298,7 @@ function App() {
                 element={<WaiverRules leagueId={activeLeagueId} />}
               />
               <Route path="/bug-report" element={<BugReport />} />
+              <Route path="/keepers" element={<Keepers />} />
               <Route path="/analytics" element={<AnalyticsDashboard />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
