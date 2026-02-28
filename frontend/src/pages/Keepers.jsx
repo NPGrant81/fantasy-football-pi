@@ -127,7 +127,8 @@ export default function Keepers() {
           return (
             <div
               key={idx}
-              className={`h-24 w-full border rounded-lg flex flex-col items-center justify-center p-1 ${
+              onClick={() => player && togglePlayer(player.player_id)}
+              className={`cursor-pointer h-24 w-full border rounded-lg flex flex-col items-center justify-center p-1 ${
                 keeperData?.recommended?.some(
                   (r) => r.player_id === player?.player_id
                 )

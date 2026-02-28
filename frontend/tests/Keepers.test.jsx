@@ -120,6 +120,9 @@ describe('Keepers page', () => {
     fireEvent.click(checkbox);
     // budget updated (draft_price 20 subtracted from 100)
     expect(screen.getByText(/Estimated Budget: \$80/)).toBeInTheDocument();
+    // clicking slot should also clear selection and restore budget
+    fireEvent.click(screen.getByText('Alice'));
+    expect(screen.getByText(/Estimated Budget: \$100/)).toBeInTheDocument();
     fireEvent.click(screen.getByText(/Submit List/i));
     await waitFor(() =>
       expect(apiClient.post).toHaveBeenCalledWith(
