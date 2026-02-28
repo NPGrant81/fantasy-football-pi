@@ -556,6 +556,59 @@ describe('MyTeam (Roster & Lineups)', () => {
     // the active accordion headers should render based on tier rows
     expect(screen.getByText(/QB/i)).toBeInTheDocument();
     expect(screen.getByText(/RB/i)).toBeInTheDocument();
+
+  });
+
+  test('accordion badge turns red when position exceeds limit', async () => {
+    const mockSummary = {
+      player_count: 2,
+      active_lineups: 1,
+      pending_waivers: 0,
+      pending_trades: 0,
+      standing: 1,
+      points_for: 0,
+      points_against: 0,
+    };
+    const badRoster = {
+      roster: [
+        { id: 1, name: 'QB1', position: 'QB', nfl_team: 'NYJ', status: 'STARTER' },
+        { id: 2, name: 'QB2', position: 'QB', nfl_team: 'NE', status: 'STARTER' },
+      ],
+    };
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: {
+            user_id: 1,
+            username: 'alice',
+            league_id: 1,
+            is_commissioner: false,
+          },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: { scoring_rules: [] } });
+      }
+      if (url === '/dashboard/1') {
+        return Promise.resolve({ data: { ...mockSummary, roster: [] } });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({ data: badRoster });
+      }
+      if (url === '/scoring/1') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    render(<MyTeam activeOwnerId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText(/QB 2/)).toHaveClass('text-red-300')
+    );
   });
 
   // new tests for taxi filtering and trade modal
