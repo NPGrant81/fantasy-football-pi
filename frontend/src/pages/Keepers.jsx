@@ -9,10 +9,13 @@ export default function Keepers() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
-  const [baseBudget, setBaseBudget] = useState(0);
+  // base budget is derived from keeper data and roster rather than state
+  // (keeps eslint happy and avoids cascading renders)
+  // const [baseBudget, setBaseBudget] = useState(0); // now derived via memo
 
   const userId = localStorage.getItem('user_id');
 
+  // fetch keeper info and roster once per user
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -27,26 +30,31 @@ export default function Keepers() {
       }
       if (userId) {
         try {
-          const rres = await apiClient.get(`/team/${userId}?week=0`);
+          // backend rejects week 0, fall back to 1 if necessary
+          const weekParam = 1;
+          const rres = await apiClient.get(`/team/${userId}?week=${weekParam}`);
           setRoster(Array.isArray(rres.data?.roster) ? rres.data.roster : []);
         } catch (e) {
           console.error('failed to load roster', e);
           setRoster([]);
         }
       }
-      // compute base budget (undo initial subtraction)
-      if (keeperData && roster.length > 0) {
-        let initialCost = 0;
-        keeperData.selections.forEach((s) => {
-          const p = roster.find((r) => r.player_id === s.player_id);
-          if (p) initialCost += Number(p.draft_price || 0);
-        });
-        setBaseBudget((keeperData.estimated_budget || 0) + initialCost);
-      }
       setLoading(false);
     }
     load();
-  }, [userId, keeperData, roster]);
+  }, [userId]);
+
+  // compute base budget from the latest data
+  const computedBaseBudget = React.useMemo(() => {
+    if (!keeperData || roster.length === 0) return 0;
+    let initialCost = 0;
+    keeperData.selections.forEach((s) => {
+      const p = roster.find((r) => r.player_id === s.player_id);
+      if (p) initialCost += Number(p.draft_price || 0);
+    });
+    return (keeperData.estimated_budget || 0) + initialCost;
+  }, [keeperData, roster]);
+
 
   const togglePlayer = (playerId) => {
     const newSel = new Set(selected);
@@ -98,7 +106,7 @@ export default function Keepers() {
   const maxAllowed = keeperData?.max_allowed || 0;
   const selectedCount = selected.size;
   const estimatedBudget =
-    baseBudget -
+    computedBaseBudget -
     Array.from(selected).reduce((sum, pid) => {
       const p = roster.find((r) => r.player_id === pid);
       return sum + Number(p?.draft_price || 0);
