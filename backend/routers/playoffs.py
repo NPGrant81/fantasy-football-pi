@@ -68,7 +68,7 @@ def get_settings(league_id: int = Query(...), db: Session = Depends(get_db)):
 @router.patch("/settings", response_model=PlayoffSettingsSchema)
 def update_settings(payload: SettingsUpdateRequest, league_id: int = Query(...), db: Session = Depends(get_db)):
     settings = _load_settings(db, league_id)
-    for field, val in payload.dict(exclude_unset=True).items():
+    for field, val in payload.model_dump(exclude_unset=True).items():
         setattr(settings, field, val)
     db.commit()
     db.refresh(settings)

@@ -163,8 +163,8 @@ def lock_my_keepers(
         )
         .update({"status": "locked", "locked_at": datetime.utcnow()}, synchronize_session="fetch")
     )
-    # adjust budget
-    owner = current_user
+    # reload owner record from the DB to ensure it's attached to session
+    owner = db.get(models.User, current_user.id)
     pending = (
         db.query(models.Keeper)
         .filter(
@@ -176,7 +176,7 @@ def lock_my_keepers(
         .all()
     )
     total_cost = sum([p[0] for p in pending])
-    if hasattr(owner, "future_draft_budget"):
+    if owner is not None and hasattr(owner, "future_draft_budget"):
         owner.future_draft_budget = int((owner.future_draft_budget or 0) - total_cost)
     db.commit()
     return {"status": "locked", "count": count}

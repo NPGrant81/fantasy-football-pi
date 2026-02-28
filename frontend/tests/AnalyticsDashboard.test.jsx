@@ -8,7 +8,7 @@ vi.mock('../src/api/client', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ to, children, ...props }) => (
+  Link: ({ to, children, ..._props }) => (
     <a href={to} {...props}>
       {children}
     </a>
@@ -17,7 +17,7 @@ vi.mock('react-router-dom', () => ({
 
 // mock graph library to avoid AFRAME dependency during tests
 vi.mock('react-force-graph', () => ({
-  ForceGraph2D: (props) => <div data-testid="rivalry-graph" />,
+  ForceGraph2D: (_props) => <div data-testid="rivalry-graph" />,
 }));
 
 import AnalyticsDashboard from '../src/pages/Analytics/AnalyticsDashboard';

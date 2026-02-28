@@ -46,25 +46,28 @@ export default function TradeAnalyzer() {
     loadOwners();
   }, []);
 
-  const fetchStrength = async (ownerId, setter) => {
-    if (!leagueId || !ownerId) return;
-    try {
-      const res = await apiClient.get(`/analytics/roster-strength`, {
-        params: { league_id: leagueId, owner_id: ownerId },
-      });
-      const counts = res.data[ownerId] || {};
-      setter(counts);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const fetchStrength = React.useCallback(
+    async (ownerId, setter) => {
+      if (!leagueId || !ownerId) return;
+      try {
+        const res = await apiClient.get(`/analytics/roster-strength`, {
+          params: { league_id: leagueId, owner_id: ownerId },
+        });
+        const counts = res.data[ownerId] || {};
+        setter(counts);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [leagueId]
+  );
 
   useEffect(() => {
     fetchStrength(a, setDataA);
-  }, [a]);
+  }, [a, fetchStrength]);
   useEffect(() => {
     fetchStrength(b, setDataB);
-  }, [b]);
+  }, [b, fetchStrength]);
 
   const labels = ['QB', 'RB', 'WR', 'TE'];
   const makeDataset = (counts, label, color) => {
