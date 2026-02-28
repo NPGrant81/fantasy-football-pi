@@ -15,6 +15,7 @@ import ManagerTrendChart from '../../components/charts/ManagerTrendChart';
 import ManagerEfficiencyLeaderboard from '../../components/charts/ManagerEfficiencyLeaderboard';
 import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
 import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
+import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
 import './AnalyticsDashboard.css';
 
 const AnalyticsDashboard = () => {
@@ -50,6 +51,12 @@ const AnalyticsDashboard = () => {
         return (
           <div className="chart-card">
             <PlayerHeatmap />
+          </div>
+        );
+      case 'trade':
+        return (
+          <div className="chart-card">
+            <TradeAnalyzer />
           </div>
         );
       default:
@@ -96,6 +103,12 @@ const AnalyticsDashboard = () => {
           onClick={() => setSelected('heatmap')}
         >
           Player Heatmap
+        </button>
+        <button
+          className={selected === 'trade' ? 'active' : ''}
+          onClick={() => setSelected('trade')}
+        >
+          Trade Analyzer
         </button>
       </div>
 

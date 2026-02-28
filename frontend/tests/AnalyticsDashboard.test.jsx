@@ -30,6 +30,7 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByText(/Draft Value Analysis/i)).toBeInTheDocument();
     expect(screen.getByText(/Efficiency Leaderboard/i)).toBeInTheDocument();
     expect(screen.getByText(/Manager Performance Trends/i)).toBeInTheDocument();
+    expect(screen.getByText(/Trade Analyzer/i)).toBeInTheDocument();
   });
 
   test('shows efficiency leaderboard after clicking and fetches data', async () => {
@@ -91,5 +92,11 @@ describe('AnalyticsDashboard', () => {
     await waitFor(() =>
       expect(screen.queryByText(/Loading trend chart/i)).not.toBeInTheDocument()
     );
+  });
+
+  test('trade analyzer button updates selection', async () => {
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByText(/Trade Analyzer/i));
+    expect(apiClient.get).not.toHaveBeenCalled();
   });
 });

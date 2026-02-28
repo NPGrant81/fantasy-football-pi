@@ -5,6 +5,8 @@ from typing import List
 
 from ..database import get_db
 from .. import models
+# import organizer helper from team router for roster-strength computation
+from .team import organize_roster
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -61,6 +63,40 @@ def get_efficiency_leaderboard(
         raise HTTPException(status_code=500, detail=str(exc))
 
     return [format_leaderboard_row(r) for r in rows]
+
+
+@router.get('/roster-strength')
+def get_roster_strength(
+    league_id: int,
+    owner_id: int,
+    other_owner_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """Return positional counts for owner (and optional other owner)."""
+    # fetch picks for primary owner
+    picks = (
+        db.query(models.DraftPick)
+        .filter(models.DraftPick.league_id == league_id, models.DraftPick.owner_id == owner_id)
+        .all()
+    )
+    roster = organize_roster(picks, db)
+    def compute_counts(lst):
+        counts = {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "DEF": 0, "K": 0}
+        for p in lst:
+            if p.position in counts and p.is_starter:
+                counts[p.position] += 1
+        return counts
+
+    result = {owner_id: compute_counts(roster)}
+    if other_owner_id is not None:
+        other_picks = (
+            db.query(models.DraftPick)
+            .filter(models.DraftPick.league_id == league_id, models.DraftPick.owner_id == other_owner_id)
+            .all()
+        )
+        other_roster = organize_roster(other_picks, db)
+        result[other_owner_id] = compute_counts(other_roster)
+    return result
 
 
 @router.get('/league/{league_id}/weekly-stats')

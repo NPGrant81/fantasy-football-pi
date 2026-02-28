@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.routers.analytics import get_efficiency_leaderboard, get_weekly_stats
+from backend.routers.analytics import get_efficiency_leaderboard, get_weekly_stats, get_roster_strength
 
 
 @pytest.fixture
@@ -86,6 +86,48 @@ def test_leaderboard_and_weekly(db_session):
     from sqlalchemy import text
     res = db_session.execute(text("SELECT manager_id FROM league_efficiency_leaderboard WHERE league_id = 10")).fetchall()
     assert (2,) in res and (1,) in res
+
+
+def make_pick(db, owner_id, league_id, player_id, status="STARTER"):
+    p = models.DraftPick(
+        owner_id=owner_id,
+        league_id=league_id,
+        player_id=player_id,
+        current_status=status,
+        amount=0,
+    )
+    db.add(p)
+    db.commit()
+    return p
+
+
+def test_roster_strength(db_session):
+    # create players with positions
+    p_qb = models.Player(name="Q", position="QB", nfl_team="A")
+    p_rb = models.Player(name="R", position="RB", nfl_team="A")
+    p_wr = models.Player(name="W", position="WR", nfl_team="A")
+    db_session.add_all([p_qb, p_rb, p_wr])
+    db_session.commit()
+    db_session.refresh(p_qb)
+    db_session.refresh(p_rb)
+    db_session.refresh(p_wr)
+
+    # owner1 has QB and RB starters
+    make_pick(db_session, owner_id=1, league_id=5, player_id=p_qb.id, status="STARTER")
+    make_pick(db_session, owner_id=1, league_id=5, player_id=p_rb.id, status="STARTER")
+    # owner2 has WR starter
+    make_pick(db_session, owner_id=2, league_id=5, player_id=p_wr.id, status="STARTER")
+
+    res = get_roster_strength(league_id=5, owner_id=1, other_owner_id=2, db=db_session)
+    assert 1 in res and 2 in res
+    assert res[1]["QB"] == 1
+    assert res[1]["RB"] == 1
+    assert res[1]["WR"] == 0
+    assert res[2]["WR"] == 1
+
+    # edge case: no picks
+    res2 = get_roster_strength(league_id=5, owner_id=99, db=db_session)
+    assert res2 == {99: {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "DEF": 0, "K": 0}}
 
 
 # edge case: no data returns empty lists
