@@ -29,6 +29,8 @@ def test_seeder_populates_admin(integration_client):
     db = SessionLocal()
     try:
         # ensure seeder will be run against a fresh DB
+        # delete child rows first to avoid FK violations
+        db.execute(models.DraftPick.__table__.delete())
         db.execute(models.User.__table__.delete())
         db.commit()
 

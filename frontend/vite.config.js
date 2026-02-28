@@ -29,7 +29,8 @@ export default defineConfig({
     proxy: {
       // 3.1.1 Proxy Rules: Routes API calls to your Raspberry Pi / Local Python Backend
       '/auth': 'http://127.0.0.1:8000',
-      '/draft': 'http://127.0.0.1:8000',
+      '/draft/pick': 'http://127.0.0.1:8000',
+      '/draft/history': 'http://127.0.0.1:8000',
       // only proxy the actual admin API endpoints; the client-side UI also uses
       // /admin paths, so forwarding everything breaks SPA routing (see
       // Manage Commissioners page). narrowing prevents 404s on reload.

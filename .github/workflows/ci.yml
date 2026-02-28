@@ -108,9 +108,9 @@ jobs:
           npm run lint
       - name: Responsive breakpoint audit
         working-directory: frontend
-        # the audit script lives at repository root
+        # run script directly from repo root (paths in actions are relative to workspace)
         run: |
-          cd .. && bash ../audit-breakpoints.sh
+          bash ./audit-breakpoints.sh
 
       - name: Run frontend tests
         working-directory: frontend
