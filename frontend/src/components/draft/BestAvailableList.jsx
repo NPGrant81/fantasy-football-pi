@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function BestAvailableList({ players = [] }) {
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden flex flex-col h-full">
+    <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden flex flex-col h-full md:block">
       <div className="bg-slate-800 p-2 border-b border-slate-700">
         <h2 className="text-cyan-400 font-bold text-sm uppercase tracking-wider">
           Best Available

@@ -115,7 +115,7 @@ export default function TradeAnalyzer() {
   };
 
   return (
-    <div className="p-4 text-white">
+    <div className="p-4 md:p-6 text-white">
       <h3 className="text-xl font-bold mb-4">Trade Analyzer</h3>
       {error && <p className="text-red-400">{error}</p>}
       <div className="flex gap-4 mb-4">

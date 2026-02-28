@@ -26,7 +26,7 @@ export default function Toast({ message, type = 'success', onClose }) {
 
   return (
     // Positioned Top-Center with a slide-in animation
-    <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[9999] w-full sm:max-w-md px-4">
+    <div className="fixed top-10 md:top-12 left-1/2 -translate-x-1/2 z-[9999] w-full sm:max-w-md px-4">
       <div
         className={`
         relative overflow-hidden flex items-center justify-between px-6 py-4 

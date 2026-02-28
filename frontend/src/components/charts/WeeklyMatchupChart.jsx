@@ -146,6 +146,7 @@ const WeeklyMatchupChart = () => {
 
   return (
     <div
+      className="md:block"
       style={{
         height: '500px',
         padding: '20px',

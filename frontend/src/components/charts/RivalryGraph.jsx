@@ -51,7 +51,7 @@ const RivalryGraph = () => {
   }
 
   return (
-    <div style={{ width: '100%', height: '500px', background: '#222' }}>
+    <div className="md:h-96" style={{ width: '100%', height: '500px', background: '#222' }}>
       <ForceGraph2D
         graphData={graphData}
         nodeLabel="label"

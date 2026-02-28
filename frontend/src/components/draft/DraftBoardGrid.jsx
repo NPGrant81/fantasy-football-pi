@@ -27,7 +27,7 @@ export default function DraftBoardGrid({
   return (
     <div
       data-testid="draft-board"
-      className="flex gap-1 p-4 bg-slate-900 w-full overflow-x-auto"
+      className="flex gap-1 p-4 bg-slate-900 w-full overflow-x-auto md:block"
     >
       {teams.map((team) => (
         <div

@@ -44,7 +44,7 @@ const ManagerEfficiencyLeaderboard = () => {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div className="md:p-6" style={{ padding: '20px' }}>
       <h3 className="text-white text-lg font-bold mb-4">
         Efficiency Leaderboard
       </h3>
