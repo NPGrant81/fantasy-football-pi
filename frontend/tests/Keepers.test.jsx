@@ -38,7 +38,9 @@ describe('Keepers page', () => {
         return Promise.resolve({
           data: {
             selections: [],
-            recommended: [],
+            recommended: [
+              { player_id: 10, surplus: 30, keep_cost: 5, projected_value: 35 },
+            ],
             selected_count: 0,
             max_allowed: 3,
             estimated_budget: 200,
@@ -48,7 +50,16 @@ describe('Keepers page', () => {
       }
       if (url.startsWith('/team/1?week=')) {
         return Promise.resolve({
-          data: { roster: [{ player_id: 10, name: 'Alice' }] },
+          data: {
+            roster: [
+              {
+                player_id: 10,
+                name: 'Alice',
+                draft_price: 20,
+                projected_value: 40,
+              },
+            ],
+          },
         });
       }
       return Promise.reject(new Error('unknown'));
@@ -60,7 +71,13 @@ describe('Keepers page', () => {
     );
     expect(screen.getByText(/Estimated Budget/i)).toBeInTheDocument();
     expect(screen.getByText(/Alice/)).toBeInTheDocument();
-    expect(screen.queryByText(/Recommended:/i)).not.toBeInTheDocument();
+    // recommended surplus should be shown
+    expect(screen.getByText(/Recommended surplus/i)).toBeInTheDocument();
+    // the slot grid cell should also have a star indicating recommendation
+    expect(screen.getByText('★')).toBeInTheDocument();
+
+    // initial budget should equal 200
+    expect(screen.getByText(/Estimated Budget: \$200/)).toBeInTheDocument();
   });
 
   test('toggle player and submit', async () => {
@@ -79,7 +96,16 @@ describe('Keepers page', () => {
       }
       if (url.startsWith('/team/1?week=')) {
         return Promise.resolve({
-          data: { roster: [{ player_id: 10, name: 'Alice' }] },
+          data: {
+            roster: [
+              {
+                player_id: 10,
+                name: 'Alice',
+                draft_price: 20,
+                projected_value: 40,
+              },
+            ],
+          },
         });
       }
       return Promise.reject(new Error('unknown'));
@@ -88,8 +114,12 @@ describe('Keepers page', () => {
 
     render(<Keepers />);
     await waitFor(() => screen.getByText('Alice'));
+    // draft price should be displayed
+    expect(screen.getByText(/draft: \$20/)).toBeInTheDocument();
     const checkbox = screen.getByRole('checkbox');
     fireEvent.click(checkbox);
+    // budget updated (draft_price 20 subtracted from 100)
+    expect(screen.getByText(/Estimated Budget: \$80/)).toBeInTheDocument();
     fireEvent.click(screen.getByText(/Submit List/i));
     await waitFor(() =>
       expect(apiClient.post).toHaveBeenCalledWith(

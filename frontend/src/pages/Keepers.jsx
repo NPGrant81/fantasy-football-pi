@@ -9,6 +9,7 @@ export default function Keepers() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
+  const [baseBudget, setBaseBudget] = useState(0);
 
   const userId = localStorage.getItem('user_id');
 
@@ -32,6 +33,15 @@ export default function Keepers() {
           console.error('failed to load roster', e);
           setRoster([]);
         }
+      }
+      // compute base budget (undo initial subtraction)
+      if (keeperData && roster.length > 0) {
+        let initialCost = 0;
+        keeperData.selections.forEach((s) => {
+          const p = roster.find((r) => r.player_id === s.player_id);
+          if (p) initialCost += Number(p.draft_price || 0);
+        });
+        setBaseBudget((keeperData.estimated_budget || 0) + initialCost);
       }
       setLoading(false);
     }
@@ -87,13 +97,19 @@ export default function Keepers() {
 
   const maxAllowed = keeperData?.max_allowed || 0;
   const selectedCount = selected.size;
+  const estimatedBudget =
+    baseBudget -
+    Array.from(selected).reduce((sum, pid) => {
+      const p = roster.find((r) => r.player_id === pid);
+      return sum + Number(p?.draft_price || 0);
+    }, 0);
 
   return (
     <div className="w-full p-6 text-white min-h-screen space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-4xl font-black">Manage Keepers</h1>
         <div className="text-sm">
-          Estimated Budget: ${keeperData?.estimated_budget ?? 0}
+          Estimated Budget: ${estimatedBudget}
           <br />
           Draft Budget: ${keeperData?.effective_budget ?? 0}
         </div>
@@ -111,10 +127,27 @@ export default function Keepers() {
           return (
             <div
               key={idx}
-              className="h-24 w-full border border-slate-600 rounded-lg flex items-center justify-center"
+              className={`h-24 w-full border rounded-lg flex flex-col items-center justify-center p-1 ${
+                keeperData?.recommended?.some(
+                  (r) => r.player_id === player?.player_id
+                )
+                  ? 'border-yellow-400'
+                  : 'border-slate-600'
+              }`}
             >
               {player ? (
-                player.name
+                <>
+                  <span className="font-semibold">{player.name}</span>
+                  <span className="text-xs text-slate-300">
+                    ${player.draft_price || 0}
+                    {player.projected_value != null && (
+                      <> / ${player.projected_value}</>
+                    )}
+                  </span>
+                  {keeperData?.recommended?.some(
+                    (r) => r.player_id === player.player_id
+                  ) && <span className="text-yellow-300 text-xs">★</span>}
+                </>
               ) : (
                 <span className="text-slate-400">Empty</span>
               )}
@@ -125,24 +158,41 @@ export default function Keepers() {
 
       {/* roster selector */}
       <div className="space-y-2">
-        {roster.map((p) => (
-          <label key={p.player_id} className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={selected.has(p.player_id)}
-              onChange={() => togglePlayer(p.player_id)}
-              disabled={
-                !selected.has(p.player_id) && selectedCount >= maxAllowed
-              }
-            />
-            {p.name} (draft price: ${p.draft_price || 0})
-          </label>
-        ))}
+        {roster.map((p) => {
+          const isRec = keeperData?.recommended?.some(
+            (r) => r.player_id === p.player_id
+          );
+          return (
+            <label key={p.player_id} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={selected.has(p.player_id)}
+                onChange={() => togglePlayer(p.player_id)}
+                disabled={
+                  !selected.has(p.player_id) && selectedCount >= maxAllowed
+                }
+              />
+              {p.name} (draft: ${p.draft_price || 0})
+              {p.projected_value != null && (
+                <span className="text-slate-400 text-xs">
+                  &nbsp;| proj: ${p.projected_value}
+                </span>
+              )}
+              {isRec && <span className="ml-1 text-yellow-300 text-xs">★</span>}
+            </label>
+          );
+        })}
       </div>
       {keeperData?.recommended && keeperData.recommended.length > 0 && (
         <div className="mt-4 text-yellow-300">
-          <strong>Recommended:</strong>{' '}
-          {keeperData.recommended.map((r) => r.player_id).join(', ')}
+          <strong>Recommended surplus</strong>
+          <ul className="list-disc list-inside">
+            {keeperData.recommended.map((r) => (
+              <li key={r.player_id}>
+                ID {r.player_id}: surplus ${r.surplus.toFixed(1)}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
