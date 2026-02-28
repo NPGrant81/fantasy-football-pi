@@ -170,16 +170,19 @@ export default function Keepers() {
                 checked={selected.has(p.player_id)}
                 onChange={() => togglePlayer(p.player_id)}
                 disabled={
-                  (keeperData?.ineligible?.includes(p.player_id) ||
-                    (!selected.has(p.player_id) && selectedCount >= maxAllowed))
+                  keeperData?.ineligible?.includes(p.player_id) ||
+                  (!selected.has(p.player_id) && selectedCount >= maxAllowed)
                 }
               />
               {p.name} (draft: ${p.draft_price || 0})
-            {keeperData?.ineligible?.includes(p.player_id) && (
-              <span className="text-red-400 text-xs ml-1" title="Reached max keeper years">
-                🚫
-              </span>
-            )}
+              {keeperData?.ineligible?.includes(p.player_id) && (
+                <span
+                  className="text-red-400 text-xs ml-1"
+                  title="Reached max keeper years"
+                >
+                  🚫
+                </span>
+              )}
               {p.projected_value != null && (
                 <span className="text-slate-400 text-xs">
                   &nbsp;| proj: ${p.projected_value}

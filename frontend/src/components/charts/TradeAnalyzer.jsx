@@ -85,8 +85,16 @@ export default function TradeAnalyzer() {
   const data = {
     labels,
     datasets: [
-      makeDataset(dataA, owners.find((o) => o.id === a)?.username || 'A', 'rgba(54,162,235)'),
-      makeDataset(dataB, owners.find((o) => o.id === b)?.username || 'B', 'rgba(255,99,132)'),
+      makeDataset(
+        dataA,
+        owners.find((o) => o.id === a)?.username || 'A',
+        'rgba(54,162,235)'
+      ),
+      makeDataset(
+        dataB,
+        owners.find((o) => o.id === b)?.username || 'B',
+        'rgba(255,99,132)'
+      ),
     ].filter(Boolean),
   };
 
