@@ -4,8 +4,9 @@
 set -e
 
 echo "Checking for missing breakpoints in .jsx files..."
-# grep -L prints files that do NOT contain any of the prefixes; capture them
-missing=$(grep -L -E "md:|lg:|xl:" src/**/*.jsx || true)
+# find all jsx files excluding the context directory
+# grep -L prints those which do NOT contain any responsive prefixes
+missing=$(find src -name "*.jsx" ! -path "*/context/*" | xargs grep -L -E "md:|lg:|xl:" || true)
 if [ -n "$missing" ]; then
   echo "The following files lack responsive prefixes:"
   echo "$missing"

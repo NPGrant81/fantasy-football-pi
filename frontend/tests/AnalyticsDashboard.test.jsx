@@ -9,7 +9,7 @@ vi.mock('../src/api/client', () => ({
 
 vi.mock('react-router-dom', () => ({
   Link: ({ to, children, ..._props }) => (
-    <a href={to} {...props}>
+    <a href={to} {..._props}>
       {children}
     </a>
   ),

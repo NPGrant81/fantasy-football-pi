@@ -58,11 +58,16 @@ vi.mock('react-chartjs-2', () => {
   const React = vi.importActual('react');
   // provide basic components that render placeholders
   return {
-    Scatter: (props) => React.default.createElement('div', { 'data-testid': 'scatter-chart' }),
-    Bar: (props) => React.default.createElement('div', { 'data-testid': 'bar-chart' }),
-    Line: (props) => React.default.createElement('div', { 'data-testid': 'line-chart' }),
-    Doughnut: (props) => React.default.createElement('div', { 'data-testid': 'doughnut-chart' }),
-    Pie: (props) => React.default.createElement('div', { 'data-testid': 'pie-chart' }),
+    Scatter: (_props) =>
+      React.default.createElement('div', { 'data-testid': 'scatter-chart' }),
+    Bar: (_props) =>
+      React.default.createElement('div', { 'data-testid': 'bar-chart' }),
+    Line: (_props) =>
+      React.default.createElement('div', { 'data-testid': 'line-chart' }),
+    Doughnut: (_props) =>
+      React.default.createElement('div', { 'data-testid': 'doughnut-chart' }),
+    Pie: (_props) =>
+      React.default.createElement('div', { 'data-testid': 'pie-chart' }),
     // forward others if necessary
   };
 });
@@ -88,5 +93,6 @@ function render(ui, options) {
 }
 
 // re-export everything from testing-library and override render
+// eslint-disable-next-line react-refresh/only-export-components
 export * from '@testing-library/react';
 export { render, mockNavigate };

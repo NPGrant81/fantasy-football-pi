@@ -240,7 +240,7 @@ export default function DraftBoard({
   }, []);
 
   return (
-    <div className="flex flex-col overflow-hidden">
+    <div className="flex flex-col md:flex-row overflow-hidden">
       {/* banner rendered below via SessionHeader */}
       <SessionHeader
         sessionId={sessionId}

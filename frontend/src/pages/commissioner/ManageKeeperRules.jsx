@@ -33,7 +33,9 @@ export default function ManageKeeperRules() {
       setTradeDeadline(d.trade_deadline || '');
       setDraftedOnly(!!d.drafted_only);
       setCostType(d.cost_type || 'round');
-      setCostInflation(d.cost_inflation != null ? String(d.cost_inflation) : '0');
+      setCostInflation(
+        d.cost_inflation != null ? String(d.cost_inflation) : '0'
+      );
     } catch (e) {
       console.error('failed to load keeper settings', e);
       setMessage('Unable to fetch current settings');
@@ -105,10 +107,15 @@ export default function ManageKeeperRules() {
     <div className="p-8 text-white min-h-screen">
       <h1 className="text-4xl font-black mb-6">Keeper Rules</h1>
 
-      <form onSubmit={handleSubmit} className="mb-8 bg-slate-800 p-6 rounded-xl shadow">
+      <form
+        onSubmit={handleSubmit}
+        className="mb-8 bg-slate-800 p-6 rounded-xl shadow"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block mb-2 font-bold">Max Keepers Per Owner</label>
+            <label className="block mb-2 font-bold">
+              Max Keepers Per Owner
+            </label>
             <input
               type="number"
               min="0"
@@ -160,7 +167,9 @@ export default function ManageKeeperRules() {
             </select>
           </div>
           <div>
-            <label className="block mb-2 font-bold">Cost Inflation (add to cost)</label>
+            <label className="block mb-2 font-bold">
+              Cost Inflation (add to cost)
+            </label>
             <input
               type="number"
               className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700"
@@ -226,9 +235,7 @@ export default function ManageKeeperRules() {
                 {owners.map((o) => (
                   <tr key={o.owner_id} className="border-t border-slate-800">
                     <td className="px-3 py-2">{o.username || o.owner_id}</td>
-                    <td className="px-3 py-2">
-                      {o.selections.length}
-                    </td>
+                    <td className="px-3 py-2">{o.selections.length}</td>
                     <td className="px-3 py-2">
                       <button
                         className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-1 px-3 rounded"
@@ -243,7 +250,9 @@ export default function ManageKeeperRules() {
             </table>
           </div>
         ) : (
-          <p className="text-slate-400 italic">No keeper lists submitted yet.</p>
+          <p className="text-slate-400 italic">
+            No keeper lists submitted yet.
+          </p>
         )}
       </div>
     </div>

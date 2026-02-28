@@ -18,7 +18,9 @@ const RivalryGraph = () => {
           setLoading(false);
           return;
         }
-        const res = await apiClient.get(`/analytics/league/${leagueId}/rivalry`);
+        const res = await apiClient.get(
+          `/analytics/league/${leagueId}/rivalry`
+        );
         const { nodes, edges } = res.data || { nodes: [], edges: [] };
         // convert edges to force-graph links
         const links = edges.map((e) => ({
