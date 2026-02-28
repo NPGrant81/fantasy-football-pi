@@ -13,6 +13,7 @@ import {
   FiShield,
   FiHome,
   FiAward,
+  FiRepeat,
   FiAlertTriangle,
 } from 'react-icons/fi';
 import { menuGradients, borderColors } from '../utils/uiHelpers';
@@ -146,6 +147,15 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             desc="Bids & Free Agents"
             icon={FiTrendingUp}
             gradient={menuGradients.waivers}
+            onClick={onClose}
+          />
+
+          <MenuBlock
+            to="/keepers"
+            title="Keepers"
+            desc="Manage off‑season keepers"
+            icon={FiRepeat}
+            gradient={menuGradients.team}
             onClick={onClose}
           />
 

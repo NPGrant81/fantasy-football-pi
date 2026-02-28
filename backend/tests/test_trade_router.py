@@ -67,6 +67,10 @@ def test_trade_proposal_and_approval():
     p2 = make_player(db, "Bob")
     make_pick(db, owner1, p1)
     make_pick(db, owner2, p2)
+    # owner1 has already designated p1 as a keeper
+    k = models.Keeper(league_id=league.id, owner_id=owner1.id, player_id=p1.id, season=2026, keep_cost=10, status="pending")
+    db.add(k)
+    db.commit()
 
     # create a fake current_user object with required attrs
     class CU:
@@ -112,6 +116,9 @@ def test_trade_proposal_and_approval():
     assert p1pick.owner_id == owner2.id
     p2pick = db.query(models.DraftPick).filter(models.DraftPick.player_id == p2.id).first()
     assert p2pick.owner_id == owner1.id
+    # keeper entry should also move
+    kentry = db.query(models.Keeper).filter(models.Keeper.player_id == p1.id).first()
+    assert kentry.owner_id == owner2.id
 
 
 def test_trade_proposal_validation():

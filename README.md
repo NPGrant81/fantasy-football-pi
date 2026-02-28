@@ -60,7 +60,7 @@ or commit it yourself.
 | Commissioner (`/commissioner`)      | `GET/PUT /leagues/{id}/settings` (including waiver rules and budgets), `GET /leagues/owners`, `GET /trades/pending`, `GET /leagues/{id}/waiver-budgets`, budget + draft-year endpoints |
 | Site Admin (`/admin`)               | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft`                                                                                              |
 | Bug Report (`/bug-report`)          | `PUT /auth/email`, `POST /feedback/bug`                                                                                                                                                |
-| Analytics (`/analytics`)            | Fetches league/manager data from `/analytics/*` endpoints; dashboard includes efficiency leaderboard and trend charts                                                                  |
+| Analytics (`/analytics`)            | Fetches league/manager data from `/analytics/*` endpoints (leaderboard, weekly-stats, roster-strength); dashboard includes efficiency leaderboard, trade/roster strength charts                                                                  |
 
 For the full endpoint-level matrix (including notes and gaps), see [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md).
 

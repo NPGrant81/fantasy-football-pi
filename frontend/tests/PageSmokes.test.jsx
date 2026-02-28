@@ -23,6 +23,7 @@ import CommissionerDashboard from '@/pages/commissioner/CommissionerDashboard';
 import ManageTrades from '@/pages/commissioner/ManageTrades';
 import CommishAdmin from '@/pages/commissioner/CommishAdmin';
 import MyTeam from '@/pages/team-owner/MyTeam';
+import TradeAnalyzer from '@/components/charts/TradeAnalyzer';
 
 describe('DraftBoard (Smoke Test)', () => {
   beforeEach(() => {

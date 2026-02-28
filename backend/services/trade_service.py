@@ -60,6 +60,15 @@ def execute_trade(db: Session, trade_id: int, approver_id: int) -> models.TradeP
     # requested player moved opposite direction
     log_transaction(db, trade.league_id, trade.requested_player_id, to_user.id, from_user.id, "trade")
 
+    # if either player was previously marked as a keeper, transfer ownership
+    for pid, new_owner in [
+        (trade.offered_player_id, to_user.id),
+        (trade.requested_player_id, from_user.id),
+    ]:
+        k_entries = db.query(models.Keeper).filter(models.Keeper.player_id == pid).all()
+        for k in k_entries:
+            k.owner_id = new_owner
+
     db.commit()
     db.refresh(trade)
     return trade
