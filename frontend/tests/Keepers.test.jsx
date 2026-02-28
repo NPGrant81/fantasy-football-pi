@@ -80,6 +80,36 @@ describe('Keepers page', () => {
     expect(screen.getByText(/Estimated Budget: \$200/)).toBeInTheDocument();
   });
 
+  test('ineligible players are disabled', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/keepers') {
+        return Promise.resolve({
+          data: {
+            selections: [],
+            recommended: [],
+            selected_count: 0,
+            max_allowed: 3,
+            estimated_budget: 100,
+            effective_budget: 100,
+            ineligible: [10],
+          },
+        });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({
+          data: { roster: [{ player_id: 10, name: 'Alice', draft_price: 5 }] },
+        });
+      }
+      return Promise.reject(new Error('unknown'));
+    });
+
+    render(<Keepers />);
+    await waitFor(() => screen.getByText('Alice'));
+    const checkbox = screen.getByRole('checkbox');
+    expect(checkbox).toBeDisabled();
+    expect(screen.getByTitle('Reached max keeper years')).toBeInTheDocument();
+  });
+
   test('toggle player and submit', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/keepers') {
