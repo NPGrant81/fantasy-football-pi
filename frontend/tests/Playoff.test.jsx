@@ -36,16 +36,30 @@ describe('PlayoffBracket page', () => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
+      if (url.startsWith('/playoffs/seasons')) {
+        return Promise.resolve({ data: [2026, 2025] });
+      }
       if (url.startsWith('/playoffs/bracket')) {
         return Promise.resolve({ data: bracketData });
       }
       return Promise.reject(new Error('Unknown URL'));
     });
 
-    render(<PlayoffBracket />);
+    const setSubHeader = vi.fn();
+    render(
+      <PlayoffBracket username="alice" leagueId={1} setSubHeader={setSubHeader} />
+    );
     expect(
       screen.getByRole('heading', { level: 1, name: /Playoff Bracket/i })
     ).toBeInTheDocument();
+    // subHeader prop should be invoked with user/league title
+    expect(setSubHeader).toHaveBeenCalledWith(expect.stringContaining('alice'));
+    expect(setSubHeader).toHaveBeenCalledWith(expect.stringContaining('The Big Show'));
+
+    // season selector should be rendered
+    expect(screen.getByLabelText(/Season/i)).toBeInTheDocument();
+    // view selector exists
+    expect(screen.getByLabelText(/View/i)).toBeInTheDocument();
 
     // expand accordion by clicking the second element that matches the
     // text (the first is the page heading, the second is the summary)
