@@ -124,6 +124,8 @@ const fetchOwners = async (leagueId) => {
 - Environment variables read through existing config utilities (`dotenv` on backend, `import.meta.env` on frontend).
 - Error‑handling patterns should match existing conventions (raise `HTTPException` on backend, display toast/alert on frontend).
 
+> **Note on utility scripts:** many developer helpers such as `audit-breakpoints.sh` are written in Bash; run them from a Unix-like shell (WSL, Git Bash, etc.) or via `bash -c` from PowerShell. The CI pipeline itself uses a Linux runner, so the script will work there without modification.
+
 ---
 ## 3. Testing Requirements
 
