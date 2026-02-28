@@ -75,6 +75,20 @@ async def lifespan(app: FastAPI):
     """
     # --- startup portion ---
     try:
+        # run any pending alembic migrations on startup so the schema stays
+        # up‑to‑date even if somebody applied a migration externally (e.g. via
+        # a cron job or manual `alembic upgrade`).  this is lightweight and
+        # idempotent.
+        from alembic import command, config as alembic_config
+        cfg = alembic_config.Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+        command.upgrade(cfg, "head")
+    except Exception as e:
+        # if the DB isn't reachable or alembic isn't configured, we just
+        # log and continue.  the runtime schema function will still patch
+        # whatever it can.
+        print(f"Warning: alembic upgrade step failed: {e}")
+
+    try:
         models.Base.metadata.create_all(bind=engine)
         ensure_runtime_schema()
     except Exception as e:
