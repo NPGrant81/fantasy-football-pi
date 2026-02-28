@@ -15,7 +15,8 @@ vi.mock('react-router-dom', () => ({
   ),
 }));
 
-// mock graph library to avoid AFRAME dependency during tests
+// mock graph library to avoid AFRAME dependency during tests (2d build is used)
+
 vi.mock('react-force-graph', () => ({
   ForceGraph2D: (_props) => <div data-testid="rivalry-graph" />,
 }));

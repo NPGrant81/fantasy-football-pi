@@ -253,36 +253,32 @@ export default function DraftBoard({
         onPause={handlePause}
       />
 
-      {/* auction controls top bar, left/nominator right/bid centered */}
+      {/* auction controls top bar */}
       <div className="w-full relative">
         <div className="flex items-center justify-between p-2 bg-slate-900/60">
-          {/* left-side nomination/search/timer */}
-          <div className="flex items-center gap-4">
-            <AuctionBlock
-              condensed
-              playerName={playerName}
-              handleSearchChange={handleSearchChange}
-              suggestions={suggestions}
-              showSuggestions={showSuggestions}
-              selectSuggestion={selectSuggestion}
-              posFilter={posFilter}
-              setPosFilter={setPosFilter}
-              winnerId={winnerId}
-              setWinnerId={setWinnerId}
-              owners={owners}
-              activeStats={activeStats}
-              bidAmount={bidAmount}
-              setBidAmount={setBidAmount}
-              handleDraft={handleDraft}
-              timeLeft={timeLeft}
-              isTimerRunning={isTimerRunning}
-              reset={reset}
-              start={start}
-              nominatorId={currentNominatorId}
-              isCommissioner={isCommissioner}
-              leftOnly
-            />
-          </div>
+          {/* full bidding panel */}
+          <AuctionBlock
+            playerName={playerName}
+            handleSearchChange={handleSearchChange}
+            suggestions={suggestions}
+            showSuggestions={showSuggestions}
+            selectSuggestion={selectSuggestion}
+            posFilter={posFilter}
+            setPosFilter={setPosFilter}
+            winnerId={winnerId}
+            setWinnerId={setWinnerId}
+            owners={owners}
+            activeStats={activeStats}
+            bidAmount={bidAmount}
+            setBidAmount={setBidAmount}
+            handleDraft={handleDraft}
+            timeLeft={timeLeft}
+            isTimerRunning={isTimerRunning}
+            reset={reset}
+            start={start}
+            nominatorId={currentNominatorId}
+            isCommissioner={isCommissioner}
+          />
           {/* collapse toggle button for sidebar */}
           <div className="hidden md:block">
             <button
@@ -291,33 +287,6 @@ export default function DraftBoard({
             >
               {showBestSidebar ? 'Hide Best' : 'Show Best'}
             </button>
-          </div>
-        </div>
-        {/* center bidding modal overlay */}
-        <div className="absolute inset-x-0 top-0 flex justify-center pointer-events-none">
-          <div className="pointer-events-auto">
-            <AuctionBlock
-              playerName={playerName}
-              suggestions={suggestions}
-              showSuggestions={showSuggestions}
-              selectSuggestion={selectSuggestion}
-              posFilter={posFilter}
-              setPosFilter={setPosFilter}
-              winnerId={winnerId}
-              setWinnerId={setWinnerId}
-              owners={owners}
-              activeStats={activeStats}
-              bidAmount={bidAmount}
-              setBidAmount={setBidAmount}
-              handleDraft={handleDraft}
-              timeLeft={timeLeft}
-              isTimerRunning={isTimerRunning}
-              reset={reset}
-              start={start}
-              nominatorId={currentNominatorId}
-              isCommissioner={isCommissioner}
-              centerOnly
-            />
           </div>
         </div>
       </div>

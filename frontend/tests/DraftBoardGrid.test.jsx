@@ -1,5 +1,15 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
+import { vi } from 'vitest';
+// ensure VITE_API_BASE_URL exists to keep apiClient happy during tests
+// avoid assigning to import.meta.env directly (read-only), just set the property if missing
+if (!import.meta?.env) {
+  // some test runners may not initialize import.meta.env, so define it safely
+  Object.defineProperty(import.meta, 'env', { value: {} });
+}
+if (!('VITE_API_BASE_URL' in import.meta.env)) {
+  import.meta.env.VITE_API_BASE_URL = '';
+}
 import DraftBoardGrid from '../src/components/draft/DraftBoardGrid';
 import { POSITION_COLORS } from '../src/constants/ui';
 
@@ -24,9 +34,9 @@ describe('DraftBoardGrid header', () => {
     // header container should enforce fixed height and vertical spacing
     const headerDiv = nameEl.closest('div');
     expect(headerDiv).toHaveClass('h-24', 'justify-between');
-    // and the column itself should have a fixed width class
+    // and the column itself should flex to fill available space
     const columnDiv = headerDiv.parentElement;
-    expect(columnDiv).toHaveClass('w-[100px]');
+    expect(columnDiv).toHaveClass('flex-1');
 
     // ensure empty cells are tall enough for two-line names
     const emptyCell = screen.getAllByText('OPEN')[0].closest('div');
@@ -134,7 +144,7 @@ describe('AuctionBlock layout', () => {
     expect(wrapper).toHaveClass('max-w-[240px]');
   });
 
-  it('leftOnly mode shows nominator and search input', () => {
+  it('leftOnly mode shows nominator, search input, and pos filters', () => {
     const { getByPlaceholderText, getByText } = render(
       <AuctionBlock
         leftOnly
@@ -161,12 +171,12 @@ describe('AuctionBlock layout', () => {
     );
     expect(getByPlaceholderText(/Nominate Player/i)).toBeInTheDocument();
     expect(getByText(/Nominator/i)).toBeInTheDocument();
+    expect(getByText(/ALL/i)).toBeInTheDocument();
   });
 
-  it('centerOnly mode shows bidding interface without search', () => {
+  it('default/full mode shows full bidding interface with filters and buttons', () => {
     const { queryByPlaceholderText, getByText } = render(
       <AuctionBlock
-        centerOnly
         playerName=""
         handleSearchChange={() => {}}
         suggestions={[]}
@@ -188,15 +198,38 @@ describe('AuctionBlock layout', () => {
         isCommissioner={false}
       />
     );
-    expect(queryByPlaceholderText(/Nominate Player/i)).toBeNull();
+    // full mode should show the search input as well as bidding controls
+    expect(queryByPlaceholderText(/Nominate Player/i)).toBeInTheDocument();
     expect(getByText(/Winning Bidder/i)).toBeInTheDocument();
   });
 });
 
 // verify the page layout gives the sidebar two grid columns
-import DraftBoard from '../src/pages/DraftBoard';
+// DraftBoard imports are deferred since the module pulls in api/client (which
+// references import.meta.env) and static imports run before our env stub.
 
 describe('DraftBoard page layout', () => {
+  let DraftBoard;
+
+  beforeEach(async () => {
+    // ensure the environment variable exists before importing any modules that
+    // read it. import.meta.env may be undefined until this point in some
+    // test runners.
+    if (!import.meta?.env) {
+      Object.defineProperty(import.meta, 'env', { value: {} });
+    }
+    if (!('VITE_API_BASE_URL' in import.meta.env)) {
+      import.meta.env.VITE_API_BASE_URL = '';
+    }
+
+    // stub budget call which would otherwise return undefined
+    const orig = (await import('../src/api/client')).default;
+    orig.get = vi.fn().mockResolvedValue({ data: [] });
+
+    // now that the env is set and client is stubbed we can load the page
+    DraftBoard = (await import('../src/pages/DraftBoard')).default;
+  });
+
   it('defines correct grid column spans for board and sidebar', () => {
     const { container } = render(
       <DraftBoard
@@ -209,7 +242,8 @@ describe('DraftBoard page layout', () => {
     const aside = container.querySelector('aside');
     expect(aside).toHaveClass('md:col-span-3');
     const section = container.querySelector('section');
-    expect(section).toHaveClass('md:col-span-9');
+    // when sidebar hidden initial state, section spans full width
+    expect(section).toHaveClass('col-span-12');
   });
 
   it('sidebar toggle button shows/hides the list', () => {
@@ -221,7 +255,11 @@ describe('DraftBoard page layout', () => {
         setSubHeader={() => {}}
       />
     );
-    const toggle = screen.getByText(/Show Best/i);
+    // there are actually two buttons containing the phrase "Show Best";
+    // pick the simple toggle (without the "Available ▶" suffix)
+    const toggleCandidates = screen.getAllByText(/Show Best/i);
+    const toggle = toggleCandidates.find((btn) => btn.textContent === 'Show Best');
+    expect(toggle).toBeDefined();
     fireEvent.click(toggle);
     const aside = container.querySelector('aside');
     expect(aside).not.toHaveClass('hidden');

@@ -32,7 +32,7 @@ export default function DraftBoardGrid({
       {teams.map((team) => (
         <div
           key={team.id}
-          className={`flex-none w-[100px] min-w-[100px] flex flex-col border ${
+          className={`flex-1 min-w-0 flex flex-col border ${
             team.id === highlightOwnerId
               ? 'border-cyan-400'
               : 'border-slate-700'

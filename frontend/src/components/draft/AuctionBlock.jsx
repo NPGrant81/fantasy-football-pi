@@ -46,7 +46,23 @@ export default function AuctionBlock({
       ? nominator.team_name || nominator.username
       : 'TBD';
     return (
-      <div className="flex items-center gap-4 text-[12px] text-slate-300">
+      <div className="flex flex-col gap-2 text-[12px] text-slate-300">
+        {/* position filter row */}
+        <div className="flex flex-wrap gap-1">
+          {['ALL', ...POSITIONS].map((pos) => (
+            <button
+              key={pos}
+              onClick={() => setPosFilter(pos)}
+              className={`text-[10px] font-bold px-3 py-1 rounded border transition uppercase ${
+                posFilter === pos
+                  ? 'bg-yellow-500 text-black border-yellow-500'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+            >
+              {pos}
+            </button>
+          ))}
+        </div>
         {/* search input */}
         <input
           className="w-40 p-1 rounded bg-slate-950 border border-slate-700 text-sm outline-none focus:border-yellow-500"
@@ -54,32 +70,34 @@ export default function AuctionBlock({
           onChange={handleSearchChange}
           placeholder="Nominate Player..."
         />
-        <span className="font-semibold">Nominator:</span>
-        {isCommissioner ? (
-          <select
-            value={nominatorId || ''}
-            onChange={(e) =>
-              setOverrideNominator?.(parseInt(e.target.value) || null)
-            }
-            className="bg-slate-900 text-white border border-slate-700 rounded p-1 text-sm"
-          >
-            <option value="" disabled>
-              select owner
-            </option>
-            {owners.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.team_name || o.username}
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">Nominator:</span>
+          {isCommissioner ? (
+            <select
+              value={nominatorId || ''}
+              onChange={(e) =>
+                setOverrideNominator?.(parseInt(e.target.value) || null)
+              }
+              className="bg-slate-900 text-white border border-slate-700 rounded p-1 text-sm"
+            >
+              <option value="" disabled>
+                select owner
               </option>
-            ))}
-          </select>
-        ) : (
-          <span className="font-bold text-yellow-400">{nominatorName}</span>
-        )}
-        {isCommissioner && (
-          <span className="ml-2 text-red-400 uppercase font-black">
-            ADMIN
-          </span>
-        )}
+              {owners.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.team_name || o.username}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="font-bold text-yellow-400">{nominatorName}</span>
+          )}
+          {isCommissioner && (
+            <span className="ml-2 text-red-400 uppercase font-black">
+              ADMIN
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2 ml-4">
           <div
             className={`w-12 font-mono text-xl font-bold text-center ${
