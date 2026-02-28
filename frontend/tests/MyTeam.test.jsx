@@ -609,6 +609,9 @@ describe('MyTeam (Roster & Lineups)', () => {
     await waitFor(() =>
       expect(screen.getByText(/QB 2/)).toHaveClass('text-red-300')
     );
+    // submit button should be disabled when the roster is invalid
+    const submitBtn = screen.getByRole('button', { name: /submit roster/i });
+    expect(submitBtn).toBeDisabled();
   });
 
   // new tests for taxi filtering and trade modal

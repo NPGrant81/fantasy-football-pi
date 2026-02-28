@@ -1541,9 +1541,11 @@ export default function MyTeam({ activeOwnerId }) {
               <button
                 type="button"
                 onClick={submitRoster}
-                disabled={submittingRoster || !canEditLineup}
+                disabled={
+                  submittingRoster || !canEditLineup || lineupValidationErrors.length > 0
+                }
                 className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${
-                  submittingRoster || !canEditLineup
+                  submittingRoster || !canEditLineup || lineupValidationErrors.length > 0
                     ? 'cursor-not-allowed bg-slate-800 text-slate-500'
                     : 'bg-blue-600 text-white hover:bg-blue-500'
                 }`}
