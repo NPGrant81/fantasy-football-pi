@@ -72,6 +72,28 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByText(/Tactician/i)).toBeInTheDocument();
   });
 
+  test('gracefully handles leaderboard wrapped in rows property', async () => {
+    apiClient.get
+      .mockResolvedValueOnce({ data: { user_id: 2, league_id: 9 } })
+      .mockResolvedValueOnce({
+        data: { rows: [{ manager_id: 2, efficiency_display: '88%', personality: 'Aggressive' }] },
+      });
+
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByText(/Efficiency Leaderboard/i));
+
+    // ensure the API call still made correctly
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/analytics/league/9/leaderboard'
+      )
+    );
+
+    expect(await screen.findByText('88%')).toBeInTheDocument();
+    expect(screen.getByText(/Aggressive/i)).toBeInTheDocument();
+  });
+
   test('loads manager trend chart data on click', async () => {
     apiClient.get
       .mockResolvedValueOnce({ data: { user_id: 7, league_id: 12 } })

@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import React from 'react';
 
 // bring in testing-library and router helpers before any code runs
 import * as rtl from '@testing-library/react';
@@ -38,39 +39,44 @@ vi.mock('./api/client', () => ({
 }));
 
 // Stub out chart libraries to prevent jsdom canvas errors during tests
-vi.mock('chart.js', () => {
-  // minimal dummy Chart class
+vi.mock('chart.js', async () => {
+  // import the actual module so we preserve all exports, then override Chart
+  const actual = await vi.importActual('chart.js');
+  class DummyChart {
+    constructor(_ctx, _config) {
+      // no-op
+    }
+    static register() {}
+    update() {}
+    destroy() {}
+  }
   return {
-    Chart: class {
-      constructor(_ctx, _config) {
-        // nothing
-      }
-      static register() {}
-      update() {}
-      destroy() {}
-    },
-    // provide any functions that might be called
-    defaults: { global: {} },
+    ...actual,
+    Chart: DummyChart,
   };
 });
 
 vi.mock('react-chartjs-2', () => {
-  const React = vi.importActual('react');
   // provide basic components that render placeholders
   return {
-    Scatter: (_props) =>
-      React.default.createElement('div', { 'data-testid': 'scatter-chart' }),
-    Bar: (_props) =>
-      React.default.createElement('div', { 'data-testid': 'bar-chart' }),
-    Line: (_props) =>
-      React.default.createElement('div', { 'data-testid': 'line-chart' }),
-    Doughnut: (_props) =>
-      React.default.createElement('div', { 'data-testid': 'doughnut-chart' }),
-    Pie: (_props) =>
-      React.default.createElement('div', { 'data-testid': 'pie-chart' }),
+    Scatter: (_props) => React.createElement('div', { 'data-testid': 'scatter-chart' }),
+    Bar: (_props) => React.createElement('div', { 'data-testid': 'bar-chart' }),
+    Line: (_props) => React.createElement('div', { 'data-testid': 'line-chart' }),
+    Doughnut: (_props) => React.createElement('div', { 'data-testid': 'doughnut-chart' }),
+    Pie: (_props) => React.createElement('div', { 'data-testid': 'pie-chart' }),
+    Radar: (_props) => React.createElement('div', { 'data-testid': 'radar-chart' }),
     // forward others if necessary
   };
 });
+
+// Mock force-graph libraries to avoid canvas usage in tests
+vi.mock('react-force-graph', () => ({
+  ForceGraph2D: (_props) => <div data-testid="rivalry-graph" />,
+}));
+vi.mock('react-force-graph-2d', () => ({
+  __esModule: true,
+  default: (_props) => <div data-testid="rivalry-graph" />,
+}));
 
 // Keep a reusable navigate mock that tests can inspect if needed.
 const mockNavigate = vi.fn();
