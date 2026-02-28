@@ -16,6 +16,7 @@ import ManagerEfficiencyLeaderboard from '../../components/charts/ManagerEfficie
 import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
 import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
+import RivalryGraph from '../../components/charts/RivalryGraph';
 import './AnalyticsDashboard.css';
 
 const AnalyticsDashboard = () => {
@@ -57,6 +58,12 @@ const AnalyticsDashboard = () => {
         return (
           <div className="chart-card">
             <TradeAnalyzer />
+          </div>
+        );
+      case 'rivalry':
+        return (
+          <div className="chart-card">
+            <RivalryGraph />
           </div>
         );
       default:
@@ -109,6 +116,12 @@ const AnalyticsDashboard = () => {
           onClick={() => setSelected('trade')}
         >
           Trade Analyzer
+        </button>
+        <button
+          className={selected === 'rivalry' ? 'active' : ''}
+          onClick={() => setSelected('rivalry')}
+        >
+          Rivalry Graph
         </button>
       </div>
 

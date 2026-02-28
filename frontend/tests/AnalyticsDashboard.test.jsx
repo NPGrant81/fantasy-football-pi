@@ -15,6 +15,11 @@ vi.mock('react-router-dom', () => ({
   ),
 }));
 
+// mock graph library to avoid AFRAME dependency during tests
+vi.mock('react-force-graph', () => ({
+  ForceGraph2D: (props) => <div data-testid="rivalry-graph" />,
+}));
+
 import AnalyticsDashboard from '../src/pages/Analytics/AnalyticsDashboard';
 import apiClient from '../src/api/client';
 
@@ -31,6 +36,7 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByText(/Efficiency Leaderboard/i)).toBeInTheDocument();
     expect(screen.getByText(/Manager Performance Trends/i)).toBeInTheDocument();
     expect(screen.getByText(/Trade Analyzer/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rivalry Graph/i)).toBeInTheDocument();
   });
 
   test('shows efficiency leaderboard after clicking and fetches data', async () => {
@@ -97,6 +103,28 @@ describe('AnalyticsDashboard', () => {
   test('trade analyzer button updates selection', async () => {
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByText(/Trade Analyzer/i));
-    expect(apiClient.get).not.toHaveBeenCalled();
+    // dashboard always fetches /auth/me on selection; ensure no analytics call is made
+    expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    expect(apiClient.get).not.toHaveBeenCalledWith(
+      expect.stringContaining('/analytics/')
+    );
+  });
+
+  test('loads rivalry graph data on click', async () => {
+    apiClient.get
+      .mockResolvedValueOnce({ data: { user_id: 1, league_id: 2 } })
+      .mockResolvedValueOnce({ data: { nodes: [{ id: 1, label: 'a' }], edges: [] } });
+
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByText(/Rivalry Graph/i));
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    });
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/analytics/league/2/rivalry'
+      );
+    });
   });
 });

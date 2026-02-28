@@ -131,3 +131,94 @@ def get_weekly_stats(
         }
         for r in stats
     ]
+
+
+@router.get('/league/{league_id}/rivalry')
+def get_rivalry_graph(
+    league_id: int,
+    season: int = Query(None, description="Season year (ignored if matchups have no season)"),
+    db: Session = Depends(get_db),
+):
+    """Return nodes/edges describing manager rivalries in a league.
+
+    Edges include head-to-head games and trade counts between owners.
+    """
+    # collect users in the league (for node labels)
+    owners = (
+        db.query(models.User.id, models.User.username)
+        .filter(models.User.league_id == league_id)
+        .all()
+    )
+    nodes = [{"id": o.id, "label": o.username or f"{o.id}"} for o in owners]
+
+    # gather completed matchups
+    matchup_rows = (
+        db.query(models.Matchup)
+        .filter(models.Matchup.league_id == league_id, models.Matchup.is_completed == True)
+        .all()
+    )
+
+    # aggregate head-to-head results keyed by sorted pair
+    results: dict = {}
+    for m in matchup_rows:
+        key = tuple(sorted([m.home_team_id, m.away_team_id]))
+        if key not in results:
+            results[key] = {"games": 0, "a_wins": 0, "b_wins": 0}
+        results[key]["games"] += 1
+        if m.home_score > m.away_score:
+            # home wins counts toward the smaller id (a) if sorted
+            if key[0] == m.home_team_id:
+                results[key]["a_wins"] += 1
+            else:
+                results[key]["b_wins"] += 1
+        elif m.away_score > m.home_score:
+            if key[0] == m.away_team_id:
+                results[key]["a_wins"] += 1
+            else:
+                results[key]["b_wins"] += 1
+
+    # gather trade counts from transaction history
+    trade_rows = (
+        db.query(
+            models.TransactionHistory.old_owner_id,
+            models.TransactionHistory.new_owner_id,
+            sa.func.count().label("cnt"),
+        )
+        .filter(
+            models.TransactionHistory.league_id == league_id,
+            models.TransactionHistory.transaction_type == "trade",
+        )
+        .group_by(models.TransactionHistory.old_owner_id, models.TransactionHistory.new_owner_id)
+        .all()
+    )
+    trades: dict = {}
+    for old_id, new_id, cnt in trade_rows:
+        key = tuple(sorted([old_id, new_id]))
+        trades[key] = trades.get(key, 0) + cnt
+
+    edges = []
+    # include pairs from matchups
+    for pair, stats in results.items():
+        a, b = pair
+        edges.append(
+            {
+                "source": a,
+                "target": b,
+                "games": stats["games"],
+                "wins": {a: stats["a_wins"], b: stats["b_wins"]},
+                "trades": trades.get(pair, 0),
+            }
+        )
+    # include trading-only pairs
+    for pair, cnt in trades.items():
+        if pair not in results:
+            a, b = pair
+            edges.append({
+                "source": a,
+                "target": b,
+                "games": 0,
+                "wins": {a: 0, b: 0},
+                "trades": cnt,
+            })
+
+    return {"nodes": nodes, "edges": edges}

@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.routers.analytics import get_efficiency_leaderboard, get_weekly_stats, get_roster_strength
+from backend.routers.analytics import get_efficiency_leaderboard, get_weekly_stats, get_roster_strength, get_rivalry_graph
 
 
 @pytest.fixture
@@ -40,6 +40,27 @@ def db_session():
         yield session
     finally:
         session.close()
+
+
+def make_league(db):
+    l = models.League(name="TestLeague")
+    db.add(l)
+    db.commit()
+    db.refresh(l)
+    return l
+
+
+def make_user(db, league_id, username="bob", team_name="TeamX"):
+    u = models.User(
+        username=username,
+        hashed_password="pw",
+        league_id=league_id,
+        team_name=team_name,
+    )
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+    return u
 
 
 def make_efficiency(db, league_id, manager_id, season, week, actual, optimal):
@@ -135,3 +156,58 @@ def test_roster_strength(db_session):
 def test_empty_queries(db_session):
     assert get_efficiency_leaderboard(league_id=999, season=2026, db=db_session) == []
     assert get_weekly_stats(league_id=999, manager_id=1, season=2026, db=db_session) == []
+
+
+def test_rivalry_graph(db_session):
+    league = make_league(db_session)
+    # create two users
+    u1 = make_user(db_session, league.id, username="Alice", team_name="A1")
+    u2 = make_user(db_session, league.id, username="Bob", team_name="B1")
+
+    # add two completed matchups (each wins one)
+    m1 = models.Matchup(
+        league_id=league.id,
+        week=1,
+        home_team_id=u1.id,
+        away_team_id=u2.id,
+        home_score=100,
+        away_score=90,
+        is_completed=True,
+    )
+    m2 = models.Matchup(
+        league_id=league.id,
+        week=2,
+        home_team_id=u2.id,
+        away_team_id=u1.id,
+        home_score=80,
+        away_score=85,
+        is_completed=True,
+    )
+    db_session.add_all([m1, m2])
+    db_session.commit()
+
+    # one trade transaction existing between them
+    t = models.TransactionHistory(
+        league_id=league.id,
+        player_id=1,
+        old_owner_id=u1.id,
+        new_owner_id=u2.id,
+        transaction_type='trade',
+    )
+    db_session.add(t)
+    db_session.commit()
+
+    res = get_rivalry_graph(league.id, db=db_session)
+    # should return both nodes
+    assert len(res['nodes']) == 2
+    # edges list should have one entry for the pair
+    assert len(res['edges']) == 1
+    edge = res['edges'][0]
+    assert edge['games'] == 2
+    assert edge['trades'] == 1
+    # verify wins mapping contains both owners
+    assert u1.id in edge['wins'] and u2.id in edge['wins']
+    # ensure empty returns if no data
+    empty = get_rivalry_graph(league.id + 1, db=db_session)
+    assert empty['nodes'] == []
+    assert empty['edges'] == []
