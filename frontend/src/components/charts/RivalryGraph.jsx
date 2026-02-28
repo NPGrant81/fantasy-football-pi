@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ForceGraph2D } from 'react-force-graph';
+// using the 2D-specific build avoids pulling in AFRAME/VR extras
+import { ForceGraph2D } from 'react-force-graph-2d';
 import apiClient from '@api/client';
 
 // Visualizes head-to-head and trade relationships between managers in a league
