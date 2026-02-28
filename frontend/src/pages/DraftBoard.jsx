@@ -17,6 +17,7 @@ export default function DraftBoard({
   setSubHeader,
 }) {
   // --- 1.1 STATE MANAGEMENT ---
+  const [showBestSidebar, setShowBestSidebar] = useState(false);
   const [owners, setOwners] = useState([]);
   const [players, setPlayers] = useState([]);
   const [winnerId, setWinnerId] = useState(activeOwnerId);
@@ -252,37 +253,80 @@ export default function DraftBoard({
         onPause={handlePause}
       />
 
-      {/* auction controls moved above the board for easier access */}
-      <div className="w-full flex flex-col md:flex-row justify-center gap-6 p-4 bg-slate-900/50">
-        <AuctionBlock
-          playerName={playerName}
-          handleSearchChange={handleSearchChange}
-          suggestions={suggestions}
-          showSuggestions={showSuggestions}
-          selectSuggestion={selectSuggestion}
-          posFilter={posFilter}
-          setPosFilter={setPosFilter}
-          winnerId={winnerId}
-          setWinnerId={setWinnerId}
-          owners={owners}
-          activeStats={activeStats}
-          bidAmount={bidAmount}
-          setBidAmount={setBidAmount}
-          handleDraft={handleDraft}
-          timeLeft={timeLeft}
-          isTimerRunning={isTimerRunning}
-          reset={reset}
-          start={start}
-          nominatorId={currentNominatorId}
-          isCommissioner={isCommissioner}
-        />
+      {/* auction controls top bar, left/nominator right/bid centered */}
+      <div className="w-full relative">
+        <div className="flex items-center justify-between p-2 bg-slate-900/60">
+          {/* left-side nomination/search/timer */}
+          <div className="flex items-center gap-4">
+            <AuctionBlock
+              condensed
+              playerName={playerName}
+              handleSearchChange={handleSearchChange}
+              suggestions={suggestions}
+              showSuggestions={showSuggestions}
+              selectSuggestion={selectSuggestion}
+              posFilter={posFilter}
+              setPosFilter={setPosFilter}
+              winnerId={winnerId}
+              setWinnerId={setWinnerId}
+              owners={owners}
+              activeStats={activeStats}
+              bidAmount={bidAmount}
+              setBidAmount={setBidAmount}
+              handleDraft={handleDraft}
+              timeLeft={timeLeft}
+              isTimerRunning={isTimerRunning}
+              reset={reset}
+              start={start}
+              nominatorId={currentNominatorId}
+              isCommissioner={isCommissioner}
+              leftOnly
+            />
+          </div>
+          {/* collapse toggle button for sidebar */}
+          <div className="hidden md:block">
+            <button
+              onClick={() => setShowBestSidebar((v) => !v)}
+              className="text-xs text-yellow-400 px-2 py-1 bg-slate-800 rounded"
+            >
+              {showBestSidebar ? 'Hide Best' : 'Show Best'}
+            </button>
+          </div>
+        </div>
+        {/* center bidding modal overlay */}
+        <div className="absolute inset-x-0 top-0 flex justify-center pointer-events-none">
+          <div className="pointer-events-auto">
+            <AuctionBlock
+              playerName={playerName}
+              suggestions={suggestions}
+              showSuggestions={showSuggestions}
+              selectSuggestion={selectSuggestion}
+              posFilter={posFilter}
+              setPosFilter={setPosFilter}
+              winnerId={winnerId}
+              setWinnerId={setWinnerId}
+              owners={owners}
+              activeStats={activeStats}
+              bidAmount={bidAmount}
+              setBidAmount={setBidAmount}
+              handleDraft={handleDraft}
+              timeLeft={timeLeft}
+              isTimerRunning={isTimerRunning}
+              reset={reset}
+              start={start}
+              nominatorId={currentNominatorId}
+              isCommissioner={isCommissioner}
+              centerOnly
+            />
+          </div>
+        </div>
       </div>
 
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
 
       <main className="flex-1 grid grid-cols-12 h-screen gap-0 overflow-hidden z-0">
-        <section className="col-span-12 md:col-span-9 overflow-x-auto border-r border-slate-800 custom-scrollbar">
+        <section className={`overflow-x-auto border-r border-slate-800 custom-scrollbar ${showBestSidebar ? 'col-span-12 md:col-span-9' : 'col-span-12'}`}>
           <DraftBoardGrid
             teams={owners}
             history={history}
@@ -291,8 +335,10 @@ export default function DraftBoard({
           />
         </section>
 
-        <aside className="col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
+        <aside className={`${showBestSidebar ? 'block' : 'hidden'} col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto`}> 
           <BestAvailableList
+            open={showBestSidebar}
+            onToggle={() => setShowBestSidebar(false)}
             players={players
               .filter((p) => !history.some((h) => h.player_id === p.id))
               .sort((a, b) => a.rank - b.rank)

@@ -2,6 +2,10 @@ import { POSITIONS, normalizePos, MIN_BID } from '@utils';
 import { getPosColor } from '../../utils/uiHelpers';
 
 export default function AuctionBlock({
+  // control flags
+  leftOnly = false,
+  centerOnly = false,
+  // the rest are the usual props
   playerName,
   handleSearchChange,
   suggestions,
@@ -11,7 +15,7 @@ export default function AuctionBlock({
   setPosFilter,
   winnerId,
   setWinnerId,
-  owners,
+  owners = [],
   activeStats,
   bidAmount,
   setBidAmount,
@@ -35,6 +39,146 @@ export default function AuctionBlock({
   const maxBid = activeStats ? activeStats.maxBid : 0;
 
   // --- 2.1 RENDER ---
+  // if only the left portion is requested, render nominator/search/timer panel
+  if (leftOnly) {
+    const nominator = owners.find((o) => o.id === nominatorId);
+    const nominatorName = nominator
+      ? nominator.team_name || nominator.username
+      : 'TBD';
+    return (
+      <div className="flex items-center gap-4 text-[12px] text-slate-300">
+        {/* search input */}
+        <input
+          className="w-40 p-1 rounded bg-slate-950 border border-slate-700 text-sm outline-none focus:border-yellow-500"
+          value={playerName}
+          onChange={handleSearchChange}
+          placeholder="Nominate Player..."
+        />
+        <span className="font-semibold">Nominator:</span>
+        {isCommissioner ? (
+          <select
+            value={nominatorId || ''}
+            onChange={(e) =>
+              setOverrideNominator?.(parseInt(e.target.value) || null)
+            }
+            className="bg-slate-900 text-white border border-slate-700 rounded p-1 text-sm"
+          >
+            <option value="" disabled>
+              select owner
+            </option>
+            {owners.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.team_name || o.username}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="font-bold text-yellow-400">{nominatorName}</span>
+        )}
+        {isCommissioner && (
+          <span className="ml-2 text-red-400 uppercase font-black">
+            ADMIN
+          </span>
+        )}
+        <div className="flex items-center gap-2 ml-4">
+          <div
+            className={`w-12 font-mono text-xl font-bold text-center ${
+              timeLeft <= 3 && isTimerRunning
+                ? 'text-red-500 animate-pulse'
+                : 'text-white'
+            }`}
+          >
+            {timeLeft}
+          </div>
+          <button
+            onClick={isTimerRunning ? reset : start}
+            className={`text-[10px] py-1 px-2 rounded font-black uppercase transition ${
+              isTimerRunning
+                ? 'bg-slate-700 text-slate-300 hover:bg-red-900/40'
+                : 'bg-green-600 text-white hover:bg-green-500'
+            }`}
+          >
+            {isTimerRunning ? 'RESET' : 'START'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // if only the center bidding modal is needed
+  if (centerOnly) {
+    const nominator = owners.find((o) => o.id === nominatorId);
+    const nominatorName = nominator
+      ? nominator.team_name || nominator.username
+      : 'TBD';
+    return (
+      <div className="bg-slate-800/30 border border-slate-700 p-4 rounded w-[320px]">
+        <div className="mb-2">
+          <span className="text-sm">Nominator:</span>{' '}
+          <span className="font-bold text-yellow-400">{nominatorName}</span>
+        </div>
+        <label className="block text-slate-500 text-[10px] uppercase font-black mb-2">
+          Winning Bidder
+        </label>
+        <select
+          className="w-full bg-slate-900 text-white border border-slate-700 rounded p-1.5 text-sm font-bold mb-4 outline-none focus:border-yellow-500"
+          value={owners.some((o) => o.id === winnerId) ? winnerId : ''}
+          onChange={(e) => setWinnerId(parseInt(e.target.value))}
+          disabled={owners.length === 0}
+        >
+          <option value="" disabled>
+            {owners.length === 0 ? 'No owners available' : 'Select Owner'}
+          </option>
+          {owners.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.team_name ? `${o.team_name} — ${o.username}` : o.username}
+            </option>
+          ))}
+        </select>
+
+        {/* quick bids */}
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={() => setBidAmount(Math.min(maxBid, bidAmount + 1))}
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
+          >
+            +$1
+          </button>
+          <button
+            onClick={() => setBidAmount(Math.min(maxBid, bidAmount + 5))}
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
+          >
+            +$5
+          </button>
+          <button
+            onClick={() => setBidAmount(maxBid)}
+            disabled={bidAmount >= maxBid}
+            className="flex-1 bg-red-900 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50"
+          >
+            MAX
+          </button>
+        </div>
+
+        {/* manual adjustment and slider omitted for brevity */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setBidAmount(Math.max(MIN_BID, bidAmount - 1))}
+            className="w-16 h-12 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-2xl"
+          >
+            -
+          </button>
+          <input
+            type="number"
+            className="flex-1 text-center bg-slate-950 text-2xl font-mono font-bold border-y border-slate-700 py-2"
+            value={bidAmount}
+            onChange={(e) => setBidAmount(parseInt(e.target.value) || MIN_BID)}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // --- previous full render ---
   return (
     <div className="flex flex-col md:flex-row gap-6 w-full max-w-[240px] mx-auto">
       {/* top row */}

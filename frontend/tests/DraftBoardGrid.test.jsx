@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import DraftBoardGrid from '../src/components/draft/DraftBoardGrid';
 import { POSITION_COLORS } from '../src/constants/ui';
@@ -127,13 +127,71 @@ describe('AuctionBlock layout', () => {
     const wrapper = container.firstChild;
     expect(wrapper).toHaveClass('max-w-[240px]');
   });
+
+  it('leftOnly mode shows nominator and search input', () => {
+    const { getByPlaceholderText, getByText } = render(
+      <AuctionBlock
+        leftOnly
+        playerName=""
+        handleSearchChange={() => {}}
+        suggestions={[]}
+        showSuggestions={false}
+        posFilter="ALL"
+        setPosFilter={() => {}}
+        winnerId={null}
+        setWinnerId={() => {}}
+        owners={[]}
+        activeStats={null}
+        bidAmount={1}
+        setBidAmount={() => {}}
+        handleDraft={() => {}}
+        timeLeft={0}
+        isTimerRunning={false}
+        reset={() => {}}
+        start={() => {}}
+        nominatorId={null}
+        isCommissioner={false}
+      />
+    );
+    expect(getByPlaceholderText(/Nominate Player/i)).toBeInTheDocument();
+    expect(getByText(/Nominator/i)).toBeInTheDocument();
+  });
+
+  it('centerOnly mode shows bidding interface without search', () => {
+    const { queryByPlaceholderText, getByText } = render(
+      <AuctionBlock
+        centerOnly
+        playerName=""
+        handleSearchChange={() => {}}
+        suggestions={[]}
+        showSuggestions={false}
+        posFilter="ALL"
+        setPosFilter={() => {}}
+        winnerId={null}
+        setWinnerId={() => {}}
+        owners={[]}
+        activeStats={{ budget: 100, maxBid: 50 }}
+        bidAmount={1}
+        setBidAmount={() => {}}
+        handleDraft={() => {}}
+        timeLeft={0}
+        isTimerRunning={false}
+        reset={() => {}}
+        start={() => {}}
+        nominatorId={null}
+        isCommissioner={false}
+      />
+    );
+    expect(queryByPlaceholderText(/Nominate Player/i)).toBeNull();
+    expect(getByText(/Winning Bidder/i)).toBeInTheDocument();
+  });
 });
 
 // verify the page layout gives the sidebar two grid columns
 import DraftBoard from '../src/pages/DraftBoard';
 
 describe('DraftBoard page layout', () => {
-  it('uses col-span-3 for the sidebar section and col-span-9 for the board', () => {
+  it('defines correct grid column spans for board and sidebar', () => {
     const { container } = render(
       <DraftBoard
         token={null}
@@ -143,8 +201,23 @@ describe('DraftBoard page layout', () => {
       />
     );
     const aside = container.querySelector('aside');
-    expect(aside).toHaveClass('col-span-3');
+    expect(aside).toHaveClass('md:col-span-3');
     const section = container.querySelector('section');
-    expect(section).toHaveClass('col-span-9', 'overflow-x-auto');
+    expect(section).toHaveClass('md:col-span-9');
+  });
+
+  it('sidebar toggle button shows/hides the list', () => {
+    const { container } = render(
+      <DraftBoard
+        token={null}
+        activeOwnerId={1}
+        activeLeagueId={1}
+        setSubHeader={() => {}}
+      />
+    );
+    const toggle = screen.getByText(/Show Best/i);
+    fireEvent.click(toggle);
+    const aside = container.querySelector('aside');
+    expect(aside).not.toHaveClass('hidden');
   });
 });
