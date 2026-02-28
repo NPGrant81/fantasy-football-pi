@@ -51,4 +51,25 @@ export const menuGradients = {
 
 // position-based bg classes for the grid layout
 
+// expose helpers for manipulating document theme for tests or utilities
+export const isDarkTheme = () =>
+  typeof document !== 'undefined' &&
+  document.documentElement.classList.contains('dark');
+
+export const setDocumentTheme = (theme) => {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  if (theme === 'dark') {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
+  }
+};
+
+export const toggleDocumentTheme = () => {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.classList.toggle('dark');
+};
+
 export const combineClasses = (...classes) => classes.filter(Boolean).join(' ');

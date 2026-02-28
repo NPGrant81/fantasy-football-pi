@@ -31,7 +31,8 @@ export default function DraftHistoryFeed({ history = [], owners = [] }) {
                 <span className="text-yellow-400 mr-2">
                   {owner?.username || 'Ghost Owner'}
                 </span>
-                <span className="uppercase font-black tracking-tight mr-2">
+                {/* player name should be light so it’s readable on dark pill */}
+                <span className="uppercase font-black tracking-tight mr-2 text-white">
                   {pick.player_name}
                 </span>
                 <span

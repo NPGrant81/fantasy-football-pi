@@ -860,7 +860,7 @@ export default function MyTeam({ activeOwnerId }) {
       await apiClient.post('/team/taxi/demote', { player_id: playerId });
       fetchTeam();
       setToast({ message: 'Player moved to taxi squad.', type: 'success' });
-    } catch (_err) {
+    } catch {
       // error is intentionally ignored; UI shows a generic message
       setToast({ message: 'Unable to move player to taxi.', type: 'error' });
     }
@@ -871,7 +871,7 @@ export default function MyTeam({ activeOwnerId }) {
       await apiClient.post('/team/taxi/promote', { player_id: playerId });
       fetchTeam();
       setToast({ message: 'Player promoted from taxi.', type: 'success' });
-    } catch (_err) {
+    } catch {
       // error intentionally ignored
       setToast({
         message: 'Unable to promote player from taxi.',

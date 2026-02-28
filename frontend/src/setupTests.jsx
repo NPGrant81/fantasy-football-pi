@@ -16,6 +16,16 @@ if (!global.localStorage) {
   };
 }
 
+// jsdom doesn't implement matchMedia; provide a minimal polyfill
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  window.matchMedia = (query) => ({
+    matches: false,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  });
+}
+
 // === Global mocks for all tests ===
 // Mock the API client so individual files don't need to repeat this.
 vi.mock('./api/client', () => ({

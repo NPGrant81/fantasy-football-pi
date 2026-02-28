@@ -4,12 +4,25 @@ import { ThemeContext } from './ThemeContextValue';
 // The provider component is the only export from this file now, which
 // keeps the module "component-only" for Fast Refresh.
 
+// helper to pick an initial theme value
+function getInitialTheme() {
+  if (typeof window === 'undefined') {
+    return 'dark';
+  }
+
+  // try persisted preference first
+  const stored = localStorage.getItem('theme');
+  if (stored === 'light' || stored === 'dark') {
+    return stored;
+  }
+
+  // fall back to system preference
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+  return prefersDark ? 'dark' : 'light';
+}
+
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(
-    typeof localStorage !== 'undefined'
-      ? localStorage.getItem('theme') || 'dark'
-      : 'dark'
-  );
+  const [theme, setTheme] = useState(getInitialTheme);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -18,8 +31,22 @@ export const ThemeProvider = ({ children }) => {
     } else {
       root.classList.remove('dark');
     }
+
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // listen for system preference changes, update if the user hasn't
+  // explicitly selected a theme (i.e. no stored value)
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handle = (e) => {
+      if (!localStorage.getItem('theme')) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+    mql.addEventListener('change', handle);
+    return () => mql.removeEventListener('change', handle);
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>

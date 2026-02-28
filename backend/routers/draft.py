@@ -47,12 +47,47 @@ class DraftPickCreate(BaseModel):
 # Existing endpoint
 @router.get("/draft-history")
 def get_draft_history(session_id: str, db: Session = Depends(get_db)):
-    return db.query(models.DraftPick).filter(models.DraftPick.session_id == session_id).all()
+    # return basic pick data but also include player name and position for frontend convenience
+    picks = (
+        db.query(models.DraftPick)
+        .filter(models.DraftPick.session_id == session_id)
+        .all()
+    )
+    enriched = []
+    for p in picks:
+        enriched.append({
+            "id": p.id,
+            "owner_id": p.owner_id,
+            "player_id": p.player_id,
+            "amount": p.amount,
+            "timestamp": p.timestamp,
+            "position": p.player.position if p.player else None,
+            "player_name": p.player.name if p.player else None,
+            # include any other fields the client expects
+        })
+    return enriched
 
 # --- NEW: GET /draft/history (alias for /draft-history) ---
 @router.get("/draft/history")
 def get_draft_history_alias(session_id: str, db: Session = Depends(get_db)):
-    return db.query(models.DraftPick).filter(models.DraftPick.session_id == session_id).all()
+    # alias; mirror same enrichment logic
+    picks = (
+        db.query(models.DraftPick)
+        .filter(models.DraftPick.session_id == session_id)
+        .all()
+    )
+    enriched = []
+    for p in picks:
+        enriched.append({
+            "id": p.id,
+            "owner_id": p.owner_id,
+            "player_id": p.player_id,
+            "amount": p.amount,
+            "timestamp": p.timestamp,
+            "position": p.player.position if p.player else None,
+            "player_name": p.player.name if p.player else None,
+        })
+    return enriched
 
 @router.post("/draft-pick")
 async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
