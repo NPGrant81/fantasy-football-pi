@@ -111,6 +111,8 @@ describe('MyTeam (Roster & Lineups)', () => {
       // deadlines may appear in multiple places (header, summary banner)
       expect(screen.getAllByText(/Waiver Deadline/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Trade Deadline/i).length).toBeGreaterThan(0);
+      // should include Keepers shortcut
+      expect(screen.getByText(/Manage Keepers/i)).toBeInTheDocument();
     });
   });
 
