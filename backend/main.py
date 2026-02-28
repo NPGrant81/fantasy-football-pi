@@ -43,6 +43,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     nfl = importlib.import_module("backend.routers.nfl")
     playoffs = importlib.import_module("backend.routers.playoffs")
     analytics = importlib.import_module("backend.routers.analytics")
+    keepers = importlib.import_module("backend.routers.keepers")
     analytics = importlib.import_module("backend.routers.analytics")
 
     engine = dbmod.engine
@@ -56,7 +57,7 @@ else:
     from .core.security import get_password_hash, check_is_commissioner
     from .routers import (
         admin, admin_tools, team, matchups, league, advisor,
-        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics
+        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, keepers
     )
 
 load_dotenv()
@@ -110,6 +111,11 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS future_draft_budget INTEGER DEFAULT 0",
         # taxi support: mark picks that aren’t eligible for starting lineup
         "ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS is_taxi BOOLEAN DEFAULT FALSE",
+        # keeper feature additions
+        "ALTER TABLE keeper_rules ADD COLUMN IF NOT EXISTS max_years_per_player INTEGER DEFAULT 1",
+        "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS years_kept_count INTEGER DEFAULT 1",
+        "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP WITH TIME ZONE",
+        "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS approved_by_commish BOOLEAN DEFAULT FALSE",
     ]
 
     with engine.connect() as connection:
@@ -177,6 +183,7 @@ app.include_router(trades.router)
 app.include_router(feedback.router)
 app.include_router(etl.router)
 app.include_router(nfl.router)
+app.include_router(keepers.router)
 
 # --- 4. SEEDER (moved) ---
 # The automatic seeding logic used to live here but caused every test that
