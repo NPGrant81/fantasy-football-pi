@@ -46,7 +46,7 @@ export default function Keepers() {
       setLoading(false);
     }
     load();
-  }, [userId]);
+  }, [userId, keeperData, roster]);
 
   const togglePlayer = (playerId) => {
     const newSel = new Set(selected);

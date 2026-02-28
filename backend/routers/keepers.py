@@ -319,7 +319,8 @@ def update_keeper_settings(
         # create if missing
         rules = models.KeeperRules(league_id=current_user.league_id)
         db.add(rules)
-    for field, val in update.dict(exclude_unset=True).items():
+    # pydantic v2 uses model_dump instead of dict
+    for field, val in update.model_dump(exclude_unset=True).items():
         setattr(rules, field, val)
     db.commit()
     db.refresh(rules)

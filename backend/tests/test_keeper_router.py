@@ -71,6 +71,9 @@ class CU:
 def test_owner_keeper_endpoints():
     db_session = setup_db()
     league = make_league(db_session)
+    # ensure keeper rules exist so max_allowed reflects expected value
+    db_session.add(models.KeeperRules(league_id=league.id, max_keepers=3))
+    db_session.commit()
     owner = make_user(db_session, league, "owner", budget=200)
     p1 = make_player(db_session, "A")
     p2 = make_player(db_session, "B")
@@ -112,16 +115,19 @@ def test_admin_settings_and_actions():
     other = make_user(db_session, league, "owner2")
     current_comm = CU(comm)
 
-    # update settings
-    upd = type("U", (), {})()
-    upd.max_keepers = 2
-    upd.max_years_per_player = 2
-    upd.deadline_date = datetime.utcnow() + timedelta(days=1)
-    upd.waiver_policy = True
-    upd.trade_deadline = None
-    upd.drafted_only = True
-    upd.cost_type = "round"
-    upd.cost_inflation = 5
+    # update settings - use real Pydantic schema so `.model_dump()` works
+    from backend.schemas.keepers import KeeperSettingsUpdate
+
+    upd = KeeperSettingsUpdate(
+        max_keepers=2,
+        max_years_per_player=2,
+        deadline_date=datetime.utcnow() + timedelta(days=1),
+        waiver_policy=True,
+        trade_deadline=None,
+        drafted_only=True,
+        cost_type="round",
+        cost_inflation=5,
+    )
 
     update_keeper_settings(update=upd, db=db_session, current_user=current_comm)
     outs = get_keeper_settings(db=db_session, current_user=current_comm)

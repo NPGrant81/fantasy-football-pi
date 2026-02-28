@@ -6,7 +6,7 @@ export default function Dashboard({ ownerId }) {
 
   // Commissioner dashboard is now dedicated to league management only.
   return (
-    <div className="p-10 text-center text-slate-500 font-black uppercase">
+    <div className="p-10 md:p-12 text-center text-slate-500 font-black uppercase">
       This page is now reserved for commissioner controls.
     </div>
   );

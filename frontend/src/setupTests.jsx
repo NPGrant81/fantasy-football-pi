@@ -42,7 +42,7 @@ vi.mock('chart.js', () => {
   // minimal dummy Chart class
   return {
     Chart: class {
-      constructor(ctx, config) {
+      constructor(_ctx, _config) {
         // nothing
       }
       static register() {}
