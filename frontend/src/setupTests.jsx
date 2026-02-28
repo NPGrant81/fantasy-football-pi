@@ -37,6 +37,36 @@ vi.mock('./api/client', () => ({
   },
 }));
 
+// Stub out chart libraries to prevent jsdom canvas errors during tests
+vi.mock('chart.js', () => {
+  // minimal dummy Chart class
+  return {
+    Chart: class {
+      constructor(ctx, config) {
+        // nothing
+      }
+      static register() {}
+      update() {}
+      destroy() {}
+    },
+    // provide any functions that might be called
+    defaults: { global: {} },
+  };
+});
+
+vi.mock('react-chartjs-2', () => {
+  const React = vi.importActual('react');
+  // provide basic components that render placeholders
+  return {
+    Scatter: (props) => React.default.createElement('div', { 'data-testid': 'scatter-chart' }),
+    Bar: (props) => React.default.createElement('div', { 'data-testid': 'bar-chart' }),
+    Line: (props) => React.default.createElement('div', { 'data-testid': 'line-chart' }),
+    Doughnut: (props) => React.default.createElement('div', { 'data-testid': 'doughnut-chart' }),
+    Pie: (props) => React.default.createElement('div', { 'data-testid': 'pie-chart' }),
+    // forward others if necessary
+  };
+});
+
 // Keep a reusable navigate mock that tests can inspect if needed.
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {

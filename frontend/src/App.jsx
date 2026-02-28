@@ -42,6 +42,7 @@ const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
 );
 const Keepers = lazy(() => import('./pages/Keepers'));
+const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
@@ -305,6 +306,7 @@ function App() {
               <Route path="/bug-report" element={<BugReport />} />
               <Route path="/keepers" element={<Keepers />} />
               <Route path="/analytics" element={<AnalyticsDashboard />} />
+              <Route path="/playoffs" element={<PlayoffBracket />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Suspense>
