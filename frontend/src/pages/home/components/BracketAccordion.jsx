@@ -24,9 +24,17 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     const fetchSeasons = async () => {
       try {
         const res = await apiClient.get(`/playoffs/seasons?league_id=${leagueId}`);
-        setSeasons(res.data || []);
-        if (res.data && res.data.length > 0) {
-          setSeason(res.data[0]); // default to most recent
+        // some backend variants accidentally wrap the list in an object
+        let list = res.data;
+        if (!Array.isArray(list) && list && Array.isArray(list.seasons)) {
+          list = list.seasons;
+        }
+        if (!Array.isArray(list)) {
+          list = [];
+        }
+        setSeasons(list);
+        if (list.length > 0) {
+          setSeason(list[0]); // default to most recent
         }
       } catch {
         // ignore, seasons list is optional

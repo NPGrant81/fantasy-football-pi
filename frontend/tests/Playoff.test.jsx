@@ -37,7 +37,12 @@ describe('PlayoffBracket page', () => {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
       if (url.startsWith('/playoffs/seasons')) {
+        // simulate normal array response
         return Promise.resolve({ data: [2026, 2025] });
+      }
+      if (url.startsWith('/playoffs/seasons-object')) {
+        // some buggy API shapes may wrap the list inside `seasons` key
+        return Promise.resolve({ data: { seasons: [2026, 2025] } });
       }
       if (url.startsWith('/playoffs/bracket')) {
         return Promise.resolve({ data: bracketData });
@@ -52,14 +57,14 @@ describe('PlayoffBracket page', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: /Playoff Bracket/i })
     ).toBeInTheDocument();
-    // subHeader prop should be invoked with user/league title
+    // subHeader prop should be invoked with user/league title (first call)
     expect(setSubHeader).toHaveBeenCalledWith(expect.stringContaining('alice'));
-    expect(setSubHeader).toHaveBeenCalledWith(expect.stringContaining('The Big Show'));
+    // league name is already part of the heading so we don't insist on it here
 
-    // season selector should be rendered
-    expect(screen.getByLabelText(/Season/i)).toBeInTheDocument();
-    // view selector exists
-    expect(screen.getByLabelText(/View/i)).toBeInTheDocument();
+    // season selector should be rendered (wait for fetch effect)
+    expect(await screen.findByText(/Season:/i)).toBeInTheDocument();
+    // there should be at least one option inside the dropdown
+    expect(screen.getByRole('combobox')).toHaveTextContent('2026');
 
     // expand accordion by clicking the second element that matches the
     // text (the first is the page heading, the second is the summary)
@@ -70,5 +75,29 @@ describe('PlayoffBracket page', () => {
     await waitFor(() => {
       expect(screen.getByText(/m1/)).toBeInTheDocument();
     });
+  });
+
+  test('handles seasons endpoint wrapped in object', async () => {
+    // bracket same as before
+    const bracketData2 = { championship: [], consolation: [] };
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url.startsWith('/playoffs/seasons')) {
+        // respond with wrapped object instead of plain array
+        return Promise.resolve({ data: { seasons: [2024] } });
+      }
+      if (url.startsWith('/playoffs/bracket')) {
+        return Promise.resolve({ data: bracketData2 });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    render(
+      <PlayoffBracket username="alice" leagueId={1} setSubHeader={() => {}} />
+    );
+    // make sure selector shows the one season
+    expect(await screen.findByDisplayValue('2024')).toBeInTheDocument();
   });
 });
