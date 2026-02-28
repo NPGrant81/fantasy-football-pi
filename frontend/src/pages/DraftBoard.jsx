@@ -252,13 +252,37 @@ export default function DraftBoard({
         onPause={handlePause}
       />
 
-      {/* page content lives here */}
+      {/* auction controls moved above the board for easier access */}
+      <div className="w-full flex flex-col md:flex-row justify-center gap-6 p-4 bg-slate-900/50">
+        <AuctionBlock
+          playerName={playerName}
+          handleSearchChange={handleSearchChange}
+          suggestions={suggestions}
+          showSuggestions={showSuggestions}
+          selectSuggestion={selectSuggestion}
+          posFilter={posFilter}
+          setPosFilter={setPosFilter}
+          winnerId={winnerId}
+          setWinnerId={setWinnerId}
+          owners={owners}
+          activeStats={activeStats}
+          bidAmount={bidAmount}
+          setBidAmount={setBidAmount}
+          handleDraft={handleDraft}
+          timeLeft={timeLeft}
+          isTimerRunning={isTimerRunning}
+          reset={reset}
+          start={start}
+          nominatorId={currentNominatorId}
+          isCommissioner={isCommissioner}
+        />
+      </div>
 
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
 
       <main className="flex-1 grid grid-cols-12 h-screen gap-0 overflow-hidden z-0">
-        <section className="col-span-9 overflow-x-auto border-r border-slate-800 custom-scrollbar">
+        <section className="col-span-12 md:col-span-9 overflow-x-auto border-r border-slate-800 custom-scrollbar">
           <DraftBoardGrid
             teams={owners}
             history={history}
@@ -267,29 +291,7 @@ export default function DraftBoard({
           />
         </section>
 
-        <aside className="col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
-          <AuctionBlock
-            playerName={playerName}
-            handleSearchChange={handleSearchChange}
-            suggestions={suggestions}
-            showSuggestions={showSuggestions}
-            selectSuggestion={selectSuggestion}
-            posFilter={posFilter}
-            setPosFilter={setPosFilter}
-            winnerId={winnerId}
-            setWinnerId={setWinnerId}
-            owners={owners}
-            activeStats={activeStats}
-            bidAmount={bidAmount}
-            setBidAmount={setBidAmount}
-            handleDraft={handleDraft}
-            timeLeft={timeLeft}
-            isTimerRunning={isTimerRunning}
-            reset={reset}
-            start={start}
-            nominatorId={currentNominatorId}
-            isCommissioner={isCommissioner}
-          />
+        <aside className="col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
           <BestAvailableList
             players={players
               .filter((p) => !history.some((h) => h.player_id === p.id))
