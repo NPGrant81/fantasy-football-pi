@@ -40,7 +40,7 @@ describe('DraftBoardGrid header', () => {
 
     // ensure empty cells are tall enough for two-line names
     const emptyCell = screen.getAllByText('OPEN')[0].closest('div');
-    expect(emptyCell).toHaveClass('h-20');
+    expect(emptyCell).toHaveClass('h-24');
 
     // stats line should contain count and remaining budget
     const statsEl = screen.getByText(/1 \|/);
@@ -141,7 +141,8 @@ describe('AuctionBlock layout', () => {
       />
     );
     const wrapper = container.firstChild;
-    expect(wrapper).toHaveClass('max-w-[240px]');
+    // root container should now flex-grow rather than be capped
+    expect(wrapper).toHaveClass('flex-1');
   });
 
   it('leftOnly mode shows nominator, search input, and pos filters', () => {

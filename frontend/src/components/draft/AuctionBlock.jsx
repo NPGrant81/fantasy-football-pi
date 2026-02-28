@@ -198,7 +198,7 @@ export default function AuctionBlock({
 
   // --- previous full render ---
   return (
-    <div className="flex flex-col md:flex-row gap-6 w-full max-w-[240px] mx-auto">
+    <div className="flex flex-1 min-w-0 flex-col md:flex-row gap-6">
       {/* top row */}
       <div className="flex justify-between items-center text-[12px] text-slate-300">
         <div className="flex items-center gap-2">
@@ -253,7 +253,7 @@ export default function AuctionBlock({
       </div>
 
       {/* search/filter area */}
-      <div className="relative w-full">
+      <div className="relative w-full min-w-0">
         <div className="flex flex-wrap gap-1 mb-2">
           {['ALL', ...POSITIONS].map((pos) => (
             <button

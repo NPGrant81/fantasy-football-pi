@@ -254,8 +254,8 @@ export default function DraftBoard({
       />
 
       {/* auction controls top bar */}
-      <div className="w-full relative">
-        <div className="flex items-center justify-between p-2 bg-slate-900/60">
+      <div className="w-full">
+        <div className="flex flex-wrap items-start justify-between p-2 bg-slate-900/60">
           {/* full bidding panel */}
           <AuctionBlock
             playerName={playerName}
