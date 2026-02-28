@@ -116,7 +116,7 @@ describe('DraftBoardGrid header', () => {
 import AuctionBlock from '../src/components/draft/AuctionBlock';
 
 describe('AuctionBlock layout', () => {
-  it('constrains itself to a reasonable max width', () => {
+  it('expands to full width under its parent', () => {
     const { container } = render(
       <AuctionBlock
         playerName=""
@@ -141,8 +141,8 @@ describe('AuctionBlock layout', () => {
       />
     );
     const wrapper = container.firstChild;
-    // root container should now flex-grow rather than be capped
-    expect(wrapper).toHaveClass('flex-1');
+    // root container should now be full width and flexible
+    expect(wrapper).toHaveClass('w-full');
   });
 
   it('leftOnly mode shows nominator, search input, and pos filters', () => {
@@ -202,6 +202,41 @@ describe('AuctionBlock layout', () => {
     // full mode should show the search input as well as bidding controls
     expect(queryByPlaceholderText(/Nominate Player/i)).toBeInTheDocument();
     expect(getByText(/Winning Bidder/i)).toBeInTheDocument();
+  });
+
+  it('top row flex container aligns items to bottom and integrates Show Best toggle', () => {
+    const { getByText, getByTestId } = render(
+      <AuctionBlock
+        playerName=""
+        handleSearchChange={() => {}}
+        suggestions={[]}
+        showSuggestions={false}
+        posFilter="ALL"
+        setPosFilter={() => {}}
+        winnerId={null}
+        setWinnerId={() => {}}
+        owners={[]}
+        activeStats={null}
+        bidAmount={1}
+        setBidAmount={() => {}}
+        handleDraft={() => {}}
+        timeLeft={0}
+        isTimerRunning={false}
+        reset={() => {}}
+        start={() => {}}
+        nominatorId={null}
+        isCommissioner={false}
+        showBestSidebar={false}
+        toggleSidebar={() => {}}
+      />
+    );
+    const topRow = getByTestId('auction-top-row');
+    expect(topRow).toHaveClass('md:items-end');
+    // Show Best button should exist inside AuctionBlock
+    expect(getByText(/Show Best/i)).toBeInTheDocument();
+
+    // sold button should be present below
+    expect(getByText(/SOLD/i)).toBeInTheDocument();
   });
 });
 

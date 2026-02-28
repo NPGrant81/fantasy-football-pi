@@ -255,8 +255,8 @@ export default function DraftBoard({
 
       {/* auction controls top bar */}
       <div className="w-full">
-        <div className="flex flex-wrap items-start justify-between p-2 bg-slate-900/60">
-          {/* full bidding panel */}
+        <div className="flex flex-wrap items-end justify-start p-2 bg-slate-900/60">
+          {/* auction controls panel handles its own internal alignment */}
           <AuctionBlock
             playerName={playerName}
             handleSearchChange={handleSearchChange}
@@ -278,16 +278,9 @@ export default function DraftBoard({
             start={start}
             nominatorId={currentNominatorId}
             isCommissioner={isCommissioner}
+            showBestSidebar={showBestSidebar}
+            toggleSidebar={(v) => setShowBestSidebar(v)}
           />
-          {/* collapse toggle button for sidebar */}
-          <div className="hidden md:block">
-            <button
-              onClick={() => setShowBestSidebar((v) => !v)}
-              className="text-xs text-yellow-400 px-2 py-1 bg-slate-800 rounded"
-            >
-              {showBestSidebar ? 'Hide Best' : 'Show Best'}
-            </button>
-          </div>
         </div>
       </div>
 

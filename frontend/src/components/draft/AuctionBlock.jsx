@@ -5,6 +5,9 @@ export default function AuctionBlock({
   // control flags
   leftOnly = false,
   centerOnly = false,
+  // optional sidebar toggle integration
+  showBestSidebar,
+  toggleSidebar,
   // the rest are the usual props
   playerName,
   handleSearchChange,
@@ -198,107 +201,122 @@ export default function AuctionBlock({
 
   // --- previous full render ---
   return (
-    <div className="flex flex-1 min-w-0 flex-col md:flex-row gap-6">
-      {/* top row */}
-      <div className="flex justify-between items-center text-[12px] text-slate-300">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">Nominator:</span>
-          {isCommissioner ? (
-            <select
-              value={nominatorId || ''}
-              onChange={(e) =>
-                setOverrideNominator?.(parseInt(e.target.value) || null)
-              }
-              className="bg-slate-900 text-white border border-slate-700 rounded p-1 text-sm"
-            >
-              <option value="" disabled>
-                select owner
-              </option>
-              {owners.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.team_name || o.username}
+    <div className="flex flex-col w-full">
+      {/* top row containing main controls and optional toggle */}
+      <div data-testid="auction-top-row" className="flex flex-col md:flex-row md:items-end gap-6 w-full">
+        {/* nominator & timer */}
+        <div className="flex justify-between items-center text-[12px] text-slate-300">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold">Nominator:</span>
+            {isCommissioner ? (
+              <select
+                value={nominatorId || ''}
+                onChange={(e) =>
+                  setOverrideNominator?.(parseInt(e.target.value) || null)
+                }
+                className="bg-slate-900 text-white border border-slate-700 rounded p-1 text-sm"
+              >
+                <option value="" disabled>
+                  select owner
                 </option>
-              ))}
-            </select>
-          ) : (
-            <span className="font-bold text-yellow-400">{nominatorName}</span>
-          )}
-          {isCommissioner && (
-            <span className="ml-2 text-red-400 uppercase font-black">
-              ADMIN
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-16 font-mono text-2xl font-bold text-center ${
-              timeLeft <= 3 && isTimerRunning
-                ? 'text-red-500 animate-pulse'
-                : 'text-white'
-            }`}
-          >
-            {timeLeft}
+                {owners.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.team_name || o.username}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="font-bold text-yellow-400">{nominatorName}</span>
+            )}
+            {isCommissioner && (
+              <span className="ml-2 text-red-400 uppercase font-black">
+                ADMIN
+              </span>
+            )}
           </div>
-          <button
-            onClick={isTimerRunning ? reset : start}
-            className={`text-[10px] py-2 px-3 rounded font-black uppercase transition ${
-              isTimerRunning
-                ? 'bg-slate-700 text-slate-300 hover:bg-red-900/40'
-                : 'bg-green-600 text-white hover:bg-green-500'
-            }`}
-          >
-            {isTimerRunning ? 'RESET' : 'START'}
-          </button>
-        </div>
-      </div>
-
-      {/* search/filter area */}
-      <div className="relative w-full min-w-0">
-        <div className="flex flex-wrap gap-1 mb-2">
-          {['ALL', ...POSITIONS].map((pos) => (
-            <button
-              key={pos}
-              onClick={() => setPosFilter(pos)}
-              className={`text-[10px] font-bold px-3 py-1 rounded border transition uppercase ${
-                posFilter === pos
-                  ? 'bg-yellow-500 text-black border-yellow-500'
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+          <div className="flex items-center gap-2">
+            <div
+              className={`w-16 font-mono text-2xl font-bold text-center ${
+                timeLeft <= 3 && isTimerRunning
+                  ? 'text-red-500 animate-pulse'
+                  : 'text-white'
               }`}
             >
-              {pos}
+              {timeLeft}
+            </div>
+            <button
+              onClick={isTimerRunning ? reset : start}
+              className={`text-[10px] py-2 px-3 rounded font-black uppercase transition ${
+                isTimerRunning
+                  ? 'bg-slate-700 text-slate-300 hover:bg-red-900/40'
+                  : 'bg-green-600 text-white hover:bg-green-500'
+              }`}
+            >
+              {isTimerRunning ? 'RESET' : 'START'}
             </button>
-          ))}
+          </div>
         </div>
-        <input
-          className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-lg font-bold outline-none focus:border-yellow-500 transition-colors"
-          value={playerName}
-          onChange={handleSearchChange}
-          placeholder="Nominate Player..."
-        />
-        {showSuggestions && suggestions.length > 0 && (
-          <ul className="absolute z-50 w-full bg-slate-900 border border-slate-700 mt-1 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
-            {suggestions.map((p) => (
-              <li
-                key={p.id}
-                onClick={() => selectSuggestion(p)}
-                className="p-3 hover:bg-slate-800 cursor-pointer flex justify-between items-center border-b border-slate-800 last:border-0"
+
+        {/* search/filter area */}
+        <div className="relative w-full min-w-0">
+          <div className="flex flex-wrap gap-1 mb-2">
+            {['ALL', ...POSITIONS].map((pos) => (
+              <button
+                key={pos}
+                onClick={() => setPosFilter(pos)}
+                className={`text-[10px] font-bold px-3 py-1 rounded border transition uppercase ${
+                  posFilter === pos
+                    ? 'bg-yellow-500 text-black border-yellow-500'
+                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                }`}
               >
-                <span className="font-bold text-slate-200">{p.name}</span>
-                <div className="flex items-center gap-2">
-                  {p.espn_id && (
-                    <span className="text-[9px] uppercase tracking-widest text-slate-400 border border-slate-700 px-2 py-0.5 rounded">
-                      ESPN
-                    </span>
-                  )}
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded font-black border ${getPosColor(p.position)}`}
-                  >
-                    {normalizePos(p.position)}
-                  </span>
-                </div>
-              </li>
+                {pos}
+              </button>
             ))}
-          </ul>
+          </div>
+          <input
+            className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-lg font-bold outline-none focus:border-yellow-500 transition-colors"
+            value={playerName}
+            onChange={handleSearchChange}
+            placeholder="Nominate Player..."
+          />
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className="absolute z-50 w-full bg-slate-900 border border-slate-700 mt-1 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+              {suggestions.map((p) => (
+                <li
+                  key={p.id}
+                  onClick={() => selectSuggestion(p)}
+                  className="p-3 hover:bg-slate-800 cursor-pointer flex justify-between items-center border-b border-slate-800 last:border-0"
+                >
+                  <span className="font-bold text-slate-200">{p.name}</span>
+                  <div className="flex items-center gap-2">
+                    {p.espn_id && (
+                      <span className="text-[9px] uppercase tracking-widest text-slate-400 border border-slate-700 px-2 py-0.5 rounded">
+                        ESPN
+                      </span>
+                    )}
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded font-black border ${getPosColor(p.position)}`}
+                    >
+                      {normalizePos(p.position)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* optional sidebar toggle */}
+        {typeof toggleSidebar === 'function' && (
+          <div className="self-start md:self-end">
+            <button
+              onClick={() => toggleSidebar(!showBestSidebar)}
+              className="text-xs text-yellow-400 px-2 py-1 bg-slate-800 rounded"
+            >
+              {showBestSidebar ? 'Hide Best' : 'Show Best'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -322,7 +340,6 @@ export default function AuctionBlock({
             </option>
           ))}
         </select>
-
         {/* quick bids */}
         <div className="flex gap-2 mb-3">
           <button
@@ -375,14 +392,17 @@ export default function AuctionBlock({
         )}
       </div>
 
-      {/* sold button row */}
-      <div className="flex justify-center">
+      {/* sold button row always under controls */}
+      <div className="flex justify-center mt-2">
         <button
           onClick={handleDraft}
           disabled={!canDraft}
-          className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black text-xl py-3 rounded disabled:opacity-40"
+          className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black text-xl py-3 rounded disabled:opacity-40 flex items-center justify-center gap-2"
         >
-          SOLD! 🔨
+          <span>SOLD!</span>
+          <span role="img" aria-label="gavel" className="text-xl">
+            🔨
+          </span>
         </button>
       </div>
     </div>
