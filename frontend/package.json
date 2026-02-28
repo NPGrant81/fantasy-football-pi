@@ -13,7 +13,8 @@
     "e2e:run": "cypress run",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "audit:breakpoints": "bash ../audit-breakpoints.sh"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

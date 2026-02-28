@@ -257,8 +257,8 @@ export default function DraftBoard({
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
 
-      <main className="flex-1 grid grid-cols-12 gap-0 overflow-hidden">
-        <section className="col-span-9 overflow-auto border-r border-slate-800 custom-scrollbar">
+      <main className="flex-1 grid grid-cols-12 h-screen gap-0 overflow-hidden z-0">
+        <section className="col-span-9 overflow-x-auto border-r border-slate-800 custom-scrollbar">
           <DraftBoardGrid
             teams={owners}
             history={history}
@@ -267,7 +267,7 @@ export default function DraftBoard({
           />
         </section>
 
-        <aside className="col-span-3 flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
+        <aside className="col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
           <AuctionBlock
             playerName={playerName}
             handleSearchChange={handleSearchChange}

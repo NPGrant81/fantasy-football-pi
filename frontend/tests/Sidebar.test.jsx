@@ -58,7 +58,7 @@ describe('Sidebar (Navigation)', () => {
     expect(screen.getByText(/testuser/i)).toBeInTheDocument();
   });
 
-  test('has navigation links to main pages', async () => {
+  test('has navigation links to main pages and playoff bracket', async () => {
     await renderSidebar();
 
     expect(screen.getByText(/Home/i)).toBeInTheDocument();
@@ -66,6 +66,14 @@ describe('Sidebar (Navigation)', () => {
     expect(screen.getByText(/My Team/i)).toBeInTheDocument();
     expect(screen.getByText(/Matchups/i)).toBeInTheDocument();
     expect(screen.getByText(/Waiver Wire/i)).toBeInTheDocument();
+    expect(screen.getByText(/Analytics/i)).toBeInTheDocument();
+    expect(screen.getByText(/Playoff Bracket/i)).toBeInTheDocument();
+
+    // ensure menu items are shorter (p-3 instead of p-4)
+    const links = screen.getAllByRole('link');
+    links.forEach((l) => {
+      expect(l).toHaveClass('p-3');
+    });
   });
 
   test('navigation links point to correct routes', async () => {

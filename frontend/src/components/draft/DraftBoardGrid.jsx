@@ -25,24 +25,24 @@ export default function DraftBoardGrid({
 
   // use flex container with fixed-width columns so every column is identical regardless of content
   return (
-    <div className="flex gap-2 p-4 bg-slate-900 w-full overflow-x-auto">
+    <div data-testid="draft-board" className="flex gap-1 p-4 bg-slate-900 w-full overflow-x-auto">
       {teams.map((team) => (
         <div
           key={team.id}
-          className={`flex-none w-[110px] flex flex-col border ${
+          className={`flex-none w-[100px] min-w-[100px] flex flex-col border ${
             team.id === highlightOwnerId
               ? 'border-cyan-400'
               : 'border-slate-700'
           }`}
         >
           {/* header area: team name + stats */}
-          <div className="flex flex-col items-center p-2 bg-slate-800 border-b border-slate-700">
-            {/* allow long names to wrap within the column instead of overflowing */}
+          <div className="flex flex-col items-center p-2 bg-slate-800 border-b border-slate-700 h-24 justify-between">
+            {/* allow long names to wrap within the column instead of overflowing (fixed height keeps all headers equal) */}
             <span className="text-sm font-bold text-white leading-tight break-words whitespace-normal text-center">
               {team.team_name || team.name || team.username}
             </span>
             <span className="text-xs text-green-400 font-medium">
-              {rosterMap[team.id]?.length || 0} Drafted | $
+              {rosterMap[team.id]?.length || 0} | $
               {(team.remaining_budget ?? team.remainingBudget) || 0} Remaining
             </span>
           </div>
@@ -52,8 +52,16 @@ export default function DraftBoardGrid({
               return (
                 <div
                   key={i}
-                  className={`h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 bg-slate-900 p-1 
-                    ${player ? POSITION_COLORS[player.position] || '' : 'bg-slate-900 opacity-50'}`}
+                  className={
+                    (() => {
+                      if (!player) {
+                        return 'h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 bg-slate-900 opacity-50';
+                      }
+                      const bg = POSITION_COLORS[player.position] || 'bg-yellow-400';
+                      // base background matches position, add thin gold border for emphasis
+                      return `h-16 flex flex-col justify-center items-center border-r border-b border-slate-700 p-1 ${bg} text-slate-100 border-2 border-slate-600`;
+                    })()
+                  }
                 >
                   {player ? (
                     <>
@@ -64,8 +72,7 @@ export default function DraftBoardGrid({
                         {player.position ? `${player.position} | ` : ''}
                         {player.amount || player.price
                           ? `$${player.amount || player.price}`
-                          : ''}{' '}
-                        Drafted
+                          : ''}
                       </span>
                     </>
                   ) : (

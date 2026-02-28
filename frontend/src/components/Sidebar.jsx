@@ -24,7 +24,7 @@ const MenuBlock = ({ to, title, desc, icon, gradient, onClick }) => {
     <Link
       to={to}
       onClick={onClick}
-      className={`group relative overflow-hidden block w-full text-left p-4 mb-3 rounded-xl border ${borderColors.main} hover:border-white transition-all shadow-lg ${gradient}`}
+      className={`group relative overflow-hidden block w-full text-left p-3 mb-2 rounded-xl border ${borderColors.main} hover:border-white transition-all shadow-lg ${gradient}`}
     >
       <div className="flex items-center gap-4 relative z-10">
         <div className="p-3 bg-black/20 rounded-lg text-white">
@@ -154,6 +154,15 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             desc="League Charts"
             icon={FiBarChart2}
             gradient={menuGradients.matchups}
+            onClick={onClose}
+          />
+
+          <MenuBlock
+            to="/playoffs"
+            title="Playoff Bracket"
+            desc="View bracket"
+            icon={FiAward}
+            gradient={menuGradients.team}
             onClick={onClose}
           />
 

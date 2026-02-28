@@ -46,6 +46,8 @@ describe('Home (League Dashboard)', () => {
     });
     expect(screen.getByText(/Welcome back,/i)).toBeInTheDocument();
     expect(screen.getByText('alice')).toBeInTheDocument();
+    // analytics link removed from homepage
+    expect(screen.queryByText(/League Insights/i)).toBeNull();
   });
 
   test('renders standings table with owners including stats', async () => {

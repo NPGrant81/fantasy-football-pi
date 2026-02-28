@@ -36,7 +36,7 @@ export default function AuctionBlock({
 
   // --- 2.1 RENDER ---
   return (
-    <div className="flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full max-w-[240px] mx-auto">
       {/* top row */}
       <div className="flex justify-between items-center text-[12px] text-slate-300">
         <div className="flex items-center gap-2">
