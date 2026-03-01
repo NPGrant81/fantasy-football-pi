@@ -10,9 +10,9 @@ export default function Layout({ children, username, leagueId, alert }) {
 
   // --- 2.1 RENDER LOGIC (The Shell) ---
   return (
-    <div className="min-h-screen w-full bg-slate-950 text-white font-sans overflow-hidden">
+    <div className="min-h-screen w-full bg-white dark:bg-slate-950 text-black dark:text-white font-sans overflow-hidden">
       {/* 2.2 TOP NAVIGATION BAR */}
-      <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-slate-800 h-16 px-4 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-slate-900/80 dark:bg-slate-100/80 backdrop-blur border-b border-slate-800 dark:border-slate-300 h-16 px-4 flex items-center justify-between">
         {/* Mobile Trigger */}
         <button
           onClick={() => setIsSidebarOpen(true)}
@@ -35,7 +35,7 @@ export default function Layout({ children, username, leagueId, alert }) {
       </header>
 
       {/* 2.3 SUB‑HEADER / ALERT BAR */}
-      <div className="h-10 mt-16 bg-slate-800 text-xs text-yellow-300 flex items-center px-6">
+      <div className="h-10 mt-16 bg-slate-800 dark:bg-slate-200 text-xs text-yellow-300 flex items-center px-6">
         {alert || '\u00A0'}
       </div>
 
