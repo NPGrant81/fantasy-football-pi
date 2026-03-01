@@ -61,7 +61,6 @@ function App() {
     localStorage.getItem('user_id')
   );
   const [username, setUsername] = useState('');
-  const [subHeader, setSubHeader] = useState('');
 
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
@@ -93,22 +92,6 @@ function App() {
         });
     }
   }, [token, handleLogout]);
-
-  // --- 1.4 SUB‑HEADER FETCH ---
-  useEffect(() => {
-    if (!activeLeagueId) return;
-    apiClient
-      .get(`/leagues/${activeLeagueId}/settings`)
-      .then((res) => {
-        const parts = [];
-        if (res.data.waiver_deadline)
-          parts.push(`Waiver: ${res.data.waiver_deadline}`);
-        if (res.data.trade_deadline)
-          parts.push(`Trade: ${res.data.trade_deadline}`);
-        setSubHeader(parts.join('  |  '));
-      })
-      .catch(() => setSubHeader(''));
-  }, [activeLeagueId]);
 
   // --- 1.5 LOGIN HANDLER ---
   const handleLogin = async (e) => {
@@ -235,7 +218,6 @@ function App() {
           username={username}
           leagueId={activeLeagueId}
           onLogout={handleLogout}
-          alert={subHeader}
         >
           <Suspense
             fallback={
@@ -251,7 +233,6 @@ function App() {
                     token={token}
                     activeOwnerId={activeOwnerId}
                     activeLeagueId={activeLeagueId}
-                    setSubHeader={setSubHeader}
                   />
                 }
               />

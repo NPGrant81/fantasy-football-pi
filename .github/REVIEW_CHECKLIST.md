@@ -1,52 +1,59 @@
-# Reviewer Quick Checklist
+# Reviewer quick checklist
 
-Use this as a fast triage guide when reviewing a PR.
+Use this as your go-to when triaging and reviewing PRs.
 
-## 1. Automated Checks (must be green before merging)
+Triage (first 5–15 minutes)
+- Read PR title/description. If missing, request:
+  - summary, test steps, and impact.
+- Confirm the PR targets the correct base branch.
+- Check CI status and number of changed files (very large PRs should be split or accompanied by a walkthrough).
+- Label PR as draft / ready / needs-info.
 
-- [ ] CI workflow (`ci-contributor.yml`) passes – backend tests, frontend tests, lint
-- [ ] No new linting errors introduced
-- [ ] Code coverage has not regressed significantly
+Automated checks
+- Confirm required checks ran: backend tests, frontend lint/tests, E2E (if applicable).
+- Confirm no new dependency vulnerabilities introduced (dependency checks).
 
-## 2. Manual Review Points
+Manual review
+- Does the code do what the PR claims?
+- Are tests present & meaningful for new logic?
+- Is naming clear and functions small and readable?
+- Edge cases & error handling included?
+- Any secrets or environment values accidentally added?
 
-- [ ] PR description is complete (summary, motivation, how-to-test filled in)
-- [ ] Logic is correct and edge cases are handled
-- [ ] No secrets, credentials, or debug statements committed
-- [ ] Database migrations (if any) are reversible and tested
-- [ ] API changes are backwards-compatible or versioned
-- [ ] Frontend changes are responsive (check major breakpoints)
+Security & data
+- Input validation and escaping present where required
+- No hard-coded secrets or credentials
+- Check DB migrations for destructive operations
 
-## 3. Local Validation Commands
+Local validation (commands)
+- Fetch + checkout a PR branch (two common ways):
+  - If PR branch exists on origin:
+    - git fetch origin
+    - git checkout -b review/<branch-name> origin/<branch-name>
+  - If you prefer fetching by PR number:
+    - git fetch origin pull/<PR_NUMBER>/head:pr-<PR_NUMBER>
+    - git checkout pr-<PR_NUMBER>
+- Backend tests:
+  - cd backend
+  - Install deps (replace with your project’s method)
+  - pytest -q
+- Frontend tests:
+  - cd frontend
+  - npm ci
+  - npm test
+  - npm run lint
 
-### Backend
+Merging & post-merge
+- Ensure branch protection rules / required approvals satisfied.
+- Rebase or request author to rebase if there are merge conflicts.
+- Prefer squash-merge for concise main history (unless your team uses rebase/merge).
+- Update CHANGELOG or release notes if required.
+- Monitor CI/deploy and production errors after merging for a short period.
 
-```bash
-# install deps and run tests
-pip install -r backend/requirements.txt
-pytest backend -q
+Frugal AI guidance (short)
+- When asking AI for help, include: failing test output (full trace), small relevant code snippet, the exact command you ran, and what you expect to happen.
+- Batch similar quick requests into a single prompt to save interactions.
 
-# optional: run with coverage
-pytest backend --cov=backend --cov-report=term-missing
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm ci --legacy-peer-deps
-npm run lint
-npm test
-```
-
-## 4. Merging Guidance
-
-- Prefer **Squash and Merge** for feature branches to keep history clean.
-- Ensure the commit message summarizes the PR purpose.
-- Delete the source branch after merging.
-
-## 5. Frugal AI Tips
-
-- Use AI suggestions as a starting point, not the final answer – always read the diff yourself.
-- Keep PRs small; large PRs are expensive to review and error-prone.
-- Prefer targeted prompts: specify the file, function, or test you want help with.
+If a PR is large (>500 LOC), ask the author to:
+- split into smaller PRs, or
+- provide a guided walkthrough (short video or a PR description with a stepwise explanation).

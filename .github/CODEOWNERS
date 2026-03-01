@@ -1,10 +1,11 @@
-# CODEOWNERS
-# Assign default reviewers for key areas of the repository.
-# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-#
-# Syntax: <path-pattern>  <owner> [<owner> ...]
-# Add additional owners or teams (e.g. @NPGrant81/team-name) as the project grows.
+# Example CODEOWNERS
+# Update these handles to your organization/team members.
+# Format: <path> @github-username
+# Eg: to request reviews for backend changes:
+/backend/ @NPGrant81
+/frontend/ @NPGrant81
+/.github/ @NPGrant81
 
-/backend/   @NPGrant81
-/frontend/  @NPGrant81
-/.github/   @NPGrant81
+# You can add more granular owners:
+# /backend/db/ @db-owner
+# /frontend/src/components/ @frontend-team

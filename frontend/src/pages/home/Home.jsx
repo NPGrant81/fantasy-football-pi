@@ -3,7 +3,16 @@ import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
 import FeedPill from '../../components/feeds/FeedPill';
-import { FiAward, FiActivity, FiBarChart2 } from 'react-icons/fi';
+import { FiAward, FiActivity } from 'react-icons/fi';
+import {
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+  tableHead,
+  tableSurface,
+} from '@utils/uiStandards';
 
 export default function Home({ username }) {
   const [standings, setStandings] = useState([]);
@@ -45,16 +54,16 @@ export default function Home({ username }) {
   // Future 1.2 Data Retrieval for "League News" will go here.
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className={`${pageShell} animate-fade-in`}>
       {/* 2.1 WELCOME BANNER */}
-      <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-6 shadow-lg">
-        <h1 className="text-3xl font-black text-white italic tracking-tighter">
-          {leagueName ? leagueName.toUpperCase() : 'LEAGUE DASHBOARD'}
+      <div className={`${pageHeader} border-b-0 pb-0`}>
+        <h1 className={pageTitle}>
+          {leagueName || 'League Dashboard'}
         </h1>
-        <p className="text-slate-400 mt-1">
-          Welcome back, <span className="text-white font-bold">{username}</span>
+        <p className={pageSubtitle}>
+          Welcome back, <span className="font-bold text-slate-900 dark:text-white">{username}</span>
           . Open the menu{' '}
-          <span className="inline-block bg-slate-700 px-2 py-0.5 rounded text-xs text-yellow-400">
+          <span className="inline-block rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-700 dark:text-yellow-300">
             ☰
           </span>{' '}
           to access the War Room.
@@ -64,17 +73,17 @@ export default function Home({ username }) {
       {/* 2.2 STANDINGS & ACTIVITY GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 2.2.1 STANDINGS MODULE */}
-        <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-xl p-6 shadow-xl">
+        <div className={`lg:col-span-2 ${cardSurface}`}>
           <div className="flex items-center gap-2 mb-4">
             <FiAward className="text-yellow-500" size={24} />
-            <h2 className="text-lg font-bold text-white uppercase tracking-widest">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
               Current Standings
             </h2>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-slate-400">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-950/50">
+          <div className={tableSurface}>
+            <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
+              <thead className={tableHead}>
                 <tr>
                   <th className="px-4 py-3">Rank</th>
                   <th
@@ -131,14 +140,14 @@ export default function Home({ username }) {
                       .map((owner, idx) => (
                         <tr
                           key={owner.id}
-                          className="border-b border-slate-800 hover:bg-slate-800/50"
+                          className="border-b border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
                         >
                           <td
-                            className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-400'}`}
+                            className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-600 dark:text-slate-400'}`}
                           >
                             {idx + 1}
                           </td>
-                          <td className="px-4 py-3 font-medium text-white">
+                          <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
                             <Link
                               to={`/team/${owner.id}`}
                               className="hover:text-blue-400 transition-colors"
@@ -164,7 +173,7 @@ export default function Home({ username }) {
                   </>
                 ) : (
                   <tr>
-                    <td colSpan={3} className="text-center py-6 text-slate-500">
+                    <td colSpan={6} className="text-center py-6 text-slate-500 dark:text-slate-400">
                       No owners found for this league.
                     </td>
                   </tr>
@@ -175,10 +184,10 @@ export default function Home({ username }) {
         </div>
 
         {/* 2.2.2 RECENT ACTIVITY MODULE */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 shadow-xl">
+        <div className={cardSurface}>
           <div className="flex items-center gap-2 mb-4">
             <FiActivity className="text-blue-500" size={24} />
-            <h2 className="text-lg font-bold text-white uppercase tracking-widest">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
               League News
             </h2>
           </div>
@@ -198,7 +207,7 @@ export default function Home({ username }) {
                 </FeedPill>
               ))
             ) : (
-              <div className="text-center text-xs text-slate-600 mt-4 italic">
+              <div className="mt-4 text-center text-xs italic text-slate-500 dark:text-slate-400">
                 End of feed
               </div>
             )}

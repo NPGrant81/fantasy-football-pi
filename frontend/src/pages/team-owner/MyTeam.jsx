@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
-  FiUser,
   FiAlertTriangle,
   FiTrendingUp,
   FiRepeat,
@@ -17,11 +16,26 @@ import ScoringRulesModal from '../commissioner/components/ScoringRulesModal';
 import OwnerManagementModal from '../commissioner/components/OwnerManagementModal';
 import WaiverWireRulesModal from '../commissioner/components/WaiverWireRulesModal';
 import TradeRulesModal from '../commissioner/components/TradeRulesModal';
+import PlayerIdentityCard from '../../components/player/PlayerIdentityCard';
 
 // Professional Imports
 import apiClient from '@api/client';
 import LeagueAdvisor from '../../components/LeagueAdvisor';
 import Toast from '../../components/Toast';
+import {
+  buttonPrimary,
+  buttonSecondary,
+  cardSurface,
+  inputBase,
+  modalCloseButton,
+  modalOverlay,
+  modalSurface,
+  modalTitle,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 // --- 1.1 CONSTANTS & HELPERS (Outside Render) ---
 const POS_RANK = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5, K: 6, FLEX: 7 };
@@ -903,10 +917,12 @@ export default function MyTeam({ activeOwnerId }) {
 
   if (loading)
     return (
-      <div className="p-8 text-white animate-pulse">Loading Roster...</div>
+      <div className={`${pageShell} animate-pulse text-slate-600 dark:text-slate-400`}>
+        Loading Roster...
+      </div>
     );
   if (!teamData)
-    return <div className="text-red-500 p-8">Error loading team.</div>;
+    return <div className={`${pageShell} text-red-500`}>Error loading team.</div>;
 
   const controlButtonClass =
     'px-4 py-2 rounded font-bold text-sm whitespace-nowrap';
@@ -914,13 +930,13 @@ export default function MyTeam({ activeOwnerId }) {
   // --- LOCKER ROOM/ROSTER/WAIVER UI (from Dashboard.jsx) ---
   if (!summary)
     return (
-      <div className="p-10 text-center animate-pulse text-slate-500 font-black uppercase">
+      <div className={`${pageShell} text-center animate-pulse text-slate-500 dark:text-slate-400 font-black`}>
         Loading your locker room...
       </div>
     );
 
   return (
-    <div className="w-full p-6 text-white min-h-screen">
+    <div className={`${pageShell} text-slate-900 dark:text-white min-h-screen`}>
       {/* Commissioner Modals */}
       <ScoringRulesModal
         open={showScoring}
@@ -937,41 +953,44 @@ export default function MyTeam({ activeOwnerId }) {
       <TradeRulesModal open={showTrades} onClose={() => setShowTrades(false)} />
 
       {/* HEADER SECTION */}
-      <div className="mb-12 border-b border-slate-800 pb-8">
-        <h1 className="text-6xl font-black italic uppercase tracking-tighter leading-none">
+      <div className={`${pageHeader} mb-6`}>
+        <h1 className={pageTitle}>
           Your Locker Room
         </h1>
+        <p className={pageSubtitle}>
+          Manage lineups, waivers, trades, and keeper decisions.
+        </p>
 
         <div className="mt-6 flex flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-2 lg:overflow-x-auto">
           {userInfo.is_commissioner && (
             <>
               <button
                 onClick={() => setShowScoring(true)}
-                className={`${controlButtonClass} bg-brand-purple hover:bg-brand-purple/90 text-white`}
+                className={`${controlButtonClass} ${buttonSecondary}`}
               >
                 Scoring Rules
               </button>
               <button
                 onClick={() => setShowOwners(true)}
-                className={`${controlButtonClass} bg-brand-cyan hover:bg-brand-cyan/90 text-white`}
+                className={`${controlButtonClass} ${buttonPrimary}`}
               >
                 Owner Management
               </button>
               <button
                 onClick={() => setShowWaivers(true)}
-                className={`${controlButtonClass} bg-green-700 hover:bg-green-600 text-white`}
+                className={`${controlButtonClass} ${buttonPrimary}`}
               >
                 Waiver Wire Rules
               </button>
               <button
                 onClick={() => setShowTrades(true)}
-                className={`${controlButtonClass} bg-yellow-500 hover:bg-yellow-400 text-black`}
+                className={`${controlButtonClass} ${buttonSecondary}`}
               >
                 Trade Rules
               </button>
               <Link
                 to="/commissioner/keeper-rules"
-                className={`${controlButtonClass} bg-indigo-600 hover:bg-indigo-500 text-white`}
+                className={`${controlButtonClass} ${buttonPrimary}`}
               >
                 Keeper Rules
               </Link>
@@ -980,13 +999,13 @@ export default function MyTeam({ activeOwnerId }) {
 
           <Link
             to="/waivers"
-            className={`${controlButtonClass} inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-black`}
+            className={`${controlButtonClass} ${buttonPrimary} inline-flex items-center justify-center gap-2`}
           >
             <FiPlus className="text-base" /> Waiver Wire
           </Link>
           <Link
             to="/keepers"
-            className={`${controlButtonClass} inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white`}
+            className={`${controlButtonClass} ${buttonPrimary} inline-flex items-center justify-center gap-2`}
           >
             <FiRepeat className="text-base" /> Manage Keepers
           </Link>
@@ -994,7 +1013,7 @@ export default function MyTeam({ activeOwnerId }) {
           {canProposeTrade && (
             <button
               onClick={() => setShowProposeTrade(true)}
-              className={`${controlButtonClass} bg-brand-cyan hover:bg-brand-cyan/90 text-white`}
+              className={`${controlButtonClass} ${buttonPrimary}`}
             >
               <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                 <FiSend className="text-base" /> Propose Trade
@@ -1038,15 +1057,13 @@ export default function MyTeam({ activeOwnerId }) {
       </div>
 
       {showProposeTrade && canProposeTrade && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-black/70 p-4">
-          <div className="w-full rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
+        <div className={modalOverlay}>
+          <div className={`${modalSurface} max-w-2xl p-6`}>
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-black uppercase tracking-wider text-white">
-                Propose Trade
-              </h3>
+              <h3 className={modalTitle}>Propose Trade</h3>
               <button
                 onClick={() => setShowProposeTrade(false)}
-                className="rounded-full border border-slate-700 p-2 text-slate-300 hover:text-white"
+                className={modalCloseButton}
               >
                 <FiX />
               </button>
@@ -1064,7 +1081,7 @@ export default function MyTeam({ activeOwnerId }) {
                   id="trade-with"
                   value={proposalToUserId}
                   onChange={(e) => setProposalToUserId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                  className={inputBase}
                 >
                   <option value="">Select manager</option>
                   {leagueOwners
@@ -1088,7 +1105,7 @@ export default function MyTeam({ activeOwnerId }) {
                   id="you-offer"
                   value={offeredPlayerId}
                   onChange={(e) => setOfferedPlayerId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                  className={inputBase}
                 >
                   <option value="">Select your player</option>
                   {myTradeRoster.map((player) => (
@@ -1110,7 +1127,7 @@ export default function MyTeam({ activeOwnerId }) {
                   id="you-request"
                   value={requestedPlayerId}
                   onChange={(e) => setRequestedPlayerId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                  className={inputBase}
                   disabled={!proposalToUserId}
                 >
                   <option value="">Select requested player</option>
@@ -1137,7 +1154,7 @@ export default function MyTeam({ activeOwnerId }) {
                     step="1"
                     value={offeredDollars}
                     onChange={(e) => setOfferedDollars(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                    className={inputBase}
                     placeholder="0"
                   />
                 </div>
@@ -1155,7 +1172,7 @@ export default function MyTeam({ activeOwnerId }) {
                     step="1"
                     value={requestedDollars}
                     onChange={(e) => setRequestedDollars(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                    className={inputBase}
                     placeholder="0"
                     disabled={!proposalToUserId}
                   />
@@ -1170,7 +1187,7 @@ export default function MyTeam({ activeOwnerId }) {
                   rows={3}
                   value={proposalNote}
                   onChange={(e) => setProposalNote(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+                  className={inputBase}
                   placeholder="Add context for commissioner review"
                 />
               </div>
@@ -1179,13 +1196,13 @@ export default function MyTeam({ activeOwnerId }) {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setShowProposeTrade(false)}
-                className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-bold text-slate-300 hover:text-white"
+                className={buttonSecondary}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmitTradeProposal}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500"
+                className={buttonPrimary}
               >
                 Submit Proposal
               </button>
@@ -1195,23 +1212,17 @@ export default function MyTeam({ activeOwnerId }) {
       )}
 
       {showPlayerPerformance && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
+        <div className={modalOverlay}>
+          <div className={`${modalSurface} max-w-4xl p-6`}>
             <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-black uppercase tracking-wider text-white">
-                  Season Performance
-                </h3>
-                <p className="text-sm text-slate-400">
-                  {selectedPlayer?.name}{' '}
-                  {selectedPlayer?.position
-                    ? `• ${selectedPlayer.position}`
-                    : ''}
-                </p>
-              </div>
+              <h3
+                className={`${modalTitle} mb-0 w-full justify-center text-center`}
+              >
+                Season Performance
+              </h3>
               <button
                 onClick={() => setShowPlayerPerformance(false)}
-                className="rounded-full border border-slate-700 p-2 text-slate-300 hover:text-white"
+                className={modalCloseButton}
               >
                 <FiX />
               </button>
@@ -1223,16 +1234,29 @@ export default function MyTeam({ activeOwnerId }) {
               </div>
             ) : playerPerformance ? (
               <>
+                <PlayerIdentityCard
+                  playerName={
+                    playerPerformance.player_name || selectedPlayer?.name || ''
+                  }
+                  position={
+                    playerPerformance.position || selectedPlayer?.position || ''
+                  }
+                  nflTeam={
+                    playerPerformance.nfl_team || selectedPlayer?.nfl_team || ''
+                  }
+                  headshotUrl={playerPerformance.headshot_url || ''}
+                />
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-                  <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                  <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                     <div className="text-[10px] uppercase text-slate-500">
                       Games
                     </div>
-                    <div className="text-xl font-black text-white">
+                    <div className="text-xl font-black text-slate-900 dark:text-white">
                       {playerPerformance.games_played}
                     </div>
                   </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                  <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                     <div className="text-[10px] uppercase text-slate-500">
                       Total Pts
                     </div>
@@ -1242,17 +1266,17 @@ export default function MyTeam({ activeOwnerId }) {
                       ).toFixed(2)}
                     </div>
                   </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                  <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                     <div className="text-[10px] uppercase text-slate-500">
                       Avg / Game
                     </div>
-                    <div className="text-xl font-black text-white">
+                    <div className="text-xl font-black text-slate-900 dark:text-white">
                       {Number(
                         playerPerformance.average_fantasy_points || 0
                       ).toFixed(2)}
                     </div>
                   </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                  <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
                     <div className="text-[10px] uppercase text-slate-500">
                       Best Week
                     </div>
@@ -1264,8 +1288,8 @@ export default function MyTeam({ activeOwnerId }) {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-700 overflow-hidden">
-                  <div className="bg-slate-950 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <div className="overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
+                  <div className="bg-slate-100 dark:bg-slate-950 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
                     <FiBarChart2 /> Weekly Breakdown
                   </div>
                   <div className="max-h-64 overflow-y-auto">
@@ -1274,8 +1298,8 @@ export default function MyTeam({ activeOwnerId }) {
                         No weekly performance data yet for this season.
                       </div>
                     ) : (
-                      <table className="w-full text-left text-sm text-slate-300">
-                        <thead className="bg-slate-900 text-xs uppercase text-slate-500">
+                      <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                        <thead className="bg-slate-100 dark:bg-slate-900 text-xs uppercase text-slate-500">
                           <tr>
                             <th className="px-4 py-2">Week</th>
                             <th className="px-4 py-2 text-right">
@@ -1287,7 +1311,7 @@ export default function MyTeam({ activeOwnerId }) {
                           {playerPerformance.weekly.map((row) => (
                             <tr
                               key={row.week}
-                              className="border-t border-slate-800"
+                              className="border-t border-slate-300 dark:border-slate-800"
                             >
                               <td className="px-4 py-2">Week {row.week}</td>
                               <td className="px-4 py-2 text-right font-mono text-blue-400">
@@ -1311,15 +1335,15 @@ export default function MyTeam({ activeOwnerId }) {
       )}
 
       {showLineupValidationModal && lineupValidationErrors.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full rounded-2xl border border-red-800/60 bg-brand-black p-6 shadow-2xl">
+        <div className={modalOverlay}>
+          <div className="w-full max-w-2xl rounded-2xl border border-red-800/60 bg-white dark:bg-slate-950 p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-lg font-black uppercase tracking-wider text-red-300">
+              <h3 className="flex items-center gap-2 text-lg font-black tracking-tight text-red-500 dark:text-red-300">
                 <FiAlertTriangle /> Lineup Validation
               </h3>
               <button
                 onClick={() => setShowLineupValidationModal(false)}
-                className="rounded-full border border-slate-700 p-2 text-slate-300 hover:text-white"
+                className={modalCloseButton}
               >
                 <FiX />
               </button>
@@ -1350,20 +1374,46 @@ export default function MyTeam({ activeOwnerId }) {
         />
       )}
 
-      <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+      <div className={`${cardSurface} mb-8`}>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h3 className="text-xl font-black uppercase tracking-wider text-white">
-              Start/Sit Sorter
+            <h3 className="text-xl font-black uppercase tracking-wider text-slate-900 dark:text-white">
+              Lineup Builder (Drag & Drop)
             </h3>
             <p className="text-xs uppercase tracking-wide text-slate-400">
-              Weekly lineup recommendations based on commissioner starter rules,
-              projected points, and bye weeks
+              Move players between Active and Bench. Started players are locked
+              for this week.
+            </p>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-green-300">Green = valid tier</span> •{' '}
+              <span className="text-red-300">Red = invalid tier</span>
             </p>
           </div>
+
           <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                onClick={() => setViewMode('recommended')}
+                className={`px-4 py-2 ${
+                  viewMode === 'recommended'
+                    ? buttonPrimary
+                    : buttonSecondary
+                }`}
+              >
+                Recommended
+              </button>
+              <button
+                onClick={() => setViewMode('actual')}
+                className={`px-4 py-2 ${
+                  viewMode === 'actual'
+                    ? buttonPrimary
+                    : buttonSecondary
+                }`}
+              >
+                Actual
+              </button>
+
+              <label className="ml-2 text-xs font-bold uppercase tracking-wider text-slate-400">
                 Week
               </label>
               <select
@@ -1371,7 +1421,7 @@ export default function MyTeam({ activeOwnerId }) {
                 onChange={(event) =>
                   setSelectedWeek(Number(event.target.value))
                 }
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
+                className={`${inputBase} w-auto text-sm font-bold`}
               >
                 {weekOptions.map((week) => (
                   <option key={week} value={week}>
@@ -1382,40 +1432,50 @@ export default function MyTeam({ activeOwnerId }) {
               <select
                 value={startSitSort}
                 onChange={(event) => setStartSitSort(event.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
+                className={`${inputBase} w-auto text-sm font-bold`}
               >
                 <option value="projected">Sort: Projected</option>
                 <option value="position">
                   Sort: Hierarchy (QB/RB/WR/TE/DEF)
                 </option>
               </select>
+
+              {viewMode === 'actual' && (
+                <button
+                  type="button"
+                  onClick={submitRoster}
+                  disabled={
+                    submittingRoster ||
+                    !canEditLineup ||
+                    lineupValidationErrors.length > 0
+                  }
+                  className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${
+                    submittingRoster ||
+                    !canEditLineup ||
+                    lineupValidationErrors.length > 0
+                      ? `${buttonSecondary} cursor-not-allowed opacity-50`
+                      : buttonPrimary
+                  }`}
+                >
+                  {submittingRoster ? 'Submitting...' : 'Submit Roster'}
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setViewMode('recommended')}
-                className={`px-4 py-2 rounded ${
-                  viewMode === 'recommended'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-slate-700 text-slate-300'
-                }`}
-              >
-                Recommended
-              </button>
-              <button
-                onClick={() => setViewMode('actual')}
-                className={`px-4 py-2 rounded ${
-                  viewMode === 'actual'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-slate-700 text-slate-300'
-                }`}
-              >
-                Actual
-              </button>
-            </div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              <span className="text-green-300">Green = valid tier</span> •{' '}
-              <span className="text-red-300">Red = invalid tier</span>
-            </p>
+
+            {(hasUnsavedLineupChanges || lineupSubmittedForWeek) && (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {hasUnsavedLineupChanges && (
+                  <span className="rounded-md border border-yellow-700/60 bg-yellow-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-yellow-300">
+                    Unsaved Changes
+                  </span>
+                )}
+                {lineupSubmittedForWeek && (
+                  <span className="rounded-md border border-green-700/60 bg-green-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-green-300">
+                    Week {selectedWeek} Submitted
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1433,12 +1493,12 @@ export default function MyTeam({ activeOwnerId }) {
         {viewMode === 'recommended' && (
           <>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border border-green-900/60 bg-green-900/10 p-4">
+              <div className="rounded-xl border border-green-400/40 bg-green-100/60 p-4 dark:border-green-900/60 dark:bg-green-900/10">
                 <div className="mb-3 flex items-center justify-between">
-                  <h4 className="text-sm font-black uppercase tracking-widest text-green-300">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-green-700 dark:text-green-300">
                     Recommended Starts
                   </h4>
-                  <span className="rounded bg-green-900/30 px-2 py-1 text-xs font-bold text-green-200">
+                  <span className="rounded bg-green-200 px-2 py-1 text-xs font-bold text-green-800 dark:bg-green-900/30 dark:text-green-200">
                     {sortedStartRecommendations.length}
                   </span>
                 </div>
@@ -1446,13 +1506,13 @@ export default function MyTeam({ activeOwnerId }) {
                   {sortedStartRecommendations.map((player) => (
                     <div
                       key={`start-${player.id}`}
-                      className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
+                      className="flex items-center justify-between rounded-lg border border-slate-300 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/70"
                     >
                       <div>
-                        <div className="text-sm font-bold text-white">
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">
                           {player.name}
                         </div>
-                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                           {getPlayerSlotLabel(player)} • {player.nfl_team}
                         </div>
                       </div>
@@ -1464,12 +1524,12 @@ export default function MyTeam({ activeOwnerId }) {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-red-900/60 bg-red-900/10 p-4">
+              <div className="rounded-xl border border-red-400/40 bg-red-100/60 p-4 dark:border-red-900/60 dark:bg-red-900/10">
                 <div className="mb-3 flex items-center justify-between">
-                  <h4 className="text-sm font-black uppercase tracking-widest text-red-300">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-red-700 dark:text-red-300">
                     Recommended Sits
                   </h4>
-                  <span className="rounded bg-red-900/30 px-2 py-1 text-xs font-bold text-red-200">
+                  <span className="rounded bg-red-200 px-2 py-1 text-xs font-bold text-red-800 dark:bg-red-900/30 dark:text-red-200">
                     {sortedSitRecommendations.length + byePlayers.length}
                   </span>
                 </div>
@@ -1477,13 +1537,13 @@ export default function MyTeam({ activeOwnerId }) {
                   {byePlayers.map((player) => (
                     <div
                       key={`bye-${player.id}`}
-                      className="flex items-center justify-between rounded-lg border border-orange-800/60 bg-orange-900/20 px-3 py-2"
+                      className="flex items-center justify-between rounded-lg border border-orange-400/50 bg-orange-100/60 px-3 py-2 dark:border-orange-800/60 dark:bg-orange-900/20"
                     >
                       <div>
-                        <div className="text-sm font-bold text-white">
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">
                           {player.name}
                         </div>
-                        <div className="text-[11px] uppercase tracking-wide text-orange-300">
+                        <div className="text-[11px] uppercase tracking-wide text-orange-700 dark:text-orange-300">
                           BYE WEEK • {normalizePosition(player.position)} •{' '}
                           {player.nfl_team}
                         </div>
@@ -1496,13 +1556,13 @@ export default function MyTeam({ activeOwnerId }) {
                   {sortedSitRecommendations.map((player) => (
                     <div
                       key={`sit-${player.id}`}
-                      className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2"
+                      className="flex items-center justify-between rounded-lg border border-slate-300 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/70"
                     >
                       <div>
-                        <div className="text-sm font-bold text-white">
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">
                           {player.name}
                         </div>
-                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                           {getPlayerSlotLabel(player)} • {player.nfl_team}
                         </div>
                       </div>
@@ -1516,63 +1576,18 @@ export default function MyTeam({ activeOwnerId }) {
             </div>
           </>
         )}
-      </div>
-
-      {viewMode === 'actual' && (
-        <div className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-black uppercase tracking-wider text-white">
-                Lineup Builder (Drag & Drop)
-              </h3>
-              <p className="text-xs uppercase tracking-wide text-slate-400">
-                Move players between Active and Bench. Started players are
-                locked for this week.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              {hasUnsavedLineupChanges && (
-                <span className="rounded-md border border-yellow-700/60 bg-yellow-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-yellow-300">
-                  Unsaved Changes
-                </span>
-              )}
-              {lineupSubmittedForWeek && (
-                <span className="rounded-md border border-green-700/60 bg-green-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-green-300">
-                  Week {selectedWeek} Submitted
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={submitRoster}
-                disabled={
-                  submittingRoster ||
-                  !canEditLineup ||
-                  lineupValidationErrors.length > 0
-                }
-                className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${
-                  submittingRoster ||
-                  !canEditLineup ||
-                  lineupValidationErrors.length > 0
-                    ? 'cursor-not-allowed bg-slate-800 text-slate-500'
-                    : 'bg-blue-600 text-white hover:bg-blue-500'
-                }`}
-              >
-                {submittingRoster ? 'Submitting...' : 'Submit Roster'}
-              </button>
-            </div>
-          </div>
-
+        {viewMode === 'actual' && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div
-              className="rounded-xl border border-green-900/60 bg-green-900/10 p-4"
+              className="rounded-xl border border-green-400/40 bg-green-100/60 p-4 dark:border-green-900/60 dark:bg-green-900/10"
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => handleDropToStatus('STARTER')}
             >
               <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-sm font-black uppercase tracking-widest text-green-300">
+                <h4 className="text-sm font-black uppercase tracking-widest text-green-700 dark:text-green-300">
                   Active
                 </h4>
-                <span className="rounded bg-green-900/30 px-2 py-1 text-xs font-bold text-green-200">
+                <span className="rounded bg-green-200 px-2 py-1 text-xs font-bold text-green-800 dark:bg-green-900/30 dark:text-green-200">
                   {activeLineupPlayers.length}
                 </span>
               </div>
@@ -1590,13 +1605,13 @@ export default function MyTeam({ activeOwnerId }) {
                     ? 'bg-green-900/20 text-green-300'
                     : 'bg-red-900/20 text-red-300';
                   return (
-                    <div key={pos} className="rounded-md border p-2">
+                    <div className="rounded-md border border-slate-300 bg-white/50 p-2 dark:border-slate-700 dark:bg-slate-900/30" key={pos}>
                       <div
                         className="flex items-center justify-between cursor-pointer"
                         onClick={() => togglePosition(pos)}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold uppercase">
+                          <span className="text-sm font-bold uppercase text-slate-900 dark:text-white">
                             {pos}
                           </span>
                           <span className="text-xs">
@@ -1611,7 +1626,7 @@ export default function MyTeam({ activeOwnerId }) {
                       </div>
                       {isExpanded && (
                         <div
-                          className={`mt-2 space-y-2 p-2 border ${containerBorder}`}
+                          className={`mt-2 space-y-2 border p-2 bg-white/70 dark:bg-slate-950/40 ${containerBorder}`}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => handleDropToStatus('STARTER')}
                         >
@@ -1625,15 +1640,15 @@ export default function MyTeam({ activeOwnerId }) {
                               className={`w-full rounded-lg border px-3 py-2 text-left ${
                                 player.is_locked
                                   ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
-                                  : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
+                                  : 'border-slate-300 bg-white hover:border-blue-500/50 dark:border-slate-800 dark:bg-slate-950/70'
                               }`}
                             >
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <div className="text-sm font-bold text-white">
+                                  <div className="text-sm font-bold text-slate-900 dark:text-white">
                                     {player.name}
                                   </div>
-                                  <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                                  <div className="text-[11px] uppercase tracking-wide text-slate-600 dark:text-slate-400">
                                     {normalizePosition(player.position)} •{' '}
                                     {player.nfl_team}
                                   </div>
@@ -1658,15 +1673,15 @@ export default function MyTeam({ activeOwnerId }) {
             </div>
 
             <div
-              className="rounded-xl border border-slate-700 bg-slate-900/30 p-4"
+              className="rounded-xl border border-slate-300 bg-slate-100/60 p-4 dark:border-slate-700 dark:bg-slate-900/30"
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => handleDropToStatus('BENCH')}
             >
               <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-sm font-black uppercase tracking-widest text-slate-300">
+                <h4 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">
                   Bench
                 </h4>
-                <span className="rounded bg-slate-800 px-2 py-1 text-xs font-bold text-slate-300">
+                <span className="rounded bg-slate-200 px-2 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                   {benchLineupPlayers.length}
                 </span>
               </div>
@@ -1686,20 +1701,20 @@ export default function MyTeam({ activeOwnerId }) {
                     className={`w-full rounded-lg border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                       player.is_locked
                         ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
-                        : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50 cursor-pointer'
+                        : 'cursor-pointer border-slate-300 bg-white hover:border-blue-500/50 dark:border-slate-800 dark:bg-slate-950/70'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-sm font-bold text-white">
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">
                           {player.name}
                         </div>
-                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-600 dark:text-slate-400">
                           {normalizePosition(player.position)} •{' '}
                           {player.nfl_team}
                         </div>
                       </div>
-                      <div className="text-sm font-mono font-bold text-slate-300">
+                      <div className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">
                         {Number(toProjectedPoints(player)).toFixed(1)}
                       </div>
                     </div>
@@ -1725,7 +1740,7 @@ export default function MyTeam({ activeOwnerId }) {
                 ))}
                 {benchTaxi.length > 0 && (
                   <>
-                    <div className="mt-4 text-yellow-300 font-bold uppercase">
+                    <div className="mt-4 font-bold uppercase text-yellow-700 dark:text-yellow-300">
                       Taxi Squad
                     </div>
                     {benchTaxi.map((player) => (
@@ -1743,20 +1758,20 @@ export default function MyTeam({ activeOwnerId }) {
                         className={`w-full rounded-lg border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
                           player.is_locked
                             ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
-                            : 'border-yellow-800 bg-yellow-900/10 hover:border-yellow-500/50 cursor-pointer'
+                            : 'cursor-pointer border-yellow-500/50 bg-yellow-100/60 hover:border-yellow-500/50 dark:border-yellow-800 dark:bg-yellow-900/10'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-sm font-bold text-white">
+                            <div className="text-sm font-bold text-slate-900 dark:text-white">
                               {player.name}
                             </div>
-                            <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                            <div className="text-[11px] uppercase tracking-wide text-slate-600 dark:text-slate-400">
                               {normalizePosition(player.position)} •{' '}
                               {player.nfl_team}
                             </div>
                           </div>
-                          <div className="text-sm font-mono font-bold text-slate-300">
+                          <div className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">
                             {Number(toProjectedPoints(player)).toFixed(1)}
                           </div>
                         </div>
@@ -1788,28 +1803,30 @@ export default function MyTeam({ activeOwnerId }) {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className="bg-slate-900/80 border border-slate-800 p-8 rounded-[2.5rem]">
-        <h3 className="font-black uppercase italic mb-6 flex items-center gap-2 text-slate-200 tracking-tighter text-xl">
+      <div className="rounded-3xl border border-slate-300 bg-white/80 p-8 dark:border-slate-800 dark:bg-slate-900/70">
+        <h3 className="mb-6 flex items-center gap-2 text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-slate-200">
           <FiBell className="text-blue-400" /> Sit-Rep
         </h3>
         <ul className="space-y-6">
           <li className="relative pl-6">
             <div className="absolute left-0 top-1 w-1 h-10 bg-purple-500 rounded-full"></div>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
               Waiver Deadline
             </p>
-            <p className="text-white font-black text-lg">2d 14h REMAINING</p>
+            <p className="text-lg font-black text-slate-900 dark:text-white">
+              {waiverRemaining || 'No deadline set'}
+            </p>
           </li>
           <li className="relative pl-6 opacity-60">
             <div className="absolute left-0 top-1 w-1 h-10 bg-blue-500 rounded-full"></div>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
               Draft Status
             </p>
-            <p className="text-white font-black text-lg tracking-tight uppercase">
-              Draft Finalized
+            <p className="text-lg font-black tracking-tight uppercase text-slate-900 dark:text-white">
+              {String(userInfo.draftStatus || 'PRE_DRAFT').replaceAll('_', ' ')}
             </p>
           </li>
         </ul>

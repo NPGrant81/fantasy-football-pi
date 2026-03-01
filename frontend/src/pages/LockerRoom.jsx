@@ -1,12 +1,24 @@
 import React from 'react';
+import {
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 export default function LockerRoom() {
   return (
-    <div className="p-6 md:p-8">
-      <h2 className="text-xl font-bold mb-4">Locker Room (Draft day)</h2>
-      <p className="italic text-slate-400">
-        Locker room demo page (logic removed)
-      </p>
+    <div className={pageShell}>
+      <div className={pageHeader}>
+        <h1 className={pageTitle}>Locker Room</h1>
+        <p className={pageSubtitle}>Draft-day collaboration area.</p>
+      </div>
+      <div
+        className={`${cardSurface} text-slate-600 dark:text-slate-400 font-medium`}
+      >
+        Locker room demo page (logic removed).
+      </div>
     </div>
   );
 }
