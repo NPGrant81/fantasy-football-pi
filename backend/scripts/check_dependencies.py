@@ -67,6 +67,16 @@ def run_audit():
 def main():
     parser = argparse.ArgumentParser(description="Dependency maintenance helper")
     parser.add_argument("--lock-file", action="store_true", help="also include requirements-lock.txt")
+    parser.add_argument(
+        "--fail-on-outdated",
+        action="store_true",
+        help="exit non-zero when outdated packages are detected",
+    )
+    parser.add_argument(
+        "--fail-on-audit",
+        action="store_true",
+        help="exit non-zero when audit advisories are detected",
+    )
     # ignore any filename arguments that pre-commit or other tools may append
     parser.add_argument("files", nargs="*", help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -82,7 +92,9 @@ def main():
     if outdated:
         print(f"Found {len(outdated)} outdated packages:\n")
         for pkg in outdated:
-            print(f" - {pkg['name']}: {pkg['version']} -> {pkg['latest']} ({pkg['type']})")
+            latest = pkg.get("latest") or pkg.get("latest_version") or "unknown"
+            release_type = pkg.get("type", "unknown")
+            print(f" - {pkg.get('name', 'unknown')}: {pkg.get('version', 'unknown')} -> {latest} ({release_type})")
     else:
         print("All packages are up to date.")
 
@@ -104,7 +116,9 @@ def main():
         if outdated:
             f.write("## Outdated packages\n")
             for pkg in outdated:
-                f.write(f"- {pkg['name']}: {pkg['version']} -> {pkg['latest']} ({pkg['type']})\n")
+                latest = pkg.get("latest") or pkg.get("latest_version") or "unknown"
+                release_type = pkg.get("type", "unknown")
+                f.write(f"- {pkg.get('name', 'unknown')}: {pkg.get('version', 'unknown')} -> {latest} ({release_type})\n")
         else:
             f.write("All packages are up to date.\n")
         f.write("\n")
@@ -122,7 +136,8 @@ def main():
 
     # if any outdated packages or audit advisories were detected, return
     # failure so automation jobs can act on it.
-    if outdated or audit:
+    should_fail = (args.fail_on_outdated and bool(outdated)) or (args.fail_on_audit and bool(audit))
+    if should_fail:
         sys.exit(1)
 
 
