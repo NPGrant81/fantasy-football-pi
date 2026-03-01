@@ -22,7 +22,7 @@ import SiteAdmin from '@/pages/admin/SiteAdmin';
 import CommissionerDashboard from '@/pages/commissioner/CommissionerDashboard';
 import ManageTrades from '@/pages/commissioner/ManageTrades';
 import CommishAdmin from '@/pages/commissioner/CommishAdmin';
-import MyTeam from '@/pages/team-owner/MyTeam';
+import MyTeam from '@/pages/team-owner/YourLockerRoom';
 import TradeAnalyzer from '@/components/charts/TradeAnalyzer';
 
 describe('DraftBoard (Smoke Test)', () => {
