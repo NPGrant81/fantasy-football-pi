@@ -1,0 +1,10 @@
+# CODEOWNERS
+# Assign default reviewers for key areas of the repository.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Syntax: <path-pattern>  <owner> [<owner> ...]
+# Add additional owners or teams (e.g. @NPGrant81/team-name) as the project grows.
+
+/backend/   @NPGrant81
+/frontend/  @NPGrant81
+/.github/   @NPGrant81
