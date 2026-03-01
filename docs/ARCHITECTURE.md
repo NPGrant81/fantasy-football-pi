@@ -84,6 +84,31 @@ All optional fields are normalized to ensure consistency across sources. Positio
 4. Frontend Architecture, Naming, and Testing
    The frontend is a Vite + React SPA in `frontend/`.
 
+---
+
+## 5. PostgreSQL Organization Standard
+
+The project uses a dedicated `/db` tree for SQL and schema artifacts.
+
+Canonical structure:
+
+db/
+├── migrations/   # Alembic revisions
+├── schema/       # Base table DDL by domain
+├── seeds/        # Seed SQL scripts
+├── functions/    # Stored procedures/functions
+├── views/        # Views/materialized views
+├── triggers/     # Trigger definitions
+├── extensions/   # CREATE EXTENSION scripts
+└── utils/        # Shared SQL helpers
+
+### Phase Status (Issue #60)
+
+- **Phase 1 (completed):** structure + documentation + safety checklist.
+- **Phase 2 (completed):** Alembic runtime cutover to `/db` and cleanup of legacy paths.
+
+See `docs/DB_MIGRATION_PHASE1.md` for the required safe cutover steps.
+
 4.1 Frontend Structure (Feature-First with Colocation)
 Use this structure as the default:
 

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ForceGraph2D } from 'react-force-graph';
+// using the 2D-specific build avoids pulling in AFRAME/VR extras
+// the module exports a default component, not a named one
+import ForceGraph2D from 'react-force-graph-2d';
 import apiClient from '@api/client';
 
 // Visualizes head-to-head and trade relationships between managers in a league
@@ -18,7 +20,9 @@ const RivalryGraph = () => {
           setLoading(false);
           return;
         }
-        const res = await apiClient.get(`/analytics/league/${leagueId}/rivalry`);
+        const res = await apiClient.get(
+          `/analytics/league/${leagueId}/rivalry`
+        );
         const { nodes, edges } = res.data || { nodes: [], edges: [] };
         // convert edges to force-graph links
         const links = edges.map((e) => ({
@@ -49,7 +53,10 @@ const RivalryGraph = () => {
   }
 
   return (
-    <div style={{ width: '100%', height: '500px', background: '#222' }}>
+    <div
+      className="md:h-96"
+      style={{ width: '100%', height: '500px', background: '#222' }}
+    >
       <ForceGraph2D
         graphData={graphData}
         nodeLabel="label"

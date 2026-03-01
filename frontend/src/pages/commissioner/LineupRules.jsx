@@ -2,6 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 import apiClient from '@api/client';
+import {
+  buttonPrimary,
+  buttonSecondary,
+  cardSurface,
+  inputBase,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 const clamp = (value, min, max) =>
   Math.max(min, Math.min(max, Number(value) || min));
@@ -105,26 +115,24 @@ export default function LineupRules() {
 
   if (loading) {
     return (
-      <div className="text-white text-center mt-20 animate-pulse font-black uppercase tracking-widest">
+      <div className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}>
         Loading Lineup Rules...
       </div>
     );
   }
 
   return (
-    <div className="p-8 text-white min-h-screen">
-      <div className="flex items-center justify-between mb-8 border-b border-slate-700 pb-5">
+    <div className={`${pageShell} min-h-screen`}>
+      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
         <div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">
-            Lineup Rules
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <h1 className={pageTitle}>Lineup Rules</h1>
+          <p className={`${pageSubtitle} mt-1`}>
             Configure league roster limits and lineup submission behavior.
           </p>
         </div>
         <Link
           to="/commissioner"
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 hover:text-white"
+          className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
@@ -141,9 +149,9 @@ export default function LineupRules() {
         </div>
       )}
 
-      <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-6">
+      <div className={`${cardSurface} space-y-6`}>
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+          <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Total Active Roster Required (5 - 12)
           </label>
           <input
@@ -152,7 +160,7 @@ export default function LineupRules() {
             max={12}
             value={activeRosterSize}
             onChange={(e) => setActiveRosterSize(clamp(e.target.value, 5, 12))}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+            className={inputBase}
           />
         </div>
 
@@ -188,7 +196,7 @@ export default function LineupRules() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <label className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm flex items-center justify-between">
+          <label className="flex items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
             <span>K Enabled (0 or 1)</span>
             <input
               type="checkbox"
@@ -196,7 +204,7 @@ export default function LineupRules() {
               onChange={(e) => setKEnabled(e.target.checked)}
             />
           </label>
-          <label className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm flex items-center justify-between">
+          <label className="flex items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
             <span>Flex Enabled</span>
             <input
               type="checkbox"
@@ -204,15 +212,15 @@ export default function LineupRules() {
               onChange={(e) => setFlexEnabled(e.target.checked)}
             />
           </label>
-          <div className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
             <span>DEF</span>
-            <span className="font-black">1 (fixed)</span>
+            <span className="font-black text-slate-900 dark:text-white">1 (fixed)</span>
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-700 bg-slate-950 p-4 space-y-3">
+        <div className="rounded-lg border border-slate-300 bg-white p-4 space-y-3 dark:border-slate-700 dark:bg-slate-900">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
               Taxi Squad Size (0-5)
             </label>
             <input
@@ -221,7 +229,7 @@ export default function LineupRules() {
               max={5}
               value={taxiSize}
               onChange={(e) => setTaxiSize(clamp(e.target.value, 0, 5))}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+              className={inputBase}
             />
           </div>
           <ToggleRow
@@ -236,16 +244,16 @@ export default function LineupRules() {
           />
         </div>
 
-        <div className="text-xs text-slate-400 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2">
+        <div className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
           Minimum required core starters by position:{' '}
-          <span className="font-black text-white">{totalCoreSlots}</span>
+          <span className="font-black text-slate-900 dark:text-white">{totalCoreSlots}</span>
         </div>
 
-        <div className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+        <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
             Other ideas
           </p>
-          <ul className="text-sm text-slate-300 list-disc ml-5 space-y-1">
+          <ul className="ml-5 list-disc space-y-1 text-sm text-slate-700 dark:text-slate-300">
             <li>
               Position-specific bench minimums (e.g., at least one backup RB).
             </li>
@@ -258,7 +266,7 @@ export default function LineupRules() {
           <button
             onClick={saveRules}
             disabled={saving}
-            className={`px-5 py-3 rounded-xl font-black uppercase tracking-wider text-sm ${saving ? 'bg-slate-800 text-slate-500' : 'bg-purple-600 hover:bg-purple-500 text-white'}`}
+            className={`${buttonPrimary} px-5 py-3 ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {saving ? 'Saving...' : 'Save Lineup Rules'}
           </button>
@@ -271,7 +279,7 @@ export default function LineupRules() {
 function RuleInput({ label, value, min, max, onChange }) {
   return (
     <div>
-      <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+      <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
         {label}
       </label>
       <input
@@ -280,7 +288,7 @@ function RuleInput({ label, value, min, max, onChange }) {
         max={max}
         value={value}
         onChange={(e) => onChange(clamp(e.target.value, min, max))}
-        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+        className={inputBase}
       />
     </div>
   );
@@ -288,12 +296,12 @@ function RuleInput({ label, value, min, max, onChange }) {
 
 function ToggleRow({ label, checked, onChange }) {
   return (
-    <label className="text-sm text-slate-200 flex items-center justify-between">
+    <label className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-200">
       <span>{label}</span>
       <select
         value={checked ? 'Y' : 'N'}
         onChange={(e) => onChange(e.target.value === 'Y')}
-        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-bold"
+        className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
       >
         <option value="Y">Y</option>
         <option value="N">N</option>

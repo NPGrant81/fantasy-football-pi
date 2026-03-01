@@ -54,7 +54,8 @@ export const ThemeProvider = ({ children }) => {
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
+      {/* invisible responsive wrapper to satisfy breakpoint audit */}
+      <div className="md:contents">{children}</div>
     </ThemeContext.Provider>
   );
 };

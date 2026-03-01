@@ -1,24 +1,29 @@
 import React from 'react';
 import { FiSettings } from 'react-icons/fi';
+import {
+  modalCloseButton,
+  modalDescription,
+  modalOverlay,
+  modalPlaceholder,
+  modalSurface,
+  modalTitle,
+} from '@utils/uiStandards';
 
 export default function ScoringRulesModal({ open, onClose }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-slate-900 border border-purple-700 rounded-xl p-8 w-full sm:max-w-lg relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-purple-400 hover:text-white"
-        >
+    <div className={modalOverlay}>
+      <div className={modalSurface}>
+        <button onClick={onClose} className={modalCloseButton}>
           ✕
         </button>
-        <h2 className="text-2xl font-bold text-purple-400 mb-4 flex items-center gap-2">
+        <h2 className={modalTitle}>
           <FiSettings /> Set Scoring Rules
         </h2>
-        <p className="text-slate-400 mb-4">
+        <p className={modalDescription}>
           Configure how points are awarded for all league actions.
         </p>
-        <div className="text-center text-slate-500">
+        <div className={modalPlaceholder}>
           Scoring rules form coming soon...
         </div>
       </div>

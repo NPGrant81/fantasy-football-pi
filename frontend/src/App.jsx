@@ -36,12 +36,15 @@ const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
 const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
-const KeeperRules = lazy(() => import('./pages/commissioner/ManageKeeperRules'));
+const KeeperRules = lazy(
+  () => import('./pages/commissioner/ManageKeeperRules')
+);
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
 );
 const Keepers = lazy(() => import('./pages/Keepers'));
+const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
@@ -58,7 +61,6 @@ function App() {
     localStorage.getItem('user_id')
   );
   const [username, setUsername] = useState('');
-  const [subHeader, setSubHeader] = useState('');
 
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
@@ -90,22 +92,6 @@ function App() {
         });
     }
   }, [token, handleLogout]);
-
-  // --- 1.4 SUB‑HEADER FETCH ---
-  useEffect(() => {
-    if (!activeLeagueId) return;
-    apiClient
-      .get(`/leagues/${activeLeagueId}/settings`)
-      .then((res) => {
-        const parts = [];
-        if (res.data.waiver_deadline)
-          parts.push(`Waiver: ${res.data.waiver_deadline}`);
-        if (res.data.trade_deadline)
-          parts.push(`Trade: ${res.data.trade_deadline}`);
-        setSubHeader(parts.join('  |  '));
-      })
-      .catch(() => setSubHeader(''));
-  }, [activeLeagueId]);
 
   // --- 1.5 LOGIN HANDLER ---
   const handleLogin = async (e) => {
@@ -232,7 +218,6 @@ function App() {
           username={username}
           leagueId={activeLeagueId}
           onLogout={handleLogout}
-          alert={subHeader}
         >
           <Suspense
             fallback={
@@ -248,7 +233,6 @@ function App() {
                     token={token}
                     activeOwnerId={activeOwnerId}
                     activeLeagueId={activeLeagueId}
-                    setSubHeader={setSubHeader}
                   />
                 }
               />
@@ -305,6 +289,7 @@ function App() {
               <Route path="/bug-report" element={<BugReport />} />
               <Route path="/keepers" element={<Keepers />} />
               <Route path="/analytics" element={<AnalyticsDashboard />} />
+              <Route path="/playoffs" element={<PlayoffBracket />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Suspense>

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from typing import Optional
 from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner 
@@ -12,6 +13,12 @@ router = APIRouter(
     prefix="/players",
     tags=["Players"]
 )
+
+
+def _build_headshot_url(espn_id: Optional[str]) -> Optional[str]:
+    if not espn_id:
+        return None
+    return f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn_id}.png"
 
 @router.get("/search")
 def search_players(
@@ -57,6 +64,8 @@ def get_player_season_details(
             "player_name": player.name,
             "position": player.position,
             "nfl_team": player.nfl_team,
+            "espn_id": player.espn_id,
+            "headshot_url": _build_headshot_url(player.espn_id),
             "season": season,
             "games_played": 0,
             "total_fantasy_points": 0.0,
@@ -92,6 +101,8 @@ def get_player_season_details(
         "player_name": player.name,
         "position": player.position,
         "nfl_team": player.nfl_team,
+        "espn_id": player.espn_id,
+        "headshot_url": _build_headshot_url(player.espn_id),
         "season": season,
         "games_played": games_played,
         "total_fantasy_points": float(total_points or 0.0),

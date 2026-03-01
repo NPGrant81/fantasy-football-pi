@@ -5,7 +5,9 @@ Refer to the appropriate file for more information.
 
 - [Api Page Matrix](API_PAGE_MATRIX.md)
 - [Architecture](ARCHITECTURE.md)
+- [Db Migration Phase1](DB_MIGRATION_PHASE1.md)
 - [Dependency Maintenance](DEPENDENCY_MAINTENANCE.md)
+- [Frontend Ui Standards](FRONTEND_UI_STANDARDS.md)
 - [Issue Status](ISSUE_STATUS.md)
 - [Permissions](permissions.md)
 - [Player Api Filtering](PLAYER_API_FILTERING.md)

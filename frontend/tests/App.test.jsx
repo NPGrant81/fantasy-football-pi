@@ -35,6 +35,10 @@ vi.mock('../src/pages/admin/SiteAdmin', () => ({
 vi.mock('../src/pages/BugReport', () => ({
   default: () => <div>BugReport</div>,
 }));
+// add playoff bracket mock for routing test
+vi.mock('../src/pages/playoffs/PlayoffBracket', () => ({
+  default: () => <div>PlayoffBracket</div>,
+}));
 
 // Mock apiClient used by App
 vi.mock('../src/api/client', () => ({
@@ -132,5 +136,19 @@ describe('App (basic)', () => {
     await waitFor(() => {
       expect(localStorage.getItem('fantasyLeagueId')).toBe('5');
     });
+  });
+
+  test('visiting /playoffs renders playoff bracket', async () => {
+    localStorage.setItem('fantasyToken', 'fake-token');
+    localStorage.setItem('fantasyLeagueId', '1');
+    apiClient.get.mockResolvedValue({ data: { user_id: 1, username: 'bob' } });
+    // pre-set url before render (router will pick it up)
+    window.history.pushState({}, 'Playoffs', '/playoffs');
+
+    render(<App />);
+    // ensure auth fetch happens
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+
+    expect(screen.getByText('PlayoffBracket')).toBeInTheDocument();
   });
 });

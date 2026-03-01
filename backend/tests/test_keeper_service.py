@@ -131,10 +131,10 @@ def test_budget_and_lock_logic(db_session):
     count = lock_keepers_for_league(db_session, league.id, 2026)
     assert count == 1
     # owner's budget updated
-    owner_ref = db_session.query(models.User).get(owner.id)
+    owner_ref = db_session.get(models.User, owner.id)
     assert owner_ref.future_draft_budget == 180
     # keeper status changed and locked_at populated
-    updated = db_session.query(models.Keeper).get(k.id)
+    updated = db_session.get(models.Keeper, k.id)
     assert updated.status == "locked"
     assert updated.locked_at is not None
 
@@ -174,7 +174,7 @@ def test_veto_and_reset(db_session):
     # veto should unlock
     n = veto_keepers(db_session, owner.id, league.id, 2026)
     assert n == 1
-    refreshed = db_session.query(models.Keeper).get(k.id)
+    refreshed = db_session.get(models.Keeper, k.id)
     assert refreshed.status == "pending"
     assert refreshed.locked_at is None
 

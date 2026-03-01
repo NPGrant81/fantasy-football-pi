@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import apiClient from '@api/client';
+import {
+  buttonPrimary,
+  cardSurface,
+  inputBase,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 const PAGE_MAP = {
   '/': 'Home',
@@ -85,12 +94,12 @@ export default function BugReport() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-6 shadow-xl">
-        <h1 className="text-2xl font-black text-white uppercase tracking-tight">
+    <div className={pageShell}>
+      <div className={pageHeader}>
+        <h1 className={pageTitle}>
           Bug Report
         </h1>
-        <p className="text-slate-400 mt-2">
+        <p className={`${pageSubtitle} mt-2`}>
           Tell us what went wrong and where it happened. We will open a GitHub
           issue and log the report for review.
         </p>
@@ -98,7 +107,7 @@ export default function BugReport() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-slate-900/60 border border-slate-800 rounded-xl p-6 shadow-xl space-y-5"
+        className={`${cardSurface} space-y-5`}
       >
         {status.message && (
           <div
@@ -129,7 +138,7 @@ export default function BugReport() {
             Title
           </label>
           <input
-            className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-white focus:border-yellow-500 outline-none"
+            className={inputBase}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Short summary of the issue"
@@ -142,7 +151,7 @@ export default function BugReport() {
             Description
           </label>
           <textarea
-            className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-white focus:border-yellow-500 outline-none min-h-[140px]"
+            className={`${inputBase} min-h-[140px]`}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Steps to reproduce, expected behavior, and what happened"
@@ -156,7 +165,7 @@ export default function BugReport() {
               Page Name
             </label>
             <select
-              className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-white focus:border-yellow-500 outline-none"
+              className={inputBase}
               value={pageName}
               onChange={(e) => setPageName(e.target.value)}
             >
@@ -173,7 +182,7 @@ export default function BugReport() {
               Issue Type
             </label>
             <select
-              className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-white focus:border-yellow-500 outline-none"
+              className={inputBase}
               value={issueType}
               onChange={(e) => setIssueType(e.target.value)}
             >
@@ -188,7 +197,7 @@ export default function BugReport() {
             Page URL
           </label>
           <input
-            className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-slate-400"
+            className={`${inputBase} text-slate-500 dark:text-slate-400`}
             value={pageUrl}
             readOnly
           />
@@ -199,7 +208,7 @@ export default function BugReport() {
             Contact Email
           </label>
           <input
-            className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-white focus:border-yellow-500 outline-none"
+            className={inputBase}
             value={contactEmail}
             onChange={(e) => setContactEmail(e.target.value)}
             placeholder="you@example.com"
@@ -216,7 +225,7 @@ export default function BugReport() {
 
         <button
           type="submit"
-          className="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-black py-3 rounded-lg shadow-lg hover:shadow-yellow-600/30 transition"
+          className={`${buttonPrimary} w-full`}
         >
           Submit Bug Report
         </button>

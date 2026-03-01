@@ -8,16 +8,17 @@ vi.mock('../src/api/client', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ to, children, ...props }) => (
-    <a href={to} {...props}>
+  Link: ({ to, children, ..._props }) => (
+    <a href={to} {..._props}>
       {children}
     </a>
   ),
 }));
 
-// mock graph library to avoid AFRAME dependency during tests
+// mock graph library to avoid AFRAME dependency during tests (2d build is used)
+
 vi.mock('react-force-graph', () => ({
-  ForceGraph2D: (props) => <div data-testid="rivalry-graph" />,
+  ForceGraph2D: (_props) => <div data-testid="rivalry-graph" />,
 }));
 
 import AnalyticsDashboard from '../src/pages/Analytics/AnalyticsDashboard';
@@ -69,6 +70,28 @@ describe('AnalyticsDashboard', () => {
 
     expect(await screen.findByText('94.2%')).toBeInTheDocument();
     expect(screen.getByText(/Tactician/i)).toBeInTheDocument();
+  });
+
+  test('gracefully handles leaderboard wrapped in rows property', async () => {
+    apiClient.get
+      .mockResolvedValueOnce({ data: { user_id: 2, league_id: 9 } })
+      .mockResolvedValueOnce({
+        data: { rows: [{ manager_id: 2, efficiency_display: '88%', personality: 'Aggressive' }] },
+      });
+
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByText(/Efficiency Leaderboard/i));
+
+    // ensure the API call still made correctly
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/analytics/league/9/leaderboard'
+      )
+    );
+
+    expect(await screen.findByText('88%')).toBeInTheDocument();
+    expect(screen.getByText(/Aggressive/i)).toBeInTheDocument();
   });
 
   test('loads manager trend chart data on click', async () => {
