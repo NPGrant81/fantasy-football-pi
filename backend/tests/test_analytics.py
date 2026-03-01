@@ -139,7 +139,7 @@ def test_empty_queries(db_session):
 
 def test_rivalry_graph_empty(db_session):
     """rivalry graph returns empty nodes/edges when no data exists."""
-    result = get_rivalry_graph(league_id=999, season=None, db=db_session)
+    result = get_rivalry_graph(league_id=999, db=db_session)
     assert result == {"nodes": [], "edges": []}
 
 
@@ -176,7 +176,7 @@ def test_rivalry_graph_with_matchups(db_session):
     db_session.add(t)
     db_session.commit()
 
-    result = get_rivalry_graph(league_id=20, season=None, db=db_session)
+    result = get_rivalry_graph(league_id=20, db=db_session)
     nodes = result["nodes"]
     edges = result["edges"]
 

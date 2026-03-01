@@ -21,16 +21,36 @@ const RivalryGraph = () => {
   // Track container width for responsive sizing
   useEffect(() => {
     if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        setWidth(entry.contentRect.width || 600);
-      }
-    });
-    observer.observe(containerRef.current);
-    // Set initial width
+
+    // Set initial width from the container
     setWidth(containerRef.current.offsetWidth || 600);
-    return () => observer.disconnect();
+
+    // Prefer ResizeObserver when available (browser environments)
+    if (typeof window !== 'undefined' && typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry) {
+          setWidth(entry.contentRect.width || 600);
+        }
+      });
+      observer.observe(containerRef.current);
+      return () => {
+        observer.disconnect();
+      };
+    }
+
+    // Fallback for environments without ResizeObserver (e.g., jsdom, older browsers)
+    if (typeof window !== 'undefined') {
+      const handleResize = () => {
+        if (containerRef.current) {
+          setWidth(containerRef.current.offsetWidth || 600);
+        }
+      };
+      window.addEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+      };
+    }
   }, []);
 
   useEffect(() => {
