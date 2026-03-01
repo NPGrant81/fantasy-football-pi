@@ -150,4 +150,29 @@ describe('AnalyticsDashboard', () => {
       );
     });
   });
+
+  test('league rivalry graph button shows rivalry graph', async () => {
+    apiClient.get
+      .mockResolvedValueOnce({ data: { league_id: 7 } })
+      .mockResolvedValueOnce({
+        data: {
+          nodes: [
+            { id: 1, label: 'Alice' },
+            { id: 2, label: 'Bob' },
+          ],
+          edges: [{ source: 1, target: 2, games: 5, trades: 1, wins: {} }],
+        },
+      });
+
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByText(/League Rivalry Graph/i));
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/analytics/league/7/rivalry');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('force-graph')).toBeInTheDocument();
+    });
+  });
 });
