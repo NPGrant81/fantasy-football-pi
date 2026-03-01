@@ -31,6 +31,13 @@ repos:
         stages: [pre-commit]
         pass_filenames: false
 
+      - id: requirements-lock-sync
+        name: Validate requirements lock sync
+        entry: python backend/scripts/validate_requirements_lock.py
+        language: python
+        stages: [pre-commit]
+        pass_filenames: false
+
   - repo: local
     hooks:
       # --- PRE-PUSH STAGE (heavier checks) ---

@@ -30,11 +30,10 @@ google-genai==1.64.0
 # dependencies needed by ETL tests
 # yahoo_oauth provides OAuth2 helper used in etl/extract/extract_yahoo.py
 # added to avoid import errors during CI collection
-yahoo_oauth
+yahoo_oauth==2.1.1
 
 # developer tooling
-pre-commit
-httpx
+pre-commit==4.5.1
 
 google-api-core==2.29.0
 google-api-python-client==2.190.0
