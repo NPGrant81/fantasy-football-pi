@@ -36,13 +36,13 @@ jobs:
         run: |
           bandit -r backend -x backend/tests -f txt -o backend-bandit-report.txt
       - name: Upload report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-report
           path: dependency-report.md
       - name: Upload bandit report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-bandit-report
           path: backend-bandit-report.txt
