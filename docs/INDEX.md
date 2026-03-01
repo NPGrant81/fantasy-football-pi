@@ -13,5 +13,6 @@ Refer to the appropriate file for more information.
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
 - [Pr Notes](PR_NOTES.md)
 - [Project Management](PROJECT_MANAGEMENT.md)
+- [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
 - [Ui Reference](UI_REFERENCE.md)

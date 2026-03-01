@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone # 1.1.1 Use timezone-aware da
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 # regardless of execution context, load backend modules explicitly to avoid
@@ -20,12 +20,20 @@ get_db = database.get_db
 # --- 1.1 CONFIGURATION ---
 # 1.1.2 Ensure the app fails-fast if no secret key is provided in a real environment
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev_secret_only_not_for_production")
+APP_ENV = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
+IS_PRODUCTION = APP_ENV in {"production", "prod"}
+
+if IS_PRODUCTION and SECRET_KEY == "dev_secret_only_not_for_production":
+    raise RuntimeError("SECRET_KEY must be set to a strong value in production")
+
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 3000 
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+ACCESS_TOKEN_COOKIE_NAME = os.environ.get("ACCESS_TOKEN_COOKIE_NAME", "ffpi_access_token")
+ALLOW_BEARER_AUTH = os.environ.get("ALLOW_BEARER_AUTH", "0") == "1"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # 1.1.3 IMPORTANT: Point this to your new auth router path
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token", auto_error=False)
 
 # 1.1.4 Define a reusable credentials exception
 credentials_exception = HTTPException(
@@ -63,9 +71,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 # --- 2.1 THE BOUNCERS (FIXED) ---
 
 # 2.1.1 Standard User: Verifies token and returns the User object
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_current_user(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
+    bearer_token = token if ALLOW_BEARER_AUTH else None
+    auth_token = cookie_token or bearer_token
+    if not auth_token:
+        raise credentials_exception
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(auth_token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
