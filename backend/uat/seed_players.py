@@ -9,7 +9,7 @@ def seed_players(db: Session):
     # 1.1 DATA: Fetch the master player list
     # Note: This is a large file (~5MB), but Sleeper is fast.
     url = "https://api.sleeper.app/v1/players/nfl"
-    response = requests.get(url)
+    response = requests.get(url, timeout=30)
     
     if response.status_code != 200:
         print(f"❌ Error: Sleeper API returned {response.status_code}")

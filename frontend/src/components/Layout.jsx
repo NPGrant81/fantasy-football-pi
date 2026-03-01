@@ -37,11 +37,7 @@ export default function Layout({ children, username, leagueId, alert }) {
       </header>
 
       {/* 2.3 SUB‑HEADER / ALERT BAR */}
-      {hasAlert && (
-        <div className={layoutAlertBar}>
-          {alert}
-        </div>
-      )}
+      {hasAlert && <div className={layoutAlertBar}>{alert}</div>}
 
       {/* 2.4 NAVIGATION DRAWER */}
       <Sidebar

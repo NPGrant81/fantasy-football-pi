@@ -917,12 +917,16 @@ export default function MyTeam({ activeOwnerId }) {
 
   if (loading)
     return (
-      <div className={`${pageShell} animate-pulse text-slate-600 dark:text-slate-400`}>
+      <div
+        className={`${pageShell} animate-pulse text-slate-600 dark:text-slate-400`}
+      >
         Loading Roster...
       </div>
     );
   if (!teamData)
-    return <div className={`${pageShell} text-red-500`}>Error loading team.</div>;
+    return (
+      <div className={`${pageShell} text-red-500`}>Error loading team.</div>
+    );
 
   const controlButtonClass =
     'px-4 py-2 rounded font-bold text-sm whitespace-nowrap';
@@ -930,7 +934,9 @@ export default function MyTeam({ activeOwnerId }) {
   // --- LOCKER ROOM/ROSTER/WAIVER UI (from Dashboard.jsx) ---
   if (!summary)
     return (
-      <div className={`${pageShell} text-center animate-pulse text-slate-500 dark:text-slate-400 font-black`}>
+      <div
+        className={`${pageShell} text-center animate-pulse text-slate-500 dark:text-slate-400 font-black`}
+      >
         Loading your locker room...
       </div>
     );
@@ -954,9 +960,7 @@ export default function MyTeam({ activeOwnerId }) {
 
       {/* HEADER SECTION */}
       <div className={`${pageHeader} mb-6`}>
-        <h1 className={pageTitle}>
-          Your Locker Room
-        </h1>
+        <h1 className={pageTitle}>Your Locker Room</h1>
         <p className={pageSubtitle}>
           Manage lineups, waivers, trades, and keeper decisions.
         </p>
@@ -1395,9 +1399,7 @@ export default function MyTeam({ activeOwnerId }) {
               <button
                 onClick={() => setViewMode('recommended')}
                 className={`px-4 py-2 ${
-                  viewMode === 'recommended'
-                    ? buttonPrimary
-                    : buttonSecondary
+                  viewMode === 'recommended' ? buttonPrimary : buttonSecondary
                 }`}
               >
                 Recommended
@@ -1405,9 +1407,7 @@ export default function MyTeam({ activeOwnerId }) {
               <button
                 onClick={() => setViewMode('actual')}
                 className={`px-4 py-2 ${
-                  viewMode === 'actual'
-                    ? buttonPrimary
-                    : buttonSecondary
+                  viewMode === 'actual' ? buttonPrimary : buttonSecondary
                 }`}
               >
                 Actual
@@ -1605,7 +1605,10 @@ export default function MyTeam({ activeOwnerId }) {
                     ? 'bg-green-900/20 text-green-300'
                     : 'bg-red-900/20 text-red-300';
                   return (
-                    <div className="rounded-md border border-slate-300 bg-white/50 p-2 dark:border-slate-700 dark:bg-slate-900/30" key={pos}>
+                    <div
+                      className="rounded-md border border-slate-300 bg-white/50 p-2 dark:border-slate-700 dark:bg-slate-900/30"
+                      key={pos}
+                    >
                       <div
                         className="flex items-center justify-between cursor-pointer"
                         onClick={() => togglePosition(pos)}

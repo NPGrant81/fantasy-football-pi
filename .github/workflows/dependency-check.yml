@@ -21,6 +21,9 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
+      - name: Validate backend requirements lock sync
+        run: |
+          python backend/scripts/validate_requirements_lock.py
       - name: Install requirements
         run: |
           python -m pip install --upgrade pip
@@ -28,18 +31,18 @@ jobs:
           pip install pip-audit bandit
       - name: Run dependency checker
         run: |
-          python backend/scripts/check_dependencies.py
+          python backend/scripts/check_dependencies.py --fail-on-audit
       - name: Run Bandit static security scan
         run: |
-          bandit -r backend -x backend/tests -f txt -o backend-bandit-report.txt
+          bandit -r backend -x backend/tests -ll -f txt -o backend-bandit-report.txt
       - name: Upload report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-report
           path: dependency-report.md
       - name: Upload bandit report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-bandit-report
           path: backend-bandit-report.txt

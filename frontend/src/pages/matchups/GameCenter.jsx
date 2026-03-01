@@ -108,7 +108,9 @@ export default function GameCenter() {
   // 2.1.1 Handle Loading & Empty States
   if (loading) {
     return (
-      <div className={`${pageShell} text-center py-20 text-slate-600 dark:text-slate-400 animate-pulse font-black`}>
+      <div
+        className={`${pageShell} text-center py-20 text-slate-600 dark:text-slate-400 animate-pulse font-black`}
+      >
         Loading Matchup Data...
       </div>
     );
@@ -116,7 +118,9 @@ export default function GameCenter() {
 
   if (!game) {
     return (
-      <div className={`${pageShell} text-center py-20 text-slate-600 dark:text-slate-400 font-black`}>
+      <div
+        className={`${pageShell} text-center py-20 text-slate-600 dark:text-slate-400 font-black`}
+      >
         Matchup data unavailable.
       </div>
     );
@@ -134,11 +138,15 @@ export default function GameCenter() {
           <FiArrowLeft size={16} /> Back
         </Link>
         <h1 className={pageTitle}>Week {game.week} Matchup</h1>
-        <p className={pageSubtitle}>Live projection view with starter breakdown.</p>
+        <p className={pageSubtitle}>
+          Live projection view with starter breakdown.
+        </p>
       </div>
 
       {/* 2.3 SCOREBOARD BANNER */}
-      <div className={`${cardSurface} p-8 flex justify-between items-center relative overflow-hidden`}>
+      <div
+        className={`${cardSurface} p-8 flex justify-between items-center relative overflow-hidden`}
+      >
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-transparent to-red-600 opacity-50"></div>
 
         <div

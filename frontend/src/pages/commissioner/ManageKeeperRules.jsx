@@ -125,10 +125,7 @@ export default function ManageKeeperRules() {
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className={`${cardSurface} mb-0`}
-      >
+      <form onSubmit={handleSubmit} className={`${cardSurface} mb-0`}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
@@ -227,13 +224,12 @@ export default function ManageKeeperRules() {
           </div>
         </div>
         <div className="mt-6">
-          <button
-            type="submit"
-            className={buttonPrimary}
-          >
+          <button type="submit" className={buttonPrimary}>
             {settingsLoading ? 'Saving...' : 'Update Settings'}
           </button>
-          {message && <div className="mt-4 text-sm text-cyan-300">{message}</div>}
+          {message && (
+            <div className="mt-4 text-sm text-cyan-300">{message}</div>
+          )}
         </div>
       </form>
 
@@ -241,10 +237,7 @@ export default function ManageKeeperRules() {
         <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
           Owner Keeper Lists
         </h2>
-        <button
-          className={`${buttonDanger} mb-4`}
-          onClick={resetLeague}
-        >
+        <button className={`${buttonDanger} mb-4`} onClick={resetLeague}>
           Reset All Keepers
         </button>
         {ownersLoading ? (

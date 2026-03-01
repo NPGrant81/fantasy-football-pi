@@ -57,11 +57,12 @@ export default function Home({ username }) {
     <div className={`${pageShell} animate-fade-in`}>
       {/* 2.1 WELCOME BANNER */}
       <div className={`${pageHeader} border-b-0 pb-0`}>
-        <h1 className={pageTitle}>
-          {leagueName || 'League Dashboard'}
-        </h1>
+        <h1 className={pageTitle}>{leagueName || 'League Dashboard'}</h1>
         <p className={pageSubtitle}>
-          Welcome back, <span className="font-bold text-slate-900 dark:text-white">{username}</span>
+          Welcome back,{' '}
+          <span className="font-bold text-slate-900 dark:text-white">
+            {username}
+          </span>
           . Open the menu{' '}
           <span className="inline-block rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-700 dark:text-yellow-300">
             ☰
@@ -173,7 +174,10 @@ export default function Home({ username }) {
                   </>
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-6 text-slate-500 dark:text-slate-400">
+                    <td
+                      colSpan={6}
+                      className="text-center py-6 text-slate-500 dark:text-slate-400"
+                    >
                       No owners found for this league.
                     </td>
                   </tr>

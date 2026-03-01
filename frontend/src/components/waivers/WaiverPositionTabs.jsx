@@ -15,9 +15,7 @@ export default function WaiverPositionTabs({ activeTab, setActiveTab }) {
           key={pos}
           onClick={() => setActiveTab(pos)}
           className={`px-6 py-2 font-black uppercase italic ${
-            activeTab === pos
-              ? buttonPrimary
-              : buttonSecondary
+            activeTab === pos ? buttonPrimary : buttonSecondary
           }`}
         >
           {pos}

@@ -115,7 +115,9 @@ export default function LineupRules() {
 
   if (loading) {
     return (
-      <div className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}>
+      <div
+        className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}
+      >
         Loading Lineup Rules...
       </div>
     );
@@ -214,7 +216,9 @@ export default function LineupRules() {
           </label>
           <div className="flex items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
             <span>DEF</span>
-            <span className="font-black text-slate-900 dark:text-white">1 (fixed)</span>
+            <span className="font-black text-slate-900 dark:text-white">
+              1 (fixed)
+            </span>
           </div>
         </div>
 
@@ -246,7 +250,9 @@ export default function LineupRules() {
 
         <div className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
           Minimum required core starters by position:{' '}
-          <span className="font-black text-slate-900 dark:text-white">{totalCoreSlots}</span>
+          <span className="font-black text-slate-900 dark:text-white">
+            {totalCoreSlots}
+          </span>
         </div>
 
         <div className="rounded-lg border border-slate-300 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">

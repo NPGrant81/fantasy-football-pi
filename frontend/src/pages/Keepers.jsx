@@ -129,10 +129,14 @@ export default function Keepers() {
 
   return (
     <div className={`${pageShell} min-h-screen text-slate-900 dark:text-white`}>
-      <div className={`${pageHeader} flex flex-col gap-3 md:flex-row md:items-start md:justify-between`}>
+      <div
+        className={`${pageHeader} flex flex-col gap-3 md:flex-row md:items-start md:justify-between`}
+      >
         <div>
           <h1 className={pageTitle}>Manage Keepers</h1>
-          <p className={pageSubtitle}>Review keeper slots, submit, and lock selections.</p>
+          <p className={pageSubtitle}>
+            Review keeper slots, submit, and lock selections.
+          </p>
         </div>
         <div className="text-sm text-slate-700 dark:text-slate-300">
           Estimated Budget: ${estimatedBudget}
@@ -176,7 +180,9 @@ export default function Keepers() {
                   ) && <span className="text-yellow-300 text-xs">★</span>}
                 </>
               ) : (
-                <span className="text-slate-500 dark:text-slate-400">Empty</span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  Empty
+                </span>
               )}
             </div>
           );

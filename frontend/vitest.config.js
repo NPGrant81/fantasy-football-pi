@@ -22,6 +22,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/setupTests.jsx',
+    exclude: ['cypress/**', 'node_modules/**', 'dist/**', 'coverage/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],

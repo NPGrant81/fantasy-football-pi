@@ -105,7 +105,7 @@ describe('DraftBoard (Smoke Test)', () => {
     });
   });
 
-  test('invokes setSubHeader when provided', async () => {
+  test('renders session metadata when provided', async () => {
     const mockAlert = vi.fn();
     apiClient.get.mockImplementation((url) => {
       if (url.startsWith('/leagues/owners'))
@@ -139,8 +139,9 @@ describe('DraftBoard (Smoke Test)', () => {
     );
 
     await waitFor(() => {
-      expect(mockAlert).toHaveBeenCalledWith(
-        expect.stringContaining('SESSION ID')
+      expect(screen.getAllByText(/Session ID:/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/LEAGUE_1_YEAR_2026/i).length).toBeGreaterThan(
+        0
       );
     });
   });
@@ -229,7 +230,7 @@ describe('WaiverWire (Smoke Test)', () => {
       const { getByText, queryByText } = render(<WaiverRules leagueId={1} />);
       await waitFor(() => {
         expect(getByText(/Waiver Wire Rules/i)).toBeInTheDocument();
-        expect(getByText(/Waiver Deadline/i)).toBeInTheDocument();
+        expect(getByText('Waiver Deadline:', { selector: 'strong' })).toBeInTheDocument();
         expect(getByText(/Starting FAAB Budget/i)).toBeInTheDocument();
         expect(getByText(/Waiver System/i)).toBeInTheDocument();
         expect(getByText(/Tie-breaker/i)).toBeInTheDocument();
@@ -252,7 +253,7 @@ describe('WaiverWire (Smoke Test)', () => {
       const { getByText } = render(<WaiverRules leagueId={1} />);
       await waitFor(() => {
         expect(getByText(/Edit Waiver Rules/i)).toBeInTheDocument();
-        expect(getByText(/Waiver Deadline/i)).toBeInTheDocument();
+        expect(getByText('Waiver Deadline:', { selector: 'strong' })).toBeInTheDocument();
       });
       fireEvent.click(getByText(/Edit Waiver Rules/i));
       expect(mockNavigate).toHaveBeenCalledWith(

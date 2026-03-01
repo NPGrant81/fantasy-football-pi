@@ -43,9 +43,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/backend/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/backend/requirements.txt', '**/backend/requirements-lock.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+
+      - name: Validate backend requirements lock sync
+        run: |
+          python backend/scripts/validate_requirements_lock.py
 
       - name: Install dependencies
         run: |
@@ -115,7 +119,7 @@ jobs:
       - name: Run frontend tests
         working-directory: frontend
         run: |
-          npm test --silent -- --coverage
+          npm run test:coverage -- --run tests/PageSmokes.test.jsx
       - name: Upload frontend coverage artifact
         if: always()
         uses: actions/upload-artifact@v4

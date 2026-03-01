@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 import { useMemo, useState } from 'react';
 import { FiUser } from 'react-icons/fi';
 
@@ -46,7 +47,8 @@ export default function PlayerIdentityCard({
             {(position || nflTeam) && (
               <span>
                 {' '}
-                {position || 'N/A'}{nflTeam ? ` • ${nflTeam}` : ''}
+                {position || 'N/A'}
+                {nflTeam ? ` • ${nflTeam}` : ''}
               </span>
             )}
           </div>

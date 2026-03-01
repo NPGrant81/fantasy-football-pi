@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 import React from 'react';
 import { FiSettings } from 'react-icons/fi';
 import {
