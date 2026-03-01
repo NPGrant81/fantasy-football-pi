@@ -63,7 +63,7 @@ describe('DraftBoardGrid header', () => {
     expect(screen.getByText(/\$0 Remaining/)).toBeInTheDocument();
   });
 
-  it('displays drafted player info inside cell', () => {
+  it('displays drafted player info inside cell with new layout', () => {
     const teams2 = [{ id: 3, name: 'CellTest', remainingBudget: 50 }];
     const history2 = [
       { owner_id: 3, player_name: 'Travis Kelce', position: 'TE', amount: 20 },
@@ -72,18 +72,19 @@ describe('DraftBoardGrid header', () => {
       <DraftBoardGrid teams={teams2} history={history2} rosterLimit={1} />
     );
 
-    // name should wrap or at least be present in DOM
-    const nameEl = screen.getByText('Travis Kelce');
-    expect(nameEl).toBeInTheDocument();
-    expect(nameEl).toHaveClass('break-words');
+    // first name should appear separately and cost right-aligned
+    expect(screen.getByText('Travis')).toBeInTheDocument();
+    expect(screen.getByText('$20')).toBeInTheDocument();
+    // last name should appear large and uppercase
+    const lastEl = screen.getByText('KELCE');
+    expect(lastEl).toBeInTheDocument();
+    expect(lastEl).toHaveClass('uppercase');
+    // ensure there is no position text anywhere
+    expect(screen.queryByText(/TE/)).toBeNull();
 
-    // price should display on its own line, position removed
-    expect(screen.getByText(/\$?\s*20/)).toBeInTheDocument();
-    // drafted cell background should be gold for any player
-    const cell = nameEl.closest('div'); // the immediate div is the cell
-    // background should correspond to the player's position color
+    // drafted cell background should be color for TE
+    const cell = screen.getByTestId('player-card');
     expect(cell).toHaveClass(POSITION_COLORS.TE);
-    // cell should also have a muted slate outline border
     expect(cell).toHaveClass('border-2', 'border-slate-600');
   });
 

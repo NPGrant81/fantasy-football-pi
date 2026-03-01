@@ -54,6 +54,7 @@ export default function DraftBoardGrid({
               const player = rosterMap[team.id]?.[i];
               return (
                 <div
+                  data-testid={player ? 'player-card' : undefined}
                   key={i}
                   className={(() => {
                     if (!player) {
@@ -66,16 +67,31 @@ export default function DraftBoardGrid({
                   })()}
                 >
                   {player ? (
-                    <>
-                      <span className="text-sm font-semibold text-slate-100 break-words text-center leading-tight capitalize">
-                        {player.player_name || player.name}
-                      </span>
-                      <span className="text-xs text-slate-400 uppercase tracking-tighter mt-1 capitalize">
-                        {player.amount || player.price
-                          ? `$${player.amount || player.price}`
-                          : ''}
-                      </span>
-                    </>
+                    (() => {
+                      const full = player.player_name || player.name || '';
+                      const parts = full.split(' ');
+                      const first = parts.shift() || '';
+                      const last = parts.join(' ') || first;
+                      return (
+                        <>
+                          {/* top row: first name and cost */}
+                          <div className="w-full flex justify-between items-start">
+                            <span className="text-sm font-semibold leading-tight truncate">
+                              {first}
+                            </span>
+                            <span className="text-sm font-bold leading-tight">
+                              {player.amount || player.price ? `$${player.amount || player.price}` : ''}
+                            </span>
+                          </div>
+                          {/* bottom: last name large */}
+                          <div className="w-full mt-1">
+                            <span className="block text-lg font-bold uppercase break-words">
+                              {last.toUpperCase()}
+                            </span>
+                          </div>
+                        </>
+                      );
+                    })()
                   ) : (
                     <span className="text-xs text-slate-600 font-bold tracking-widest uppercase opacity-30">
                       OPEN
