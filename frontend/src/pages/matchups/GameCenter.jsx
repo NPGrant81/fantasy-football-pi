@@ -5,6 +5,14 @@ import { FiArrowLeft, FiInfo } from 'react-icons/fi';
 
 // Professional Imports
 import apiClient from '@api/client';
+import {
+  buttonSecondary,
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 // --- 1.1 SUB-COMPONENTS (Declared Outside) ---
 // This prevents React from re-creating the component definition on every render.
@@ -100,7 +108,7 @@ export default function GameCenter() {
   // 2.1.1 Handle Loading & Empty States
   if (loading) {
     return (
-      <div className="text-center py-20 text-slate-500 animate-pulse font-black uppercase tracking-widest">
+      <div className={`${pageShell} text-center py-20 text-slate-600 dark:text-slate-400 animate-pulse font-black`}>
         Loading Matchup Data...
       </div>
     );
@@ -108,30 +116,29 @@ export default function GameCenter() {
 
   if (!game) {
     return (
-      <div className="text-center py-20 text-slate-500 font-black uppercase tracking-widest">
+      <div className={`${pageShell} text-center py-20 text-slate-600 dark:text-slate-400 font-black`}>
         Matchup data unavailable.
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 pb-20 animate-fade-in">
+    <div className={`${pageShell} pb-20 animate-fade-in`}>
       {/* 2.2 HEADER & NAVIGATION */}
-      <div className="flex items-center gap-4">
+      <div className={pageHeader}>
         <Link
           to="/matchups"
           aria-label="Back to matchups"
-          className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition shadow-lg"
+          className={`${buttonSecondary} inline-flex w-fit items-center gap-2 px-3 py-1.5 text-xs no-underline`}
         >
-          <FiArrowLeft size={20} />
+          <FiArrowLeft size={16} /> Back
         </Link>
-        <h1 className="text-xl font-bold text-slate-300 uppercase tracking-wide">
-          Week {game.week} Matchup
-        </h1>
+        <h1 className={pageTitle}>Week {game.week} Matchup</h1>
+        <p className={pageSubtitle}>Live projection view with starter breakdown.</p>
       </div>
 
       {/* 2.3 SCOREBOARD BANNER */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-2xl flex justify-between items-center relative overflow-hidden">
+      <div className={`${cardSurface} p-8 flex justify-between items-center relative overflow-hidden`}>
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-transparent to-red-600 opacity-50"></div>
 
         <div
@@ -158,7 +165,7 @@ export default function GameCenter() {
 
         {/* Home Side */}
         <div className="text-center z-10 w-1/3">
-          <h2 className="text-xl md:text-3xl font-black text-white italic tracking-tighter uppercase mb-2 truncate">
+          <h2 className="mb-2 truncate text-xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">
             {game.home_team}
           </h2>
           <div className="text-4xl md:text-6xl font-mono font-bold text-blue-400">
@@ -178,7 +185,7 @@ export default function GameCenter() {
 
         {/* Away Side */}
         <div className="text-center z-10 w-1/3">
-          <h2 className="text-xl md:text-3xl font-black text-white italic tracking-tighter uppercase mb-2 truncate">
+          <h2 className="mb-2 truncate text-xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">
             {game.away_team}
           </h2>
           <div className="text-4xl md:text-6xl font-mono font-bold text-red-400">

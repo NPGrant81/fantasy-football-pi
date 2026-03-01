@@ -17,12 +17,30 @@ import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
 import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
 import RivalryGraph from '../../components/charts/RivalryGraph';
-import './AnalyticsDashboard.css';
+import {
+  buttonPrimary,
+  buttonSecondary,
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 /* ignore-breakpoints */
 
 const AnalyticsDashboard = () => {
   const [selected, setSelected] = React.useState(null); // null, 'draft','manager','weekly','heatmap'
+
+  const charts = [
+    { key: 'draft', label: 'Draft Value Analysis' },
+    { key: 'efficiency', label: 'Efficiency Leaderboard' },
+    { key: 'manager', label: 'Manager Performance Trends' },
+    { key: 'weekly', label: 'Weekly Matchup Comparison' },
+    { key: 'heatmap', label: 'Player Heatmap' },
+    { key: 'trade', label: 'Trade Analyzer' },
+    { key: 'rivalry', label: 'Rivalry Graph' },
+  ];
 
   const renderChart = () => {
     switch (selected) {
@@ -70,64 +88,36 @@ const AnalyticsDashboard = () => {
         );
       default:
         return (
-          <p className="no-selection">Select a chart above to display it.</p>
+          <p className="text-slate-500 dark:text-slate-400">
+            Select a chart above to display it.
+          </p>
         );
     }
   };
 
   return (
-    <div className="analytics-dashboard">
-      <div className="dashboard-header">
-        <h1>📊 League Analytics</h1>
-        <p>Advanced insights and visualizations for your fantasy league</p>
+    <div className={pageShell}>
+      <div className={pageHeader}>
+        <h1 className={pageTitle}>League Analytics</h1>
+        <p className={pageSubtitle}>
+          Advanced insights and visualizations for your fantasy league.
+        </p>
       </div>
 
-      <div className="button-row">
-        <button
-          className={selected === 'draft' ? 'active' : ''}
-          onClick={() => setSelected('draft')}
-        >
-          Draft Value Analysis
-        </button>
-        <button
-          className={selected === 'efficiency' ? 'active' : ''}
-          onClick={() => setSelected('efficiency')}
-        >
-          Efficiency Leaderboard
-        </button>
-        <button
-          className={selected === 'manager' ? 'active' : ''}
-          onClick={() => setSelected('manager')}
-        >
-          Manager Performance Trends
-        </button>
-        <button
-          className={selected === 'weekly' ? 'active' : ''}
-          onClick={() => setSelected('weekly')}
-        >
-          Weekly Matchup Comparison
-        </button>
-        <button
-          className={selected === 'heatmap' ? 'active' : ''}
-          onClick={() => setSelected('heatmap')}
-        >
-          Player Heatmap
-        </button>
-        <button
-          className={selected === 'trade' ? 'active' : ''}
-          onClick={() => setSelected('trade')}
-        >
-          Trade Analyzer
-        </button>
-        <button
-          className={selected === 'rivalry' ? 'active' : ''}
-          onClick={() => setSelected('rivalry')}
-        >
-          Rivalry Graph
-        </button>
+      <div className="flex flex-wrap gap-2">
+        {charts.map((chart) => (
+          <button
+            key={chart.key}
+            type="button"
+            className={selected === chart.key ? buttonPrimary : buttonSecondary}
+            onClick={() => setSelected(chart.key)}
+          >
+            {chart.label}
+          </button>
+        ))}
       </div>
 
-      <div className="charts-grid">{renderChart()}</div>
+      <div className={cardSurface}>{renderChart()}</div>
     </div>
   );
 };

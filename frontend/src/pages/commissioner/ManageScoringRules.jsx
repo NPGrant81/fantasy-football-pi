@@ -1,4 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import {
+  buttonDanger,
+  buttonPrimary,
+  buttonSecondary,
+  cardSurface,
+  inputBase,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+  tableHead,
+  tableSurface,
+} from '@utils/uiStandards';
 
 const defaultRule = {
   category: '',
@@ -121,11 +134,16 @@ export default function ManageScoringRules() {
   };
 
   return (
-    <div className="p-8 text-white min-h-screen">
-      <h1 className="text-3xl font-black mb-6">Manage Scoring Rules</h1>
+    <div className={`${pageShell} min-h-screen`}>
+      <div className={pageHeader}>
+        <h1 className={pageTitle}>Manage Scoring Rules</h1>
+        <p className={pageSubtitle}>
+          Configure scoring events, ranges, and point values.
+        </p>
+      </div>
       <form
         onSubmit={handleSubmit}
-        className="mb-8 bg-slate-800 p-6 rounded-xl shadow"
+        className={`${cardSurface} mb-0`}
       >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <input
@@ -133,21 +151,21 @@ export default function ManageScoringRules() {
             value={form.category}
             onChange={handleChange}
             placeholder="Category"
-            className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+            className={inputBase}
           />
           <input
             name="event_name"
             value={form.event_name}
             onChange={handleChange}
             placeholder="Event Name"
-            className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+            className={inputBase}
           />
           <input
             name="description"
             value={form.description}
             onChange={handleChange}
             placeholder="Description"
-            className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+            className={inputBase}
           />
           <div className="flex gap-2">
             <input
@@ -155,14 +173,14 @@ export default function ManageScoringRules() {
               value={form.range_min}
               onChange={handleChange}
               placeholder="Min"
-              className="p-2 rounded bg-slate-900 text-white border border-slate-700 flex-1"
+              className={`${inputBase} flex-1`}
             />
             <input
               name="range_max"
               value={form.range_max}
               onChange={handleChange}
               placeholder="Max"
-              className="p-2 rounded bg-slate-900 text-white border border-slate-700 flex-1"
+              className={`${inputBase} flex-1`}
             />
           </div>
         </div>
@@ -172,13 +190,13 @@ export default function ManageScoringRules() {
             value={form.point_value}
             onChange={handleChange}
             placeholder="Point Value"
-            className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+            className={inputBase}
           />
           <select
             name="calculation_type"
             value={form.calculation_type}
             onChange={handleChange}
-            className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+            className={inputBase}
           >
             <option value="flat_bonus">Flat Bonus</option>
             <option value="per_unit">Per Unit</option>
@@ -188,21 +206,21 @@ export default function ManageScoringRules() {
             value={form.applicable_positions}
             onChange={handleChange}
             placeholder="Positions (comma-separated)"
-            className="p-2 rounded bg-slate-900 text-white border border-slate-700"
+            className={inputBase}
           />
           {/* empty slot to keep grid aligned */}
           <div />
         </div>
         <button
           type="submit"
-          className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded mr-4"
+          className={`${buttonPrimary} mr-4`}
         >
           {editingIndex !== null ? 'Update Rule' : 'Add Rule'}
         </button>
         {editingIndex !== null && (
           <button
             type="button"
-            className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded"
+            className={buttonSecondary}
             onClick={() => {
               setForm(defaultRule);
               setEditingIndex(null);
@@ -211,18 +229,21 @@ export default function ManageScoringRules() {
             Cancel
           </button>
         )}
-        {message && <div className="mt-4 text-blue-300">{message}</div>}
+        {message && <div className="mt-4 text-sm text-cyan-300">{message}</div>}
       </form>
-      <div className="bg-slate-900 p-6 rounded-xl shadow">
-        <h2 className="text-xl font-bold mb-4">Current Scoring Rules</h2>
+      <div className={cardSurface}>
+        <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
+          Current Scoring Rules
+        </h2>
         {loading ? (
-          <div>Loading...</div>
+          <div className="text-slate-600 dark:text-slate-400">Loading...</div>
         ) : rules.length === 0 ? (
-          <div className="text-slate-400">No scoring rules set.</div>
+          <div className="text-slate-600 dark:text-slate-400">No scoring rules set.</div>
         ) : (
-          <table className="w-full text-left border-separate border-spacing-y-2">
-            <thead>
-              <tr className="text-slate-400 text-sm">
+          <div className={tableSurface}>
+            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+            <thead className={tableHead}>
+              <tr>
                 <th>Category</th>
                 <th>Event</th>
                 <th>Range</th>
@@ -234,7 +255,7 @@ export default function ManageScoringRules() {
             </thead>
             <tbody>
               {rules.map((rule, idx) => (
-                <tr key={idx} className="bg-slate-800 hover:bg-slate-700">
+                <tr key={idx} className="border-t border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40">
                   <td>{rule.category}</td>
                   <td>{rule.event_name}</td>
                   <td>
@@ -245,13 +266,13 @@ export default function ManageScoringRules() {
                   <td>{rule.applicable_positions}</td>
                   <td>
                     <button
-                      className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-1 px-4 rounded mr-2"
+                      className={`${buttonSecondary} mr-2 px-3 py-1 text-xs`}
                       onClick={() => handleEdit(idx)}
                     >
                       Edit
                     </button>
                     <button
-                      className="bg-red-600 hover:bg-red-500 text-white font-bold py-1 px-4 rounded"
+                      className={`${buttonDanger} px-3 py-1 text-xs`}
                       onClick={() => handleDelete(idx)}
                     >
                       Delete
@@ -260,7 +281,8 @@ export default function ManageScoringRules() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
     </div>

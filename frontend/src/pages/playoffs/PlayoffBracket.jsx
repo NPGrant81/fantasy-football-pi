@@ -1,6 +1,13 @@
 import React from 'react';
 import BracketAccordion from '../home/components/BracketAccordion';
 import apiClient from '@api/client';
+import {
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 /* ignore-breakpoints */
 
@@ -32,12 +39,16 @@ export default function PlayoffBracket({ username, leagueId, setSubHeader }) {
   }, [username, leagueName, setSubHeader]);
 
   return (
-    <div className="p-4">
-      <h1 className="text-4xl font-black uppercase tracking-tighter mb-4">
-        Playoff Bracket
-      </h1>
-      {/* main bracket accordion component contains season dropdown and match rendering */}
-      <BracketAccordion leagueId={leagueId} />
+    <div className={pageShell}>
+      <div className={pageHeader}>
+        <h1 className={pageTitle}>Playoff Bracket</h1>
+        <p className={pageSubtitle}>
+          View playoff seeding and matchup progression.
+        </p>
+      </div>
+      <div className={cardSurface}>
+        <BracketAccordion leagueId={leagueId} />
+      </div>
     </div>
   );
 }

@@ -1,4 +1,9 @@
 import React from 'react';
+import {
+  buttonPrimary,
+  tableHead,
+  tableSurface,
+} from '@utils/uiStandards';
 
 /* ignore-breakpoints */
 
@@ -50,7 +55,7 @@ export default function WaiverTable({
       <button
         type="button"
         onClick={() => toggleSort(field)}
-        className="inline-flex items-center gap-1 hover:text-white"
+        className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
       >
         <span>{label}</span>
         <span className="text-[10px]">{sortIndicator(field)}</span>
@@ -60,7 +65,7 @@ export default function WaiverTable({
 
   if (loading) {
     return (
-      <div className="p-20 text-center animate-pulse text-slate-500 font-black uppercase tracking-widest">
+      <div className="rounded-xl border border-slate-300 bg-white/80 p-20 text-center font-black uppercase tracking-widest text-slate-500 animate-pulse dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
         Scanning the wire...
       </div>
     );
@@ -68,16 +73,16 @@ export default function WaiverTable({
 
   if (!players.length) {
     return (
-      <div className="p-12 text-center text-slate-500 font-bold border border-slate-800 rounded-2xl bg-slate-900/40">
+      <div className="rounded-xl border border-slate-300 bg-white/80 p-12 text-center font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
         No available players found.
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-900/40">
-      <table className="w-full text-left text-sm text-slate-300">
-        <thead className="bg-slate-950/70 text-xs uppercase tracking-wider text-slate-500">
+    <div className={tableSurface}>
+      <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+        <thead className={tableHead}>
           <tr>
             {renderSortHeader('name', 'Player')}
             {renderSortHeader('position', 'Pos')}
@@ -90,9 +95,11 @@ export default function WaiverTable({
           {sortedPlayers.map((player) => (
             <tr
               key={player.id}
-              className="border-t border-slate-800 hover:bg-slate-800/30"
+              className="border-t border-slate-300 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800/30"
             >
-              <td className="px-4 py-3 font-bold text-white">{player.name}</td>
+              <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
+                {player.name}
+              </td>
               <td className="px-4 py-3">{player.position}</td>
               <td className="px-4 py-3">{player.nfl_team || '-'}</td>
               <td className="px-4 py-3">{player.projected_points ?? 0}</td>
@@ -100,7 +107,9 @@ export default function WaiverTable({
                 <button
                   onClick={() => onClaim(player)}
                   disabled={processingId === player.id}
-                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold uppercase text-white hover:bg-blue-500 disabled:opacity-60"
+                  className={`${buttonPrimary} px-3 py-1.5 text-xs uppercase ${
+                    processingId === player.id ? 'opacity-60' : ''
+                  }`}
                 >
                   {processingId === player.id ? 'Claiming...' : 'Claim'}
                 </button>

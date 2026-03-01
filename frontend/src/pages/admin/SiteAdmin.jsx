@@ -12,6 +12,12 @@ import {
 import apiClient from '@api/client';
 import Toast from '@components/Toast';
 import AdminActionCard from '@components/admin/AdminActionCard';
+import {
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '../../utils/uiStandards';
 
 export default function SiteAdmin() {
   const [loading, setLoading] = useState(false);
@@ -190,18 +196,14 @@ export default function SiteAdmin() {
   };
 
   return (
-    <div className="p-8 text-white min-h-screen">
-      <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">
-        <FiTool className="text-4xl text-purple-500" />
+    <div className={pageShell}>
+      <div className={`${pageHeader} flex items-start gap-4`}>
+        <FiTool className="mt-1 text-2xl text-purple-500" />
         <div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">
-            Site Admin
-          </h1>
-          <p className="text-slate-400 text-sm">
-            System-level and maintenance tools
-          </p>
+          <h1 className={pageTitle}>Site Admin</h1>
+          <p className={pageSubtitle}>System-level and maintenance tools</p>
           {lastSync && (
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Last action: {lastSync}
             </p>
           )}
@@ -219,12 +221,7 @@ export default function SiteAdmin() {
           loadingLabel="Syncing..."
           actionLabel="Run Sync"
           iconSpinsOnLoading
-          accent={{
-            hoverBorder: 'hover:border-blue-500/30',
-            icon: 'text-blue-400',
-            badge: 'bg-blue-900/30 text-blue-400',
-            button: 'bg-blue-600 hover:bg-blue-500 text-white',
-          }}
+          tone="blue"
         />
         <AdminActionCard
           icon={FiDatabase}
@@ -237,12 +234,7 @@ export default function SiteAdmin() {
           loadingLabel="Importing..."
           actionLabel="Run Import"
           iconSpinsOnLoading
-          accent={{
-            hoverBorder: 'hover:border-green-500/30',
-            icon: 'text-green-400',
-            badge: 'bg-green-900/30 text-green-400',
-            button: 'bg-green-600 hover:bg-green-500 text-white',
-          }}
+          tone="green"
         />
         <AdminActionCard
           icon={FiBox}
@@ -254,12 +246,7 @@ export default function SiteAdmin() {
           loading={loading}
           loadingLabel="Working..."
           actionLabel="Generate League"
-          accent={{
-            hoverBorder: 'hover:border-yellow-500/30',
-            icon: 'text-yellow-400',
-            badge: 'bg-yellow-900/30 text-yellow-400',
-            button: 'bg-yellow-600 hover:bg-yellow-500 text-white',
-          }}
+          tone="yellow"
         />
         <AdminActionCard
           icon={FiTrash2}
@@ -271,12 +258,7 @@ export default function SiteAdmin() {
           loading={loading}
           loadingLabel="Resetting..."
           actionLabel="Reset Board"
-          accent={{
-            hoverBorder: 'hover:border-red-500/30',
-            icon: 'text-red-400',
-            badge: 'bg-red-900/30 text-red-400',
-            button: 'bg-red-600 hover:bg-red-500 text-white',
-          }}
+          tone="red"
         />
         <AdminActionCard
           icon={FiTrash2}
@@ -288,12 +270,7 @@ export default function SiteAdmin() {
           loading={loading}
           loadingLabel="Resetting..."
           actionLabel="Run UAT Draft Reset"
-          accent={{
-            hoverBorder: 'hover:border-purple-500/30',
-            icon: 'text-purple-400',
-            badge: 'bg-purple-900/30 text-purple-400',
-            button: 'bg-purple-600 hover:bg-purple-500 text-white',
-          }}
+          tone="purple"
         />
         <AdminActionCard
           icon={FiShield}
@@ -304,12 +281,7 @@ export default function SiteAdmin() {
           disabled={loading}
           loading={false}
           actionLabel="Manage Commissioners"
-          accent={{
-            hoverBorder: 'hover:border-indigo-500/30',
-            icon: 'text-indigo-400',
-            badge: 'bg-indigo-900/30 text-indigo-400',
-            button: 'bg-indigo-600 hover:bg-indigo-500 text-white',
-          }}
+          tone="indigo"
         />
         <AdminActionCard
           icon={FiUsers}
@@ -321,12 +293,7 @@ export default function SiteAdmin() {
           loading={loading}
           loadingLabel="Seeding..."
           actionLabel="Run UAT Team Reset"
-          accent={{
-            hoverBorder: 'hover:border-green-500/30',
-            icon: 'text-green-400',
-            badge: 'bg-green-900/30 text-green-400',
-            button: 'bg-green-600 hover:bg-green-500 text-white',
-          }}
+          tone="green"
         />
       </div>
       {toast && (

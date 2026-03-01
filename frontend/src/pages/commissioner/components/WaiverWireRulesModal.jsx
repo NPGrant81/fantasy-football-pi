@@ -1,24 +1,29 @@
 import React from 'react';
 import { FiActivity } from 'react-icons/fi';
+import {
+  modalCloseButton,
+  modalDescription,
+  modalOverlay,
+  modalPlaceholder,
+  modalSurface,
+  modalTitle,
+} from '@utils/uiStandards';
 
 export default function WaiverWireRulesModal({ open, onClose }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-slate-900 border border-green-700 rounded-xl p-8 w-full sm:max-w-lg relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-green-400 hover:text-white"
-        >
+    <div className={modalOverlay}>
+      <div className={modalSurface}>
+        <button onClick={onClose} className={modalCloseButton}>
           ✕
         </button>
-        <h2 className="text-2xl font-bold text-green-400 mb-4 flex items-center gap-2">
+        <h2 className={modalTitle}>
           <FiActivity /> Set Waiver Wire Rules
         </h2>
-        <p className="text-slate-400 mb-4">
+        <p className={modalDescription}>
           Set rules for waiver claims, priorities, and deadlines.
         </p>
-        <div className="text-center text-slate-500">
+        <div className={modalPlaceholder}>
           Waiver wire rules form coming soon...
         </div>
       </div>

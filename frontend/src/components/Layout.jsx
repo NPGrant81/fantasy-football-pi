@@ -1,12 +1,14 @@
 // frontend/src/components/Layout.jsx
 import { useState } from 'react';
 import { FiMenu } from 'react-icons/fi';
+import { layoutAlertBar } from '../utils/uiStandards';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
 
 export default function Layout({ children, username, leagueId, alert }) {
   // --- 1.1 UI STATE ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const hasAlert = Boolean(alert && String(alert).trim());
 
   // --- 2.1 RENDER LOGIC (The Shell) ---
   return (
@@ -35,9 +37,11 @@ export default function Layout({ children, username, leagueId, alert }) {
       </header>
 
       {/* 2.3 SUB‑HEADER / ALERT BAR */}
-      <div className="h-10 mt-16 bg-slate-200 dark:bg-slate-800 text-xs text-yellow-800 dark:text-yellow-300 flex items-center px-6">
-        {alert || '\u00A0'}
-      </div>
+      {hasAlert && (
+        <div className={layoutAlertBar}>
+          {alert}
+        </div>
+      )}
 
       {/* 2.4 NAVIGATION DRAWER */}
       <Sidebar

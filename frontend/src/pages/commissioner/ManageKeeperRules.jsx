@@ -1,5 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import {
+  buttonDanger,
+  buttonPrimary,
+  buttonSecondary,
+  cardSurface,
+  inputBase,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+  tableHead,
+  tableSurface,
+} from '@utils/uiStandards';
 
 export default function ManageKeeperRules() {
   const [maxKeepers, setMaxKeepers] = useState('');
@@ -104,60 +117,73 @@ export default function ManageKeeperRules() {
   };
 
   return (
-    <div className="p-8 text-white min-h-screen">
-      <h1 className="text-4xl font-black mb-6">Keeper Rules</h1>
+    <div className={`${pageShell} min-h-screen`}>
+      <div className={pageHeader}>
+        <h1 className={pageTitle}>Keeper Rules</h1>
+        <p className={pageSubtitle}>
+          Configure keeper limits, deadlines, and commissioner overrides.
+        </p>
+      </div>
 
       <form
         onSubmit={handleSubmit}
-        className="mb-8 bg-slate-800 p-6 rounded-xl shadow"
+        className={`${cardSurface} mb-0`}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block mb-2 font-bold">
+            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
               Max Keepers Per Owner
             </label>
             <input
               type="number"
               min="0"
-              className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700"
+              className={inputBase}
               value={maxKeepers}
               onChange={(e) => setMaxKeepers(e.target.value)}
             />
           </div>
           <div>
-            <label className="block mb-2 font-bold">Max Years Per Player</label>
+            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+              Max Years Per Player
+            </label>
             <input
               type="number"
               min="0"
-              className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700"
+              className={inputBase}
               value={maxYears}
               onChange={(e) => setMaxYears(e.target.value)}
             />
           </div>
           <div>
-            <label className="block mb-2 font-bold">Keeper Deadline</label>
+            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+              Keeper Deadline
+            </label>
             <input
               type="text"
-              className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700"
+              className={inputBase}
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
               placeholder="ISO date or description"
             />
           </div>
           <div>
-            <label className="block mb-2 font-bold">Trade Deadline</label>
+            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+              Trade Deadline
+            </label>
             <input
               type="text"
-              className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700"
+              className={inputBase}
               value={tradeDeadline}
               onChange={(e) => setTradeDeadline(e.target.value)}
               placeholder="ISO date or description"
             />
           </div>
           <div>
-            <label className="block mb-2 font-bold">Cost Type</label>
+            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+              Cost Type
+            </label>
             <select
-              className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700"
+              className={inputBase}
               value={costType}
               onChange={(e) => setCostType(e.target.value)}
             >
@@ -167,17 +193,17 @@ export default function ManageKeeperRules() {
             </select>
           </div>
           <div>
-            <label className="block mb-2 font-bold">
+            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
               Cost Inflation (add to cost)
             </label>
             <input
               type="number"
-              className="w-full p-2 rounded bg-slate-900 text-white border border-slate-700"
+              className={inputBase}
               value={costInflation}
               onChange={(e) => setCostInflation(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
             <input
               id="waiver-policy"
               type="checkbox"
@@ -188,7 +214,7 @@ export default function ManageKeeperRules() {
               Waiver policy applied
             </label>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
             <input
               id="drafted-only"
               type="checkbox"
@@ -203,28 +229,30 @@ export default function ManageKeeperRules() {
         <div className="mt-6">
           <button
             type="submit"
-            className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded"
+            className={buttonPrimary}
           >
             {settingsLoading ? 'Saving...' : 'Update Settings'}
           </button>
-          {message && <div className="mt-4 text-blue-300">{message}</div>}
+          {message && <div className="mt-4 text-sm text-cyan-300">{message}</div>}
         </div>
       </form>
 
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold mb-4">Owner Keeper Lists</h2>
+      <div className={cardSurface}>
+        <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
+          Owner Keeper Lists
+        </h2>
         <button
-          className="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded mb-4"
+          className={`${buttonDanger} mb-4`}
           onClick={resetLeague}
         >
           Reset All Keepers
         </button>
         {ownersLoading ? (
-          <p className="text-slate-400">Loading...</p>
+          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
         ) : owners.length ? (
-          <div className="overflow-x-auto bg-slate-900 rounded-xl p-4">
-            <table className="w-full text-sm text-slate-300">
-              <thead className="text-xs uppercase text-slate-500">
+          <div className={tableSurface}>
+            <table className="w-full text-sm text-slate-700 dark:text-slate-300">
+              <thead className={tableHead}>
                 <tr>
                   <th className="px-3 py-2">Owner</th>
                   <th className="px-3 py-2">Selections</th>
@@ -233,12 +261,15 @@ export default function ManageKeeperRules() {
               </thead>
               <tbody>
                 {owners.map((o) => (
-                  <tr key={o.owner_id} className="border-t border-slate-800">
+                  <tr
+                    key={o.owner_id}
+                    className="border-t border-slate-300 dark:border-slate-800"
+                  >
                     <td className="px-3 py-2">{o.username || o.owner_id}</td>
                     <td className="px-3 py-2">{o.selections.length}</td>
                     <td className="px-3 py-2">
                       <button
-                        className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-1 px-3 rounded"
+                        className={`${buttonSecondary} px-3 py-1 text-xs`}
                         onClick={() => vetoOwner(o.owner_id)}
                       >
                         Veto
@@ -250,7 +281,7 @@ export default function ManageKeeperRules() {
             </table>
           </div>
         ) : (
-          <p className="text-slate-400 italic">
+          <p className="text-slate-500 dark:text-slate-400 italic">
             No keeper lists submitted yet.
           </p>
         )}
