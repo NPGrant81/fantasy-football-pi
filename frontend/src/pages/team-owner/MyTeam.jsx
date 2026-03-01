@@ -618,7 +618,9 @@ export default function MyTeam({ activeOwnerId }) {
 
   // when tierRows change we auto-expand all of them so headers are visible
   useEffect(() => {
-    setExpandedPositions(new Set(lineupRuleSnapshot.tierRows.map((t) => t.position)));
+    setExpandedPositions(
+      new Set(lineupRuleSnapshot.tierRows.map((t) => t.position))
+    );
   }, [lineupRuleSnapshot.tierRows]);
 
   const currentStarterValidationErrors = useMemo(
@@ -1366,7 +1368,9 @@ export default function MyTeam({ activeOwnerId }) {
               </label>
               <select
                 value={selectedWeek}
-                onChange={(event) => setSelectedWeek(Number(event.target.value))}
+                onChange={(event) =>
+                  setSelectedWeek(Number(event.target.value))
+                }
                 className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
               >
                 {weekOptions.map((week) => (
@@ -1425,7 +1429,6 @@ export default function MyTeam({ activeOwnerId }) {
             Lineup has validation issues ({lineupValidationErrors.length})
           </button>
         )}
-
 
         {viewMode === 'recommended' && (
           <>
@@ -1542,10 +1545,14 @@ export default function MyTeam({ activeOwnerId }) {
                 type="button"
                 onClick={submitRoster}
                 disabled={
-                  submittingRoster || !canEditLineup || lineupValidationErrors.length > 0
+                  submittingRoster ||
+                  !canEditLineup ||
+                  lineupValidationErrors.length > 0
                 }
                 className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${
-                  submittingRoster || !canEditLineup || lineupValidationErrors.length > 0
+                  submittingRoster ||
+                  !canEditLineup ||
+                  lineupValidationErrors.length > 0
                     ? 'cursor-not-allowed bg-slate-800 text-slate-500'
                     : 'bg-blue-600 text-white hover:bg-blue-500'
                 }`}

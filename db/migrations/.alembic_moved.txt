@@ -1,1 +1,0 @@
-Alembic migration scripts have been moved from backend/alembic/versions to db/migrations for improved organization. Timestamp-based naming and ordering are preserved. Update your Alembic config if needed.

@@ -20,7 +20,6 @@ if [ -n "$missing" ]; then
     fi
   done
 done
-fi
 
 # drop empty lines
 final_missing=$(echo -e "$final_missing" | sed '/^\s*$/d')

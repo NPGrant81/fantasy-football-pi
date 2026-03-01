@@ -11,8 +11,16 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    op.add_column('keeper_rules', sa.Column('max_years_per_player', sa.Integer, nullable=False, server_default='1'))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column['name'] for column in inspector.get_columns('keeper_rules')}
+    if 'max_years_per_player' not in columns:
+        op.add_column('keeper_rules', sa.Column('max_years_per_player', sa.Integer, nullable=False, server_default='1'))
 
 
 def downgrade():
-    op.drop_column('keeper_rules', 'max_years_per_player')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column['name'] for column in inspector.get_columns('keeper_rules')}
+    if 'max_years_per_player' in columns:
+        op.drop_column('keeper_rules', 'max_years_per_player')

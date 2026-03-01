@@ -203,7 +203,10 @@ export default function AuctionBlock({
   return (
     <div className="flex flex-col w-full">
       {/* top row containing main controls and optional toggle */}
-      <div data-testid="auction-top-row" className="flex flex-col md:flex-row md:items-end gap-6 w-full">
+      <div
+        data-testid="auction-top-row"
+        className="flex flex-col md:flex-row md:items-end gap-6 w-full"
+      >
         {/* nominator & timer */}
         <div className="flex justify-between items-center text-[12px] text-slate-300">
           <div className="flex items-center gap-2">

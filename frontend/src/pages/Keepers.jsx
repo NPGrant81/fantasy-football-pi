@@ -55,7 +55,6 @@ export default function Keepers() {
     return (keeperData.estimated_budget || 0) + initialCost;
   }, [keeperData, roster]);
 
-
   const togglePlayer = (playerId) => {
     const newSel = new Set(selected);
     if (newSel.has(playerId)) {

@@ -80,7 +80,9 @@ export default function DraftBoardGrid({
                               {first}
                             </span>
                             <span className="text-sm font-bold leading-tight">
-                              {player.amount || player.price ? `$${player.amount || player.price}` : ''}
+                              {player.amount || player.price
+                                ? `$${player.amount || player.price}`
+                                : ''}
                             </span>
                           </div>
                           {/* bottom: last name large */}

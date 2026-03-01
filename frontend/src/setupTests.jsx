@@ -59,12 +59,16 @@ vi.mock('chart.js', async () => {
 vi.mock('react-chartjs-2', () => {
   // provide basic components that render placeholders
   return {
-    Scatter: (_props) => React.createElement('div', { 'data-testid': 'scatter-chart' }),
+    Scatter: (_props) =>
+      React.createElement('div', { 'data-testid': 'scatter-chart' }),
     Bar: (_props) => React.createElement('div', { 'data-testid': 'bar-chart' }),
-    Line: (_props) => React.createElement('div', { 'data-testid': 'line-chart' }),
-    Doughnut: (_props) => React.createElement('div', { 'data-testid': 'doughnut-chart' }),
+    Line: (_props) =>
+      React.createElement('div', { 'data-testid': 'line-chart' }),
+    Doughnut: (_props) =>
+      React.createElement('div', { 'data-testid': 'doughnut-chart' }),
     Pie: (_props) => React.createElement('div', { 'data-testid': 'pie-chart' }),
-    Radar: (_props) => React.createElement('div', { 'data-testid': 'radar-chart' }),
+    Radar: (_props) =>
+      React.createElement('div', { 'data-testid': 'radar-chart' }),
     // forward others if necessary
   };
 });

@@ -7,8 +7,7 @@ const apiClient = axios.create({
   // default to a relative base so Vite's dev proxy can handle the request.
   // Setting the var to an empty string is also acceptable.
   // guard against import.meta.env being undefined in test environments
-  baseURL:
-      (import.meta?.env?.VITE_API_BASE_URL || ''),
+  baseURL: import.meta?.env?.VITE_API_BASE_URL || '',
   timeout: 30000, // 30s default to tolerate slower local/AI-backed responses
   headers: {
     'Content-Type': 'application/json',

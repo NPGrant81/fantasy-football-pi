@@ -15,11 +15,21 @@ depends_on = None
 
 
 def upgrade():
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column['name'] for column in inspector.get_columns('draft_picks')}
+
     # add a boolean column defaulting to false; existing rows will get false
-    op.add_column('draft_picks', sa.Column('is_taxi', sa.Boolean(), nullable=False, server_default=sa.false()))
-    # remove server_default if you prefer
+    if 'is_taxi' not in columns:
+        op.add_column('draft_picks', sa.Column('is_taxi', sa.Boolean(), nullable=False, server_default=sa.false()))
+
+    # remove server_default after ensuring column exists
     op.alter_column('draft_picks', 'is_taxi', server_default=None)
 
 
 def downgrade():
-    op.drop_column('draft_picks', 'is_taxi')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column['name'] for column in inspector.get_columns('draft_picks')}
+    if 'is_taxi' in columns:
+        op.drop_column('draft_picks', 'is_taxi')

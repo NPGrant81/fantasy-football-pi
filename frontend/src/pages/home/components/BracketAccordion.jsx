@@ -13,7 +13,8 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
 
   useEffect(() => {
     if (!propLeagueId && typeof window !== 'undefined') {
-      const stored = window.localStorage && window.localStorage.getItem('fantasyLeagueId');
+      const stored =
+        window.localStorage && window.localStorage.getItem('fantasyLeagueId');
       if (stored) setLeagueId(stored);
     }
   }, [propLeagueId]);
@@ -23,7 +24,9 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     if (!leagueId) return;
     const fetchSeasons = async () => {
       try {
-        const res = await apiClient.get(`/playoffs/seasons?league_id=${leagueId}`);
+        const res = await apiClient.get(
+          `/playoffs/seasons?league_id=${leagueId}`
+        );
         // some backend variants accidentally wrap the list in an object
         let list = res.data;
         if (!Array.isArray(list) && list && Array.isArray(list.seasons)) {
@@ -114,44 +117,44 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
         className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 shadow-xl"
         onToggle={(e) => setOpen(e.target.open)}
       >
-      <summary className="cursor-pointer text-lg font-bold text-white flex items-center justify-start">
-        Playoff Bracket
-      </summary>
+        <summary className="cursor-pointer text-lg font-bold text-white flex items-center justify-start">
+          Playoff Bracket
+        </summary>
 
-      {loading && <div className="text-slate-400 mt-2">Loading...</div>}
-      {!loading && bracket && (
-        <div className="mt-4">
-          {/* selector for which bracket view to display */}
-          <div className="mb-4 flex items-center gap-2">
-            <label className="text-xs">View:</label>
-            <select
-              className="bg-slate-800 text-white p-1 rounded"
-              value={view}
-              onChange={(e) => setView(e.target.value)}
-            >
-              <option value="championship">Championship</option>
-              <option value="consolation">Toilet Bowl</option>
-            </select>
+        {loading && <div className="text-slate-400 mt-2">Loading...</div>}
+        {!loading && bracket && (
+          <div className="mt-4">
+            {/* selector for which bracket view to display */}
+            <div className="mb-4 flex items-center gap-2">
+              <label className="text-xs">View:</label>
+              <select
+                className="bg-slate-800 text-white p-1 rounded"
+                value={view}
+                onChange={(e) => setView(e.target.value)}
+              >
+                <option value="championship">Championship</option>
+                <option value="consolation">Toilet Bowl</option>
+              </select>
+            </div>
+            <h3 className="text-sm text-slate-400 mb-2 uppercase">
+              {view === 'championship' ? 'Championship' : 'Toilet Bowl'}
+            </h3>
+            <div>
+              {renderMatches(
+                view === 'championship'
+                  ? bracket.championship
+                  : bracket.consolation
+              )}
+            </div>
           </div>
-          <h3 className="text-sm text-slate-400 mb-2 uppercase">
-            {view === 'championship' ? 'Championship' : 'Toilet Bowl'}
-          </h3>
-          <div>
-            {renderMatches(
-              view === 'championship'
-                ? bracket.championship
-                : bracket.consolation
-            )}
-          </div>
-        </div>
-      )}
+        )}
 
-      {!loading && !bracket && (
-        <div className="text-slate-500 mt-2 italic">No bracket data.</div>
-      )}
+        {!loading && !bracket && (
+          <div className="text-slate-500 mt-2 italic">No bracket data.</div>
+        )}
 
-      {/* season picker above the summary */}
-    </details>
+        {/* season picker above the summary */}
+      </details>
     </>
   );
 }

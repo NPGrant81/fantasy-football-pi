@@ -1,7 +1,16 @@
 # Migrations Directory
 
-This folder contains Alembic-generated migration files for the database schema. Each migration is timestamped and ordered for clarity. Do not place schema definitions or seed data here.
+This folder stores Alembic migration revisions only.
 
-- Only Alembic migration scripts should be stored in this folder.
-- For base table definitions, use the /db/schema directory.
-- For seed data, use the /db/seeds directory.
+## Rules
+
+- Keep only revision scripts in this folder.
+- Do not place base schema SQL, seeds, or utility SQL here.
+- Preserve file ordering and dependencies (`revision`, `down_revision`).
+
+## Operational Note
+
+During Issue #60 Phase 1, this folder is treated as the target migration home for organization.
+Runtime path cutover for Alembic (`script_location`) is handled separately via a documented checklist to avoid production/developer breakage.
+
+See `docs/DB_MIGRATION_PHASE1.md` for the safe cutover steps.

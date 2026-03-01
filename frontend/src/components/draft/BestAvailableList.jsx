@@ -1,6 +1,10 @@
 import React from 'react';
 
-export default function BestAvailableList({ players = [], open = true, onToggle }) {
+export default function BestAvailableList({
+  players = [],
+  open = true,
+  onToggle,
+}) {
   const [filterPos, setFilterPos] = React.useState('ALL');
   const [sortField, setSortField] = React.useState('rank');
   const [sortAsc, setSortAsc] = React.useState(true);
@@ -43,10 +47,7 @@ export default function BestAvailableList({ players = [], open = true, onToggle 
   if (!open) {
     return (
       <div className="bg-slate-900 border border-slate-700 rounded-lg p-2">
-        <button
-          onClick={onToggle}
-          className="text-sm text-yellow-400"
-        >
+        <button onClick={onToggle} className="text-sm text-yellow-400">
           Show Best Available ▶
         </button>
       </div>

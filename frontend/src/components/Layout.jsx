@@ -3,12 +3,10 @@ import { useState } from 'react';
 import { FiMenu } from 'react-icons/fi';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
-import { useTheme } from '../hooks/useTheme';
 
 export default function Layout({ children, username, leagueId, alert }) {
   // --- 1.1 UI STATE ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { theme } = useTheme();
 
   // --- 2.1 RENDER LOGIC (The Shell) ---
   return (

@@ -288,7 +288,9 @@ export default function DraftBoard({
       <DraftHistoryFeed history={history} owners={owners} />
 
       <main className="flex-1 grid grid-cols-12 h-screen gap-0 overflow-hidden z-0">
-        <section className={`overflow-x-auto border-r border-slate-800 custom-scrollbar ${showBestSidebar ? 'col-span-12 md:col-span-9' : 'col-span-12'}`}>
+        <section
+          className={`overflow-x-auto border-r border-slate-800 custom-scrollbar ${showBestSidebar ? 'col-span-12 md:col-span-9' : 'col-span-12'}`}
+        >
           <DraftBoardGrid
             teams={owners}
             history={history}
@@ -297,7 +299,9 @@ export default function DraftBoard({
           />
         </section>
 
-        <aside className={`${showBestSidebar ? 'block' : 'hidden'} col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto`}> 
+        <aside
+          className={`${showBestSidebar ? 'block' : 'hidden'} col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto`}
+        >
           <BestAvailableList
             open={showBestSidebar}
             onToggle={() => setShowBestSidebar(false)}
