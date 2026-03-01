@@ -13,7 +13,6 @@ import {
 import { Link } from 'react-router-dom';
 // --- Commissioner Modal Imports ---
 import ScoringRulesModal from '../commissioner/components/ScoringRulesModal';
-import OwnerManagementModal from '../commissioner/components/OwnerManagementModal';
 import WaiverWireRulesModal from '../commissioner/components/WaiverWireRulesModal';
 import TradeRulesModal from '../commissioner/components/TradeRulesModal';
 import PlayerIdentityCard from '../../components/player/PlayerIdentityCard';
@@ -245,9 +244,10 @@ export default function MyTeam({ activeOwnerId }) {
   const viewedOwnerId = activeOwnerId ? Number(activeOwnerId) : null;
   // --- 0.1 Commissioner Modal State ---
   const [showScoring, setShowScoring] = useState(false);
-  const [showOwners, setShowOwners] = useState(false);
   const [showWaivers, setShowWaivers] = useState(false);
   const [showTrades, setShowTrades] = useState(false);
+  const [showRuleViewer, setShowRuleViewer] = useState(false);
+  const [ruleViewerType, setRuleViewerType] = useState('scoring');
   const [showProposeTrade, setShowProposeTrade] = useState(false);
   const [leagueOwners, setLeagueOwners] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -279,7 +279,7 @@ export default function MyTeam({ activeOwnerId }) {
     draftStatus: 'PRE_DRAFT',
     is_commissioner: false,
   });
-  const [, setScoringRules] = useState([]);
+  const [scoringRules, setScoringRules] = useState([]);
   const [starterRequirements, setStarterRequirements] = useState(
     DEFAULT_STARTER_SLOTS
   );
@@ -590,8 +590,16 @@ export default function MyTeam({ activeOwnerId }) {
       errors.push('too many players');
     }
 
-    const tierRows = Object.entries(MIN_ACTIVE_REQUIREMENTS).map(
-      ([position, minimum]) => {
+    const tierRows = Object.keys(MIN_ACTIVE_REQUIREMENTS)
+      .filter((position) => {
+        const minimum = Number(starterRequirements[position] ?? 0);
+        const maximum = Number(
+          maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
+        );
+        return minimum > 0 || maximum > 0;
+      })
+      .map((position) => {
+        const minimum = Number(starterRequirements[position] ?? 0);
         const maximum = Number(
           maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
         );
@@ -599,9 +607,9 @@ export default function MyTeam({ activeOwnerId }) {
         const meetsMin = actual >= minimum;
         const meetsMax = actual <= maximum;
 
-        if (!meetsMin && !allowPartialLineup)
+        if (minimum > 0 && !meetsMin && !allowPartialLineup)
           errors.push(`not enough ${position}`);
-        if (!meetsMax) errors.push(`too many ${position}`);
+        if (maximum >= 0 && !meetsMax) errors.push(`too many ${position}`);
 
         return {
           position,
@@ -610,8 +618,7 @@ export default function MyTeam({ activeOwnerId }) {
           actual,
           valid: (allowPartialLineup || meetsMin) && meetsMax,
         };
-      }
-    );
+      });
 
     return {
       errors,
@@ -627,8 +634,14 @@ export default function MyTeam({ activeOwnerId }) {
     rosterState,
     activeRosterRequired,
     maxPositionLimits,
+    starterRequirements,
     allowPartialLineup,
   ]);
+
+  const openReadOnlyRuleView = useCallback((ruleType) => {
+    setRuleViewerType(ruleType);
+    setShowRuleViewer(true);
+  }, []);
 
   // when tierRows change we auto-expand all of them so headers are visible
   useEffect(() => {
@@ -931,6 +944,8 @@ export default function MyTeam({ activeOwnerId }) {
   const controlButtonClass =
     'px-4 py-2 rounded font-bold text-sm whitespace-nowrap';
 
+  const lineupIsValid = lineupValidationErrors.length === 0;
+
   // --- LOCKER ROOM/ROSTER/WAIVER UI (from Dashboard.jsx) ---
   if (!summary)
     return (
@@ -948,15 +963,91 @@ export default function MyTeam({ activeOwnerId }) {
         open={showScoring}
         onClose={() => setShowScoring(false)}
       />
-      <OwnerManagementModal
-        open={showOwners}
-        onClose={() => setShowOwners(false)}
-      />
       <WaiverWireRulesModal
         open={showWaivers}
         onClose={() => setShowWaivers(false)}
       />
       <TradeRulesModal open={showTrades} onClose={() => setShowTrades(false)} />
+
+      {showRuleViewer && (
+        <div className={modalOverlay}>
+          <div className={`${modalSurface} max-w-2xl p-6`}>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className={modalTitle}>
+                {ruleViewerType === 'scoring' && 'Scoring Rules'}
+                {ruleViewerType === 'waiver' && 'Waiver Wire Rules'}
+                {ruleViewerType === 'trade' && 'Trade Rules'}
+                {ruleViewerType === 'keeper' && 'Keeper Rules'}
+              </h3>
+              <button
+                onClick={() => setShowRuleViewer(false)}
+                className={modalCloseButton}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-200">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                Read-only view
+              </p>
+
+              {ruleViewerType === 'scoring' && (
+                <div className="space-y-2">
+                  {scoringRules.length === 0 ? (
+                    <p className="text-slate-400">
+                      No scoring rules configured.
+                    </p>
+                  ) : (
+                    scoringRules.slice(0, 10).map((rule, index) => (
+                      <div
+                        key={`${rule.category}-${rule.event_name}-${index}`}
+                        className="rounded border border-slate-800 bg-slate-950/40 px-3 py-2"
+                      >
+                        <div className="font-bold text-slate-100">
+                          {rule.event_name}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {rule.category} • {rule.point_value} pts
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {ruleViewerType === 'waiver' && (
+                <p>
+                  Waiver deadline:{' '}
+                  <span className="font-bold">
+                    {waiverDeadlineSetting
+                      ? new Date(waiverDeadlineSetting).toLocaleString()
+                      : 'Not configured'}
+                  </span>
+                </p>
+              )}
+
+              {ruleViewerType === 'trade' && (
+                <p>
+                  Trade deadline:{' '}
+                  <span className="font-bold">
+                    {tradeDeadlineSetting
+                      ? new Date(tradeDeadlineSetting).toLocaleString()
+                      : 'Not configured'}
+                  </span>
+                </p>
+              )}
+
+              {ruleViewerType === 'keeper' && (
+                <p>
+                  Keeper settings are commissioner-managed. You can review your
+                  keeper selections on the Manage Keepers page.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HEADER SECTION */}
       <div className={`${pageHeader} mb-6`}>
@@ -965,72 +1056,87 @@ export default function MyTeam({ activeOwnerId }) {
           Manage lineups, waivers, trades, and keeper decisions.
         </p>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-2 lg:overflow-x-auto">
-          {userInfo.is_commissioner && (
-            <>
-              <button
-                onClick={() => setShowScoring(true)}
-                className={`${controlButtonClass} ${buttonSecondary}`}
-              >
-                Scoring Rules
-              </button>
-              <button
-                onClick={() => setShowOwners(true)}
-                className={`${controlButtonClass} ${buttonPrimary}`}
-              >
-                Owner Management
-              </button>
-              <button
-                onClick={() => setShowWaivers(true)}
-                className={`${controlButtonClass} ${buttonPrimary}`}
-              >
-                Waiver Wire Rules
-              </button>
-              <button
-                onClick={() => setShowTrades(true)}
-                className={`${controlButtonClass} ${buttonSecondary}`}
-              >
-                Trade Rules
-              </button>
+        <div className="mt-6 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() =>
+                userInfo.is_commissioner
+                  ? setShowScoring(true)
+                  : openReadOnlyRuleView('scoring')
+              }
+              className={`${controlButtonClass} ${buttonSecondary}`}
+            >
+              Scoring Rules
+            </button>
+            <button
+              onClick={() =>
+                userInfo.is_commissioner
+                  ? setShowWaivers(true)
+                  : openReadOnlyRuleView('waiver')
+              }
+              className={`${controlButtonClass} ${buttonSecondary}`}
+            >
+              Waiver Wire Rules
+            </button>
+            <button
+              onClick={() =>
+                userInfo.is_commissioner
+                  ? setShowTrades(true)
+                  : openReadOnlyRuleView('trade')
+              }
+              className={`${controlButtonClass} ${buttonSecondary}`}
+            >
+              Trade Rules
+            </button>
+            {userInfo.is_commissioner ? (
               <Link
                 to="/commissioner/keeper-rules"
-                className={`${controlButtonClass} ${buttonPrimary}`}
+                className={`${controlButtonClass} ${buttonSecondary}`}
               >
                 Keeper Rules
               </Link>
-            </>
-          )}
+            ) : (
+              <button
+                onClick={() => openReadOnlyRuleView('keeper')}
+                className={`${controlButtonClass} ${buttonSecondary}`}
+              >
+                Keeper Rules
+              </button>
+            )}
+          </div>
 
-          <Link
-            to="/waivers"
-            className={`${controlButtonClass} ${buttonPrimary} inline-flex items-center justify-center gap-2`}
-          >
-            <FiPlus className="text-base" /> Waiver Wire
-          </Link>
-          <Link
-            to="/keepers"
-            className={`${controlButtonClass} ${buttonPrimary} inline-flex items-center justify-center gap-2`}
-          >
-            <FiRepeat className="text-base" /> Manage Keepers
-          </Link>
-
-          {canProposeTrade && (
-            <button
-              onClick={() => setShowProposeTrade(true)}
-              className={`${controlButtonClass} ${buttonPrimary}`}
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/waivers"
+              className={`${controlButtonClass} ${buttonPrimary} inline-flex items-center justify-center gap-2`}
             >
-              <div className="flex items-center justify-center gap-2 whitespace-nowrap">
-                <FiSend className="text-base" /> Propose Trade
-              </div>
-            </button>
-          )}
+              <FiPlus className="text-base" /> Waiver Wire
+            </Link>
+            <Link
+              to="/keepers"
+              className={`${controlButtonClass} ${buttonPrimary} inline-flex items-center justify-center gap-2`}
+            >
+              <FiRepeat className="text-base" /> Manage Keepers
+            </Link>
 
-          <div
-            className={`${controlButtonClass} inline-flex items-center gap-2 border border-slate-700 bg-slate-900 text-slate-200`}
-          >
-            <FiRepeat className="text-base text-blue-400" />
-            <span className="uppercase">Pending Trades</span>
-            <span className="font-black">{summary.pending_trades}</span>
+            {canProposeTrade && (
+              <button
+                onClick={() => setShowProposeTrade(true)}
+                className={`${controlButtonClass} ${buttonPrimary}`}
+              >
+                <div className="flex items-center justify-center gap-2 whitespace-nowrap">
+                  <FiSend className="text-base" /> Propose Trade
+                </div>
+              </button>
+            )}
+
+            <div
+              className={`${controlButtonClass} inline-flex items-center gap-2 border border-slate-700 bg-slate-900 text-slate-200`}
+            >
+              <FiRepeat className="text-base text-blue-400" />
+              <span className="uppercase">Pending Trades</span>
+              <span className="font-black">{summary.pending_trades}</span>
+            </div>
           </div>
         </div>
 
@@ -1378,7 +1484,13 @@ export default function MyTeam({ activeOwnerId }) {
         />
       )}
 
-      <div className={`${cardSurface} mb-8`}>
+      <div
+        className={`${cardSurface} mb-8 border-2 ${
+          lineupIsValid
+            ? 'border-green-500/40 bg-green-900/5'
+            : 'border-red-500/40 bg-red-900/5'
+        }`}
+      >
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3 className="text-xl font-black uppercase tracking-wider text-slate-900 dark:text-white">
@@ -1391,6 +1503,15 @@ export default function MyTeam({ activeOwnerId }) {
             <p className="mt-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
               <span className="text-green-300">Green = valid tier</span> •{' '}
               <span className="text-red-300">Red = invalid tier</span>
+            </p>
+            <p
+              className={`mt-2 inline-flex items-center rounded-md px-2 py-1 text-[11px] font-black uppercase tracking-wider ${
+                lineupIsValid
+                  ? 'bg-green-900/30 text-green-200'
+                  : 'bg-red-900/30 text-red-200'
+              }`}
+            >
+              {lineupIsValid ? 'Lineup Valid' : 'Lineup Invalid'}
             </p>
           </div>
 
