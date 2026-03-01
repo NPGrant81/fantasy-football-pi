@@ -8,6 +8,19 @@ import {
   FiUserPlus,
 } from 'react-icons/fi';
 import apiClient from '@api/client';
+import {
+  buttonDanger,
+  buttonPrimary,
+  buttonSecondary,
+  cardSurface,
+  inputBase,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+  tableHead,
+  tableSurface,
+} from '../../utils/uiStandards';
 
 export default function ManageCommissioners() {
   const [loading, setLoading] = useState(true);
@@ -145,27 +158,25 @@ export default function ManageCommissioners() {
 
   if (loading) {
     return (
-      <div className="text-white text-center mt-20 animate-pulse font-black uppercase tracking-widest">
+      <div className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}>
         Loading Commissioner Management...
       </div>
     );
   }
 
   return (
-    <div className="p-8 text-white min-h-screen">
-      <div className="flex items-center justify-between mb-8 border-b border-slate-700 pb-5">
+    <div className={pageShell}>
+      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
         <div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">
-            Invite / Manage Commissioners
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <h1 className={pageTitle}>Invite / Manage Commissioners</h1>
+          <p className={`${pageSubtitle} mt-1`}>
             Invite commissioners, update account details, assign league IDs, and
             remove commissioner access.
           </p>
         </div>
         <Link
           to="/admin"
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 hover:text-white"
+          className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
@@ -182,8 +193,8 @@ export default function ManageCommissioners() {
         </div>
       )}
 
-      <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <h2 className="mb-4 text-xl font-black uppercase tracking-wider">
+      <div className={`${cardSurface} mb-0`}>
+        <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
           Invite New Commissioner
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -191,66 +202,66 @@ export default function ManageCommissioners() {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Commissioner name"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+            className={inputBase}
           />
           <input
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             placeholder="Email address"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+            className={inputBase}
           />
           <input
             value={newLeagueId}
             onChange={(e) => setNewLeagueId(e.target.value)}
             placeholder="League ID (optional)"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+            className={inputBase}
           />
           <button
             onClick={addCommissioner}
             disabled={saving}
-            className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-black uppercase ${saving ? 'bg-slate-800 text-slate-500' : 'bg-green-600 hover:bg-green-500 text-white'}`}
+            className={`${buttonPrimary} gap-2 ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <FiUserPlus /> Send Invite
           </button>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <h2 className="mb-4 text-xl font-black uppercase tracking-wider">
+      <div className={cardSurface}>
+        <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
           Current Commissioners
         </h2>
-        <div className="overflow-x-auto">
+        <div className={tableSurface}>
           <table className="w-full text-left text-sm">
-            <thead className="text-slate-400 uppercase text-xs">
+            <thead className={tableHead}>
               <tr>
-                <th className="pb-3">Name</th>
-                <th className="pb-3">Email</th>
-                <th className="pb-3">League ID</th>
-                <th className="pb-3">Actions</th>
+                <th className="px-3 py-3">Name</th>
+                <th className="px-3 py-3">Email</th>
+                <th className="px-3 py-3">League ID</th>
+                <th className="px-3 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {commissioners.map((commissioner) => (
                 <tr key={commissioner.id}>
-                  <td className="py-3 pr-3">
+                  <td className="px-3 py-3">
                     <input
                       value={commissioner.username || ''}
                       onChange={(e) =>
                         updateField(commissioner.id, 'username', e.target.value)
                       }
-                      className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-white"
+                      className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="py-3 pr-3">
+                  <td className="px-3 py-3">
                     <input
                       value={commissioner.email || ''}
                       onChange={(e) =>
                         updateField(commissioner.id, 'email', e.target.value)
                       }
-                      className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-white"
+                      className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="py-3 pr-3">
+                  <td className="px-3 py-3">
                     <input
                       value={commissioner.league_id ?? ''}
                       onChange={(e) =>
@@ -260,26 +271,26 @@ export default function ManageCommissioners() {
                           e.target.value
                         )
                       }
-                      className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-white"
+                      className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="py-3">
+                  <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => saveCommissioner(commissioner)}
                         disabled={saving || !commissioner._dirty}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold ${saving || !commissioner._dirty ? 'bg-slate-800 text-slate-500' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+                        className={`${saving || !commissioner._dirty ? `${buttonSecondary} opacity-50 cursor-not-allowed` : buttonPrimary} gap-1 px-2 py-1 text-xs`}
                       >
                         <FiSave /> Update
                       </button>
                       <button
                         onClick={() => removeCommissioner(commissioner)}
                         disabled={saving || commissioner.is_superuser}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold ${saving || commissioner.is_superuser ? 'bg-slate-800 text-slate-500' : 'bg-red-600 hover:bg-red-500 text-white'}`}
+                        className={`${saving || commissioner.is_superuser ? `${buttonSecondary} opacity-50 cursor-not-allowed` : buttonDanger} gap-1 px-2 py-1 text-xs`}
                       >
                         <FiTrash2 /> Remove Access
                       </button>
-                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
                         <FiMail /> invite/login details sent on add
                       </span>
                     </div>
@@ -292,7 +303,7 @@ export default function ManageCommissioners() {
       </div>
 
       {dirtyRows.length > 0 && (
-        <p className="mt-4 text-xs text-orange-300">
+        <p className="text-xs text-orange-600 dark:text-orange-300">
           {dirtyRows.length} commissioner row(s) have unsaved edits.
         </p>
       )}

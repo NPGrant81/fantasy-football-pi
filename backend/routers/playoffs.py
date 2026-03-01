@@ -68,7 +68,7 @@ def get_settings(league_id: int = Query(...), db: Session = Depends(get_db)):
 @router.patch("/settings", response_model=PlayoffSettingsSchema)
 def update_settings(payload: SettingsUpdateRequest, league_id: int = Query(...), db: Session = Depends(get_db)):
     settings = _load_settings(db, league_id)
-    for field, val in payload.dict(exclude_unset=True).items():
+    for field, val in payload.model_dump(exclude_unset=True).items():
         setattr(settings, field, val)
     db.commit()
     db.refresh(settings)
@@ -117,6 +117,35 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
         db.add(pm)
     db.commit()
     return {"status": "ok"}
+
+@router.get("/seasons")
+def get_seasons(league_id: int = Query(...), db: Session = Depends(get_db)) -> List[int]:
+    """Return a list of seasons for which a bracket exists for a given league.
+
+    This is used by the UI to populate an archive dropdown.
+    """
+    results = (
+        db.query(models.PlayoffMatch.season)
+        .filter(models.PlayoffMatch.league_id == league_id)
+        .distinct()
+        .order_by(models.PlayoffMatch.season.desc())
+        .all()
+    )
+    # results is list of tuples
+    seasons = [row[0] for row in results]
+    # also include any snapshot seasons not already present
+    snap_seasons = (
+        db.query(models.PlayoffSnapshot.season)
+        .filter(models.PlayoffSnapshot.league_id == league_id)
+        .distinct()
+        .all()
+    )
+    for row in snap_seasons:
+        if row[0] not in seasons:
+            seasons.append(row[0])
+    seasons.sort(reverse=True)
+    return seasons
+
 
 @router.get("/bracket")
 def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Session = Depends(get_db)) -> Dict[str, Any]:

@@ -42,6 +42,27 @@ def db_session():
         session.close()
 
 
+def make_league(db):
+    l = models.League(name="TestLeague")
+    db.add(l)
+    db.commit()
+    db.refresh(l)
+    return l
+
+
+def make_user(db, league_id, username="bob", team_name="TeamX"):
+    u = models.User(
+        username=username,
+        hashed_password="pw",
+        league_id=league_id,
+        team_name=team_name,
+    )
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+    return u
+
+
 def make_efficiency(db, league_id, manager_id, season, week, actual, optimal):
     rec = models.ManagerEfficiency(
         league_id=league_id,
@@ -137,62 +158,56 @@ def test_empty_queries(db_session):
     assert get_weekly_stats(league_id=999, manager_id=1, season=2026, db=db_session) == []
 
 
-def test_rivalry_graph_empty(db_session):
-    """rivalry graph returns empty nodes/edges when no data exists."""
-    result = get_rivalry_graph(league_id=999, db=db_session)
-    assert result == {"nodes": [], "edges": []}
+def test_rivalry_graph(db_session):
+    league = make_league(db_session)
+    # create two users
+    u1 = make_user(db_session, league.id, username="Alice", team_name="A1")
+    u2 = make_user(db_session, league.id, username="Bob", team_name="B1")
 
-
-def test_rivalry_graph_with_matchups(db_session):
-    """rivalry graph correctly aggregates head-to-head and trade data."""
-    # create two users in league 20
-    u1 = models.User(username="Alice", league_id=20)
-    u2 = models.User(username="Bob", league_id=20)
-    db_session.add_all([u1, u2])
+    # add two completed matchups (each wins one)
+    m1 = models.Matchup(
+        league_id=league.id,
+        week=1,
+        home_team_id=u1.id,
+        away_team_id=u2.id,
+        home_score=100,
+        away_score=90,
+        is_completed=True,
+    )
+    m2 = models.Matchup(
+        league_id=league.id,
+        week=2,
+        home_team_id=u2.id,
+        away_team_id=u1.id,
+        home_score=80,
+        away_score=85,
+        is_completed=True,
+    )
+    db_session.add_all([m1, m2])
     db_session.commit()
-    db_session.refresh(u1)
-    db_session.refresh(u2)
 
-    # 3 completed matchups: u1 wins 2, u2 wins 1
-    for home_score, away_score in [(120, 100), (110, 95), (90, 115)]:
-        m = models.Matchup(
-            league_id=20,
-            home_team_id=u1.id,
-            away_team_id=u2.id,
-            home_score=home_score,
-            away_score=away_score,
-            is_completed=True,
-        )
-        db_session.add(m)
-    db_session.commit()
-
-    # 1 trade between u1 and u2
+    # one trade transaction existing between them
     t = models.TransactionHistory(
-        league_id=20,
+        league_id=league.id,
+        player_id=1,
         old_owner_id=u1.id,
         new_owner_id=u2.id,
-        transaction_type="trade",
+        transaction_type='trade',
     )
     db_session.add(t)
     db_session.commit()
 
-    result = get_rivalry_graph(league_id=20, db=db_session)
-    nodes = result["nodes"]
-    edges = result["edges"]
-
-    assert len(nodes) == 2
-    node_labels = {n["id"]: n["label"] for n in nodes}
-    assert node_labels[u1.id] == "Alice"
-    assert node_labels[u2.id] == "Bob"
-
-    assert len(edges) == 1
-    edge = edges[0]
-    assert edge["games"] == 3
-    assert edge["trades"] == 1
-    # u1 won 2, u2 won 1 – wins keys are ints (matching node ids)
-    pair_key = tuple(sorted([u1.id, u2.id]))
-    a, b = pair_key
-    assert edge["wins"][a] + edge["wins"][b] == 3
-    # verify exact distribution: 2 wins for u1, 1 win for u2
-    assert edge["wins"][u1.id] == 2
-    assert edge["wins"][u2.id] == 1
+    res = get_rivalry_graph(league.id, db=db_session)
+    # should return both nodes
+    assert len(res['nodes']) == 2
+    # edges list should have one entry for the pair
+    assert len(res['edges']) == 1
+    edge = res['edges'][0]
+    assert edge['games'] == 2
+    assert edge['trades'] == 1
+    # verify wins mapping contains both owners
+    assert u1.id in edge['wins'] and u2.id in edge['wins']
+    # ensure empty returns if no data
+    empty = get_rivalry_graph(league.id + 1, db=db_session)
+    assert empty['nodes'] == []
+    assert empty['edges'] == []

@@ -1,4 +1,5 @@
 # backend/routers/admin_tools.py
+import os
 from fastapi import APIRouter, BackgroundTasks, Depends
 # when running under the `backend` package we need the full path
 # because the top-level `scripts` package is not on sys.path by default.
@@ -53,3 +54,18 @@ async def trigger_schedule_import(
     if week is not None:
         detail += f" week {week}"
     return {"detail": detail}
+
+
+@router.post("/reload-config")
+def reload_config(current_user=Depends(check_is_commissioner)):
+    """Reload environment variables from the .env file.
+
+    Call this after updating the file (or exporting new values) if you want the
+    running process to pick them up without a restart.
+    """
+    # load the .env file from the project root (where the server was started).
+    # using an explicit path makes the behavior deterministic for tests.
+    from dotenv import load_dotenv
+    dotenv_path = os.path.join(os.getcwd(), ".env")
+    success = load_dotenv(dotenv_path=dotenv_path, override=True)
+    return {"reloaded": bool(success)}

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import apiClient from '@api/client';
 import { useDraftTimer } from '@hooks/useDraftTimer';
 import { getOwnerStats, ROSTER_SIZE } from '@utils';
+import { FiBarChart2, FiX } from 'react-icons/fi';
 import {
   AuctionBlock,
   SessionHeader,
@@ -9,14 +10,25 @@ import {
 } from '@components/draft';
 import DraftBoardGrid from '@components/draft/DraftBoardGrid';
 import BestAvailableList from '@components/draft/BestAvailableList';
+import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
+import {
+  modalCloseButton,
+  modalOverlay,
+  modalSurface,
+  modalTitle,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 export default function DraftBoard({
   token,
   activeOwnerId,
   activeLeagueId,
-  setSubHeader,
 }) {
   // --- 1.1 STATE MANAGEMENT ---
+  const [showBestSidebar, setShowBestSidebar] = useState(false);
   const [owners, setOwners] = useState([]);
   const [players, setPlayers] = useState([]);
   const [winnerId, setWinnerId] = useState(activeOwnerId);
@@ -32,6 +44,11 @@ export default function DraftBoard({
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [posFilter, setPosFilter] = useState('ALL');
+  const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [playerPerformance, setPlayerPerformance] = useState(null);
+  const [playerPerformanceLoading, setPlayerPerformanceLoading] =
+    useState(false);
 
   const sessionId = useMemo(() => {
     if (activeLeagueId && draftYear) {
@@ -55,16 +72,6 @@ export default function DraftBoard({
     }
     return activeOwnerId;
   }, [owners, username, activeOwnerId]);
-
-  // update sub-header (session id) when available
-  useEffect(() => {
-    if (setSubHeader) {
-      setSubHeader(`SESSION ID: ${sessionId}`);
-    }
-    return () => {
-      if (setSubHeader) setSubHeader('');
-    };
-  }, [sessionId, setSubHeader]);
 
   // --- 1.2 THE ENGINE (Logic Actions) ---
 
@@ -239,8 +246,55 @@ export default function DraftBoard({
     setShowSuggestions(false);
   }, []);
 
+  const openPlayerPerformance = useCallback(
+    async (draftedPlayer) => {
+      const playerId = Number(draftedPlayer?.player_id || draftedPlayer?.id);
+      if (!playerId) return;
+
+      const fullPlayer = players.find((player) => player.id === playerId);
+      const selected = {
+        ...draftedPlayer,
+        ...(fullPlayer || {}),
+        id: playerId,
+        player_id: playerId,
+        name:
+          fullPlayer?.name ||
+          draftedPlayer?.player_name ||
+          draftedPlayer?.name ||
+          'Unknown Player',
+        position:
+          draftedPlayer?.position || fullPlayer?.position || draftedPlayer?.pos,
+        nfl_team: fullPlayer?.nfl_team || draftedPlayer?.nfl_team,
+      };
+
+      setSelectedPlayer(selected);
+      setShowPlayerPerformance(true);
+      setPlayerPerformanceLoading(true);
+
+      try {
+        const res = await apiClient.get(
+          `/players/${playerId}/season-details?season=${draftYear}`
+        );
+        setPlayerPerformance(res.data);
+      } catch (error) {
+        console.error('Failed to load player performance', error);
+        setPlayerPerformance(null);
+      } finally {
+        setPlayerPerformanceLoading(false);
+      }
+    },
+    [players, draftYear]
+  );
+
   return (
-    <div className="flex flex-col overflow-hidden">
+    <div className={`${pageShell} overflow-hidden`}>
+      <div className={pageHeader}>
+        <h1 className={pageTitle}>Draft Board</h1>
+        <p className={pageSubtitle}>
+          {leagueName ? `${leagueName} • ` : ''}Live auction control room.
+        </p>
+      </div>
+
       {/* banner rendered below via SessionHeader */}
       <SessionHeader
         sessionId={sessionId}
@@ -252,22 +306,10 @@ export default function DraftBoard({
         onPause={handlePause}
       />
 
-      {/* page content lives here */}
-
-      {/* ticker area */}
-      <DraftHistoryFeed history={history} owners={owners} />
-
-      <main className="flex-1 grid grid-cols-12 h-screen gap-0 overflow-hidden z-0">
-        <section className="col-span-9 overflow-x-auto border-r border-slate-800 custom-scrollbar">
-          <DraftBoardGrid
-            teams={owners}
-            history={history}
-            rosterLimit={ROSTER_SIZE}
-            highlightOwnerId={highlightOwnerId}
-          />
-        </section>
-
-        <aside className="col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
+      {/* auction controls top bar */}
+      <div className="w-full">
+        <div className="flex flex-wrap items-end justify-start p-2 bg-slate-900/60">
+          {/* auction controls panel handles its own internal alignment */}
           <AuctionBlock
             playerName={playerName}
             handleSearchChange={handleSearchChange}
@@ -289,8 +331,34 @@ export default function DraftBoard({
             start={start}
             nominatorId={currentNominatorId}
             isCommissioner={isCommissioner}
+            showBestSidebar={showBestSidebar}
+            toggleSidebar={(v) => setShowBestSidebar(v)}
           />
+        </div>
+      </div>
+
+      {/* ticker area */}
+      <DraftHistoryFeed history={history} owners={owners} />
+
+      <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">
+        <section
+          className={`overflow-x-auto border-r border-slate-800 custom-scrollbar ${showBestSidebar ? 'col-span-12 md:col-span-9' : 'col-span-12'}`}
+        >
+          <DraftBoardGrid
+            teams={owners}
+            history={history}
+            rosterLimit={ROSTER_SIZE}
+            highlightOwnerId={highlightOwnerId}
+            onPlayerClick={openPlayerPerformance}
+          />
+        </section>
+
+        <aside
+          className={`${showBestSidebar ? 'block' : 'hidden'} col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto`}
+        >
           <BestAvailableList
+            open={showBestSidebar}
+            onToggle={() => setShowBestSidebar(false)}
             players={players
               .filter((p) => !history.some((h) => h.player_id === p.id))
               .sort((a, b) => a.rank - b.rank)
@@ -299,10 +367,115 @@ export default function DraftBoard({
         </aside>
       </main>
 
-      <footer className="bg-slate-900 px-4 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
+      <footer className="bg-slate-900 px-4 md:px-6 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
         <span>SESSION ID: {sessionId}</span>
         <span className="text-green-500 font-mono">SERVER STATUS: ONLINE</span>
       </footer>
+
+      {showPlayerPerformance && (
+        <div className={modalOverlay}>
+          <div className={`${modalSurface} max-w-4xl p-6`}>
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className={`${modalTitle} mb-0 w-full justify-center text-center`}>
+                Season Performance
+              </h3>
+              <button
+                onClick={() => setShowPlayerPerformance(false)}
+                className={modalCloseButton}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {playerPerformanceLoading ? (
+              <div className="py-10 text-center text-slate-400 animate-pulse">
+                Loading season details...
+              </div>
+            ) : playerPerformance ? (
+              <>
+                <PlayerIdentityCard
+                  playerName={
+                    playerPerformance.player_name || selectedPlayer?.name || ''
+                  }
+                  position={
+                    playerPerformance.position || selectedPlayer?.position || ''
+                  }
+                  nflTeam={
+                    playerPerformance.nfl_team || selectedPlayer?.nfl_team || ''
+                  }
+                  headshotUrl={playerPerformance.headshot_url || ''}
+                />
+
+                <div className="grid grid-cols-2 gap-3 mb-5 md:grid-cols-4">
+                  <div className="rounded-lg border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-[10px] uppercase text-slate-500">Games</div>
+                    <div className="text-xl font-black text-slate-900 dark:text-white">
+                      {playerPerformance.games_played}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-[10px] uppercase text-slate-500">Total Pts</div>
+                    <div className="text-xl font-black text-blue-400">
+                      {Number(playerPerformance.total_fantasy_points || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-[10px] uppercase text-slate-500">Avg / Game</div>
+                    <div className="text-xl font-black text-slate-900 dark:text-white">
+                      {Number(playerPerformance.average_fantasy_points || 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-[10px] uppercase text-slate-500">Best Week</div>
+                    <div className="text-xl font-black text-green-400">
+                      {Number(playerPerformance.best_week_points || 0).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-xl border border-slate-300 dark:border-slate-700">
+                  <div className="flex items-center gap-2 bg-slate-100 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-950 dark:text-slate-400">
+                    <FiBarChart2 /> Weekly Breakdown
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {(playerPerformance.weekly || []).length === 0 ? (
+                      <div className="p-6 text-center text-slate-500">
+                        No weekly performance data yet for this season.
+                      </div>
+                    ) : (
+                      <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                        <thead className="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-900">
+                          <tr>
+                            <th className="px-4 py-2">Week</th>
+                            <th className="px-4 py-2 text-right">Fantasy Pts</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {playerPerformance.weekly.map((row) => (
+                            <tr
+                              key={row.week}
+                              className="border-t border-slate-300 dark:border-slate-800"
+                            >
+                              <td className="px-4 py-2">Week {row.week}</td>
+                              <td className="px-4 py-2 text-right font-mono text-blue-400">
+                                {Number(row.fantasy_points || 0).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="py-10 text-center text-slate-500">
+                No season details available.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

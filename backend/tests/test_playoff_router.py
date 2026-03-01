@@ -115,3 +115,25 @@ def test_generate_and_retrieve_bracket(client, api_db):
     snapbody = res_snap.json()
     assert snapbody['status'] == 'snapped'
     assert isinstance(snapbody['id'], int)
+
+
+def test_seasons_endpoint_returns_sorted_list(client, api_db):
+    db, _ = api_db
+    league, users = make_league_with_users(db, num_users=6)
+    # create matches for two seasons
+    db.add(models.PlayoffMatch(league_id=league.id, season=2024, match_id='a', round=1))
+    db.add(models.PlayoffMatch(league_id=league.id, season=2025, match_id='b', round=1))
+    db.commit()
+
+    res = client.get(f'/playoffs/seasons?league_id={league.id}')
+    assert res.status_code == 200
+    data = res.json()
+    assert data == [2025, 2024]
+
+    # also verify it returns empty when no matches exist for a new league
+    newleague = models.League(name='empty')
+    db.add(newleague)
+    db.commit()
+    res2 = client.get(f'/playoffs/seasons?league_id={newleague.id}')
+    assert res2.status_code == 200
+    assert res2.json() == []

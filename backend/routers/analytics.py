@@ -136,6 +136,7 @@ def get_weekly_stats(
 @router.get('/league/{league_id}/rivalry')
 def get_rivalry_graph(
     league_id: int,
+    season: int = Query(None, description="Season year (ignored if matchups have no season)"),
     db: Session = Depends(get_db),
 ):
     """Return nodes/edges describing manager rivalries in a league.
@@ -153,7 +154,7 @@ def get_rivalry_graph(
     # gather completed matchups
     matchup_rows = (
         db.query(models.Matchup)
-        .filter(models.Matchup.league_id == league_id, models.Matchup.is_completed)
+        .filter(models.Matchup.league_id == league_id, models.Matchup.is_completed == True)
         .all()
     )
 
@@ -165,6 +166,7 @@ def get_rivalry_graph(
             results[key] = {"games": 0, "a_wins": 0, "b_wins": 0}
         results[key]["games"] += 1
         if m.home_score > m.away_score:
+            # home wins counts toward the smaller id (a) if sorted
             if key[0] == m.home_team_id:
                 results[key]["a_wins"] += 1
             else:

@@ -22,7 +22,7 @@ export default function SessionHeader({
 
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
-    <div className="flex justify-between items-center py-2 bg-slate-950 border border-slate-800 rounded-lg px-4 mb-6 shadow-inner uppercase tracking-[0.2em] text-[9px] font-black">
+    <div className="flex justify-between items-center py-2 md:py-3 bg-slate-950 border border-slate-800 rounded-lg px-4 mb-6 shadow-inner uppercase tracking-[0.2em] text-[9px] font-black">
       {/* 2.2 METADATA GROUP */}
       <div className="flex gap-8 items-center">
         <div className="flex items-center gap-2 group">

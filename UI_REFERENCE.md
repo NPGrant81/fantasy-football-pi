@@ -138,6 +138,7 @@ Recommendations:
 New UI components/pages are being added for draft value analysis and player information:
 
 - **Draft Value Analysis Page:** Displays normalized draft value data from ESPN, Yahoo, and Draftsharks APIs. Users can filter by year, position, and team.
+- **Rivalry Graph (Analytics Dashboard):** Force-directed network diagram showing head-to-head game results and trade relationships between managers.
 - **Player Info Modal/Page:** Shows draft value, projected points, ADP, and position rank for each player, sourced from the new database.
 - **Commissioner Tools:** Allows commissioners to review, update, and normalize draft value data for league setup and draft prep.
 - **Keeper Rules Page:** New commissioner interface for configuring keeper policy (max keepers, years per player, cost source, deadlines) as well as veto/reset actions. Accessible from the commissioner dashboard or via the My Team controls when logged in as commissioner.

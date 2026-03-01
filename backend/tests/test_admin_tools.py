@@ -92,3 +92,22 @@ def test_import_schedule_runs_upsert(client, api_db):
 
     # background task should have queued our fake function; TestClient runs it synchronously
     assert calls == [(2026, 3)]
+
+
+def test_reload_config_endpoint(client, api_db):
+    # allow commissioner
+    async def allow_commissioner():
+        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+
+    app.dependency_overrides[check_is_commissioner] = allow_commissioner
+
+    # make sure a variable is not set, then change .env and reload
+    os.environ.pop("TEST_RELOAD_KEY", None)
+    # simulate writing to .env by writing to a temp file and pointing load_dotenv there
+    with open(".env", "w") as f:
+        f.write("TEST_RELOAD_KEY=hello\n")
+
+    response = client.post("/admin/tools/reload-config")
+    assert response.status_code == 200
+    assert response.json()["reloaded"] is True
+    assert os.environ.get("TEST_RELOAD_KEY") == "hello"

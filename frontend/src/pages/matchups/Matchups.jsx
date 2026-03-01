@@ -13,6 +13,14 @@ import {
 
 // Professional Imports
 import apiClient from '@api/client';
+import {
+  buttonSecondary,
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 export default function Matchups() {
   // --- USER/LEAGUE CONTEXT ---
@@ -103,31 +111,41 @@ export default function Matchups() {
 
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
-    <div className="space-y-6 pb-20 animate-fade-in">
+    <div className={`${pageShell} pb-20 animate-fade-in`}>
       {/* HEADER + USER/LEAGUE CONTEXT */}
-      <div className="flex items-center justify-between mb-4">
+      <div className={pageHeader}>
         {showBack && (
           <button
-            className="text-blue-400 hover:text-blue-600 mr-4"
+            className={`${buttonSecondary} w-fit px-3 py-1.5 text-xs`}
             onClick={() => navigate(-1)}
           >
             ← Back
           </button>
         )}
-        <h2 className="text-xl font-bold text-white">Matchups</h2>
+        <h1 className={pageTitle}>Matchups</h1>
+        <p className={pageSubtitle}>
+          Weekly head-to-head scoreboard and game center access.
+        </p>
       </div>
-      <div className="flex flex-col md:flex-row justify-between items-center bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
-        <div className="text-lg font-bold text-white">
+
+      <div
+        className={`${cardSurface} flex flex-col md:flex-row justify-between items-center`}
+      >
+        <div className="text-lg font-semibold text-slate-900 dark:text-white">
           User:{' '}
-          <span className="text-yellow-400">{userInfo.username || '...'}</span>
+          <span className="text-cyan-600 dark:text-cyan-400">
+            {userInfo.username || '...'}
+          </span>
         </div>
-        <div className="text-lg font-bold text-white">
+        <div className="text-lg font-semibold text-slate-900 dark:text-white">
           League:{' '}
-          <span className="text-blue-400">{userInfo.leagueName || '...'}</span>
+          <span className="text-cyan-600 dark:text-cyan-400">
+            {userInfo.leagueName || '...'}
+          </span>
         </div>
       </div>
       {/* 2.2 WEEK SELECTOR & HEADER */}
-      <div className="bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-4 shadow-lg">
+      <div className={cardSurface}>
         <div className="flex justify-between items-center mb-4">
           <button
             onClick={() => handleWeekChange('prev')}
@@ -139,7 +157,7 @@ export default function Matchups() {
           </button>
 
           <div className="text-center">
-            <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase flex items-center gap-2 justify-center">
+            <h1 className="flex items-center justify-center gap-2 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               <FiCalendar className="text-yellow-500" />
               Week {week}
             </h1>
@@ -220,7 +238,7 @@ export default function Matchups() {
 
       {/* 2.3 MATCHUP GRID */}
       {loading ? (
-        <div className="text-center py-12 text-slate-500 animate-pulse font-black uppercase tracking-widest">
+        <div className="text-center py-12 text-slate-600 dark:text-slate-400 animate-pulse font-black">
           Loading Week {week}...
         </div>
       ) : (

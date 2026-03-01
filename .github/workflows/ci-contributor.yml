@@ -1,0 +1,85 @@
+# Minimal contributor CI template for PRs.
+# This variant runs only for PRs from forks (head repo != base repo)
+# to avoid duplicating your main CI for internal PRs.
+
+name: Contributor CI (PR quick checks)
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  backend-tests:
+    name: Backend tests (fork PRs only)
+    # only run this job when the PR comes from a fork (head repo != base repo)
+    if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install backend dependencies (edit as needed)
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Run backend tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+        run: |
+          cd backend
+          pytest -q
+
+  frontend-tests:
+    name: Frontend tests & lint (fork PRs only)
+    if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    needs: backend-tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+      - name: Run lint
+        run: |
+          cd frontend
+          npm run lint
+      - name: Run unit tests
+        run: |
+          cd frontend
+          npm test --if-present
+
+  e2e:
+    name: E2E (optional, fork PRs only)
+    if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    needs: frontend-tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start dev server and run E2E
+        run: |
+          cd frontend
+          npm ci
+          npm start & # runs dev server in background (ensure non-blocking)
+          sleep 10
+          npm run e2e

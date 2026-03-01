@@ -5,26 +5,56 @@ on:
     # run monthly on the 1st at 00:00 UTC
     - cron: "0 0 1 * *"
   workflow_dispatch: {}
+  pull_request:
+    branches: [main]
+    paths:
+      - backend/requirements*.txt
+      - frontend/package*.json
+      - .github/workflows/dependency-check.yml
 
 jobs:
-  audit:
+  backend-security-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.x"
+          python-version: "3.11"
       - name: Install requirements
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          pip install pip-audit
+          pip install pip-audit bandit
       - name: Run dependency checker
         run: |
           python backend/scripts/check_dependencies.py
+      - name: Run Bandit static security scan
+        run: |
+          bandit -r backend -x backend/tests -f txt -o backend-bandit-report.txt
       - name: Upload report
         uses: actions/upload-artifact@v3
         with:
           name: dependency-report
           path: dependency-report.md
+      - name: Upload bandit report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-bandit-report
+          path: backend-bandit-report.txt
+
+  frontend-security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps
+      - name: Run npm audit (high+ severity)
+        working-directory: frontend
+        run: npm audit --audit-level=high

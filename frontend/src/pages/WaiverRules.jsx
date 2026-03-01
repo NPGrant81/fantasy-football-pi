@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '@api/client';
+import {
+  buttonPrimary,
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 export default function WaiverRules({ leagueId }) {
   const [rules, setRules] = useState(null);
@@ -28,16 +36,20 @@ export default function WaiverRules({ leagueId }) {
 
   if (rules === null) {
     return (
-      <div className="p-8 text-center text-slate-400">
+      <div className={`${pageShell} text-center text-slate-600 dark:text-slate-400`}>
         Loading waiver rules...
       </div>
     );
   }
 
   return (
-    <div className="p-8 text-white">
-      <h1 className="text-4xl font-black mb-6">Waiver Wire Rules</h1>
-      <div className="bg-slate-800 p-6 rounded-xl shadow space-y-4">
+    <div className={pageShell}>
+      <div className={pageHeader}>
+        <h1 className={pageTitle}>Waiver Wire Rules</h1>
+        <p className={pageSubtitle}>Current waiver deadlines, budgets, and tie-break settings.</p>
+      </div>
+
+      <div className={`${cardSurface} space-y-4 text-slate-700 dark:text-slate-300`}>
         <div>
           <strong>Waiver Deadline:</strong> {rules.waiver_deadline || 'Not set'}
         </div>
@@ -57,9 +69,9 @@ export default function WaiverRules({ leagueId }) {
       </div>
 
       {userInfo.is_commissioner && (
-        <div className="mt-6">
+        <div>
           <button
-            className="bg-brand-cyan hover:bg-brand-cyan/90 text-white font-bold py-2 px-6 rounded"
+            className={buttonPrimary}
             onClick={() => navigate('/commissioner/manage-waiver-rules')}
           >
             Edit Waiver Rules

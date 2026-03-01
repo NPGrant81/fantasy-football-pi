@@ -212,45 +212,13 @@ describe('Home (League Dashboard)', () => {
     });
   });
 
-  test('bracket accordion fetches and displays matches', async () => {
-    const bracketData = {
-      championship: [
-        {
-          match_id: 'm1',
-          round: 1,
-          is_bye: true,
-          team_1_id: 1,
-          team_2_id: null,
-          winner_to: 'r2_m1',
-        },
-      ],
-      consolation: [],
-    };
-    apiClient.get.mockImplementation((url) => {
-      if (url === '/leagues/1') {
-        return Promise.resolve({ data: { name: 'The Big Show' } });
-      }
-      if (url === '/leagues/owners?league_id=1') {
-        return Promise.resolve({ data: [] });
-      }
-      if (url === '/leagues/1/news') {
-        return Promise.resolve({ data: [] });
-      }
-      if (url.startsWith('/playoffs/bracket')) {
-        return Promise.resolve({ data: bracketData });
-      }
-      return Promise.reject(new Error('Unknown URL'));
-    });
-
+  // playoff bracket is now accessed via sidebar; home page no longer
+  // renders it directly.  verify nothing obvious about it is present.
+  test('home page does not render bracket accordion', async () => {
+    apiClient.get.mockResolvedValue({ data: { name: 'The Big Show' } });
+    apiClient.get.mockResolvedValue({ data: [] });
     renderHome('alice');
-
-    // open accordion
-    const summary = screen.getByText(/playoff bracket/i);
-    summary.click();
-
-    await waitFor(() => {
-      expect(screen.getByText(/m1/)).toBeInTheDocument();
-    });
+    expect(screen.queryByText(/playoff bracket/i)).not.toBeInTheDocument();
   });
 
   test('sorting headers reorder standings', async () => {

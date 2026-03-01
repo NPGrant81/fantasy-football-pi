@@ -36,12 +36,15 @@ const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
 const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
-const KeeperRules = lazy(() => import('./pages/commissioner/ManageKeeperRules'));
+const KeeperRules = lazy(
+  () => import('./pages/commissioner/ManageKeeperRules')
+);
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
 );
 const Keepers = lazy(() => import('./pages/Keepers'));
+const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
@@ -50,7 +53,7 @@ function TeamRoute({ fallbackOwnerId }) {
 
 function App() {
   // --- 1.1 GLOBAL STATE ---
-  const [token, setToken] = useState(localStorage.getItem('fantasyToken'));
+  const [token, setToken] = useState(null);
   const [activeLeagueId, setActiveLeagueId] = useState(
     localStorage.getItem('fantasyLeagueId')
   );
@@ -58,7 +61,6 @@ function App() {
     localStorage.getItem('user_id')
   );
   const [username, setUsername] = useState('');
-  const [subHeader, setSubHeader] = useState('');
 
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
@@ -67,45 +69,29 @@ function App() {
 
   // --- 1.2 LOGOUT (Stable reference for effects) ---
   const handleLogout = useCallback(() => {
+    apiClient.post('/auth/logout').catch(() => {});
     setToken(null);
     setActiveOwnerId(null);
     setUsername('');
-    localStorage.removeItem('fantasyToken');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
   }, []);
 
   // --- 1.3 AUTH CHECK (The Guard) ---
   useEffect(() => {
-    if (token) {
-      // UPDATED: Pointing to the new nested endpoint
-      apiClient
-        .get('/auth/me')
-        .then((res) => {
-          setActiveOwnerId(res.data.user_id);
-          setUsername(res.data.username);
-        })
-        .catch(() => {
-          handleLogout();
-        });
-    }
-  }, [token, handleLogout]);
-
-  // --- 1.4 SUB‑HEADER FETCH ---
-  useEffect(() => {
-    if (!activeLeagueId) return;
     apiClient
-      .get(`/leagues/${activeLeagueId}/settings`)
+      .get('/auth/me')
       .then((res) => {
-        const parts = [];
-        if (res.data.waiver_deadline)
-          parts.push(`Waiver: ${res.data.waiver_deadline}`);
-        if (res.data.trade_deadline)
-          parts.push(`Trade: ${res.data.trade_deadline}`);
-        setSubHeader(parts.join('  |  '));
+        setToken((current) => current || 'cookie-session');
+        setActiveOwnerId(res.data.user_id);
+        setUsername(res.data.username);
       })
-      .catch(() => setSubHeader(''));
-  }, [activeLeagueId]);
+      .catch(() => {
+        setToken(null);
+        setActiveOwnerId(null);
+        setUsername('');
+      });
+  }, []);
 
   // --- 1.5 LOGIN HANDLER ---
   const handleLogin = async (e) => {
@@ -122,13 +108,12 @@ function App() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
 
-      const { access_token, owner_id } = response.data;
+      const { owner_id } = response.data;
 
-      localStorage.setItem('fantasyToken', access_token);
       localStorage.setItem('user_id', owner_id);
       localStorage.setItem('fantasyLeagueId', leagueInput); // Use user-provided league ID
 
-      setToken(access_token);
+      setToken('cookie-session');
       setActiveOwnerId(owner_id);
       setActiveLeagueId(leagueInput);
     } catch (err) {
@@ -232,7 +217,6 @@ function App() {
           username={username}
           leagueId={activeLeagueId}
           onLogout={handleLogout}
-          alert={subHeader}
         >
           <Suspense
             fallback={
@@ -248,7 +232,6 @@ function App() {
                     token={token}
                     activeOwnerId={activeOwnerId}
                     activeLeagueId={activeLeagueId}
-                    setSubHeader={setSubHeader}
                   />
                 }
               />
@@ -305,6 +288,7 @@ function App() {
               <Route path="/bug-report" element={<BugReport />} />
               <Route path="/keepers" element={<Keepers />} />
               <Route path="/analytics" element={<AnalyticsDashboard />} />
+              <Route path="/playoffs" element={<PlayoffBracket />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Suspense>

@@ -1,7 +1,9 @@
 // src/components/waivers/WaiverPositionTabs.jsx
 import React from 'react';
 import { POSITIONS } from '@utils';
-import { bgColors, textColors, borderColors } from '../../utils/uiHelpers';
+import { buttonPrimary, buttonSecondary } from '@utils/uiStandards';
+
+/* ignore-breakpoints */
 
 export default function WaiverPositionTabs({ activeTab, setActiveTab }) {
   const tabs = ['ALL', ...POSITIONS];
@@ -12,10 +14,10 @@ export default function WaiverPositionTabs({ activeTab, setActiveTab }) {
         <button
           key={pos}
           onClick={() => setActiveTab(pos)}
-          className={`px-6 py-2 rounded-xl font-black uppercase italic transition-all duration-200 border-2 ${
+          className={`px-6 py-2 font-black uppercase italic ${
             activeTab === pos
-              ? `${bgColors.warning} ${borderColors.warning} text-black shadow-[0_0_15px_rgba(234,179,8,0.3)]`
-              : `${bgColors.main} ${borderColors.main} ${textColors.secondary} hover:${borderColors.main} hover:${textColors.main}`
+              ? buttonPrimary
+              : buttonSecondary
           }`}
         >
           {pos}

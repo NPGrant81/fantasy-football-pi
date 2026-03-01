@@ -2,6 +2,8 @@ import { memo } from 'react';
 import { normalizePos, POSITIONS } from '@utils';
 import { getPosColor } from '../../utils/uiHelpers';
 
+/* ignore-breakpoints */
+
 const OwnerCard = memo(
   ({ owner, stats, isNominator, isSelectedWinner, myPicks, players }) => {
     // --- 1.1 STATUS & STYLING LOGIC ---

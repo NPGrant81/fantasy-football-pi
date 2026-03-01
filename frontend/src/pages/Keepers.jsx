@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
+import {
+  buttonPrimary,
+  buttonSecondary,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
+
+/* ignore-breakpoints */
 
 export default function Keepers() {
   const [keeperData, setKeeperData] = useState(null);
@@ -9,10 +19,13 @@ export default function Keepers() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
-  const [baseBudget, setBaseBudget] = useState(0);
+  // base budget is derived from keeper data and roster rather than state
+  // (keeps eslint happy and avoids cascading renders)
+  // const [baseBudget, setBaseBudget] = useState(0); // now derived via memo
 
   const userId = localStorage.getItem('user_id');
 
+  // fetch keeper info and roster once per user
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -27,26 +40,30 @@ export default function Keepers() {
       }
       if (userId) {
         try {
-          const rres = await apiClient.get(`/team/${userId}?week=0`);
+          // backend rejects week 0, fall back to 1 if necessary
+          const weekParam = 1;
+          const rres = await apiClient.get(`/team/${userId}?week=${weekParam}`);
           setRoster(Array.isArray(rres.data?.roster) ? rres.data.roster : []);
         } catch (e) {
           console.error('failed to load roster', e);
           setRoster([]);
         }
       }
-      // compute base budget (undo initial subtraction)
-      if (keeperData && roster.length > 0) {
-        let initialCost = 0;
-        keeperData.selections.forEach((s) => {
-          const p = roster.find((r) => r.player_id === s.player_id);
-          if (p) initialCost += Number(p.draft_price || 0);
-        });
-        setBaseBudget((keeperData.estimated_budget || 0) + initialCost);
-      }
       setLoading(false);
     }
     load();
   }, [userId]);
+
+  // compute base budget from the latest data
+  const computedBaseBudget = React.useMemo(() => {
+    if (!keeperData || roster.length === 0) return 0;
+    let initialCost = 0;
+    keeperData.selections.forEach((s) => {
+      const p = roster.find((r) => r.player_id === s.player_id);
+      if (p) initialCost += Number(p.draft_price || 0);
+    });
+    return (keeperData.estimated_budget || 0) + initialCost;
+  }, [keeperData, roster]);
 
   const togglePlayer = (playerId) => {
     const newSel = new Set(selected);
@@ -93,22 +110,31 @@ export default function Keepers() {
     setLocking(false);
   };
 
-  if (loading) return <div className="p-8 text-white">Loading keepers...</div>;
+  if (loading) {
+    return (
+      <div className={`${pageShell} text-slate-600 dark:text-slate-400`}>
+        Loading keepers...
+      </div>
+    );
+  }
 
   const maxAllowed = keeperData?.max_allowed || 0;
   const selectedCount = selected.size;
   const estimatedBudget =
-    baseBudget -
+    computedBaseBudget -
     Array.from(selected).reduce((sum, pid) => {
       const p = roster.find((r) => r.player_id === pid);
       return sum + Number(p?.draft_price || 0);
     }, 0);
 
   return (
-    <div className="w-full p-6 text-white min-h-screen space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-black">Manage Keepers</h1>
-        <div className="text-sm">
+    <div className={`${pageShell} min-h-screen text-slate-900 dark:text-white`}>
+      <div className={`${pageHeader} flex flex-col gap-3 md:flex-row md:items-start md:justify-between`}>
+        <div>
+          <h1 className={pageTitle}>Manage Keepers</h1>
+          <p className={pageSubtitle}>Review keeper slots, submit, and lock selections.</p>
+        </div>
+        <div className="text-sm text-slate-700 dark:text-slate-300">
           Estimated Budget: ${estimatedBudget}
           <br />
           Draft Budget: ${keeperData?.effective_budget ?? 0}
@@ -120,7 +146,7 @@ export default function Keepers() {
       </div>
 
       {/* slot grid */}
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {Array.from({ length: maxAllowed }).map((_, idx) => {
           const pid = Array.from(selected)[idx];
           const player = roster.find((r) => r.player_id === pid);
@@ -139,7 +165,7 @@ export default function Keepers() {
               {player ? (
                 <>
                   <span className="font-semibold">{player.name}</span>
-                  <span className="text-xs text-slate-300">
+                  <span className="text-xs text-slate-600 dark:text-slate-300">
                     ${player.draft_price || 0}
                     {player.projected_value != null && (
                       <> / ${player.projected_value}</>
@@ -150,7 +176,7 @@ export default function Keepers() {
                   ) && <span className="text-yellow-300 text-xs">★</span>}
                 </>
               ) : (
-                <span className="text-slate-400">Empty</span>
+                <span className="text-slate-500 dark:text-slate-400">Empty</span>
               )}
             </div>
           );
@@ -170,18 +196,21 @@ export default function Keepers() {
                 checked={selected.has(p.player_id)}
                 onChange={() => togglePlayer(p.player_id)}
                 disabled={
-                  (keeperData?.ineligible?.includes(p.player_id) ||
-                    (!selected.has(p.player_id) && selectedCount >= maxAllowed))
+                  keeperData?.ineligible?.includes(p.player_id) ||
+                  (!selected.has(p.player_id) && selectedCount >= maxAllowed)
                 }
               />
               {p.name} (draft: ${p.draft_price || 0})
-            {keeperData?.ineligible?.includes(p.player_id) && (
-              <span className="text-red-400 text-xs ml-1" title="Reached max keeper years">
-                🚫
-              </span>
-            )}
+              {keeperData?.ineligible?.includes(p.player_id) && (
+                <span
+                  className="text-red-400 text-xs ml-1"
+                  title="Reached max keeper years"
+                >
+                  🚫
+                </span>
+              )}
               {p.projected_value != null && (
-                <span className="text-slate-400 text-xs">
+                <span className="text-slate-500 dark:text-slate-400 text-xs">
                   &nbsp;| proj: ${p.projected_value}
                 </span>
               )}
@@ -207,20 +236,23 @@ export default function Keepers() {
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded"
+          className={`${buttonPrimary} px-4 py-2`}
         >
           {saving ? 'Saving...' : 'Submit List'}
         </button>
         <button
           onClick={handleLock}
           disabled={locking}
-          className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded"
+          className={`${buttonSecondary} px-4 py-2`}
         >
           {locking ? 'Locking...' : 'Lock In Keepers'}
         </button>
       </div>
 
-      <Link to="/team" className="text-sm text-slate-400">
+      <Link
+        to="/team"
+        className={`${buttonSecondary} inline-flex w-fit gap-2 px-3 py-1.5 text-xs no-underline`}
+      >
         ← Back to My Team
       </Link>
     </div>

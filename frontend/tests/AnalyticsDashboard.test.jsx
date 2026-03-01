@@ -8,11 +8,17 @@ vi.mock('../src/api/client', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ to, children, ...props }) => (
-    <a href={to} {...props}>
+  Link: ({ to, children, ..._props }) => (
+    <a href={to} {..._props}>
       {children}
     </a>
   ),
+}));
+
+// mock graph library to avoid AFRAME dependency during tests (2d build is used)
+
+vi.mock('react-force-graph', () => ({
+  ForceGraph2D: (_props) => <div data-testid="rivalry-graph" />,
 }));
 
 import AnalyticsDashboard from '../src/pages/Analytics/AnalyticsDashboard';
@@ -31,7 +37,7 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByText(/Efficiency Leaderboard/i)).toBeInTheDocument();
     expect(screen.getByText(/Manager Performance Trends/i)).toBeInTheDocument();
     expect(screen.getByText(/Trade Analyzer/i)).toBeInTheDocument();
-    expect(screen.getByText(/League Rivalry Graph/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rivalry Graph/i)).toBeInTheDocument();
   });
 
   test('shows efficiency leaderboard after clicking and fetches data', async () => {
@@ -66,6 +72,28 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByText(/Tactician/i)).toBeInTheDocument();
   });
 
+  test('gracefully handles leaderboard wrapped in rows property', async () => {
+    apiClient.get
+      .mockResolvedValueOnce({ data: { user_id: 2, league_id: 9 } })
+      .mockResolvedValueOnce({
+        data: { rows: [{ manager_id: 2, efficiency_display: '88%', personality: 'Aggressive' }] },
+      });
+
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByText(/Efficiency Leaderboard/i));
+
+    // ensure the API call still made correctly
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/analytics/league/9/leaderboard'
+      )
+    );
+
+    expect(await screen.findByText('88%')).toBeInTheDocument();
+    expect(screen.getByText(/Aggressive/i)).toBeInTheDocument();
+  });
+
   test('loads manager trend chart data on click', async () => {
     apiClient.get
       .mockResolvedValueOnce({ data: { user_id: 7, league_id: 12 } })
@@ -98,7 +126,29 @@ describe('AnalyticsDashboard', () => {
   test('trade analyzer button updates selection', async () => {
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByText(/Trade Analyzer/i));
-    expect(apiClient.get).not.toHaveBeenCalled();
+    // dashboard always fetches /auth/me on selection; ensure no analytics call is made
+    expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    expect(apiClient.get).not.toHaveBeenCalledWith(
+      expect.stringContaining('/analytics/')
+    );
+  });
+
+  test('loads rivalry graph data on click', async () => {
+    apiClient.get
+      .mockResolvedValueOnce({ data: { user_id: 1, league_id: 2 } })
+      .mockResolvedValueOnce({ data: { nodes: [{ id: 1, label: 'a' }], edges: [] } });
+
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByText(/Rivalry Graph/i));
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    });
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/analytics/league/2/rivalry'
+      );
+    });
   });
 
   test('league rivalry graph button shows rivalry graph', async () => {

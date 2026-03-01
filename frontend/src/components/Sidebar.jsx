@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 
@@ -16,34 +16,41 @@ import {
   FiRepeat,
   FiAlertTriangle,
 } from 'react-icons/fi';
-import { menuGradients, borderColors } from '../utils/uiHelpers';
 
 // 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
-const MenuBlock = ({ to, title, desc, icon, gradient, onClick }) => {
+const MenuBlock = ({ to, title, desc, icon, onClick }) => {
   const Icon = icon;
 
   return (
-    <Link
+    <NavLink
       to={to}
       onClick={onClick}
-      className={`group relative overflow-hidden block w-full text-left p-3 mb-2 rounded-xl border ${borderColors.main} hover:border-white transition-all shadow-lg ${gradient}`}
+      className={({ isActive }) =>
+        `group relative mb-2 block w-full overflow-hidden rounded-xl border p-3 text-left shadow-sm transition-all ${
+          isActive
+            ? 'border-cyan-500/70 bg-cyan-50 dark:bg-cyan-900/20'
+            : 'border-slate-300 bg-white hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
+        }`
+      }
     >
       <div className="flex items-center gap-4 relative z-10">
-        <div className="p-3 bg-black/20 rounded-lg text-white">
+        <div className="rounded-lg bg-slate-200 p-3 text-slate-700 dark:bg-slate-800 dark:text-slate-100">
           <Icon size={24} />
         </div>
         <div>
-          <h3 className="font-black text-lg text-white leading-none uppercase italic tracking-tighter">
+          <h3 className="leading-none font-black text-lg uppercase italic tracking-tighter text-slate-900 dark:text-white">
             {title}
           </h3>
-          <p className="text-xs text-white/80 mt-1 font-medium">{desc}</p>
+          <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-400">
+            {desc}
+          </p>
         </div>
       </div>
       <Icon
         size={80}
-        className="absolute -bottom-4 -right-4 opacity-10 rotate-12 text-white"
+        className="absolute -bottom-4 -right-4 rotate-12 text-slate-400 opacity-20 dark:text-slate-500"
       />
-    </Link>
+    </NavLink>
   );
 };
 
@@ -73,27 +80,27 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
       />
 
       <div
-        className={`fixed top-0 left-0 h-full w-[85%] sm:max-w-sm bg-slate-900 border-r border-slate-700 z-50 transform transition-transform duration-300 shadow-2xl flex flex-col ${
+        className={`fixed top-0 left-0 z-50 flex h-full w-[85%] transform flex-col border-r border-slate-300 bg-white shadow-2xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-950 sm:max-w-sm md:max-w-md ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-6 flex justify-between items-center border-b border-slate-800 bg-slate-950">
+        <div className="flex items-center justify-between border-b border-slate-300 bg-slate-100 p-6 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-2">
             <img
               src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
               alt="FantasyFootball-PI Logo"
               className="w-7 h-7"
             />
-            <h2 className="text-2xl font-black text-white tracking-tighter">
-              FANTASY<span className="text-yellow-500">Pi</span>
+            <h2 className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white">
+              FANTASY<span className="text-cyan-500">Pi</span>
             </h2>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {leagueName ? leagueName : 'League'}
           </p>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full"
+            className="rounded-full bg-slate-200 p-2 text-slate-600 hover:bg-slate-300 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
           >
             <FiX size={24} />
           </button>
@@ -106,11 +113,10 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
               title="Home"
               desc="League Dashboard"
               icon={FiHome}
-              gradient={menuGradients.team}
               onClick={onClose}
             />
           </div>
-          <div className="text-xs font-bold text-slate-500 uppercase mb-3 ml-1">
+          <div className="mb-3 ml-1 text-xs font-bold uppercase text-slate-500 dark:text-slate-400">
             Game Modes
           </div>
 
@@ -119,7 +125,6 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="War Room"
             desc="Live Auction Draft"
             icon={FiGrid}
-            gradient={menuGradients.draft}
             onClick={onClose}
           />
 
@@ -128,7 +133,6 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="My Team"
             desc="Roster & Lineups"
             icon={FiUsers}
-            gradient={menuGradients.team}
             onClick={onClose}
           />
 
@@ -137,7 +141,6 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="Matchups"
             desc="Live Scoring"
             icon={FiActivity}
-            gradient={menuGradients.matchups}
             onClick={onClose}
           />
 
@@ -146,7 +149,6 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="Waiver Wire"
             desc="Bids & Free Agents"
             icon={FiTrendingUp}
-            gradient={menuGradients.waivers}
             onClick={onClose}
           />
 
@@ -155,7 +157,6 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="Keepers"
             desc="Manage off‑season keepers"
             icon={FiRepeat}
-            gradient={menuGradients.team}
             onClick={onClose}
           />
 
@@ -164,7 +165,6 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="Analytics"
             desc="League Charts"
             icon={FiBarChart2}
-            gradient={menuGradients.matchups}
             onClick={onClose}
           />
 
@@ -173,51 +173,70 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             title="Playoff Bracket"
             desc="View bracket"
             icon={FiAward}
-            gradient={menuGradients.team}
             onClick={onClose}
           />
 
-          <div className="my-6 border-t border-slate-800"></div>
-          <div className="text-xs font-bold text-slate-500 uppercase mb-3 ml-1">
+          <div className="my-6 border-t border-slate-300 dark:border-slate-800"></div>
+          <div className="mb-3 ml-1 text-xs font-bold uppercase text-slate-500 dark:text-slate-400">
             Settings
           </div>
 
           {isCommissioner && (
-            <Link
+            <NavLink
               to="/commissioner"
               onClick={onClose}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg p-3 transition ${
+                  isActive
+                    ? 'bg-cyan-50 text-slate-900 dark:bg-cyan-900/20 dark:text-white'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+                }`
+              }
             >
-              <FiShield className="text-yellow-400" /> <span>Commissioner</span>
-            </Link>
+              <FiShield className="text-cyan-500" /> <span>Commissioner</span>
+            </NavLink>
           )}
 
-          <Link
+          <NavLink
             to="/bug-report"
             onClick={onClose}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg p-3 transition ${
+                isActive
+                  ? 'bg-cyan-50 text-slate-900 dark:bg-cyan-900/20 dark:text-white'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+              }`
+            }
           >
-            <FiAlertTriangle className="text-yellow-400" />{' '}
+            <FiAlertTriangle className="text-cyan-500" />{' '}
             <span>Report a Bug</span>
-          </Link>
+          </NavLink>
 
-          <Link
+          <NavLink
             to="/admin"
             onClick={onClose}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-lg p-3 transition ${
+                isActive
+                  ? 'bg-cyan-50 text-slate-900 dark:bg-cyan-900/20 dark:text-white'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+              }`
+            }
           >
             <FiSettings /> <span>Admin Settings</span>
-          </Link>
+          </NavLink>
         </nav>
 
-        <div className="p-6 bg-slate-950 border-t border-slate-800">
+        <div className="border-t border-slate-300 bg-slate-100 p-6 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center font-bold text-white">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-400 bg-slate-200 font-bold text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
               {username ? username[0].toUpperCase() : '?'}
             </div>
             <div>
-              <p className="text-sm font-bold text-white">{username}</p>
-              <button className="text-xs text-red-400 hover:text-red-300">
+              <p className="text-sm font-bold text-slate-900 dark:text-white">
+                {username}
+              </p>
+              <button className="text-xs text-red-500 hover:text-red-400 dark:text-red-400 dark:hover:text-red-300">
                 Log Out
               </button>
             </div>

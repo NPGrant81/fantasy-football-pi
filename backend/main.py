@@ -1,7 +1,9 @@
 import os
 import sys
 from fastapi import FastAPI, Depends
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from dotenv import load_dotenv
 from sqlalchemy import text
 
@@ -75,6 +77,20 @@ async def lifespan(app: FastAPI):
     """
     # --- startup portion ---
     try:
+        # run any pending alembic migrations on startup so the schema stays
+        # up‑to‑date even if somebody applied a migration externally (e.g. via
+        # a cron job or manual `alembic upgrade`).  this is lightweight and
+        # idempotent.
+        from alembic import command, config as alembic_config
+        cfg = alembic_config.Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+        command.upgrade(cfg, "head")
+    except Exception as e:
+        # if the DB isn't reachable or alembic isn't configured, we just
+        # log and continue.  the runtime schema function will still patch
+        # whatever it can.
+        print(f"Warning: alembic upgrade step failed: {e}")
+
+    try:
         models.Base.metadata.create_all(bind=engine)
         ensure_runtime_schema()
     except Exception as e:
@@ -86,6 +102,24 @@ async def lifespan(app: FastAPI):
     # (currently nothing to clean up here; kept for future use)
 
 app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
+
+ACCESS_TOKEN_COOKIE_NAME = os.getenv("ACCESS_TOKEN_COOKIE_NAME", "ffpi_access_token")
+CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "ffpi_csrf_token")
+CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
+CSRF_EXEMPT_PATHS = {
+    "/auth/token",
+    "/openapi.json",
+    "/docs",
+    "/docs/oauth2-redirect",
+    "/redoc",
+}
+
+
+def _parse_csv_env(env_var: str, default_values: list[str]) -> list[str]:
+    raw = os.getenv(env_var)
+    if not raw:
+        return default_values
+    return [value.strip() for value in raw.split(",") if value.strip()]
 
 
 def ensure_runtime_schema() -> None:
@@ -135,10 +169,16 @@ def ensure_runtime_schema() -> None:
 # --- 2. SECURITY: CORS ---
 # Allow development origins; when running locally we accept any origin to
 # simplify front-end testing.  In production this should be locked down.
-allowed = ["*"] if os.getenv("ALLOW_ALL_ORIGINS") == "1" else [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+allowed_hosts = _parse_csv_env("ALLOWED_HOSTS", ["localhost", "127.0.0.1", "testserver"])
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+
+allowed = ["*"] if os.getenv("ALLOW_ALL_ORIGINS") == "1" else _parse_csv_env(
+    "FRONTEND_ALLOWED_ORIGINS",
+    [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed,
@@ -146,6 +186,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    is_unsafe_method = request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
+    is_exempt_path = request.url.path in CSRF_EXEMPT_PATHS or request.url.path.startswith("/docs")
+
+    if is_unsafe_method and not is_exempt_path:
+        cookie_access_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
+        auth_header = request.headers.get("Authorization", "")
+        uses_cookie_auth = bool(cookie_access_token) and not auth_header.lower().startswith("bearer ")
+
+        if uses_cookie_auth:
+            csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+            csrf_header = request.headers.get(CSRF_HEADER_NAME)
+            if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "CSRF token validation failed"},
+                )
+
+    response = await call_next(request)
+
+    security_headers = {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Content-Security-Policy": os.getenv(
+            "CONTENT_SECURITY_POLICY",
+            "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; "
+            "script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; "
+            "connect-src 'self' http://localhost:5173 http://127.0.0.1:5173 https:; font-src 'self' data:",
+        ),
+    }
+
+    for header_name, header_value in security_headers.items():
+        if header_name not in response.headers:
+            response.headers[header_name] = header_value
+
+    if request.url.scheme == "https" and "Strict-Transport-Security" not in response.headers:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    return response
 
 # --- 3. CONNECT ROUTERS ---
 # We remove 'prefix' here because your individual router files 
