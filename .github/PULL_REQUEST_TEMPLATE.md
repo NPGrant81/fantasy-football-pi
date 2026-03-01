@@ -23,7 +23,7 @@ pytest -q
 # from repo root
 cd frontend
 npm install
-npm test
+npm test -- --run
 npm run lint
 ```
 
@@ -31,7 +31,7 @@ npm run lint
 
 - [ ] Code follows the project style / linting rules
 - [ ] Backend tests pass (`pytest backend -q`)
-- [ ] Frontend tests pass (`npm test`)
+- [ ] Frontend tests pass (`npm test -- --run`)
 - [ ] Frontend lint passes (`npm run lint`)
 - [ ] New tests added for new functionality (or justified why not)
 - [ ] Documentation updated if needed
