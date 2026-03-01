@@ -25,7 +25,6 @@ and can be modified to open issues/PRs when updates are found.
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -38,7 +37,7 @@ REPORT_FILE = ROOT / "dependency-report.md"
 
 def run(cmd):
     try:
-        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
+        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         return out.decode("utf-8")
     except subprocess.CalledProcessError as exc:
         return exc.output.decode("utf-8")
@@ -46,7 +45,7 @@ def run(cmd):
 
 def list_outdated():
     # pip list --outdated --format=json
-    out = run(f"{sys.executable} -m pip list --outdated --format=json")
+    out = run([sys.executable, "-m", "pip", "list", "--outdated", "--format=json"])
     try:
         data = json.loads(out)
     except json.JSONDecodeError:
@@ -56,7 +55,7 @@ def list_outdated():
 
 def run_audit():
     # pip audit --format=json (available in pip>=22)
-    out = run(f"{sys.executable} -m pip audit --format=json")
+    out = run([sys.executable, "-m", "pip", "audit", "--format=json"])
     try:
         data = json.loads(out)
     except json.JSONDecodeError:
@@ -87,7 +86,7 @@ def main():
         import httpx  # required by tests
     except ImportError:
         print("Installing missing httpx package for tests...")
-        run(f"{sys.executable} -m pip install httpx")
+        run([sys.executable, "-m", "pip", "install", "httpx"])
     outdated = list_outdated()
     if outdated:
         print(f"Found {len(outdated)} outdated packages:\n")

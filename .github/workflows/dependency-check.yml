@@ -34,7 +34,7 @@ jobs:
           python backend/scripts/check_dependencies.py --fail-on-audit
       - name: Run Bandit static security scan
         run: |
-          bandit -r backend -x backend/tests -f txt -o backend-bandit-report.txt
+          bandit -r backend -x backend/tests -ll -f txt -o backend-bandit-report.txt
       - name: Upload report
         uses: actions/upload-artifact@v4
         with:
