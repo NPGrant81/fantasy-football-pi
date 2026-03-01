@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 import React from 'react';
 import { FiShield } from 'react-icons/fi';
 import {
