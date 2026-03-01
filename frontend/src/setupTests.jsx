@@ -5,6 +5,18 @@ import { vi } from 'vitest';
 import * as rtl from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
+// Mock react-force-graph-2d globally since it uses canvas (not available in jsdom)
+vi.mock('react-force-graph-2d', () => ({
+  default: ({ graphData, nodeLabel }) => (
+    <div data-testid="force-graph">
+      {(graphData?.nodes || []).map((n) => (
+        <span key={n.id}>{(nodeLabel && n[nodeLabel]) || n.id}</span>
+      ))}
+    </div>
+  ),
+}));
+
+
 // Provide a basic mock for localStorage in case the environment is missing it
 if (!global.localStorage) {
   const storage = {};

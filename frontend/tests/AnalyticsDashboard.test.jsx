@@ -31,6 +31,7 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByText(/Efficiency Leaderboard/i)).toBeInTheDocument();
     expect(screen.getByText(/Manager Performance Trends/i)).toBeInTheDocument();
     expect(screen.getByText(/Trade Analyzer/i)).toBeInTheDocument();
+    expect(screen.getByText(/League Rivalry Graph/i)).toBeInTheDocument();
   });
 
   test('shows efficiency leaderboard after clicking and fetches data', async () => {
@@ -98,5 +99,30 @@ describe('AnalyticsDashboard', () => {
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByText(/Trade Analyzer/i));
     expect(apiClient.get).not.toHaveBeenCalled();
+  });
+
+  test('league rivalry graph button shows rivalry graph', async () => {
+    apiClient.get
+      .mockResolvedValueOnce({ data: { league_id: 7 } })
+      .mockResolvedValueOnce({
+        data: {
+          nodes: [
+            { id: 1, label: 'Alice' },
+            { id: 2, label: 'Bob' },
+          ],
+          edges: [{ source: 1, target: 2, games: 5, trades: 1, wins: {} }],
+        },
+      });
+
+    render(<AnalyticsDashboard />);
+    fireEvent.click(screen.getByText(/League Rivalry Graph/i));
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/analytics/league/7/rivalry');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('force-graph')).toBeInTheDocument();
+    });
   });
 });

@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.routers.analytics import get_efficiency_leaderboard, get_weekly_stats, get_roster_strength
+from backend.routers.analytics import get_efficiency_leaderboard, get_weekly_stats, get_roster_strength, get_rivalry_graph
 
 
 @pytest.fixture
@@ -135,3 +135,64 @@ def test_roster_strength(db_session):
 def test_empty_queries(db_session):
     assert get_efficiency_leaderboard(league_id=999, season=2026, db=db_session) == []
     assert get_weekly_stats(league_id=999, manager_id=1, season=2026, db=db_session) == []
+
+
+def test_rivalry_graph_empty(db_session):
+    """rivalry graph returns empty nodes/edges when no data exists."""
+    result = get_rivalry_graph(league_id=999, season=None, db=db_session)
+    assert result == {"nodes": [], "edges": []}
+
+
+def test_rivalry_graph_with_matchups(db_session):
+    """rivalry graph correctly aggregates head-to-head and trade data."""
+    # create two users in league 20
+    u1 = models.User(username="Alice", league_id=20)
+    u2 = models.User(username="Bob", league_id=20)
+    db_session.add_all([u1, u2])
+    db_session.commit()
+    db_session.refresh(u1)
+    db_session.refresh(u2)
+
+    # 3 completed matchups: u1 wins 2, u2 wins 1
+    for home_score, away_score in [(120, 100), (110, 95), (90, 115)]:
+        m = models.Matchup(
+            league_id=20,
+            home_team_id=u1.id,
+            away_team_id=u2.id,
+            home_score=home_score,
+            away_score=away_score,
+            is_completed=True,
+        )
+        db_session.add(m)
+    db_session.commit()
+
+    # 1 trade between u1 and u2
+    t = models.TransactionHistory(
+        league_id=20,
+        old_owner_id=u1.id,
+        new_owner_id=u2.id,
+        transaction_type="trade",
+    )
+    db_session.add(t)
+    db_session.commit()
+
+    result = get_rivalry_graph(league_id=20, season=None, db=db_session)
+    nodes = result["nodes"]
+    edges = result["edges"]
+
+    assert len(nodes) == 2
+    node_labels = {n["id"]: n["label"] for n in nodes}
+    assert node_labels[u1.id] == "Alice"
+    assert node_labels[u2.id] == "Bob"
+
+    assert len(edges) == 1
+    edge = edges[0]
+    assert edge["games"] == 3
+    assert edge["trades"] == 1
+    # u1 won 2, u2 won 1 – wins keys are ints (matching node ids)
+    pair_key = tuple(sorted([u1.id, u2.id]))
+    a, b = pair_key
+    assert edge["wins"][a] + edge["wins"][b] == 3
+    # verify exact distribution: 2 wins for u1, 1 win for u2
+    assert edge["wins"][u1.id] == 2
+    assert edge["wins"][u2.id] == 1
