@@ -47,7 +47,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Validate backend requirements lock sync
+      - name: Validate backend requirements hygiene
         run: |
           python backend/scripts/validate_requirements_lock.py
 

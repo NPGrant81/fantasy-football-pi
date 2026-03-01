@@ -1,4 +1,4 @@
-/* ignore-breakpoints */
+/* ignore-breakpoints: dashboard layout is fully managed by uiStandards page shell; responsive behaviour is not required at this level */
 // frontend/src/pages/Dashboard.jsx
 import React from 'react';
 import {

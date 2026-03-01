@@ -1,4 +1,4 @@
-/* ignore-breakpoints */
+/* ignore-breakpoints: modal layout and responsiveness are handled by shared uiStandards modal classes; no additional breakpoint-specific behaviour is required */
 import React from 'react';
 import { FiUsers } from 'react-icons/fi';
 import {

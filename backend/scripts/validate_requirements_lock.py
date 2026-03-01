@@ -115,7 +115,15 @@ def validate_lock_sync(strict_lock: bool = False) -> int:
         print("❌ Dependency lock validation failed:\n")
         for issue in errors:
             print(f" - {issue}")
-        print("\nFix by updating backend/requirements.txt and regenerating backend/requirements-lock.txt")
+        try:
+            req_display = REQ_FILE.relative_to(ROOT.parent)
+        except ValueError:
+            req_display = REQ_FILE
+        try:
+            lock_display = LOCK_FILE.relative_to(ROOT.parent)
+        except ValueError:
+            lock_display = LOCK_FILE
+        print(f"\nFix by updating {req_display} and regenerating {lock_display}")
         return 1
 
     mode = "strict" if strict_lock else "standard"

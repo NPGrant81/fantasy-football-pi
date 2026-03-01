@@ -1,4 +1,4 @@
-/* ignore-breakpoints */
+/* ignore-breakpoints: this modal's layout and responsiveness are handled by shared uiStandards modal classes; no additional breakpoint-specific behaviour is required */
 import React from 'react';
 import { FiShield } from 'react-icons/fi';
 import {
