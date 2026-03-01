@@ -8,6 +8,19 @@ import {
   FiUserPlus,
 } from 'react-icons/fi';
 import apiClient from '@api/client';
+import {
+  buttonDanger,
+  buttonPrimary,
+  buttonSecondary,
+  cardSurface,
+  inputBase,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+  tableHead,
+  tableSurface,
+} from '@utils/uiStandards';
 
 const OWNER_LIMIT_DEFAULT = 12;
 
@@ -195,27 +208,25 @@ export default function ManageOwners() {
 
   if (loading) {
     return (
-      <div className="text-white text-center mt-20 animate-pulse font-black uppercase tracking-widest">
+      <div className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}>
         Loading Owner Management...
       </div>
     );
   }
 
   return (
-    <div className="p-8 text-white min-h-screen">
-      <div className="flex items-center justify-between mb-8 border-b border-slate-700 pb-5">
+    <div className={`${pageShell} min-h-screen`}>
+      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
         <div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">
-            Manage Owners
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <h1 className={pageTitle}>Manage Owners</h1>
+          <p className={`${pageSubtitle} mt-1`}>
             Set total owners, invite owners, update owner details, and remove
             opt-outs.
           </p>
         </div>
         <Link
           to="/commissioner"
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm font-bold text-slate-300 hover:text-white"
+          className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
@@ -232,10 +243,10 @@ export default function ManageOwners() {
         </div>
       )}
 
-      <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+      <div className={`${cardSurface} mb-0`}>
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">
+            <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
               Total Owners in League
             </label>
             <input
@@ -246,22 +257,24 @@ export default function ManageOwners() {
               onChange={(e) =>
                 setOwnerLimit(Number(e.target.value) || OWNER_LIMIT_DEFAULT)
               }
-              className="w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+              className={`${inputBase} w-40`}
             />
           </div>
           <button
             onClick={saveOwnerLimit}
             disabled={saving}
-            className={`rounded-xl px-4 py-2 text-sm font-black uppercase ${saving ? 'bg-slate-800 text-slate-500' : 'bg-purple-600 hover:bg-purple-500 text-white'}`}
+            className={`${buttonPrimary} px-4 py-2 ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Save Owner Count
           </button>
-          <p className="text-xs text-slate-400">Current owners: {ownerCount}</p>
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            Current owners: {ownerCount}
+          </p>
         </div>
       </div>
 
-      <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <h2 className="mb-4 text-xl font-black uppercase tracking-wider">
+      <div className={`${cardSurface} mb-0`}>
+        <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
           Add New Owner
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -269,18 +282,18 @@ export default function ManageOwners() {
             value={newOwnerName}
             onChange={(e) => setNewOwnerName(e.target.value)}
             placeholder="Owner name"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+            className={inputBase}
           />
           <input
             value={newOwnerEmail}
             onChange={(e) => setNewOwnerEmail(e.target.value)}
             placeholder="Email address"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white"
+            className={inputBase}
           />
           <button
             onClick={addOwner}
             disabled={saving || !canAddOwner}
-            className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-black uppercase ${saving || !canAddOwner ? 'bg-slate-800 text-slate-500' : 'bg-green-600 hover:bg-green-500 text-white'}`}
+            className={`${buttonPrimary} gap-2 ${saving || !canAddOwner ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <FiUserPlus /> Send Invite
           </button>
@@ -292,57 +305,57 @@ export default function ManageOwners() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <h2 className="mb-4 text-xl font-black uppercase tracking-wider">
+      <div className={cardSurface}>
+        <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
           Current Owners
         </h2>
-        <div className="overflow-x-auto">
+        <div className={tableSurface}>
           <table className="w-full text-left text-sm">
-            <thead className="text-slate-400 uppercase text-xs">
+            <thead className={tableHead}>
               <tr>
-                <th className="pb-3">Name</th>
-                <th className="pb-3">Email</th>
-                <th className="pb-3">Actions</th>
+                <th className="px-3 py-3">Name</th>
+                <th className="px-3 py-3">Email</th>
+                <th className="px-3 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {owners.map((owner) => (
                 <tr key={owner.id}>
-                  <td className="py-3 pr-3">
+                  <td className="px-3 py-3">
                     <input
                       value={owner.username || ''}
                       onChange={(e) =>
                         updateOwnerField(owner.id, 'username', e.target.value)
                       }
-                      className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-white"
+                      className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="py-3 pr-3">
+                  <td className="px-3 py-3">
                     <input
                       value={owner.email || ''}
                       onChange={(e) =>
                         updateOwnerField(owner.id, 'email', e.target.value)
                       }
-                      className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-white"
+                      className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="py-3">
+                  <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => saveOwner(owner)}
                         disabled={saving || !owner._dirty}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold ${saving || !owner._dirty ? 'bg-slate-800 text-slate-500' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+                        className={`${saving || !owner._dirty ? `${buttonSecondary} opacity-50 cursor-not-allowed` : buttonPrimary} gap-1 px-2 py-1 text-xs`}
                       >
                         <FiSave /> Update
                       </button>
                       <button
                         onClick={() => removeOwner(owner)}
                         disabled={saving}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold ${saving ? 'bg-slate-800 text-slate-500' : 'bg-red-600 hover:bg-red-500 text-white'}`}
+                        className={`${saving ? `${buttonSecondary} opacity-50 cursor-not-allowed` : buttonDanger} gap-1 px-2 py-1 text-xs`}
                       >
                         <FiTrash2 /> Remove
                       </button>
-                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
                         <FiMail /> invite/login details sent on add
                       </span>
                     </div>
@@ -355,7 +368,7 @@ export default function ManageOwners() {
       </div>
 
       {dirtyOwners.length > 0 && (
-        <p className="mt-4 text-xs text-orange-300">
+        <p className="text-xs text-orange-600 dark:text-orange-300">
           {dirtyOwners.length} owner row(s) have unsaved edits.
         </p>
       )}

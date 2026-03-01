@@ -14,6 +14,12 @@ import {
 import apiClient from '@api/client';
 import DraftBudgetsModal from './components/DraftBudgetsModal';
 import AdminActionCard from '@components/admin/AdminActionCard';
+import {
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
 
 // --- 1.1 STATIC DATA (Declared Outside to avoid re-creations) ---
 export default function CommissionerDashboard() {
@@ -55,21 +61,19 @@ export default function CommissionerDashboard() {
 
   if (loading) {
     return (
-      <div className="text-white text-center mt-20 animate-pulse font-black uppercase tracking-widest">
+      <div className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}>
         Entering The War Room...
       </div>
     );
   }
 
   return (
-    <div className="p-8 w-full text-white min-h-screen">
-      <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">
-        <FiTool className="text-4xl text-yellow-500" />
+    <div className={`${pageShell} min-h-screen text-slate-900 dark:text-white`}>
+      <div className={`${pageHeader} flex items-start gap-3`}>
+        <FiTool className="mt-1 text-2xl text-yellow-500" />
         <div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">
-            Commissioner Control Panel
-          </h1>
-          <p className="text-slate-400 text-sm">
+          <h1 className={pageTitle}>Commissioner Control Panel</h1>
+          <p className={pageSubtitle}>
             League-level controls and configuration tools
           </p>
         </div>
@@ -88,12 +92,7 @@ export default function CommissionerDashboard() {
           onClick={() => setShowBudgets(true)}
           loading={false}
           actionLabel="Edit Draft Budgets"
-          accent={{
-            hoverBorder: 'hover:border-yellow-500/30',
-            icon: 'text-yellow-400',
-            badge: 'bg-yellow-900/30 text-yellow-400',
-            button: 'bg-yellow-500 hover:bg-yellow-400 text-black',
-          }}
+          tone="yellow"
         />
         <AdminActionCard
           icon={FiSettings}
@@ -103,12 +102,7 @@ export default function CommissionerDashboard() {
           onClick={() => navigate('/commissioner/lineup-rules')}
           loading={false}
           actionLabel="Edit Lineup Rules"
-          accent={{
-            hoverBorder: 'hover:border-purple-500/30',
-            icon: 'text-purple-400',
-            badge: 'bg-purple-900/30 text-purple-400',
-            button: 'bg-purple-600 hover:bg-purple-500 text-white',
-          }}
+          tone="purple"
         />
         <AdminActionCard
           icon={FiUsers}
@@ -118,12 +112,7 @@ export default function CommissionerDashboard() {
           onClick={() => navigate('/commissioner/manage-owners')}
           loading={false}
           actionLabel="Manage Owners"
-          accent={{
-            hoverBorder: 'hover:border-blue-500/30',
-            icon: 'text-blue-400',
-            badge: 'bg-blue-900/30 text-blue-400',
-            button: 'bg-blue-600 hover:bg-blue-500 text-white',
-          }}
+          tone="blue"
         />
         <AdminActionCard
           icon={FiActivity}
@@ -133,12 +122,7 @@ export default function CommissionerDashboard() {
           onClick={() => navigate('/commissioner/manage-waiver-rules')}
           loading={false}
           actionLabel="Edit Waiver Rules"
-          accent={{
-            hoverBorder: 'hover:border-green-500/30',
-            icon: 'text-green-400',
-            badge: 'bg-green-900/30 text-green-400',
-            button: 'bg-green-600 hover:bg-green-500 text-white',
-          }}
+          tone="green"
         />
         <AdminActionCard
           icon={FiShield}
@@ -148,12 +132,7 @@ export default function CommissionerDashboard() {
           onClick={() => navigate('/commissioner/manage-trades')}
           loading={false}
           actionLabel="Edit Trade Rules"
-          accent={{
-            hoverBorder: 'hover:border-yellow-500/30',
-            icon: 'text-yellow-400',
-            badge: 'bg-yellow-900/30 text-yellow-400',
-            button: 'bg-yellow-500 hover:bg-yellow-400 text-black',
-          }}
+          tone="yellow"
         />
         <AdminActionCard
           icon={FiRepeat}
@@ -163,12 +142,7 @@ export default function CommissionerDashboard() {
           onClick={() => navigate('/commissioner/keeper-rules')}
           loading={false}
           actionLabel="Edit Keeper Rules"
-          accent={{
-            hoverBorder: 'hover:border-indigo-500/30',
-            icon: 'text-indigo-400',
-            badge: 'bg-indigo-900/30 text-indigo-400',
-            button: 'bg-indigo-600 hover:bg-indigo-500 text-white',
-          }}
+          tone="indigo"
         />
       </div>
     </div>

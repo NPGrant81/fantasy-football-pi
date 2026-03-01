@@ -1,5 +1,6 @@
 // --- 1.0 COMPONENT DECLARATION ---
 // This is a pure functional component for system-wide attribution.
+/* ignore-breakpoints */
 export default function GeminiBadge() {
   return (
     <div className="flex items-center gap-2 px-3 py-1 bg-slate-950 border border-slate-800 rounded-full group cursor-default select-none hover:bg-slate-900 transition-colors duration-300">

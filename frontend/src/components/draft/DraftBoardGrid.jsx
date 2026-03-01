@@ -11,6 +11,7 @@ export default function DraftBoardGrid({
   history = [],
   rosterLimit = 14,
   highlightOwnerId = null,
+  onPlayerClick,
 }) {
   const rosterMap = useMemo(() => {
     const map = {};
@@ -56,6 +57,18 @@ export default function DraftBoardGrid({
                 <div
                   data-testid={player ? 'player-card' : undefined}
                   key={i}
+                  onClick={() => {
+                    if (player && onPlayerClick) onPlayerClick(player);
+                  }}
+                  onKeyDown={(event) => {
+                    if (!player || !onPlayerClick) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onPlayerClick(player);
+                    }
+                  }}
+                  role={player ? 'button' : undefined}
+                  tabIndex={player ? 0 : undefined}
                   className={(() => {
                     if (!player) {
                       return 'h-24 flex flex-col justify-center items-center border-r border-b border-slate-700 p-2 bg-slate-900 opacity-50';
@@ -63,7 +76,7 @@ export default function DraftBoardGrid({
                     const bg =
                       POSITION_COLORS[player.position] || 'bg-yellow-400';
                     // base background matches position, add thin gold border for emphasis
-                    return `h-24 flex flex-col justify-between items-center border-r border-b border-slate-700 p-2 ${bg} text-slate-100 border-2 border-slate-600 rounded-md shadow-md`;
+                    return `h-24 flex flex-col justify-between items-center border-r border-b border-slate-700 p-2 ${bg} text-slate-100 border-2 border-slate-600 rounded-md shadow-md cursor-pointer hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-400/60`;
                   })()}
                 >
                   {player ? (

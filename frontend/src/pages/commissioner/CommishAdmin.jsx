@@ -1,56 +1,55 @@
 import React from 'react';
 import { FiTool } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import {
+  buttonPrimary,
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '@utils/uiStandards';
+
+/* ignore-breakpoints */
 
 export default function CommishAdmin() {
   const navigate = useNavigate();
 
+  const actions = [
+    { label: 'Manage Owners', to: '/manage-users' },
+    {
+      label: 'Manage Scoring Rules',
+      to: '/commissioner/manage-scoring-rules',
+    },
+    { label: 'Edit Waiver Rules', to: '/waiver-rules' },
+    { label: 'Manage Trades', to: '/commissioner/manage-trades' },
+  ];
+
   return (
-    <div className="p-8 text-white min-h-screen">
-      <div className="flex items-center gap-4 mb-10 border-b border-slate-700 pb-6">
-        <FiTool className="text-4xl text-purple-500" />
-        <div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">
-            Commissioner Controls
-          </h1>
-          <p className="text-slate-400 text-sm">
-            League-level management and configuration
-          </p>
+    <div className={pageShell}>
+      <div className={pageHeader}>
+        <div className="flex items-center gap-3">
+          <FiTool className="text-2xl text-cyan-500" />
+          <h1 className={pageTitle}>Commissioner Controls</h1>
         </div>
+        <p className={pageSubtitle}>
+          League-level management and configuration.
+        </p>
       </div>
-      <div className="w-full flex flex-wrap justify-center gap-8 mb-12">
-        <button
-          className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
-          onClick={() => navigate('/manage-users')}
-        >
-          MANAGE
-          <br />
-          OWNERS
-        </button>
-        <button
-          className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
-          onClick={() => navigate('/commissioner/manage-scoring-rules')}
-        >
-          MANAGE
-          <br />
-          SCORING RULES
-        </button>
-        <button
-          className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
-          onClick={() => navigate('/waiver-rules')}
-        >
-          EDIT
-          <br />
-          WAIVER RULES
-        </button>
-        <button
-          className="bg-slate-900 border-2 border-green-500 text-green-400 rounded-2xl px-10 py-10 text-2xl font-black shadow-xl hover:bg-green-900/40 transition min-w-[260px] min-h-[160px]"
-          onClick={() => navigate('/commissioner/manage-trades')}
-        >
-          MANAGE
-          <br />
-          TRADES
-        </button>
+
+      <div className={cardSurface}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {actions.map((action) => (
+            <button
+              key={action.to}
+              type="button"
+              className={`${buttonPrimary} w-full justify-start`}
+              onClick={() => navigate(action.to)}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

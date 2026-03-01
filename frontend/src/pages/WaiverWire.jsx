@@ -8,6 +8,15 @@ import {
   WaiverPositionTabs,
   DropPlayerModal,
 } from '@components/waivers';
+import {
+  buttonPrimary,
+  buttonSecondary,
+  cardSurface,
+  pageHeader,
+  pageShell,
+  pageSubtitle,
+  pageTitle,
+} from '../utils/uiStandards';
 
 export default function WaiverWire({ ownerId, username, leagueName }) {
   const navigate = useNavigate();
@@ -209,37 +218,39 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   });
 
   return (
-    <div className="w-full p-6">
+    <div className={pageShell}>
       {/* 2.3 UI: HEADER & SEARCH */}
-      <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
-        <div>
+      <div className={`${pageHeader} flex flex-col md:flex-row justify-between md:items-end gap-4`}>
+        <div className="space-y-2">
           {showBack && (
             <button
-              className="text-blue-400 hover:text-blue-600 mr-4"
+              className={`${buttonSecondary} px-3 py-1.5 text-xs`}
               onClick={() => navigate(-1)}
             >
               ← Back
             </button>
           )}
-          <h1 className="text-6xl font-black uppercase italic tracking-tighter text-white leading-none">
-            Waiver Wire
-          </h1>
-          <p className="text-slate-500 mt-4 font-bold text-xs tracking-[0.2em]">
-            AVAILABLE FREE AGENTS
-          </p>
-          <div className="mt-2 text-slate-400 text-sm font-bold">
-            User: <span className="text-white">{username || 'Unknown'}</span> |
+          <h1 className={pageTitle}>Waiver Wire</h1>
+          <p className={pageSubtitle}>Available free agents</p>
+          <div className="text-sm text-slate-600 dark:text-slate-300">
+            User:{' '}
+            <span className="font-semibold text-slate-900 dark:text-white">
+              {username || 'Unknown'}
+            </span>{' '}
+            |
             League:{' '}
-            <span className="text-yellow-400">{leagueName || 'Unknown'}</span>
+            <span className="font-semibold text-slate-900 dark:text-white">
+              {leagueName || 'Unknown'}
+            </span>
             {waiverDeadline && (
-              <div className="mt-1 text-xs text-blue-300 font-mono">
+              <div className="mt-1 text-xs text-cyan-600 dark:text-cyan-300">
                 Waiver Deadline: {waiverDeadline}
               </div>
             )}
             <div className="mt-1 text-xs">
               <a
                 href="/waiver-rules"
-                className="underline text-blue-400 hover:text-blue-200"
+                className="underline text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 View waiver rules
               </a>
@@ -259,11 +270,13 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
 
       {/* 2.4 UI: TABS & TABLE */}
       {draftStatus === 'ACTIVE' ? (
-        <div className="mt-10 rounded-2xl border border-orange-500/40 bg-orange-900/20 p-8 text-center">
-          <h2 className="text-xl font-black uppercase tracking-wider text-orange-300">
+        <div
+          className={`${cardSurface} border-orange-500/50 bg-orange-100/50 text-center dark:bg-orange-900/20`}
+        >
+          <h2 className="text-xl font-black tracking-tight text-orange-700 dark:text-orange-300">
             Waiver Wire Locked
           </h2>
-          <p className="mt-3 text-sm font-bold text-slate-200">
+          <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
             The draft is currently active. Waiver claims open when the draft is
             finalized.
           </p>
@@ -296,8 +309,8 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
 
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
-            <h3 className="text-lg font-black uppercase tracking-wider text-white">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
+            <h3 className="text-lg font-black tracking-tight text-white">
               Confirm Waiver Action
             </h3>
             <p className="mt-3 text-sm text-slate-300">
@@ -306,13 +319,13 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setConfirmAction(null)}
-                className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-bold text-slate-300 hover:border-slate-400 hover:text-white"
+                className={buttonSecondary}
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmAction}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500"
+                className={buttonPrimary}
               >
                 Accept
               </button>
