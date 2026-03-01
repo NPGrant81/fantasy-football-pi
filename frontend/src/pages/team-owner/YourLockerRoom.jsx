@@ -3,7 +3,6 @@ import {
   FiAlertTriangle,
   FiTrendingUp,
   FiRepeat,
-  FiBell,
   FiPlus,
   FiList,
   FiSend,
@@ -13,13 +12,13 @@ import {
 import { Link } from 'react-router-dom';
 // --- Commissioner Modal Imports ---
 import ScoringRulesModal from '../commissioner/components/ScoringRulesModal';
+import OwnerManagementModal from '../commissioner/components/OwnerManagementModal';
 import WaiverWireRulesModal from '../commissioner/components/WaiverWireRulesModal';
 import TradeRulesModal from '../commissioner/components/TradeRulesModal';
 import PlayerIdentityCard from '../../components/player/PlayerIdentityCard';
 
 // Professional Imports
 import apiClient from '@api/client';
-import LeagueAdvisor from '../../components/LeagueAdvisor';
 import Toast from '../../components/Toast';
 import {
   buttonPrimary,
@@ -244,6 +243,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
   const viewedOwnerId = activeOwnerId ? Number(activeOwnerId) : null;
   // --- 0.1 Commissioner Modal State ---
   const [showScoring, setShowScoring] = useState(false);
+  const [showOwners, setShowOwners] = useState(false);
   const [showWaivers, setShowWaivers] = useState(false);
   const [showTrades, setShowTrades] = useState(false);
   const [showRuleViewer, setShowRuleViewer] = useState(false);
@@ -476,7 +476,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
     ].map((p) => ({ ...p, status: 'BENCH' }));
     setRecState([...starts, ...sits]);
   }, [viewMode, weeklyPlan.starters, weeklyPlan.sits, weeklyPlan.byePlayers]);
-  const [startSitSort, setStartSitSort] = useState('position');
+  const [startSitSort] = useState('position');
   // FIX: Start loading as true to avoid sync setState inside useEffect
   const [loading, setLoading] = useState(true);
   const canProposeTrade =
@@ -963,6 +963,10 @@ export default function YourLockerRoom({ activeOwnerId }) {
         open={showScoring}
         onClose={() => setShowScoring(false)}
       />
+      <OwnerManagementModal
+        open={showOwners}
+        onClose={() => setShowOwners(false)}
+      />
       <WaiverWireRulesModal
         open={showWaivers}
         onClose={() => setShowWaivers(false)}
@@ -1056,8 +1060,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
           Manage lineups, waivers, trades, and keeper decisions.
         </p>
 
-        <div className="mt-6 flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-6 flex flex-wrap items-center gap-2 lg:flex-nowrap lg:gap-2 lg:overflow-x-auto">
+          <div className="contents">
             <button
               onClick={() =>
                 userInfo.is_commissioner
@@ -1068,6 +1072,14 @@ export default function YourLockerRoom({ activeOwnerId }) {
             >
               Scoring Rules
             </button>
+            {userInfo.is_commissioner && (
+              <button
+                onClick={() => setShowOwners(true)}
+                className={`${controlButtonClass} ${buttonSecondary}`}
+              >
+                Owner Management
+              </button>
+            )}
             <button
               onClick={() =>
                 userInfo.is_commissioner
@@ -1103,9 +1115,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
                 Keeper Rules
               </button>
             )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/waivers"
               className={`${controlButtonClass} ${buttonPrimary} inline-flex items-center justify-center gap-2`}
@@ -1504,36 +1513,10 @@ export default function YourLockerRoom({ activeOwnerId }) {
               <span className="text-green-300">Green = valid tier</span> •{' '}
               <span className="text-red-300">Red = invalid tier</span>
             </p>
-            <p
-              className={`mt-2 inline-flex items-center rounded-md px-2 py-1 text-[11px] font-black uppercase tracking-wider ${
-                lineupIsValid
-                  ? 'bg-green-900/30 text-green-200'
-                  : 'bg-red-900/30 text-red-200'
-              }`}
-            >
-              {lineupIsValid ? 'Lineup Valid' : 'Lineup Invalid'}
-            </p>
           </div>
 
           <div className="flex flex-col items-end gap-2">
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                onClick={() => setViewMode('recommended')}
-                className={`px-4 py-2 ${
-                  viewMode === 'recommended' ? buttonPrimary : buttonSecondary
-                }`}
-              >
-                Recommended
-              </button>
-              <button
-                onClick={() => setViewMode('actual')}
-                className={`px-4 py-2 ${
-                  viewMode === 'actual' ? buttonPrimary : buttonSecondary
-                }`}
-              >
-                Actual
-              </button>
-
               <label className="ml-2 text-xs font-bold uppercase tracking-wider text-slate-400">
                 Week
               </label>
@@ -1550,16 +1533,22 @@ export default function YourLockerRoom({ activeOwnerId }) {
                   </option>
                 ))}
               </select>
-              <select
-                value={startSitSort}
-                onChange={(event) => setStartSitSort(event.target.value)}
-                className={`${inputBase} w-auto text-sm font-bold`}
+              <button
+                onClick={() => setViewMode('recommended')}
+                className={`px-4 py-2 ${
+                  viewMode === 'recommended' ? buttonPrimary : buttonSecondary
+                }`}
               >
-                <option value="projected">Sort: Projected</option>
-                <option value="position">
-                  Sort: Hierarchy (QB/RB/WR/TE/DEF)
-                </option>
-              </select>
+                Recommended
+              </button>
+              <button
+                onClick={() => setViewMode('actual')}
+                className={`px-4 py-2 ${
+                  viewMode === 'actual' ? buttonPrimary : buttonSecondary
+                }`}
+              >
+                Actual
+              </button>
 
               {viewMode === 'actual' && (
                 <button
@@ -1599,17 +1588,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
             )}
           </div>
         </div>
-
-        {lineupValidationErrors.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowLineupValidationModal(true)}
-            className="mb-4 inline-flex items-center gap-2 rounded-lg border border-red-800/50 bg-red-900/20 px-3 py-2 text-xs font-black uppercase tracking-wider text-red-200"
-          >
-            <FiAlertTriangle />
-            Lineup has validation issues ({lineupValidationErrors.length})
-          </button>
-        )}
 
         {viewMode === 'recommended' && (
           <>
@@ -1930,31 +1908,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
         )}
       </div>
 
-      <div className="rounded-3xl border border-slate-300 bg-white/80 p-8 dark:border-slate-800 dark:bg-slate-900/70">
-        <h3 className="mb-6 flex items-center gap-2 text-xl font-black uppercase italic tracking-tighter text-slate-900 dark:text-slate-200">
-          <FiBell className="text-blue-400" /> Sit-Rep
-        </h3>
-        <ul className="space-y-6">
-          <li className="relative pl-6">
-            <div className="absolute left-0 top-1 w-1 h-10 bg-purple-500 rounded-full"></div>
-            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              Waiver Deadline
-            </p>
-            <p className="text-lg font-black text-slate-900 dark:text-white">
-              {waiverRemaining || 'No deadline set'}
-            </p>
-          </li>
-          <li className="relative pl-6 opacity-60">
-            <div className="absolute left-0 top-1 w-1 h-10 bg-blue-500 rounded-full"></div>
-            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              Draft Status
-            </p>
-            <p className="text-lg font-black tracking-tight uppercase text-slate-900 dark:text-white">
-              {String(userInfo.draftStatus || 'PRE_DRAFT').replaceAll('_', ' ')}
-            </p>
-          </li>
-        </ul>
-      </div>
     </div>
   );
 }
