@@ -39,6 +39,13 @@ CI
 - [ ] No secrets or large binaries added
 - [ ] CI checks are green (or explained why not)
 
+## Security checklist (required for auth, API, infra, or dependency changes)
+- [ ] Inputs are validated server-side and errors do not leak sensitive internals
+- [ ] Protected endpoints enforce auth/role boundaries as expected
+- [ ] No credentials/tokens are stored in plain text or committed artifacts
+- [ ] New dependencies were reviewed for known vulnerabilities
+- [ ] Added/changed headers, CORS, or auth behavior is validated locally
+
 ## Notes for reviewers
 - Any migration / data changes to be aware of:
 - Any backwards compatibility considerations:

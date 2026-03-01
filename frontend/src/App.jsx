@@ -53,7 +53,10 @@ function TeamRoute({ fallbackOwnerId }) {
 
 function App() {
   // --- 1.1 GLOBAL STATE ---
-  const [token, setToken] = useState(localStorage.getItem('fantasyToken'));
+  const [token, setToken] = useState(
+    localStorage.getItem('fantasyToken') ||
+      (localStorage.getItem('authMode') === 'cookie' ? 'cookie-session' : null)
+  );
   const [activeLeagueId, setActiveLeagueId] = useState(
     localStorage.getItem('fantasyLeagueId')
   );
@@ -69,29 +72,33 @@ function App() {
 
   // --- 1.2 LOGOUT (Stable reference for effects) ---
   const handleLogout = useCallback(() => {
+    apiClient.post('/auth/logout').catch(() => {});
     setToken(null);
     setActiveOwnerId(null);
     setUsername('');
     localStorage.removeItem('fantasyToken');
+    localStorage.removeItem('authMode');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
   }, []);
 
   // --- 1.3 AUTH CHECK (The Guard) ---
   useEffect(() => {
-    if (token) {
-      // UPDATED: Pointing to the new nested endpoint
-      apiClient
-        .get('/auth/me')
-        .then((res) => {
-          setActiveOwnerId(res.data.user_id);
-          setUsername(res.data.username);
-        })
-        .catch(() => {
-          handleLogout();
-        });
-    }
-  }, [token, handleLogout]);
+    apiClient
+      .get('/auth/me')
+      .then((res) => {
+        setToken((current) => current || 'cookie-session');
+        setActiveOwnerId(res.data.user_id);
+        setUsername(res.data.username);
+      })
+      .catch(() => {
+        setToken(null);
+        setActiveOwnerId(null);
+        setUsername('');
+        localStorage.removeItem('fantasyToken');
+        localStorage.removeItem('authMode');
+      });
+  }, []);
 
   // --- 1.5 LOGIN HANDLER ---
   const handleLogin = async (e) => {
@@ -110,11 +117,18 @@ function App() {
 
       const { access_token, owner_id } = response.data;
 
-      localStorage.setItem('fantasyToken', access_token);
+      const useLegacyTokenStorage =
+        import.meta?.env?.VITE_USE_LEGACY_TOKEN_STORAGE === '1';
+      if (useLegacyTokenStorage && access_token) {
+        localStorage.setItem('fantasyToken', access_token);
+      } else {
+        localStorage.removeItem('fantasyToken');
+      }
+      localStorage.setItem('authMode', 'cookie');
       localStorage.setItem('user_id', owner_id);
       localStorage.setItem('fantasyLeagueId', leagueInput); // Use user-provided league ID
 
-      setToken(access_token);
+      setToken('cookie-session');
       setActiveOwnerId(owner_id);
       setActiveLeagueId(leagueInput);
     } catch (err) {
