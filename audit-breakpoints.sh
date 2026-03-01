@@ -5,24 +5,23 @@ set -euo pipefail
 
 echo "Checking for missing breakpoints in .jsx files..."
 # find all jsx files excluding non‑UI locations (context, tests, setup, entrypoint, api/hook/helper modules)
-# grep -L prints those which do NOT contain any responsive prefixes
-# find all JSX files under src, then remove known non-UI paths with grep -vE
-missing=$(find src -type f -name "*.jsx" \
-    | grep -vE '/context/|/tests/|/api/|/hooks/|/utils/|setupTests\.jsx$|main\.jsx$|App\.jsx$' \
-    | xargs grep -L -E "sm:|md:|lg:|xl:|2xl:" || true)
+# use NUL-delimited output so filenames with spaces/newlines are handled safely
 
 final_missing=""
-if [ -n "$missing" ]; then
-  for file in $missing; do
-    # skip files which include our opt-out comment
-    if ! grep -q "ignore-breakpoints" "$file"; then
+while IFS= read -r -d '' file; do
+  # skip files which include our opt-out comment
+  if ! grep -q "ignore-breakpoints" "$file"; then
+    # check if file lacks any responsive prefix
+    if ! grep -qE "sm:|md:|lg:|xl:|2xl:" "$file"; then
       final_missing="$final_missing$file\n"
     fi
-  done
-fi
+  fi
+done < <(find src -type f -name "*.jsx" \
+    | grep -vE '/context/|/tests/|/api/|/hooks/|/utils/|setupTests\.jsx$|main\.jsx$|App\.jsx$' \
+    | tr '\n' '\0')
 
 # drop empty lines
-final_missing=$(echo -e "$final_missing" | sed '/^\s*$/d')
+final_missing=$(printf '%b' "$final_missing" | sed '/^\s*$/d')
 
 if [ -n "$final_missing" ]; then
   echo -e "\n🚨 The following files lack responsive prefixes:"
