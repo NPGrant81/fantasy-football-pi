@@ -1,5 +1,23 @@
 import React, { useMemo } from 'react';
-import { POSITION_COLORS } from '@/constants/ui';
+
+const DRAFTBOARD_POSITION_STYLE = {
+  QB: { bg: 'bg-red-600', text: 'text-white' },
+  RB: { bg: 'bg-green-500', text: 'text-black' },
+  WR: { bg: 'bg-blue-500', text: 'text-white' },
+  TE: { bg: 'bg-amber-400', text: 'text-black' },
+  K: { bg: 'bg-purple-500', text: 'text-white' },
+  DEF: { bg: 'bg-slate-500', text: 'text-white' },
+};
+
+const getDraftboardPositionStyle = (rawPosition) => {
+  const position = rawPosition === 'TD' ? 'DEF' : rawPosition;
+  return (
+    DRAFTBOARD_POSITION_STYLE[position] || {
+      bg: 'bg-yellow-400',
+      text: 'text-black',
+    }
+  );
+};
 
 /**
  * teams: array of owner objects { id, name, remainingBudget }
@@ -73,10 +91,9 @@ export default function DraftBoardGrid({
                     if (!player) {
                       return 'h-24 flex flex-col justify-center items-center border-r border-b border-slate-700 p-2 bg-slate-900 opacity-50';
                     }
-                    const bg =
-                      POSITION_COLORS[player.position] || 'bg-yellow-400';
+                    const style = getDraftboardPositionStyle(player.position);
                     // base background matches position, add thin gold border for emphasis
-                    return `h-24 flex flex-col justify-between items-center border-r border-b border-slate-700 p-2 ${bg} text-slate-100 border-2 border-slate-600 rounded-md shadow-md cursor-pointer hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-400/60`;
+                    return `h-24 flex flex-col justify-between items-center border-r border-b border-slate-700 p-2 ${style.bg} ${style.text} border-2 border-slate-600 rounded-md shadow-md cursor-pointer hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-400/60`;
                   })()}
                 >
                   {player ? (
