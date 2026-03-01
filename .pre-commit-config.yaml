@@ -32,7 +32,7 @@ repos:
         pass_filenames: false
 
       - id: requirements-lock-sync
-        name: Validate requirements lock sync
+        name: Validate requirements hygiene
         entry: python backend/scripts/validate_requirements_lock.py
         language: python
         stages: [pre-commit]

@@ -1,4 +1,4 @@
-/* ignore-breakpoints */
+/* ignore-breakpoints: locker room is a fixed demo/admin page where responsive layout is not required */
 import React from 'react';
 import {
   cardSurface,

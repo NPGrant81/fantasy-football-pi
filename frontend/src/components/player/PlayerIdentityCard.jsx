@@ -1,4 +1,4 @@
-/* ignore-breakpoints */
+/* ignore-breakpoints: card uses fixed styling from uiStandards; responsive behaviour is provided by the parent layout */
 import { useMemo, useState } from 'react';
 import { FiUser } from 'react-icons/fi';
 
