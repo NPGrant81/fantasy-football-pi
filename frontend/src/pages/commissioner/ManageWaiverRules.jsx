@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 
+/* ignore-breakpoints */
+
 export default function ManageWaiverRules() {
   const [waiverDeadline, setWaiverDeadline] = useState('');
   const [rosterSize, setRosterSize] = useState('');

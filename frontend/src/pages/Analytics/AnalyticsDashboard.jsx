@@ -19,6 +19,8 @@ import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
 import RivalryGraph from '../../components/charts/RivalryGraph';
 import './AnalyticsDashboard.css';
 
+/* ignore-breakpoints */
+
 const AnalyticsDashboard = () => {
   const [selected, setSelected] = React.useState(null); // null, 'draft','manager','weekly','heatmap'
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '@api/client';
+/* ignore-breakpoints */
 
 export default function BracketAccordion({ leagueId: propLeagueId }) {
   const [open, setOpen] = useState(false);

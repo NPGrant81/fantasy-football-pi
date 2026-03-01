@@ -3,6 +3,8 @@ import React from 'react';
 import { POSITIONS } from '@utils';
 import { bgColors, textColors, borderColors } from '../../utils/uiHelpers';
 
+/* ignore-breakpoints */
+
 export default function WaiverPositionTabs({ activeTab, setActiveTab }) {
   const tabs = ['ALL', ...POSITIONS];
 

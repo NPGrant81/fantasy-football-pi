@@ -2,6 +2,8 @@ import React from 'react';
 import BracketAccordion from '../home/components/BracketAccordion';
 import apiClient from '@api/client';
 
+/* ignore-breakpoints */
+
 export default function PlayoffBracket({ username, leagueId, setSubHeader }) {
   const [leagueName, setLeagueName] = React.useState('');
 

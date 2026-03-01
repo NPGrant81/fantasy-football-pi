@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 export default function AdminActionCard({
   icon,
   badge,

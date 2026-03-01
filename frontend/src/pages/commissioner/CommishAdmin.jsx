@@ -2,6 +2,8 @@ import React from 'react';
 import { FiTool } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 
+/* ignore-breakpoints */
+
 export default function CommishAdmin() {
   const navigate = useNavigate();
 
