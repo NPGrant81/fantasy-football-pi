@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Scans src for JSX files that lack Tailwind responsive prefixes
 
-set -e
+set -euo pipefail
 
 echo "Checking for missing breakpoints in .jsx files..."
 # find all jsx files excluding non‑UI locations (context, tests, setup, entrypoint, api/hook/helper modules)

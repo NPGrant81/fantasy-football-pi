@@ -281,6 +281,18 @@ export default function MyTeam({ activeOwnerId }) {
   const [viewMode, setViewMode] = useState('actual'); // 'actual' or 'recommended'
   const [recState, setRecState] = useState([]); // recommended lineup state
 
+  // accordion expansion state for active lineup positions
+  const [expandedPositions, setExpandedPositions] = useState(new Set());
+
+  const togglePosition = useCallback((pos) => {
+    setExpandedPositions((prev) => {
+      const next = new Set(prev);
+      if (next.has(pos)) next.delete(pos);
+      else next.add(pos);
+      return next;
+    });
+  }, []);
+
   const computeRemaining = (iso) => {
     if (!iso) return '';
     const then = Date.parse(iso);
@@ -603,6 +615,13 @@ export default function MyTeam({ activeOwnerId }) {
     maxPositionLimits,
     allowPartialLineup,
   ]);
+
+  // when tierRows change we auto-expand all of them so headers are visible
+  useEffect(() => {
+    setExpandedPositions(
+      new Set(lineupRuleSnapshot.tierRows.map((t) => t.position))
+    );
+  }, [lineupRuleSnapshot.tierRows]);
 
   const currentStarterValidationErrors = useMemo(
     () => lineupRuleSnapshot.errors,
@@ -1331,7 +1350,7 @@ export default function MyTeam({ activeOwnerId }) {
         />
       )}
 
-      <div className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+      <div className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-xl font-black uppercase tracking-wider text-white">
@@ -1342,75 +1361,63 @@ export default function MyTeam({ activeOwnerId }) {
               projected points, and bye weeks
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Week
-            </label>
-            <select
-              value={selectedWeek}
-              onChange={(event) => setSelectedWeek(Number(event.target.value))}
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
-            >
-              {weekOptions.map((week) => (
-                <option key={week} value={week}>
-                  Week {week}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-3">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Week
+              </label>
+              <select
+                value={selectedWeek}
+                onChange={(event) =>
+                  setSelectedWeek(Number(event.target.value))
+                }
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
+              >
+                {weekOptions.map((week) => (
+                  <option key={week} value={week}>
+                    Week {week}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={startSitSort}
+                onChange={(event) => setStartSitSort(event.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
+              >
+                <option value="projected">Sort: Projected</option>
+                <option value="position">
+                  Sort: Hierarchy (QB/RB/WR/TE/DEF)
                 </option>
-              ))}
-            </select>
-            <select
-              value={startSitSort}
-              onChange={(event) => setStartSitSort(event.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-bold text-white"
-            >
-              <option value="projected">Sort: Projected</option>
-              <option value="position">
-                Sort: Hierarchy (QB/RB/WR/TE/DEF)
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-            Position Tier Rules:
-          </span>
-          {lineupRuleSnapshot.tierRows.map((tier) => {
-            const tooltip = `${tier.position}: min ${tier.minimum}, max ${tier.maximum}, current ${tier.actual}`;
-            return (
-              <span
-                key={`tier-${tier.position}`}
-                title={tooltip}
-                className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
-                  tier.valid
-                    ? 'border-green-700/60 bg-green-900/20 text-green-300'
-                    : 'border-red-700/60 bg-red-900/20 text-red-300'
+              </select>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setViewMode('recommended')}
+                className={`px-4 py-2 rounded ${
+                  viewMode === 'recommended'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-slate-700 text-slate-300'
                 }`}
               >
-                {tier.position} {tier.actual} ({tier.minimum}-{tier.maximum})
-              </span>
-            );
-          })}
+                Recommended
+              </button>
+              <button
+                onClick={() => setViewMode('actual')}
+                className={`px-4 py-2 rounded ${
+                  viewMode === 'actual'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-slate-700 text-slate-300'
+                }`}
+              >
+                Actual
+              </button>
+            </div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-green-300">Green = valid tier</span> •{' '}
+              <span className="text-red-300">Red = invalid tier</span>
+            </p>
+          </div>
         </div>
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-            Overall Active Requirement:
-          </span>
-          <span
-            className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
-              lineupRuleSnapshot.totalValid
-                ? 'border-green-700/60 bg-green-900/20 text-green-300'
-                : 'border-red-700/60 bg-red-900/20 text-red-300'
-            }`}
-            title={`Need ${lineupRuleSnapshot.totalRequired} active starters. Currently ${lineupRuleSnapshot.totalActive}.`}
-          >
-            Active {lineupRuleSnapshot.totalActive}/
-            {lineupRuleSnapshot.totalRequired}
-          </span>
-        </div>
-        <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-          <span className="text-green-300">Green = valid tier</span> •{' '}
-          <span className="text-red-300">Red = invalid tier</span>
-        </p>
 
         {lineupValidationErrors.length > 0 && (
           <button
@@ -1422,30 +1429,6 @@ export default function MyTeam({ activeOwnerId }) {
             Lineup has validation issues ({lineupValidationErrors.length})
           </button>
         )}
-
-        {/* view mode toggle */}
-        <div className="mb-4 flex gap-3">
-          <button
-            onClick={() => setViewMode('recommended')}
-            className={`px-4 py-2 rounded ${
-              viewMode === 'recommended'
-                ? 'bg-green-600 text-white'
-                : 'bg-slate-700 text-slate-300'
-            }`}
-          >
-            Recommended
-          </button>
-          <button
-            onClick={() => setViewMode('actual')}
-            className={`px-4 py-2 rounded ${
-              viewMode === 'actual'
-                ? 'bg-green-600 text-white'
-                : 'bg-slate-700 text-slate-300'
-            }`}
-          >
-            Actual
-          </button>
-        </div>
 
         {viewMode === 'recommended' && (
           <>
@@ -1561,9 +1544,15 @@ export default function MyTeam({ activeOwnerId }) {
               <button
                 type="button"
                 onClick={submitRoster}
-                disabled={submittingRoster || !canEditLineup}
+                disabled={
+                  submittingRoster ||
+                  !canEditLineup ||
+                  lineupValidationErrors.length > 0
+                }
                 className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${
-                  submittingRoster || !canEditLineup
+                  submittingRoster ||
+                  !canEditLineup ||
+                  lineupValidationErrors.length > 0
                     ? 'cursor-not-allowed bg-slate-800 text-slate-500'
                     : 'bg-blue-600 text-white hover:bg-blue-500'
                 }`}
@@ -1588,40 +1577,83 @@ export default function MyTeam({ activeOwnerId }) {
                 </span>
               </div>
               <div className="space-y-2">
-                {activeLineupPlayers.map((player) => (
-                  <button
-                    key={`active-${player.player_id}`}
-                    type="button"
-                    draggable={canEditLineup && !player.is_locked}
-                    onDragStart={() => handleDragStart(player)}
-                    onClick={() => openPlayerPerformance(player)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left ${
-                      player.is_locked
-                        ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
-                        : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-bold text-white">
-                          {player.name}
-                        </div>
-                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                          {normalizePosition(player.position)} •{' '}
-                          {player.nfl_team}
+                {lineupRuleSnapshot.tierRows.map((tier) => {
+                  const pos = tier.position;
+                  const isExpanded = expandedPositions.has(pos);
+                  const playersForPos = activeLineupPlayers.filter(
+                    (p) => normalizePosition(p.position) === pos
+                  );
+                  const containerBorder = tier.valid
+                    ? 'border-green-400'
+                    : 'border-red-400';
+                  const badgeColor = tier.valid
+                    ? 'bg-green-900/20 text-green-300'
+                    : 'bg-red-900/20 text-red-300';
+                  return (
+                    <div key={pos} className="rounded-md border p-2">
+                      <div
+                        className="flex items-center justify-between cursor-pointer"
+                        onClick={() => togglePosition(pos)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold uppercase">
+                            {pos}
+                          </span>
+                          <span className="text-xs">
+                            {isExpanded ? '▼' : '▶'}
+                          </span>
+                          <span
+                            className={`rounded-md px-2 py-1 text-xs font-bold ${badgeColor}`}
+                          >
+                            {tier.actual} ({tier.minimum}-{tier.maximum})
+                          </span>
                         </div>
                       </div>
-                      <div className="text-sm font-mono font-bold text-green-300">
-                        {Number(toProjectedPoints(player)).toFixed(1)}
-                      </div>
+                      {isExpanded && (
+                        <div
+                          className={`mt-2 space-y-2 p-2 border ${containerBorder}`}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleDropToStatus('STARTER')}
+                        >
+                          {playersForPos.map((player) => (
+                            <button
+                              key={`active-${player.player_id}`}
+                              type="button"
+                              draggable={canEditLineup && !player.is_locked}
+                              onDragStart={() => handleDragStart(player)}
+                              onClick={() => openPlayerPerformance(player)}
+                              className={`w-full rounded-lg border px-3 py-2 text-left ${
+                                player.is_locked
+                                  ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                                  : 'border-slate-800 bg-slate-950/70 hover:border-blue-500/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="text-sm font-bold text-white">
+                                    {player.name}
+                                  </div>
+                                  <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                                    {normalizePosition(player.position)} •{' '}
+                                    {player.nfl_team}
+                                  </div>
+                                </div>
+                                <div className="text-sm font-mono font-bold text-green-300">
+                                  {Number(toProjectedPoints(player)).toFixed(1)}
+                                </div>
+                              </div>
+                              {player.is_locked && (
+                                <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                                  Locked (game started)
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {player.is_locked && (
-                      <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
-                        Locked (game started)
-                      </div>
-                    )}
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

@@ -71,6 +71,9 @@ class CU:
 def test_owner_keeper_endpoints():
     db_session = setup_db()
     league = make_league(db_session)
+    # ensure keeper rules exist so max_allowed reflects expected value
+    db_session.add(models.KeeperRules(league_id=league.id, max_keepers=3))
+    db_session.commit()
     owner = make_user(db_session, league, "owner", budget=200)
     p1 = make_player(db_session, "A")
     p2 = make_player(db_session, "B")
@@ -92,8 +95,10 @@ def test_owner_keeper_endpoints():
     assert resp2.estimated_budget == 170
 
     # lock them and verify budget deduction
-    lock_my_keepers(db=db_session, current_user=current)
-    owner_ref = db_session.query(models.User).get(owner.id)
+    # pass the actual owner object (models.User) rather than CU stub
+    lock_my_keepers(db=db_session, current_user=db_session.get(models.User, owner.id))
+    # use new SQLAlchemy 2.0 style get
+    owner_ref = db_session.get(models.User, owner.id)
     assert owner_ref.future_draft_budget == 170
     # after lock, effective budget matches
     resp3 = get_my_keepers(db=db_session, current_user=current)
@@ -112,16 +117,20 @@ def test_admin_settings_and_actions():
     other = make_user(db_session, league, "owner2")
     current_comm = CU(comm)
 
-    # update settings
-    upd = type("U", (), {})()
-    upd.max_keepers = 2
-    upd.max_years_per_player = 2
-    upd.deadline_date = datetime.utcnow() + timedelta(days=1)
-    upd.waiver_policy = True
-    upd.trade_deadline = None
-    upd.drafted_only = True
-    upd.cost_type = "round"
-    upd.cost_inflation = 5
+    # update settings - use real Pydantic schema so `.model_dump()` works
+    # KeeperSettingsUpdate is defined inside the router module
+    from backend.routers.keepers import KeeperSettingsUpdate
+
+    upd = KeeperSettingsUpdate(
+        max_keepers=2,
+        max_years_per_player=2,
+        deadline_date=datetime.utcnow() + timedelta(days=1),
+        waiver_policy=True,
+        trade_deadline=None,
+        drafted_only=True,
+        cost_type="round",
+        cost_inflation=5,
+    )
 
     update_keeper_settings(update=upd, db=db_session, current_user=current_comm)
     outs = get_keeper_settings(db=db_session, current_user=current_comm)
@@ -139,7 +148,7 @@ def test_admin_settings_and_actions():
     assert len(all_lists) == 1
 
     # lock owner's list and then veto via admin
-    lock_my_keepers(db=db_session, current_user=CU(other))
+    lock_my_keepers(db=db_session, current_user=db_session.get(models.User, other.id))
     veto_owner_list(owner_id=other.id, db=db_session, current_user=current_comm)
     post = get_my_keepers(db=db_session, current_user=CU(other))
     assert post.selected_count == 1  # still present but status pending again

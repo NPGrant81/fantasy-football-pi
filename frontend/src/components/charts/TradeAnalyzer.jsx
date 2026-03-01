@@ -46,25 +46,28 @@ export default function TradeAnalyzer() {
     loadOwners();
   }, []);
 
-  const fetchStrength = async (ownerId, setter) => {
-    if (!leagueId || !ownerId) return;
-    try {
-      const res = await apiClient.get(`/analytics/roster-strength`, {
-        params: { league_id: leagueId, owner_id: ownerId },
-      });
-      const counts = res.data[ownerId] || {};
-      setter(counts);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const fetchStrength = React.useCallback(
+    async (ownerId, setter) => {
+      if (!leagueId || !ownerId) return;
+      try {
+        const res = await apiClient.get(`/analytics/roster-strength`, {
+          params: { league_id: leagueId, owner_id: ownerId },
+        });
+        const counts = res.data[ownerId] || {};
+        setter(counts);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [leagueId]
+  );
 
   useEffect(() => {
     fetchStrength(a, setDataA);
-  }, [a]);
+  }, [a, fetchStrength]);
   useEffect(() => {
     fetchStrength(b, setDataB);
-  }, [b]);
+  }, [b, fetchStrength]);
 
   const labels = ['QB', 'RB', 'WR', 'TE'];
   const makeDataset = (counts, label, color) => {
@@ -82,8 +85,16 @@ export default function TradeAnalyzer() {
   const data = {
     labels,
     datasets: [
-      makeDataset(dataA, owners.find((o) => o.id === a)?.username || 'A', 'rgba(54,162,235)'),
-      makeDataset(dataB, owners.find((o) => o.id === b)?.username || 'B', 'rgba(255,99,132)'),
+      makeDataset(
+        dataA,
+        owners.find((o) => o.id === a)?.username || 'A',
+        'rgba(54,162,235)'
+      ),
+      makeDataset(
+        dataB,
+        owners.find((o) => o.id === b)?.username || 'B',
+        'rgba(255,99,132)'
+      ),
     ].filter(Boolean),
   };
 
@@ -104,7 +115,7 @@ export default function TradeAnalyzer() {
   };
 
   return (
-    <div className="p-4 text-white">
+    <div className="p-4 md:p-6 text-white">
       <h3 className="text-xl font-bold mb-4">Trade Analyzer</h3>
       {error && <p className="text-red-400">{error}</p>}
       <div className="flex gap-4 mb-4">

@@ -1,5 +1,15 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
+import { vi } from 'vitest';
+// ensure VITE_API_BASE_URL exists to keep apiClient happy during tests
+// avoid assigning to import.meta.env directly (read-only), just set the property if missing
+if (!import.meta?.env) {
+  // some test runners may not initialize import.meta.env, so define it safely
+  Object.defineProperty(import.meta, 'env', { value: {} });
+}
+if (!('VITE_API_BASE_URL' in import.meta.env)) {
+  import.meta.env.VITE_API_BASE_URL = '';
+}
 import DraftBoardGrid from '../src/components/draft/DraftBoardGrid';
 import { POSITION_COLORS } from '../src/constants/ui';
 
@@ -24,9 +34,13 @@ describe('DraftBoardGrid header', () => {
     // header container should enforce fixed height and vertical spacing
     const headerDiv = nameEl.closest('div');
     expect(headerDiv).toHaveClass('h-24', 'justify-between');
-    // and the column itself should have a fixed width class
+    // and the column itself should flex to fill available space
     const columnDiv = headerDiv.parentElement;
-    expect(columnDiv).toHaveClass('w-[100px]');
+    expect(columnDiv).toHaveClass('flex-1');
+
+    // ensure empty cells are tall enough for two-line names
+    const emptyCell = screen.getAllByText('OPEN')[0].closest('div');
+    expect(emptyCell).toHaveClass('h-24');
 
     // stats line should contain count and remaining budget
     const statsEl = screen.getByText(/1 \|/);
@@ -44,11 +58,12 @@ describe('DraftBoardGrid header', () => {
       />
     );
     expect(screen.getByText('Empty')).toBeInTheDocument();
-    expect(screen.getByText(/0 Drafted/)).toBeInTheDocument();
+    // header now shows count followed by pipe character rather than the word "Drafted"
+    expect(screen.getByText(/0 \|/)).toBeInTheDocument();
     expect(screen.getByText(/\$0 Remaining/)).toBeInTheDocument();
   });
 
-  it('displays drafted player info inside cell', () => {
+  it('displays drafted player info inside cell with new layout', () => {
     const teams2 = [{ id: 3, name: 'CellTest', remainingBudget: 50 }];
     const history2 = [
       { owner_id: 3, player_name: 'Travis Kelce', position: 'TE', amount: 20 },
@@ -57,17 +72,19 @@ describe('DraftBoardGrid header', () => {
       <DraftBoardGrid teams={teams2} history={history2} rosterLimit={1} />
     );
 
-    // name should wrap or at least be present in DOM
-    const nameEl = screen.getByText('Travis Kelce');
-    expect(nameEl).toBeInTheDocument();
-    expect(nameEl).toHaveClass('break-words');
+    // first name should appear separately and cost right-aligned
+    expect(screen.getByText('Travis')).toBeInTheDocument();
+    expect(screen.getByText('$20')).toBeInTheDocument();
+    // last name should appear large and uppercase
+    const lastEl = screen.getByText('KELCE');
+    expect(lastEl).toBeInTheDocument();
+    expect(lastEl).toHaveClass('uppercase');
+    // ensure there is no position text anywhere
+    expect(screen.queryByText(/TE/)).toBeNull();
 
-    expect(screen.getByText(/TE\s*\|\s*\$?\s*20/)).toBeInTheDocument();
-    // drafted cell background should be gold for any player
-    const cell = nameEl.closest('div'); // the immediate div is the cell
-    // background should correspond to the player's position color
+    // drafted cell background should be color for TE
+    const cell = screen.getByTestId('player-card');
     expect(cell).toHaveClass(POSITION_COLORS.TE);
-    // cell should also have a muted slate outline border
     expect(cell).toHaveClass('border-2', 'border-slate-600');
   });
 
@@ -100,7 +117,7 @@ describe('DraftBoardGrid header', () => {
 import AuctionBlock from '../src/components/draft/AuctionBlock';
 
 describe('AuctionBlock layout', () => {
-  it('constrains itself to a reasonable max width', () => {
+  it('expands to full width under its parent', () => {
     const { container } = render(
       <AuctionBlock
         playerName=""
@@ -125,15 +142,132 @@ describe('AuctionBlock layout', () => {
       />
     );
     const wrapper = container.firstChild;
-    expect(wrapper).toHaveClass('max-w-[240px]');
+    // root container should now be full width and flexible
+    expect(wrapper).toHaveClass('w-full');
+  });
+
+  it('leftOnly mode shows nominator, search input, and pos filters', () => {
+    const { getByPlaceholderText, getByText } = render(
+      <AuctionBlock
+        leftOnly
+        playerName=""
+        handleSearchChange={() => {}}
+        suggestions={[]}
+        showSuggestions={false}
+        posFilter="ALL"
+        setPosFilter={() => {}}
+        winnerId={null}
+        setWinnerId={() => {}}
+        owners={[]}
+        activeStats={null}
+        bidAmount={1}
+        setBidAmount={() => {}}
+        handleDraft={() => {}}
+        timeLeft={0}
+        isTimerRunning={false}
+        reset={() => {}}
+        start={() => {}}
+        nominatorId={null}
+        isCommissioner={false}
+      />
+    );
+    expect(getByPlaceholderText(/Nominate Player/i)).toBeInTheDocument();
+    expect(getByText(/Nominator/i)).toBeInTheDocument();
+    expect(getByText(/ALL/i)).toBeInTheDocument();
+  });
+
+  it('default/full mode shows full bidding interface with filters and buttons', () => {
+    const { queryByPlaceholderText, getByText } = render(
+      <AuctionBlock
+        playerName=""
+        handleSearchChange={() => {}}
+        suggestions={[]}
+        showSuggestions={false}
+        posFilter="ALL"
+        setPosFilter={() => {}}
+        winnerId={null}
+        setWinnerId={() => {}}
+        owners={[]}
+        activeStats={{ budget: 100, maxBid: 50 }}
+        bidAmount={1}
+        setBidAmount={() => {}}
+        handleDraft={() => {}}
+        timeLeft={0}
+        isTimerRunning={false}
+        reset={() => {}}
+        start={() => {}}
+        nominatorId={null}
+        isCommissioner={false}
+      />
+    );
+    // full mode should show the search input as well as bidding controls
+    expect(queryByPlaceholderText(/Nominate Player/i)).toBeInTheDocument();
+    expect(getByText(/Winning Bidder/i)).toBeInTheDocument();
+  });
+
+  it('top row flex container aligns items to bottom and integrates Show Best toggle', () => {
+    const { getByText, getByTestId } = render(
+      <AuctionBlock
+        playerName=""
+        handleSearchChange={() => {}}
+        suggestions={[]}
+        showSuggestions={false}
+        posFilter="ALL"
+        setPosFilter={() => {}}
+        winnerId={null}
+        setWinnerId={() => {}}
+        owners={[]}
+        activeStats={null}
+        bidAmount={1}
+        setBidAmount={() => {}}
+        handleDraft={() => {}}
+        timeLeft={0}
+        isTimerRunning={false}
+        reset={() => {}}
+        start={() => {}}
+        nominatorId={null}
+        isCommissioner={false}
+        showBestSidebar={false}
+        toggleSidebar={() => {}}
+      />
+    );
+    const topRow = getByTestId('auction-top-row');
+    expect(topRow).toHaveClass('md:items-end');
+    // Show Best button should exist inside AuctionBlock
+    expect(getByText(/Show Best/i)).toBeInTheDocument();
+
+    // sold button should be present below
+    expect(getByText(/SOLD/i)).toBeInTheDocument();
   });
 });
 
 // verify the page layout gives the sidebar two grid columns
-import DraftBoard from '../src/pages/DraftBoard';
+// DraftBoard imports are deferred since the module pulls in api/client (which
+// references import.meta.env) and static imports run before our env stub.
 
 describe('DraftBoard page layout', () => {
-  it('uses col-span-3 for the sidebar section and col-span-9 for the board', () => {
+  let DraftBoard;
+
+  beforeEach(async () => {
+    // ensure the environment variable exists before importing any modules that
+    // read it. import.meta.env may be undefined until this point in some
+    // test runners.
+    if (!import.meta?.env) {
+      Object.defineProperty(import.meta, 'env', { value: {} });
+    }
+    if (!('VITE_API_BASE_URL' in import.meta.env)) {
+      import.meta.env.VITE_API_BASE_URL = '';
+    }
+
+    // stub budget call which would otherwise return undefined
+    const orig = (await import('../src/api/client')).default;
+    orig.get = vi.fn().mockResolvedValue({ data: [] });
+
+    // now that the env is set and client is stubbed we can load the page
+    DraftBoard = (await import('../src/pages/DraftBoard')).default;
+  });
+
+  it('defines correct grid column spans for board and sidebar', () => {
     const { container } = render(
       <DraftBoard
         token={null}
@@ -143,8 +277,28 @@ describe('DraftBoard page layout', () => {
       />
     );
     const aside = container.querySelector('aside');
-    expect(aside).toHaveClass('col-span-3');
+    expect(aside).toHaveClass('md:col-span-3');
     const section = container.querySelector('section');
-    expect(section).toHaveClass('col-span-9', 'overflow-x-auto');
+    // when sidebar hidden initial state, section spans full width
+    expect(section).toHaveClass('col-span-12');
+  });
+
+  it('sidebar toggle button shows/hides the list', () => {
+    const { container } = render(
+      <DraftBoard
+        token={null}
+        activeOwnerId={1}
+        activeLeagueId={1}
+        setSubHeader={() => {}}
+      />
+    );
+    // there are actually two buttons containing the phrase "Show Best";
+    // pick the simple toggle (without the "Available ▶" suffix)
+    const toggleCandidates = screen.getAllByText(/Show Best/i);
+    const toggle = toggleCandidates.find((btn) => btn.textContent === 'Show Best');
+    expect(toggle).toBeDefined();
+    fireEvent.click(toggle);
+    const aside = container.querySelector('aside');
+    expect(aside).not.toHaveClass('hidden');
   });
 });

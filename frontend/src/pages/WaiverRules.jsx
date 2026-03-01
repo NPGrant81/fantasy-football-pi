@@ -35,7 +35,7 @@ export default function WaiverRules({ leagueId }) {
   }
 
   return (
-    <div className="p-8 text-white">
+    <div className="p-8 md:p-10 text-white">
       <h1 className="text-4xl font-black mb-6">Waiver Wire Rules</h1>
       <div className="bg-slate-800 p-6 rounded-xl shadow space-y-4">
         <div>

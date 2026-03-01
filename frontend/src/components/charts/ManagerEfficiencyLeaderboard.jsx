@@ -20,7 +20,12 @@ const ManagerEfficiencyLeaderboard = () => {
         const res = await apiClient.get(
           `/analytics/league/${leagueId}/leaderboard`
         );
-        setRows(res.data || []);
+        // API may return object with rows property or raw array
+        let payload = res.data;
+        if (payload && !Array.isArray(payload) && Array.isArray(payload.rows)) {
+          payload = payload.rows;
+        }
+        setRows(payload || []);
       } catch (err) {
         console.error(err);
         setError(err.message || 'Failed to load leaderboard');
@@ -39,12 +44,16 @@ const ManagerEfficiencyLeaderboard = () => {
     return <p className="text-red-500">Error: {error}</p>;
   }
 
+  if (!Array.isArray(rows)) {
+    console.warn('ManagerEfficiencyLeaderboard: rows is not an array', rows);
+    return <p>No efficiency data available.</p>;
+  }
   if (rows.length === 0) {
     return <p>No efficiency data available.</p>;
   }
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div className="md:p-6" style={{ padding: '20px' }}>
       <h3 className="text-white text-lg font-bold mb-4">
         Efficiency Leaderboard
       </h3>

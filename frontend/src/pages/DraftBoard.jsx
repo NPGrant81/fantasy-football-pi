@@ -17,6 +17,7 @@ export default function DraftBoard({
   setSubHeader,
 }) {
   // --- 1.1 STATE MANAGEMENT ---
+  const [showBestSidebar, setShowBestSidebar] = useState(false);
   const [owners, setOwners] = useState([]);
   const [players, setPlayers] = useState([]);
   const [winnerId, setWinnerId] = useState(activeOwnerId);
@@ -252,22 +253,10 @@ export default function DraftBoard({
         onPause={handlePause}
       />
 
-      {/* page content lives here */}
-
-      {/* ticker area */}
-      <DraftHistoryFeed history={history} owners={owners} />
-
-      <main className="flex-1 grid grid-cols-12 h-screen gap-0 overflow-hidden z-0">
-        <section className="col-span-9 overflow-x-auto border-r border-slate-800 custom-scrollbar">
-          <DraftBoardGrid
-            teams={owners}
-            history={history}
-            rosterLimit={ROSTER_SIZE}
-            highlightOwnerId={highlightOwnerId}
-          />
-        </section>
-
-        <aside className="col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto">
+      {/* auction controls top bar */}
+      <div className="w-full">
+        <div className="flex flex-wrap items-end justify-start p-2 bg-slate-900/60">
+          {/* auction controls panel handles its own internal alignment */}
           <AuctionBlock
             playerName={playerName}
             handleSearchChange={handleSearchChange}
@@ -289,8 +278,33 @@ export default function DraftBoard({
             start={start}
             nominatorId={currentNominatorId}
             isCommissioner={isCommissioner}
+            showBestSidebar={showBestSidebar}
+            toggleSidebar={(v) => setShowBestSidebar(v)}
           />
+        </div>
+      </div>
+
+      {/* ticker area */}
+      <DraftHistoryFeed history={history} owners={owners} />
+
+      <main className="flex-1 grid grid-cols-12 h-screen gap-0 overflow-hidden z-0">
+        <section
+          className={`overflow-x-auto border-r border-slate-800 custom-scrollbar ${showBestSidebar ? 'col-span-12 md:col-span-9' : 'col-span-12'}`}
+        >
+          <DraftBoardGrid
+            teams={owners}
+            history={history}
+            rosterLimit={ROSTER_SIZE}
+            highlightOwnerId={highlightOwnerId}
+          />
+        </section>
+
+        <aside
+          className={`${showBestSidebar ? 'block' : 'hidden'} col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto`}
+        >
           <BestAvailableList
+            open={showBestSidebar}
+            onToggle={() => setShowBestSidebar(false)}
             players={players
               .filter((p) => !history.some((h) => h.player_id === p.id))
               .sort((a, b) => a.rank - b.rank)

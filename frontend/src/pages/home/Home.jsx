@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
 import FeedPill from '../../components/feeds/FeedPill';
-import BracketAccordion from './components/BracketAccordion';
 import { FiAward, FiActivity, FiBarChart2 } from 'react-icons/fi';
 
 export default function Home({ username }) {
@@ -63,8 +62,6 @@ export default function Home({ username }) {
       </div>
 
       {/* 2.2 STANDINGS & ACTIVITY GRID */}
-      {/* 2.1.5 PLAYOFF BRACKET (COLLAPSIBLE) */}
-      <BracketAccordion />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 2.2.1 STANDINGS MODULE */}
         <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-xl p-6 shadow-xl">

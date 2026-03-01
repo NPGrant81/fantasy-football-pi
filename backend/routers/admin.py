@@ -25,3 +25,26 @@ def reset_league(
 ):
     return admin_service.reset_league_rosters(db, admin.league_id)
 
+
+@router.post("/reset-draft")
+def reset_draft(
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(security.get_current_active_admin)
+):
+    return admin_service.reset_league_rosters(db, admin.league_id)
+
+
+@router.post("/create-test-league")
+def create_test_league(
+    db: Session = Depends(get_db),
+    _superuser: models.User = Depends(security.get_current_active_superuser)
+):
+    league = admin_service.create_full_test_league(db)
+    return {
+        "message": "Test league created.",
+        "league": {
+            "id": league.id,
+            "name": league.name,
+        },
+    }
+

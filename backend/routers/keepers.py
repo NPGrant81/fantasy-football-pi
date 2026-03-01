@@ -163,8 +163,8 @@ def lock_my_keepers(
         )
         .update({"status": "locked", "locked_at": datetime.utcnow()}, synchronize_session="fetch")
     )
-    # adjust budget
-    owner = current_user
+    # reload owner record from the DB to ensure it's attached to session
+    owner = db.get(models.User, current_user.id)
     pending = (
         db.query(models.Keeper)
         .filter(
@@ -176,7 +176,7 @@ def lock_my_keepers(
         .all()
     )
     total_cost = sum([p[0] for p in pending])
-    if hasattr(owner, "future_draft_budget"):
+    if owner is not None and hasattr(owner, "future_draft_budget"):
         owner.future_draft_budget = int((owner.future_draft_budget or 0) - total_cost)
     db.commit()
     return {"status": "locked", "count": count}
@@ -319,7 +319,8 @@ def update_keeper_settings(
         # create if missing
         rules = models.KeeperRules(league_id=current_user.league_id)
         db.add(rules)
-    for field, val in update.dict(exclude_unset=True).items():
+    # pydantic v2 uses model_dump instead of dict
+    for field, val in update.model_dump(exclude_unset=True).items():
         setattr(rules, field, val)
     db.commit()
     db.refresh(rules)
