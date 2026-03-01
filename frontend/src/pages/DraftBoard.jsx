@@ -299,7 +299,7 @@ export default function DraftBoard({
         </aside>
       </main>
 
-      <footer className="bg-slate-900 px-4 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
+      <footer className="bg-slate-900 px-4 md:px-6 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
         <span>SESSION ID: {sessionId}</span>
         <span className="text-green-500 font-mono">SERVER STATUS: ONLINE</span>
       </footer>

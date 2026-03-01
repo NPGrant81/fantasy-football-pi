@@ -73,7 +73,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
       />
 
       <div
-        className={`fixed top-0 left-0 h-full w-[85%] sm:max-w-sm bg-slate-900 border-r border-slate-700 z-50 transform transition-transform duration-300 shadow-2xl flex flex-col ${
+        className={`fixed top-0 left-0 h-full w-[85%] sm:max-w-sm md:max-w-md bg-slate-900 border-r border-slate-700 z-50 transform transition-transform duration-300 shadow-2xl flex flex-col ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

@@ -20,6 +20,7 @@ from backend.routers.keepers import (
     veto_owner_list,
     reset_league_keepers,
     KeeperSelectionSchema,
+    KeeperSettingsUpdate,
 )
 from fastapi import HTTPException
 
@@ -113,15 +114,16 @@ def test_admin_settings_and_actions():
     current_comm = CU(comm)
 
     # update settings
-    upd = type("U", (), {})()
-    upd.max_keepers = 2
-    upd.max_years_per_player = 2
-    upd.deadline_date = datetime.utcnow() + timedelta(days=1)
-    upd.waiver_policy = True
-    upd.trade_deadline = None
-    upd.drafted_only = True
-    upd.cost_type = "round"
-    upd.cost_inflation = 5
+    upd = KeeperSettingsUpdate(
+        max_keepers=2,
+        max_years_per_player=2,
+        deadline_date=datetime.utcnow() + timedelta(days=1),
+        waiver_policy=True,
+        trade_deadline=None,
+        drafted_only=True,
+        cost_type="round",
+        cost_inflation=5,
+    )
 
     update_keeper_settings(update=upd, db=db_session, current_user=current_comm)
     outs = get_keeper_settings(db=db_session, current_user=current_comm)

@@ -11,7 +11,7 @@ export default function ThemeToggle() {
     <button
       aria-label="Toggle light / dark mode"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className="relative w-14 h-7 focus:outline-none"
+      className="relative w-14 h-7 md:w-16 md:h-8 focus:outline-none"
     >
       {/* track */}
       <div

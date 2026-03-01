@@ -1,7 +1,7 @@
 // frontend/src/components/AdminNav.jsx
 export default function AdminNav() {
   return (
-    <nav className="bg-purple-900/20 p-4 border-b border-purple-500/30 flex gap-6">
+    <nav className="bg-purple-900/20 p-4 md:px-6 border-b border-purple-500/30 flex gap-6">
       <div className="font-black text-purple-400 uppercase tracking-tighter">
         Site Admin
       </div>

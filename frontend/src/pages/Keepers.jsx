@@ -120,7 +120,7 @@ export default function Keepers() {
       </div>
 
       {/* slot grid */}
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {Array.from({ length: maxAllowed }).map((_, idx) => {
           const pid = Array.from(selected)[idx];
           const player = roster.find((r) => r.player_id === pid);
