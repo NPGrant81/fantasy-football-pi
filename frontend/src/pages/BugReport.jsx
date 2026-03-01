@@ -96,19 +96,14 @@ export default function BugReport() {
   return (
     <div className={pageShell}>
       <div className={pageHeader}>
-        <h1 className={pageTitle}>
-          Bug Report
-        </h1>
+        <h1 className={pageTitle}>Bug Report</h1>
         <p className={`${pageSubtitle} mt-2`}>
           Tell us what went wrong and where it happened. We will open a GitHub
           issue and log the report for review.
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className={`${cardSurface} space-y-5`}
-      >
+      <form onSubmit={handleSubmit} className={`${cardSurface} space-y-5`}>
         {status.message && (
           <div
             className={`rounded-lg px-4 py-3 text-sm font-bold ${
@@ -223,10 +218,7 @@ export default function BugReport() {
           </label>
         </div>
 
-        <button
-          type="submit"
-          className={`${buttonPrimary} w-full`}
-        >
+        <button type="submit" className={`${buttonPrimary} w-full`}>
           Submit Bug Report
         </button>
       </form>

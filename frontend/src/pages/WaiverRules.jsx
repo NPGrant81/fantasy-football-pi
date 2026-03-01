@@ -37,7 +37,9 @@ export default function WaiverRules({ leagueId }) {
 
   if (rules === null) {
     return (
-      <div className={`${pageShell} text-center text-slate-600 dark:text-slate-400`}>
+      <div
+        className={`${pageShell} text-center text-slate-600 dark:text-slate-400`}
+      >
         Loading waiver rules...
       </div>
     );
@@ -47,10 +49,14 @@ export default function WaiverRules({ leagueId }) {
     <div className={pageShell}>
       <div className={pageHeader}>
         <h1 className={pageTitle}>Waiver Wire Rules</h1>
-        <p className={pageSubtitle}>Current waiver deadlines, budgets, and tie-break settings.</p>
+        <p className={pageSubtitle}>
+          Current waiver deadlines, budgets, and tie-break settings.
+        </p>
       </div>
 
-      <div className={`${cardSurface} space-y-4 text-slate-700 dark:text-slate-300`}>
+      <div
+        className={`${cardSurface} space-y-4 text-slate-700 dark:text-slate-300`}
+      >
         <div>
           <strong>Waiver Deadline:</strong> {rules.waiver_deadline || 'Not set'}
         </div>

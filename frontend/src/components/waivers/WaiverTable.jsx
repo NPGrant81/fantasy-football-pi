@@ -1,9 +1,5 @@
 import React from 'react';
-import {
-  buttonPrimary,
-  tableHead,
-  tableSurface,
-} from '@utils/uiStandards';
+import { buttonPrimary, tableHead, tableSurface } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
 

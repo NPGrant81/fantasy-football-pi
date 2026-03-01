@@ -47,7 +47,8 @@ export default function PlayerIdentityCard({
             {(position || nflTeam) && (
               <span>
                 {' '}
-                {position || 'N/A'}{nflTeam ? ` • ${nflTeam}` : ''}
+                {position || 'N/A'}
+                {nflTeam ? ` • ${nflTeam}` : ''}
               </span>
             )}
           </div>

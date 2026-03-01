@@ -220,7 +220,9 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   return (
     <div className={pageShell}>
       {/* 2.3 UI: HEADER & SEARCH */}
-      <div className={`${pageHeader} flex flex-col md:flex-row justify-between md:items-end gap-4`}>
+      <div
+        className={`${pageHeader} flex flex-col md:flex-row justify-between md:items-end gap-4`}
+      >
         <div className="space-y-2">
           {showBack && (
             <button
@@ -237,8 +239,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
             <span className="font-semibold text-slate-900 dark:text-white">
               {username || 'Unknown'}
             </span>{' '}
-            |
-            League:{' '}
+            | League:{' '}
             <span className="font-semibold text-slate-900 dark:text-white">
               {leagueName || 'Unknown'}
             </span>
@@ -323,10 +324,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleConfirmAction}
-                className={buttonPrimary}
-              >
+              <button onClick={handleConfirmAction} className={buttonPrimary}>
                 Accept
               </button>
             </div>

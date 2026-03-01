@@ -70,9 +70,7 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
         <button className={modalCloseButton} onClick={onClose}>
           ✕
         </button>
-        <h2 className={modalTitle}>
-          Set Draft Budgets
-        </h2>
+        <h2 className={modalTitle}>Set Draft Budgets</h2>
         <p className={`${modalDescription} mt-2`}>
           Assign budgets for the {draftYear} season. These budgets apply to the
           current league year.
@@ -92,7 +90,9 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
         </div>
         <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
           {loading && (
-            <div className="text-sm text-slate-500 dark:text-slate-400">Loading budgets...</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              Loading budgets...
+            </div>
           )}
           {!loading &&
             budgetRows.map((row) => (

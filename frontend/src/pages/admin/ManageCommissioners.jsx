@@ -158,7 +158,9 @@ export default function ManageCommissioners() {
 
   if (loading) {
     return (
-      <div className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}>
+      <div
+        className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}
+      >
         Loading Commissioner Management...
       </div>
     );

@@ -1,5 +1,9 @@
 /* ignore-breakpoints */
-import { adminActionToneStyles, buttonSecondary, cardSurface } from '@utils/uiStandards';
+import {
+  adminActionToneStyles,
+  buttonSecondary,
+  cardSurface,
+} from '@utils/uiStandards';
 
 export default function AdminActionCard({
   icon,
@@ -21,17 +25,21 @@ export default function AdminActionCard({
     : toneStyle.button;
 
   return (
-    <div
-      className={`${cardSurface} transition ${toneStyle.hoverBorder}`}
-    >
+    <div className={`${cardSurface} transition ${toneStyle.hoverBorder}`}>
       <div className="flex justify-between items-start mb-4">
         <IconComponent className={`text-3xl ${toneStyle.icon}`} />
-        <div className={`text-xs font-bold px-2 py-1 rounded ${toneStyle.badge}`}>
+        <div
+          className={`text-xs font-bold px-2 py-1 rounded ${toneStyle.badge}`}
+        >
           {badge}
         </div>
       </div>
-      <h3 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">{title}</h3>
-      <p className="text-slate-600 dark:text-slate-400 text-sm mb-6 min-h-[40px]">{description}</p>
+      <h3 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">
+        {title}
+      </h3>
+      <p className="text-slate-600 dark:text-slate-400 text-sm mb-6 min-h-[40px]">
+        {description}
+      </p>
       <button
         onClick={onClick}
         disabled={disabled}

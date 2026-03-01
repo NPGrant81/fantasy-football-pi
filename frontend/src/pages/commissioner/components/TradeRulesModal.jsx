@@ -24,9 +24,7 @@ export default function TradeRulesModal({ open, onClose }) {
         <p className={modalDescription}>
           Configure trade review, veto, and deadlines.
         </p>
-        <div className={modalPlaceholder}>
-          Trade rules form coming soon...
-        </div>
+        <div className={modalPlaceholder}>Trade rules form coming soon...</div>
       </div>
     </div>
   );

@@ -44,9 +44,11 @@ export const modalCloseButton =
 export const modalTitle =
   'mb-4 flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-white';
 
-export const modalDescription = 'mb-4 text-sm text-slate-600 dark:text-slate-400';
+export const modalDescription =
+  'mb-4 text-sm text-slate-600 dark:text-slate-400';
 
-export const modalPlaceholder = 'text-center text-slate-500 dark:text-slate-400';
+export const modalPlaceholder =
+  'text-center text-slate-500 dark:text-slate-400';
 
 export const adminActionToneStyles = {
   blue: {

@@ -141,10 +141,7 @@ export default function ManageScoringRules() {
           Configure scoring events, ranges, and point values.
         </p>
       </div>
-      <form
-        onSubmit={handleSubmit}
-        className={`${cardSurface} mb-0`}
-      >
+      <form onSubmit={handleSubmit} className={`${cardSurface} mb-0`}>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <input
             name="category"
@@ -211,10 +208,7 @@ export default function ManageScoringRules() {
           {/* empty slot to keep grid aligned */}
           <div />
         </div>
-        <button
-          type="submit"
-          className={`${buttonPrimary} mr-4`}
-        >
+        <button type="submit" className={`${buttonPrimary} mr-4`}>
           {editingIndex !== null ? 'Update Rule' : 'Add Rule'}
         </button>
         {editingIndex !== null && (
@@ -238,49 +232,54 @@ export default function ManageScoringRules() {
         {loading ? (
           <div className="text-slate-600 dark:text-slate-400">Loading...</div>
         ) : rules.length === 0 ? (
-          <div className="text-slate-600 dark:text-slate-400">No scoring rules set.</div>
+          <div className="text-slate-600 dark:text-slate-400">
+            No scoring rules set.
+          </div>
         ) : (
           <div className={tableSurface}>
             <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-            <thead className={tableHead}>
-              <tr>
-                <th>Category</th>
-                <th>Event</th>
-                <th>Range</th>
-                <th>Value</th>
-                <th>Type</th>
-                <th>Positions</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((rule, idx) => (
-                <tr key={idx} className="border-t border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40">
-                  <td>{rule.category}</td>
-                  <td>{rule.event_name}</td>
-                  <td>
-                    {rule.range_min}-{rule.range_max}
-                  </td>
-                  <td>{rule.point_value}</td>
-                  <td>{rule.calculation_type}</td>
-                  <td>{rule.applicable_positions}</td>
-                  <td>
-                    <button
-                      className={`${buttonSecondary} mr-2 px-3 py-1 text-xs`}
-                      onClick={() => handleEdit(idx)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className={`${buttonDanger} px-3 py-1 text-xs`}
-                      onClick={() => handleDelete(idx)}
-                    >
-                      Delete
-                    </button>
-                  </td>
+              <thead className={tableHead}>
+                <tr>
+                  <th>Category</th>
+                  <th>Event</th>
+                  <th>Range</th>
+                  <th>Value</th>
+                  <th>Type</th>
+                  <th>Positions</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
+              </thead>
+              <tbody>
+                {rules.map((rule, idx) => (
+                  <tr
+                    key={idx}
+                    className="border-t border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
+                  >
+                    <td>{rule.category}</td>
+                    <td>{rule.event_name}</td>
+                    <td>
+                      {rule.range_min}-{rule.range_max}
+                    </td>
+                    <td>{rule.point_value}</td>
+                    <td>{rule.calculation_type}</td>
+                    <td>{rule.applicable_positions}</td>
+                    <td>
+                      <button
+                        className={`${buttonSecondary} mr-2 px-3 py-1 text-xs`}
+                        onClick={() => handleEdit(idx)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className={`${buttonDanger} px-3 py-1 text-xs`}
+                        onClick={() => handleDelete(idx)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         )}

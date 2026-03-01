@@ -22,9 +22,7 @@ export default function DropPlayerModal({
     <div className={modalOverlay}>
       <div className={`${modalSurface} sm:max-w-md`}>
         {/* 2. Header: Explain why they are here */}
-        <h2 className={modalTitle}>
-          Roster Full!
-        </h2>
+        <h2 className={modalTitle}>Roster Full!</h2>
         <p className={`${modalDescription} mb-6`}>
           Select a player to release to make room for your new addition.
         </p>
@@ -55,10 +53,7 @@ export default function DropPlayerModal({
         </div>
 
         {/* 4. Action: Allow user to back out */}
-        <button
-          onClick={onClose}
-          className={`${buttonSecondary} mt-6 w-full`}
-        >
+        <button onClick={onClose} className={`${buttonSecondary} mt-6 w-full`}>
           Cancel Claim
         </button>
       </div>
