@@ -30,14 +30,9 @@ const apiClient = axios.create({
   },
 });
 
-// --- 2.1 REQUEST INTERCEPTOR (The Key Holder) ---
+// --- 2.1 REQUEST INTERCEPTOR (Cookie + CSRF) ---
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('fantasyToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
     const method = (config.method || 'get').toUpperCase();
     const isStateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
     if (isStateChanging) {
@@ -58,8 +53,6 @@ apiClient.interceptors.response.use(
   (error) => {
     // 2.2.1 If the server says "Unauthorized" (401), wipe the session
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('fantasyToken');
-      localStorage.removeItem('authMode');
       // 2.2.2 Force a refresh to trigger the Path A (Login) in App.jsx
       window.location.href = '/';
     }

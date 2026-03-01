@@ -29,6 +29,8 @@ This document captures the current security baseline implemented for issue #77 a
   - CSRF cookie (`ffpi_csrf_token`) for double-submit verification
 - CSRF protection is enforced for `POST`/`PUT`/`PATCH`/`DELETE` requests when cookie auth is used.
 - `POST /auth/logout` clears auth and CSRF cookies.
+- Frontend is now cookie-session first and no longer stores bearer access tokens in browser storage.
+- Bearer header auth is now opt-in (`ALLOW_BEARER_AUTH=1`) for controlled interoperability.
 
 ### CI security checks
 - `dependency-check.yml` now runs on dependency-related PR changes in addition to schedule/manual.
@@ -70,6 +72,16 @@ Recommended runtime settings:
 ### Infrastructure and operations
 - Enforce HTTPS-only at Nginx with HSTS preload decision review.
 - Add incident response runbook and backup restoration drills.
+
+### Nginx hardening template
+- A deploy-ready starter config for Raspberry Pi is available at:
+  - `deploy/nginx/fantasy-football-pi.conf.example`
+- It includes:
+  - HTTP to HTTPS redirect
+  - TLS 1.2/1.3 only
+  - HSTS and defensive headers
+  - Request/connection rate limiting
+  - Safe proxy timeouts and forwarded headers
 
 ## Incident response quick-start
 

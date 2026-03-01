@@ -1,0 +1,64 @@
+# Hardened Nginx template for Fantasy Football Pi (Raspberry Pi)
+#
+# Usage notes:
+# 1) Copy to /etc/nginx/sites-available/fantasy-football-pi.conf
+# 2) Replace YOUR_DOMAIN and certificate paths.
+# 3) Enable site, test config, reload nginx.
+
+limit_req_zone $binary_remote_addr zone=api_rate_limit:10m rate=10r/s;
+limit_conn_zone $binary_remote_addr zone=per_ip_conn:10m;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name YOUR_DOMAIN;
+
+    client_max_body_size 10m;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name YOUR_DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_tickets off;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+
+    client_max_body_size 10m;
+    keepalive_timeout 30;
+    send_timeout 30;
+
+    limit_conn per_ip_conn 20;
+
+    location / {
+        root /var/www/fantasy-football-pi/frontend/dist;
+        try_files $uri /index.html;
+    }
+
+    location /api/ {
+        limit_req zone=api_rate_limit burst=20 nodelay;
+
+        proxy_pass http://127.0.0.1:8000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_connect_timeout 10s;
+        proxy_buffering off;
+    }
+}

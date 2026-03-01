@@ -53,10 +53,7 @@ function TeamRoute({ fallbackOwnerId }) {
 
 function App() {
   // --- 1.1 GLOBAL STATE ---
-  const [token, setToken] = useState(
-    localStorage.getItem('fantasyToken') ||
-      (localStorage.getItem('authMode') === 'cookie' ? 'cookie-session' : null)
-  );
+  const [token, setToken] = useState(null);
   const [activeLeagueId, setActiveLeagueId] = useState(
     localStorage.getItem('fantasyLeagueId')
   );
@@ -76,8 +73,6 @@ function App() {
     setToken(null);
     setActiveOwnerId(null);
     setUsername('');
-    localStorage.removeItem('fantasyToken');
-    localStorage.removeItem('authMode');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
   }, []);
@@ -95,8 +90,6 @@ function App() {
         setToken(null);
         setActiveOwnerId(null);
         setUsername('');
-        localStorage.removeItem('fantasyToken');
-        localStorage.removeItem('authMode');
       });
   }, []);
 
@@ -115,16 +108,8 @@ function App() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
 
-      const { access_token, owner_id } = response.data;
+      const { owner_id } = response.data;
 
-      const useLegacyTokenStorage =
-        import.meta?.env?.VITE_USE_LEGACY_TOKEN_STORAGE === '1';
-      if (useLegacyTokenStorage && access_token) {
-        localStorage.setItem('fantasyToken', access_token);
-      } else {
-        localStorage.removeItem('fantasyToken');
-      }
-      localStorage.setItem('authMode', 'cookie');
       localStorage.setItem('user_id', owner_id);
       localStorage.setItem('fantasyLeagueId', leagueInput); // Use user-provided league ID
 
