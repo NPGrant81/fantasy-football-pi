@@ -240,7 +240,7 @@ const sortRosterByHierarchy = (players) => {
   });
 };
 
-export default function MyTeam({ activeOwnerId }) {
+export default function YourLockerRoom({ activeOwnerId }) {
   const viewedOwnerId = activeOwnerId ? Number(activeOwnerId) : null;
   // --- 0.1 Commissioner Modal State ---
   const [showScoring, setShowScoring] = useState(false);

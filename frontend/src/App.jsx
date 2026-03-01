@@ -16,7 +16,7 @@ import LeagueAdvisor from './components/LeagueAdvisor';
 import { ThemeProvider } from './context/ThemeContext';
 
 // Import Pages (Lazy Loaded)
-const MyTeam = lazy(() => import('./pages/team-owner/MyTeam'));
+const YourLockerRoom = lazy(() => import('./pages/team-owner/YourLockerRoom'));
 const Matchups = lazy(() => import('./pages/matchups/Matchups'));
 const GameCenter = lazy(() => import('./pages/matchups/GameCenter'));
 const CommissionerDashboard = lazy(
@@ -48,7 +48,7 @@ const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
-  return <MyTeam activeOwnerId={ownerId || fallbackOwnerId} />;
+  return <YourLockerRoom activeOwnerId={ownerId || fallbackOwnerId} />;
 }
 
 function App() {
@@ -237,7 +237,7 @@ function App() {
               />
               <Route
                 path="/team"
-                element={<MyTeam activeOwnerId={activeOwnerId} />}
+                element={<YourLockerRoom activeOwnerId={activeOwnerId} />}
               />
               <Route
                 path="/team/:ownerId"
