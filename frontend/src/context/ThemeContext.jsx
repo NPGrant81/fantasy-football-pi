@@ -3,6 +3,8 @@ import { ThemeContext } from './ThemeContextValue';
 
 // The provider component is the only export from this file now, which
 // keeps the module "component-only" for Fast Refresh.
+// Components consuming this context should use dark: (and stacked variants
+// like dark:md:) in their own Tailwind classes for responsive dark-mode styling.
 
 // helper to pick an initial theme value
 function getInitialTheme() {

@@ -20,6 +20,7 @@ from backend.routers.keepers import (
     veto_owner_list,
     reset_league_keepers,
     KeeperSelectionSchema,
+    KeeperSettingsUpdate,
 )
 from fastapi import HTTPException
 

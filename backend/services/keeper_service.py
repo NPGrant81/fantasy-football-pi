@@ -18,6 +18,9 @@ def compute_keeper_flags(
     """
     flags = {"flag_waiver": False, "flag_trade": False, "flag_drop": False}
 
+    if rule is None:
+        return flags
+
     # waiver wire rule
     if rule.waiver_policy:
         # flag if the owner ever picked the player up via waiver
