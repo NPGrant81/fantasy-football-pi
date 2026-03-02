@@ -9,8 +9,24 @@ export default function BestAvailableList({
   const [sortField, setSortField] = React.useState('rank');
   const [sortAsc, setSortAsc] = React.useState(true);
 
+  const normalizedPlayers = React.useMemo(
+    () =>
+      players.map((player) => ({
+        ...player,
+        pos: player.pos || player.position || 'NA',
+        projectedValue:
+          player.projectedValue ??
+          player.projected_value ??
+          player.auction_value ??
+          player.value ??
+          0,
+        rank: player.rank ?? player.adp ?? 9999,
+      })),
+    [players]
+  );
+
   // apply filtering
-  const filtered = players.filter(
+  const filtered = normalizedPlayers.filter(
     (p) => filterPos === 'ALL' || p.pos === filterPos
   );
 
@@ -108,7 +124,7 @@ export default function BestAvailableList({
           </thead>
           <tbody className="divide-y divide-slate-800">
             {sorted.map((p) => (
-              <tr key={p.id} className="hover:bg-slate-800 transition-colors">
+              <tr key={p.id || `${p.name}-${p.pos}`} className="hover:bg-slate-800 transition-colors">
                 <td className="p-2 text-slate-400">{p.rank}</td>
                 <td className="p-2 font-semibold text-white">
                   <span className="text-cyan-500 mr-2">{p.pos}</span>
@@ -119,6 +135,13 @@ export default function BestAvailableList({
                 </td>
               </tr>
             ))}
+            {sorted.length === 0 && (
+              <tr>
+                <td colSpan={3} className="p-4 text-center text-slate-400">
+                  No available players match this filter.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

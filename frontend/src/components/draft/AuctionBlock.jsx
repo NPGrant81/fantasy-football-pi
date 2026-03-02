@@ -250,7 +250,7 @@ export default function AuctionBlock({
               <button
                 key={pos}
                 onClick={() => setPosFilter(pos)}
-                className={`text-[10px] font-bold px-3 py-1 rounded border transition uppercase ${
+                className={`text-xs font-bold px-4 py-2 rounded border transition uppercase ${
                   posFilter === pos
                     ? 'bg-yellow-500 text-black border-yellow-500'
                     : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
@@ -391,7 +391,7 @@ export default function AuctionBlock({
           )}
         </div>
 
-        <div className="xl:col-span-2 border-b xl:border-b-0 xl:border-r border-slate-700 bg-slate-900/40 p-2">
+        <div className="xl:col-span-2 border-b xl:border-b-0 xl:border-r border-slate-700 bg-slate-900/40 p-2 flex flex-col">
           <div className="text-slate-200 text-[13px] font-semibold mb-2">Draft Timer</div>
           <div className="flex items-center justify-between gap-2">
             {isCommissioner && (
@@ -417,6 +417,17 @@ export default function AuctionBlock({
               {isTimerRunning ? 'RESET' : 'START'}
             </button>
           </div>
+
+          <button
+            onClick={handleDraft}
+            disabled={!canDraft}
+            className="mt-2 w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black text-xl py-3 rounded disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            <span>SOLD!</span>
+            <span role="img" aria-label="gavel" className="text-xl">
+              🔨
+            </span>
+          </button>
         </div>
 
         <div className="xl:col-span-2 border-b xl:border-b-0 xl:border-r border-slate-700 bg-slate-900/40 p-3 flex items-center">
@@ -437,19 +448,6 @@ export default function AuctionBlock({
         )}
       </div>
 
-      {/* sold button row always under controls */}
-      <div className="flex justify-center mt-1">
-        <button
-          onClick={handleDraft}
-          disabled={!canDraft}
-          className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black text-xl py-3 rounded disabled:opacity-40 flex items-center justify-center gap-2"
-        >
-          <span>SOLD!</span>
-          <span role="img" aria-label="gavel" className="text-xl">
-            🔨
-          </span>
-        </button>
-      </div>
     </div>
   ); // end root container
 }

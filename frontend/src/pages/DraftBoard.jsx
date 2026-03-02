@@ -46,6 +46,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   const [playerPerformance, setPlayerPerformance] = useState(null);
   const [playerPerformanceLoading, setPlayerPerformanceLoading] =
     useState(false);
+  const [draftPopupData, setDraftPopupData] = useState(null);
 
   const sessionId = useMemo(() => {
     if (activeLeagueId && draftYear) {
@@ -113,6 +114,12 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       try {
         await apiClient.post('/draft/pick', payload);
+        const draftedOwner = owners.find((owner) => owner.id === effectiveWinnerId);
+        setDraftPopupData({
+          playerName: foundPlayer.name,
+          teamName: draftedOwner?.team_name || draftedOwner?.username || 'Unknown Team',
+          amount: bidAmount,
+        });
         setPlayerName('');
         setBidAmount(1);
         fetchHistory();
@@ -333,6 +340,34 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     return `"${draftedPlayer}" drafted to "${draftedTeam}" for "$${draftedAmount}"`;
   }, [history, owners]);
 
+  const undraftedPlayerIds = useMemo(
+    () => new Set(history.map((pick) => pick.player_id)),
+    [history]
+  );
+
+  const bestAvailablePlayers = useMemo(() => {
+    return players
+      .filter((player) => !undraftedPlayerIds.has(player.id))
+      .map((player) => ({
+        ...player,
+        pos: player.position,
+        projectedValue:
+          player.projectedValue ??
+          player.projected_value ??
+          player.auction_value ??
+          player.value ??
+          0,
+      }))
+      .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999))
+      .slice(0, 100);
+  }, [players, undraftedPlayerIds]);
+
+  useEffect(() => {
+    if (!draftPopupData) return undefined;
+    const timer = setTimeout(() => setDraftPopupData(null), 2800);
+    return () => clearTimeout(timer);
+  }, [draftPopupData]);
+
   // --- 2.1 RENDER (content only; header provided by Layout) ---
   // helper used by AuctionBlock to choose a suggestion
   const selectSuggestion = useCallback((p) => {
@@ -460,14 +495,24 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             <BestAvailableList
               open={showBestSidebar}
               onToggle={() => setShowBestSidebar(false)}
-              players={players
-                .filter((p) => !history.some((h) => h.player_id === p.id))
-                .sort((a, b) => a.rank - b.rank)
-                .slice(0, 50)}
+              players={bestAvailablePlayers}
             />
           </aside>
         )}
       </div>
+
+      {draftPopupData && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
+          <div className="bg-sky-500 text-white border-2 border-sky-300 px-10 py-8 text-center shadow-2xl min-w-[420px] max-w-[92vw]">
+            <div className="text-6xl leading-tight font-medium">{draftPopupData.playerName}</div>
+            <div className="text-6xl leading-tight font-light mt-2">Drafted to</div>
+            <div className="text-7xl leading-tight font-medium mt-2">{draftPopupData.teamName}</div>
+            <div className="text-6xl leading-tight font-light mt-3">
+              For <span className="text-8xl">${draftPopupData.amount}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="bg-slate-900 px-4 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
         <span>SESSION ID: {sessionId}</span>
