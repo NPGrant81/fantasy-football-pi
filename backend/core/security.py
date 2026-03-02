@@ -14,6 +14,10 @@ import importlib
 models = importlib.import_module("backend.models")
 database = importlib.import_module("backend.database")
 
+
+def _get_bcrypt_module():
+    return importlib.import_module("bcrypt")
+
 # alias get_db for dependency
 get_db = database.get_db
 
@@ -44,7 +48,23 @@ credentials_exception = HTTPException(
 
 # --- 1.2 UTILITY FUNCTIONS (THE TOOLS) ---
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    if not hashed_password:
+        return False
+
+    if isinstance(hashed_password, str) and hashed_password.startswith("$2"):
+        try:
+            bcrypt_module = _get_bcrypt_module()
+            return bcrypt_module.checkpw(
+                plain_password.encode("utf-8"),
+                hashed_password.encode("utf-8"),
+            )
+        except ValueError:
+            return False
+
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except (ValueError, TypeError):
+        return False
 
 def get_password_hash(password):
     # when running automated tests we don't want to invoke bcrypt
@@ -53,7 +73,8 @@ def get_password_hash(password):
     # either explicit testing flag or running under pytest
     if os.getenv("TESTING") == "1" or os.getenv("PYTEST_CURRENT_TEST"):
         return "test-hash"
-    return pwd_context.hash(password)
+    bcrypt_module = _get_bcrypt_module()
+    return bcrypt_module.hashpw(password.encode("utf-8"), bcrypt_module.gensalt()).decode("utf-8")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()

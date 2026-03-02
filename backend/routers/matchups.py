@@ -20,22 +20,33 @@ class PlayerGameStats(BaseModel):
     projected: float
     actual: float
 
+class TeamInfo(BaseModel):
+    id: int
+    name: str
+    team_name: Optional[str]
+    logo_url: Optional[str]
+    color_primary: Optional[str]
+    color_secondary: Optional[str]
+
 class MatchupSchema(BaseModel):
     id: int
     week: int
     home_team: str
     home_team_id: int
+    home_team_info: TeamInfo  # <--- NEW
     home_score: float
     home_projected: float
     home_roster: List[PlayerGameStats] = [] # <--- NEW
     
     away_team: str
     away_team_id: int
+    away_team_info: TeamInfo  # <--- NEW
     away_score: float
     away_projected: float
     away_roster: List[PlayerGameStats] = [] # <--- NEW
     
     is_completed: bool
+    game_status: str  # <--- NEW: NOT_STARTED, IN_PROGRESS, FINAL
     label: str
     date_range: str
 
@@ -98,13 +109,30 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
                 week=game.week,
                 home_team=home.username,
                 home_team_id=home.id,
+                home_team_info=TeamInfo(
+                    id=home.id,
+                    name=home.username,
+                    team_name=home.team_name,
+                    logo_url=home.team_logo_url,
+                    color_primary=home.team_color_primary or '#3b82f6',
+                    color_secondary=home.team_color_secondary or '#1e40af'
+                ),
                 home_score=game.home_score,
                 home_projected=home_total_proj,
                 away_team=away.username,
                 away_team_id=away.id,
+                away_team_info=TeamInfo(
+                    id=away.id,
+                    name=away.username,
+                    team_name=away.team_name,
+                    logo_url=away.team_logo_url,
+                    color_primary=away.team_color_primary or '#3b82f6',
+                    color_secondary=away.team_color_secondary or '#1e40af'
+                ),
                 away_score=game.away_score,
                 away_projected=away_total_proj,
                 is_completed=game.is_completed,
+                game_status=game.game_status,
                 label=label,
                 date_range=date_str
             ))
@@ -134,17 +162,34 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
         week=game.week,
         home_team=home.username,
         home_team_id=home.id,
+        home_team_info=TeamInfo(
+            id=home.id,
+            name=home.username,
+            team_name=home.team_name,
+            logo_url=home.team_logo_url,
+            color_primary=home.team_color_primary or '#3b82f6',
+            color_secondary=home.team_color_secondary or '#1e40af'
+        ),
         home_score=game.home_score,
         home_projected=home_total_proj, # Use sum of players
         home_roster=home_roster,        # <--- Sending Roster
         
         away_team=away.username,
         away_team_id=away.id,
+        away_team_info=TeamInfo(
+            id=away.id,
+            name=away.username,
+            team_name=away.team_name,
+            logo_url=away.team_logo_url,
+            color_primary=away.team_color_primary or '#3b82f6',
+            color_secondary=away.team_color_secondary or '#1e40af'
+        ),
         away_score=game.away_score,
         away_projected=away_total_proj, # Use sum of players
         away_roster=away_roster,        # <--- Sending Roster
         
         is_completed=game.is_completed,
+        game_status=game.game_status,
         label=label,
         date_range=date_str
     )
