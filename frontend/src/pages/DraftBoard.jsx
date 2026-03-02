@@ -46,6 +46,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   const [playerPerformance, setPlayerPerformance] = useState(null);
   const [playerPerformanceLoading, setPlayerPerformanceLoading] =
     useState(false);
+  const [draftPopupData, setDraftPopupData] = useState(null);
 
   const sessionId = useMemo(() => {
     if (activeLeagueId && draftYear) {
@@ -113,6 +114,12 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       try {
         await apiClient.post('/draft/pick', payload);
+        const draftedOwner = owners.find((owner) => owner.id === effectiveWinnerId);
+        setDraftPopupData({
+          playerName: foundPlayer.name,
+          teamName: draftedOwner?.team_name || draftedOwner?.username || 'Unknown Team',
+          amount: bidAmount,
+        });
         setPlayerName('');
         setBidAmount(1);
         fetchHistory();
@@ -316,6 +323,51 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   const winnerOpenSlotsAllowed = activeStats?.emptySpots ?? 0;
   const winnerRosterSlotsConfigured = rosterSize;
 
+  const lastDraftedText = useMemo(() => {
+    if (!history.length) {
+      return '"Player Name" drafted to "Team Name" for "$XX"';
+    }
+    const latestPick = [...history].sort(
+      (a, b) =>
+        new Date(b.timestamp || 0).getTime() -
+        new Date(a.timestamp || 0).getTime()
+    )[0];
+    const draftedOwner = owners.find((owner) => owner.id === latestPick.owner_id);
+    const draftedTeam =
+      draftedOwner?.team_name || draftedOwner?.username || 'Team Name';
+    const draftedPlayer = latestPick.player_name || 'Player Name';
+    const draftedAmount = Number(latestPick.amount || 0);
+    return `"${draftedPlayer}" drafted to "${draftedTeam}" for "$${draftedAmount}"`;
+  }, [history, owners]);
+
+  const undraftedPlayerIds = useMemo(
+    () => new Set(history.map((pick) => pick.player_id)),
+    [history]
+  );
+
+  const bestAvailablePlayers = useMemo(() => {
+    return players
+      .filter((player) => !undraftedPlayerIds.has(player.id))
+      .map((player) => ({
+        ...player,
+        pos: player.position,
+        projectedValue:
+          player.projectedValue ??
+          player.projected_value ??
+          player.auction_value ??
+          player.value ??
+          0,
+      }))
+      .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999))
+      .slice(0, 100);
+  }, [players, undraftedPlayerIds]);
+
+  useEffect(() => {
+    if (!draftPopupData) return undefined;
+    const timer = setTimeout(() => setDraftPopupData(null), 2800);
+    return () => clearTimeout(timer);
+  }, [draftPopupData]);
+
   // --- 2.1 RENDER (content only; header provided by Layout) ---
   // helper used by AuctionBlock to choose a suggestion
   const selectSuggestion = useCallback((p) => {
@@ -385,7 +437,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       {/* auction controls top bar */}
       <div className="w-full">
-        <div className="flex flex-wrap items-end justify-start p-2 bg-slate-900/60">
+        <div className="flex flex-wrap items-end justify-start p-1 bg-slate-900/40">
           {/* auction controls panel handles its own internal alignment */}
           <AuctionBlock
             playerName={playerName}
@@ -412,6 +464,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             isCommissioner={isCommissioner}
             showBestSidebar={showBestSidebar}
             toggleSidebar={(v) => setShowBestSidebar(v)}
+            lastDraftedText={lastDraftedText}
             rosterSize={rosterSize}
             winnerBudget={winnerBudget}
             winnerMaxBidAllowed={winnerMaxBidAllowed}
@@ -424,32 +477,42 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
 
-      <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">
-        <section
-          className={`overflow-x-auto border-r border-slate-800 custom-scrollbar ${showBestSidebar ? 'col-span-12 md:col-span-9' : 'col-span-12'}`}
-        >
-          <DraftBoardGrid
-            teams={ownersWithBudgets}
-            history={history}
-            rosterLimit={rosterSize}
-            highlightOwnerId={highlightOwnerId}
-            onPlayerClick={openPlayerPerformance}
-          />
-        </section>
+      <div className="relative">
+        <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">
+          <section className="overflow-x-auto border-r border-slate-800 custom-scrollbar col-span-12">
+            <DraftBoardGrid
+              teams={ownersWithBudgets}
+              history={history}
+              rosterLimit={rosterSize}
+              highlightOwnerId={highlightOwnerId}
+              onPlayerClick={openPlayerPerformance}
+            />
+          </section>
+        </main>
 
-        <aside
-          className={`${showBestSidebar ? 'block' : 'hidden'} col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto`}
-        >
-          <BestAvailableList
-            open={showBestSidebar}
-            onToggle={() => setShowBestSidebar(false)}
-            players={players
-              .filter((p) => !history.some((h) => h.player_id === p.id))
-              .sort((a, b) => a.rank - b.rank)
-              .slice(0, 50)}
-          />
-        </aside>
-      </main>
+        {showBestSidebar && (
+          <aside className="absolute right-2 top-2 bottom-2 w-[300px] max-w-[80vw] bg-slate-900/90 border border-slate-700 rounded-lg overflow-hidden z-20 shadow-2xl">
+            <BestAvailableList
+              open={showBestSidebar}
+              onToggle={() => setShowBestSidebar(false)}
+              players={bestAvailablePlayers}
+            />
+          </aside>
+        )}
+      </div>
+
+      {draftPopupData && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
+          <div className="bg-sky-500 text-white border-2 border-sky-300 px-10 py-8 text-center shadow-2xl min-w-[420px] max-w-[92vw]">
+            <div className="text-6xl leading-tight font-medium">{draftPopupData.playerName}</div>
+            <div className="text-6xl leading-tight font-light mt-2">Drafted to</div>
+            <div className="text-7xl leading-tight font-medium mt-2">{draftPopupData.teamName}</div>
+            <div className="text-6xl leading-tight font-light mt-3">
+              For <span className="text-8xl">${draftPopupData.amount}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="bg-slate-900 px-4 md:px-6 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
         <span>SESSION ID: {sessionId}</span>

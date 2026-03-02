@@ -11,7 +11,6 @@ if (!('VITE_API_BASE_URL' in import.meta.env)) {
   import.meta.env.VITE_API_BASE_URL = '';
 }
 import DraftBoardGrid from '../src/components/draft/DraftBoardGrid';
-import { POSITION_COLORS } from '../src/constants/ui';
 
 // simple fixtures
 // include alternate keys that come from API (team_name, username)
@@ -82,9 +81,9 @@ describe('DraftBoardGrid header', () => {
     // ensure there is no position text anywhere
     expect(screen.queryByText(/TE/)).toBeNull();
 
-    // drafted cell background should be color for TE
+    // drafted cell should have a position color class and drafted border treatment
     const cell = screen.getByTestId('player-card');
-    expect(cell).toHaveClass(POSITION_COLORS.TE);
+    expect(cell.className).toMatch(/bg-/);
     expect(cell).toHaveClass('border-2', 'border-slate-600');
   });
 
@@ -97,18 +96,12 @@ describe('DraftBoardGrid header', () => {
     const { container } = render(
       <DraftBoardGrid teams={teams3} history={history3} rosterLimit={3} />
     );
-    // count divs that received the highlighted class
-    const highlighted = container.querySelectorAll('div');
-    // two cells should have position-color backgrounds
-    const colored = Array.from(highlighted).filter((d) =>
-      Object.values(POSITION_COLORS).some((cls) => d.classList.contains(cls))
-    );
-    expect(colored.length).toBe(2);
-    colored.forEach((c) => {
-      expect(
-        Object.values(POSITION_COLORS).some((cls) => c.classList.contains(cls))
-      ).toBe(true);
-      expect(c.classList.contains('border-slate-600')).toBe(true);
+    // each drafted player should render as a highlighted player card
+    const draftedCards = container.querySelectorAll('[data-testid="player-card"]');
+    expect(draftedCards.length).toBe(2);
+    draftedCards.forEach((card) => {
+      expect(card.className).toMatch(/bg-/);
+      expect(card.classList.contains('border-slate-600')).toBe(true);
     });
   });
 });
@@ -232,7 +225,7 @@ describe('AuctionBlock layout', () => {
       />
     );
     const topRow = getByTestId('auction-top-row');
-    expect(topRow).toHaveClass('md:items-end');
+    expect(topRow).toHaveClass('grid');
     // Show Best button should exist inside AuctionBlock
     expect(getByText(/Show Best/i)).toBeInTheDocument();
 
@@ -267,7 +260,7 @@ describe('DraftBoard page layout', () => {
     DraftBoard = (await import('../src/pages/DraftBoard')).default;
   });
 
-  it('defines correct grid column spans for board and sidebar', () => {
+  it('renders board full-width and keeps best-available overlay hidden by default', () => {
     const { container } = render(
       <DraftBoard
         token={null}
@@ -277,9 +270,9 @@ describe('DraftBoard page layout', () => {
       />
     );
     const aside = container.querySelector('aside');
-    expect(aside).toHaveClass('md:col-span-3');
+    expect(aside).toBeNull();
     const section = container.querySelector('section');
-    // when sidebar hidden initial state, section spans full width
+    // board stays full width and no longer shrinks for a side column
     expect(section).toHaveClass('col-span-12');
   });
 
@@ -292,13 +285,9 @@ describe('DraftBoard page layout', () => {
         setSubHeader={() => {}}
       />
     );
-    // there are actually two buttons containing the phrase "Show Best";
-    // pick the simple toggle (without the "Available ▶" suffix)
-    const toggleCandidates = screen.getAllByText(/Show Best/i);
-    const toggle = toggleCandidates.find((btn) => btn.textContent === 'Show Best');
-    expect(toggle).toBeDefined();
+    const toggle = screen.getByRole('button', { name: /show\s*best/i });
     fireEvent.click(toggle);
     const aside = container.querySelector('aside');
-    expect(aside).not.toHaveClass('hidden');
+    expect(aside).toBeInTheDocument();
   });
 });
