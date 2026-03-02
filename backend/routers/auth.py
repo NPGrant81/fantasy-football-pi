@@ -14,7 +14,7 @@ from pydantic import BaseModel
 # 1.1.1 INFRASTRUCTURE: Use the new Security Core
 from ..core import security
 from .. import models
-import schemas 
+from ..schemas import User, UserCreate
 from ..database import get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -97,8 +97,8 @@ def _clear_auth_cookies(response: Response) -> None:
     response.delete_cookie(CSRF_COOKIE_NAME, path="/")
 
 # --- 2.1 ENDPOINT: REGISTRATION ---
-@router.post("/register", response_model=schemas.User)
-def register_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
+@router.post("/register", response_model=User)
+def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     # 1.2.1 VALIDATION: Check if username exists
     existing_user = db.query(models.User).filter(models.User.username == user_data.username).first()
     if existing_user:

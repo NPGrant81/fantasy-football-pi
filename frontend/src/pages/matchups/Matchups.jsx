@@ -1,6 +1,6 @@
 // frontend/src/pages/Matchups.jsx
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -9,7 +9,9 @@ import {
   FiToggleRight,
   FiToggleLeft,
   FiInfo,
+  FiInbox,
 } from 'react-icons/fi';
+import TeamLogo from '@components/TeamLogo';
 
 // Professional Imports
 import apiClient from '@api/client';
@@ -27,10 +29,13 @@ export default function Matchups() {
   const [userInfo, setUserInfo] = useState({ username: '', leagueName: '' });
   const navigate = useNavigate();
   const [showBack, setShowBack] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   // --- 1.1 STATE MANAGEMENT ---
-  const [week, setWeek] = useState(1);
+  // Initialize week and toggle from URL params
+  const [week, setWeek] = useState(parseInt(searchParams.get('week')) || 1);
   const [games, setGames] = useState([]);
-  const [showProjected, setShowProjected] = useState(true);
+  const [showProjected, setShowProjected] = useState(searchParams.get('view') !== 'actual');
   const [showScoreInfo, setShowScoreInfo] = useState(false);
 
   useEffect(() => {
@@ -91,15 +96,20 @@ export default function Matchups() {
   }, [fetchMatchups]);
 
   // --- 1.3 UTILITIES ---
-  const handleWeekChange = (direction) => {
-    if (direction === 'prev' && week > 1) {
-      setLoading(true); // Trigger loading spinner for the new week
-      setWeek(week - 1);
-    }
-    if (direction === 'next' && week < 17) {
+  const handleWeekChange = (newWeek) => {
+    if (newWeek >= 1 && newWeek <= 17 && newWeek !== week) {
       setLoading(true);
-      setWeek(week + 1);
+      setWeek(newWeek);
+      // Update URL params
+      setSearchParams({ week: newWeek.toString(), view: showProjected ? 'projected' : 'actual' });
     }
+  };
+  
+  const handleToggleChange = () => {
+    const newState = !showProjected;
+    setShowProjected(newState);
+    // Persist to URL
+    setSearchParams({ week: week.toString(), view: newState ? 'projected' : 'actual' });
   };
 
   const getScore = (game, side) => {
@@ -113,7 +123,13 @@ export default function Matchups() {
   return (
     <div className={`${pageShell} pb-20 animate-fade-in`}>
       {/* HEADER + USER/LEAGUE CONTEXT */}
-      <div className={pageHeader}>
+      <div className={`${pageHeader} flex items-start justify-between`}>
+        <div>
+          <h1 className={pageTitle}>Matchups</h1>
+          <p className={pageSubtitle}>
+            Weekly head-to-head scoreboard and game center access.
+          </p>
+        </div>
         {showBack && (
           <button
             className={`${buttonSecondary} w-fit px-3 py-1.5 text-xs`}
@@ -122,10 +138,6 @@ export default function Matchups() {
             ← Back
           </button>
         )}
-        <h1 className={pageTitle}>Matchups</h1>
-        <p className={pageSubtitle}>
-          Weekly head-to-head scoreboard and game center access.
-        </p>
       </div>
 
       <div
@@ -148,7 +160,7 @@ export default function Matchups() {
       <div className={cardSurface}>
         <div className="flex justify-between items-center mb-4">
           <button
-            onClick={() => handleWeekChange('prev')}
+            onClick={() => handleWeekChange(week - 1)}
             disabled={week === 1}
             aria-label="Previous week"
             className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"
@@ -157,12 +169,26 @@ export default function Matchups() {
           </button>
 
           <div className="text-center">
-            <h1 className="flex items-center justify-center gap-2 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-              <FiCalendar className="text-yellow-500" />
-              Week {week}
-            </h1>
+            <div className="flex items-center justify-center gap-3">
+              <h1 className="flex items-center justify-center gap-2 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                <FiCalendar className="text-yellow-500" />
+                Week
+              </h1>
+              {/* Week Dropdown */}
+              <select
+                value={week}
+                onChange={(e) => handleWeekChange(parseInt(e.target.value))}
+                className="bg-slate-800 text-white font-black text-2xl rounded-lg px-3 py-1 border border-slate-700 hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition"
+              >
+                {Array.from({ length: 17 }, (_, i) => i + 1).map((w) => (
+                  <option key={w} value={w}>
+                    {w}
+                  </option>
+                ))}
+              </select>
+            </div>
             {games.length > 0 && (
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center mt-2">
                 <span
                   className={`text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded ${games[0].label === 'Playoffs' ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500'}`}
                 >
@@ -176,7 +202,7 @@ export default function Matchups() {
           </div>
 
           <button
-            onClick={() => handleWeekChange('next')}
+            onClick={() => handleWeekChange(week + 1)}
             disabled={week === 17}
             aria-label="Next week"
             className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"
@@ -188,7 +214,7 @@ export default function Matchups() {
         <div className="flex justify-center border-t border-slate-800 pt-4">
           <div className="relative flex items-center gap-2">
             <button
-              onClick={() => setShowProjected(!showProjected)}
+              onClick={handleToggleChange}
               aria-label="Toggle projected scores"
               className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-950 border border-slate-700 hover:border-slate-500 transition"
             >
@@ -238,24 +264,75 @@ export default function Matchups() {
 
       {/* 2.3 MATCHUP GRID */}
       {loading ? (
-        <div className="text-center py-12 text-slate-600 dark:text-slate-400 animate-pulse font-black">
-          Loading Week {week}...
+        // Skeleton Loading
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl animate-pulse"
+            >
+              <div className="p-6 flex justify-between items-center">
+                <div className="text-center w-1/3">
+                  <div className="w-12 h-12 mx-auto bg-slate-800 rounded-full mb-2"></div>
+                  <div className="h-4 bg-slate-800 rounded w-20 mx-auto mb-1"></div>
+                  <div className="h-6 bg-slate-700 rounded w-12 mx-auto"></div>
+                </div>
+                <div className="text-center w-1/3">
+                  <div className="h-6 bg-slate-800 rounded w-8 mx-auto"></div>
+                </div>
+                <div className="text-center w-1/3">
+                  <div className="w-12 h-12 mx-auto bg-slate-800 rounded-full mb-2"></div>
+                  <div className="h-4 bg-slate-800 rounded w-20 mx-auto mb-1"></div>
+                  <div className="h-6 bg-slate-700 rounded w-12 mx-auto"></div>
+                </div>
+              </div>
+              <div className="h-12 bg-slate-950/30 border-t border-slate-800"></div>
+            </div>
+          ))}
+        </div>
+      ) : games.length === 0 ? (
+        // Empty State
+        <div className="text-center py-20">
+          <FiInbox className="mx-auto text-6xl text-slate-700 mb-4" />
+          <h3 className="text-xl font-bold text-slate-400 mb-2">
+            No matchups scheduled for Week {week}
+          </h3>
+          <p className="text-sm text-slate-500">
+            Check back later or navigate to a different week.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {games.map((game) => (
             <div
               key={game.id}
-              className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-600 transition shadow-xl group flex flex-col"
+              className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-600 transition shadow-xl group flex flex-col relative"
             >
+              {/* Game Status Badge */}
+              {game.game_status && (
+                <div className="absolute top-2 right-2 z-10">
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                      game.game_status === 'FINAL'
+                        ? 'bg-green-900/30 text-green-400 border border-green-900/50'
+                        : game.game_status === 'IN_PROGRESS'
+                          ? 'bg-red-900/30 text-red-400 border border-red-900/50 animate-pulse'
+                          : 'bg-slate-800 text-slate-500 border border-slate-700'
+                    }`}
+                  >
+                    {game.game_status === 'NOT_STARTED' ? 'Upcoming' : game.game_status.replace('_', ' ')}
+                  </span>
+                </div>
+              )}
+              
               <div className="p-6 flex justify-between items-center relative flex-grow">
                 {/* Home */}
                 <div className="text-center w-1/3">
-                  <div className="w-12 h-12 mx-auto bg-slate-800 rounded-full flex items-center justify-center font-bold text-slate-400 mb-2 border border-slate-700 group-hover:border-blue-500 transition">
-                    {game.home_team[0]}
+                  <div className="mx-auto mb-2 flex justify-center">
+                    <TeamLogo teamInfo={game.home_team_info} size="md" />
                   </div>
                   <div className="font-bold text-white text-sm truncate">
-                    {game.home_team}
+                    {game.home_team_info?.team_name || game.home_team}
                   </div>
                   <div
                     className={`font-mono text-2xl font-bold mt-1 ${showProjected ? 'text-blue-400' : 'text-white'}`}
@@ -277,11 +354,11 @@ export default function Matchups() {
 
                 {/* Away */}
                 <div className="text-center w-1/3">
-                  <div className="w-12 h-12 mx-auto bg-slate-800 rounded-full flex items-center justify-center font-bold text-slate-400 mb-2 border border-slate-700 group-hover:border-red-500 transition">
-                    {game.away_team[0]}
+                  <div className="mx-auto mb-2 flex justify-center">
+                    <TeamLogo teamInfo={game.away_team_info} size="md" />
                   </div>
                   <div className="font-bold text-white text-sm truncate">
-                    {game.away_team}
+                    {game.away_team_info?.team_name || game.away_team}
                   </div>
                   <div
                     className={`font-mono text-2xl font-bold mt-1 ${showProjected ? 'text-blue-400' : 'text-white'}`}
@@ -292,7 +369,7 @@ export default function Matchups() {
               </div>
 
               <Link
-                to={`/matchup/${game.id}`}
+                to={`/matchup/${game.id}?view=${showProjected ? 'projected' : 'actual'}`}
                 className="block p-3 bg-slate-950/30 border-t border-slate-800 text-center hover:bg-slate-800 transition"
               >
                 <div className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center justify-center gap-1 mx-auto">

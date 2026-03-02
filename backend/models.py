@@ -22,6 +22,11 @@ class User(Base):
     division_id = Column(Integer, ForeignKey("divisions.id"), nullable=True)
     team_name = Column(String, nullable=True)
     future_draft_budget = Column(Integer, default=0)  # dollars available for future drafts
+    
+    # 1.3 TEAM VISUAL ASSETS
+    team_logo_url = Column(String, nullable=True)
+    team_color_primary = Column(String, nullable=True, default='#3b82f6')  # blue-500
+    team_color_secondary = Column(String, nullable=True, default='#1e40af')  # blue-800
 
     # relationships
     division_obj = relationship("Division", back_populates="users")
@@ -273,6 +278,9 @@ class Matchup(Base):
     home_score = Column(Float, default=0.0)
     away_score = Column(Float, default=0.0)
     is_completed = Column(Boolean, default=False)
+    
+    # Game status: NOT_STARTED, IN_PROGRESS, FINAL
+    game_status = Column(String, default='NOT_STARTED')
 
     league = relationship("League", back_populates="matchups")
     home_team = relationship("User", foreign_keys=[home_team_id], back_populates="home_matches")

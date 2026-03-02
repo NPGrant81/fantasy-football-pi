@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Set
 from pydantic import BaseModel, ConfigDict
@@ -7,6 +7,9 @@ from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner
 import random
+import os
+import shutil
+from pathlib import Path
 
 router = APIRouter(
     prefix="/team",
@@ -50,6 +53,10 @@ class LineupSubmitRequest(BaseModel):
 
 class TaxiUpdateRequest(BaseModel):
     player_id: int
+
+class TeamColorUpdateRequest(BaseModel):
+    color_primary: Optional[str] = None
+    color_secondary: Optional[str] = None
 
 # --- 2. HELPER: THE SMART ALGORITHM ---
 def organize_roster(picks, db: Session, locked_player_ids: Optional[Set[int]] = None):
@@ -470,3 +477,83 @@ def update_team_name(
     current_user.team_name = name_data.get("name")
     db.commit()
     return {"message": "Team name updated!", "new_name": current_user.team_name}
+
+
+@router.post("/update-colors")
+def update_team_colors(
+    color_data: TeamColorUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Update team colors for matchup visualization."""
+    if color_data.color_primary:
+        current_user.team_color_primary = color_data.color_primary
+    if color_data.color_secondary:
+        current_user.team_color_secondary = color_data.color_secondary
+    
+    db.commit()
+    return {
+        "message": "Team colors updated!",
+        "color_primary": current_user.team_color_primary,
+        "color_secondary": current_user.team_color_secondary
+    }
+
+
+@router.post("/upload-logo")
+async def upload_team_logo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Upload a team logo image."""
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only images allowed.")
+    
+    # Create upload directory if it doesn't exist
+    upload_dir = Path("frontend/public/team-logos")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate unique filename
+    file_ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    filename = f"team_{current_user.id}_{int(datetime.now(timezone.utc).timestamp())}.{file_ext}"
+    file_path = upload_dir / filename
+    
+    # Save file
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    
+    # Update user record with relative URL
+    logo_url = f"/team-logos/{filename}"
+    current_user.team_logo_url = logo_url
+    db.commit()
+    
+    return {
+        "message": "Team logo uploaded successfully!",
+        "logo_url": logo_url
+    }
+
+
+@router.delete("/delete-logo")
+def delete_team_logo(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Remove team logo and revert to default."""
+    if current_user.team_logo_url:
+        # Optionally delete the file from disk
+        try:
+            logo_path = Path(f"frontend/public{current_user.team_logo_url}")
+            if logo_path.exists():
+                logo_path.unlink()
+        except Exception:
+            pass  # Don't fail if file deletion fails
+        
+        current_user.team_logo_url = None
+        db.commit()
+    
+    return {"message": "Team logo removed successfully!"}
