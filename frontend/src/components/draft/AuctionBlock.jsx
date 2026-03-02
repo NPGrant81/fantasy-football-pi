@@ -20,9 +20,11 @@ export default function AuctionBlock({
   setWinnerId,
   owners = [],
   activeStats,
+  ownerStatsById = {},
   bidAmount,
   setBidAmount,
   handleDraft,
+  canDraft: canDraftProp,
   timeLeft,
   isTimerRunning,
   reset,
@@ -37,9 +39,26 @@ export default function AuctionBlock({
     ? nominator.team_name || nominator.username
     : 'TBD';
 
-  const isOverBudget = activeStats && bidAmount > activeStats.maxBid;
-  const canDraft = playerName && winnerId && !isOverBudget;
-  const maxBid = activeStats ? activeStats.maxBid : 0;
+  const selectedOwnerStats = ownerStatsById[winnerId] || activeStats || null;
+  const isOverBudget =
+    selectedOwnerStats && bidAmount > selectedOwnerStats.maxBid;
+  const isWinnerFull = selectedOwnerStats?.isFull;
+  const canDraft = Boolean(
+    (canDraftProp ?? (playerName && winnerId)) && !isOverBudget && !isWinnerFull
+  );
+  const maxBid = selectedOwnerStats ? selectedOwnerStats.maxBid : 0;
+
+  const getOwnerOptionMeta = (ownerId) => {
+    const stats = ownerStatsById[ownerId];
+    if (!stats) return { disabled: false, suffix: '' };
+    if (stats.isFull) {
+      return { disabled: true, suffix: ' (FULL)' };
+    }
+    if (bidAmount > stats.maxBid) {
+      return { disabled: true, suffix: ` (MAX $${stats.maxBid})` };
+    }
+    return { disabled: false, suffix: '' };
+  };
 
   // --- 2.1 RENDER ---
   // if only the left portion is requested, render nominator/search/timer panel
@@ -151,8 +170,13 @@ export default function AuctionBlock({
             {owners.length === 0 ? 'No owners available' : 'Select Owner'}
           </option>
           {owners.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.team_name ? `${o.team_name} — ${o.username}` : o.username}
+            <option
+              key={o.id}
+              value={o.id}
+              disabled={getOwnerOptionMeta(o.id).disabled}
+            >
+              {(o.team_name ? `${o.team_name} — ${o.username}` : o.username) +
+                getOwnerOptionMeta(o.id).suffix}
             </option>
           ))}
         </select>
@@ -172,7 +196,7 @@ export default function AuctionBlock({
             +$5
           </button>
           <button
-            onClick={() => setBidAmount(maxBid)}
+            onClick={() => setBidAmount(Math.max(MIN_BID, maxBid))}
             disabled={bidAmount >= maxBid}
             className="flex-1 bg-red-900 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50"
           >
@@ -192,7 +216,16 @@ export default function AuctionBlock({
             type="number"
             className="flex-1 text-center bg-slate-950 text-2xl font-mono font-bold border-y border-slate-700 py-2"
             value={bidAmount}
-            onChange={(e) => setBidAmount(parseInt(e.target.value) || MIN_BID)}
+            onChange={(e) => {
+              const next = parseInt(e.target.value, 10);
+              if (Number.isNaN(next)) {
+                setBidAmount(MIN_BID);
+                return;
+              }
+              setBidAmount(
+                Math.max(MIN_BID, Math.min(maxBid || MIN_BID, next))
+              );
+            }}
           />
         </div>
       </div>
@@ -338,8 +371,13 @@ export default function AuctionBlock({
             {owners.length === 0 ? 'No owners available' : 'Select Owner'}
           </option>
           {owners.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.team_name ? `${o.team_name} — ${o.username}` : o.username}
+            <option
+              key={o.id}
+              value={o.id}
+              disabled={getOwnerOptionMeta(o.id).disabled}
+            >
+              {(o.team_name ? `${o.team_name} — ${o.username}` : o.username) +
+                getOwnerOptionMeta(o.id).suffix}
             </option>
           ))}
         </select>
@@ -358,7 +396,7 @@ export default function AuctionBlock({
             +$5
           </button>
           <button
-            onClick={() => setBidAmount(maxBid)}
+            onClick={() => setBidAmount(Math.max(MIN_BID, maxBid))}
             disabled={bidAmount >= maxBid}
             className="flex-1 bg-red-900 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50"
           >
@@ -378,10 +416,21 @@ export default function AuctionBlock({
             type="number"
             className="flex-1 text-center bg-slate-950 text-2xl font-mono font-bold border-y border-slate-700 py-2"
             value={bidAmount}
-            onChange={(e) => setBidAmount(parseInt(e.target.value) || MIN_BID)}
+            onChange={(e) => {
+              const next = parseInt(e.target.value, 10);
+              if (Number.isNaN(next)) {
+                setBidAmount(MIN_BID);
+                return;
+              }
+              setBidAmount(
+                Math.max(MIN_BID, Math.min(maxBid || MIN_BID, next))
+              );
+            }}
           />
           <button
-            onClick={() => setBidAmount(bidAmount + 1)}
+            onClick={() =>
+              setBidAmount(Math.min(maxBid || MIN_BID, bidAmount + 1))
+            }
             className="w-16 h-12 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-2xl"
           >
             +
@@ -391,6 +440,16 @@ export default function AuctionBlock({
         {activeStats && (
           <div className="text-[10px] font-mono mt-3 text-right">
             Available: ${activeStats.budget} | Max Bid: ${activeStats.maxBid}
+          </div>
+        )}
+        {selectedOwnerStats?.isFull && (
+          <div className="mt-2 text-[10px] font-mono text-right text-red-400">
+            Selected owner roster is full.
+          </div>
+        )}
+        {!selectedOwnerStats?.isFull && isOverBudget && (
+          <div className="mt-2 text-[10px] font-mono text-right text-red-400">
+            Bid exceeds selected owner max (${selectedOwnerStats?.maxBid ?? 0}).
           </div>
         )}
       </div>

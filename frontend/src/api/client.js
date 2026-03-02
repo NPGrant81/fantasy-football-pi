@@ -51,10 +51,21 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 2.2.1 If the server says "Unauthorized" (401), wipe the session
+    // 2.2.1 If the server says "Unauthorized" (401), redirect to login only
+    // for protected app requests (not auth bootstrap/login endpoints).
     if (error.response && error.response.status === 401) {
-      // 2.2.2 Force a refresh to trigger the Path A (Login) in App.jsx
-      window.location.href = '/';
+      const requestUrl = String(error.config?.url || '');
+      const isAuthBootstrap = requestUrl.includes('/auth/me');
+      const isAuthLogin = requestUrl.includes('/auth/token');
+      const isAuthRoute = isAuthBootstrap || isAuthLogin;
+
+      if (
+        !isAuthRoute &&
+        typeof window !== 'undefined' &&
+        window.location.pathname !== '/'
+      ) {
+        window.location.assign('/');
+      }
     }
     return Promise.reject(error);
   }

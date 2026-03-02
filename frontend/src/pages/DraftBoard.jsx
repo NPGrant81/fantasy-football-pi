@@ -29,6 +29,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   const [players, setPlayers] = useState([]);
   const [winnerId, setWinnerId] = useState(activeOwnerId);
   const [draftYear, setDraftYear] = useState(() => new Date().getFullYear());
+  const [rosterSize, setRosterSize] = useState(ROSTER_SIZE);
   const [budgetMap, setBudgetMap] = useState({});
   const [leagueName, setLeagueName] = useState('');
   const [isCommissioner, setIsCommissioner] = useState(false);
@@ -88,6 +89,14 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         console.log('timer expired, forcing draft');
       }
       if (!effectiveWinnerId || !playerName) return;
+      const winnerStats = getOwnerStats(
+        effectiveWinnerId,
+        history,
+        budgetMap,
+        undefined,
+        rosterSize
+      );
+      if (bidAmount > winnerStats.maxBid) return;
       const foundPlayer = players.find(
         (p) => p.name.toLowerCase() === playerName.toLowerCase()
       );
@@ -118,6 +127,8 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       playerName,
       players,
       history,
+      budgetMap,
+      rosterSize,
       bidAmount,
       sessionId,
       draftYear,
@@ -131,7 +142,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     start,
     reset,
     isActive: isTimerRunning,
-  } = useDraftTimer(10, () => handleDraft(true)); // call with forced flag on expiry
+  } = useDraftTimer(5, () => handleDraft(true)); // call with forced flag on expiry
 
   // --- 1.3 SEARCH & POLL ---
 
@@ -189,6 +200,9 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           if (res.data?.draft_year) {
             setDraftYear(res.data.draft_year);
           }
+          if (res.data?.roster_size) {
+            setRosterSize(Number(res.data.roster_size) || ROSTER_SIZE);
+          }
         })
         .catch(() => {});
       const interval = setInterval(fetchHistory, 3000);
@@ -230,10 +244,77 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   }, [owners, history.length]);
 
   const activeStats = useMemo(() => {
-    return effectiveWinnerId
-      ? getOwnerStats(effectiveWinnerId, history, budgetMap)
-      : null;
-  }, [effectiveWinnerId, history, budgetMap]);
+    if (!effectiveWinnerId) return null;
+    return getOwnerStats(
+      effectiveWinnerId,
+      history,
+      budgetMap,
+      undefined,
+      rosterSize
+    );
+  }, [effectiveWinnerId, history, budgetMap, rosterSize]);
+
+  const ownerStatsById = useMemo(() => {
+    const map = {};
+    owners.forEach((owner) => {
+      map[owner.id] = getOwnerStats(
+        owner.id,
+        history,
+        budgetMap,
+        undefined,
+        rosterSize
+      );
+    });
+    return map;
+  }, [owners, history, budgetMap, rosterSize]);
+
+  const ownersWithBudgets = useMemo(() => {
+    return owners.map((owner) => ({
+      ...owner,
+      remaining_budget: ownerStatsById[owner.id]?.budget ?? 0,
+    }));
+  }, [owners, ownerStatsById]);
+
+  useEffect(() => {
+    if (!owners.length) return;
+    const currentStats = ownerStatsById[winnerId];
+    const isCurrentAffordable =
+      !!currentStats &&
+      !currentStats.isFull &&
+      bidAmount <= currentStats.maxBid;
+
+    if (isCurrentAffordable) return;
+
+    const nextOwner = owners.find((owner) => {
+      const stats = ownerStatsById[owner.id];
+      return !!stats && !stats.isFull && bidAmount <= stats.maxBid;
+    });
+
+    if (nextOwner) {
+      setWinnerId(nextOwner.id);
+    }
+  }, [owners, winnerId, bidAmount, ownerStatsById]);
+
+  // keep bid input within valid bounds for selected owner where possible
+  useEffect(() => {
+    if (!activeStats) return;
+    if (activeStats.maxBid <= 0) return;
+    if (bidAmount > activeStats.maxBid) {
+      setBidAmount(activeStats.maxBid);
+    }
+  }, [activeStats, bidAmount]);
+
+  const canCurrentWinnerAfford =
+    !!activeStats && !activeStats.isFull && bidAmount <= activeStats.maxBid;
+
+  const canSubmitDraft = Boolean(
+    playerName && effectiveWinnerId && canCurrentWinnerAfford
+  );
+
+  const winnerBudget = activeStats?.budget ?? 0;
+  const winnerMaxBidAllowed = activeStats?.maxBid ?? 0;
+  const winnerOpenSlotsAllowed = activeStats?.emptySpots ?? 0;
+  const winnerRosterSlotsConfigured = rosterSize;
 
   // --- 2.1 RENDER (content only; header provided by Layout) ---
   // helper used by AuctionBlock to choose a suggestion
@@ -294,7 +375,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       {/* banner rendered below via SessionHeader */}
       <SessionHeader
         sessionId={sessionId}
-        rosterSize={ROSTER_SIZE}
+        rosterSize={rosterSize}
         leagueName={leagueName}
         username={username}
         isCommissioner={isCommissioner}
@@ -318,9 +399,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             setWinnerId={setWinnerId}
             owners={owners}
             activeStats={activeStats}
+            ownerStatsById={ownerStatsById}
             bidAmount={bidAmount}
             setBidAmount={setBidAmount}
             handleDraft={handleDraft}
+            canDraft={canSubmitDraft}
             timeLeft={timeLeft}
             isTimerRunning={isTimerRunning}
             reset={reset}
@@ -329,6 +412,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             isCommissioner={isCommissioner}
             showBestSidebar={showBestSidebar}
             toggleSidebar={(v) => setShowBestSidebar(v)}
+            rosterSize={rosterSize}
+            winnerBudget={winnerBudget}
+            winnerMaxBidAllowed={winnerMaxBidAllowed}
+            winnerOpenSlotsAllowed={winnerOpenSlotsAllowed}
+            winnerRosterSlotsConfigured={winnerRosterSlotsConfigured}
           />
         </div>
       </div>
@@ -341,9 +429,9 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           className={`overflow-x-auto border-r border-slate-800 custom-scrollbar ${showBestSidebar ? 'col-span-12 md:col-span-9' : 'col-span-12'}`}
         >
           <DraftBoardGrid
-            teams={owners}
+            teams={ownersWithBudgets}
             history={history}
-            rosterLimit={ROSTER_SIZE}
+            rosterLimit={rosterSize}
             highlightOwnerId={highlightOwnerId}
             onPlayerClick={openPlayerPerformance}
           />
