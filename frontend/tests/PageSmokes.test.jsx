@@ -60,7 +60,7 @@ describe('DraftBoard (Smoke Test)', () => {
 
     await waitFor(() => {
       expect(container).toBeInTheDocument();
-      expect(screen.getByText(/Nominator:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Nominating Team|Nominator/i)).toBeInTheDocument();
     });
   });
 

@@ -316,6 +316,23 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   const winnerOpenSlotsAllowed = activeStats?.emptySpots ?? 0;
   const winnerRosterSlotsConfigured = rosterSize;
 
+  const lastDraftedText = useMemo(() => {
+    if (!history.length) {
+      return '"Player Name" drafted to "Team Name" for "$XX"';
+    }
+    const latestPick = [...history].sort(
+      (a, b) =>
+        new Date(b.timestamp || 0).getTime() -
+        new Date(a.timestamp || 0).getTime()
+    )[0];
+    const draftedOwner = owners.find((owner) => owner.id === latestPick.owner_id);
+    const draftedTeam =
+      draftedOwner?.team_name || draftedOwner?.username || 'Team Name';
+    const draftedPlayer = latestPick.player_name || 'Player Name';
+    const draftedAmount = Number(latestPick.amount || 0);
+    return `"${draftedPlayer}" drafted to "${draftedTeam}" for "$${draftedAmount}"`;
+  }, [history, owners]);
+
   // --- 2.1 RENDER (content only; header provided by Layout) ---
   // helper used by AuctionBlock to choose a suggestion
   const selectSuggestion = useCallback((p) => {
@@ -412,6 +429,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             isCommissioner={isCommissioner}
             showBestSidebar={showBestSidebar}
             toggleSidebar={(v) => setShowBestSidebar(v)}
+            lastDraftedText={lastDraftedText}
             rosterSize={rosterSize}
             winnerBudget={winnerBudget}
             winnerMaxBidAllowed={winnerMaxBidAllowed}
@@ -424,32 +442,32 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
 
-      <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">
-        <section
-          className={`overflow-x-auto border-r border-slate-800 custom-scrollbar ${showBestSidebar ? 'col-span-12 md:col-span-9' : 'col-span-12'}`}
-        >
-          <DraftBoardGrid
-            teams={ownersWithBudgets}
-            history={history}
-            rosterLimit={rosterSize}
-            highlightOwnerId={highlightOwnerId}
-            onPlayerClick={openPlayerPerformance}
-          />
-        </section>
+      <div className="relative">
+        <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">
+          <section className="overflow-x-auto border-r border-slate-800 custom-scrollbar col-span-12">
+            <DraftBoardGrid
+              teams={ownersWithBudgets}
+              history={history}
+              rosterLimit={rosterSize}
+              highlightOwnerId={highlightOwnerId}
+              onPlayerClick={openPlayerPerformance}
+            />
+          </section>
+        </main>
 
-        <aside
-          className={`${showBestSidebar ? 'block' : 'hidden'} col-span-12 md:col-span-3 max-w-[260px] flex flex-col bg-slate-900/50 p-4 gap-4 overflow-y-auto`}
-        >
-          <BestAvailableList
-            open={showBestSidebar}
-            onToggle={() => setShowBestSidebar(false)}
-            players={players
-              .filter((p) => !history.some((h) => h.player_id === p.id))
-              .sort((a, b) => a.rank - b.rank)
-              .slice(0, 50)}
-          />
-        </aside>
-      </main>
+        {showBestSidebar && (
+          <aside className="absolute right-2 top-2 bottom-2 w-[300px] max-w-[80vw] bg-slate-900/90 border border-slate-700 rounded-lg overflow-hidden z-20 shadow-2xl">
+            <BestAvailableList
+              open={showBestSidebar}
+              onToggle={() => setShowBestSidebar(false)}
+              players={players
+                .filter((p) => !history.some((h) => h.player_id === p.id))
+                .sort((a, b) => a.rank - b.rank)
+                .slice(0, 50)}
+            />
+          </aside>
+        )}
+      </div>
 
       <footer className="bg-slate-900 px-4 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
         <span>SESSION ID: {sessionId}</span>
