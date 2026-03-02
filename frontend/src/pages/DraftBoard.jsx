@@ -402,7 +402,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       {/* auction controls top bar */}
       <div className="w-full">
-        <div className="flex flex-wrap items-end justify-start p-2 bg-slate-900/60">
+        <div className="flex flex-wrap items-end justify-start p-1 bg-slate-900/40">
           {/* auction controls panel handles its own internal alignment */}
           <AuctionBlock
             playerName={playerName}

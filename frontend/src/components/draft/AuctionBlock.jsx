@@ -238,9 +238,9 @@ export default function AuctionBlock({
     <div className="flex flex-col w-full">
       <div
         data-testid="auction-top-row"
-        className="grid grid-cols-1 xl:grid-cols-12 gap-2 w-full"
+        className="grid grid-cols-1 xl:grid-cols-12 gap-0 w-full overflow-hidden border border-slate-700 rounded"
       >
-        <div className="xl:col-span-4 border border-slate-700 bg-slate-900/40 rounded p-2">
+        <div className="xl:col-span-4 border-b xl:border-b-0 xl:border-r border-slate-700 bg-slate-900/40 p-2">
           <div className="flex items-center justify-between text-slate-200 text-sm mb-2">
             <span className="font-semibold">Nominating Team</span>
             <span className="font-bold text-white">{nominatorName}</span>
@@ -295,7 +295,7 @@ export default function AuctionBlock({
           </div>
         </div>
 
-        <div className="xl:col-span-3 border border-slate-700 bg-slate-900/40 rounded p-2">
+        <div className="xl:col-span-3 border-b xl:border-b-0 xl:border-r border-slate-700 bg-slate-900/40 p-2">
           <label className="block text-slate-500 text-[10px] uppercase font-black mb-2">
             Winning Bidder
           </label>
@@ -391,7 +391,7 @@ export default function AuctionBlock({
           )}
         </div>
 
-        <div className="xl:col-span-2 border border-slate-700 bg-slate-900/40 rounded p-2">
+        <div className="xl:col-span-2 border-b xl:border-b-0 xl:border-r border-slate-700 bg-slate-900/40 p-2">
           <div className="text-slate-200 text-[13px] font-semibold mb-2">Draft Timer</div>
           <div className="flex items-center justify-between gap-2">
             {isCommissioner && (
@@ -419,17 +419,17 @@ export default function AuctionBlock({
           </div>
         </div>
 
-        <div className="xl:col-span-2 border border-slate-700 bg-slate-900/40 rounded p-3 flex items-center">
-          <p className="text-amber-400 text-lg leading-tight font-medium">
+        <div className="xl:col-span-2 border-b xl:border-b-0 xl:border-r border-slate-700 bg-slate-900/40 p-3 flex items-center">
+          <p className="text-amber-400 text-xl leading-tight font-medium">
             &lt;Pop-up: {lastDraftedText || '"Player Name" drafted to "Team Name" for "$XX"'}&gt;
           </p>
         </div>
 
         {typeof toggleSidebar === 'function' && (
-          <div className="xl:col-span-1 flex xl:justify-end">
+          <div className="xl:col-span-1 flex bg-slate-900/40">
             <button
               onClick={() => toggleSidebar(!showBestSidebar)}
-              className="w-full xl:w-auto min-h-[112px] px-6 py-3 rounded-3xl bg-slate-200 text-slate-900 text-4xl xl:text-3xl leading-tight font-medium whitespace-pre-line"
+              className="w-full min-h-[112px] px-4 py-3 rounded-none bg-slate-200 text-slate-900 text-3xl xl:text-2xl leading-tight font-medium whitespace-pre-line"
             >
               {showBestSidebar ? 'Hide\nBest' : 'Show\nBest\nAvailable'}
             </button>
@@ -438,7 +438,7 @@ export default function AuctionBlock({
       </div>
 
       {/* sold button row always under controls */}
-      <div className="flex justify-center mt-2">
+      <div className="flex justify-center mt-1">
         <button
           onClick={handleDraft}
           disabled={!canDraft}
