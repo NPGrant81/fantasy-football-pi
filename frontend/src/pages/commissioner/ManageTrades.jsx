@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { Link } from 'react-router-dom';
+import { FiChevronLeft } from 'react-icons/fi';
 import {
   buttonDanger,
   buttonPrimary,
+  buttonSecondary,
   cardSurface,
   pageHeader,
   pageShell,
@@ -13,6 +16,13 @@ import {
 } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
+
+const normalizeTrades = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.trades)) return payload.trades;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+};
 
 export default function ManageTrades() {
   const [trades, setTrades] = useState([]);
@@ -26,8 +36,9 @@ export default function ManageTrades() {
       try {
         // Replace with real endpoint and league context as needed
         const res = await apiClient.get('/trades/pending');
-        setTrades(res.data);
+        setTrades(normalizeTrades(res.data));
       } catch {
+        setTrades([]);
         setMessage('Failed to load trades');
       } finally {
         setLoading(false);
@@ -41,7 +52,7 @@ export default function ManageTrades() {
     try {
       // Replace with real endpoint
       await apiClient.post(`/trades/${tradeId}/${action}`);
-      setTrades(trades.filter((t) => t.id !== tradeId));
+      setTrades((prevTrades) => prevTrades.filter((t) => t.id !== tradeId));
       setMessage(`Trade ${action}d successfully!`);
     } catch {
       setMessage(`Failed to ${action} trade`);
@@ -50,9 +61,17 @@ export default function ManageTrades() {
 
   return (
     <div className={pageShell}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>Manage Trades</h1>
-        <p className={pageSubtitle}>View and review pending trades.</p>
+      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
+        <div>
+          <h1 className={pageTitle}>Manage Trades</h1>
+          <p className={pageSubtitle}>View and review pending trades.</p>
+        </div>
+        <Link
+          to="/commissioner"
+          className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
+        >
+          <FiChevronLeft /> Back
+        </Link>
       </div>
 
       {message && (
@@ -67,7 +86,7 @@ export default function ManageTrades() {
         </h2>
         {loading ? (
           <div className="text-slate-600 dark:text-slate-400">Loading...</div>
-        ) : trades.length === 0 ? (
+        ) : !Array.isArray(trades) || trades.length === 0 ? (
           <div className="text-slate-600 dark:text-slate-400">
             No pending trades.
           </div>

@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { Link } from 'react-router-dom';
+import { FiChevronLeft } from 'react-icons/fi';
 import {
+  buttonSecondary,
   buttonPrimary,
   cardSurface,
   inputBase,
@@ -108,11 +111,19 @@ export default function ManageWaiverRules() {
 
   return (
     <div className={pageShell}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>Manage Waiver Rules</h1>
-        <p className={pageSubtitle}>
-          Configure waiver timing, budget, and tie-break behavior.
-        </p>
+      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
+        <div>
+          <h1 className={pageTitle}>Manage Waiver Rules</h1>
+          <p className={pageSubtitle}>
+            Configure waiver timing, budget, and tie-break behavior.
+          </p>
+        </div>
+        <Link
+          to="/commissioner"
+          className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
+        >
+          <FiChevronLeft /> Back
+        </Link>
       </div>
 
       <form onSubmit={handleSubmit} className={`${cardSurface} mb-0`}>
