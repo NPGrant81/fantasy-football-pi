@@ -246,3 +246,6 @@ Thumbs.db
 .env
 .env.local
 postgres_data/
+
+# OAuth token cache (contains access/refresh tokens – never commit)
+oauth2.json

@@ -5,6 +5,23 @@
 
 ---
 
+## 🗺️ PROJECT MILESTONES
+
+The project is organized into 7 milestones that map development phases from foundation through Release 1.0.  
+See [`docs/milestones/`](docs/milestones/README.md) for full milestone definitions, scope, and completion criteria.
+
+| # | Milestone | Status |
+|---|-----------|--------|
+| 1 | [Core Application Foundation](docs/milestones/milestone-1-core-foundation.md) | 🔄 In Progress |
+| 2 | [Cross‑Platform Compatibility & Deployment](docs/milestones/milestone-2-cross-platform-deployment.md) | ⏳ Planned |
+| 3 | [Security Hardening](docs/milestones/milestone-3-security-hardening.md) | ⏳ Planned |
+| 4 | [Data‑Validation Architecture](docs/milestones/milestone-4-data-validation.md) | ⏳ Planned |
+| 5 | [Gameplay Logic & League Operations](docs/milestones/milestone-5-gameplay-logic.md) | 🔄 In Progress |
+| 6 | [Production Readiness & Monitoring](docs/milestones/milestone-6-production-readiness.md) | ⏳ Planned |
+| 7 | [Release 1.0](docs/milestones/milestone-7-release-1.0.md) | ⏳ Planned |
+
+---
+
 ## 📖 STORY NUMBERING FRAMEWORK
 
 This project uses **Agile Story numbering** to organize features and tasks with clear structure for VS Code file mapping and development sequencing.
