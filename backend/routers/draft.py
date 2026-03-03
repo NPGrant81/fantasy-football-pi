@@ -1,18 +1,35 @@
-from typing import List
-from datetime import datetime
+from pathlib import Path
+from typing import Any, List
+from datetime import datetime, timezone
+import logging
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Internal Imports
 from ..database import get_db
 import models
+from ..schemas.draft import HistoricalRankingResponse
+from ..services.ledger_service import owner_draft_budget_total, owner_has_incoming_credits
+from ..services.draft_rankings_service import get_historical_rankings as get_historical_rankings_service
+from ..core.security import get_current_user
+from ..services.validation_service import (
+    validate_draft_pick_boundary,
+    validate_draft_pick_dynamic_rules,
+)
+from etl.transform.monte_carlo_simulation import (
+    SimulationConfig,
+    key_target_probabilities,
+    run_monte_carlo_from_paths,
+    summarize_team_distribution,
+)
 
 # Create the router
 # Note: We removed the 'prefix' so your current frontend links (/draft-history) 
 # don't break. We can add /draft prefix later when we update the frontend.
 router = APIRouter(tags=["Draft"])
+logger = logging.getLogger(__name__)
 
 # --- 1. WEBSOCKET CONNECTION MANAGER (KEEP THIS!) ---
 # This handles the "Real Time" part (pushing updates to all owners instantly)
@@ -69,6 +86,21 @@ def _get_owner_total_budget(
     owner_id: int,
     draft_year: int,
 ) -> int:
+    if league_id and owner_has_incoming_credits(
+        db,
+        league_id=league_id,
+        owner_id=owner_id,
+        currency_type="DRAFT_DOLLARS",
+        season_year=draft_year,
+    ):
+        return owner_draft_budget_total(
+            db,
+            league_id=league_id,
+            owner_id=owner_id,
+            season_year=draft_year,
+            include_keeper_locks=False,
+        )
+
     budget_row = (
         db.query(models.DraftBudget)
         .filter(
@@ -158,6 +190,137 @@ class DraftPickCreate(BaseModel):
     session_id: str
     year: int | None = None
 
+
+class FocalOwnerStrategyKnobs(BaseModel):
+    aggressiveness_multiplier: float = 1.0
+    position_weights: dict[str, float] | None = None
+    risk_tolerance: float = 0.5
+    player_reliability_weight: float = 1.0
+
+
+class DraftSimulationRequest(BaseModel):
+    perspective_owner_id: int | None = None
+    iterations: int = 500
+    seed: int = 42
+    teams_count: int = 12
+    roster_size: int = 16
+    target_key_players: int = 15
+    yearly_results_path: str | None = None
+    strategy: FocalOwnerStrategyKnobs = FocalOwnerStrategyKnobs()
+
+
+class ModelServingLeagueConfig(BaseModel):
+    teams_count: int | None = None
+    roster_size: int | None = None
+    salary_cap: int | None = None
+    position_weights: dict[str, float] | None = None
+
+
+class ModelServingDraftState(BaseModel):
+    drafted_player_ids: list[int] = Field(default_factory=list)
+    remaining_budget_by_owner: dict[int, float] | None = None
+    remaining_slots_by_owner: dict[int, int] | None = None
+
+
+class ModelServingPredictionRequest(BaseModel):
+    owner_id: int
+    season: int
+    league_id: int | None = None
+    player_ids: list[int] | None = None
+    limit: int = 75
+    model_version: str | None = "current"
+    league_config: ModelServingLeagueConfig | None = None
+    draft_state: ModelServingDraftState | None = None
+
+
+class ModelServingRecommendation(BaseModel):
+    player_id: int
+    player_name: str
+    position: str | None = None
+    value_score: float
+    recommended_bid: float
+    predicted_value: float
+    tier: str | None = None
+    risk_score: float
+    within_owner_budget: bool
+    flags: list[str] = Field(default_factory=list)
+
+
+class ModelServingPredictionResponse(BaseModel):
+    api_version: str
+    model_version_requested: str
+    model_version_resolved: str
+    generated_at: str
+    owner_id: int
+    season: int
+    league_id: int | None = None
+    recommendation_count: int
+    recommendations: list[ModelServingRecommendation]
+
+
+def _resolve_model_version(requested_version: str | None) -> str:
+    requested = (requested_version or "current").strip().lower()
+    if requested in {"", "current", "latest", "default"}:
+        return "historical-rankings-v1"
+    return requested_version or "historical-rankings-v1"
+
+
+def _build_model_recommendations(
+    rows: list[dict[str, Any]],
+    *,
+    owner_budget_remaining: float | None,
+    owner_slots_remaining: int | None,
+) -> list[dict[str, Any]]:
+    max_owner_bid: float | None = None
+    if owner_budget_remaining is not None and owner_slots_remaining is not None:
+        safe_slots = max(int(owner_slots_remaining), 1)
+        max_owner_bid = max(float(owner_budget_remaining) - float(safe_slots - 1), 1.0)
+
+    recommendations: list[dict[str, Any]] = []
+    for row in rows:
+        predicted_value = float(row.get("predicted_auction_value") or 0.0)
+        value_score = float(row.get("final_score") or 0.0)
+
+        reliability_blend = (
+            float(row.get("scoring_consistency_factor") or 1.0)
+            * float(row.get("late_start_consistency_factor") or 1.0)
+            * float(row.get("injury_split_factor") or 1.0)
+            * float(row.get("team_change_factor") or 1.0)
+        )
+        risk_score = max(0.0, min(100.0, (1.0 - min(max(reliability_blend, 0.0), 1.5) / 1.5) * 100.0))
+
+        recommended_bid = max(1.0, predicted_value)
+        within_owner_budget = True
+        if max_owner_bid is not None:
+            if recommended_bid > max_owner_bid:
+                recommended_bid = max_owner_bid
+                within_owner_budget = False
+
+        flags: list[str] = []
+        if risk_score >= 65:
+            flags.append("high-risk")
+        if float(row.get("keeper_scarcity_boost") or 1.0) >= 1.15:
+            flags.append("scarcity-boost")
+        if not within_owner_budget:
+            flags.append("budget-capped")
+
+        recommendations.append(
+            {
+                "player_id": int(row.get("player_id") or 0),
+                "player_name": str(row.get("player_name") or "Unknown"),
+                "position": row.get("position"),
+                "value_score": value_score,
+                "recommended_bid": float(round(recommended_bid, 2)),
+                "predicted_value": float(round(predicted_value, 2)),
+                "tier": row.get("consensus_tier"),
+                "risk_score": float(round(risk_score, 2)),
+                "within_owner_budget": within_owner_budget,
+                "flags": flags,
+            }
+        )
+
+    return recommendations
+
 # --- 3. STANDARD ENDPOINTS (From main.py - The ones working NOW) ---
 
 
@@ -171,8 +334,337 @@ def get_draft_history(session_id: str, db: Session = Depends(get_db)):
 def get_draft_history_alias(session_id: str, db: Session = Depends(get_db)):
     return _get_enriched_history(session_id=session_id, db=db)
 
+
+@router.get("/draft/rankings", response_model=List[HistoricalRankingResponse])
+def get_historical_rankings(
+    season: int,
+    limit: int = 40,
+    league_id: int | None = None,
+    owner_id: int | None = None,
+    position: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.league_id:
+        raise HTTPException(status_code=400, detail="User must belong to a league")
+
+    requested_league_id = league_id if league_id is not None else current_user.league_id
+    if int(requested_league_id) != int(current_user.league_id):
+        raise HTTPException(status_code=403, detail="Cross-league ranking requests are not allowed")
+
+    if owner_id is not None:
+        if not current_user.is_commissioner and int(owner_id) != int(current_user.id):
+            raise HTTPException(
+                status_code=403,
+                detail="Owners can only request rankings for themselves",
+            )
+        target_owner = (
+            db.query(models.User)
+            .filter(
+                models.User.id == owner_id,
+                models.User.league_id == current_user.league_id,
+            )
+            .first()
+        )
+        if not target_owner:
+            raise HTTPException(status_code=404, detail="Owner not found in league")
+
+    return get_historical_rankings_service(
+        db,
+        season=season,
+        limit=limit,
+        league_id=requested_league_id,
+        owner_id=owner_id,
+        position=position,
+    )
+
+
+@router.post("/draft/model/predict", response_model=ModelServingPredictionResponse)
+def predict_model_recommendations(
+    payload: ModelServingPredictionRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.league_id:
+        raise HTTPException(status_code=400, detail="User must belong to a league")
+
+    target_owner = (
+        db.query(models.User)
+        .filter(
+            models.User.id == payload.owner_id,
+            models.User.league_id == current_user.league_id,
+        )
+        .first()
+    )
+    if not target_owner:
+        raise HTTPException(status_code=404, detail="Owner not found in league")
+
+    if not current_user.is_commissioner and int(payload.owner_id) != int(current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail="Owners can only request model recommendations for themselves",
+        )
+
+    requested_league_id = payload.league_id if payload.league_id is not None else current_user.league_id
+    if int(requested_league_id) != int(current_user.league_id):
+        raise HTTPException(status_code=403, detail="Cross-league prediction requests are not allowed")
+
+    resolved_model_version = _resolve_model_version(payload.model_version)
+    safe_limit = max(1, min(int(payload.limit), 200))
+
+    logger.info(
+        "model_predict.request owner_id=%s season=%s league_id=%s model_version=%s limit=%s",
+        payload.owner_id,
+        payload.season,
+        requested_league_id,
+        resolved_model_version,
+        safe_limit,
+    )
+
+    ranking_rows = get_historical_rankings_service(
+        db,
+        season=int(payload.season),
+        limit=max(safe_limit * 2, 100),
+        league_id=int(requested_league_id),
+        owner_id=int(payload.owner_id),
+        position=None,
+    )
+
+    drafted_ids = set(int(player_id) for player_id in (payload.draft_state.drafted_player_ids if payload.draft_state else []))
+    candidate_rows = [
+        row
+        for row in ranking_rows
+        if int(row.get("player_id") or 0) not in drafted_ids
+    ]
+
+    if payload.player_ids:
+        allowed_ids = set(int(player_id) for player_id in payload.player_ids)
+        candidate_rows = [
+            row for row in candidate_rows if int(row.get("player_id") or 0) in allowed_ids
+        ]
+
+    owner_budget_remaining: float | None = None
+    owner_slots_remaining: int | None = None
+    if payload.draft_state and payload.draft_state.remaining_budget_by_owner:
+        owner_budget_remaining = payload.draft_state.remaining_budget_by_owner.get(int(payload.owner_id))
+    if payload.draft_state and payload.draft_state.remaining_slots_by_owner:
+        owner_slots_remaining = payload.draft_state.remaining_slots_by_owner.get(int(payload.owner_id))
+
+    recommendations = _build_model_recommendations(
+        candidate_rows[:safe_limit],
+        owner_budget_remaining=owner_budget_remaining,
+        owner_slots_remaining=owner_slots_remaining,
+    )
+
+    logger.info(
+        "model_predict.response owner_id=%s season=%s recommendation_count=%s",
+        payload.owner_id,
+        payload.season,
+        len(recommendations),
+    )
+
+    return ModelServingPredictionResponse(
+        api_version="v1",
+        model_version_requested=payload.model_version or "current",
+        model_version_resolved=resolved_model_version,
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        owner_id=int(payload.owner_id),
+        season=int(payload.season),
+        league_id=int(requested_league_id),
+        recommendation_count=len(recommendations),
+        recommendations=[ModelServingRecommendation(**row) for row in recommendations],
+    )
+
+
+@router.post("/draft/simulation")
+def run_draft_simulation(
+    payload: DraftSimulationRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.league_id:
+        raise HTTPException(status_code=400, detail="User must belong to a league")
+
+    perspective_owner_id = int(payload.perspective_owner_id or current_user.id)
+    if not current_user.is_commissioner and perspective_owner_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Owners can only run perspective simulations for themselves",
+        )
+
+    perspective_owner = (
+        db.query(models.User)
+        .filter(
+            models.User.id == perspective_owner_id,
+            models.User.league_id == current_user.league_id,
+        )
+        .first()
+    )
+    if not perspective_owner:
+        raise HTTPException(status_code=404, detail="Perspective owner not found in league")
+
+    repo_root = Path(__file__).resolve().parents[2]
+    data_root = repo_root / "backend" / "data"
+
+    draft_results_path = data_root / "draft_results.csv"
+    players_path = data_root / "players.csv"
+    historical_rankings_path = data_root / "historical_rankings.csv"
+    draft_budget_path = data_root / "draft_budget.csv"
+
+    if not draft_results_path.exists() or not players_path.exists() or not historical_rankings_path.exists():
+        raise HTTPException(
+            status_code=400,
+            detail="Required simulation data files are missing in backend/data",
+        )
+
+    yearly_results_path: str | None = None
+    if payload.yearly_results_path:
+        raw_path = Path(payload.yearly_results_path)
+
+        if raw_path.is_absolute():
+            raise HTTPException(
+                status_code=400,
+                detail="Absolute paths are not allowed for yearly_results_path",
+            )
+
+        data_root_resolved = data_root.resolve()
+        candidate = (data_root_resolved / raw_path).resolve()
+
+        if not candidate.is_relative_to(data_root_resolved):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid yearly_results_path; must be within backend/data",
+            )
+
+        yearly_results_path = str(candidate)
+
+    safe_iterations = max(50, min(int(payload.iterations), 10000))
+    safe_teams_count = max(2, min(int(payload.teams_count), 20))
+    safe_roster_size = max(4, min(int(payload.roster_size), 30))
+    safe_target_key_players = max(5, min(int(payload.target_key_players), 50))
+
+    strategy = payload.strategy
+    simulation_config = SimulationConfig(
+        iterations=safe_iterations,
+        seed=int(payload.seed),
+        target_owner_id=perspective_owner_id,
+        teams_count=safe_teams_count,
+        roster_size=safe_roster_size,
+        target_key_players=safe_target_key_players,
+        focal_owner_id=perspective_owner_id,
+        focal_aggressiveness_multiplier=float(strategy.aggressiveness_multiplier),
+        focal_position_weights=strategy.position_weights,
+        focal_risk_tolerance=float(strategy.risk_tolerance),
+        focal_player_reliability_weight=float(strategy.player_reliability_weight),
+    )
+
+    result = run_monte_carlo_from_paths(
+        draft_results_path=str(draft_results_path),
+        players_path=str(players_path),
+        historical_rankings_path=str(historical_rankings_path),
+        draft_budget_path=str(draft_budget_path) if draft_budget_path.exists() else None,
+        yearly_results_path=yearly_results_path,
+        config=simulation_config,
+    )
+
+    focal_summary: dict[str, Any] = {}
+    if not result.owner_summary.empty:
+        focal_summary = result.owner_summary.iloc[0].to_dict()
+
+    focal_distribution = summarize_team_distribution(result.team_metrics, owner_id=perspective_owner_id)
+
+    key_target_rows: list[dict[str, Any]] = []
+    if not result.draft_picks.empty:
+        top_targets = (
+            result.draft_picks[["player_id", "player_name", "predicted_auction_value"]]
+            .drop_duplicates(subset=["player_id"])
+            .sort_values("predicted_auction_value", ascending=False)
+            .head(safe_target_key_players)
+        )
+        probability_df = key_target_probabilities(
+            result.draft_picks,
+            owner_id=perspective_owner_id,
+            target_player_ids=top_targets["player_id"].tolist(),
+            iterations=safe_iterations,
+        )
+        probability_df = probability_df.merge(
+            top_targets[["player_id", "player_name"]],
+            on="player_id",
+            how="left",
+        ).sort_values("probability", ascending=False)
+
+        key_target_rows = [
+            {
+                "player_id": int(row.player_id),
+                "player_name": row.player_name,
+                "probability": float(row.probability),
+                "hit_count": int(row.hit_count),
+            }
+            for row in probability_df.itertuples(index=False)
+        ]
+
+    league_owner_means = (
+        result.team_metrics.groupby("owner_id", as_index=False)
+        .agg(
+            avg_projected_points=("projected_points", "mean"),
+            avg_total_spend=("total_spend", "mean"),
+        )
+    )
+    focal_context_row = league_owner_means[league_owner_means["owner_id"] == perspective_owner_id]
+
+    focal_avg_points = (
+        float(focal_context_row.iloc[0]["avg_projected_points"]) if not focal_context_row.empty else 0.0
+    )
+    league_avg_points = (
+        float(league_owner_means["avg_projected_points"].mean()) if not league_owner_means.empty else 0.0
+    )
+
+    return {
+        "perspective_owner_id": perspective_owner_id,
+        "league_id": current_user.league_id,
+        "iterations": safe_iterations,
+        "focal_owner_summary": focal_summary,
+        "focal_points_distribution": focal_distribution,
+        "key_target_probabilities": key_target_rows,
+        "league_context": {
+            "focal_avg_projected_points": focal_avg_points,
+            "league_avg_projected_points": league_avg_points,
+            "delta_vs_league_avg": float(focal_avg_points - league_avg_points),
+        },
+        "used_strategy": {
+            "aggressiveness_multiplier": simulation_config.focal_aggressiveness_multiplier,
+            "position_weights": simulation_config.resolved_focal_position_weights(),
+            "risk_tolerance": simulation_config.focal_risk_tolerance,
+            "player_reliability_weight": simulation_config.focal_player_reliability_weight,
+        },
+    }
+
 @router.post("/draft-pick")
 async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
+    boundary_report = validate_draft_pick_boundary(
+        {
+            "owner_id": pick.owner_id,
+            "player_id": pick.player_id,
+            "amount": pick.amount,
+            "session_id": pick.session_id,
+            "year": pick.year,
+        }
+    )
+    if not boundary_report.valid:
+        raise HTTPException(status_code=400, detail=boundary_report.errors)
+
+    dynamic_report = validate_draft_pick_dynamic_rules(
+        {
+            "owner_id": pick.owner_id,
+            "player_id": pick.player_id,
+            "amount": pick.amount,
+            "session_id": pick.session_id,
+            "year": pick.year,
+        }
+    )
+    if not dynamic_report.valid:
+        raise HTTPException(status_code=400, detail=dynamic_report.errors)
+
     # 1. Validation Logic
     player = db.query(models.Player).filter(models.Player.id == pick.player_id).first()
     if not player:

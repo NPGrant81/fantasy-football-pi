@@ -240,3 +240,52 @@ def test_update_scoring_rules_storage(db_session):
     assert float(rule.range_max) == 999
     assert rule.calculation_type == "per_unit"
     assert rule.applicable_positions == ["QB"]
+
+
+def test_update_league_settings_rejects_invalid_dynamic_values(db_session):
+    league = models.League(name="InvalidSettingsLeague")
+    db_session.add(league)
+    db_session.commit()
+    db_session.refresh(league)
+
+    commish = models.User(
+        username="commish-invalid-settings",
+        email=None,
+        hashed_password="h",
+        is_commissioner=True,
+        league_id=league.id,
+    )
+    db_session.add(commish)
+    db_session.commit()
+
+    from backend.routers.league import LeagueConfigFull, ScoringRuleSchema, update_league_settings
+
+    config = LeagueConfigFull(
+        roster_size=8,
+        salary_cap=200,
+        starting_slots={"QB": 1, "RB": 4, "WR": 4},
+        waiver_system="NOT_A_SYSTEM",
+        waiver_tiebreaker="coinflip",
+        scoring_rules=[
+            ScoringRuleSchema(
+                category="passing",
+                event_name="Passing Yards",
+                description="Yards gained",
+                range_min=0,
+                range_max=999,
+                point_value=0.1,
+                calculation_type="per_unit",
+                applicable_positions=["QB"],
+            )
+        ],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        update_league_settings(
+            league_id=league.id,
+            config=config,
+            current_user=commish,
+            db=db_session,
+        )
+
+    assert exc.value.status_code == 400

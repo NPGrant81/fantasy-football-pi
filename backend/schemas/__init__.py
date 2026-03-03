@@ -9,7 +9,7 @@ from .league import League, LeagueCreate, Team, TeamCreate
 # from .league import LeagueShow 
 
 # 3. DRAFT (The new logic we just built)
-from .draft import DraftPickCreate, DraftPickShow, DraftPickBase
+from .draft import DraftPickCreate, DraftPickShow, DraftPickBase, HistoricalRankingResponse
 
 # 4. SCORING
 from .scoring import ScoringRule, ScoringRuleCreate

@@ -169,6 +169,14 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
           />
 
           <MenuBlock
+            to="/ledger"
+            title="Ledger"
+            desc="My bank statement"
+            icon={FiTrendingUp}
+            onClick={onClose}
+          />
+
+          <MenuBlock
             to="/playoffs"
             title="Playoff Bracket"
             desc="View bracket"

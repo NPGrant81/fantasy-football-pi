@@ -20,8 +20,10 @@ if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from backend.models import Player
-from backend.models_draft_value import PlayerIDMapping, PlatformProjection
+from backend.models_draft_value import DraftValue, PlayerIDMapping, PlatformProjection
 from backend.database import Base
+from etl.validation.dataframe_validation import validate_normalized_players_dataframe
+from etl.validation.great_expectations_runner import run_normalized_players_expectations
 
 # Update this with your actual DB URL or use env var
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password123@localhost/fantasy_pi")
@@ -30,6 +32,18 @@ SessionLocal = sessionmaker(bind=engine)
 
 
 def load_normalized_source_to_db(norm_df: pd.DataFrame, season: int, source: str):
+    dataframe_report = validate_normalized_players_dataframe(norm_df)
+    if not dataframe_report.valid:
+        raise ValueError(
+            f"DataFrame validation failed ({dataframe_report.engine}): {dataframe_report.errors}"
+        )
+
+    expectation_report = run_normalized_players_expectations(norm_df)
+    if not expectation_report.success:
+        raise ValueError(
+            f"Expectation validation failed ({expectation_report.engine}): {expectation_report.details}"
+        )
+
     session = SessionLocal()
     for _, row in norm_df.iterrows():
         # Try to find Player by gsis_id, fallback to name/position/team
@@ -88,6 +102,43 @@ def load_normalized_source_to_db(norm_df: pd.DataFrame, season: int, source: str
             raw_json=row.to_dict()
         )
         session.add(projection)
+    session.commit()
+    session.close()
+
+
+def load_historical_rankings_to_db(rankings_df: pd.DataFrame, season: int):
+    required_columns = {
+        "player_id",
+        "predicted_auction_value",
+        "median_bid",
+        "value_over_replacement",
+        "consensus_tier",
+    }
+    missing = required_columns - set(rankings_df.columns)
+    if missing:
+        raise ValueError(f"Rankings DataFrame missing required columns: {sorted(missing)}")
+
+    session = SessionLocal()
+    for _, row in rankings_df.iterrows():
+        player_id = int(row["player_id"])
+        existing = (
+            session.query(DraftValue)
+            .filter(
+                DraftValue.player_id == player_id,
+                DraftValue.season == season,
+            )
+            .first()
+        )
+        if not existing:
+            existing = DraftValue(player_id=player_id, season=season)
+            session.add(existing)
+
+        existing.avg_auction_value = float(row.get("predicted_auction_value") or 0)
+        existing.median_adp = float(row.get("median_bid") or 0)
+        existing.consensus_tier = str(row.get("consensus_tier") or "C")
+        existing.value_over_replacement = float(row.get("value_over_replacement") or 0)
+        existing.last_updated = pd.Timestamp.utcnow().isoformat()
+
     session.commit()
     session.close()
 

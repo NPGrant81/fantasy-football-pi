@@ -103,6 +103,10 @@ jobs:
 
       - name: Install frontend deps
         working-directory: frontend
+        env:
+          # Cypress binary is not needed for lint/unit tests; skip the download
+          # to avoid failures when download.cypress.io is unreachable.
+          CYPRESS_INSTALL_BINARY: "0"
         run: |
           npm ci --legacy-peer-deps
 
@@ -138,6 +142,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Cache Cypress binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            cypress-${{ runner.os }}-
 
       - name: Install frontend deps
         working-directory: frontend

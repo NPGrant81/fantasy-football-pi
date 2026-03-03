@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, func, case
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner # Use our new auth system
+from ..services.ledger_service import owner_balance, owner_draft_budget_total, owner_has_incoming_credits, record_ledger_entry
+from ..services.validation_service import (
+    validate_league_settings_boundary,
+    validate_league_settings_dynamic_rules,
+)
 import secrets
 import string
 from utils.email_sender import send_invite_email
@@ -79,6 +84,31 @@ class WaiverBudgetSchema(BaseModel):
     starting_budget: int
     remaining_budget: int
     spent_budget: int
+
+
+class LedgerEntrySchema(BaseModel):
+    id: int
+    created_at: Optional[str] = None
+    season_year: Optional[int] = None
+    currency_type: str
+    transaction_type: str
+    amount: int
+    from_owner_id: Optional[int] = None
+    to_owner_id: Optional[int] = None
+    direction: str
+    reference_type: Optional[str] = None
+    reference_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class LedgerStatementSchema(BaseModel):
+    league_id: int
+    owner_id: int
+    currency_type: Optional[str] = None
+    season_year: Optional[int] = None
+    balance: int
+    entry_count: int
+    entries: List[LedgerEntrySchema]
 
 
 def validate_lineup_rules(config: LeagueConfigFull) -> None:
@@ -361,6 +391,87 @@ def join_league(league_id: int, current_user: models.User = Depends(get_current_
 # --- Waiver budget endpoint ---
 @router.get("/{league_id}/waiver-budgets", response_model=List[WaiverBudgetSchema])
 def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
+    has_faab_ledger = (
+        db.query(models.EconomicLedger.id)
+        .filter(
+            models.EconomicLedger.league_id == league_id,
+            models.EconomicLedger.currency_type == "FAAB",
+        )
+        .first()
+        is not None
+    )
+
+    if has_faab_ledger:
+        users = db.query(models.User).filter(models.User.league_id == league_id).all()
+        legacy_records = (
+            db.query(models.WaiverBudget)
+            .filter(models.WaiverBudget.league_id == league_id)
+            .all()
+        )
+        legacy_by_owner = {r.owner_id: r for r in legacy_records}
+
+        response: list[WaiverBudgetSchema] = []
+        for user in users:
+            incoming_total = (
+                db.query(func.coalesce(func.sum(models.EconomicLedger.amount), 0))
+                .filter(
+                    models.EconomicLedger.league_id == league_id,
+                    models.EconomicLedger.currency_type == "FAAB",
+                    models.EconomicLedger.to_owner_id == user.id,
+                )
+                .scalar()
+            )
+
+            owner_has_credit_history = int(incoming_total or 0) > 0
+            legacy = legacy_by_owner.get(user.id)
+            if not owner_has_credit_history and legacy is not None:
+                response.append(
+                    WaiverBudgetSchema(
+                        owner_id=legacy.owner_id,
+                        starting_budget=int(legacy.starting_budget or 0),
+                        remaining_budget=int(legacy.remaining_budget or 0),
+                        spent_budget=int(legacy.spent_budget or 0),
+                    )
+                )
+                continue
+
+            starting_budget = (
+                db.query(func.coalesce(func.sum(models.EconomicLedger.amount), 0))
+                .filter(
+                    models.EconomicLedger.league_id == league_id,
+                    models.EconomicLedger.currency_type == "FAAB",
+                    models.EconomicLedger.to_owner_id == user.id,
+                    models.EconomicLedger.from_owner_id.is_(None),
+                )
+                .scalar()
+            )
+            spent_budget = (
+                db.query(func.coalesce(func.sum(models.EconomicLedger.amount), 0))
+                .filter(
+                    models.EconomicLedger.league_id == league_id,
+                    models.EconomicLedger.currency_type == "FAAB",
+                    models.EconomicLedger.from_owner_id == user.id,
+                    models.EconomicLedger.to_owner_id.is_(None),
+                )
+                .scalar()
+            )
+
+            response.append(
+                WaiverBudgetSchema(
+                    owner_id=user.id,
+                    starting_budget=int(starting_budget or 0),
+                    remaining_budget=owner_balance(
+                        db,
+                        league_id=league_id,
+                        owner_id=user.id,
+                        currency_type="FAAB",
+                    ),
+                    spent_budget=int(spent_budget or 0),
+                )
+            )
+
+        return response
+
     records = (
         db.query(models.WaiverBudget)
         .filter(models.WaiverBudget.league_id == league_id)
@@ -533,6 +644,27 @@ def update_league_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    settings_payload = {
+        "roster_size": config.roster_size,
+        "salary_cap": config.salary_cap,
+        "starting_slots": config.starting_slots,
+        "waiver_deadline": config.waiver_deadline,
+        "starting_waiver_budget": config.starting_waiver_budget,
+        "waiver_system": config.waiver_system,
+        "waiver_tiebreaker": config.waiver_tiebreaker,
+        "trade_deadline": config.trade_deadline,
+        "draft_year": config.draft_year,
+        "scoring_rules": [rule.model_dump() for rule in config.scoring_rules],
+    }
+
+    boundary_report = validate_league_settings_boundary(settings_payload)
+    if not boundary_report.valid:
+        raise HTTPException(status_code=400, detail=boundary_report.errors)
+
+    dynamic_report = validate_league_settings_dynamic_rules(settings_payload)
+    if not dynamic_report.valid:
+        raise HTTPException(status_code=400, detail=dynamic_report.errors)
+
     validate_lineup_rules(config)
 
     # 1. Update Settings
@@ -604,22 +736,64 @@ def get_league_budgets(
     db: Session = Depends(get_db)
 ):
     owners = db.query(models.User).filter(models.User.league_id == league_id).all()
+    has_draft_ledger = (
+        db.query(models.EconomicLedger.id)
+        .filter(
+            models.EconomicLedger.league_id == league_id,
+            models.EconomicLedger.currency_type == "DRAFT_DOLLARS",
+            models.EconomicLedger.season_year == year,
+        )
+        .first()
+        is not None
+    )
+
+    legacy_budget_map: dict[int, int | None] = {}
     try:
         budgets = db.query(models.DraftBudget).filter(
             models.DraftBudget.league_id == league_id,
             models.DraftBudget.year == year
         ).all()
+        legacy_budget_map = {b.owner_id: b.total_budget for b in budgets}
     except Exception:
         # if the budgets table doesn't exist yet (migration not applied)
         budgets = []
-    budget_map = {b.owner_id: b.total_budget for b in budgets}
+
+    if has_draft_ledger:
+        rows = []
+        for owner in owners:
+            if owner_has_incoming_credits(
+                db,
+                league_id=league_id,
+                owner_id=owner.id,
+                currency_type="DRAFT_DOLLARS",
+                season_year=year,
+            ):
+                total_budget = owner_draft_budget_total(
+                    db,
+                    league_id=league_id,
+                    owner_id=owner.id,
+                    season_year=year,
+                    include_keeper_locks=False,
+                )
+            else:
+                total_budget = legacy_budget_map.get(owner.id)
+
+            rows.append(
+                {
+                    "owner_id": owner.id,
+                    "username": owner.username,
+                    "team_name": owner.team_name,
+                    "total_budget": total_budget,
+                }
+            )
+        return rows
 
     return [
         {
             "owner_id": owner.id,
             "username": owner.username,
             "team_name": owner.team_name,
-            "total_budget": budget_map.get(owner.id),
+            "total_budget": legacy_budget_map.get(owner.id),
         }
         for owner in owners
     ]
@@ -633,23 +807,188 @@ def update_league_budgets(
 ):
     year = payload.year
     for entry in payload.budgets:
+        current_total = 0
+        has_credits = owner_has_incoming_credits(
+            db,
+            league_id=league_id,
+            owner_id=entry.owner_id,
+            currency_type="DRAFT_DOLLARS",
+            season_year=year,
+        )
+        if has_credits:
+            current_total = owner_draft_budget_total(
+                db,
+                league_id=league_id,
+                owner_id=entry.owner_id,
+                season_year=year,
+                include_keeper_locks=False,
+            )
+
         existing = db.query(models.DraftBudget).filter(
             models.DraftBudget.league_id == league_id,
             models.DraftBudget.owner_id == entry.owner_id,
             models.DraftBudget.year == year
         ).first()
+
+        if not has_credits and existing and existing.total_budget is not None:
+            current_total = int(existing.total_budget)
+
+        target_total = int(entry.total_budget)
+        delta = target_total - int(current_total)
+        if delta > 0:
+            record_ledger_entry(
+                db,
+                league_id=league_id,
+                season_year=year,
+                currency_type="DRAFT_DOLLARS",
+                amount=int(delta),
+                from_owner_id=None,
+                to_owner_id=entry.owner_id,
+                transaction_type="SEASON_ALLOCATION",
+                reference_type="LEAGUE_BUDGETS",
+                reference_id=f"{league_id}:{year}:{entry.owner_id}",
+                notes="commissioner budget set increase",
+                created_by_user_id=current_user.id,
+            )
+        elif delta < 0:
+            record_ledger_entry(
+                db,
+                league_id=league_id,
+                season_year=year,
+                currency_type="DRAFT_DOLLARS",
+                amount=abs(int(delta)),
+                from_owner_id=entry.owner_id,
+                to_owner_id=None,
+                transaction_type="COMMISSIONER_ADJUSTMENT_DEBIT",
+                reference_type="LEAGUE_BUDGETS",
+                reference_id=f"{league_id}:{year}:{entry.owner_id}",
+                notes="commissioner budget set decrease",
+                created_by_user_id=current_user.id,
+            )
+
         if existing:
-            existing.total_budget = entry.total_budget
+            existing.total_budget = target_total
         else:
             db.add(models.DraftBudget(
                 league_id=league_id,
                 owner_id=entry.owner_id,
                 year=year,
-                total_budget=entry.total_budget
+                total_budget=target_total
             ))
 
     db.commit()
     return {"message": "Budgets updated", "year": year}
+
+
+@router.get("/{league_id}/ledger/statement", response_model=LedgerStatementSchema)
+def get_ledger_statement(
+    league_id: int,
+    owner_id: Optional[int] = Query(None),
+    currency_type: Optional[str] = Query(None),
+    season_year: Optional[int] = Query(None),
+    limit: int = Query(200, ge=1, le=1000),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.league_id != league_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: user is not in this league.",
+        )
+
+    target_owner_id = owner_id if owner_id is not None else current_user.id
+    if not current_user.is_commissioner and target_owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: owner can only view their own ledger.",
+        )
+
+    target_owner = (
+        db.query(models.User)
+        .filter(models.User.id == target_owner_id, models.User.league_id == league_id)
+        .first()
+    )
+    if not target_owner:
+        raise HTTPException(status_code=404, detail="Owner not found in league")
+
+    query = db.query(models.EconomicLedger).filter(
+        models.EconomicLedger.league_id == league_id,
+        or_(
+            models.EconomicLedger.to_owner_id == target_owner_id,
+            models.EconomicLedger.from_owner_id == target_owner_id,
+        ),
+    )
+
+    if currency_type:
+        query = query.filter(models.EconomicLedger.currency_type == currency_type)
+    if season_year is not None:
+        query = query.filter(models.EconomicLedger.season_year == season_year)
+
+    entries = (
+        query.order_by(models.EconomicLedger.created_at.desc(), models.EconomicLedger.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+    balance_query = db.query(func.coalesce(func.sum(
+        case(
+            (models.EconomicLedger.to_owner_id == target_owner_id, models.EconomicLedger.amount),
+            else_=0,
+        ) - case(
+            (models.EconomicLedger.from_owner_id == target_owner_id, models.EconomicLedger.amount),
+            else_=0,
+        )
+    ), 0)).filter(
+        models.EconomicLedger.league_id == league_id,
+        or_(
+            models.EconomicLedger.to_owner_id == target_owner_id,
+            models.EconomicLedger.from_owner_id == target_owner_id,
+        ),
+    )
+    if currency_type:
+        balance_query = balance_query.filter(models.EconomicLedger.currency_type == currency_type)
+    if season_year is not None:
+        balance_query = balance_query.filter(models.EconomicLedger.season_year == season_year)
+
+    balance = int(balance_query.scalar() or 0)
+
+    payload_entries = []
+    for entry in entries:
+        if entry.to_owner_id == target_owner_id and entry.from_owner_id == target_owner_id:
+            direction = "TRANSFER"
+        elif entry.to_owner_id == target_owner_id:
+            direction = "CREDIT"
+        elif entry.from_owner_id == target_owner_id:
+            direction = "DEBIT"
+        else:
+            direction = "NEUTRAL"
+
+        payload_entries.append(
+            LedgerEntrySchema(
+                id=entry.id,
+                created_at=entry.created_at.isoformat() if entry.created_at else None,
+                season_year=entry.season_year,
+                currency_type=entry.currency_type,
+                transaction_type=entry.transaction_type,
+                amount=int(entry.amount or 0),
+                from_owner_id=entry.from_owner_id,
+                to_owner_id=entry.to_owner_id,
+                direction=direction,
+                reference_type=entry.reference_type,
+                reference_id=entry.reference_id,
+                notes=entry.notes,
+            )
+        )
+
+    return LedgerStatementSchema(
+        league_id=league_id,
+        owner_id=target_owner_id,
+        currency_type=currency_type,
+        season_year=season_year,
+        balance=balance,
+        entry_count=len(payload_entries),
+        entries=payload_entries,
+    )
 
 # --- NEW: USER MANAGEMENT ENDPOINTS ---
 

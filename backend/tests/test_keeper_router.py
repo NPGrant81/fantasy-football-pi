@@ -158,3 +158,22 @@ def test_admin_settings_and_actions():
     reset_league_keepers(owner_id=None, db=db_session, current_user=current_comm)
     post2 = get_my_keepers(db=db_session, current_user=CU(other))
     assert post2.selected_count == 0
+
+
+def test_update_keeper_settings_rejects_invalid_values():
+    db_session = setup_db()
+    league = make_league(db_session)
+    comm = make_user(db_session, league, "comm-invalid", is_comm=True)
+    current_comm = CU(comm)
+
+    from backend.routers.keepers import KeeperSettingsUpdate
+
+    invalid = KeeperSettingsUpdate(
+        max_keepers=50,
+        cost_type="bad_type",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        update_keeper_settings(update=invalid, db=db_session, current_user=current_comm)
+
+    assert exc.value.status_code == 400

@@ -22,3 +22,24 @@ class DraftPickShow(DraftPickBase):
     
     # migrated from Config class to ConfigDict for Pydantic v2
     model_config = ConfigDict(from_attributes=True)
+
+
+class HistoricalRankingResponse(BaseModel):
+    player_id: int
+    player_name: str
+    position: Optional[str] = None
+    season: int
+    rank: int
+    predicted_auction_value: float
+    value_over_replacement: float
+    consensus_tier: Optional[str] = None
+    final_score: float = 0.0
+    league_position_weight: float = 1.0
+    owner_position_affinity: float = 1.0
+    owner_player_affinity: float = 1.0
+    keeper_scarcity_boost: float = 1.0
+    availability_factor: float = 1.0
+    scoring_consistency_factor: float = 1.0
+    late_start_consistency_factor: float = 1.0
+    injury_split_factor: float = 1.0
+    team_change_factor: float = 1.0

@@ -8,6 +8,7 @@ import {
   FiDollarSign,
   FiTool,
   FiRepeat,
+  FiBookOpen,
 } from 'react-icons/fi';
 
 // Professional Imports
@@ -145,6 +146,16 @@ export default function CommissionerDashboard() {
           loading={false}
           actionLabel="Edit Keeper Rules"
           tone="indigo"
+        />
+        <AdminActionCard
+          icon={FiBookOpen}
+          badge="LEDGER"
+          title="Ledger Statement"
+          description="Review owner transaction history and derived balances."
+          onClick={() => navigate('/commissioner/ledger-statement')}
+          loading={false}
+          actionLabel="View Ledger"
+          tone="blue"
         />
       </div>
     </div>

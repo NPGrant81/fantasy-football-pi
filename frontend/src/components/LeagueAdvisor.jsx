@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { bgColors, textColors, borderColors } from '../utils/uiHelpers';
 import { GeminiBadge } from './chat';
+import { INSIGHT_VOCABULARY_HINT } from './draft/insights/insightVocabulary';
 // ESLint doesn't properly detect JSX component usage, so suppressions below
 
 import { FiSend } from 'react-icons/fi';
@@ -31,7 +32,7 @@ export default function ChatInterface({ initialQuery = '' }) {
   const [messages, setMessages] = useState([
     {
       role: 'ai',
-      text: 'I am your Gemini GM Advisor. Ask me about sleepers, value picks, or roster strategy.',
+      text: 'I am your Gemini GM Advisor. Ask me about sleepers, value picks, or roster strategy. I can also explain ValueScore, ConfidenceBand, RiskScore, Scarcity, and StrategyAlignment.',
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,11 +63,12 @@ export default function ChatInterface({ initialQuery = '' }) {
       setIsLoading(true);
 
       try {
+        const enrichedQuery = `${activeQuery}\n\n[Insight Vocabulary Preference]\n${INSIGHT_VOCABULARY_HINT}`;
         // 2.1.2 EXECUTION: JSON body delivery (Standard-compliant)
         const res = await apiClient.post(
           '/advisor/ask',
           {
-            user_query: activeQuery,
+            user_query: enrichedQuery,
             username: userInfo.username,
             league_id: userInfo.leagueId,
           },

@@ -5,6 +5,10 @@ from typing import List, Optional, Dict, Any
 from ..database import get_db
 from .. import models
 from ..routers.league import get_league_owners
+from ..services.validation_service import (
+    validate_playoff_settings_boundary,
+    validate_playoff_settings_dynamic_rules,
+)
 from utils import playoff_logic
 
 router = APIRouter(
@@ -67,8 +71,17 @@ def get_settings(league_id: int = Query(...), db: Session = Depends(get_db)):
 
 @router.patch("/settings", response_model=PlayoffSettingsSchema)
 def update_settings(payload: SettingsUpdateRequest, league_id: int = Query(...), db: Session = Depends(get_db)):
+    patch_payload = payload.model_dump(exclude_unset=True)
+    boundary_report = validate_playoff_settings_boundary(patch_payload)
+    if not boundary_report.valid:
+        raise HTTPException(status_code=400, detail=boundary_report.errors)
+
+    dynamic_report = validate_playoff_settings_dynamic_rules(patch_payload)
+    if not dynamic_report.valid:
+        raise HTTPException(status_code=400, detail=dynamic_report.errors)
+
     settings = _load_settings(db, league_id)
-    for field, val in payload.model_dump(exclude_unset=True).items():
+    for field, val in patch_payload.items():
         setattr(settings, field, val)
     db.commit()
     db.refresh(settings)

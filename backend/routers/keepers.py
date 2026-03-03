@@ -9,6 +9,10 @@ from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, get_current_active_admin
 from ..services import keeper_service
+from ..services.validation_service import (
+    validate_keeper_settings_boundary,
+    validate_keeper_settings_dynamic_rules,
+)
 
 router = APIRouter(
     prefix="/keepers",
@@ -310,6 +314,17 @@ def update_keeper_settings(
 ):
     if not current_user.is_commissioner:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
+
+    payload = update.model_dump(exclude_unset=True)
+
+    boundary_report = validate_keeper_settings_boundary(payload)
+    if not boundary_report.valid:
+        raise HTTPException(status_code=400, detail=boundary_report.errors)
+
+    dynamic_report = validate_keeper_settings_dynamic_rules(payload)
+    if not dynamic_report.valid:
+        raise HTTPException(status_code=400, detail=dynamic_report.errors)
+
     rules = (
         db.query(models.KeeperRules)
         .filter(models.KeeperRules.league_id == current_user.league_id)
@@ -320,7 +335,7 @@ def update_keeper_settings(
         rules = models.KeeperRules(league_id=current_user.league_id)
         db.add(rules)
     # pydantic v2 uses model_dump instead of dict
-    for field, val in update.model_dump(exclude_unset=True).items():
+    for field, val in payload.items():
         setattr(rules, field, val)
     db.commit()
     db.refresh(rules)

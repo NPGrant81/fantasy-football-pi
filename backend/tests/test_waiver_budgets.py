@@ -80,3 +80,53 @@ def test_get_waiver_budgets_with_record(client):
     entry = data[0]
     assert entry["owner_id"] == user.id
     assert entry["remaining_budget"] == 80
+
+
+def test_get_waiver_budgets_uses_ledger_when_present(client):
+    league = models.League(name="Test League Ledger")
+    user = models.User(username="ledger-bob", hashed_password="x", league_id=1)
+    db = client.app.dependency_overrides[get_db]().__next__()
+    db.add(league)
+    db.commit()
+
+    user.league_id = league.id
+    db.add(user)
+    db.commit()
+
+    db.add(
+        models.EconomicLedger(
+            league_id=league.id,
+            season_year=2026,
+            currency_type="FAAB",
+            amount=100,
+            from_owner_id=None,
+            to_owner_id=user.id,
+            transaction_type="SEASON_ALLOCATION",
+            reference_type="LEAGUE_SETTINGS",
+            reference_id=f"{league.id}:2026",
+        )
+    )
+    db.add(
+        models.EconomicLedger(
+            league_id=league.id,
+            season_year=2026,
+            currency_type="FAAB",
+            amount=25,
+            from_owner_id=user.id,
+            to_owner_id=None,
+            transaction_type="WAIVER_CLAIM_BID",
+            reference_type="DRAFT_PICK",
+            reference_id="1",
+        )
+    )
+    db.commit()
+
+    res = client.get(f"/leagues/{league.id}/waiver-budgets")
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 1
+    entry = data[0]
+    assert entry["owner_id"] == user.id
+    assert entry["starting_budget"] == 100
+    assert entry["spent_budget"] == 25
+    assert entry["remaining_budget"] == 75

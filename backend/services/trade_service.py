@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from .. import models
 from datetime import datetime
+from .ledger_service import record_ledger_entry
 
 
 def execute_trade(db: Session, trade_id: int, approver_id: int) -> models.TradeProposal:
@@ -45,6 +46,38 @@ def execute_trade(db: Session, trade_id: int, approver_id: int) -> models.TradeP
     # cast to int so SQLite driver doesn't try to bind Decimal objects
     from_user.future_draft_budget = int(from_user.future_draft_budget + (a_req - a_off))
     to_user.future_draft_budget = int(to_user.future_draft_budget + (a_off - a_req))
+
+    if int(a_off) > 0:
+        record_ledger_entry(
+            db,
+            league_id=trade.league_id,
+            season_year=None,
+            currency_type="DRAFT_DOLLARS",
+            amount=int(a_off),
+            from_owner_id=from_user.id,
+            to_owner_id=to_user.id,
+            transaction_type="TRADE_DOLLARS",
+            reference_type="TRADE_PROPOSAL",
+            reference_id=str(trade.id),
+            notes="trade offered dollars",
+            created_by_user_id=approver_id,
+        )
+
+    if int(a_req) > 0:
+        record_ledger_entry(
+            db,
+            league_id=trade.league_id,
+            season_year=None,
+            currency_type="DRAFT_DOLLARS",
+            amount=int(a_req),
+            from_owner_id=to_user.id,
+            to_owner_id=from_user.id,
+            transaction_type="TRADE_DOLLARS",
+            reference_type="TRADE_PROPOSAL",
+            reference_id=str(trade.id),
+            notes="trade requested dollars",
+            created_by_user_id=approver_id,
+        )
 
     # swap player ownership
     offered_pick.owner_id = to_user.id
