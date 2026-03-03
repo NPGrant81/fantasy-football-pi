@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from ..main import app
 from backend.database import SessionLocal
+from backend.core.security import get_current_user
 import backend.models as models
 import backend.models_draft_value as draft_value_models
 
@@ -90,7 +91,12 @@ def test_rankings_returns_ordered_players_for_season():
     finally:
         session.close()
 
-    response = client.get('/draft/rankings', params={'season': 2026, 'limit': 10})
+    mock_user = models.User(id=9999, username='ranktest', league_id=1, is_commissioner=False)
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    try:
+        response = client.get('/draft/rankings', params={'season': 2026, 'limit': 10})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
     assert response.status_code == 200
     data = response.json()
 
