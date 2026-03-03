@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
 from datetime import datetime
-import models
 from .ledger_service import owner_balance, record_ledger_entry
 from .validation_service import (
     validate_waiver_claim_boundary,
@@ -153,8 +152,7 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
     )
     
     db.add(new_pick)
-    db.commit()
-    db.refresh(new_pick)
+    db.flush()
 
     # record transaction history for the acquisition
     from .transaction_service import log_transaction
@@ -206,6 +204,7 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
         )
 
     db.commit()
+    db.refresh(new_pick)
 
     return new_pick
 

@@ -343,12 +343,37 @@ def get_historical_rankings(
     owner_id: int | None = None,
     position: str | None = None,
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
+    if not current_user.league_id:
+        raise HTTPException(status_code=400, detail="User must belong to a league")
+
+    requested_league_id = league_id if league_id is not None else current_user.league_id
+    if int(requested_league_id) != int(current_user.league_id):
+        raise HTTPException(status_code=403, detail="Cross-league ranking requests are not allowed")
+
+    if owner_id is not None:
+        if not current_user.is_commissioner and int(owner_id) != int(current_user.id):
+            raise HTTPException(
+                status_code=403,
+                detail="Owners can only request rankings for themselves",
+            )
+        target_owner = (
+            db.query(models.User)
+            .filter(
+                models.User.id == owner_id,
+                models.User.league_id == current_user.league_id,
+            )
+            .first()
+        )
+        if not target_owner:
+            raise HTTPException(status_code=404, detail="Owner not found in league")
+
     return get_historical_rankings_service(
         db,
         season=season,
         limit=limit,
-        league_id=league_id,
+        league_id=requested_league_id,
         owner_id=owner_id,
         position=position,
     )
@@ -494,9 +519,23 @@ def run_draft_simulation(
 
     yearly_results_path: str | None = None
     if payload.yearly_results_path:
-        candidate = Path(payload.yearly_results_path)
-        if not candidate.is_absolute():
-            candidate = repo_root / candidate
+        raw_path = Path(payload.yearly_results_path)
+
+        if raw_path.is_absolute():
+            raise HTTPException(
+                status_code=400,
+                detail="Absolute paths are not allowed for yearly_results_path",
+            )
+
+        data_root_resolved = data_root.resolve()
+        candidate = (data_root_resolved / raw_path).resolve()
+
+        if data_root_resolved not in candidate.parents and candidate != data_root_resolved:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid yearly_results_path; must be within backend/data",
+            )
+
         yearly_results_path = str(candidate)
 
     safe_iterations = max(50, min(int(payload.iterations), 10000))
