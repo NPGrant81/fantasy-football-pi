@@ -21,6 +21,7 @@ from backend.services.keeper_service import (
     send_deadline_reminder,
     send_veto_alert,
 )
+from backend.services.ledger_service import owner_balance
 from backend.services.transaction_service import log_transaction
 
 
@@ -137,6 +138,25 @@ def test_budget_and_lock_logic(db_session):
     updated = db_session.get(models.Keeper, k.id)
     assert updated.status == "locked"
     assert updated.locked_at is not None
+
+    ledger_rows = db_session.query(models.EconomicLedger).all()
+    assert len(ledger_rows) == 1
+    assert ledger_rows[0].league_id == league.id
+    assert ledger_rows[0].season_year == 2026
+    assert ledger_rows[0].currency_type == "DRAFT_DOLLARS"
+    assert ledger_rows[0].transaction_type == "KEEPER_LOCK"
+    assert ledger_rows[0].from_owner_id == owner.id
+    assert ledger_rows[0].to_owner_id is None
+    assert ledger_rows[0].amount == 20
+
+    # net balance in the ledger for owner after a single debit is -20
+    assert owner_balance(
+        db_session,
+        league_id=league.id,
+        owner_id=owner.id,
+        currency_type="DRAFT_DOLLARS",
+        season_year=2026,
+    ) == -20
 
 
 def test_recommendations_and_years(db_session, monkeypatch):

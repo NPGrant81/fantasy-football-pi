@@ -1,9 +1,15 @@
 # backend/services/waiver_service.py
 from .. import models
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from fastapi import HTTPException
 from datetime import datetime
 import models
+from .ledger_service import owner_balance, record_ledger_entry
+from .validation_service import (
+    validate_waiver_claim_boundary,
+    validate_waiver_claim_dynamic_rules,
+)
 
 
 def _validate_commissioner_waiver_rules(db: Session, user: models.User) -> int:
@@ -32,6 +38,28 @@ def _validate_commissioner_waiver_rules(db: Session, user: models.User) -> int:
 
 
 def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop_id: int = None, team_id: int | None = None):
+    boundary_report = validate_waiver_claim_boundary(
+        {
+            "player_id": player_id,
+            "bid_amount": bid,
+            "drop_player_id": drop_id,
+            "team_id": team_id,
+        }
+    )
+    if not boundary_report.valid:
+        raise HTTPException(status_code=400, detail=boundary_report.errors)
+
+    dynamic_report = validate_waiver_claim_dynamic_rules(
+        {
+            "player_id": player_id,
+            "bid_amount": bid,
+            "drop_player_id": drop_id,
+            "team_id": team_id,
+        }
+    )
+    if not dynamic_report.valid:
+        raise HTTPException(status_code=400, detail=dynamic_report.errors)
+
     # 1.1 VALIDATION: Check for League ID
     if not user.league_id:
         raise HTTPException(status_code=400, detail="User not in a league.")
@@ -48,6 +76,40 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
         )
 
     roster_limit = _validate_commissioner_waiver_rules(db, user)
+
+    if bid < 0:
+        raise HTTPException(status_code=400, detail="Bid must be non-negative.")
+
+    owner_total_incoming = (
+        db.query(func.coalesce(func.sum(models.EconomicLedger.amount), 0))
+        .filter(
+            models.EconomicLedger.league_id == user.league_id,
+            models.EconomicLedger.currency_type == "FAAB",
+            models.EconomicLedger.to_owner_id == user.id,
+        )
+        .scalar()
+    )
+
+    if int(owner_total_incoming or 0) > 0:
+        remaining_faab = owner_balance(
+            db,
+            league_id=user.league_id,
+            owner_id=user.id,
+            currency_type="FAAB",
+        )
+        if bid > remaining_faab:
+            raise HTTPException(status_code=400, detail="Insufficient FAAB balance.")
+    else:
+        waiver_budget = (
+            db.query(models.WaiverBudget)
+            .filter(
+                models.WaiverBudget.league_id == user.league_id,
+                models.WaiverBudget.owner_id == user.id,
+            )
+            .first()
+        )
+        if waiver_budget and bid > int(waiver_budget.remaining_budget or 0):
+            raise HTTPException(status_code=400, detail="Insufficient FAAB balance.")
 
     # 1.2 VALIDATION: Is target player already taken?
     existing = db.query(models.DraftPick).filter(
@@ -116,6 +178,34 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
             transaction_type="waiver_drop",
             notes="auto-drop from waiver claim",
         )
+
+    if bid > 0:
+        now_year = datetime.utcnow().year
+        season_year = now_year
+        settings = (
+            db.query(models.LeagueSettings)
+            .filter(models.LeagueSettings.league_id == user.league_id)
+            .first()
+        )
+        if settings and settings.draft_year:
+            season_year = int(settings.draft_year)
+
+        record_ledger_entry(
+            db,
+            league_id=user.league_id,
+            season_year=season_year,
+            currency_type="FAAB",
+            amount=int(bid),
+            from_owner_id=user.id,
+            to_owner_id=None,
+            transaction_type="WAIVER_CLAIM_BID",
+            reference_type="DRAFT_PICK",
+            reference_id=str(new_pick.id),
+            notes=f"waiver claim bid for player_id={player_id}",
+            created_by_user_id=user.id,
+        )
+
+    db.commit()
 
     return new_pick
 

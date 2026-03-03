@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session
 from ..core.security import get_current_user, check_is_commissioner
 from ..database import get_db
 from .. import models
+from ..services.validation_service import (
+    validate_trade_proposal_boundary,
+    validate_trade_proposal_dynamic_rules,
+)
 
 router = APIRouter(prefix="/trades", tags=["Trades"])
 
@@ -25,6 +29,32 @@ def propose_trade(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    boundary_report = validate_trade_proposal_boundary(
+        {
+            "to_user_id": payload.to_user_id,
+            "offered_player_id": payload.offered_player_id,
+            "requested_player_id": payload.requested_player_id,
+            "offered_dollars": payload.offered_dollars,
+            "requested_dollars": payload.requested_dollars,
+            "note": payload.note,
+        }
+    )
+    if not boundary_report.valid:
+        raise HTTPException(status_code=400, detail=boundary_report.errors)
+
+    dynamic_report = validate_trade_proposal_dynamic_rules(
+        {
+            "current_user_id": current_user.id,
+            "to_user_id": payload.to_user_id,
+            "offered_player_id": payload.offered_player_id,
+            "requested_player_id": payload.requested_player_id,
+            "offered_dollars": float(payload.offered_dollars or 0),
+            "requested_dollars": float(payload.requested_dollars or 0),
+        }
+    )
+    if not dynamic_report.valid:
+        raise HTTPException(status_code=400, detail=dynamic_report.errors)
+
     if not current_user.league_id:
         raise HTTPException(status_code=400, detail="You must be in a league to propose a trade.")
 

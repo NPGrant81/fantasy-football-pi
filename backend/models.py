@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, Numeric, DateTime, func, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, Numeric, DateTime, func, UniqueConstraint, Index, event
 from sqlalchemy.orm import relationship
 # import backend.database explicitly so the module is always named backend.database
 import importlib
@@ -325,6 +325,44 @@ class WaiverClaim(Base):
     league = relationship("League", back_populates="waiver_claims")
     target_player = relationship("Player", foreign_keys=[player_id])
     drop_player = relationship("Player", foreign_keys=[drop_player_id])
+
+
+class EconomicLedger(Base):
+    __tablename__ = "economic_ledger"
+    __table_args__ = (
+        Index("ix_economic_ledger_owner_lookup", "league_id", "currency_type", "season_year", "to_owner_id", "from_owner_id"),
+        Index("ix_economic_ledger_reference", "reference_type", "reference_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, index=True)
+    season_year = Column(Integer, nullable=True, index=True)
+    currency_type = Column(String, nullable=False, index=True)
+    amount = Column(Integer, nullable=False)
+    from_owner_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    to_owner_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    transaction_type = Column(String, nullable=False, index=True)
+    reference_type = Column(String, nullable=True, index=True)
+    reference_id = Column(String, nullable=True, index=True)
+    notes = Column(String, nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+    league = relationship("League")
+    from_owner = relationship("User", foreign_keys=[from_owner_id])
+    to_owner = relationship("User", foreign_keys=[to_owner_id])
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
+
+
+@event.listens_for(EconomicLedger, "before_update")
+def _prevent_ledger_update(mapper, connection, target):
+    raise ValueError("economic_ledger is append-only and does not allow updates")
+
+
+@event.listens_for(EconomicLedger, "before_delete")
+def _prevent_ledger_delete(mapper, connection, target):
+    raise ValueError("economic_ledger is append-only and does not allow deletes")
 
 
 # --- 9. TRANSACTION HISTORY ---

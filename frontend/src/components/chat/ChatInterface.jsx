@@ -4,6 +4,7 @@ import { bgColors, textColors, borderColors } from '../../utils/uiHelpers';
 
 import { FiSend } from 'react-icons/fi';
 import apiClient from '@api/client';
+import { INSIGHT_VOCABULARY_HINT } from '../draft/insights/insightVocabulary';
 
 import GeminiBadge from './GeminiBadge';
 
@@ -15,7 +16,7 @@ export default function ChatInterface({ initialQuery = '' }) {
   const [messages, setMessages] = useState([
     {
       role: 'ai',
-      text: 'I am your Gemini GM Advisor. Ask me about sleepers, value picks, or roster strategy.',
+      text: 'I am your Gemini GM Advisor. Ask me about sleepers, value picks, or roster strategy. I can also explain ValueScore, ConfidenceBand, RiskScore, Scarcity, and StrategyAlignment.',
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,11 +46,12 @@ export default function ChatInterface({ initialQuery = '' }) {
       setIsLoading(true);
 
       try {
+        const enrichedQuery = `${activeQuery}\n\n[Insight Vocabulary Preference]\n${INSIGHT_VOCABULARY_HINT}`;
         // 2.1.2 EXECUTION: POST with JSON body (Fixes the 422 error)
         const res = await apiClient.post(
           '/advisor/ask',
           {
-            user_query: activeQuery,
+            user_query: enrichedQuery,
           },
           {
             timeout: 30000,

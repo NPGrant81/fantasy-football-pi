@@ -75,6 +75,18 @@ def test_default_settings_and_update(client, api_db):
     assert res2.json()['playoff_qualifiers'] == 8
 
 
+def test_update_settings_rejects_invalid_payload(client, api_db):
+    db, _ = api_db
+    league, _ = make_league_with_users(db)
+
+    invalid_patch = {
+        'playoff_qualifiers': 7,
+        'playoff_tiebreakers': ['wins', 'wins', 'coin_flip'],
+    }
+    res = client.patch(f'/playoffs/settings?league_id={league.id}', json=invalid_patch)
+    assert res.status_code == 400
+
+
 def test_generate_and_retrieve_bracket(client, api_db):
     db, _ = api_db
     league, users = make_league_with_users(db, num_users=6)

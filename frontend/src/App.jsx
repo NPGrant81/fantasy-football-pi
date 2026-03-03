@@ -17,6 +17,9 @@ import { ThemeProvider } from './context/ThemeContext';
 
 // Import Pages (Lazy Loaded)
 const YourLockerRoom = lazy(() => import('./pages/team-owner/YourLockerRoom'));
+const LedgerStatementOwner = lazy(
+  () => import('./pages/team-owner/LedgerStatementOwner')
+);
 const Matchups = lazy(() => import('./pages/matchups/Matchups'));
 const GameCenter = lazy(() => import('./pages/matchups/GameCenter'));
 const CommissionerDashboard = lazy(
@@ -38,6 +41,9 @@ const ManageWaiverRules = lazy(
 const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
 const KeeperRules = lazy(
   () => import('./pages/commissioner/ManageKeeperRules')
+);
+const LedgerStatement = lazy(
+  () => import('./pages/commissioner/LedgerStatement')
 );
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
@@ -239,6 +245,7 @@ function App() {
                 path="/team"
                 element={<YourLockerRoom activeOwnerId={activeOwnerId} />}
               />
+              <Route path="/ledger" element={<LedgerStatementOwner />} />
               <Route
                 path="/team/:ownerId"
                 element={<TeamRoute fallbackOwnerId={activeOwnerId} />}
@@ -270,6 +277,10 @@ function App() {
               <Route
                 path="/commissioner/keeper-rules"
                 element={<KeeperRules />}
+              />
+              <Route
+                path="/commissioner/ledger-statement"
+                element={<LedgerStatement />}
               />
               <Route
                 path="/waivers"

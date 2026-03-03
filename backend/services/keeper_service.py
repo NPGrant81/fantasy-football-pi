@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from .. import models
 from .transaction_service import get_owner_at_time, get_acquisition_method, log_transaction
+from .ledger_service import record_ledger_entry
 
 
 def compute_keeper_flags(
@@ -68,6 +69,7 @@ def get_effective_budget(db: Session, owner_id: int) -> int:
     owner = db.query(models.User).filter(models.User.id == owner_id).first()
     if not owner or not owner.league_id:
         return 0
+
     # prefer the explicit future_draft_budget column if it exists
     if hasattr(owner, "future_draft_budget"):
         return int(owner.future_draft_budget or 0)
@@ -268,5 +270,18 @@ def lock_keepers_for_league(db: Session, league_id: int, season: int):
         owner = db.query(models.User).filter(models.User.id == owner_id).first()
         if owner and hasattr(owner, "future_draft_budget"):
             owner.future_draft_budget = int((owner.future_draft_budget or 0) - cost)
+            record_ledger_entry(
+                db,
+                league_id=league_id,
+                season_year=season,
+                currency_type="DRAFT_DOLLARS",
+                amount=cost,
+                from_owner_id=owner_id,
+                to_owner_id=None,
+                transaction_type="KEEPER_LOCK",
+                reference_type="LEAGUE_KEEPER_LOCK",
+                reference_id=f"{league_id}:{season}:{owner_id}",
+                notes="keeper lock budget deduction",
+            )
     db.commit()
     return len(keepers)
