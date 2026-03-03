@@ -530,7 +530,7 @@ def run_draft_simulation(
         data_root_resolved = data_root.resolve()
         candidate = (data_root_resolved / raw_path).resolve()
 
-        if data_root_resolved not in candidate.parents and candidate != data_root_resolved:
+        if not candidate.is_relative_to(data_root_resolved):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid yearly_results_path; must be within backend/data",
