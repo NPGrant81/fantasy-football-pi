@@ -1,4 +1,4 @@
-/* ignore-breakpoints */
+/* ignore-breakpoints: page uses a fixed admin-style layout managed via uiStandards; responsive breakpoints are not required */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '@api/client';

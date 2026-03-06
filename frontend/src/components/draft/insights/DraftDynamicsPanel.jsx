@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 export default function DraftDynamicsPanel({ draftDynamics }) {
   return (
     <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">

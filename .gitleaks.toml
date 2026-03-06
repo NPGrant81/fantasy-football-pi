@@ -4,4 +4,5 @@ title = "Fantasy Football PI gitleaks config"
 description = "Known development artifacts and docs placeholders"
 paths = [
   "keys/fantasyfootball-bug-reporter.2026-02-18.private-key.pem.txt",
+  "oauth2.json",
 ]

@@ -83,7 +83,7 @@ def get_my_keepers(
     recommended = [RecommendedSchema(**r) for r in recs]
 
     rules = db.query(models.KeeperRules).filter(models.KeeperRules.league_id == current_user.league_id).first()
-    max_allowed = rules.max_keepers if rules else len(selections)
+    max_allowed = rules.max_keepers if rules else 3
     ineligible_ids: list[int] = []
     if rules and rules.max_years_per_player is not None:
         # any player whose years_kept_count >= max should be flagged

@@ -45,8 +45,8 @@ cd backend
 python scripts/validate_requirements_lock.py --strict-lock
 ```
 
-When run manually you may specify `--lock-file` to include the
-requirements-lock.txt file in the analysis.
+When running in strict mode, `validate_requirements_lock.py --strict-lock` enforces
+exact version matching between `requirements.txt` and `requirements-lock.txt`.
 
 ## Responding to Findings
 
@@ -57,13 +57,13 @@ requirements-lock.txt file in the analysis.
    python -m pip freeze > backend/requirements-lock.txt
    ```
 4. Verify requirements hygiene:
-  ```bash
-  python backend/scripts/validate_requirements_lock.py
-  ```
+   ```bash
+   python backend/scripts/validate_requirements_lock.py
+   ```
 5. (Optional) Verify strict lock sync in the same target environment:
-  ```bash
-  python backend/scripts/validate_requirements_lock.py --strict-lock
-  ```
+   ```bash
+   python backend/scripts/validate_requirements_lock.py --strict-lock
+   ```
 6. Run the full test suite to ensure nothing broke.
 7. Commit the changes and open a PR.
 

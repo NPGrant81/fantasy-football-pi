@@ -23,7 +23,7 @@ jobs:
           python-version: "3.11"
       - name: Validate backend requirements lock sync
         run: |
-          python backend/scripts/validate_requirements_lock.py
+          python backend/scripts/validate_requirements_lock.py --strict-lock
       - name: Install requirements
         run: |
           python -m pip install --upgrade pip

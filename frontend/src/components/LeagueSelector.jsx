@@ -41,7 +41,7 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-      <div className="bg-slate-800 p-8 rounded-lg shadow-2xl w-full sm:max-w-md border border-slate-700">
+      <div className="bg-slate-800 p-8 md:p-10 rounded-lg shadow-2xl w-full sm:max-w-md border border-slate-700">
         <h1 className="text-3xl font-black text-center text-yellow-500 mb-2">
           🏈 FANTASY WAR ROOM
         </h1>
