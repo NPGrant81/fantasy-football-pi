@@ -87,11 +87,23 @@ vi.mock('react-chartjs-2', () => {
 
 // Mock force-graph libraries to avoid canvas usage in tests
 vi.mock('react-force-graph', () => ({
-  ForceGraph2D: (_props) => <div data-testid="rivalry-graph" />,
+  ForceGraph2D: ({ graphData, nodeLabel }) => (
+    <div data-testid="force-graph">
+      {(graphData?.nodes || []).map((n) => (
+        <span key={n.id}>{(nodeLabel && n[nodeLabel]) || n.id}</span>
+      ))}
+    </div>
+  ),
 }));
 vi.mock('react-force-graph-2d', () => ({
   __esModule: true,
-  default: (_props) => <div data-testid="rivalry-graph" />,
+  default: ({ graphData, nodeLabel }) => (
+    <div data-testid="force-graph">
+      {(graphData?.nodes || []).map((n) => (
+        <span key={n.id}>{(nodeLabel && n[nodeLabel]) || n.id}</span>
+      ))}
+    </div>
+  ),
 }));
 
 // Keep a reusable navigate mock that tests can inspect if needed.

@@ -39,7 +39,7 @@ const AnalyticsDashboard = () => {
     { key: 'weekly', label: 'Weekly Matchup Comparison' },
     { key: 'heatmap', label: 'Player Heatmap' },
     { key: 'trade', label: 'Trade Analyzer' },
-    { key: 'rivalry', label: 'Rivalry Graph' },
+    { key: 'rivalry', label: 'League Rivalry Graph' },
   ];
 
   const renderChart = () => {
