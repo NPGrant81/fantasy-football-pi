@@ -52,6 +52,15 @@ sufficient test.
    - ✅ **Clean Console:** No warnings about missing `key` props, unhandled
      promise rejections, or hydration errors appear in the browser console.
 
+4. **Responsive Breakpoint Audit (Cross-Platform)**
+   - Run the responsive audit on all frontend changes:
+     - Linux/Raspberry Pi: `cd frontend && bash ../audit-breakpoints.sh`
+     - Windows: use Git Bash/WSL for the same command, or run repo hygiene
+       checks via `./scripts/run_repo_hygiene.ps1` from repo root.
+   - For true non-layout wrapper components, add `/* ignore-breakpoints */`
+     to explicitly opt out.
+   - See `docs/RESPONSIVE_AUDIT_ENVIRONMENT.md` for full platform notes.
+
 ---
 
 ## Debugger Setup (VS Code)

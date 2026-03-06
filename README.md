@@ -20,6 +20,7 @@ or commit it yourself.
 - PR handoff notes: [PR_NOTES.md](docs/PR_NOTES.md)
 - Permissions notes: [permissions.md](docs/permissions.md)
 - API inventory + full page matrix: [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md)
+- Responsive audit by platform (Windows/Raspberry Pi/Linux): [RESPONSIVE_AUDIT_ENVIRONMENT.md](docs/RESPONSIVE_AUDIT_ENVIRONMENT.md)
 
 ## API Overview (Condensed)
 
