@@ -84,14 +84,12 @@ hit breakpoints as you interact with the UI.
 
 ## Current Action Items
 
-1. **Resolve existing file collision.**
-   - The `src/pages/admin` directory currently contains both
-     `manage-commissioners.jsx` and `ManageCommissioners.jsx`. The latter is
-     the version actually imported by `App.jsx` and covered by tests; the
-     lowercase file is stale and should be deleted immediately.
-   - Rename or remove duplicates as necessary; always keep file names in
-     PascalCase. This fix should be committed before work continues on any
-     frontend features.
+1. **Maintain naming and structure hygiene.**
+   - Keep React component filenames in PascalCase and avoid case-only name
+     differences in tracked files.
+   - If you add a new route page or major module, place it under the existing
+     feature folders (for example `src/pages/commissioner/`) rather than
+     introducing ad-hoc top-level folders.
 
 2. **Audit critical pages.**
    - Before adding new UI (e.g. Taxi Squad) or touching existing logic
@@ -100,7 +98,13 @@ hit breakpoints as you interact with the UI.
      the VS Code debugger. Capture a screenshot of the _Variables_ pane for
      at least one component to prove the audit was done.
 
-3. **Follow the DoD on every PR.** Any pull request lacking one of the three
+3. **Keep docs and route matrices synchronized.**
+   - Any new page, endpoint surface, or major integration should be reflected
+     in `docs/API_PAGE_MATRIX.md` and linked from `docs/INDEX.md`.
+   - If docs in `docs/` change, ensure index updates are included in the same
+     PR.
+
+4. **Follow the DoD on every PR.** Any pull request lacking one of the three
    DoD checks (tests, debugger walkthrough, clean console) should be
    rejected until the developer demonstrates compliance.
 

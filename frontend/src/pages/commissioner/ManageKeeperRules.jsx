@@ -138,10 +138,14 @@ export default function ManageKeeperRules() {
       <form onSubmit={handleSubmit} className={`${cardSurface} mb-0`}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+            <label
+              htmlFor="keeper-max-keepers"
+              className="mb-2 block text-sm font-bold text-slate-900 dark:text-white"
+            >
               Max Keepers Per Owner
             </label>
             <input
+              id="keeper-max-keepers"
               type="number"
               min="0"
               className={inputBase}
@@ -150,10 +154,14 @@ export default function ManageKeeperRules() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+            <label
+              htmlFor="keeper-max-years"
+              className="mb-2 block text-sm font-bold text-slate-900 dark:text-white"
+            >
               Max Years Per Player
             </label>
             <input
+              id="keeper-max-years"
               type="number"
               min="0"
               className={inputBase}
@@ -162,10 +170,14 @@ export default function ManageKeeperRules() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+            <label
+              htmlFor="keeper-deadline"
+              className="mb-2 block text-sm font-bold text-slate-900 dark:text-white"
+            >
               Keeper Deadline
             </label>
             <input
+              id="keeper-deadline"
               type="text"
               className={inputBase}
               value={deadline}
@@ -174,10 +186,14 @@ export default function ManageKeeperRules() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+            <label
+              htmlFor="keeper-trade-deadline"
+              className="mb-2 block text-sm font-bold text-slate-900 dark:text-white"
+            >
               Trade Deadline
             </label>
             <input
+              id="keeper-trade-deadline"
               type="text"
               className={inputBase}
               value={tradeDeadline}
@@ -186,24 +202,32 @@ export default function ManageKeeperRules() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+            <label
+              htmlFor="keeper-cost-type"
+              className="mb-2 block text-sm font-bold text-slate-900 dark:text-white"
+            >
               Cost Type
             </label>
             <select
+              id="keeper-cost-type"
               className={inputBase}
               value={costType}
               onChange={(e) => setCostType(e.target.value)}
             >
-              <option value="round">Draft Round</option>
+              <option value="round">round</option>
               <option value="value">Estimated Value</option>
               <option value="custom">Custom</option>
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+            <label
+              htmlFor="keeper-cost-inflation"
+              className="mb-2 block text-sm font-bold text-slate-900 dark:text-white"
+            >
               Cost Inflation (add to cost)
             </label>
             <input
+              id="keeper-cost-inflation"
               type="number"
               className={inputBase}
               value={costInflation}

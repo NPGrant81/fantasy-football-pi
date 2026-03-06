@@ -12,6 +12,7 @@ Refer to the appropriate file for more information.
 - [Frontend Ui Standards](FRONTEND_UI_STANDARDS.md)
 - [Issue Status](ISSUE_STATUS.md)
 - [Model Serving And Integration](model-serving-and-integration.md)
+- [Monte Carlo Simulation](monte-carlo-simulation.md)
 - [Permissions](permissions.md)
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
 - [Pr Notes](PR_NOTES.md)

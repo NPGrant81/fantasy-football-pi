@@ -31,6 +31,12 @@ export default function Home({ username }) {
   const [leagueName, setLeagueName] = useState('');
   const leagueId = localStorage.getItem('fantasyLeagueId');
 
+  const displayRankReason = (owner) => {
+    const reason = owner?.tiebreak_context?.rank_reason;
+    if (!reason) return '-';
+    return String(reason).replaceAll('_', ' ');
+  };
+
   useEffect(() => {
     if (!leagueId) return;
     // Fetch league name
@@ -93,6 +99,7 @@ export default function Home({ username }) {
                   >
                     Team
                   </th>
+                  <th className="px-4 py-3">Div</th>
                   <th
                     className="px-4 py-3 cursor-pointer"
                     onClick={() => handleSort('username')}
@@ -117,6 +124,7 @@ export default function Home({ username }) {
                   >
                     PA
                   </th>
+                  <th className="px-4 py-3">TB Context</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,6 +165,15 @@ export default function Home({ username }) {
                             </Link>
                           </td>
                           <td className="px-4 py-3">
+                            {owner.division_name ? (
+                              <span className="rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-700">
+                                {owner.division_name}
+                              </span>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
                             <Link
                               to={`/team/${owner.id}`}
                               className="hover:text-blue-400 transition-colors"
@@ -169,13 +186,16 @@ export default function Home({ username }) {
                           </td>
                           <td className="px-4 py-3">{owner.pf}</td>
                           <td className="px-4 py-3">{owner.pa}</td>
+                          <td className="px-4 py-3 text-xs capitalize text-slate-500 dark:text-slate-400">
+                            {displayRankReason(owner)}
+                          </td>
                         </tr>
                       ))}
                   </>
                 ) : (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={8}
                       className="text-center py-6 text-slate-500 dark:text-slate-400"
                     >
                       No owners found for this league.

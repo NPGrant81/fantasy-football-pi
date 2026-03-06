@@ -27,6 +27,21 @@ class TeamInfo(BaseModel):
     logo_url: Optional[str]
     color_primary: Optional[str]
     color_secondary: Optional[str]
+    division_id: Optional[int] = None
+    division_name: Optional[str] = None
+
+
+class DivisionContext(BaseModel):
+    is_division_matchup: bool
+    home_division_id: Optional[int] = None
+    away_division_id: Optional[int] = None
+
+
+class RivalryContext(BaseModel):
+    is_rivalry_week: bool
+    rivalry_name: Optional[str] = None
+    template_key: Optional[str] = None
+    is_commissioner_edited: Optional[bool] = None
 
 class MatchupSchema(BaseModel):
     id: int
@@ -49,6 +64,8 @@ class MatchupSchema(BaseModel):
     game_status: str  # <--- NEW: NOT_STARTED, IN_PROGRESS, FINAL
     label: str
     date_range: str
+    division_context: DivisionContext
+    rivalry_context: RivalryContext
 
 # --- Helper: Date Calculator ---
 def get_week_info(week_num: int):
@@ -115,7 +132,9 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
                     team_name=home.team_name,
                     logo_url=home.team_logo_url,
                     color_primary=home.team_color_primary or '#3b82f6',
-                    color_secondary=home.team_color_secondary or '#1e40af'
+                    color_secondary=home.team_color_secondary or '#1e40af',
+                    division_id=home.division_id,
+                    division_name=home.division_obj.name if home.division_obj else None,
                 ),
                 home_score=game.home_score,
                 home_projected=home_total_proj,
@@ -127,14 +146,27 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
                     team_name=away.team_name,
                     logo_url=away.team_logo_url,
                     color_primary=away.team_color_primary or '#3b82f6',
-                    color_secondary=away.team_color_secondary or '#1e40af'
+                    color_secondary=away.team_color_secondary or '#1e40af',
+                    division_id=away.division_id,
+                    division_name=away.division_obj.name if away.division_obj else None,
                 ),
                 away_score=game.away_score,
                 away_projected=away_total_proj,
                 is_completed=game.is_completed,
                 game_status=game.game_status,
                 label=label,
-                date_range=date_str
+                date_range=date_str,
+                division_context=DivisionContext(
+                    is_division_matchup=bool(game.is_division_matchup),
+                    home_division_id=home.division_id,
+                    away_division_id=away.division_id,
+                ),
+                rivalry_context=RivalryContext(
+                    is_rivalry_week=bool(game.is_rivalry_week),
+                    rivalry_name=game.rivalry_name,
+                    template_key="grudge_match" if game.rivalry_name else None,
+                    is_commissioner_edited=bool(game.rivalry_name),
+                ),
             ))
             
     return results
@@ -168,7 +200,9 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
             team_name=home.team_name,
             logo_url=home.team_logo_url,
             color_primary=home.team_color_primary or '#3b82f6',
-            color_secondary=home.team_color_secondary or '#1e40af'
+            color_secondary=home.team_color_secondary or '#1e40af',
+            division_id=home.division_id,
+            division_name=home.division_obj.name if home.division_obj else None,
         ),
         home_score=game.home_score,
         home_projected=home_total_proj, # Use sum of players
@@ -182,7 +216,9 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
             team_name=away.team_name,
             logo_url=away.team_logo_url,
             color_primary=away.team_color_primary or '#3b82f6',
-            color_secondary=away.team_color_secondary or '#1e40af'
+            color_secondary=away.team_color_secondary or '#1e40af',
+            division_id=away.division_id,
+            division_name=away.division_obj.name if away.division_obj else None,
         ),
         away_score=game.away_score,
         away_projected=away_total_proj, # Use sum of players
@@ -191,5 +227,16 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
         is_completed=game.is_completed,
         game_status=game.game_status,
         label=label,
-        date_range=date_str
+        date_range=date_str,
+        division_context=DivisionContext(
+            is_division_matchup=bool(game.is_division_matchup),
+            home_division_id=home.division_id,
+            away_division_id=away.division_id,
+        ),
+        rivalry_context=RivalryContext(
+            is_rivalry_week=bool(game.is_rivalry_week),
+            rivalry_name=game.rivalry_name,
+            template_key="grudge_match" if game.rivalry_name else None,
+            is_commissioner_edited=bool(game.rivalry_name),
+        ),
     )

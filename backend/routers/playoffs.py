@@ -40,10 +40,31 @@ class MatchSchema(BaseModel):
     team_1_id: Optional[int]
     team_2_id: Optional[int]
     winner_to: Optional[str]
+    team_1_seed: Optional[int] = None
+    team_2_seed: Optional[int] = None
+    team_1_is_division_winner: Optional[bool] = None
+    team_2_is_division_winner: Optional[bool] = None
+    team_1_division_name: Optional[str] = None
+    team_2_division_name: Optional[str] = None
 
 class BracketSchema(BaseModel):
     championship: List[MatchSchema]
     consolation: Optional[List[MatchSchema]] = []
+
+
+def _division_winner_owner_ids(owners_data: List[Dict[str, Any]]) -> set[int]:
+    winners: set[int] = set()
+    grouped: dict[int, List[Dict[str, Any]]] = {}
+    for row in owners_data:
+        division_id = row.get("division_id")
+        if not division_id:
+            continue
+        grouped.setdefault(int(division_id), []).append(row)
+
+    for rows in grouped.values():
+        rows.sort(key=lambda o: (-o.get("wins", 0), -float(o.get("pf", 0.0)), o.get("id", 0)))
+        winners.add(int(rows[0]["id"]))
+    return winners
 
 # --- Helpers ---
 def _load_settings(db: Session, league_id: int) -> models.LeagueSettings:
@@ -102,6 +123,8 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
     # build team list from owners using the league endpoint which already
     # computes and sorts by wins/pf etc.
     owners_data = get_league_owners(league_id=league.id, db=db)
+    division_winners = _division_winner_owner_ids(owners_data)
+    owner_by_id = {int(o["id"]): o for o in owners_data}
     teams = [{"id": o["id"], "seed": idx + 1} for idx, o in enumerate(owners_data)]
 
     # create bracket structure using helper
@@ -126,6 +149,10 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
             team_1_id=m.get("team_1", {}).get("id") if m.get("team_1") else None,
             team_2_id=m.get("team_2", {}).get("id") if m.get("team_2") else None,
             winner_to=m.get("winner_to"),
+            team_1_seed=m.get("team_1", {}).get("seed") if m.get("team_1") else None,
+            team_2_seed=m.get("team_2", {}).get("seed") if m.get("team_2") else None,
+            team_1_is_division_winner=(m.get("team_1", {}).get("id") in division_winners) if m.get("team_1") else False,
+            team_2_is_division_winner=(m.get("team_2", {}).get("id") in division_winners) if m.get("team_2") else False,
         )
         db.add(pm)
     db.commit()
@@ -171,7 +198,11 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
 
     # convert to JSON structure
     champ: List[Dict[str, Any]] = []
+    owners_data = get_league_owners(league_id=league_id, db=db)
+    owner_by_id = {int(o["id"]): o for o in owners_data}
     for m in matches:
+        team_1 = owner_by_id.get(int(m.team_1_id)) if m.team_1_id else None
+        team_2 = owner_by_id.get(int(m.team_2_id)) if m.team_2_id else None
         champ.append({
             "match_id": m.match_id,
             "round": m.round,
@@ -179,9 +210,29 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
             "team_1_id": m.team_1_id,
             "team_2_id": m.team_2_id,
             "winner_to": m.winner_to,
+            "team_1_seed": m.team_1_seed,
+            "team_2_seed": m.team_2_seed,
+            "team_1_is_division_winner": m.team_1_is_division_winner,
+            "team_2_is_division_winner": m.team_2_is_division_winner,
+            "team_1_division_name": team_1.get("division_name") if team_1 else None,
+            "team_2_division_name": team_2.get("division_name") if team_2 else None,
         })
     # we currently do not generate consolation data here
-    return {"championship": champ, "consolation": []}
+    return {
+        "championship": champ,
+        "consolation": [],
+        "seeding_policy": {
+            "division_winners_top_seeds": True,
+            "wildcards_by_overall_record": True,
+            "tiebreak_chain": [
+                "overall_record",
+                "head_to_head",
+                "points_for",
+                "points_against",
+                "random_draw",
+            ],
+        },
+    }
 
 
 class SnapshotRequest(BaseModel):

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 
@@ -22,16 +22,10 @@ const MenuBlock = ({ to, title, desc, icon, onClick }) => {
   const Icon = icon;
 
   return (
-    <NavLink
+    <Link
       to={to}
       onClick={onClick}
-      className={({ isActive }) =>
-        `group relative mb-2 block w-full overflow-hidden rounded-xl border p-3 text-left shadow-sm transition-all ${
-          isActive
-            ? 'border-cyan-500/70 bg-cyan-50 dark:bg-cyan-900/20'
-            : 'border-slate-300 bg-white hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
-        }`
-      }
+      className="group relative mb-2 block w-full overflow-hidden rounded-xl border border-slate-300 bg-white p-3 text-left shadow-sm transition-all hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
     >
       <div className="flex items-center gap-4 relative z-10">
         <div className="rounded-lg bg-slate-200 p-3 text-slate-700 dark:bg-slate-800 dark:text-slate-100">
@@ -50,7 +44,7 @@ const MenuBlock = ({ to, title, desc, icon, onClick }) => {
         size={80}
         className="absolute -bottom-4 -right-4 rotate-12 text-slate-400 opacity-20 dark:text-slate-500"
       />
-    </NavLink>
+    </Link>
   );
 };
 
@@ -190,49 +184,31 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
           </div>
 
           {isCommissioner && (
-            <NavLink
+            <Link
               to="/commissioner"
               onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg p-3 transition ${
-                  isActive
-                    ? 'bg-cyan-50 text-slate-900 dark:bg-cyan-900/20 dark:text-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
-                }`
-              }
+              className="flex items-center gap-3 rounded-lg p-3 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               <FiShield className="text-cyan-500" /> <span>Commissioner</span>
-            </NavLink>
+            </Link>
           )}
 
-          <NavLink
+          <Link
             to="/bug-report"
             onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg p-3 transition ${
-                isActive
-                  ? 'bg-cyan-50 text-slate-900 dark:bg-cyan-900/20 dark:text-white'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
-              }`
-            }
+            className="flex items-center gap-3 rounded-lg p-3 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <FiAlertTriangle className="text-cyan-500" />{' '}
             <span>Report a Bug</span>
-          </NavLink>
+          </Link>
 
-          <NavLink
+          <Link
             to="/admin"
             onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg p-3 transition ${
-                isActive
-                  ? 'bg-cyan-50 text-slate-900 dark:bg-cyan-900/20 dark:text-white'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
-              }`
-            }
+            className="flex items-center gap-3 rounded-lg p-3 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <FiSettings /> <span>Admin Settings</span>
-          </NavLink>
+          </Link>
         </nav>
 
         <div className="border-t border-slate-300 bg-slate-100 p-6 dark:border-slate-800 dark:bg-slate-900">

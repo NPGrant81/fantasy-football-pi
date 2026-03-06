@@ -39,6 +39,9 @@ const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
 const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
+const ManageDivisions = lazy(
+  () => import('./pages/commissioner/ManageDivisions')
+);
 const KeeperRules = lazy(
   () => import('./pages/commissioner/ManageKeeperRules')
 );
@@ -50,7 +53,7 @@ const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
 );
 const Keepers = lazy(() => import('./pages/Keepers'));
-const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
+import PlayoffBracket from './pages/playoffs/PlayoffBracket';
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
@@ -61,12 +64,15 @@ function App() {
   // --- 1.1 GLOBAL STATE ---
   const [token, setToken] = useState(null);
   const [activeLeagueId, setActiveLeagueId] = useState(
-    localStorage.getItem('fantasyLeagueId')
+    localStorage.getItem('fantasyToken')
+      ? localStorage.getItem('fantasyLeagueId')
+      : null
   );
   const [activeOwnerId, setActiveOwnerId] = useState(
-    localStorage.getItem('user_id')
+    localStorage.getItem('fantasyToken') ? localStorage.getItem('user_id') : null
   );
   const [username, setUsername] = useState('');
+  const [layoutAlert, setLayoutAlert] = useState('');
 
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
@@ -74,30 +80,62 @@ function App() {
   const [error, setError] = useState('');
 
   // --- 1.2 LOGOUT (Stable reference for effects) ---
-  const handleLogout = useCallback(() => {
-    apiClient.post('/auth/logout').catch(() => {});
+  const clearAuthState = useCallback(() => {
     setToken(null);
     setActiveOwnerId(null);
+    setActiveLeagueId(null);
     setUsername('');
+    setLayoutAlert('');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
   }, []);
 
+  const handleLogout = useCallback(() => {
+    apiClient.post('/auth/logout').catch(() => {});
+    clearAuthState();
+  }, [clearAuthState]);
+
   // --- 1.3 AUTH CHECK (The Guard) ---
   useEffect(() => {
-    apiClient
-      .get('/auth/me')
+    const storedToken = localStorage.getItem('fantasyToken');
+    if (!storedToken) return;
+
+    let authPromise;
+    try {
+      authPromise = apiClient.get('/auth/me');
+    } catch {
+      authPromise = null;
+    }
+
+    if (!authPromise || typeof authPromise.then !== 'function') return;
+
+    authPromise
       .then((res) => {
+        const payload = res?.data || {};
         setToken((current) => current || 'cookie-session');
-        setActiveOwnerId(res.data.user_id);
-        setUsername(res.data.username);
+        setActiveOwnerId(payload.user_id);
+        setUsername(payload.username || '');
       })
       .catch(() => {
-        setToken(null);
-        setActiveOwnerId(null);
-        setUsername('');
+        clearAuthState();
       });
-  }, []);
+  }, [clearAuthState]);
+
+  // Hydrate layout alert details from league settings when available.
+  useEffect(() => {
+    if (!activeLeagueId || !token) return;
+
+    apiClient
+      .get(`/leagues/${activeLeagueId}/settings`)
+      .then((res) => {
+        const data = res?.data || {};
+        const parts = [];
+        if (data.waiver_deadline) parts.push(`Waiver: ${data.waiver_deadline}`);
+        if (data.trade_deadline) parts.push(`Trade: ${data.trade_deadline}`);
+        setLayoutAlert(parts.join(' | '));
+      })
+      .catch(() => setLayoutAlert(''));
+  }, [activeLeagueId, token]);
 
   // --- 1.5 LOGIN HANDLER ---
   const handleLogin = async (e) => {
@@ -222,6 +260,7 @@ function App() {
         <Layout
           username={username}
           leagueId={activeLeagueId}
+          alert={layoutAlert}
           onLogout={handleLogout}
         >
           <Suspense
@@ -273,6 +312,10 @@ function App() {
               <Route
                 path="/commissioner/manage-trades"
                 element={<ManageTrades />}
+              />
+              <Route
+                path="/commissioner/manage-divisions"
+                element={<ManageDivisions />}
               />
               <Route
                 path="/commissioner/keeper-rules"

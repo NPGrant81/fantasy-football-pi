@@ -319,7 +319,13 @@ def _manual_dynamic_playoff_settings_validation(payload: dict[str, Any]) -> Vali
         elif len(playoff_tiebreakers) == 0:
             errors.setdefault("playoff_tiebreakers", []).append("must include at least one tiebreaker")
         else:
-            allowed_tiebreakers = {"points_for", "head_to_head", "division_wins", "wins"}
+            allowed_tiebreakers = {
+                "overall_record",
+                "head_to_head",
+                "points_for",
+                "points_against",
+                "random_draw",
+            }
             normalized = []
             for value in playoff_tiebreakers:
                 if not isinstance(value, str):

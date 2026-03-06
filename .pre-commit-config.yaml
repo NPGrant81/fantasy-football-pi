@@ -15,6 +15,13 @@ repos:
         language: system
         stages: [pre-commit]
 
+      - id: repo-hygiene-check
+        name: Repo Hygiene Check
+        entry: python -m scripts.repo_hygiene_check
+        language: system
+        stages: [pre-commit]
+        pass_filenames: false
+
       - id: frontend-lint
         name: Frontend Lint & Fix
         entry: bash -c "cd frontend && npm run lint:fix && npx prettier --write 'src/**/*.{js,jsx}'"
