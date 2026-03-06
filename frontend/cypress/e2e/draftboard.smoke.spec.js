@@ -1,5 +1,10 @@
 describe('DraftBoard smoke', () => {
   it('renders DraftBoard without runtime errors', () => {
+    cy.intercept('GET', '**/advisor/status', {
+      statusCode: 200,
+      body: { enabled: false },
+    }).as('advisorStatus');
+
     cy.intercept('GET', '**/auth/me', {
       statusCode: 200,
       body: {
@@ -63,6 +68,8 @@ describe('DraftBoard smoke', () => {
 
     cy.visit('/draft', {
       onBeforeLoad(win) {
+        win.localStorage.setItem('fantasyToken', 'e2e-token');
+        win.localStorage.setItem('user_id', '5');
         win.localStorage.setItem('fantasyLeagueId', '1');
       },
     });

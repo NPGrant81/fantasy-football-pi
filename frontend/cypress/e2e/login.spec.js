@@ -1,7 +1,29 @@
 describe('Login + League selection (E2E stubbed)', () => {
   it('logs in and selects a league using network stubs', () => {
-    // Keep initial auth check unauthenticated without triggering the global 401 redirect loop
-    cy.intercept('GET', '**/auth/me', { forceNetworkError: true }).as('me');
+    cy.intercept('GET', '**/advisor/status', {
+      statusCode: 200,
+      body: { enabled: false },
+    }).as('advisorStatus');
+
+    cy.intercept('GET', '**/leagues/1', {
+      statusCode: 200,
+      body: { id: 1, name: 'E2E League', draft_status: 'ACTIVE' },
+    }).as('league');
+
+    cy.intercept('GET', '**/leagues/1/settings', {
+      statusCode: 200,
+      body: {},
+    }).as('leagueSettings');
+
+    cy.intercept('GET', '**/auth/me', {
+      statusCode: 200,
+      body: {
+        user_id: 5,
+        username: 'e2e-user',
+        is_commissioner: false,
+        league_id: 1,
+      },
+    }).as('meAfterLogin');
 
     // Intercept token request
     cy.intercept('POST', '**/auth/token', {
@@ -10,9 +32,6 @@ describe('Login + League selection (E2E stubbed)', () => {
     }).as('tokenRequest');
 
     cy.visit('/');
-
-    // Initial auth probe should occur
-    cy.wait('@me');
 
     // Fill login form
     cy.get('input[placeholder="Enter username"]')
@@ -30,6 +49,7 @@ describe('Login + League selection (E2E stubbed)', () => {
     cy.get('button[type="submit"]').click();
 
     cy.wait('@tokenRequest');
+    cy.wait('@meAfterLogin');
 
     // Should navigate into the app layout (login form should be gone)
     cy.get('input[placeholder="Enter username"]').should('not.exist');
