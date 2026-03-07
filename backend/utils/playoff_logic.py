@@ -5,6 +5,7 @@ re-seeding behavior, consolation bracket generation, and tiebreaker evaluation.
 It is intentionally kept separate from router code so that unit tests can import
 individual pieces.
 """
+import hashlib
 from typing import Any, Dict, List, Optional
 
 
@@ -33,9 +34,10 @@ def tiebreaker_winner(team_a: Dict[str, Any], team_b: Dict[str, Any],
             a_val = -a_raw if a_raw is not None else None
             b_val = -b_raw if b_raw is not None else None
         elif token == "random_draw":
-            # Placeholder deterministic fallback: hash team id.
-            a_val = str(team_a.get("id", ""))
-            b_val = str(team_b.get("id", ""))
+            # Use a deterministic integer hash of the team id so comparison is
+            # numeric rather than lexicographic (e.g. "10" < "2" as strings).
+            a_val = int(hashlib.sha256(str(team_a.get("id", "")).encode()).hexdigest(), 16)
+            b_val = int(hashlib.sha256(str(team_b.get("id", "")).encode()).hexdigest(), 16)
         else:
             a_val = team_a.get(token)
             b_val = team_b.get(token)

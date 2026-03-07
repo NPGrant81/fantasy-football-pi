@@ -15,6 +15,22 @@ def test_tiebreaker_winner_basic():
     assert winner["id"] == "a"
 
 
+def test_tiebreaker_winner_random_draw_is_numeric():
+    # IDs 2 and 10 sort differently as strings ("10" < "2") than as hashes;
+    # verify the result is stable (numeric hash comparison, not lexicographic).
+    import hashlib
+    a = make_team(2, 1, points_for=50)
+    b = make_team(10, 2, points_for=50)
+    expected_id = 2 if (
+        int(hashlib.sha256(str(2).encode()).hexdigest(), 16)
+        > int(hashlib.sha256(str(10).encode()).hexdigest(), 16)
+    ) else 10
+    winner = playoff_logic.tiebreaker_winner(a, b, ["random_draw"])
+    assert winner["id"] == expected_id
+    # Calling again must return the same result (determinism check).
+    assert playoff_logic.tiebreaker_winner(a, b, ["random_draw"])["id"] == expected_id
+
+
 def test_tiebreaker_winner_seed_fallback():
     # equal stats, lower seed should win
     a = make_team("a", 3, points_for=50)
