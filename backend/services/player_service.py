@@ -44,6 +44,14 @@ def _player_rank(player: models.Player) -> tuple[int, int]:
     return (has_external_id, int(player.id or 0))
 
 
+def canonical_player_key(player: models.Player):
+    return _player_dedupe_key(player)
+
+
+def canonical_player_rank(player: models.Player) -> tuple[int, int]:
+    return _player_rank(player)
+
+
 def dedupe_players(players: list[models.Player]) -> list[models.Player]:
     selected: dict[tuple, models.Player] = {}
     for player in players:

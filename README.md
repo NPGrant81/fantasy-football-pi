@@ -133,6 +133,20 @@ cd backend
 python -m pip freeze > requirements-lock.txt
 ```
 
+- Audit player duplicate bleed-over (dry run):
+
+```bash
+cd backend
+python -m backend.manage audit-player-duplicates --fail-on-duplicates
+```
+
+- Apply player duplicate cleanup (re-point references then remove dup rows):
+
+```bash
+cd backend
+python -m backend.manage audit-player-duplicates --apply
+```
+
 CI behavior
 
 - The GitHub Actions workflow `.github/workflows/ci.yml` runs both backend (`pytest`) and frontend (`vitest`) tests on push and PR to `main`. The badge above links to the workflow run history.
