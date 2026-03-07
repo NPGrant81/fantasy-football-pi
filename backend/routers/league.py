@@ -212,6 +212,10 @@ def get_league_owners(league_id: int = Query(...),
         raise HTTPException(status_code=404, detail="League not found")
     owners = db.query(models.User).filter(models.User.league_id == league_id).all()
 
+    # Build a map from user id to division_id once to avoid per-matchup queries
+    # inside calc_stats (which would otherwise cause an N+1 pattern).
+    user_division_map: dict[int, int | None] = {o.id: o.division_id for o in owners}
+
     def calc_stats(owner: models.User) -> dict:
         """Return aggregated W/L/T plus display-only division wins and points."""
         owner_id = owner.id
@@ -243,9 +247,9 @@ def get_league_owners(league_id: int = Query(...),
 
             # Display-only stat for UI (not part of tiebreak chain).
             if owner.division_id and m.home_team_id and m.away_team_id:
-                home = db.query(models.User).filter(models.User.id == m.home_team_id).first()
-                away = db.query(models.User).filter(models.User.id == m.away_team_id).first()
-                if home and away and home.division_id and away.division_id and home.division_id == away.division_id:
+                home_div = user_division_map.get(m.home_team_id)
+                away_div = user_division_map.get(m.away_team_id)
+                if home_div and away_div and home_div == away_div:
                     if score > opp:
                         division_wins += 1
 
