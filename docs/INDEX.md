@@ -17,6 +17,7 @@ Refer to the appropriate file for more information.
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
 - [Pr Notes](PR_NOTES.md)
 - [Project Management](PROJECT_MANAGEMENT.md)
+- [Raspberry Pi Deployment](RASPBERRY_PI_DEPLOYMENT.md)
 - [Responsive Audit Environment](RESPONSIVE_AUDIT_ENVIRONMENT.md)
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)

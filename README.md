@@ -21,6 +21,7 @@ or commit it yourself.
 - Permissions notes: [permissions.md](docs/permissions.md)
 - API inventory + full page matrix: [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md)
 - Responsive audit by platform (Windows/Raspberry Pi/Linux): [RESPONSIVE_AUDIT_ENVIRONMENT.md](docs/RESPONSIVE_AUDIT_ENVIRONMENT.md)
+- Raspberry Pi deployment runbook (Nginx + systemd): [RASPBERRY_PI_DEPLOYMENT.md](docs/RASPBERRY_PI_DEPLOYMENT.md)
 
 ## API Overview (Condensed)
 
