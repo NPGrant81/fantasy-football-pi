@@ -34,10 +34,12 @@ def tiebreaker_winner(team_a: Dict[str, Any], team_b: Dict[str, Any],
             a_val = -a_raw if a_raw is not None else None
             b_val = -b_raw if b_raw is not None else None
         elif token == "random_draw":
-            # Use a deterministic integer hash of the team id so comparison is
-            # numeric rather than lexicographic (e.g. "10" < "2" as strings).
-            a_val = int(hashlib.sha256(str(team_a.get("id", "")).encode()).hexdigest(), 16)
-            b_val = int(hashlib.sha256(str(team_b.get("id", "")).encode()).hexdigest(), 16)
+            # Deterministic fallback: compare int digests of "seed:id" so that
+            # the ordering is numeric, not lexicographic (avoids '10' < '2').
+            a_key = f"{team_a.get('seed', '')}:{team_a.get('id', '')}"
+            b_key = f"{team_b.get('seed', '')}:{team_b.get('id', '')}"
+            a_val = int(hashlib.sha256(a_key.encode()).hexdigest(), 16)
+            b_val = int(hashlib.sha256(b_key.encode()).hexdigest(), 16)
         else:
             a_val = team_a.get(token)
             b_val = team_b.get(token)
