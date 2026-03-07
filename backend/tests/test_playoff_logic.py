@@ -21,10 +21,14 @@ def test_tiebreaker_winner_random_draw_is_numeric():
     import hashlib
     a = make_team(2, 1, points_for=50)
     b = make_team(10, 2, points_for=50)
-    expected_id = 2 if (
-        int(hashlib.sha256(str(2).encode()).hexdigest(), 16)
-        > int(hashlib.sha256(str(10).encode()).hexdigest(), 16)
-    ) else 10
+    # Production logic hashes a combined "seed:id" key for random_draw;
+    # mirror that here so the expected_id matches the actual tiebreaker logic.
+    a_key = f"{a['seed']}:{a['id']}"
+    b_key = f"{b['seed']}:{b['id']}"
+    expected_id = a["id"] if (
+        int(hashlib.sha256(a_key.encode()).hexdigest(), 16)
+        > int(hashlib.sha256(b_key.encode()).hexdigest(), 16)
+    ) else b["id"]
     winner = playoff_logic.tiebreaker_winner(a, b, ["random_draw"])
     assert winner["id"] == expected_id
     # Calling again must return the same result (determinism check).
