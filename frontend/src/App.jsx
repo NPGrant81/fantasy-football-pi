@@ -29,6 +29,7 @@ const LineupRules = lazy(() => import('./pages/commissioner/LineupRules'));
 const ManageOwners = lazy(() => import('./pages/commissioner/ManageOwners'));
 const Home = lazy(() => import('./pages/home/Home'));
 const DraftBoard = lazy(() => import('./pages/DraftBoard'));
+const DraftDayAnalyzer = lazy(() => import('./pages/DraftDayAnalyzer'));
 const Waivers = lazy(() => import('./pages/WaiverWire'));
 const WaiverRules = lazy(() => import('./pages/WaiverRules'));
 const SiteAdmin = lazy(() => import('./pages/admin/SiteAdmin'));
@@ -275,6 +276,15 @@ function App() {
                 element={
                   <DraftBoard
                     token={token}
+                    activeOwnerId={activeOwnerId}
+                    activeLeagueId={activeLeagueId}
+                  />
+                }
+              />
+              <Route
+                path="/draft-day-analyzer"
+                element={
+                  <DraftDayAnalyzer
                     activeOwnerId={activeOwnerId}
                     activeLeagueId={activeLeagueId}
                   />

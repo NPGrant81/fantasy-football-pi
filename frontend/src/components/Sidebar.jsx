@@ -123,6 +123,14 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
           />
 
           <MenuBlock
+            to="/draft-day-analyzer"
+            title="Draft Day Analyzer"
+            desc="Strategy, Advisor, Sim"
+            icon={FiBarChart2}
+            onClick={onClose}
+          />
+
+          <MenuBlock
             to="/team"
             title="My Team"
             desc="Roster & Lineups"
