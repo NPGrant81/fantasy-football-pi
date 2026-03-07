@@ -13,6 +13,11 @@ from .. import models
 from ..core.security import check_is_commissioner, get_current_user
 from ..database import get_db
 from ..schemas.scoring import ScoringRule, ScoringRuleCreate, ScoringTemplate
+from ..services.scoring_import_service import (
+    ScoringImportError,
+    parse_csv_rows_to_preview,
+    parse_csv_rows_to_rules,
+)
 from ..services.scoring_service import (
     active_scoring_rules_for_league,
     calculate_player_week_points,
@@ -68,6 +73,19 @@ class TemplateImportRequest(BaseModel):
     season_year: int | None = None
     source_platform: str = "imported"
     csv_content: str
+
+
+class ScoringImportPreviewRequest(BaseModel):
+    csv_content: str
+    season_year: int | None = None
+    source_platform: str = "imported"
+
+
+class ScoringImportApplyRequest(BaseModel):
+    csv_content: str
+    season_year: int | None = None
+    source_platform: str = "imported"
+    replace_existing_for_season: bool = False
 
 
 class ScoringRuleProposalCreateRequest(BaseModel):
@@ -179,50 +197,10 @@ def _rule_to_dict(rule: models.ScoringRule) -> dict[str, Any]:
 
 
 def _parse_csv_rules(csv_content: str) -> list[ScoringRuleCreate]:
-    required_columns = {
-        "category",
-        "event_name",
-        "range_min",
-        "range_max",
-        "point_value",
-        "calculation_type",
-        "applicable_positions",
-        "position_ids",
-    }
-
-    reader = csv.DictReader(io.StringIO(csv_content))
-    if not reader.fieldnames:
-        raise HTTPException(status_code=400, detail="CSV content is missing headers")
-
-    missing = required_columns - set(reader.fieldnames)
-    if missing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"CSV missing required columns: {sorted(missing)}",
-        )
-
-    rules: list[ScoringRuleCreate] = []
-    for row in reader:
-        rules.append(
-            ScoringRuleCreate(
-                category=row["category"],
-                event_name=row["event_name"],
-                description=row.get("description") or None,
-                range_min=float(row["range_min"]),
-                range_max=float(row["range_max"]),
-                point_value=float(row["point_value"]),
-                calculation_type=row["calculation_type"] or "flat_bonus",
-                applicable_positions=[
-                    part.strip() for part in (row.get("applicable_positions") or "").split("|") if part.strip()
-                ],
-                position_ids=[
-                    int(part.strip()) for part in (row.get("position_ids") or "").split("|") if part.strip()
-                ],
-                source="imported",
-            )
-        )
-
-    return rules
+    try:
+        return parse_csv_rows_to_rules(csv_content)
+    except ScoringImportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/rules", response_model=list[ScoringRule])
@@ -358,6 +336,108 @@ def calculate_draft_analyzer_preview(
         "rules_evaluated": len(rules),
         "players": results,
     }
+
+
+@router.post("/import/preview")
+def preview_scoring_import(
+    request: ScoringImportPreviewRequest,
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    _league_id_or_400(current_user)
+
+    try:
+        preview = parse_csv_rows_to_preview(
+            request.csv_content,
+            source_platform=request.source_platform,
+            season_year=request.season_year,
+        )
+    except ScoringImportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "row_count": len(preview),
+        "source_platform": request.source_platform,
+        "season_year": request.season_year,
+        "rules": preview,
+    }
+
+
+@router.post("/import/apply", response_model=list[ScoringRule])
+def apply_scoring_import(
+    request: ScoringImportApplyRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    league_id = _league_id_or_400(current_user)
+
+    try:
+        parsed_rules = parse_csv_rows_to_rules(
+            request.csv_content,
+            source_platform=request.source_platform,
+            season_year=request.season_year,
+        )
+    except ScoringImportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    touched_rule_ids: set[int] = set()
+    created_rules: list[models.ScoringRule] = []
+
+    for item in parsed_rules:
+        payload = item.model_dump()
+        rule = models.ScoringRule(
+            **payload,
+            league_id=league_id,
+            created_by_user_id=current_user.id,
+            updated_by_user_id=current_user.id,
+        )
+        db.add(rule)
+        db.flush()
+        touched_rule_ids.add(rule.id)
+        created_rules.append(rule)
+
+        _append_change_log(
+            db,
+            league_id=league_id,
+            scoring_rule_id=rule.id,
+            season_year=rule.season_year,
+            change_type="imported",
+            changed_by_user_id=current_user.id,
+            rationale="Rule imported via /scoring/import/apply",
+            previous_value=None,
+            new_value=_rule_to_dict(rule),
+        )
+
+    if request.replace_existing_for_season:
+        stale_query = db.query(models.ScoringRule).filter(
+            models.ScoringRule.league_id == league_id,
+            models.ScoringRule.is_active.is_(True),
+        )
+        if request.season_year is not None:
+            stale_query = stale_query.filter(models.ScoringRule.season_year == request.season_year)
+
+        stale_rules = [row for row in stale_query.all() if row.id not in touched_rule_ids]
+        for stale in stale_rules:
+            previous = _rule_to_dict(stale)
+            stale.is_active = False
+            stale.deactivated_at = datetime.now(timezone.utc)
+            stale.updated_by_user_id = current_user.id
+            _append_change_log(
+                db,
+                league_id=league_id,
+                scoring_rule_id=stale.id,
+                season_year=stale.season_year,
+                change_type="deleted",
+                changed_by_user_id=current_user.id,
+                rationale="Rule deactivated by /scoring/import/apply replacement",
+                previous_value=previous,
+                new_value=_rule_to_dict(stale),
+            )
+
+    db.commit()
+    for row in created_rules:
+        db.refresh(row)
+
+    return created_rules
 
 
 @router.post("/calculate/weeks/{week}/recalculate")
@@ -723,7 +803,15 @@ def import_scoring_template_from_csv(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(check_is_commissioner),
 ):
-    rules = _parse_csv_rules(request.csv_content)
+    try:
+        rules = parse_csv_rows_to_rules(
+            request.csv_content,
+            source_platform=request.source_platform,
+            season_year=request.season_year,
+        )
+    except ScoringImportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     return create_scoring_template(
         TemplateWithRulesCreateRequest(
             name=request.template_name,
