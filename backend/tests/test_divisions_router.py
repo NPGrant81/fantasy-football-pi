@@ -149,6 +149,11 @@ def test_report_name_creates_db_queue_entry(client, api_db):
     league, commissioner, _ = _seed_league(db, team_count=9)
     app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
 
+    # Seed a division so name validation has something to check against
+    division = models.Division(league_id=league.id, season=2026, name="Bad Name", order_index=0)
+    db.add(division)
+    db.commit()
+
     res = client.post(
         f"/leagues/{league.id}/divisions/report-name",
         json={"season": 2026, "division_name": "Bad Name", "reason": "inappropriate"},
@@ -160,3 +165,77 @@ def test_report_name_creates_db_queue_entry(client, api_db):
     report = db.query(models.DivisionNameReport).filter(models.DivisionNameReport.id == body["report_id"]).first()
     assert report is not None
     assert report.status == "open"
+
+
+def test_report_name_rejects_cross_league_user(client, api_db):
+    db, _ = api_db
+    league, _, _ = _seed_league(db, team_count=4)
+
+    other_league = models.League(name="OtherLeague")
+    db.add(other_league)
+    db.commit()
+    db.refresh(other_league)
+    outsider = models.User(
+        username="outsider",
+        email="outsider@example.com",
+        hashed_password="h",
+        league_id=other_league.id,
+    )
+    db.add(outsider)
+    db.commit()
+
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: outsider
+    res = client.post(
+        f"/leagues/{league.id}/divisions/report-name",
+        json={"division_name": "North", "reason": "bad"},
+    )
+    assert res.status_code == 403
+
+
+def test_report_name_superuser_can_report_any_league(client, api_db):
+    db, _ = api_db
+    league, _, _ = _seed_league(db, team_count=4)
+
+    superuser = models.User(
+        username="superadmin",
+        email="superadmin@example.com",
+        hashed_password="h",
+        is_superuser=True,
+    )
+    db.add(superuser)
+    db.commit()
+
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: superuser
+    res = client.post(
+        f"/leagues/{league.id}/divisions/report-name",
+        json={"division_name": "AnyName", "reason": "check"},
+    )
+    assert res.status_code == 200
+
+
+def test_report_name_rejects_nonexistent_division_name(client, api_db):
+    db, _ = api_db
+    league, commissioner, _ = _seed_league(db, team_count=4)
+
+    division = models.Division(league_id=league.id, season=2026, name="North", order_index=0)
+    db.add(division)
+    db.commit()
+
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+    res = client.post(
+        f"/leagues/{league.id}/divisions/report-name",
+        json={"season": 2026, "division_name": "DoesNotExist", "reason": "bad"},
+    )
+    assert res.status_code == 422
+
+
+def test_report_name_skips_name_validation_when_no_season(client, api_db):
+    db, _ = api_db
+    league, commissioner, _ = _seed_league(db, team_count=4)
+
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+    res = client.post(
+        f"/leagues/{league.id}/divisions/report-name",
+        json={"division_name": "Whatever"},
+    )
+    assert res.status_code == 200
