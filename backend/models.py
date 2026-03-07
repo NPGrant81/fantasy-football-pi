@@ -37,6 +37,9 @@ class User(Base):
     home_matches = relationship("Matchup", foreign_keys="Matchup.home_team_id", back_populates="home_team")
     away_matches = relationship("Matchup", foreign_keys="Matchup.away_team_id", back_populates="away_team")
     bug_reports = relationship("BugReport", back_populates="user")
+    scoring_rule_changes = relationship("ScoringRuleChangeLog", foreign_keys="ScoringRuleChangeLog.changed_by_user_id", back_populates="changed_by_user")
+    scoring_rule_proposals = relationship("ScoringRuleProposal", foreign_keys="ScoringRuleProposal.proposed_by_user_id", back_populates="proposed_by_user")
+    scoring_rule_votes = relationship("ScoringRuleVote", foreign_keys="ScoringRuleVote.voter_user_id", back_populates="voter_user")
 
 # --- 2. LEAGUE TABLE ---
 class League(Base):
@@ -56,6 +59,9 @@ class League(Base):
     draft_picks = relationship("DraftPick", back_populates="league")
     waiver_claims = relationship("WaiverClaim", back_populates="league")
     playoff_snapshots = relationship("PlayoffSnapshot", back_populates="league")
+    scoring_templates = relationship("ScoringTemplate", back_populates="league")
+    scoring_rule_changes = relationship("ScoringRuleChangeLog", back_populates="league")
+    scoring_rule_proposals = relationship("ScoringRuleProposal", back_populates="league")
 
 # --- 3. LEAGUE SETTINGS ---
 class LeagueSettings(Base):
@@ -345,8 +351,13 @@ class Matchup(Base):
 # --- 7. SCORING RULES ---
 class ScoringRule(Base):
     __tablename__ = "scoring_rules"
+    __table_args__ = (
+        Index("ix_scoring_rules_lookup", "league_id", "season_year", "is_active", "event_name"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    season_year = Column(Integer, nullable=True, index=True)
     category = Column(String, nullable=False)            # high‑level grouping
     event_name = Column(String(100), nullable=False)     # textual rule name
     description = Column(String, nullable=True)
@@ -357,13 +368,135 @@ class ScoringRule(Base):
     point_value = Column(Numeric(10, 2), nullable=False)
     calculation_type = Column(String, nullable=False, default="flat_bonus")
 
-    # list of position codes/names; see docs for JSON usage
+    # list of human-readable position codes (QB/RB/WR/TE/ALL)
     applicable_positions = Column(JSON, nullable=False, default=list)
+    # list of numeric provider IDs (e.g. 8002/8003) for import parity
+    position_ids = Column(JSON, nullable=False, default=list)
+
+    source = Column(String(32), nullable=False, default="custom")  # custom|template|imported
+    is_active = Column(Boolean, nullable=False, default=True)
+    template_id = Column(Integer, ForeignKey("scoring_templates.id"), nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    updated_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deactivated_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     league = relationship("League", back_populates="scoring_rules")
+    template = relationship("ScoringTemplate", back_populates="rules")
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
+    updated_by_user = relationship("User", foreign_keys=[updated_by_user_id])
+    template_links = relationship("ScoringTemplateRule", back_populates="scoring_rule")
+    change_logs = relationship("ScoringRuleChangeLog", back_populates="scoring_rule")
+
+
+class ScoringTemplate(Base):
+    __tablename__ = "scoring_templates"
+    __table_args__ = (
+        UniqueConstraint("league_id", "name", "season_year", name="uq_scoring_template_league_name_season"),
+        Index("ix_scoring_templates_lookup", "league_id", "season_year", "is_active"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    season_year = Column(Integer, nullable=True, index=True)
+    name = Column(String(80), nullable=False)
+    description = Column(String, nullable=True)
+    source_platform = Column(String(32), nullable=False, default="custom")  # custom|espn|yahoo|nfl
+    is_system_template = Column(Boolean, nullable=False, default=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    league = relationship("League", back_populates="scoring_templates")
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
+    rules = relationship("ScoringRule", back_populates="template")
+    template_rules = relationship("ScoringTemplateRule", back_populates="template")
+
+
+class ScoringTemplateRule(Base):
+    __tablename__ = "scoring_template_rules"
+    __table_args__ = (
+        UniqueConstraint("template_id", "scoring_rule_id", name="uq_scoring_template_rule_link"),
+        Index("ix_scoring_template_rules_template_order", "template_id", "rule_order"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    template_id = Column(Integer, ForeignKey("scoring_templates.id"), nullable=False)
+    scoring_rule_id = Column(Integer, ForeignKey("scoring_rules.id"), nullable=False)
+    rule_order = Column(Integer, nullable=False, default=0)
+    included = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    template = relationship("ScoringTemplate", back_populates="template_rules")
+    scoring_rule = relationship("ScoringRule", back_populates="template_links")
+
+
+class ScoringRuleChangeLog(Base):
+    __tablename__ = "scoring_rule_change_logs"
+    __table_args__ = (
+        Index("ix_scoring_rule_change_logs_lookup", "league_id", "season_year", "changed_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    scoring_rule_id = Column(Integer, ForeignKey("scoring_rules.id"), nullable=True)
+    season_year = Column(Integer, nullable=True, index=True)
+    change_type = Column(String(32), nullable=False)  # created|updated|deleted|imported|template_applied
+    rationale = Column(String, nullable=True)
+    previous_value = Column(JSON, nullable=True)
+    new_value = Column(JSON, nullable=True)
+    changed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    changed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    league = relationship("League", back_populates="scoring_rule_changes")
+    scoring_rule = relationship("ScoringRule", back_populates="change_logs")
+    changed_by_user = relationship("User", foreign_keys=[changed_by_user_id], back_populates="scoring_rule_changes")
+
+
+class ScoringRuleProposal(Base):
+    __tablename__ = "scoring_rule_proposals"
+    __table_args__ = (
+        Index("ix_scoring_rule_proposals_lookup", "league_id", "season_year", "status", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    season_year = Column(Integer, nullable=True, index=True)
+    title = Column(String(160), nullable=False)
+    description = Column(String, nullable=True)
+    proposed_change = Column(JSON, nullable=False)
+    status = Column(String(24), nullable=False, default="open")  # open|approved|rejected|cancelled
+    proposed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    voting_deadline = Column(DateTime(timezone=True), nullable=True)
+    finalized_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    finalized_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    league = relationship("League", back_populates="scoring_rule_proposals")
+    proposed_by_user = relationship("User", foreign_keys=[proposed_by_user_id], back_populates="scoring_rule_proposals")
+    finalized_by_user = relationship("User", foreign_keys=[finalized_by_user_id])
+    votes = relationship("ScoringRuleVote", back_populates="proposal")
+
+
+class ScoringRuleVote(Base):
+    __tablename__ = "scoring_rule_votes"
+    __table_args__ = (
+        UniqueConstraint("proposal_id", "voter_user_id", name="uq_scoring_rule_votes_proposal_voter"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    proposal_id = Column(Integer, ForeignKey("scoring_rule_proposals.id"), nullable=False)
+    voter_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    vote = Column(String(16), nullable=False)  # yes|no|abstain
+    vote_weight = Column(Numeric(6, 2), nullable=False, default=1)
+    comment = Column(String, nullable=True)
+    voted_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    proposal = relationship("ScoringRuleProposal", back_populates="votes")
+    voter_user = relationship("User", foreign_keys=[voter_user_id], back_populates="scoring_rule_votes")
 
 # --- 8. WAIVER CLAIMS ---
 class WaiverClaim(Base):

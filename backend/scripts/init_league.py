@@ -16,7 +16,20 @@ def reset_db_schema():
     print("🗑️ Resetting Database Schema...")
     with engine.connect() as connection:
         with connection.begin():
-            tables = ["matchups", "draft_picks", "league_settings", "scoring_rules", "players", "users", "leagues"]
+            tables = [
+                "scoring_rule_votes",
+                "scoring_rule_proposals",
+                "scoring_rule_change_logs",
+                "scoring_template_rules",
+                "scoring_templates",
+                "scoring_rules",
+                "matchups",
+                "draft_picks",
+                "league_settings",
+                "players",
+                "users",
+                "leagues",
+            ]
             for table in tables:
                 connection.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE;"))
     
