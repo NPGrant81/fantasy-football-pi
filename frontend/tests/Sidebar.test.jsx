@@ -9,8 +9,8 @@ vi.mock('../src/api/client', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ to, children, ...props }) => (
-    <a href={to} {...props}>
+  NavLink: ({ to, children, className, ...props }) => (
+    <a href={to} className={typeof className === 'function' ? className({ isActive: false }) : className} {...props}>
       {children}
     </a>
   ),
