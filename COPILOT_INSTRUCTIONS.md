@@ -65,6 +65,17 @@ frontend/
 - API call logic using `frontend/src/api/client.js`
 - tests in `frontend/tests/` matching the component/page
 
+*UAT and release validation* must include:
+- update `docs/uat/uat_master.xlsx` for any user-visible feature, workflow,
+  validation, permission, or content change
+- update `docs/uat/uat_overview.pptx` screenshots/content when routes, modals,
+  page purpose, or user flows change
+- assign/update `Execution Tier` (`P0/P1/P2`) for impacted rows
+- keep row wording in plain user language aligned with UI labels/menu paths
+- keep screenshot coverage mapping current in `docs/uat/UAT_DECK_IMAGE_COVERAGE.md`
+- update `docs/uat/UAT_MASTER_DOCUMENT_INSTRUCTIONS.md` when UAT process rules
+  or required fields change
+
 #### Do not generate
 - raw SQL anywhere in the backend
 - new global state stores (no Redux/Zustand unless already used)
@@ -180,6 +191,8 @@ When Copilot or any AI assistant is generating code for this repository, it shou
 - Assume Python backend with type hints, FastAPI, SQLAlchemy, Alembic; TypeScript frontend with React, TailwindCSS; pytest and Vitest test frameworks.
 - Generate documentation comments (docstrings/JSDoc) when creating new functions.
 - Offer project‑specific suggestions rather than generic best practices.
+- Treat UAT synchronization as required completion work for user-facing changes,
+  not an optional follow-up.
 
 > ⚠️ Copilot should not suggest moving business logic into route handlers or using raw SQL; similarly, it should not bypass `apiClient` on the frontend.
 

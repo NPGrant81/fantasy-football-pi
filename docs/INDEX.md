@@ -23,4 +23,6 @@ Refer to the appropriate file for more information.
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
 - [Ui Reference](UI_REFERENCE.md)
+- [Uat Master Instructions](uat/UAT_MASTER_DOCUMENT_INSTRUCTIONS.md)
+- [Uat Deck Image Coverage](uat/UAT_DECK_IMAGE_COVERAGE.md)
 - [Ux Insights Spec](ux-insights-spec.md)
