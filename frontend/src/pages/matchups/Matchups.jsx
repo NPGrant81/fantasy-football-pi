@@ -31,10 +31,19 @@ export default function Matchups() {
   const [showBack, setShowBack] = useState(false);
   
   // --- 1.1 STATE MANAGEMENT ---
-  // Keep deterministic defaults for stable loading and tests.
-  const [week, setWeek] = useState(1);
+  // Initialise from URL query params so navigating back from GameCenter restores context.
+  const [week, setWeek] = useState(() => {
+    if (typeof window === 'undefined') return 1;
+    const p = new URLSearchParams(window.location.search);
+    const w = parseInt(p.get('week'), 10);
+    return w >= 1 && w <= 17 ? w : 1;
+  });
   const [games, setGames] = useState([]);
-  const [showProjected, setShowProjected] = useState(true);
+  const [showProjected, setShowProjected] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const p = new URLSearchParams(window.location.search);
+    return p.get('view') !== 'actual';
+  });
   const [showScoreInfo, setShowScoreInfo] = useState(false);
 
   const syncQueryParams = (nextWeek, projectedState) => {

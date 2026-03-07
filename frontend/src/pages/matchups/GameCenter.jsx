@@ -159,7 +159,7 @@ export default function GameCenter() {
           </p>
         </div>
         <Link
-          to="/matchups"
+          to={`/matchups?week=${game.week}&view=${showProjected ? 'projected' : 'actual'}`}
           aria-label="Back to matchups"
           className={`${buttonSecondary} inline-flex w-fit items-center gap-2 px-3 py-1.5 text-xs no-underline`}
         >

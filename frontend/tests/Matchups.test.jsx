@@ -25,6 +25,8 @@ describe('Matchups (Weekly Matchups)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.resetAllMocks();
+    // Reset URL query params between tests to avoid cross-test contamination
+    window.history.replaceState({}, '', '/');
   });
 
   test('renders week selector header and current user/league info', async () => {
