@@ -33,6 +33,8 @@ const DEFAULT_UI_STATE = {
 const rowHeight = 40;
 const containerHeight = 560;
 
+const PLACEHOLDER_NAME_PATTERNS = [/^generic\b/i, /^unknown\b/i, /^placeholder\b/i];
+
 const parseNumber = (value, fallback = 0) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -241,6 +243,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const enrichedPlayers = useMemo(() => {
     return players
       .filter((player) => !draftedPlayerIds.has(Number(player.id)))
+      .filter((player) => {
+        const name = String(player.name || '').trim();
+        if (!name) return false;
+        return !PLACEHOLDER_NAME_PATTERNS.some((pattern) => pattern.test(name));
+      })
       .map((player) => {
         const ranking = rankingByPlayerId.get(Number(player.id));
         return {
@@ -299,12 +306,30 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     return sortedPlayers.find((player) => player.id === Number(selectedPlayerId)) || null;
   }, [sortedPlayers, selectedPlayerId]);
 
+  const fallbackInsightRecommendation = useMemo(() => {
+    if (!selectedPlayer) return null;
+
+    const impliedRisk = Math.max(5, Math.min(95, 100 - parseNumber(selectedPlayer.confidence, 0)));
+    const baseValue = parseNumber(selectedPlayer.value, 0);
+
+    return {
+      player_name: selectedPlayer.name,
+      position: selectedPlayer.position,
+      recommended_bid: baseValue,
+      predicted_value: baseValue,
+      risk_score: impliedRisk,
+      value_score: baseValue,
+      tier: baseValue >= 45 ? 'S' : baseValue >= 30 ? 'A' : baseValue >= 15 ? 'B' : 'C',
+      flags: [],
+    };
+  }, [selectedPlayer]);
+
   const selectedInsightRecommendation = useMemo(() => {
     if (modelInsights?.recommendations?.length) {
       return modelInsights.recommendations[0];
     }
-    return selectedPlayer?.recommendation || null;
-  }, [modelInsights, selectedPlayer]);
+    return selectedPlayer?.recommendation || fallbackInsightRecommendation;
+  }, [modelInsights, selectedPlayer, fallbackInsightRecommendation]);
 
   const draftDynamics = useMemo(() => {
     const ownerCount = owners.length;
@@ -579,6 +604,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         return;
       }
 
+      if (action === 'Compare' || action === 'Explain') {
+        setAdvisorError(`${action} details are deprecated. Use Analyzer Insights and Simulation.`);
+        return;
+      }
+
       setAdvisorLoading(true);
       setAdvisorError('');
       setDrawerLoading(true);
@@ -811,11 +841,21 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         {advisorLoading ? <div className="text-xs text-slate-400">Updating advisor...</div> : null}
 
         <div className="flex flex-wrap gap-2">
-          <button type="button" className={buttonSecondary} onClick={() => callAdvisorAction('Compare')}>
-            Compare
+          <button
+            type="button"
+            className={`${buttonSecondary} cursor-not-allowed opacity-60`}
+            disabled
+            title="Deprecated"
+          >
+            Compare (Deprecated)
           </button>
-          <button type="button" className={buttonSecondary} onClick={() => callAdvisorAction('Explain')}>
-            Explain
+          <button
+            type="button"
+            className={`${buttonSecondary} cursor-not-allowed opacity-60`}
+            disabled
+            title="Deprecated"
+          >
+            Explain (Deprecated)
           </button>
           <button type="button" className={buttonPrimary} onClick={() => callAdvisorAction('Simulate')}>
             Simulate
