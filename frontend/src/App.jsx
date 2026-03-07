@@ -53,7 +53,7 @@ const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
 );
 const Keepers = lazy(() => import('./pages/Keepers'));
-import PlayoffBracket from './pages/playoffs/PlayoffBracket';
+const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
@@ -86,6 +86,7 @@ function App() {
     setActiveLeagueId(null);
     setUsername('');
     setLayoutAlert('');
+    localStorage.removeItem('fantasyToken');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
   }, []);
@@ -154,6 +155,7 @@ function App() {
 
       const { owner_id } = response.data;
 
+      localStorage.setItem('fantasyToken', 'cookie-session');
       localStorage.setItem('user_id', owner_id);
       localStorage.setItem('fantasyLeagueId', leagueInput); // Use user-provided league ID
 

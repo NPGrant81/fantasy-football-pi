@@ -214,7 +214,7 @@ export default function ManageKeeperRules() {
               value={costType}
               onChange={(e) => setCostType(e.target.value)}
             >
-              <option value="round">round</option>
+              <option value="round">Draft Round</option>
               <option value="value">Estimated Value</option>
               <option value="custom">Custom</option>
             </select>

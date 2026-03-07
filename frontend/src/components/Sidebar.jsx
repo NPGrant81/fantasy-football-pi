@@ -25,10 +25,11 @@ const MenuBlock = ({ to, title, desc, icon, onClick }) => {
     <NavLink
       to={to}
       onClick={onClick}
+      end
       className={({ isActive }) =>
         `group relative mb-2 block w-full overflow-hidden rounded-xl border p-3 text-left shadow-sm transition-all ${
           isActive
-            ? 'border-cyan-500 bg-slate-100 dark:border-cyan-500 dark:bg-slate-800'
+            ? 'border-cyan-500 bg-cyan-50 dark:border-cyan-600 dark:bg-slate-800'
             : 'border-slate-300 bg-white hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
         }`
       }
@@ -196,7 +197,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg p-3 transition ${
                   isActive
-                    ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
+                    ? 'bg-cyan-50 text-cyan-700 dark:bg-slate-800 dark:text-cyan-400'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
                 }`
               }
@@ -211,7 +212,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg p-3 transition ${
                 isActive
-                  ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
+                  ? 'bg-cyan-50 text-cyan-700 dark:bg-slate-800 dark:text-cyan-400'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
               }`
             }
@@ -226,7 +227,7 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg p-3 transition ${
                 isActive
-                  ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
+                  ? 'bg-cyan-50 text-cyan-700 dark:bg-slate-800 dark:text-cyan-400'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
               }`
             }
