@@ -86,6 +86,7 @@ function App() {
     setActiveLeagueId(null);
     setUsername('');
     setLayoutAlert('');
+    localStorage.removeItem('fantasyToken');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
   }, []);
@@ -154,6 +155,7 @@ function App() {
 
       const { owner_id } = response.data;
 
+      localStorage.setItem('fantasyToken', 'cookie-session');
       localStorage.setItem('user_id', owner_id);
       localStorage.setItem('fantasyLeagueId', leagueInput); // Use user-provided league ID
 
