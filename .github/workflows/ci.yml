@@ -70,6 +70,13 @@ jobs:
           PYTHONPATH: .
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
+      - name: Guard against duplicate players
+        run: |
+          python -m backend.manage audit-player-duplicates --fail-on-duplicates
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
       - name: Run backend tests
         run: |
           pytest backend -q
