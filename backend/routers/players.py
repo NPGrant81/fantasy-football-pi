@@ -123,6 +123,7 @@ def get_player_season_details(
 def get_all_players(db: Session = Depends(get_db)):
     """Return all relevant fantasy players (QB, RB, WR, TE, K, DEF) from active NFL rosters."""
     allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
-    return db.query(models.Player).filter(
+    rows = db.query(models.Player).filter(
         models.Player.position.in_(allowed_positions)
-    ).order_by(models.Player.position, models.Player.name).all()
+    ).order_by(models.Player.position, models.Player.name, models.Player.id.desc()).all()
+    return player_service.dedupe_players(rows)
