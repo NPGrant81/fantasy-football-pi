@@ -13,6 +13,13 @@ from .. import models
 from ..core.security import check_is_commissioner, get_current_user
 from ..database import get_db
 from ..schemas.scoring import ScoringRule, ScoringRuleCreate, ScoringTemplate
+from ..services.scoring_service import (
+    active_scoring_rules_for_league,
+    calculate_player_week_points,
+    calculate_points_for_stats,
+    recalculate_league_week_scores,
+    recalculate_matchup_scores,
+)
 
 router = APIRouter(prefix="/scoring", tags=["scoring"])
 
@@ -86,6 +93,37 @@ class RuleSetResponse(BaseModel):
     season_year: int | None
     active_rule_count: int
     rules: list[ScoringRule]
+
+
+class ScoringPlayerPreviewRequest(BaseModel):
+    player_id: int | None = None
+    position: str | None = None
+    season: int | None = None
+    week: int | None = None
+    season_year: int | None = None
+    stats: dict[str, Any] = Field(default_factory=dict)
+
+
+class ScoringWeekRecalcRequest(BaseModel):
+    season: int
+    season_year: int | None = None
+
+
+class ScoringMatchupRecalcRequest(BaseModel):
+    season: int
+    season_year: int | None = None
+
+
+class DraftAnalyzerPreviewItem(BaseModel):
+    player_id: int | None = None
+    player_name: str | None = None
+    position: str
+    stats: dict[str, Any] = Field(default_factory=dict)
+
+
+class DraftAnalyzerPreviewRequest(BaseModel):
+    season_year: int | None = None
+    players: list[DraftAnalyzerPreviewItem] = Field(default_factory=list)
 
 
 def _league_id_or_400(user: models.User) -> int:
@@ -229,6 +267,154 @@ def read_current_ruleset(
         active_rule_count=len(rules),
         rules=[ScoringRule.model_validate(r) for r in rules],
     )
+
+
+@router.post("/calculate/player-preview")
+def calculate_scoring_player_preview(
+    request: ScoringPlayerPreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    league_id = _league_id_or_400(current_user)
+
+    if request.stats:
+        rules = active_scoring_rules_for_league(db, league_id=league_id, season_year=request.season_year)
+        total, breakdown = calculate_points_for_stats(
+            stats=request.stats,
+            position=request.position or "ALL",
+            rules=rules,
+        )
+        return {
+            "league_id": league_id,
+            "player_id": request.player_id,
+            "season": request.season,
+            "week": request.week,
+            "position": request.position,
+            "points": total,
+            "breakdown": [item.__dict__ for item in breakdown],
+            "rules_evaluated": len(rules),
+        }
+
+    if request.player_id is None or request.season is None or request.week is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide stats payload or (player_id, season, week) for preview calculation",
+        )
+
+    points, breakdown, stats_payload = calculate_player_week_points(
+        db,
+        league_id=league_id,
+        player_id=request.player_id,
+        season=request.season,
+        week=request.week,
+        position=request.position,
+        season_year=request.season_year,
+    )
+
+    return {
+        "league_id": league_id,
+        "player_id": request.player_id,
+        "season": request.season,
+        "week": request.week,
+        "position": request.position,
+        "points": points,
+        "breakdown": [item.__dict__ for item in breakdown],
+        "stats_used": stats_payload,
+        "rules_evaluated": len(active_scoring_rules_for_league(db, league_id=league_id, season_year=request.season_year)),
+    }
+
+
+@router.post("/calculate/draft-analyzer-preview")
+def calculate_draft_analyzer_preview(
+    request: DraftAnalyzerPreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    league_id = _league_id_or_400(current_user)
+    rules = active_scoring_rules_for_league(db, league_id=league_id, season_year=request.season_year)
+
+    results: list[dict[str, Any]] = []
+    for item in request.players:
+        points, breakdown = calculate_points_for_stats(
+            stats=item.stats,
+            position=item.position,
+            rules=rules,
+        )
+        results.append(
+            {
+                "player_id": item.player_id,
+                "player_name": item.player_name,
+                "position": item.position,
+                "projected_points": points,
+                "breakdown": [row.__dict__ for row in breakdown],
+            }
+        )
+
+    results.sort(key=lambda row: row["projected_points"], reverse=True)
+
+    return {
+        "league_id": league_id,
+        "season_year": request.season_year,
+        "rules_evaluated": len(rules),
+        "players": results,
+    }
+
+
+@router.post("/calculate/weeks/{week}/recalculate")
+def recalculate_week_scores(
+    week: int,
+    request: ScoringWeekRecalcRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    league_id = _league_id_or_400(current_user)
+
+    recalculated = recalculate_league_week_scores(
+        db,
+        league_id=league_id,
+        week=week,
+        season=request.season,
+        season_year=request.season_year,
+    )
+    db.commit()
+
+    return {
+        "league_id": league_id,
+        "week": week,
+        "season": request.season,
+        "recalculated_matchups": len(recalculated),
+        "results": recalculated,
+    }
+
+
+@router.post("/calculate/matchups/{matchup_id}/recalculate")
+def recalculate_single_matchup_score(
+    matchup_id: int,
+    request: ScoringMatchupRecalcRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    league_id = _league_id_or_400(current_user)
+
+    matchup = (
+        db.query(models.Matchup)
+        .filter(
+            models.Matchup.id == matchup_id,
+            models.Matchup.league_id == league_id,
+        )
+        .first()
+    )
+    if not matchup:
+        raise HTTPException(status_code=404, detail="Matchup not found")
+
+    result = recalculate_matchup_scores(
+        db,
+        matchup=matchup,
+        season=request.season,
+        season_year=request.season_year,
+    )
+    db.commit()
+    return result
 
 
 @router.post("/rules", response_model=ScoringRule)
