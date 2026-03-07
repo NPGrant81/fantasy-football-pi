@@ -352,6 +352,25 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     return selectedPlayer?.recommendation || fallbackInsightRecommendation;
   }, [modelInsights, selectedPlayer, fallbackInsightRecommendation]);
 
+  const activeInsightOwner = useMemo(() => {
+    const targetOwnerId = Number(simulationPerspectiveOwnerId || activeOwnerId || 0);
+    return owners.find((owner) => Number(owner.id) === targetOwnerId) || null;
+  }, [owners, simulationPerspectiveOwnerId, activeOwnerId]);
+
+  const activeInsightOwnerLabel = useMemo(() => {
+    if (!activeInsightOwner) return null;
+    return (
+      activeInsightOwner.team_name ||
+      activeInsightOwner.username ||
+      `Owner ${activeInsightOwner.id}`
+    );
+  }, [activeInsightOwner]);
+
+  const activeInsightOwnerIsCurrentUser = useMemo(() => {
+    if (!activeInsightOwner || !activeOwnerId) return false;
+    return Number(activeInsightOwner.id) === Number(activeOwnerId);
+  }, [activeInsightOwner, activeOwnerId]);
+
   const draftDynamics = useMemo(() => {
     const ownerCount = owners.length;
     const availableByPosition = sortedPlayers.reduce((acc, player) => {
@@ -828,6 +847,8 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           <PlayerInsightCard recommendation={selectedInsightRecommendation} bidAmount={0} />
           <OwnerStrategyPanel
             insightOwnerId={Number(simulationPerspectiveOwnerId || 0)}
+            insightOwnerLabel={activeInsightOwnerLabel}
+            isCurrentUserOwner={activeInsightOwnerIsCurrentUser}
             ownerStrategyInsights={ownerStrategyInsights}
             recommendation={selectedInsightRecommendation}
           />

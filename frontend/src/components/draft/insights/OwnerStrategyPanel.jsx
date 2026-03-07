@@ -1,13 +1,16 @@
 /* ignore-breakpoints */
 export default function OwnerStrategyPanel({
   insightOwnerId,
+  insightOwnerLabel,
+  isCurrentUserOwner,
   ownerStrategyInsights,
   recommendation,
 }) {
   return (
     <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
       <div className="text-[11px] uppercase tracking-wide text-slate-400">
-        Owner Strategy Panel (OwnerID = {insightOwnerId || '-'})
+        Owner Strategy Panel ({insightOwnerLabel || `Owner ${insightOwnerId || '-'}`}
+        {isCurrentUserOwner ? ' - You' : ''})
       </div>
       {!ownerStrategyInsights ? (
         <div className="mt-2 text-xs text-slate-500">
