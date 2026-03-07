@@ -28,6 +28,7 @@ const DEFAULT_UI_STATE = {
   sortColumn: 'value',
   sortDirection: 'desc',
   searchQuery: '',
+  rankingSeasonOffset: 0,
 };
 
 const rowHeight = 40;
@@ -60,6 +61,10 @@ const loadUiState = () => {
         typeof parsed.searchQuery === 'string'
           ? parsed.searchQuery
           : DEFAULT_UI_STATE.searchQuery,
+      rankingSeasonOffset:
+        parsed.rankingSeasonOffset === -1 || parsed.rankingSeasonOffset === 0
+          ? parsed.rankingSeasonOffset
+          : DEFAULT_UI_STATE.rankingSeasonOffset,
     };
   } catch {
     return DEFAULT_UI_STATE;
@@ -112,6 +117,9 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const [sortColumn, setSortColumn] = useState(initialUi.sortColumn);
   const [sortDirection, setSortDirection] = useState(initialUi.sortDirection);
   const [searchQuery, setSearchQuery] = useState(initialUi.searchQuery);
+  const [rankingSeasonOffset, setRankingSeasonOffset] = useState(
+    initialUi.rankingSeasonOffset
+  );
 
   const [scrollTop, setScrollTop] = useState(0);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -144,9 +152,22 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       sortColumn,
       sortDirection,
       searchQuery,
+      rankingSeasonOffset,
     };
     localStorage.setItem(UI_STATE_KEY, JSON.stringify(payload));
-  }, [selectedPlayerId, positionFilter, sortColumn, sortDirection, searchQuery]);
+  }, [
+    selectedPlayerId,
+    positionFilter,
+    sortColumn,
+    sortDirection,
+    searchQuery,
+    rankingSeasonOffset,
+  ]);
+
+  const rankingSeason = useMemo(
+    () => Number(draftYear) + Number(rankingSeasonOffset || 0),
+    [draftYear, rankingSeasonOffset]
+  );
 
   const fetchHistory = useCallback(async () => {
     if (!activeLeagueId || !draftYear) return;
@@ -189,11 +210,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   }, [fetchHistory]);
 
   useEffect(() => {
-    if (!activeLeagueId || !draftYear) return;
+    if (!activeLeagueId || !rankingSeason) return;
     setRankingsLoading(true);
 
     const params = new URLSearchParams();
-    params.set('season', String(draftYear));
+    params.set('season', String(rankingSeason));
     params.set('league_id', String(activeLeagueId));
     params.set('owner_id', String(activeOwnerId || ''));
     params.set('limit', '300');
@@ -205,7 +226,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       })
       .catch(() => setHistoricalRankings([]))
       .finally(() => setRankingsLoading(false));
-  }, [activeLeagueId, activeOwnerId, draftYear]);
+  }, [activeLeagueId, activeOwnerId, rankingSeason]);
 
   useEffect(() => {
     if (owners.length === 0) return;
@@ -685,6 +706,22 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             </button>
           ))}
 
+          <button
+            type="button"
+            className={rankingSeasonOffset === -1 ? buttonPrimary : buttonSecondary}
+            onClick={() => setRankingSeasonOffset(-1)}
+          >
+            Previous Year ({Number(draftYear) - 1})
+          </button>
+
+          <button
+            type="button"
+            className={rankingSeasonOffset === 0 ? buttonPrimary : buttonSecondary}
+            onClick={() => setRankingSeasonOffset(0)}
+          >
+            Current Year ({Number(draftYear)})
+          </button>
+
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -803,7 +840,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           <h2 className="text-sm font-black uppercase tracking-wider text-slate-300">
             Historical Rankings
           </h2>
-          <span className="text-xs text-slate-500">Season {draftYear}</span>
+          <span className="text-xs text-slate-500">Season {rankingSeason}</span>
         </div>
 
         {rankingsLoading ? (
