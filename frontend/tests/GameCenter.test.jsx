@@ -208,7 +208,7 @@ describe('GameCenter (Match Details)', () => {
     expect(screen.getByText(/No starters set/i)).toBeInTheDocument();
   });
 
-  test('back link navigates to matchups page', async () => {
+  test('back link navigates to matchups page preserving week and view context', async () => {
     const mockGame = {
       id: 1,
       week: 5,
@@ -231,7 +231,8 @@ describe('GameCenter (Match Details)', () => {
     });
 
     const backLink = screen.getByRole('link', { name: /back to matchups/i });
-    expect(backLink).toHaveAttribute('href', '/matchups');
+    // Default view is projected (no ?view=actual in location.search)
+    expect(backLink).toHaveAttribute('href', '/matchups?week=5&view=projected');
   });
 
   test('handles API error gracefully', async () => {
