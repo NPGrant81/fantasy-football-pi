@@ -40,6 +40,9 @@ const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
 const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
+const ManageScoringRules = lazy(
+  () => import('./pages/commissioner/ManageScoringRules')
+);
 const ManageDivisions = lazy(
   () => import('./pages/commissioner/ManageDivisions')
 );
@@ -322,6 +325,10 @@ function App() {
               <Route
                 path="/commissioner/manage-trades"
                 element={<ManageTrades />}
+              />
+              <Route
+                path="/commissioner/manage-scoring-rules"
+                element={<ManageScoringRules />}
               />
               <Route
                 path="/commissioner/manage-divisions"
