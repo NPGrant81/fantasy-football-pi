@@ -47,6 +47,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     analytics = importlib.import_module("backend.routers.analytics")
     keepers = importlib.import_module("backend.routers.keepers")
     divisions = importlib.import_module("backend.routers.divisions")
+    scoring = importlib.import_module("backend.routers.scoring")
     analytics = importlib.import_module("backend.routers.analytics")
 
     engine = dbmod.engine
@@ -60,7 +61,7 @@ else:
     from .core.security import get_password_hash, check_is_commissioner
     from .routers import (
         admin, admin_tools, team, matchups, league, advisor,
-        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, keepers, divisions
+        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, keepers, divisions, scoring
     )
 
 load_dotenv()
@@ -287,6 +288,7 @@ app.include_router(feedback.router)
 app.include_router(etl.router)
 app.include_router(nfl.router)
 app.include_router(keepers.router)
+app.include_router(scoring.router)
 
 # --- 4. SEEDER (moved) ---
 # The automatic seeding logic used to live here but caused every test that
