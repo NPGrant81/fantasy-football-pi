@@ -80,7 +80,19 @@ class LeagueSettings(Base):
     playoff_qualifiers = Column(Integer, default=6)
     playoff_reseed = Column(Boolean, default=False)
     playoff_consolation = Column(Boolean, default=True)
-    playoff_tiebreakers = Column(JSON, default=["points_for", "head_to_head", "division_wins", "wins"])
+    playoff_tiebreakers = Column(
+        JSON,
+        default=["overall_record", "head_to_head", "points_for", "points_against", "random_draw"],
+    )
+
+    # --- Divisions configuration ---
+    divisions_enabled = Column(Boolean, default=False)
+    division_count = Column(Integer, nullable=True)
+    division_config_status = Column(String, default="draft")  # draft|finalized
+    division_assignment_method = Column(String, nullable=True)  # manual|random|heuristic
+    division_random_seed = Column(String, nullable=True)
+    division_needs_reseed = Column(Boolean, default=False)
+    division_history_enabled = Column(Boolean, default=True)
 
     league = relationship("League", back_populates="settings")
 
@@ -142,10 +154,47 @@ class Division(Base):
     __tablename__ = "divisions"
     id = Column(Integer, primary_key=True, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"))
+    season = Column(Integer, index=True, nullable=True)
     name = Column(String, nullable=False)
+    order_index = Column(Integer, default=0)
 
     league = relationship("League", back_populates="divisions")
     users = relationship("User", back_populates="division_obj")
+
+
+class DivisionConfigSnapshot(Base):
+    __tablename__ = "division_config_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, index=True)
+    season = Column(Integer, nullable=False, index=True)
+    status = Column(String, default="draft", nullable=False)  # draft|finalized|undo
+    assignment_method = Column(String, nullable=True)
+    random_seed = Column(String, nullable=True)
+    confidence_score = Column(Float, nullable=True)
+    imbalance_pct = Column(Float, nullable=True)
+    config_json = Column(JSON, nullable=False)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    league = relationship("League")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+
+
+class DivisionNameReport(Base):
+    __tablename__ = "division_name_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, index=True)
+    season = Column(Integer, nullable=True, index=True)
+    division_name = Column(String, nullable=False)
+    reason = Column(String, nullable=True)
+    status = Column(String, default="open", nullable=False)  # open|resolved|dismissed
+    reported_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    league = relationship("League")
+    reported_by = relationship("User", foreign_keys=[reported_by_user_id])
 
 # modify User to reference Division
 # insert after user class definition modifications
@@ -191,6 +240,10 @@ class PlayoffMatch(Base):
     team_2_score = Column(Float, nullable=True)
     is_bye = Column(Boolean, default=False)
     winner_to = Column(String, nullable=True)
+    team_1_seed = Column(Integer, nullable=True)
+    team_2_seed = Column(Integer, nullable=True)
+    team_1_is_division_winner = Column(Boolean, default=False)
+    team_2_is_division_winner = Column(Boolean, default=False)
 
     league = relationship("League")
 
@@ -281,6 +334,9 @@ class Matchup(Base):
     
     # Game status: NOT_STARTED, IN_PROGRESS, FINAL
     game_status = Column(String, default='NOT_STARTED')
+    is_division_matchup = Column(Boolean, default=False)
+    is_rivalry_week = Column(Boolean, default=False)
+    rivalry_name = Column(String, nullable=True)
 
     league = relationship("League", back_populates="matchups")
     home_team = relationship("User", foreign_keys=[home_team_id], back_populates="home_matches")

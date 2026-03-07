@@ -1174,7 +1174,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
 
-      <section className="mt-3 rounded-lg border border-emerald-900/70 bg-slate-900/60 p-3">
+      <section className="mt-3 rounded-lg border border-emerald-900/70 bg-slate-900/60 p-3 col-span-12">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-emerald-300">
             Analyzer Insights

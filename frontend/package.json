@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "preview": "vite preview",
-    "audit:breakpoints": "bash ../audit-breakpoints.sh"
+    "audit:breakpoints": "bash ../audit-breakpoints.sh",
+    "repo:hygiene": "python ../scripts/repo_hygiene_check.py"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

@@ -9,6 +9,7 @@ import {
   FiTool,
   FiRepeat,
   FiBookOpen,
+  FiGrid,
 } from 'react-icons/fi';
 
 // Professional Imports
@@ -35,7 +36,10 @@ export default function CommissionerDashboard() {
 
   // --- 1.3 DATA RETRIEVAL (The Engine) ---
   const loadData = useCallback(async () => {
-    if (!leagueId) return;
+    if (!leagueId) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // Using @api/client handles the Base URL and Token automatically
@@ -138,13 +142,23 @@ export default function CommissionerDashboard() {
           tone="yellow"
         />
         <AdminActionCard
+          icon={FiGrid}
+          badge="DIVISIONS"
+          title="Manage Divisions"
+          description="Configure division count, names, assignment method, and finalize seasonal groupings."
+          onClick={() => navigate('/commissioner/manage-divisions')}
+          loading={false}
+          actionLabel="Edit Divisions"
+          tone="purple"
+        />
+        <AdminActionCard
           icon={FiRepeat}
           badge="KEEPERS"
           title="Keeper Rules"
           description="Configure keeper limits, values, and veto/reset."
           onClick={() => navigate('/commissioner/keeper-rules')}
           loading={false}
-          actionLabel="Edit Keeper Rules"
+          actionLabel="Open Keeper Settings"
           tone="indigo"
         />
         <AdminActionCard

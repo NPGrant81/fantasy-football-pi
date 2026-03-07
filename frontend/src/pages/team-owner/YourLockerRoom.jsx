@@ -60,10 +60,10 @@ const MIN_ACTIVE_REQUIREMENTS = {
 };
 
 const DEFAULT_MAX_POSITION_LIMITS = {
-  QB: 3,
-  RB: 5,
-  WR: 5,
-  TE: 3,
+  QB: 1,
+  RB: 3,
+  WR: 3,
+  TE: 2,
   K: 1,
   DEF: 1,
 };
@@ -298,6 +298,18 @@ export default function YourLockerRoom({ activeOwnerId }) {
   // accordion expansion state for active lineup positions
   const [expandedPositions, setExpandedPositions] = useState(new Set());
 
+  const focusedOwnerId = viewedOwnerId || currentUserId;
+  const focusedOwner = useMemo(
+    () => {
+      const owners = Array.isArray(leagueOwners) ? leagueOwners : [];
+      return (
+        owners.find((owner) => Number(owner.id) === Number(focusedOwnerId)) ||
+        null
+      );
+    },
+    [leagueOwners, focusedOwnerId]
+  );
+
   const togglePosition = useCallback((pos) => {
     setExpandedPositions((prev) => {
       const next = new Set(prev);
@@ -339,7 +351,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
             const ownersRes = await apiClient.get(
               `/leagues/owners?league_id=${leagueId}`
             );
-            setLeagueOwners(ownersRes.data || []);
+            setLeagueOwners(Array.isArray(ownersRes.data) ? ownersRes.data : []);
           } catch {
             setLeagueOwners([]);
           }
@@ -357,10 +369,10 @@ export default function YourLockerRoom({ activeOwnerId }) {
               clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12)
             );
             setMaxPositionLimits({
-              QB: clampInt(slots.MAX_QB ?? 3, 1, 3),
-              RB: clampInt(slots.MAX_RB ?? 5, 1, 5),
-              WR: clampInt(slots.MAX_WR ?? 5, 1, 5),
-              TE: clampInt(slots.MAX_TE ?? 3, 1, 3),
+              QB: clampInt(slots.MAX_QB ?? 1, 1, 3),
+              RB: clampInt(slots.MAX_RB ?? 3, 1, 5),
+              WR: clampInt(slots.MAX_WR ?? 3, 1, 5),
+              TE: clampInt(slots.MAX_TE ?? 2, 1, 3),
               K: clampInt(slots.MAX_K ?? 1, 0, 1),
               DEF: 1,
             });
@@ -820,14 +832,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
     }
   };
 
-  useEffect(() => {
-    if (lineupValidationErrors.length > 0) {
-      setShowLineupValidationModal(true);
-    } else {
-      setShowLineupValidationModal(false);
-    }
-  }, [lineupValidationErrors.length, selectedWeek]);
-
   const handleSubmitTradeProposal = async () => {
     console.log('handleSubmitTradeProposal called', {
       canProposeTrade,
@@ -1156,6 +1160,16 @@ export default function YourLockerRoom({ activeOwnerId }) {
               #{summary.standing} Place
             </span>
           </p>
+          {focusedOwner?.division_name && (
+            <p className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-cyan-300">
+              Division: {focusedOwner.division_name}
+            </p>
+          )}
+          {focusedOwner?.standings_metrics?.division_wins !== undefined && (
+            <p className="inline-flex items-center gap-2 rounded-lg border border-slate-500/40 bg-slate-900/40 px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-300">
+              Division Wins: {focusedOwner.standings_metrics.division_wins}
+            </p>
+          )}
           {/* deadlines indicators */}
           {waiverRemaining && userInfo.draftStatus !== 'ACTIVE' && (
             <p className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-blue-300">
@@ -1208,6 +1222,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                     .map((owner) => (
                       <option key={owner.id} value={owner.id}>
                         {owner.team_name || owner.username}
+                        {owner.division_name ? ` (${owner.division_name})` : ''}
                       </option>
                     ))}
                 </select>
@@ -1503,7 +1518,9 @@ export default function YourLockerRoom({ activeOwnerId }) {
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3 className="text-xl font-black uppercase tracking-wider text-slate-900 dark:text-white">
-              Lineup Builder (Drag & Drop)
+              {viewMode === 'recommended'
+                ? 'Start/Sit Sorter'
+                : 'Lineup Builder (Drag & Drop)'}
             </h3>
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Move players between Active and Bench. Started players are locked
@@ -1517,10 +1534,14 @@ export default function YourLockerRoom({ activeOwnerId }) {
 
           <div className="flex flex-col items-end gap-2">
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <label className="ml-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <label
+                htmlFor="lineup-week-select"
+                className="ml-2 text-xs font-bold uppercase tracking-wider text-slate-400"
+              >
                 Week
               </label>
               <select
+                id="lineup-week-select"
                 value={selectedWeek}
                 onChange={(event) =>
                   setSelectedWeek(Number(event.target.value))
@@ -1697,12 +1718,16 @@ export default function YourLockerRoom({ activeOwnerId }) {
                   const playersForPos = activeLineupPlayers.filter(
                     (p) => normalizePosition(p.position) === pos
                   );
-                  const containerBorder = tier.valid
-                    ? 'border-green-400'
-                    : 'border-red-400';
-                  const badgeColor = tier.valid
-                    ? 'bg-green-900/20 text-green-300'
-                    : 'bg-red-900/20 text-red-300';
+                  const isTierOutOfBounds =
+                    Number(tier.actual || 0) < Number(tier.minimum || 0) ||
+                    (Number(tier.maximum || 0) >= 0 &&
+                      Number(tier.actual || 0) > Number(tier.maximum || 0));
+                  const containerBorder = isTierOutOfBounds
+                    ? 'border-red-400'
+                    : 'border-green-400';
+                  const badgeColor = isTierOutOfBounds
+                    ? 'bg-red-900/20 text-red-300'
+                    : 'bg-green-900/20 text-green-300';
                   return (
                     <div
                       className="rounded-md border border-slate-300 bg-white/50 p-2 dark:border-slate-700 dark:bg-slate-900/30"
@@ -1713,8 +1738,10 @@ export default function YourLockerRoom({ activeOwnerId }) {
                         onClick={() => togglePosition(pos)}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold uppercase text-slate-900 dark:text-white">
-                            {pos}
+                          <span
+                            className={`text-sm font-bold uppercase ${isTierOutOfBounds ? 'text-red-300' : 'text-green-300'}`}
+                          >
+                            {pos} {tier.actual}
                           </span>
                           <span className="text-xs">
                             {isExpanded ? '▼' : '▶'}
@@ -1751,7 +1778,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
                                     {player.name}
                                   </div>
                                   <div className="text-[11px] uppercase tracking-wide text-slate-600 dark:text-slate-400">
-                                    {normalizePosition(player.position)} •{' '}
                                     {player.nfl_team}
                                   </div>
                                 </div>
@@ -1812,7 +1838,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
                           {player.name}
                         </div>
                         <div className="text-[11px] uppercase tracking-wide text-slate-600 dark:text-slate-400">
-                          {normalizePosition(player.position)} •{' '}
                           {player.nfl_team}
                         </div>
                       </div>

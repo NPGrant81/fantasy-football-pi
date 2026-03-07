@@ -23,7 +23,7 @@ def main() -> None:
         )
         conn.execute(
             text(
-                "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_tiebreakers JSON DEFAULT '[\"points_for\",\"head_to_head\",\"division_wins\",\"wins\"]'"
+                "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_tiebreakers JSON DEFAULT '[\"overall_record\",\"head_to_head\",\"points_for\",\"points_against\",\"random_draw\"]'"
             )
         )
         conn.execute(

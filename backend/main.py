@@ -46,6 +46,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     playoffs = importlib.import_module("backend.routers.playoffs")
     analytics = importlib.import_module("backend.routers.analytics")
     keepers = importlib.import_module("backend.routers.keepers")
+    divisions = importlib.import_module("backend.routers.divisions")
     analytics = importlib.import_module("backend.routers.analytics")
 
     engine = dbmod.engine
@@ -59,7 +60,7 @@ else:
     from .core.security import get_password_hash, check_is_commissioner
     from .routers import (
         admin, admin_tools, team, matchups, league, advisor,
-        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, keepers
+        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, keepers, divisions
     )
 
 load_dotenv()
@@ -137,10 +138,19 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_qualifiers INTEGER DEFAULT 6",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_reseed BOOLEAN DEFAULT FALSE",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_consolation BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_tiebreakers JSON DEFAULT '[\"points_for\",\"head_to_head\",\"division_wins\",\"wins\"]'",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_tiebreakers JSON DEFAULT '[\"overall_record\",\"head_to_head\",\"points_for\",\"points_against\",\"random_draw\"]'",
         "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS future_draft_cap INTEGER DEFAULT 0",  # required by ORM
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS divisions_enabled BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_count INTEGER",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_config_status VARCHAR DEFAULT 'draft'",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_assignment_method VARCHAR",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_random_seed VARCHAR",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_needs_reseed BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_history_enabled BOOLEAN DEFAULT TRUE",
         "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS division_id INTEGER",  # added for divisions feature
+        "ALTER TABLE divisions ADD COLUMN IF NOT EXISTS season INTEGER",
+        "ALTER TABLE divisions ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0",
         # new field added in recent schema; seeding logic expects it
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS future_draft_budget INTEGER DEFAULT 0",
         # taxi support: mark picks that aren’t eligible for starting lineup
@@ -150,6 +160,13 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS years_kept_count INTEGER DEFAULT 1",
         "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP WITH TIME ZONE",
         "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS approved_by_commish BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE matchups ADD COLUMN IF NOT EXISTS is_division_matchup BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE matchups ADD COLUMN IF NOT EXISTS is_rivalry_week BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE matchups ADD COLUMN IF NOT EXISTS rivalry_name VARCHAR",
+        "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_1_seed INTEGER",
+        "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_2_seed INTEGER",
+        "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_1_is_division_winner BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_2_is_division_winner BOOLEAN DEFAULT FALSE",
     ]
 
     with engine.connect() as connection:
@@ -259,6 +276,7 @@ app.include_router(draft.router)
 app.include_router(team.router)
 app.include_router(matchups.router)
 app.include_router(league.router)
+app.include_router(divisions.router)
 app.include_router(playoffs.router)  # new playoff endpoints
 app.include_router(advisor.router)
 app.include_router(dashboard.router)

@@ -29,6 +29,10 @@ class LeagueSummary(BaseModel):
     id: int
     name: str
     draft_status: str
+    divisions_enabled: Optional[bool] = None
+    division_count: Optional[int] = None
+    division_config_status: Optional[str] = None
+    requires_reseed_review: Optional[bool] = None
 
 class LeagueNewsItem(BaseModel):
     type: str
@@ -177,14 +181,25 @@ def validate_lineup_rules(config: LeagueConfigFull) -> None:
 def get_leagues(db: Session = Depends(get_db)):
     """List all available leagues."""
     leagues = db.query(models.League).all()
-    return [
-        LeagueSummary(
-            id=l.id,
-            name=l.name,
-            draft_status=l.draft_status or "PRE_DRAFT",
+    summaries: list[LeagueSummary] = []
+    for league in leagues:
+        settings = (
+            db.query(models.LeagueSettings)
+            .filter(models.LeagueSettings.league_id == league.id)
+            .first()
         )
-        for l in leagues
-    ]
+        summaries.append(
+            LeagueSummary(
+                id=league.id,
+                name=league.name,
+                draft_status=league.draft_status or "PRE_DRAFT",
+                divisions_enabled=bool(settings.divisions_enabled) if settings else False,
+                division_count=settings.division_count if settings else None,
+                division_config_status=settings.division_config_status if settings else None,
+                requires_reseed_review=bool(settings.division_needs_reseed) if settings else False,
+            )
+        )
+    return summaries
 
 # --- NEW: GET /league/owners?league_id= ---
 # This is a GET endpoint to match the frontend call, but is defined here for convenience.
@@ -197,9 +212,10 @@ def get_league_owners(league_id: int = Query(...),
         raise HTTPException(status_code=404, detail="League not found")
     owners = db.query(models.User).filter(models.User.league_id == league_id).all()
 
-    def calc_stats(owner_id: int) -> dict:
-        """Return aggregated W/L/T, PF, PA for a single owner."""
-        w = l = t = pf = pa = 0
+    def calc_stats(owner: models.User) -> dict:
+        """Return aggregated W/L/T plus display-only division wins and points."""
+        owner_id = owner.id
+        w = l = t = pf = pa = division_wins = 0
         matches = db.query(models.Matchup).filter(
             or_(
                 models.Matchup.home_team_id == owner_id,
@@ -224,11 +240,35 @@ def get_league_owners(league_id: int = Query(...),
                 l += 1
             else:
                 t += 1
-        return {"wins": w, "losses": l, "ties": t, "pf": pf, "pa": pa}
+
+            # Display-only stat for UI (not part of tiebreak chain).
+            if owner.division_id and m.home_team_id and m.away_team_id:
+                home = db.query(models.User).filter(models.User.id == m.home_team_id).first()
+                away = db.query(models.User).filter(models.User.id == m.away_team_id).first()
+                if home and away and home.division_id and away.division_id and home.division_id == away.division_id:
+                    if score > opp:
+                        division_wins += 1
+
+        games_played = w + l + t
+        overall_record = {
+            "wins": w,
+            "losses": l,
+            "ties": t,
+            "win_pct": round((w / games_played), 4) if games_played else 0.0,
+        }
+        return {
+            "wins": w,
+            "losses": l,
+            "ties": t,
+            "pf": pf,
+            "pa": pa,
+            "division_wins": division_wins,
+            "overall_record": overall_record,
+        }
 
     owners_data = []
     for o in owners:
-        stats = calc_stats(o.id)
+        stats = calc_stats(o)
         owners_data.append(
             {
                 "id": o.id,
@@ -237,6 +277,28 @@ def get_league_owners(league_id: int = Query(...),
                 "team_name": o.team_name,
                 "division_id": o.division_id,
                 "division_name": o.division_obj.name if o.division_obj else None,
+                "division": {
+                    "id": o.division_id,
+                    "name": o.division_obj.name if o.division_obj else None,
+                    "order_index": o.division_obj.order_index if o.division_obj else None,
+                },
+                "standings_metrics": {
+                    "overall_wins": stats["wins"],
+                    "division_wins": stats["division_wins"],
+                    "points_for": stats["pf"],
+                    "points_against": stats["pa"],
+                    "overall_record": stats["overall_record"],
+                },
+                "tiebreak_context": {
+                    "applied_chain": [
+                        "overall_record",
+                        "head_to_head",
+                        "points_for",
+                        "points_against",
+                        "random_draw",
+                    ],
+                    "rank_reason": "overall_record",
+                },
                 **stats,
             }
         )
@@ -256,10 +318,15 @@ def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
+    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league.id).first()
     return LeagueSummary(
         id=league.id,
         name=league.name,
         draft_status=league.draft_status or "PRE_DRAFT",
+        divisions_enabled=bool(settings.divisions_enabled) if settings else False,
+        division_count=settings.division_count if settings else None,
+        division_config_status=settings.division_config_status if settings else None,
+        requires_reseed_review=bool(settings.division_needs_reseed) if settings else False,
     )
 
 @router.get("/{league_id}/news", response_model=List[LeagueNewsItem])

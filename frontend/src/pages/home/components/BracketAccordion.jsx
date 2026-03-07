@@ -11,6 +11,46 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
   const [season, setSeason] = useState(new Date().getFullYear());
   const [seasons, setSeasons] = useState([]);
   const [view, setView] = useState('championship'); // or 'consolation'
+  const [ownerNameById, setOwnerNameById] = useState({});
+
+  const formatTiebreakToken = (token) => {
+    if (!token) return '-';
+    return String(token).replaceAll('_', ' ');
+  };
+
+  const renderTeamLine = ({
+    teamId,
+    seed,
+    isDivisionWinner,
+    divisionName,
+    align = 'left',
+  }) => {
+    const alignmentClass = align === 'right' ? 'text-right' : 'text-left';
+    return (
+      <div className={`flex flex-col ${alignmentClass}`}>
+        <span className="font-semibold text-slate-100">
+          {teamId ? ownerNameById[Number(teamId)] || `Team ${teamId}` : 'TBD'}
+        </span>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {seed ? (
+            <span className="rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
+              Seed {seed}
+            </span>
+          ) : null}
+          {isDivisionWinner ? (
+            <span className="rounded border border-cyan-700 bg-cyan-950/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-cyan-300">
+              Division Winner
+            </span>
+          ) : null}
+          {divisionName ? (
+            <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+              {divisionName}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (!propLeagueId && typeof window !== 'undefined') {
@@ -19,6 +59,26 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
       if (stored) setLeagueId(stored);
     }
   }, [propLeagueId]);
+
+  useEffect(() => {
+    if (!leagueId) return;
+
+    const fetchOwnerNames = async () => {
+      try {
+        const res = await apiClient.get(`/leagues/owners?league_id=${leagueId}`);
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const map = {};
+        for (const owner of rows) {
+          map[Number(owner.id)] = owner.team_name || owner.username || `Team ${owner.id}`;
+        }
+        setOwnerNameById(map);
+      } catch {
+        setOwnerNameById({});
+      }
+    };
+
+    fetchOwnerNames();
+  }, [leagueId]);
 
   // load list of available seasons so user can pick archived years
   useEffect(() => {
@@ -77,18 +137,39 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
           key={id}
           className="border border-slate-700 rounded p-2 mb-2 bg-slate-900/30"
         >
-          <div className="text-xs text-slate-400">{id}</div>
+          <div className="text-xs text-slate-400 flex items-center justify-between gap-2">
+            <span>{id}</span>
+            {m.round ? (
+              <span className="rounded border border-slate-700 px-1.5 py-0.5 uppercase tracking-wide text-[10px]">
+                {m.round}
+              </span>
+            ) : null}
+          </div>
           {m.is_bye ? (
             <div className="text-sm text-yellow-400">
-              BYE → seed {m.team_1_id || 'TBD'}
+              BYE - {m.team_1_id ? ownerNameById[Number(m.team_1_id)] || `Team ${m.team_1_id}` : 'TBD'} advances
             </div>
           ) : (
             <div className="text-sm flex justify-between">
-              <span>#{m.team_1_id || 'TBD'}</span>
+              {renderTeamLine({
+                teamId: m.team_1_id,
+                seed: m.team_1_seed,
+                isDivisionWinner: m.team_1_is_division_winner,
+                divisionName: m.team_1_division_name,
+              })}
               <span>vs</span>
-              <span>#{m.team_2_id || 'TBD'}</span>
+              {renderTeamLine({
+                teamId: m.team_2_id,
+                seed: m.team_2_seed,
+                isDivisionWinner: m.team_2_is_division_winner,
+                divisionName: m.team_2_division_name,
+                align: 'right',
+              })}
             </div>
           )}
+          {m.winner_to ? (
+            <div className="mt-2 text-[11px] text-slate-400">Winner advances to next round</div>
+          ) : null}
         </div>
       );
     });
@@ -125,6 +206,34 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
         {loading && <div className="text-slate-400 mt-2">Loading...</div>}
         {!loading && bracket && (
           <div className="mt-4">
+            {bracket.seeding_policy ? (
+              <div className="mb-4 rounded border border-slate-700 bg-slate-900/40 p-3">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                  Seeding Policy
+                </div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {bracket.seeding_policy.division_winners_top_seeds ? (
+                    <span className="rounded border border-cyan-700 bg-cyan-950/60 px-2 py-1 text-[10px] uppercase tracking-wide text-cyan-300">
+                      Division Winners Top Seeds
+                    </span>
+                  ) : null}
+                  {bracket.seeding_policy.wildcards_by_overall_record ? (
+                    <span className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-300">
+                      Wildcards by Overall Record
+                    </span>
+                  ) : null}
+                </div>
+                {Array.isArray(bracket.seeding_policy.tiebreak_chain) && (
+                  <div className="text-xs text-slate-400">
+                    Tiebreak chain:{' '}
+                    {bracket.seeding_policy.tiebreak_chain
+                      .map((token) => formatTiebreakToken(token))
+                      .join(' > ')}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
             {/* selector for which bracket view to display */}
             <div className="mb-4 flex items-center gap-2">
               <label className="text-xs">View:</label>

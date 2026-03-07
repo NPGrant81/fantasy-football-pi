@@ -168,7 +168,7 @@ export default function Keepers() {
             >
               {player ? (
                 <>
-                  <span className="font-semibold">{player.name}</span>
+                  <span className="font-semibold">Selected Keeper</span>
                   <span className="text-xs text-slate-600 dark:text-slate-300">
                     ${player.draft_price || 0}
                     {player.projected_value != null && (
@@ -206,7 +206,8 @@ export default function Keepers() {
                   (!selected.has(p.player_id) && selectedCount >= maxAllowed)
                 }
               />
-              {p.name} (draft: ${p.draft_price || 0})
+              <span>{p.name}</span>
+              <span>(draft: ${p.draft_price || 0})</span>
               {keeperData?.ineligible?.includes(p.player_id) && (
                 <span
                   className="text-red-400 text-xs ml-1"

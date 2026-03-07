@@ -120,8 +120,11 @@ export default function TradeAnalyzer() {
       {error && <p className="text-red-400">{error}</p>}
       <div className="flex gap-4 mb-4">
         <div>
-          <label className="block mb-1">Owner A</label>
+          <label htmlFor="trade-owner-a" className="block mb-1">
+            Owner A
+          </label>
           <select
+            id="trade-owner-a"
             className="p-2 bg-slate-800 rounded"
             value={a || ''}
             onChange={(e) => setA(Number(e.target.value) || null)}
@@ -135,8 +138,11 @@ export default function TradeAnalyzer() {
           </select>
         </div>
         <div>
-          <label className="block mb-1">Owner B</label>
+          <label htmlFor="trade-owner-b" className="block mb-1">
+            Owner B
+          </label>
           <select
+            id="trade-owner-b"
             className="p-2 bg-slate-800 rounded"
             value={b || ''}
             onChange={(e) => setB(Number(e.target.value) || null)}

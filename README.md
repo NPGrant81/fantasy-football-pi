@@ -20,6 +20,7 @@ or commit it yourself.
 - PR handoff notes: [PR_NOTES.md](docs/PR_NOTES.md)
 - Permissions notes: [permissions.md](docs/permissions.md)
 - API inventory + full page matrix: [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md)
+- Responsive audit by platform (Windows/Raspberry Pi/Linux): [RESPONSIVE_AUDIT_ENVIRONMENT.md](docs/RESPONSIVE_AUDIT_ENVIRONMENT.md)
 
 ## API Overview (Condensed)
 
@@ -32,6 +33,7 @@ or commit it yourself.
 - **Players:** `/players/*`
 - **Draft:** `/draft/*` and `/draft-history`
 - **Matchups:** `/matchups/*`
+- **Divisions:** `/leagues/{id}/divisions/*`
 - **Waivers:** `/waivers/*` (claims, drops, audit)
 - **Trades:** `/trades/*`
 - **Feedback:** `/feedback/*`
@@ -58,6 +60,7 @@ or commit it yourself.
 | Game Center (`/matchup/:id`)        | `GET /matchups/{id}`                                                                                                                                                                   |
 | Waiver Wire (`/waivers`)            | `GET /players/waiver-wire`, `POST /waivers/claim`, `GET /waivers/claims` (commissioner audit), `GET /dashboard/{ownerId}`, `GET /leagues/*`                                            |
 | Commissioner (`/commissioner`)      | `GET/PUT /leagues/{id}/settings` (including waiver rules and budgets), `GET /leagues/owners`, `GET /trades/pending`, `GET /leagues/{id}/waiver-budgets`, budget + draft-year endpoints |
+| Divisions (`/commissioner/manage-divisions`) | `GET/PUT /leagues/{id}/divisions/config`, `POST /leagues/{id}/divisions/assignment-preview`, `POST /leagues/{id}/divisions/finalize`, `POST /leagues/{id}/divisions/undo-last`, `POST /leagues/{id}/divisions/report-name`, `GET /leagues/owners` |
 | Site Admin (`/admin`)               | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft`                                                                                              |
 | Bug Report (`/bug-report`)          | `PUT /auth/email`, `POST /feedback/bug`                                                                                                                                                |
 | Analytics (`/analytics`)            | Fetches league/manager data from `/analytics/*` endpoints (leaderboard, weekly-stats, roster-strength); dashboard includes efficiency leaderboard, trade/roster strength charts                                                                  |
@@ -258,6 +261,28 @@ Additional pre-push hooks run slower tasks before code leaves your workstation:
 These pre-push checks are optional but recommended for developers with local
 resources; you can skip them with `SKIP=unit-tests,e2e-tests git push` if the
 run time becomes burdensome.
+
+### Repository hygiene check
+
+To verify docs/index consistency and naming/case conventions, run:
+
+```bash
+python -m scripts.repo_hygiene_check
+```
+
+This check is also wired into pre-commit and CI.
+
+Frontend developers can also run the same check from `frontend/` with:
+
+```bash
+npm run repo:hygiene
+```
+
+From the repository root on Windows PowerShell:
+
+```powershell
+.\scripts\run_repo_hygiene.ps1
+```
 
 These hooks help prevent the CI errors you’ve seen when new items appear.
 

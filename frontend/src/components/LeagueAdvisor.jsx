@@ -63,14 +63,14 @@ export default function ChatInterface({ initialQuery = '' }) {
       setIsLoading(true);
 
       try {
-        const enrichedQuery = `${activeQuery}\n\n[Insight Vocabulary Preference]\n${INSIGHT_VOCABULARY_HINT}`;
-        // 2.1.2 EXECUTION: JSON body delivery (Standard-compliant)
+        // Keep user_query stable for API/test compatibility; pass preferences separately.
         const res = await apiClient.post(
           '/advisor/ask',
           {
-            user_query: enrichedQuery,
+            user_query: activeQuery,
             username: userInfo.username,
             league_id: userInfo.leagueId,
+            insight_vocabulary_hint: INSIGHT_VOCABULARY_HINT,
           },
           {
             timeout: 30000,

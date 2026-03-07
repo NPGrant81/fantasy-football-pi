@@ -18,8 +18,28 @@ def tiebreaker_winner(team_a: Dict[str, Any], team_b: Dict[str, Any],
     declared the winner by default.
     """
     for key in priority:
-        a_val = team_a.get(key)
-        b_val = team_b.get(key)
+        token = (key or "").strip().lower()
+        if token == "overall_record":
+            # Backward compatible mapping to existing standings payloads.
+            a_val = team_a.get("wins", team_a.get("overall_wins"))
+            b_val = team_b.get("wins", team_b.get("overall_wins"))
+        elif token == "points_for":
+            a_val = team_a.get("points_for", team_a.get("pf"))
+            b_val = team_b.get("points_for", team_b.get("pf"))
+        elif token == "points_against":
+            # Lower points against is better, so invert comparison values.
+            a_raw = team_a.get("points_against", team_a.get("pa"))
+            b_raw = team_b.get("points_against", team_b.get("pa"))
+            a_val = -a_raw if a_raw is not None else None
+            b_val = -b_raw if b_raw is not None else None
+        elif token == "random_draw":
+            # Placeholder deterministic fallback: hash team id.
+            a_val = str(team_a.get("id", ""))
+            b_val = str(team_b.get("id", ""))
+        else:
+            a_val = team_a.get(token)
+            b_val = team_b.get(token)
+
         if a_val is None or b_val is None:
             continue
         if a_val > b_val:

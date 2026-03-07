@@ -166,7 +166,9 @@ def login_for_access_token(
         "access_token": access_token, 
         "token_type": "bearer", 
         "owner_id": user.id,
-        "league_id": user.league_id 
+        "league_id": user.league_id,
+        "division_id": user.division_id,
+        "division_name": user.division_obj.name if user.division_obj else None,
     }
 
 
@@ -183,7 +185,9 @@ def get_current_user_info(current_user: models.User = Depends(security.get_curre
         "username": current_user.username,
         "league_id": current_user.league_id, 
         "is_commissioner": current_user.is_commissioner,
-        "email": current_user.email
+        "email": current_user.email,
+        "division_id": current_user.division_id,
+        "division_name": current_user.division_obj.name if current_user.division_obj else None,
     }
 
 

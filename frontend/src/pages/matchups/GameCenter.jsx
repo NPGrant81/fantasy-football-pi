@@ -1,6 +1,6 @@
 // frontend/src/pages/GameCenter.jsx
 import { useEffect, useState } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { FiArrowLeft, FiInfo, FiToggleRight, FiToggleLeft } from 'react-icons/fi';
 import TeamLogo from '@components/TeamLogo';
 
@@ -68,10 +68,22 @@ const RosterColumn = ({ players = [], teamName, teamInfo, colorClass, showProjec
 export default function GameCenter() {
   // --- 1.2 STATE & PARAMS ---
   const { id } = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [game, setGame] = useState(null);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
-  const [showProjected, setShowProjected] = useState(searchParams.get('view') !== 'actual');
+
+  const initialProjected = (() => {
+    if (typeof window === 'undefined') return true;
+    const params = new URLSearchParams(window.location.search || '');
+    return params.get('view') !== 'actual';
+  })();
+  const [showProjected, setShowProjected] = useState(initialProjected);
+
+  const syncQueryParam = (projectedState) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', projectedState ? 'projected' : 'actual');
+    window.history.replaceState({}, '', url.toString());
+  };
 
   useEffect(() => {
     if (!showScoreInfo) return;
@@ -92,15 +104,7 @@ export default function GameCenter() {
   const handleToggleChange = () => {
     const newState = !showProjected;
     setShowProjected(newState);
-    setSearchParams({ view: newState ? 'projected' : 'actual' });
-  };
-  
-  const getScore = (side) => {
-    if (!game) return 0;
-    if (showProjected) {
-      return side === 'home' ? game.home_projected : game.away_projected;
-    }
-    return side === 'home' ? game.home_score : game.away_score;
+    syncQueryParam(newState);
   };
 
   // --- 1.3 DATA RETRIEVAL (The Engine) ---
@@ -155,7 +159,7 @@ export default function GameCenter() {
           </p>
         </div>
         <Link
-          to={`/matchups?week=${game.week}&view=${showProjected ? 'projected' : 'actual'}`}
+          to="/matchups"
           aria-label="Back to matchups"
           className={`${buttonSecondary} inline-flex w-fit items-center gap-2 px-3 py-1.5 text-xs no-underline`}
         >
