@@ -53,7 +53,7 @@ const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
 );
 const Keepers = lazy(() => import('./pages/Keepers'));
-import PlayoffBracket from './pages/playoffs/PlayoffBracket';
+const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
