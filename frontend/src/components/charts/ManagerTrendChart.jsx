@@ -1,13 +1,4 @@
-// Create a React component for Manager Trend Analysis line chart
-// Uses Chart.js to show weekly scoring trends for all league managers
-// X-axis: Week numbers (1-17 for NFL season)
-// Y-axis: Points scored that week
-// Multiple lines (one per manager) with different colors
-// Include a legend showing team names
-// Add tooltips showing exact points on hover
-// Include sample data for 4 managers across 6 weeks
-// Dark theme with vibrant team colors (blue, red, green, orange)
-// Make it responsive and animated
+// Manager trend analysis line chart backed by analytics API weekly stats.
 
 import React from 'react';
 import apiClient from '@api/client';
@@ -60,7 +51,12 @@ const ManagerTrendChart = () => {
           `/analytics/league/${leagueId}/weekly-stats`,
           { params: { manager_id: managerId } }
         );
-        setStats(res.data || []);
+        const payload = res.data;
+        if (payload && !Array.isArray(payload) && Array.isArray(payload.rows)) {
+          setStats(payload.rows);
+        } else {
+          setStats(payload || []);
+        }
       } catch (err) {
         console.error(err);
         setError(err.message || 'Failed to load stats');

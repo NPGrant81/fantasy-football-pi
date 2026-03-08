@@ -30,6 +30,9 @@ Screenshot source folder:
 - Ensure text/UI controls are readable in the deck image frame.
 - Avoid loading spinners or skeleton states in final captured images.
 - Re-capture if screenshots are blurry, cropped, or stale.
+- Deck `PURPOSE` text must be page-specific and reference the exact workflow in the screenshot.
+- Text boxes must be wrapped to fit within the right-column layout without manual edits.
+- `CORE FUNCTIONALITY` must render as true bullet paragraphs (not manually edited post-export).
 
 ## Slide-to-Screenshot Mapping
 | Slide | Deck Title | Screenshot File |
@@ -58,6 +61,14 @@ Screenshot source folder:
 | 25 | Trade Proposal Modal | `uat_trade_proposal_modal.png` |
 | 26 | Player Season Performance Modal | `uat_player_season_performance_modal.png` |
 | 27 | Waiver Wire Modal Targets | `uat_waiver_confirm_modal.png` |
+| 28 | Commissioner - Keeper Rules | `uat_commissioner_keeper_rules_page.png` |
+| 29 | Commissioner - General Ledger Statement | `uat_commissioner_ledger_statement_page.png` |
+| 30 | Owner - My Ledger Statement | `uat_owner_ledger_statement_page.png` |
+| 31 | War Room - Show Best Available | `uat_war_room_best_available_panel.png` |
+| 32 | Player Card Detail | `uat_player_identity_card_modal.png` |
+| 33 | Analytics - Draft Value Analysis | `uat_analytics_draft_value_page.png` |
+| 34 | Analytics - Efficiency Leaderboard | `uat_analytics_efficiency_page.png` |
+| 35 | Analytics - Trade Analyzer | `uat_analytics_trade_analyzer_page.png` |
 
 ## Modal Coverage Targets
 Current modal screenshots included:
@@ -75,6 +86,16 @@ Additional modal targets (capture when route states allow deterministic reproduc
 - Trade proposal submit-success state
 - Player season details for alternate positions (QB/RB/TE)
 - Commissioner owner-management edit modal
+
+Additional commissioner coverage targets:
+- Commissioner dashboard card state showing `Edit Waiver Rules` CTA
+- Keeper Rules admin controls (`max keepers`, `deadline`, `reset` actions)
+- Ledger owner filter and statement table state
+
+Additional analytics coverage targets:
+- Button-selected mode capture for Draft Value Analysis
+- Button-selected mode capture for Efficiency Leaderboard
+- Button-selected mode capture for Trade Analyzer
 
 ## Update Rules
 - Any route/page rename in `frontend/src/App.jsx` requires this mapping to be reviewed.

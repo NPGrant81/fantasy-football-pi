@@ -43,7 +43,7 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
         run: |
           cd backend
-          pytest -q
+          python -m pytest -q
 
   frontend-tests:
     name: Frontend tests & lint (fork PRs only)

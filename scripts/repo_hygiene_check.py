@@ -50,20 +50,25 @@ def check_docs_index() -> list[str]:
         return [f"missing docs index: {DOCS_INDEX}"]
 
     index_text = _read_text(DOCS_INDEX)
-    linked = re.findall(r"\([^)]*?([A-Za-z0-9._-]+\.md)\)", index_text)
-    linked_set = set(linked)
+    linked_paths = re.findall(r"\(([^)#]+\.md)\)", index_text)
+    linked_set = {path.strip().lstrip("./") for path in linked_paths}
 
     doc_files = {
         path.name
         for path in DOCS_DIR.glob("*.md")
         if path.name.lower() != "index.md"
     }
+    linked_top_level = {
+        Path(rel).name
+        for rel in linked_set
+        if Path(rel).parent.as_posix() in {"", "."}
+    }
 
-    for filename in sorted(linked_set):
-        if not (DOCS_DIR / filename).exists():
-            issues.append(f"docs index has dangling link: docs/{filename}")
+    for rel_path in sorted(linked_set):
+        if not (DOCS_DIR / rel_path).exists():
+            issues.append(f"docs index has dangling link: docs/{rel_path}")
 
-    for filename in sorted(doc_files - linked_set):
+    for filename in sorted(doc_files - linked_top_level):
         issues.append(f"docs file missing from index: docs/{filename}")
 
     return issues

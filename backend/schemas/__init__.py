@@ -13,12 +13,12 @@ from .draft import DraftPickCreate, DraftPickShow, DraftPickBase, HistoricalRank
 
 # 4. SCORING
 from .scoring import (
-	ScoringRule,
-	ScoringRuleCreate,
-	ScoringTemplate,
-	ScoringTemplateCreate,
-	ScoringRuleProposal,
-	ScoringRuleProposalCreate,
+    ScoringRule,
+    ScoringRuleCreate,
+    ScoringTemplate,
+    ScoringTemplateCreate,
+    ScoringRuleProposal,
+    ScoringRuleProposalCreate,
 )
 
 # 5. WAIVERS & TRADES (Uncomment these lines once those files have classes)

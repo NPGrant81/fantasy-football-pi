@@ -124,7 +124,6 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
     # computes and sorts by wins/pf etc.
     owners_data = get_league_owners(league_id=league.id, db=db)
     division_winners = _division_winner_owner_ids(owners_data)
-    owner_by_id = {int(o["id"]): o for o in owners_data}
     teams = [{"id": o["id"], "seed": idx + 1} for idx, o in enumerate(owners_data)]
 
     # create bracket structure using helper

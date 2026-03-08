@@ -1,15 +1,10 @@
-from fastapi.testclient import TestClient
 from uuid import uuid4
 
-from ..main import app
 from backend.database import SessionLocal
 import backend.models as models
 
 
-client = TestClient(app)
-
-
-def test_players_endpoint_dedupes_name_position_team_aliases():
+def test_players_endpoint_dedupes_name_position_team_aliases(client):
     suffix = uuid4().hex[:8]
     brandin_name = f"Brandin Cooks Dedup {suffix}"
     brian_name = f"Brian Thomas Jr Dedup {suffix}"
