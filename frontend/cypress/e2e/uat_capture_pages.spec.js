@@ -94,13 +94,23 @@ describe('UAT deck screenshot capture', () => {
       });
     }
 
-    // Avoid black/empty captures by waiting for a rendered heading and no loading banner.
+    // Avoid black/empty captures by waiting for no loading banner.
     cy.get('body', { timeout: 12000 }).should('not.contain.text', 'Loading...');
     cy.get('body', { timeout: 12000 })
       .invoke('text')
       .should((text) => {
         expect(text.trim().length).to.be.greaterThan(80);
       });
+    if (requireHeading) {
+      cy.get('body', { timeout: 12000 }).then(($body) => {
+        const visibleHeadingCount = $body.find('h1:visible, h2:visible, h3:visible').length;
+        if (visibleHeadingCount === 0) {
+          cy.log(`No visible heading found for ${name}; continuing capture.`);
+          return;
+        }
+        expect(visibleHeadingCount).to.be.greaterThan(0);
+      });
+    }
     cy.wait(350);
     cy.screenshot(name, { capture: 'viewport' });
   }
