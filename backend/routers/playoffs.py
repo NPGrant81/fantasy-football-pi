@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+from datetime import UTC, datetime
 from ..database import get_db
 from .. import models
 from ..routers.league import get_league_owners
@@ -78,6 +79,98 @@ def _load_settings(db: Session, league_id: int) -> models.LeagueSettings:
         db.commit()
         db.refresh(league.settings)
     return league.settings
+
+
+def _resolve_match_winner_id(match: Dict[str, Any]) -> Optional[int]:
+    """Resolve a winner id from a bracket match payload when possible."""
+    if match.get("is_bye"):
+        return match.get("team_1_id")
+
+    team_1_id = match.get("team_1_id")
+    team_2_id = match.get("team_2_id")
+    score_1 = match.get("team_1_score")
+    score_2 = match.get("team_2_score")
+
+    if team_1_id is None:
+        return team_2_id
+    if team_2_id is None:
+        return team_1_id
+    if score_1 is None or score_2 is None:
+        return None
+    if score_1 > score_2:
+        return team_1_id
+    if score_2 > score_1:
+        return team_2_id
+
+    seed_1 = match.get("team_1_seed") or 999
+    seed_2 = match.get("team_2_seed") or 999
+    return team_1_id if seed_1 <= seed_2 else team_2_id
+
+
+def _build_winner_summary(matches: List[Dict[str, Any]], owner_by_id: Dict[int, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Return winner metadata for the final round when scores are available."""
+    if not matches:
+        return None
+
+    finals = [m for m in matches if not m.get("winner_to")]
+    if not finals:
+        max_round = max((m.get("round") or 0 for m in matches), default=0)
+        finals = [m for m in matches if (m.get("round") or 0) == max_round]
+
+    if not finals:
+        return None
+
+    final_match = sorted(finals, key=lambda m: m.get("match_id") or "")[0]
+    winner_id = _resolve_match_winner_id(final_match)
+    if not winner_id:
+        return None
+
+    owner = owner_by_id.get(int(winner_id), {})
+    return {
+        "owner_id": int(winner_id),
+        "team_name": owner.get("team_name") or owner.get("username") or f"Team {winner_id}",
+    }
+
+
+def _build_consolation_payload(
+    owners_data: List[Dict[str, Any]],
+    settings: models.LeagueSettings,
+    division_winners: set[int],
+) -> List[Dict[str, Any]]:
+    """Build toilet-bowl bracket payload from standings when enabled."""
+    if not settings.playoff_consolation:
+        return []
+
+    all_teams = [{"id": o["id"], "seed": idx + 1} for idx, o in enumerate(owners_data)]
+    playoff_teams = all_teams[: settings.playoff_qualifiers]
+    generated = playoff_logic.generate_consolation_bracket(all_teams, playoff_teams)
+    payload: List[Dict[str, Any]] = []
+
+    for m in generated:
+        payload.append(
+            {
+                "match_id": m.get("match_id"),
+                "round": m.get("round", 1),
+                "is_bye": m.get("is_bye", False),
+                "team_1_id": m.get("team_1", {}).get("id") if m.get("team_1") else None,
+                "team_2_id": m.get("team_2", {}).get("id") if m.get("team_2") else None,
+                "winner_to": m.get("winner_to"),
+                "team_1_seed": m.get("team_1", {}).get("seed") if m.get("team_1") else None,
+                "team_2_seed": m.get("team_2", {}).get("seed") if m.get("team_2") else None,
+                "team_1_is_division_winner": (m.get("team_1", {}).get("id") in division_winners)
+                if m.get("team_1")
+                else False,
+                "team_2_is_division_winner": (m.get("team_2", {}).get("id") in division_winners)
+                if m.get("team_2")
+                else False,
+                "team_1_division_name": None,
+                "team_2_division_name": None,
+                "team_1_score": None,
+                "team_2_score": None,
+            }
+        )
+
+    return payload
 
 # --- Endpoints ---
 @router.get("/settings", response_model=PlayoffSettingsSchema)
@@ -188,17 +281,41 @@ def get_seasons(league_id: int = Query(...), db: Session = Depends(get_db)) -> L
 
 @router.get("/bracket")
 def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
+    current_year = datetime.now(UTC).year
     matches = db.query(models.PlayoffMatch).filter(
         models.PlayoffMatch.league_id == league_id,
         models.PlayoffMatch.season == season,
     ).all()
     if not matches:
+        snap = (
+            db.query(models.PlayoffSnapshot)
+            .filter(
+                models.PlayoffSnapshot.league_id == league_id,
+                models.PlayoffSnapshot.season == season,
+            )
+            .order_by(models.PlayoffSnapshot.id.desc())
+            .first()
+        )
+        if snap and isinstance(snap.data, dict):
+            snap_data = dict(snap.data)
+            snap_data.setdefault(
+                "meta",
+                {
+                    "league_id": league_id,
+                    "season": season,
+                    "is_historical": season != current_year,
+                    "source": "snapshot",
+                },
+            )
+            return snap_data
         raise HTTPException(status_code=404, detail="Bracket not found")
 
     # convert to JSON structure
     champ: List[Dict[str, Any]] = []
     owners_data = get_league_owners(league_id=league_id, db=db)
     owner_by_id = {int(o["id"]): o for o in owners_data}
+    settings = _load_settings(db, league_id)
+    division_winners = _division_winner_owner_ids(owners_data)
     for m in matches:
         team_1 = owner_by_id.get(int(m.team_1_id)) if m.team_1_id else None
         team_2 = owner_by_id.get(int(m.team_2_id)) if m.team_2_id else None
@@ -215,21 +332,36 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
             "team_2_is_division_winner": m.team_2_is_division_winner,
             "team_1_division_name": team_1.get("division_name") if team_1 else None,
             "team_2_division_name": team_2.get("division_name") if team_2 else None,
+            "team_1_score": m.team_1_score,
+            "team_2_score": m.team_2_score,
         })
-    # we currently do not generate consolation data here
+
+    consolation = _build_consolation_payload(owners_data, settings, division_winners)
+    for match in consolation:
+        team_1 = owner_by_id.get(int(match["team_1_id"])) if match.get("team_1_id") else None
+        team_2 = owner_by_id.get(int(match["team_2_id"])) if match.get("team_2_id") else None
+        match["team_1_division_name"] = team_1.get("division_name") if team_1 else None
+        match["team_2_division_name"] = team_2.get("division_name") if team_2 else None
+
+    uses_divisions = any(bool(o.get("division_id")) for o in owners_data)
     return {
         "championship": champ,
-        "consolation": [],
+        "consolation": consolation,
+        "champion": _build_winner_summary(champ, owner_by_id),
+        "toilet_bowl_winner": _build_winner_summary(consolation, owner_by_id),
         "seeding_policy": {
-            "division_winners_top_seeds": True,
+            "division_winners_top_seeds": uses_divisions,
             "wildcards_by_overall_record": True,
-            "tiebreak_chain": [
-                "overall_record",
-                "head_to_head",
-                "points_for",
-                "points_against",
-                "random_draw",
-            ],
+            "tiebreak_chain": settings.playoff_tiebreakers,
+            "playoff_qualifiers": settings.playoff_qualifiers,
+            "playoff_reseed": settings.playoff_reseed,
+            "playoff_consolation": settings.playoff_consolation,
+        },
+        "meta": {
+            "league_id": league_id,
+            "season": season,
+            "is_historical": season != current_year,
+            "source": "matches",
         },
     }
 

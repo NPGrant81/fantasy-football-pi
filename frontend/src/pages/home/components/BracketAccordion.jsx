@@ -8,9 +8,11 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
   const [loading, setLoading] = useState(false);
   // avoid accessing localStorage during SSR or before it exists
   const [leagueId, setLeagueId] = useState(propLeagueId || null);
-  const [season, setSeason] = useState(new Date().getFullYear());
+  const currentSeason = new Date().getFullYear();
+  const [season, setSeason] = useState(currentSeason);
   const [seasons, setSeasons] = useState([]);
   const [view, setView] = useState('championship'); // or 'consolation'
+  const [historicalMode, setHistoricalMode] = useState(false);
   const [ownerNameById, setOwnerNameById] = useState({});
 
   const formatTiebreakToken = (token) => {
@@ -80,7 +82,7 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     fetchOwnerNames();
   }, [leagueId]);
 
-  // load list of available seasons so user can pick archived years
+  // load list of available seasons for optional historical lookup
   useEffect(() => {
     if (!leagueId) return;
     const fetchSeasons = async () => {
@@ -97,15 +99,23 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
           list = [];
         }
         setSeasons(list);
-        if (list.length > 0) {
-          setSeason(list[0]); // default to most recent
+        if (historicalMode && list.length > 0 && !list.includes(season)) {
+          setSeason(list[0]);
         }
       } catch {
         // ignore, seasons list is optional
       }
     };
     fetchSeasons();
-  }, [leagueId]);
+  }, [leagueId, historicalMode, season]);
+
+  useEffect(() => {
+    if (!historicalMode) {
+      setSeason(currentSeason);
+    } else if (seasons.length > 0 && !seasons.includes(season)) {
+      setSeason(seasons[0]);
+    }
+  }, [historicalMode, currentSeason, seasons, season]);
 
   useEffect(() => {
     // only fetch when the panel opens and we have a league id
@@ -114,8 +124,17 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     const fetchBracket = async () => {
       setLoading(true);
       try {
+        if (!historicalMode) {
+          // Keep current-season bracket aligned with standings/settings.
+          await apiClient.post('/playoffs/generate', {
+            league_id: Number(leagueId),
+            season: currentSeason,
+          });
+        }
+
+        const targetSeason = historicalMode ? season : currentSeason;
         const res = await apiClient.get(
-          `/playoffs/bracket?league_id=${leagueId}&season=${season}`
+          `/playoffs/bracket?league_id=${leagueId}&season=${targetSeason}`
         );
         setBracket(res.data);
       } catch {
@@ -126,74 +145,106 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     };
 
     fetchBracket();
-  }, [open, leagueId, season]);
+  }, [open, leagueId, season, historicalMode, currentSeason]);
+
+  const renderMatchCard = (m = {}) => {
+    const id = m.match_id || 'unknown';
+    return (
+      <div
+        key={id}
+        className="border border-slate-700 rounded p-2 mb-2 bg-slate-900/30 min-w-[220px]"
+      >
+        <div className="text-xs text-slate-400 flex items-center justify-between gap-2">
+          <span>{id}</span>
+          {m.round ? (
+            <span className="rounded border border-slate-700 px-1.5 py-0.5 uppercase tracking-wide text-[10px]">
+              Round {m.round}
+            </span>
+          ) : null}
+        </div>
+        {m.is_bye ? (
+          <div className="text-sm text-yellow-400">
+            BYE - {m.team_1_id ? ownerNameById[Number(m.team_1_id)] || `Team ${m.team_1_id}` : 'TBD'} advances
+          </div>
+        ) : (
+          <div className="text-sm flex justify-between gap-2">
+            {renderTeamLine({
+              teamId: m.team_1_id,
+              seed: m.team_1_seed,
+              isDivisionWinner: m.team_1_is_division_winner,
+              divisionName: m.team_1_division_name,
+            })}
+            <span className="text-slate-400">vs</span>
+            {renderTeamLine({
+              teamId: m.team_2_id,
+              seed: m.team_2_seed,
+              isDivisionWinner: m.team_2_is_division_winner,
+              divisionName: m.team_2_division_name,
+              align: 'right',
+            })}
+          </div>
+        )}
+        {m.winner_to ? (
+          <div className="mt-2 text-[11px] text-slate-400">Winner advances to next round</div>
+        ) : null}
+      </div>
+    );
+  };
 
   const renderMatches = (matches) => {
     if (!matches || !Array.isArray(matches)) return null;
-    return matches.map((m = {}) => {
-      const id = m.match_id || 'unknown';
-      return (
-        <div
-          key={id}
-          className="border border-slate-700 rounded p-2 mb-2 bg-slate-900/30"
-        >
-          <div className="text-xs text-slate-400 flex items-center justify-between gap-2">
-            <span>{id}</span>
-            {m.round ? (
-              <span className="rounded border border-slate-700 px-1.5 py-0.5 uppercase tracking-wide text-[10px]">
-                {m.round}
-              </span>
-            ) : null}
-          </div>
-          {m.is_bye ? (
-            <div className="text-sm text-yellow-400">
-              BYE - {m.team_1_id ? ownerNameById[Number(m.team_1_id)] || `Team ${m.team_1_id}` : 'TBD'} advances
+    const grouped = matches.reduce((acc, match) => {
+      const key = String(match.round || 1);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(match);
+      return acc;
+    }, {});
+    const roundKeys = Object.keys(grouped)
+      .map((r) => Number(r))
+      .sort((a, b) => a - b);
+
+    return (
+      <div className="overflow-x-auto">
+        <div className="flex gap-4 pb-2 min-w-max">
+          {roundKeys.map((roundNum) => (
+            <div key={roundNum} className="min-w-[250px]">
+              <div className="mb-2 text-xs uppercase tracking-wider text-slate-400">Round {roundNum}</div>
+              {grouped[String(roundNum)].map((match) => renderMatchCard(match))}
             </div>
-          ) : (
-            <div className="text-sm flex justify-between">
-              {renderTeamLine({
-                teamId: m.team_1_id,
-                seed: m.team_1_seed,
-                isDivisionWinner: m.team_1_is_division_winner,
-                divisionName: m.team_1_division_name,
-              })}
-              <span>vs</span>
-              {renderTeamLine({
-                teamId: m.team_2_id,
-                seed: m.team_2_seed,
-                isDivisionWinner: m.team_2_is_division_winner,
-                divisionName: m.team_2_division_name,
-                align: 'right',
-              })}
-            </div>
-          )}
-          {m.winner_to ? (
-            <div className="mt-2 text-[11px] text-slate-400">Winner advances to next round</div>
-          ) : null}
+          ))}
         </div>
-      );
-    });
+      </div>
+    );
   };
 
   return (
     <>
-      {/* season selector for archived years */}
-      {seasons.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
-          <label className="text-xs">Season:</label>
-          <select
-            className="bg-slate-800 text-white p-1 rounded"
-            value={season}
-            onChange={(e) => setSeason(Number(e.target.value))}
-          >
-            {seasons.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setHistoricalMode((prev) => !prev)}
+          className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100 hover:bg-slate-700"
+        >
+          {historicalMode ? 'Show Current Season' : 'See Historical'}
+        </button>
+
+        {historicalMode && seasons.length > 0 ? (
+          <>
+            <label className="text-xs">Season:</label>
+            <select
+              className="bg-slate-800 text-white p-1 rounded"
+              value={season}
+              onChange={(e) => setSeason(Number(e.target.value))}
+            >
+              {seasons.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
+      </div>
 
       <details
         className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 shadow-xl"
@@ -242,13 +293,23 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
                 value={view}
                 onChange={(e) => setView(e.target.value)}
               >
-                <option value="championship">Championship</option>
+                <option value="championship">Champion</option>
                 <option value="consolation">Toilet Bowl</option>
               </select>
             </div>
             <h3 className="text-sm text-slate-400 mb-2 uppercase">
-              {view === 'championship' ? 'Championship' : 'Toilet Bowl'}
+              {view === 'championship' ? 'Champion' : 'Toilet Bowl'}
             </h3>
+            {view === 'championship' && bracket.champion ? (
+              <div className="mb-3 text-xs text-emerald-300">
+                Champion: {bracket.champion.team_name}
+              </div>
+            ) : null}
+            {view === 'consolation' && bracket.toilet_bowl_winner ? (
+              <div className="mb-3 text-xs text-cyan-300">
+                Toilet Bowl Winner: {bracket.toilet_bowl_winner.team_name}
+              </div>
+            ) : null}
             <div>
               {renderMatches(
                 view === 'championship'
