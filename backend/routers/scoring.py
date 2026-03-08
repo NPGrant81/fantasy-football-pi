@@ -5,7 +5,7 @@ import io
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -86,6 +86,20 @@ class ScoringImportApplyRequest(BaseModel):
     season_year: int | None = None
     source_platform: str = "imported"
     replace_existing_for_season: bool = False
+
+
+class PlayerPointsUploadSummary(BaseModel):
+    season: int
+    week: int
+    source: str
+    rows_received: int
+    rows_applied: int
+    rows_invalid: int
+    rows_deleted: int
+    inserted: int
+    updated: int
+    player_id_column: str
+    points_column: str
 
 
 class ScoringRuleProposalCreateRequest(BaseModel):
@@ -201,6 +215,200 @@ def _parse_csv_rules(csv_content: str) -> list[ScoringRuleCreate]:
         return parse_csv_rows_to_rules(csv_content)
     except ScoringImportError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _normalize_header(value: str) -> str:
+    return "".join(ch for ch in str(value or "").lower().strip().replace(" ", "_") if ch.isalnum() or ch == "_")
+
+
+def _coerce_upload_value(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _resolve_column_name(headers: list[str], preferred: str | None, aliases: list[str]) -> str:
+    normalized = {_normalize_header(name): name for name in headers}
+    if preferred:
+        preferred_key = _normalize_header(preferred)
+        if preferred_key in normalized:
+            return normalized[preferred_key]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Column '{preferred}' not found in upload. Available columns: {headers}",
+        )
+
+    for alias in aliases:
+        alias_key = _normalize_header(alias)
+        if alias_key in normalized:
+            return normalized[alias_key]
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Could not auto-detect required column. Available columns: {headers}",
+    )
+
+
+def _parse_csv_upload(content: bytes) -> list[dict[str, str]]:
+    text = content.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV upload is missing a header row")
+    return [
+        {
+            (key or "").strip(): _coerce_upload_value(value)
+            for key, value in (row or {}).items()
+        }
+        for row in reader
+    ]
+
+
+def _parse_xlsx_upload(content: bytes) -> list[dict[str, str]]:
+    try:
+        from openpyxl import load_workbook
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="openpyxl is required for xlsx uploads") from exc
+
+    workbook = load_workbook(filename=io.BytesIO(content), read_only=True, data_only=True)
+    try:
+        sheet = workbook.active
+        rows = list(sheet.iter_rows(values_only=True))
+    finally:
+        workbook.close()
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="XLSX upload is empty")
+
+    headers = [_coerce_upload_value(cell) for cell in rows[0]]
+    if not any(headers):
+        raise HTTPException(status_code=400, detail="XLSX upload is missing header columns")
+
+    records: list[dict[str, str]] = []
+    for raw_row in rows[1:]:
+        record: dict[str, str] = {}
+        for idx, header in enumerate(headers):
+            if not header:
+                continue
+            value = raw_row[idx] if idx < len(raw_row) else None
+            record[header] = _coerce_upload_value(value)
+        records.append(record)
+    return records
+
+
+def _extract_points_override_rows(
+    records: list[dict[str, str]],
+    *,
+    player_id_column: str | None,
+    points_column: str | None,
+) -> tuple[list[dict[str, Any]], str, str, int]:
+    if not records:
+        raise HTTPException(status_code=400, detail="Upload contains no data rows")
+
+    headers = sorted({key for row in records for key in row.keys() if key})
+    if not headers:
+        raise HTTPException(status_code=400, detail="Upload contains no readable columns")
+
+    resolved_player_col = _resolve_column_name(
+        headers,
+        player_id_column,
+        aliases=["player_id", "player id", "playerid", "id"],
+    )
+    resolved_points_col = _resolve_column_name(
+        headers,
+        points_column,
+        aliases=["fantasy_points", "fantasy points", "points", "score", "player_points"],
+    )
+
+    invalid_rows = 0
+    parsed: list[dict[str, Any]] = []
+    for row in records:
+        raw_player = _coerce_upload_value(row.get(resolved_player_col))
+        raw_points = _coerce_upload_value(row.get(resolved_points_col))
+        if not raw_player and not raw_points:
+            continue
+        try:
+            player_id = int(float(raw_player))
+            fantasy_points = float(raw_points)
+        except Exception:
+            invalid_rows += 1
+            continue
+        parsed.append({"player_id": player_id, "fantasy_points": fantasy_points})
+
+    if not parsed:
+        raise HTTPException(status_code=400, detail="No valid Player ID/Points rows found in upload")
+
+    return parsed, resolved_player_col, resolved_points_col, invalid_rows
+
+
+def _apply_points_overrides(
+    db: Session,
+    *,
+    season: int,
+    week: int,
+    source: str,
+    rows: list[dict[str, Any]],
+    replace_existing_for_source: bool,
+) -> tuple[int, int, int, int]:
+    # Last value wins when duplicate player IDs appear in the same upload.
+    deduped = {int(item["player_id"]): float(item["fantasy_points"]) for item in rows}
+    player_ids = list(deduped.keys())
+
+    known_ids = {
+        int(row[0])
+        for row in db.query(models.Player.id).filter(models.Player.id.in_(player_ids)).all()
+    }
+    missing = [player_id for player_id in player_ids if player_id not in known_ids]
+    if missing:
+        sample = ", ".join(str(value) for value in missing[:10])
+        raise HTTPException(status_code=400, detail=f"Unknown player_id values in upload: {sample}")
+
+    rows_deleted = 0
+    if replace_existing_for_source:
+        rows_deleted = (
+            db.query(models.PlayerWeeklyStat)
+            .filter(
+                models.PlayerWeeklyStat.season == season,
+                models.PlayerWeeklyStat.week == week,
+                models.PlayerWeeklyStat.source == source,
+            )
+            .delete(synchronize_session=False)
+        )
+
+    existing = {
+        int(stat.player_id): stat
+        for stat in (
+            db.query(models.PlayerWeeklyStat)
+            .filter(
+                models.PlayerWeeklyStat.season == season,
+                models.PlayerWeeklyStat.week == week,
+                models.PlayerWeeklyStat.source == source,
+                models.PlayerWeeklyStat.player_id.in_(player_ids),
+            )
+            .all()
+        )
+    }
+
+    inserted = 0
+    updated = 0
+    for player_id, points in deduped.items():
+        stat = existing.get(player_id)
+        if stat:
+            stat.fantasy_points = points
+            updated += 1
+            continue
+        db.add(
+            models.PlayerWeeklyStat(
+                player_id=player_id,
+                season=season,
+                week=week,
+                fantasy_points=points,
+                stats={"imported_points_override": True},
+                source=source,
+            )
+        )
+        inserted += 1
+
+    return inserted, updated, rows_deleted, len(deduped)
 
 
 @router.get("/rules", response_model=list[ScoringRule])
@@ -438,6 +646,93 @@ def apply_scoring_import(
         db.refresh(row)
 
     return created_rules
+
+
+@router.post("/import/upload-points-override", response_model=PlayerPointsUploadSummary)
+async def upload_points_override(
+    file: UploadFile = File(...),
+    season: int = Query(..., ge=2000, le=2100),
+    week: int = Query(..., ge=1, le=18),
+    source: str = Query(default="manual_override"),
+    replace_existing_for_source: bool = Query(default=True),
+    player_id_column: str | None = Query(default=None),
+    points_column: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    league_id = _league_id_or_400(current_user)
+
+    filename = (file.filename or "").strip()
+    if not filename:
+        raise HTTPException(status_code=400, detail="Uploaded file must include a filename")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    lower_name = filename.lower()
+    if lower_name.endswith(".csv"):
+        records = _parse_csv_upload(content)
+    elif lower_name.endswith(".xlsx"):
+        records = _parse_xlsx_upload(content)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type. Use .csv or .xlsx")
+
+    parsed_rows, resolved_player_col, resolved_points_col, invalid_rows = _extract_points_override_rows(
+        records,
+        player_id_column=player_id_column,
+        points_column=points_column,
+    )
+
+    inserted, updated, rows_deleted, rows_applied = _apply_points_overrides(
+        db,
+        season=season,
+        week=week,
+        source=source,
+        rows=parsed_rows,
+        replace_existing_for_source=replace_existing_for_source,
+    )
+
+    _append_change_log(
+        db,
+        league_id=league_id,
+        scoring_rule_id=None,
+        season_year=season,
+        change_type="stats_override_imported",
+        changed_by_user_id=current_user.id,
+        rationale="Player points override imported from uploaded file",
+        previous_value=None,
+        new_value={
+            "filename": filename,
+            "season": season,
+            "week": week,
+            "source": source,
+            "replace_existing_for_source": replace_existing_for_source,
+            "rows_received": len(records),
+            "rows_applied": rows_applied,
+            "rows_invalid": invalid_rows,
+            "rows_deleted": rows_deleted,
+            "inserted": inserted,
+            "updated": updated,
+            "player_id_column": resolved_player_col,
+            "points_column": resolved_points_col,
+        },
+    )
+    db.commit()
+
+    return PlayerPointsUploadSummary(
+        season=season,
+        week=week,
+        source=source,
+        rows_received=len(records),
+        rows_applied=rows_applied,
+        rows_invalid=invalid_rows,
+        rows_deleted=rows_deleted,
+        inserted=inserted,
+        updated=updated,
+        player_id_column=resolved_player_col,
+        points_column=resolved_points_col,
+    )
 
 
 @router.post("/calculate/weeks/{week}/recalculate")

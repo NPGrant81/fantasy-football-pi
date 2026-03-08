@@ -6,10 +6,12 @@ handler, eliminating the need for every test to trigger the seeder.
 """
 
 import click
+from datetime import datetime, timezone
 
 from .database import SessionLocal, engine, Base
 from .scripts.seed import run_seeder
 from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_audit
+from .scripts.finalize_week import run_finalization
 from .core.security import get_password_hash
 
 
@@ -59,6 +61,36 @@ def audit_player_duplicates(apply_changes: bool, fail_on_duplicates: bool, json_
         raise click.ClickException(
             f"Found {summary['duplicate_groups']} duplicate player groups"
         )
+
+
+@cli.command("finalize-week")
+@click.option("--league-id", type=int, required=True, help="Target league ID.")
+@click.option("--week", type=int, required=True, help="Week number to finalize.")
+@click.option(
+    "--season",
+    type=int,
+    default=lambda: datetime.now(timezone.utc).year,
+    show_default="current UTC year",
+    help="Stat season used for points lookup.",
+)
+@click.option("--season-year", type=int, default=None, help="Optional scoring season year.")
+def finalize_week_command(league_id: int, week: int, season: int, season_year: int | None):
+    """Finalize one league week and lock lineup edits for that week.
+
+    This command is designed to run via scheduler (for example Tuesday 4 AM cron).
+    """
+
+    result = run_finalization(
+        league_id=league_id,
+        week=week,
+        season=season,
+        season_year=season_year,
+    )
+
+    click.echo(
+        f"Finalized league={result['league_id']} week={result['week']} "
+        f"matchups={result['matchups_finalized']}"
+    )
 
 
 if __name__ == "__main__":
