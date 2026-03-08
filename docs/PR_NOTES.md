@@ -41,6 +41,6 @@ assess impact and risk across all areas.
 
 ### Validation
 
-- All new API endpoints covered by `backend/tests/test_scoring_router.py`
+- New `/scoring/rules` API endpoints manually smoke-tested in a local dev environment
 - Player dedup CI gate verified in contributor workflow (`ci-contributor.yml`)
 - UAT deck images regenerated and spot-checked against latest page screenshots
