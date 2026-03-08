@@ -327,6 +327,54 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     return sortedPlayers.find((player) => player.id === Number(selectedPlayerId)) || null;
   }, [sortedPlayers, selectedPlayerId]);
 
+  const comparisonCandidate = useMemo(() => {
+    if (!selectedPlayer) return null;
+    const targetPos = normalizePos(selectedPlayer.position);
+    const targetOwner = Number(simulationPerspectiveOwnerId || activeOwnerId || 0);
+
+    const teammatePickIds = new Set(
+      history
+        .filter((pick) => Number(pick.owner_id) === targetOwner)
+        .map((pick) => Number(pick.player_id))
+        .filter(Boolean)
+    );
+
+    const teammatePosIds = new Set(
+      history
+        .filter((pick) => Number(pick.owner_id) === targetOwner)
+        .filter(
+          (pick) =>
+            normalizePos(
+              pick.position || rankingByPlayerId.get(Number(pick.player_id))?.position
+            ) === targetPos
+        )
+        .map((pick) => Number(pick.player_id))
+        .filter(Boolean)
+    );
+
+    const rankedByValue = [...sortedPlayers].sort((a, b) => b.value - a.value);
+
+    // Prefer same-position options that are not already on this owner's roster.
+    return (
+      rankedByValue.find(
+        (player) =>
+          Number(player.id) !== Number(selectedPlayer.id) &&
+          normalizePos(player.position) === targetPos &&
+          !teammatePosIds.has(Number(player.id)) &&
+          !teammatePickIds.has(Number(player.id))
+      ) ||
+      rankedByValue.find((player) => Number(player.id) !== Number(selectedPlayer.id)) ||
+      null
+    );
+  }, [
+    selectedPlayer,
+    simulationPerspectiveOwnerId,
+    activeOwnerId,
+    history,
+    rankingByPlayerId,
+    sortedPlayers,
+  ]);
+
   const fallbackInsightRecommendation = useMemo(() => {
     if (!selectedPlayer) return null;
 
@@ -644,8 +692,8 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         return;
       }
 
-      if (action === 'Compare' || action === 'Explain') {
-        setAdvisorError(`${action} details are deprecated. Use Analyzer Insights and Simulation.`);
+      if (action === 'Compare' && !comparisonCandidate) {
+        setAdvisorError('No comparison candidate available right now.');
         return;
       }
 
@@ -655,18 +703,22 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       setDrawerError('');
       setDrawerOpen(true);
       setDrawerTitle(`${action} Details`);
+      setDrawerContent(null);
 
       try {
+        const question =
+          action === 'Compare'
+            ? `Compare ${selectedPlayer?.name || 'this player'} against ${comparisonCandidate?.name || 'the next best alternative'}.`
+            : `Explain the recommendation and bidding strategy for ${selectedPlayer?.name || 'this player'}.`;
+
         const response = await apiClient.post('/advisor/draft-day/query', {
           owner_id: ownerId,
           season: Number(draftYear),
           league_id: Number(activeLeagueId),
-          event_type: 'user_query',
           player_id: playerId,
-          question:
-            action === 'Compare'
-              ? 'Compare this player against alternatives.'
-              : 'Explain this recommendation.',
+          compared_player_id:
+            action === 'Compare' ? Number(comparisonCandidate?.id || 0) || null : null,
+          question,
         });
         setAdvisorMessage(response?.data || null);
         setDrawerContent(response?.data || null);
@@ -683,6 +735,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     },
     [
       selectedPlayer,
+      comparisonCandidate,
       simulationPerspectiveOwnerId,
       activeOwnerId,
       activeLeagueId,
@@ -901,21 +954,31 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className={`${buttonSecondary} cursor-not-allowed opacity-60`}
-            disabled
-            title="Deprecated"
+            className={buttonSecondary}
+            onClick={() => callAdvisorAction('Compare')}
+            disabled={!comparisonCandidate || advisorLoading}
+            title={
+              comparisonCandidate
+                ? `Compare against ${comparisonCandidate.name}`
+                : 'No comparison candidate available'
+            }
           >
-            Compare (Deprecated)
+            Compare
           </button>
           <button
             type="button"
-            className={`${buttonSecondary} cursor-not-allowed opacity-60`}
-            disabled
-            title="Deprecated"
+            className={buttonSecondary}
+            onClick={() => callAdvisorAction('Explain')}
+            disabled={advisorLoading}
           >
-            Explain (Deprecated)
+            Explain
           </button>
-          <button type="button" className={buttonPrimary} onClick={() => callAdvisorAction('Simulate')}>
+          <button
+            type="button"
+            className={buttonPrimary}
+            onClick={() => callAdvisorAction('Simulate')}
+            disabled={simulationLoading}
+          >
             Simulate
           </button>
         </div>
