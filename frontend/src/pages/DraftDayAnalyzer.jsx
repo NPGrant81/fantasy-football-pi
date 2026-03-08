@@ -216,7 +216,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     const params = new URLSearchParams();
     params.set('season', String(rankingSeason));
     params.set('league_id', String(activeLeagueId));
-    params.set('owner_id', String(activeOwnerId || ''));
+    if (activeOwnerId) params.set('owner_id', String(activeOwnerId));
     params.set('limit', '300');
 
     apiClient
