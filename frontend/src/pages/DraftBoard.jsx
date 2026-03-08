@@ -11,9 +11,6 @@ import {
 import DraftBoardGrid from '@components/draft/DraftBoardGrid';
 import BestAvailableList from '@components/draft/BestAvailableList';
 import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
-import PlayerInsightCard from '@components/draft/insights/PlayerInsightCard';
-import OwnerStrategyPanel from '@components/draft/insights/OwnerStrategyPanel';
-import DraftDynamicsPanel from '@components/draft/insights/DraftDynamicsPanel';
 import {
   POSITION_CAPS,
   STRATEGY_MAX_SPEND_SHARE,
@@ -57,29 +54,27 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     useState(false);
   const [draftPopupData, setDraftPopupData] = useState(null);
   const [historicalRankings, setHistoricalRankings] = useState([]);
-  const [rankingsLoading, setRankingsLoading] = useState(false);
   const [simulationPerspectiveOwnerId, setSimulationPerspectiveOwnerId] =
     useState('');
-  const [simulationIterations, setSimulationIterations] = useState(500);
-  const [simulationAggressiveness, setSimulationAggressiveness] =
-    useState(1.0);
-  const [simulationRiskTolerance, setSimulationRiskTolerance] = useState(0.5);
-  const [simulationReliability, setSimulationReliability] = useState(1.0);
-  const [simulationQbWeight, setSimulationQbWeight] = useState(1.0);
-  const [simulationRbWeight, setSimulationRbWeight] = useState(1.0);
-  const [simulationWrWeight, setSimulationWrWeight] = useState(1.0);
-  const [simulationTeWeight, setSimulationTeWeight] = useState(1.0);
-  const [simulationLoading, setSimulationLoading] = useState(false);
-  const [simulationError, setSimulationError] = useState('');
-  const [simulationResult, setSimulationResult] = useState(null);
-  const [advisorLoading, setAdvisorLoading] = useState(false);
-  const [advisorError, setAdvisorError] = useState('');
-  const [advisorMessage, setAdvisorMessage] = useState(null);
-  const [lastNominationKey, setLastNominationKey] = useState('');
-  const [lastBidEventKey, setLastBidEventKey] = useState('');
+  const [modelInsights, setModelInsights] = useState({ recommendations: [] });
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState('');
-  const [modelInsights, setModelInsights] = useState(null);
+  const [simulationIterations] = useState(500);
+  const [simulationAggressiveness] = useState(0.5);
+  const [simulationRiskTolerance] = useState(0.5);
+  const [simulationReliability] = useState(0.5);
+  const [simulationQbWeight] = useState(1);
+  const [simulationRbWeight] = useState(1);
+  const [simulationWrWeight] = useState(1);
+  const [simulationTeWeight] = useState(1);
+  const [simulationResult, setSimulationResult] = useState(null);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+  const [simulationError, setSimulationError] = useState('');
+  const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [advisorError, setAdvisorError] = useState('');
+  const [advisorMessage, setAdvisorMessage] = useState('');
+  const [lastNominationKey, setLastNominationKey] = useState('');
+  const [lastBidEventKey, setLastBidEventKey] = useState('');
 
   const sessionId = useMemo(() => {
     if (activeLeagueId && draftYear) {
@@ -317,7 +312,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       params.append('owner_id', String(rankingOwnerId));
     }
 
-    setRankingsLoading(true);
     apiClient
       .get(`/draft/rankings?${params.toString()}`)
       .then((res) => {
@@ -325,9 +319,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       })
       .catch(() => {
         setHistoricalRankings([]);
-      })
-      .finally(() => {
-        setRankingsLoading(false);
       });
   }, [showAnalyzerPanels, draftYear, effectiveWinnerId, activeOwnerId, activeLeagueId]);
 
@@ -1182,421 +1173,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
-
-      {showAnalyzerPanels && (
-        <>
-      <section className="mt-3 rounded-lg border border-emerald-900/70 bg-slate-900/60 p-3 col-span-12">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-emerald-300">
-            Analyzer Insights
-          </h2>
-          <span className="text-[11px] text-slate-500">
-            Vocabulary: ValueScore, Scarcity, Risk, BargainFlag, StrategyAlignment
-          </span>
-        </div>
-
-        {insightsError ? (
-          <div className="mb-2 text-xs text-rose-300">{insightsError}</div>
-        ) : null}
-
-        {insightsLoading ? (
-          <div className="mb-2 text-xs text-slate-400">Refreshing model insights...</div>
-        ) : null}
-
-        <div className="grid gap-3 xl:grid-cols-3">
-          <PlayerInsightCard
-            recommendation={selectedInsightRecommendation}
-            bidAmount={bidAmount}
-          />
-
-          <OwnerStrategyPanel
-            insightOwnerId={insightOwnerId}
-            ownerStrategyInsights={ownerStrategyInsights}
-            recommendation={selectedInsightRecommendation}
-          />
-
-          <DraftDynamicsPanel draftDynamics={draftDynamics} />
-        </div>
-      </section>
-
-      <section className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-            Historical Rankings
-          </h2>
-          <span className="text-[11px] text-slate-500">Season {draftYear}</span>
-        </div>
-        {rankingsLoading ? (
-          <div className="py-2 text-xs text-slate-400">Loading rankings...</div>
-        ) : availableHistoricalRankings.length === 0 ? (
-          <div className="py-2 text-xs text-slate-500">
-            No historical rankings available.
-          </div>
-        ) : (
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {availableHistoricalRankings.map((entry) => (
-              <div
-                key={entry.player_id}
-                className="rounded-md border border-slate-800 bg-slate-950/60 p-2"
-              >
-                <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span>#{entry.rank}</span>
-                  <span>{entry.consensus_tier || 'C'} tier</span>
-                </div>
-                <div className="mt-1 truncate text-sm font-semibold text-slate-100">
-                  {entry.player_name}
-                </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-slate-400">
-                  <span>{entry.position || 'UNK'}</span>
-                  <span className="text-emerald-400">
-                    ${Number(entry.predicted_auction_value || 0).toFixed(0)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mt-3 rounded-lg border border-indigo-900/70 bg-slate-900/60 p-3">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-indigo-300">
-            Draft Day Advisor
-          </h2>
-          <span className="text-[11px] text-slate-500">
-            Triggered by nomination and bid updates
-          </span>
-        </div>
-
-        {advisorError ? (
-          <div className="mb-2 text-xs text-rose-300">{advisorError}</div>
-        ) : null}
-
-        {advisorLoading ? (
-          <div className="text-xs text-slate-400">Updating advisor...</div>
-        ) : null}
-
-        {!advisorMessage ? (
-          <div className="text-xs text-slate-500">
-            Select a draftable player and adjust bid to receive live advisor guidance.
-          </div>
-        ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
-              <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                {advisorMessage.message_type || 'recommendation'}
-              </div>
-              <div className="mt-1 text-sm font-semibold text-indigo-200">
-                {advisorMessage.headline || 'Draft Day advisor'}
-              </div>
-              <div className="mt-2 text-xs leading-5 text-slate-300">
-                {advisorMessage.body || ''}
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
-                <div>
-                  <div className="text-slate-500">Recommended Bid</div>
-                  <div className="font-semibold text-indigo-300">
-                    {advisorMessage.recommended_bid != null
-                      ? `$${Number(advisorMessage.recommended_bid).toFixed(2)}`
-                      : '-'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-500">War Likelihood</div>
-                  <div className="font-semibold text-indigo-300">
-                    {advisorMessage.bidding_war_likelihood != null
-                      ? `${Number(advisorMessage.bidding_war_likelihood).toFixed(1)}%`
-                      : '-'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Tier</div>
-                  <div className="font-semibold">{advisorMessage.value_tier || '-'}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Risk Score</div>
-                  <div className="font-semibold">
-                    {advisorMessage.risk_score != null
-                      ? Number(advisorMessage.risk_score).toFixed(1)
-                      : '-'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
-              <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                Alerts & Actions
-              </div>
-              {Array.isArray(advisorMessage.alerts) && advisorMessage.alerts.length > 0 ? (
-                <div className="mt-2 space-y-1 text-xs text-amber-300">
-                  {advisorMessage.alerts.map((alert, index) => (
-                    <div key={`${alert}-${index}`} className="border-t border-slate-800 py-1">
-                      {alert}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-2 text-xs text-slate-500">No active alerts.</div>
-              )}
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(advisorMessage.quick_actions || ['Compare', 'Simulate', 'Explain'])
-                  .slice(0, 3)
-                  .map((action) => (
-                    <button
-                      key={action}
-                      type="button"
-                      onClick={() => handleAdvisorQuickAction(action)}
-                      className="rounded border border-indigo-800 bg-indigo-950 px-2 py-1 text-xs font-semibold text-indigo-200 transition hover:bg-indigo-900"
-                    >
-                      {action}
-                    </button>
-                  ))}
-              </div>
-
-              {Array.isArray(advisorMessage.suggested_alternatives) &&
-              advisorMessage.suggested_alternatives.length > 0 ? (
-                <div className="mt-3 text-xs text-slate-300">
-                  <div className="mb-1 text-slate-500">Suggested alternatives</div>
-                  {advisorMessage.suggested_alternatives.slice(0, 3).map((item) => (
-                    <div
-                      key={item.player_id}
-                      className="flex items-center justify-between border-t border-slate-800 py-1"
-                    >
-                      <span className="truncate pr-2">{item.player_name}</span>
-                      <span className="text-indigo-300">
-                        ${Number(item.predicted_value || 0).toFixed(0)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="mt-3 rounded-lg border border-cyan-900/70 bg-slate-900/60 p-3">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
-            Perspective Simulation
-          </h2>
-          <span className="text-[11px] text-slate-500">Request-only knobs</span>
-        </div>
-
-        <div className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
-          <label className="text-[11px] text-slate-400">
-            Owner Perspective
-            <select
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationPerspectiveOwnerId}
-              onChange={(e) => setSimulationPerspectiveOwnerId(e.target.value)}
-            >
-              {owners.map((owner) => (
-                <option key={owner.id} value={owner.id}>
-                  {owner.team_name || owner.username || `Owner ${owner.id}`}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-[11px] text-slate-400">
-            Iterations
-            <input
-              type="number"
-              min="50"
-              max="10000"
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationIterations}
-              onChange={(e) => setSimulationIterations(e.target.value)}
-            />
-          </label>
-
-          <label className="text-[11px] text-slate-400">
-            Aggressiveness
-            <input
-              type="number"
-              step="0.05"
-              min="0.5"
-              max="2.5"
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationAggressiveness}
-              onChange={(e) => setSimulationAggressiveness(e.target.value)}
-            />
-          </label>
-
-          <label className="text-[11px] text-slate-400">
-            Risk Tolerance
-            <input
-              type="number"
-              step="0.05"
-              min="0"
-              max="1"
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationRiskTolerance}
-              onChange={(e) => setSimulationRiskTolerance(e.target.value)}
-            />
-          </label>
-
-          <label className="text-[11px] text-slate-400">
-            Reliability Weight
-            <input
-              type="number"
-              step="0.05"
-              min="0.5"
-              max="2"
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationReliability}
-              onChange={(e) => setSimulationReliability(e.target.value)}
-            />
-          </label>
-
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={handleRunSimulation}
-              disabled={simulationLoading}
-              className="w-full rounded border border-cyan-700 bg-cyan-950 px-2 py-1 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {simulationLoading ? 'Running…' : 'Run Simulation'}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-2 grid gap-2 md:grid-cols-4">
-          <label className="text-[11px] text-slate-400">
-            QB Weight
-            <input
-              type="number"
-              step="0.05"
-              min="0.5"
-              max="2"
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationQbWeight}
-              onChange={(e) => setSimulationQbWeight(e.target.value)}
-            />
-          </label>
-          <label className="text-[11px] text-slate-400">
-            RB Weight
-            <input
-              type="number"
-              step="0.05"
-              min="0.5"
-              max="2"
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationRbWeight}
-              onChange={(e) => setSimulationRbWeight(e.target.value)}
-            />
-          </label>
-          <label className="text-[11px] text-slate-400">
-            WR Weight
-            <input
-              type="number"
-              step="0.05"
-              min="0.5"
-              max="2"
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationWrWeight}
-              onChange={(e) => setSimulationWrWeight(e.target.value)}
-            />
-          </label>
-          <label className="text-[11px] text-slate-400">
-            TE Weight
-            <input
-              type="number"
-              step="0.05"
-              min="0.5"
-              max="2"
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationTeWeight}
-              onChange={(e) => setSimulationTeWeight(e.target.value)}
-            />
-          </label>
-        </div>
-
-        {simulationError ? (
-          <div className="mt-2 text-xs text-rose-300">{simulationError}</div>
-        ) : null}
-
-        {simulationResult ? (
-          <div className="mt-3 grid gap-3 lg:grid-cols-2">
-            <div className="rounded-md border border-slate-800 bg-slate-950/60 p-2">
-              <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                Focal Summary
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300">
-                <div>
-                  <div className="text-slate-500">Expected Points</div>
-                  <div className="font-semibold text-cyan-300">
-                    {Number(
-                      simulationResult?.focal_owner_summary
-                        ?.expected_total_points || 0
-                    ).toFixed(1)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Expected Spend</div>
-                  <div className="font-semibold text-cyan-300">
-                    ${Number(
-                      simulationResult?.focal_owner_summary
-                        ?.expected_total_spend || 0
-                    ).toFixed(1)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-500">P50 Points</div>
-                  <div className="font-semibold">
-                    {Number(
-                      simulationResult?.focal_points_distribution
-                        ?.points_p50 || 0
-                    ).toFixed(1)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-slate-500">Vs League Avg</div>
-                  <div className="font-semibold">
-                    {Number(
-                      simulationResult?.league_context?.delta_vs_league_avg || 0
-                    ).toFixed(1)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-md border border-slate-800 bg-slate-950/60 p-2">
-              <div className="text-[11px] uppercase tracking-wide text-slate-400">
-                Key Target Probabilities
-              </div>
-              {Array.isArray(simulationResult?.key_target_probabilities) &&
-              simulationResult.key_target_probabilities.length > 0 ? (
-                <div className="mt-2 max-h-36 overflow-y-auto text-xs">
-                  {simulationResult.key_target_probabilities
-                    .slice(0, 8)
-                    .map((row) => (
-                      <div
-                        key={row.player_id}
-                        className="flex items-center justify-between border-t border-slate-800 py-1 text-slate-300"
-                      >
-                        <span className="truncate pr-2">{row.player_name}</span>
-                        <span className="font-mono text-cyan-300">
-                          {(Number(row.probability || 0) * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="mt-2 text-xs text-slate-500">
-                  No target probabilities returned.
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </section>
-        </>
-        )}
 
       <div className="relative">
         <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">
