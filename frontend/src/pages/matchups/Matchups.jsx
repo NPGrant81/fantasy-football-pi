@@ -130,6 +130,13 @@ export default function Matchups() {
     return side === 'home' ? game.home_score : game.away_score;
   };
 
+  const getWinChance = (game, side) => {
+    if (side === 'home') {
+      return Number(game.home_win_probability ?? 50);
+    }
+    return Number(game.away_win_probability ?? 50);
+  };
+
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
     <div className={`${pageShell} pb-20 animate-fade-in`}>
@@ -381,6 +388,29 @@ export default function Matchups() {
                   </div>
                 </div>
               </div>
+
+              {showProjected && (
+                <div className="px-4 pb-4 -mt-1">
+                  <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
+                    <span className="text-blue-300">
+                      {getWinChance(game, 'home').toFixed(1)}% Win Chance
+                    </span>
+                    <span className="text-red-300">
+                      {getWinChance(game, 'away').toFixed(1)}% Win Chance
+                    </span>
+                  </div>
+                  <div
+                    className="h-2 w-full overflow-hidden rounded-full border border-slate-700 bg-slate-950"
+                    role="img"
+                    aria-label="Projected matchup win probability"
+                  >
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-red-500"
+                      style={{ width: `${getWinChance(game, 'home')}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {(game.division_context?.is_division_matchup || game.rivalry_context?.is_rivalry_week) && (
                 <div className="px-4 pb-3 -mt-1 flex flex-wrap items-center justify-center gap-2">

@@ -107,6 +107,12 @@ export default function GameCenter() {
     syncQueryParam(newState);
   };
 
+  const getWinChance = (side) => {
+    if (!game) return 50;
+    if (side === 'home') return Number(game.home_win_probability ?? 50);
+    return Number(game.away_win_probability ?? 50);
+  };
+
   // --- 1.3 DATA RETRIEVAL (The Engine) ---
   useEffect(() => {
     if (id) {
@@ -257,6 +263,25 @@ export default function GameCenter() {
             </div>
           </div>
         </div>
+
+        {showProjected && (
+          <div className="mx-auto w-full max-w-2xl rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+            <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider">
+              <span className="text-blue-300">{getWinChance('home').toFixed(1)}% Win Chance</span>
+              <span className="text-red-300">{getWinChance('away').toFixed(1)}% Win Chance</span>
+            </div>
+            <div
+              className="h-3 w-full overflow-hidden rounded-full border border-slate-700 bg-slate-900"
+              role="img"
+              aria-label="Projected matchup win probability"
+            >
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-red-500"
+                style={{ width: `${getWinChance('home')}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2.4 ROSTERS GRID */}

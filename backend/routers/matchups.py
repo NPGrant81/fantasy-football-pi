@@ -53,6 +53,7 @@ class MatchupSchema(BaseModel):
     home_team_info: TeamInfo  # <--- NEW
     home_score: float
     home_projected: float
+    home_win_probability: float
     home_roster: List[PlayerGameStats] = [] # <--- NEW
     
     away_team: str
@@ -60,6 +61,7 @@ class MatchupSchema(BaseModel):
     away_team_info: TeamInfo  # <--- NEW
     away_score: float
     away_projected: float
+    away_win_probability: float
     away_roster: List[PlayerGameStats] = [] # <--- NEW
     
     is_completed: bool
@@ -160,6 +162,20 @@ def get_team_starters(
     
     return roster
 
+
+def calculate_win_probabilities(home_projected: float, away_projected: float) -> tuple[float, float]:
+    """Return rounded home/away win percentages from projected starters totals."""
+    home_value = max(float(home_projected or 0.0), 0.0)
+    away_value = max(float(away_projected or 0.0), 0.0)
+    total = home_value + away_value
+
+    if total <= 0:
+        return 50.0, 50.0
+
+    home_probability = round((home_value / total) * 100, 1)
+    away_probability = round(100.0 - home_probability, 1)
+    return home_probability, away_probability
+
 # --- Endpoints ---
 @router.get("/week/{week_num}", response_model=List[MatchupSchema])
 def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
@@ -189,6 +205,10 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
             )
             home_total_proj = sum(p.projected for p in home_roster)
             away_total_proj = sum(p.projected for p in away_roster)
+            home_win_probability, away_win_probability = calculate_win_probabilities(
+                home_total_proj,
+                away_total_proj,
+            )
 
             results.append(MatchupSchema(
                 id=game.id,
@@ -207,6 +227,7 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
                 ),
                 home_score=float(game.home_score or 0.0),
                 home_projected=home_total_proj,
+                home_win_probability=home_win_probability,
                 away_team=away.username,
                 away_team_id=away.id,
                 away_team_info=TeamInfo(
@@ -221,6 +242,7 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
                 ),
                 away_score=float(game.away_score or 0.0),
                 away_projected=away_total_proj,
+                away_win_probability=away_win_probability,
                 is_completed=game.is_completed,
                 game_status=game.game_status or "NOT_STARTED",
                 label=label,
@@ -270,6 +292,10 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
     # Recalculate Totals based on Roster (Optional polish)
     home_total_proj = sum(p.projected for p in home_roster)
     away_total_proj = sum(p.projected for p in away_roster)
+    home_win_probability, away_win_probability = calculate_win_probabilities(
+        home_total_proj,
+        away_total_proj,
+    )
 
     return MatchupSchema(
         id=game.id,
@@ -288,6 +314,7 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
         ),
         home_score=float(game.home_score or 0.0),
         home_projected=home_total_proj, # Use sum of players
+        home_win_probability=home_win_probability,
         home_roster=home_roster,        # <--- Sending Roster
         
         away_team=away.username,
@@ -304,6 +331,7 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
         ),
         away_score=float(game.away_score or 0.0),
         away_projected=away_total_proj, # Use sum of players
+        away_win_probability=away_win_probability,
         away_roster=away_roster,        # <--- Sending Roster
         
         is_completed=game.is_completed,
