@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from pptx import Presentation
-from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
-from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.util import Inches, Pt
+try:
+    from pptx import Presentation
+    from pptx.dml.color import RGBColor
+    from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    from pptx.util import Inches, Pt
+except ImportError:
+    print(
+        'error: python-pptx is not installed.\n'
+        'Install it with:  pip install python-pptx==1.0.2\n'
+        'or install all project dependencies:  pip install -r backend/requirements.txt',
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
 ROOT = Path(__file__).resolve().parents[1]
 PPTX_PATH = ROOT / 'docs' / 'uat' / 'uat_overview.pptx'
