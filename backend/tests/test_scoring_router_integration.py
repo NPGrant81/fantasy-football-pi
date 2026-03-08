@@ -225,3 +225,86 @@ Receptions,1-999,1 points each,8004
     assert persisted_totals == pytest.approx([1.0, 5.0])
     assert matchup.is_completed is True
     assert matchup.game_status == "FINAL"
+
+
+def test_template_lifecycle_import_export_apply_and_recalc(client, api_db):
+    league, commissioner = _seed_league_and_commissioner(api_db)
+    matchup = _seed_matchup_data(api_db, league.id)
+
+    app.dependency_overrides[check_is_commissioner] = lambda: commissioner
+    app.dependency_overrides[get_current_user] = lambda: commissioner
+
+    stale_rule = models.ScoringRule(
+        league_id=league.id,
+        season_year=2026,
+        category="receiving",
+        event_name="receptions",
+        description="Legacy active rule",
+        range_min=0,
+        range_max=999,
+        point_value=0.5,
+        calculation_type="per_unit",
+        applicable_positions=["WR"],
+        is_active=True,
+        template_id=None,
+    )
+    api_db.add(stale_rule)
+    api_db.commit()
+    api_db.refresh(stale_rule)
+
+    csv_content = """Event,Range_Yds,Point_Value,PostionID
+Receptions,1-999,2 points each,8004
+"""
+
+    import_template_response = client.post(
+        "/scoring/templates/import",
+        json={
+            "template_name": "PPR 2x",
+            "season_year": 2030,
+            "source_platform": "espn_csv",
+            "csv_content": csv_content,
+        },
+    )
+    assert import_template_response.status_code == 200
+    template = import_template_response.json()
+    template_id = int(template["id"])
+
+    export_response = client.get(f"/scoring/templates/{template_id}/export")
+    assert export_response.status_code == 200
+    export_payload = export_response.json()
+    assert "Receptions" in export_payload["csv"]
+    assert export_payload["template_id"] == template_id
+
+    apply_response = client.post(
+        f"/scoring/templates/{template_id}/apply",
+        json={
+            "season_year": 2026,
+            "deactivate_existing": True,
+        },
+    )
+    assert apply_response.status_code == 200
+    applied_rules = apply_response.json()
+    assert len(applied_rules) == 1
+    assert applied_rules[0]["point_value"] == pytest.approx(2.0)
+    assert applied_rules[0]["source"] == "template"
+    assert int(applied_rules[0]["template_id"]) == template_id
+
+    api_db.refresh(stale_rule)
+    assert stale_rule.is_active is False
+
+    recalc_response = client.post(
+        f"/scoring/calculate/matchups/{matchup.id}/recalculate",
+        json={"season": 2026, "season_year": 2026},
+    )
+    assert recalc_response.status_code == 200
+    recalc = recalc_response.json()
+
+    scored_totals = sorted([float(recalc["home_score"]), float(recalc["away_score"])])
+    assert scored_totals == pytest.approx([2.0, 10.0])
+
+    history_response = client.get("/scoring/history?season_year=2026")
+    assert history_response.status_code == 200
+    history = history_response.json()
+    change_types = {row["change_type"] for row in history}
+    assert "template_applied" in change_types
+    assert "deleted" in change_types
