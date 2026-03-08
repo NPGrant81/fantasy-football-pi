@@ -163,6 +163,76 @@ def test_get_team_starters_uses_scoring_service_points(db_session):
     assert away_starters[0].actual == pytest.approx(9.0)
 
 
+def test_get_team_starters_isolates_by_league(db_session):
+    """Picks from a different league must not appear in another league's starters."""
+    seeded = _seed_matchup_data(db_session)
+
+    # Create a second league and add a starter pick for home user in that league.
+    other_league = models.League(name="Other League")
+    db_session.add(other_league)
+    db_session.commit()
+    db_session.refresh(other_league)
+
+    other_player = models.Player(name="Other RB", position="RB", nfl_team="CCC")
+    db_session.add(other_player)
+    db_session.commit()
+    db_session.refresh(other_player)
+
+    db_session.add(
+        models.DraftPick(
+            owner_id=seeded["home_id"],
+            player_id=other_player.id,
+            league_id=other_league.id,
+            current_status="STARTER",
+        )
+    )
+    db_session.commit()
+
+    home_starters = get_team_starters(
+        db_session,
+        seeded["home_id"],
+        league_id=seeded["league_id"],
+        season=2026,
+        week=3,
+    )
+
+    # Only the starter from the correct league should appear; the other-league
+    # pick must not contaminate the result.
+    assert len(home_starters) == 1
+    assert home_starters[0].name != "Other RB"
+
+
+def test_get_team_starters_includes_null_league_id_picks(db_session):
+    """Legacy picks with NULL league_id should be included when league_id is given."""
+    seeded = _seed_matchup_data(db_session)
+
+    legacy_player = models.Player(name="Legacy TE", position="TE", nfl_team="DDD")
+    db_session.add(legacy_player)
+    db_session.commit()
+    db_session.refresh(legacy_player)
+
+    db_session.add(
+        models.DraftPick(
+            owner_id=seeded["home_id"],
+            player_id=legacy_player.id,
+            league_id=None,
+            current_status="STARTER",
+        )
+    )
+    db_session.commit()
+
+    home_starters = get_team_starters(
+        db_session,
+        seeded["home_id"],
+        league_id=seeded["league_id"],
+        season=2026,
+        week=3,
+    )
+
+    player_names = [s.name for s in home_starters]
+    assert "Legacy TE" in player_names
+
+
 def test_get_matchup_detail_aggregates_projected_from_scored_starters(db_session):
     seeded = _seed_matchup_data(db_session)
 
