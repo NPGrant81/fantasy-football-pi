@@ -143,6 +143,28 @@ def get_locked_player_ids(db: Session, player_ids: List[int], season: int, week:
     return {row[0] for row in rows}
 
 
+def is_week_finalized(db: Session, league_id: int, week: int) -> bool:
+    matchups = (
+        db.query(models.Matchup)
+        .filter(
+            models.Matchup.league_id == league_id,
+            models.Matchup.week == week,
+        )
+        .all()
+    )
+    if not matchups:
+        return False
+    return all(bool(m.is_completed) and str(m.game_status or "").upper() == "FINAL" for m in matchups)
+
+
+def assert_week_not_finalized(db: Session, league_id: int, week: int) -> None:
+    if is_week_finalized(db, league_id, week):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Week {week} is finalized and lineup edits are locked.",
+        )
+
+
 def get_current_year() -> int:
     return datetime.now(timezone.utc).year
 
@@ -347,6 +369,8 @@ def update_lineup(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    assert_week_not_finalized(db, current_user.league_id, payload.week)
+
     picks = db.query(models.DraftPick).filter(
         models.DraftPick.owner_id == current_user.id,
         models.DraftPick.league_id == current_user.league_id,
@@ -421,6 +445,8 @@ def submit_lineup(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    assert_week_not_finalized(db, current_user.league_id, payload.week)
+
     picks = db.query(models.DraftPick).filter(
         models.DraftPick.owner_id == current_user.id,
         models.DraftPick.league_id == current_user.league_id,
