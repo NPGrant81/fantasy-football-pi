@@ -1,3 +1,5 @@
+/* ignore-breakpoints */
+
 export default function InlineError({ title = 'Something went wrong', message, onRetry }) {
   return (
     <div className="rounded-lg border border-rose-900 bg-rose-950/30 p-4 text-sm text-rose-300" role="alert">

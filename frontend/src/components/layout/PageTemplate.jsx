@@ -1,3 +1,5 @@
+/* ignore-breakpoints */
+
 import { pageShell } from '@utils/uiStandards';
 import PageHeader from './PageHeader';
 

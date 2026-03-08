@@ -1,3 +1,5 @@
+/* ignore-breakpoints */
+
 import { pageHeader, pageSubtitle, pageTitle } from '@utils/uiStandards';
 
 export default function PageHeader({

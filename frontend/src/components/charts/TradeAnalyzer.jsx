@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { FiArrowRightLeft, FiCheckCircle, FiClock, FiSearch, FiX } from 'react-icons/fi';
+import { FiCheckCircle, FiClock, FiRepeat, FiSearch, FiX } from 'react-icons/fi';
 import InlineError from '@components/common/InlineError';
 import {
   fetchCurrentUser,
@@ -483,7 +483,7 @@ export default function TradeAnalyzer() {
 
       <section className={`${cardSurface} mx-auto w-full max-w-5xl space-y-4`}>
         <div className="flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-wider text-cyan-300">
-          <FiArrowRightLeft /> Total Trade Value Comparison
+          <FiRepeat /> Total Trade Value Comparison
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="rounded border border-slate-800 bg-slate-950/40 p-3 text-center">
