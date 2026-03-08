@@ -77,7 +77,7 @@ function Drawer({ open, title, loading, error, children, onClose }) {
       className={`fixed right-0 top-0 z-50 h-screen w-full max-w-md transform border-l border-slate-700 bg-slate-950/95 shadow-2xl transition-transform duration-200 ${
         open ? 'translate-x-0' : 'translate-x-full'
       }`}
-      aria-hidden={!open}
+      inert={!open}
     >
       <div className="flex items-center justify-between border-b border-slate-800 p-4">
         <h3 className="text-sm font-black uppercase tracking-wider text-cyan-300">
