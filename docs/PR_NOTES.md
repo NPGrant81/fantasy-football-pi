@@ -26,8 +26,8 @@ assess impact and risk across all areas.
   - New `dedupe_players` management command resolves rows without data loss
   - CI job (`ci.yml` backend stage) fails the build if duplicates are detected
 - **Draft Day Analyzer improvements**
-  - New dedicated `/analyzer` frontend route with its own page component
-  - Current-year vs previous-year ranking toggle (uses `?year=` query param)
+  - Analyzer is now served via the `/draft-day-analyzer` frontend route with its own page component
+  - Current vs previous season ranking toggle uses `rankingSeasonOffset` in `localStorage` (drives `/draft/rankings?season=...` requests)
   - Shows logged-in owner's team context in the strategy panel
   - Removes deprecated detail-action calls; falls back to embedded player insights
 - **Deployment documentation**
