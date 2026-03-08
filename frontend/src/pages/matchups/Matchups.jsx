@@ -18,10 +18,7 @@ import apiClient from '@api/client';
 import {
   buttonSecondary,
   cardSurface,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 export default function Matchups() {
@@ -136,14 +133,8 @@ export default function Matchups() {
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
     <div className={`${pageShell} pb-20 animate-fade-in`}>
-      {/* HEADER + USER/LEAGUE CONTEXT */}
-      <div className={`${pageHeader} flex items-start justify-between`}>
-        <div>
-          <h1 className={pageTitle}>Matchups</h1>
-          <p className={pageSubtitle}>
-            Weekly head-to-head scoreboard and matchup detail access.
-          </p>
-        </div>
+      {/* Optional back nav; page title is now handled by global Layout header */}
+      <div className="mb-4 flex justify-end">
         {showBack && (
           <button
             className={`${buttonSecondary} w-fit px-3 py-1.5 text-xs`}

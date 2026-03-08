@@ -3,10 +3,7 @@ import apiClient from '@api/client';
 import {
   cardSurface,
   inputBase,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
   tableHead,
   tableSurface,
 } from '@utils/uiStandards';
@@ -57,13 +54,6 @@ export default function LedgerStatementOwner() {
 
   return (
     <div className={pageShell}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>My Ledger Statement</h1>
-        <p className={pageSubtitle}>
-          Auditable transaction ledger and balance for your team.
-        </p>
-      </div>
-
       <div className={`${cardSurface} grid grid-cols-1 gap-4 md:grid-cols-3`}>
         <div>
           <label className="mb-2 block text-xs font-bold uppercase text-slate-600 dark:text-slate-400">

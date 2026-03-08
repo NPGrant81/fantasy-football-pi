@@ -5,7 +5,7 @@ import { layoutAlertBar } from '../utils/uiStandards';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
 
-export default function Layout({ children, username, leagueId, alert }) {
+export default function Layout({ children, username, leagueId, alert, pageTitle = '' }) {
   // --- 1.1 UI STATE ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const hasAlert = Boolean(alert && String(alert).trim());
@@ -14,26 +14,34 @@ export default function Layout({ children, username, leagueId, alert }) {
   return (
     <div className="min-h-screen w-full bg-white dark:bg-slate-950 text-black dark:text-white font-sans overflow-hidden">
       {/* 2.2 TOP NAVIGATION BAR */}
-      <header className="sticky top-0 z-30 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-300 dark:border-slate-800 h-16 px-4 flex items-center justify-between text-black dark:text-white">
-        {/* Mobile Trigger */}
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="p-2 text-yellow-500 hover:bg-slate-800 rounded transition"
-        >
-          <FiMenu size={28} />
-        </button>
+      <header className="sticky top-0 z-30 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-300 dark:border-slate-800 h-16 px-4 flex items-center text-black dark:text-white">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Mobile Trigger */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 text-yellow-500 hover:bg-slate-800 rounded transition"
+          >
+            <FiMenu size={28} />
+          </button>
 
-        {/* Branding */}
-        <div className="flex items-center gap-2 font-black text-xl tracking-tighter italic uppercase">
-          <img
-            src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
-            alt="FantasyFootball-PI Logo"
-            className="w-8 h-8"
-          />
-          FANTASY<span className="text-slate-600">Pi</span>
+          {/* Branding */}
+          <div className="hidden sm:flex items-center gap-2 font-black text-xl tracking-tighter italic uppercase">
+            <img
+              src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
+              alt="FantasyFootball-PI Logo"
+              className="w-8 h-8"
+            />
+            FANTASY<span className="text-slate-600">Pi</span>
+          </div>
         </div>
-        {/* theme toggle */}
-        <ThemeToggle />
+
+        <div className="ml-auto flex items-center gap-3 min-w-0">
+          <h1 className="max-w-[52vw] truncate text-sm sm:text-base md:text-lg font-semibold tracking-tight text-right">
+            {pageTitle}
+          </h1>
+          {/* theme toggle */}
+          <ThemeToggle />
+        </div>
       </header>
 
       {/* 2.3 SUB‑HEADER / ALERT BAR */}
