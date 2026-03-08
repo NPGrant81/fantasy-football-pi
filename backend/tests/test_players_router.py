@@ -87,6 +87,10 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
         assert names[0] == f"Top Player {suffix}"
         assert names[1] == f"Second Player {suffix}"
         assert f"Owned Player {suffix}" not in names
+        assert data[0].get("pickup_rank") == 1
+        assert data[0].get("pickup_tier") in {"S", "A", "B", "C"}
+        assert isinstance(data[0].get("pickup_score"), float)
+        assert data[0].get("pickup_rationale") == "projection_plus_adp_signal"
     finally:
         client.cookies.clear()
         cleanup = SessionLocal()

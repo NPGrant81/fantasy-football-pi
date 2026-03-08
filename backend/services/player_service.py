@@ -96,7 +96,7 @@ def get_league_free_agents(db: Session, league_id: int):
 
 
 def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
-    """Return top available free agents ranked by projected ROS points."""
+    """Return top available free agents ranked by projection plus demand signal."""
     safe_limit = max(1, min(int(limit), 25))
 
     owned_ids_query = db.query(models.DraftPick.player_id).filter(
@@ -119,12 +119,65 @@ def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
     )
 
     deduped = dedupe_players(rows)
+
+    scarcity_bonus = {
+        "QB": 1.5,
+        "RB": 3.0,
+        "WR": 2.5,
+        "TE": 2.0,
+        "K": 0.8,
+        "DEF": 1.0,
+    }
+
+    scored: list[tuple[models.Player, float]] = []
+    for player in deduped:
+        projection = float(player.projected_points or 0.0)
+        adp_value = float(player.adp) if player.adp is not None else 999.0
+        normalized_adp = adp_value if adp_value > 0 else 999.0
+        adp_signal = max(0.0, 250.0 - min(normalized_adp, 250.0)) / 25.0
+        position_signal = scarcity_bonus.get((player.position or "").upper(), 1.0)
+        pickup_score = round(projection + adp_signal + position_signal, 2)
+        scored.append((player, pickup_score))
+
     ranked = sorted(
-        deduped,
-        key=lambda player: (
-            -(float(player.projected_points or 0.0)),
-            float(player.adp or 999999.0),
-            player.name or "",
+        scored,
+        key=lambda row: (
+            -row[1],
+            -(float(row[0].projected_points or 0.0)),
+            float(row[0].adp or 999999.0),
+            row[0].name or "",
         ),
     )
-    return ranked[:safe_limit]
+
+    if not ranked:
+        return []
+
+    top_score = ranked[0][1]
+    payload: list[dict] = []
+    for index, (player, pickup_score) in enumerate(ranked[:safe_limit], start=1):
+        ratio = (pickup_score / top_score) if top_score > 0 else 0.0
+        if ratio >= 0.98:
+            tier = "S"
+        elif ratio >= 0.94:
+            tier = "A"
+        elif ratio >= 0.90:
+            tier = "B"
+        else:
+            tier = "C"
+
+        payload.append(
+            {
+                "id": player.id,
+                "name": player.name,
+                "position": player.position,
+                "nfl_team": player.nfl_team,
+                "projected_points": float(player.projected_points or 0.0),
+                "adp": float(player.adp or 0.0),
+                "pickup_rank": index,
+                "pickup_score": pickup_score,
+                "pickup_tier": tier,
+                "pickup_rationale": "projection_plus_adp_signal",
+            }
+        )
+
+    return payload

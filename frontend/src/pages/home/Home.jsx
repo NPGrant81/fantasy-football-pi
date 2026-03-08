@@ -327,7 +327,14 @@ export default function Home({ username }) {
                     <p className="text-xs text-slate-600 dark:text-slate-400">
                       {player.position} - {player.nfl_team || 'FA'} - ROS {Number(player.projected_points || 0).toFixed(1)}
                     </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Score {Number(player.pickup_score || 0).toFixed(1)}
+                    </p>
                   </div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <span className="rounded border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-300">
+                      {player.pickup_tier || 'C'} Tier
+                    </span>
                   <button
                     onClick={() => handleQuickBid(player)}
                     disabled={bidLoadingId === player.id}
@@ -335,6 +342,7 @@ export default function Home({ username }) {
                   >
                     {bidLoadingId === player.id ? 'Bidding...' : 'Bid'}
                   </button>
+                  </div>
                 </div>
               ))
             ) : (
