@@ -96,13 +96,14 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   }, [owners, winnerId]);
 
   useEffect(() => {
+    if (!showAnalyzerPanels) return;
     if (!owners.length) return;
     if (simulationPerspectiveOwnerId) return;
     const fallback =
       Number(activeOwnerId || effectiveWinnerId || owners[0]?.id || 0) ||
       owners[0].id;
     setSimulationPerspectiveOwnerId(String(fallback));
-  }, [owners, simulationPerspectiveOwnerId, activeOwnerId, effectiveWinnerId]);
+  }, [showAnalyzerPanels, owners, simulationPerspectiveOwnerId, activeOwnerId, effectiveWinnerId]);
 
   const rankingByPlayerId = useMemo(() => {
     const index = new Map();
@@ -301,6 +302,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   }, [activeLeagueId, draftYear]);
 
   useEffect(() => {
+    if (!showAnalyzerPanels) return;
     if (!draftYear) return;
     const rankingOwnerId = Number(effectiveWinnerId || activeOwnerId || 0) || null;
     const rankingLeagueId = Number(activeLeagueId || 0) || null;
@@ -327,7 +329,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       .finally(() => {
         setRankingsLoading(false);
       });
-  }, [draftYear, effectiveWinnerId, activeOwnerId, activeLeagueId]);
+  }, [showAnalyzerPanels, draftYear, effectiveWinnerId, activeOwnerId, activeLeagueId]);
 
   // --- 1.4 DERIVED CALCULATIONS ---
   const currentNominatorId = useMemo(() => {
@@ -598,6 +600,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   }, [modelInsights, selectedPlayerForAdvisor]);
 
   useEffect(() => {
+    if (!showAnalyzerPanels) return;
     if (!activeLeagueId || !draftYear || !insightOwnerId) return;
 
     const timeoutId = setTimeout(async () => {
@@ -662,6 +665,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
     return () => clearTimeout(timeoutId);
   }, [
+    showAnalyzerPanels,
     activeLeagueId,
     draftYear,
     insightOwnerId,
@@ -1000,6 +1004,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   );
 
   useEffect(() => {
+    if (!showAnalyzerPanels) return;
     if (!selectedPlayerForAdvisor || !effectiveWinnerId || !activeLeagueId) return;
     const nominationKey = [
       Number(selectedPlayerForAdvisor.id || 0),
@@ -1021,6 +1026,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
     return () => clearTimeout(timeoutId);
   }, [
+    showAnalyzerPanels,
     selectedPlayerForAdvisor,
     effectiveWinnerId,
     activeLeagueId,
@@ -1032,6 +1038,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   ]);
 
   useEffect(() => {
+    if (!showAnalyzerPanels) return;
     if (!selectedPlayerForAdvisor || !effectiveWinnerId) return;
     const bidEventKey = [
       Number(selectedPlayerForAdvisor.id || 0),
@@ -1052,6 +1059,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
     return () => clearTimeout(timeoutId);
   }, [
+    showAnalyzerPanels,
     selectedPlayerForAdvisor,
     effectiveWinnerId,
     bidAmount,
