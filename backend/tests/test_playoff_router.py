@@ -149,3 +149,70 @@ def test_seasons_endpoint_returns_sorted_list(client, api_db):
     res2 = client.get(f'/playoffs/seasons?league_id={newleague.id}')
     assert res2.status_code == 200
     assert res2.json() == []
+
+
+def test_generate_bracket_uses_dynamic_4_team_structure(client, api_db):
+    db, _ = api_db
+    league, _ = make_league_with_users(db, num_users=8)
+
+    patch_res = client.patch(
+        f'/playoffs/settings?league_id={league.id}',
+        json={'playoff_qualifiers': 4, 'playoff_consolation': True},
+    )
+    assert patch_res.status_code == 200
+
+    generate_res = client.post('/playoffs/generate', json={'league_id': league.id, 'season': 2026})
+    assert generate_res.status_code == 200
+
+    bracket_res = client.get(f'/playoffs/bracket?league_id={league.id}&season=2026')
+    assert bracket_res.status_code == 200
+    body = bracket_res.json()
+
+    championship = body['championship']
+    assert len(championship) == 2
+    assert all(not m.get('is_bye') for m in championship)
+    assert body['seeding_policy']['playoff_qualifiers'] == 4
+
+
+def test_generate_bracket_uses_dynamic_6_team_structure_with_byes(client, api_db):
+    db, _ = api_db
+    league, _ = make_league_with_users(db, num_users=8)
+
+    patch_res = client.patch(
+        f'/playoffs/settings?league_id={league.id}',
+        json={'playoff_qualifiers': 6, 'playoff_consolation': True},
+    )
+    assert patch_res.status_code == 200
+
+    generate_res = client.post('/playoffs/generate', json={'league_id': league.id, 'season': 2026})
+    assert generate_res.status_code == 200
+
+    bracket_res = client.get(f'/playoffs/bracket?league_id={league.id}&season=2026')
+    assert bracket_res.status_code == 200
+    body = bracket_res.json()
+
+    championship = body['championship']
+    assert len(championship) == 4
+    assert len([m for m in championship if m.get('is_bye')]) == 2
+    assert body['seeding_policy']['playoff_qualifiers'] == 6
+
+
+def test_generate_bracket_respects_consolation_toggle(client, api_db):
+    db, _ = api_db
+    league, _ = make_league_with_users(db, num_users=10)
+
+    patch_res = client.patch(
+        f'/playoffs/settings?league_id={league.id}',
+        json={'playoff_qualifiers': 6, 'playoff_consolation': False},
+    )
+    assert patch_res.status_code == 200
+
+    generate_res = client.post('/playoffs/generate', json={'league_id': league.id, 'season': 2026})
+    assert generate_res.status_code == 200
+
+    bracket_res = client.get(f'/playoffs/bracket?league_id={league.id}&season=2026')
+    assert bracket_res.status_code == 200
+    body = bracket_res.json()
+
+    assert body['consolation'] == []
+    assert body['seeding_policy']['playoff_consolation'] is False

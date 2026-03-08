@@ -53,6 +53,25 @@ class BracketSchema(BaseModel):
     consolation: Optional[List[MatchSchema]] = []
 
 
+def _effective_playoff_qualifiers(configured: int, owner_count: int) -> int:
+    """Normalize qualifier count to a valid, even value for current league size."""
+    if owner_count < 2:
+        raise HTTPException(status_code=400, detail="Need at least two owners to generate bracket")
+
+    desired = int(configured or 0)
+    desired = max(2, desired)
+    desired = min(desired, owner_count)
+
+    # Keep qualifiers even for deterministic pairing.
+    if desired % 2 != 0:
+        desired -= 1
+
+    if desired < 2:
+        raise HTTPException(status_code=400, detail="Unable to derive a valid playoff qualifier count")
+
+    return desired
+
+
 def _division_winner_owner_ids(owners_data: List[Dict[str, Any]]) -> set[int]:
     winners: set[int] = set()
     grouped: dict[int, List[Dict[str, Any]]] = {}
@@ -134,15 +153,16 @@ def _build_winner_summary(matches: List[Dict[str, Any]], owner_by_id: Dict[int, 
 
 def _build_consolation_payload(
     owners_data: List[Dict[str, Any]],
-    settings: models.LeagueSettings,
+    playoff_qualifiers: int,
+    playoff_consolation: bool,
     division_winners: set[int],
 ) -> List[Dict[str, Any]]:
     """Build toilet-bowl bracket payload from standings when enabled."""
-    if not settings.playoff_consolation:
+    if not playoff_consolation:
         return []
 
     all_teams = [{"id": o["id"], "seed": idx + 1} for idx, o in enumerate(owners_data)]
-    playoff_teams = all_teams[: settings.playoff_qualifiers]
+    playoff_teams = all_teams[: playoff_qualifiers]
     generated = playoff_logic.generate_consolation_bracket(all_teams, playoff_teams)
     payload: List[Dict[str, Any]] = []
 
@@ -216,12 +236,22 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
     # build team list from owners using the league endpoint which already
     # computes and sorts by wins/pf etc.
     owners_data = get_league_owners(league_id=league.id, db=db)
+    effective_qualifiers = _effective_playoff_qualifiers(
+        settings.playoff_qualifiers,
+        len(owners_data),
+    )
     division_winners = _division_winner_owner_ids(owners_data)
     teams = [{"id": o["id"], "seed": idx + 1} for idx, o in enumerate(owners_data)]
 
     # create bracket structure using helper
     bracket = playoff_logic.build_initial_bracket(
-        teams, settings.playoff_qualifiers, settings.playoff_reseed
+        teams, effective_qualifiers, settings.playoff_reseed
+    )
+    consolation = _build_consolation_payload(
+        owners_data,
+        effective_qualifiers,
+        bool(settings.playoff_consolation),
+        division_winners,
     )
 
     # clear any existing matches for this league/season
@@ -247,6 +277,100 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
             team_2_is_division_winner=(m.get("team_2", {}).get("id") in division_winners) if m.get("team_2") else False,
         )
         db.add(pm)
+
+    for m in consolation:
+        pm = models.PlayoffMatch(
+            league_id=league.id,
+            season=req.season,
+            match_id=m.get("match_id"),
+            round=m.get("round", 1),
+            is_bye=m.get("is_bye", False),
+            team_1_id=m.get("team_1_id"),
+            team_2_id=m.get("team_2_id"),
+            winner_to=m.get("winner_to"),
+            team_1_seed=m.get("team_1_seed"),
+            team_2_seed=m.get("team_2_seed"),
+            team_1_is_division_winner=m.get("team_1_is_division_winner", False),
+            team_2_is_division_winner=m.get("team_2_is_division_winner", False),
+        )
+        db.add(pm)
+    db.commit()
+
+    snapshot_payload = {
+        "championship": [
+            {
+                "match_id": m.match_id,
+                "round": m.round,
+                "is_bye": m.is_bye,
+                "team_1_id": m.team_1_id,
+                "team_2_id": m.team_2_id,
+                "winner_to": m.winner_to,
+                "team_1_seed": m.team_1_seed,
+                "team_2_seed": m.team_2_seed,
+                "team_1_is_division_winner": m.team_1_is_division_winner,
+                "team_2_is_division_winner": m.team_2_is_division_winner,
+                "team_1_division_name": None,
+                "team_2_division_name": None,
+                "team_1_score": m.team_1_score,
+                "team_2_score": m.team_2_score,
+            }
+            for m in db.query(models.PlayoffMatch)
+            .filter(
+                models.PlayoffMatch.league_id == league.id,
+                models.PlayoffMatch.season == req.season,
+                ~models.PlayoffMatch.match_id.like("con_%"),
+            )
+            .order_by(models.PlayoffMatch.round.asc(), models.PlayoffMatch.match_id.asc())
+            .all()
+        ],
+        "consolation": [
+            {
+                "match_id": m.match_id,
+                "round": m.round,
+                "is_bye": m.is_bye,
+                "team_1_id": m.team_1_id,
+                "team_2_id": m.team_2_id,
+                "winner_to": m.winner_to,
+                "team_1_seed": m.team_1_seed,
+                "team_2_seed": m.team_2_seed,
+                "team_1_is_division_winner": m.team_1_is_division_winner,
+                "team_2_is_division_winner": m.team_2_is_division_winner,
+                "team_1_division_name": None,
+                "team_2_division_name": None,
+                "team_1_score": m.team_1_score,
+                "team_2_score": m.team_2_score,
+            }
+            for m in db.query(models.PlayoffMatch)
+            .filter(
+                models.PlayoffMatch.league_id == league.id,
+                models.PlayoffMatch.season == req.season,
+                models.PlayoffMatch.match_id.like("con_%"),
+            )
+            .order_by(models.PlayoffMatch.round.asc(), models.PlayoffMatch.match_id.asc())
+            .all()
+        ],
+        "seeding_policy": {
+            "division_winners_top_seeds": any(bool(o.get("division_id")) for o in owners_data),
+            "wildcards_by_overall_record": True,
+            "tiebreak_chain": settings.playoff_tiebreakers,
+            "playoff_qualifiers": effective_qualifiers,
+            "playoff_reseed": settings.playoff_reseed,
+            "playoff_consolation": bool(settings.playoff_consolation),
+        },
+        "meta": {
+            "league_id": req.league_id,
+            "season": req.season,
+            "is_historical": req.season != datetime.now(UTC).year,
+            "source": "snapshot",
+        },
+    }
+    db.add(
+        models.PlayoffSnapshot(
+            league_id=req.league_id,
+            season=req.season,
+            data=snapshot_payload,
+        )
+    )
     db.commit()
     return {"status": "ok"}
 
@@ -282,20 +406,32 @@ def get_seasons(league_id: int = Query(...), db: Session = Depends(get_db)) -> L
 @router.get("/bracket")
 def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
     current_year = datetime.now(UTC).year
+    snap = (
+        db.query(models.PlayoffSnapshot)
+        .filter(
+            models.PlayoffSnapshot.league_id == league_id,
+            models.PlayoffSnapshot.season == season,
+        )
+        .order_by(models.PlayoffSnapshot.id.desc())
+        .first()
+    )
+
+    # Historical seasons should prefer season-specific snapshots when available.
+    if season != current_year and snap and isinstance(snap.data, dict):
+        snap_data = dict(snap.data)
+        snap_data["meta"] = {
+            "league_id": league_id,
+            "season": season,
+            "is_historical": True,
+            "source": "snapshot",
+        }
+        return snap_data
+
     matches = db.query(models.PlayoffMatch).filter(
         models.PlayoffMatch.league_id == league_id,
         models.PlayoffMatch.season == season,
     ).all()
     if not matches:
-        snap = (
-            db.query(models.PlayoffSnapshot)
-            .filter(
-                models.PlayoffSnapshot.league_id == league_id,
-                models.PlayoffSnapshot.season == season,
-            )
-            .order_by(models.PlayoffSnapshot.id.desc())
-            .first()
-        )
         if snap and isinstance(snap.data, dict):
             snap_data = dict(snap.data)
             snap_data.setdefault(
@@ -312,14 +448,19 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
 
     # convert to JSON structure
     champ: List[Dict[str, Any]] = []
+    stored_consolation: List[Dict[str, Any]] = []
     owners_data = get_league_owners(league_id=league_id, db=db)
     owner_by_id = {int(o["id"]): o for o in owners_data}
     settings = _load_settings(db, league_id)
+    effective_qualifiers = _effective_playoff_qualifiers(
+        settings.playoff_qualifiers,
+        len(owners_data),
+    )
     division_winners = _division_winner_owner_ids(owners_data)
     for m in matches:
         team_1 = owner_by_id.get(int(m.team_1_id)) if m.team_1_id else None
         team_2 = owner_by_id.get(int(m.team_2_id)) if m.team_2_id else None
-        champ.append({
+        match_payload = {
             "match_id": m.match_id,
             "round": m.round,
             "is_bye": m.is_bye,
@@ -334,14 +475,27 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
             "team_2_division_name": team_2.get("division_name") if team_2 else None,
             "team_1_score": m.team_1_score,
             "team_2_score": m.team_2_score,
-        })
+        }
 
-    consolation = _build_consolation_payload(owners_data, settings, division_winners)
-    for match in consolation:
-        team_1 = owner_by_id.get(int(match["team_1_id"])) if match.get("team_1_id") else None
-        team_2 = owner_by_id.get(int(match["team_2_id"])) if match.get("team_2_id") else None
-        match["team_1_division_name"] = team_1.get("division_name") if team_1 else None
-        match["team_2_division_name"] = team_2.get("division_name") if team_2 else None
+        if str(m.match_id or "").startswith("con_"):
+            stored_consolation.append(match_payload)
+        else:
+            champ.append(match_payload)
+
+    if stored_consolation:
+        consolation = stored_consolation
+    else:
+        consolation = _build_consolation_payload(
+            owners_data,
+            effective_qualifiers,
+            bool(settings.playoff_consolation),
+            division_winners,
+        )
+        for match in consolation:
+            team_1 = owner_by_id.get(int(match["team_1_id"])) if match.get("team_1_id") else None
+            team_2 = owner_by_id.get(int(match["team_2_id"])) if match.get("team_2_id") else None
+            match["team_1_division_name"] = team_1.get("division_name") if team_1 else None
+            match["team_2_division_name"] = team_2.get("division_name") if team_2 else None
 
     uses_divisions = any(bool(o.get("division_id")) for o in owners_data)
     return {
@@ -353,7 +507,7 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
             "division_winners_top_seeds": uses_divisions,
             "wildcards_by_overall_record": True,
             "tiebreak_chain": settings.playoff_tiebreakers,
-            "playoff_qualifiers": settings.playoff_qualifiers,
+            "playoff_qualifiers": effective_qualifiers,
             "playoff_reseed": settings.playoff_reseed,
             "playoff_consolation": settings.playoff_consolation,
         },
