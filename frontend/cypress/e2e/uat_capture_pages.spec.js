@@ -118,24 +118,19 @@ describe('UAT deck screenshot capture', () => {
       body: authUser,
     });
 
-    cy.intercept('GET', '**/leagues/**', (req) => {
-      if (req.url.includes('/settings')) {
-        req.reply({
-          statusCode: 200,
-          body: {
-            draft_year: 2026,
-            roster_size: 14,
-            waiver_deadline: 'Wed 11:59 PM',
-            trade_deadline: 'Nov 20',
-          },
-        });
-        return;
-      }
+    cy.intercept('GET', /\/leagues\/\d+\/settings/, {
+      statusCode: 200,
+      body: {
+        draft_year: 2026,
+        roster_size: 14,
+        waiver_deadline: 'Wed 11:59 PM',
+        trade_deadline: 'Nov 20',
+      },
+    });
 
-      req.reply({
-        statusCode: 200,
-        body: { id: 1, name: 'UAT League', draft_status: 'INACTIVE' },
-      });
+    cy.intercept('GET', /\/leagues\/\d+([?#]|$)/, {
+      statusCode: 200,
+      body: { id: 1, name: 'UAT League', draft_status: 'INACTIVE' },
     });
 
     cy.intercept('GET', '**/leagues/owners*', {
@@ -200,6 +195,72 @@ describe('UAT deck screenshot capture', () => {
     cy.intercept('GET', '**/draft/history*', {
       statusCode: 200,
       body: [],
+    });
+
+    cy.intercept('GET', '**/draft/rankings*', {
+      statusCode: 200,
+      body: [
+        {
+          player_id: 8101,
+          player_name: 'UAT Starter One',
+          position: 'RB',
+          season: 2026,
+          rank: 1,
+          predicted_auction_value: 55.0,
+          value_over_replacement: 30.0,
+          consensus_tier: 'Tier 1',
+          final_score: 85.0,
+          league_position_weight: 1.0,
+          owner_position_affinity: 1.0,
+          owner_player_affinity: 1.0,
+          keeper_scarcity_boost: 1.0,
+          availability_factor: 1.0,
+          scoring_consistency_factor: 1.0,
+          late_start_consistency_factor: 1.0,
+          injury_split_factor: 1.0,
+          team_change_factor: 1.0,
+        },
+        {
+          player_id: 8102,
+          player_name: 'UAT Bench One',
+          position: 'WR',
+          season: 2026,
+          rank: 2,
+          predicted_auction_value: 42.0,
+          value_over_replacement: 18.0,
+          consensus_tier: 'Tier 2',
+          final_score: 72.0,
+          league_position_weight: 1.0,
+          owner_position_affinity: 1.0,
+          owner_player_affinity: 1.0,
+          keeper_scarcity_boost: 1.0,
+          availability_factor: 1.0,
+          scoring_consistency_factor: 1.0,
+          late_start_consistency_factor: 1.0,
+          injury_split_factor: 1.0,
+          team_change_factor: 1.0,
+        },
+        {
+          player_id: 8103,
+          player_name: 'UAT Bench Two',
+          position: 'TE',
+          season: 2026,
+          rank: 3,
+          predicted_auction_value: 28.0,
+          value_over_replacement: 10.0,
+          consensus_tier: 'Tier 3',
+          final_score: 58.0,
+          league_position_weight: 1.0,
+          owner_position_affinity: 1.0,
+          owner_player_affinity: 1.0,
+          keeper_scarcity_boost: 1.0,
+          availability_factor: 1.0,
+          scoring_consistency_factor: 1.0,
+          late_start_consistency_factor: 1.0,
+          injury_split_factor: 1.0,
+          team_change_factor: 1.0,
+        },
+      ],
     });
 
     cy.intercept('GET', '**/leagues/1/budgets*', {
