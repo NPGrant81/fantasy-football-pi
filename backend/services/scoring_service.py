@@ -216,7 +216,10 @@ def recalculate_matchup_scores(
     if matchup.league_id is None:
         raise ValueError("matchup.league_id is required for scoring recalculation")
 
-    league_filter = models.DraftPick.league_id == matchup.league_id
+    league_filter = or_(
+        models.DraftPick.league_id == matchup.league_id,
+        models.DraftPick.league_id.is_(None),
+    )
     home_starters = (
         db.query(models.DraftPick)
         .filter(
