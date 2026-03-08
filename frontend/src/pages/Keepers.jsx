@@ -30,7 +30,7 @@ export default function Keepers() {
     async function load() {
       setLoading(true);
       try {
-        const res = await apiClient.get('/keepers');
+        const res = await apiClient.get('/keepers/');
         setKeeperData(res.data);
         if (res.data && Array.isArray(res.data.selections)) {
           setSelected(new Set(res.data.selections.map((s) => s.player_id)));
@@ -88,9 +88,9 @@ export default function Keepers() {
       })),
     };
     try {
-      await apiClient.post('/keepers', payload);
+      await apiClient.post('/keepers/', payload);
       // refresh
-      const res = await apiClient.get('/keepers');
+      const res = await apiClient.get('/keepers/');
       setKeeperData(res.data);
     } catch (e) {
       console.error('failed to submit keepers', e);
@@ -102,7 +102,7 @@ export default function Keepers() {
     setLocking(true);
     try {
       await apiClient.post('/keepers/lock');
-      const res = await apiClient.get('/keepers');
+      const res = await apiClient.get('/keepers/');
       setKeeperData(res.data);
     } catch (e) {
       console.error('failed to lock keepers', e);
