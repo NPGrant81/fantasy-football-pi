@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -101,10 +102,18 @@ def get_team_starters(
     week: int,
 ):
     """Fetch currently active starters with scoring-service projections and actuals."""
-    picks = db.query(models.DraftPick).filter(
+    picks_q = db.query(models.DraftPick).filter(
         models.DraftPick.owner_id == owner_id,
-        models.DraftPick.current_status == 'STARTER'
-    ).all()
+        models.DraftPick.current_status == 'STARTER',
+    )
+    if league_id is not None:
+        picks_q = picks_q.filter(
+            or_(
+                models.DraftPick.league_id == league_id,
+                models.DraftPick.league_id.is_(None),
+            )
+        )
+    picks = picks_q.all()
 
     player_ids = [pick.player_id for pick in picks if pick.player_id is not None]
     players = (
