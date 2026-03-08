@@ -575,13 +575,16 @@ def run_draft_simulation(
             yearly_results_path=yearly_results_path,
             config=simulation_config,
         )
-    except Exception:
+    except Exception as exc:
         logger.exception(
             "draft_simulation.failed user_id=%s perspective_owner_id=%s",
             current_user.id,
             perspective_owner_id,
         )
-        raise
+        raise HTTPException(
+            status_code=500,
+            detail=f"Simulation failed. {str(exc) or 'Please try again.'}",
+        )
 
     focal_summary: dict[str, Any] = {}
     if not result.owner_summary.empty:

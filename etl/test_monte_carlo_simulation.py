@@ -129,3 +129,24 @@ def test_owner_summary_contains_owner_1_distributions_and_target_probabilities()
     assert row["expected_total_points"] > 0
     assert row["expected_spend_rb"] >= 0
     assert isinstance(row["key_target_probability_snapshot"], str)
+
+
+def test_simulation_handles_missing_position_ids_in_draft_results():
+    players = _sample_players()
+    rankings = _sample_rankings(players)
+    draft_results = _sample_draft_results().copy()
+    draft_results.loc[0, "PositionID"] = None
+
+    config = SimulationConfig(iterations=2, seed=13, teams_count=4, roster_size=8, target_owner_id=1)
+
+    result = run_monte_carlo_draft_simulation(
+        draft_results_df=draft_results,
+        players_df=players,
+        historical_rankings_df=rankings,
+        budget_df=_sample_budgets(),
+        yearly_results_df=pd.DataFrame(),
+        config=config,
+    )
+
+    assert not result.draft_picks.empty
+    assert not result.team_metrics.empty

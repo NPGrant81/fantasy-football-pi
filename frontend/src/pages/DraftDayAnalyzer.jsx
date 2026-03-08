@@ -47,6 +47,20 @@ const parseNumber = (value, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+const extractApiErrorDetail = (error, fallback) => {
+  const payload = error?.response?.data;
+  if (typeof payload === 'string' && payload.trim()) {
+    return payload;
+  }
+  if (payload?.detail) {
+    return payload.detail;
+  }
+  if (error?.message) {
+    return error.message;
+  }
+  return fallback;
+};
+
 const loadUiState = () => {
   if (typeof window === 'undefined') return DEFAULT_UI_STATE;
   try {
@@ -108,6 +122,8 @@ function Drawer({ open, title, loading, error, children, onClose }) {
 
 export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const [owners, setOwners] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserIsCommissioner, setCurrentUserIsCommissioner] = useState(false);
   const [players, setPlayers] = useState([]);
   const [history, setHistory] = useState([]);
   const [draftYear, setDraftYear] = useState(new Date().getFullYear());
@@ -115,6 +131,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const [historicalRankings, setHistoricalRankings] = useState([]);
   const [rankingsLoading, setRankingsLoading] = useState(false);
   const [rankingsError, setRankingsError] = useState('');
+  const [rankingsRefreshNonce, setRankingsRefreshNonce] = useState(0);
 
   const initialUi = useMemo(() => loadUiState(), []);
   const [selectedPlayerId, setSelectedPlayerId] = useState(
@@ -196,6 +213,17 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     if (!activeLeagueId) return;
 
     apiClient
+      .get('/auth/me')
+      .then((res) => {
+        setCurrentUserId(Number(res?.data?.id || 0) || null);
+        setCurrentUserIsCommissioner(Boolean(res?.data?.is_commissioner));
+      })
+      .catch(() => {
+        setCurrentUserId(null);
+        setCurrentUserIsCommissioner(false);
+      });
+
+    apiClient
       .get(`/leagues/owners?league_id=${activeLeagueId}`)
       .then((res) => setOwners(Array.isArray(res.data) ? res.data : []))
       .catch(() => setOwners([]));
@@ -221,14 +249,29 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     return () => clearInterval(id);
   }, [fetchHistory]);
 
+  const availablePerspectiveOwners = useMemo(() => {
+    if (currentUserIsCommissioner) {
+      return owners;
+    }
+    if (!currentUserId) {
+      return owners;
+    }
+    return owners.filter((owner) => Number(owner.id) === Number(currentUserId));
+  }, [owners, currentUserId, currentUserIsCommissioner]);
+
   useEffect(() => {
     if (!activeLeagueId || !rankingSeason) return;
     setRankingsLoading(true);
+    setRankingsError('');
+
+    const rankingOwnerId = Number(
+      simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
+    );
 
     const params = new URLSearchParams();
     params.set('season', String(rankingSeason));
     params.set('league_id', String(activeLeagueId));
-    if (activeOwnerId) params.set('owner_id', String(activeOwnerId));
+    if (rankingOwnerId) params.set('owner_id', String(rankingOwnerId));
     params.set('limit', '300');
 
     apiClient
@@ -240,19 +283,39 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       .catch((error) => {
         setHistoricalRankings([]);
         setRankingsError(
-          error?.response?.data?.detail ||
+          extractApiErrorDetail(
+            error,
             'Unable to load historical rankings right now.'
+          )
         );
       })
       .finally(() => setRankingsLoading(false));
-  }, [activeLeagueId, activeOwnerId, rankingSeason]);
+  }, [
+    activeLeagueId,
+    activeOwnerId,
+    currentUserId,
+    simulationPerspectiveOwnerId,
+    rankingSeason,
+    rankingsRefreshNonce,
+  ]);
 
   useEffect(() => {
-    if (owners.length === 0) return;
-    if (simulationPerspectiveOwnerId) return;
-    const fallback = String(activeOwnerId || owners[0].id);
+    if (availablePerspectiveOwners.length === 0) return;
+    const current = String(simulationPerspectiveOwnerId || '');
+    const stillValid = availablePerspectiveOwners.some(
+      (owner) => String(owner.id) === current
+    );
+    if (stillValid) return;
+    const fallback = String(
+      currentUserId || activeOwnerId || availablePerspectiveOwners[0].id
+    );
     setSimulationPerspectiveOwnerId(fallback);
-  }, [owners, simulationPerspectiveOwnerId, activeOwnerId]);
+  }, [
+    availablePerspectiveOwners,
+    simulationPerspectiveOwnerId,
+    currentUserId,
+    activeOwnerId,
+  ]);
 
   const rankingByPlayerId = useMemo(() => {
     const map = new Map();
@@ -450,9 +513,9 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   }, [activeInsightOwner]);
 
   const activeInsightOwnerIsCurrentUser = useMemo(() => {
-    if (!activeInsightOwner || !activeOwnerId) return false;
-    return Number(activeInsightOwner.id) === Number(activeOwnerId);
-  }, [activeInsightOwner, activeOwnerId]);
+    if (!activeInsightOwner || !currentUserId) return false;
+    return Number(activeInsightOwner.id) === Number(currentUserId);
+  }, [activeInsightOwner, currentUserId]);
 
   const draftDynamics = useMemo(() => {
     const ownerCount = owners.length;
@@ -627,7 +690,9 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   }, [sortedPlayers, scrollTop]);
 
   const triggerModelInsights = useCallback(async () => {
-    const ownerId = Number(simulationPerspectiveOwnerId || activeOwnerId || 0);
+    const ownerId = Number(
+      simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
+    );
     const selectedId = Number(selectedPlayer?.id || 0);
     if (!ownerId || !selectedId || !activeLeagueId) return;
 
@@ -651,8 +716,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       setModelInsights(response?.data || null);
     } catch (error) {
       setInsightsError(
-        error?.response?.data?.detail ||
+        extractApiErrorDetail(
+          error,
           'Unable to refresh model insights right now.'
+        )
       );
       setModelInsights(null);
     } finally {
@@ -660,6 +727,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     }
   }, [
     simulationPerspectiveOwnerId,
+    currentUserId,
     activeOwnerId,
     selectedPlayer,
     activeLeagueId,
@@ -679,7 +747,9 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   }, []);
 
   const runSimulation = useCallback(async () => {
-    const focalOwnerId = Number(simulationPerspectiveOwnerId || activeOwnerId || 0);
+    const focalOwnerId = Number(
+      simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
+    );
     if (!focalOwnerId) {
       setSimulationError('Choose an owner perspective first.');
       return;
@@ -700,14 +770,17 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       setSimulationResult(res?.data || null);
       openDrawer('Simulation Result', res?.data || null);
     } catch (error) {
-      const detail =
-        error?.response?.data?.detail || 'Simulation failed. Please try again.';
+      const detail = extractApiErrorDetail(
+        error,
+        'Simulation failed. Please try again.'
+      );
       setSimulationError(detail);
     } finally {
       setSimulationLoading(false);
     }
   }, [
     simulationPerspectiveOwnerId,
+    currentUserId,
     activeOwnerId,
     simulationIterations,
     draftYear,
@@ -731,8 +804,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       } catch (error) {
         setPlayerInfoSeason(null);
         setPlayerInfoError(
-          error?.response?.data?.detail ||
+          extractApiErrorDetail(
+            error,
             'Unable to load player details right now.'
+          )
         );
       } finally {
         setPlayerInfoLoading(false);
@@ -744,7 +819,9 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const callAdvisorAction = useCallback(
     async (action) => {
       const playerId = Number(selectedPlayer?.id || 0) || null;
-      const ownerId = Number(simulationPerspectiveOwnerId || activeOwnerId || 0);
+      const ownerId = Number(
+        simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
+      );
       if (!ownerId || !activeLeagueId || !playerId) return;
 
       if (action === 'Simulate') {
@@ -783,9 +860,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         setAdvisorMessage(response?.data || null);
         setDrawerContent(response?.data || null);
       } catch (error) {
-        const detail =
-          error?.response?.data?.detail ||
-          'Draft Day advisor request failed. Please retry.';
+        const detail = extractApiErrorDetail(
+          error,
+          'Draft Day advisor request failed. Please retry.'
+        );
         setAdvisorError(detail);
         setDrawerError(detail);
       } finally {
@@ -797,6 +875,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       selectedPlayer,
       comparisonCandidate,
       simulationPerspectiveOwnerId,
+      currentUserId,
       activeOwnerId,
       activeLeagueId,
       draftYear,
@@ -991,7 +1070,19 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         {rankingsLoading ? (
           <div className="text-xs text-slate-400">Loading rankings...</div>
         ) : rankingsError ? (
-          <div className="text-xs text-rose-300">{rankingsError}</div>
+          <div className="space-y-2">
+            <div className="text-xs text-rose-300">{rankingsError}</div>
+            <button
+              type="button"
+              className={buttonSecondary}
+              onClick={() => {
+                setRankingsError('');
+                setRankingsRefreshNonce((prev) => prev + 1);
+              }}
+            >
+              Retry
+            </button>
+          </div>
         ) : availableHistoricalRankings.length === 0 ? (
           <div className="text-xs text-slate-400">
             No rankings data available for season {rankingSeason}.
@@ -1089,7 +1180,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               value={simulationPerspectiveOwnerId}
               onChange={(e) => setSimulationPerspectiveOwnerId(e.target.value)}
             >
-              {owners.map((owner) => (
+              {availablePerspectiveOwners.map((owner) => (
                 <option key={owner.id} value={owner.id}>
                   {owner.team_name || owner.username || `Owner ${owner.id}`}
                 </option>

@@ -98,6 +98,8 @@ def _normalize_position(value: object) -> str:
     if value is None:
         return "UNK"
     if isinstance(value, (int, float)):
+        if isinstance(value, float) and math.isnan(value):
+            return "UNK"
         return POSITION_LABELS.get(int(value), "UNK")
     text = str(value).strip().upper()
     if text in {"D/ST", "DST", "DEF"}:
