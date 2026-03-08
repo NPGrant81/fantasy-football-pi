@@ -8,25 +8,6 @@ import {
 } from '@api/commonApi';
 import { normalizeApiError } from '@api/fetching';
 import { buttonPrimary, buttonSecondary, cardSurface, inputBase } from '@utils/uiStandards';
-import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import { Radar } from 'react-chartjs-2';
-
-ChartJS.register(
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend
-);
 
 export default function TradeAnalyzer() {
   const [owners, setOwners] = useState([]);
@@ -223,6 +204,52 @@ export default function TradeAnalyzer() {
     }));
   }, [selectedAPlayers, selectedBPlayers]);
 
+  const positionInsights = useMemo(() => {
+    const bucket = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'DST', 'K'];
+    const build = (players, position) => {
+      const match = players.filter((player) => {
+        const pos = normalizePosition(player.position);
+        return position === 'FLEX' ? ['RB', 'WR', 'TE'].includes(pos) : pos === position;
+      });
+      if (!match.length) {
+        return {
+          names: 'No selected contributors',
+          starterImpact: '0 starter / 0 bench',
+          trend: 'stable',
+          volatility: 'low',
+          risk: 'low',
+        };
+      }
+
+      const values = match.map((player) => scorePlayer(player));
+      const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+      const stdDev = Math.sqrt(variance);
+
+      const starterCount = match.filter((player) => player.is_starter).length;
+      const benchCount = Math.max(0, match.length - starterCount);
+      const highProjection = match.filter((player) => Number(player.projected_points || 0) >= 14).length;
+      const byeRisk = match.filter((player) => player.bye_week).length;
+
+      return {
+        names: match.slice(0, 3).map((player) => player.name).join(', '),
+        starterImpact: `${starterCount} starter / ${benchCount} bench`,
+        trend: highProjection >= Math.ceil(match.length / 2) ? 'upward' : 'flat',
+        volatility: stdDev >= 3 ? 'medium-high' : 'low',
+        risk: byeRisk >= 2 ? 'elevated' : 'low',
+      };
+    };
+
+    const table = {};
+    bucket.forEach((position) => {
+      table[position] = {
+        a: build(selectedAPlayers, position),
+        b: build(selectedBPlayers, position),
+      };
+    });
+    return table;
+  }, [selectedAPlayers, selectedBPlayers]);
+
   const cashRecommendation = useMemo(() => {
     const abs = Math.abs(delta);
     if (abs <= 10) return null;
@@ -353,7 +380,7 @@ export default function TradeAnalyzer() {
         ) : null}
       </div>
 
-      <div className="space-y-2">
+      <div className="hidden space-y-2 md:block">
         {(side === 'A' ? selectedAPlayers : selectedBPlayers).map((player) => (
           <div
             key={`${side}-${player.player_id}`}
@@ -381,6 +408,38 @@ export default function TradeAnalyzer() {
           </div>
         ))}
       </div>
+
+      <details className="md:hidden rounded border border-slate-800 bg-slate-950/30 p-2">
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-300">
+          Selected Players ({(side === 'A' ? selectedAPlayers : selectedBPlayers).length})
+        </summary>
+        <div className="mt-2 space-y-2">
+          {(side === 'A' ? selectedAPlayers : selectedBPlayers).map((player) => (
+            <div
+              key={`mobile-${side}-${player.player_id}`}
+              className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/40 px-2 py-1 text-xs"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-slate-100">{player.name}</div>
+                <div className="text-slate-500">
+                  {normalizePosition(player.position)} | {player.nfl_team || 'N/A'} | Bye {player.bye_week || '--'} | Val {scorePlayer(player)}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={buttonSecondary}
+                onClick={() => removePlayer(side, player.player_id)}
+                aria-label={`Remove ${player.name}`}
+              >
+                <FiX />
+              </button>
+            </div>
+          ))}
+          {!(side === 'A' ? selectedAPlayers : selectedBPlayers).length ? (
+            <div className="text-xs text-slate-500">No players selected yet.</div>
+          ) : null}
+        </div>
+      </details>
     </section>
   );
 
@@ -446,6 +505,10 @@ export default function TradeAnalyzer() {
         <div className="space-y-2">
           {positionRows.map((row) => {
             const maxPos = Math.max(row.a, row.b, 1);
+            const insight = positionInsights[row.position] || {
+              a: { names: 'No selected contributors', starterImpact: '0 starter / 0 bench', trend: 'stable', volatility: 'low', risk: 'low' },
+              b: { names: 'No selected contributors', starterImpact: '0 starter / 0 bench', trend: 'stable', volatility: 'low', risk: 'low' },
+            };
             return (
               <div key={row.position} className="rounded border border-slate-800 bg-slate-950/40 p-2 text-xs">
                 <div className="mb-1 flex items-center justify-between text-slate-400">
@@ -454,11 +517,22 @@ export default function TradeAnalyzer() {
                 </div>
                 <div className="grid grid-cols-2 gap-2" role="img" aria-label={`${row.position} trade value bars`}>
                   <div className="h-2 rounded bg-slate-900">
-                    <div className="h-full rounded bg-cyan-500" style={{ width: `${(row.a / maxPos) * 100}%` }} title={`${ownerName(teamA)} contributions`} />
+                    <div
+                      className="h-full rounded bg-cyan-500"
+                      style={{ width: `${(row.a / maxPos) * 100}%` }}
+                      title={`${ownerName(teamA)} ${row.position}\nContributors: ${insight.a.names}\nLineup impact: ${insight.a.starterImpact}\nTrend: ${insight.a.trend}\nVolatility: ${insight.a.volatility}\nRisk: ${insight.a.risk}`}
+                    />
                   </div>
                   <div className="h-2 rounded bg-slate-900">
-                    <div className="h-full rounded bg-indigo-500" style={{ width: `${(row.b / maxPos) * 100}%` }} title={`${ownerName(teamB)} contributions`} />
+                    <div
+                      className="h-full rounded bg-indigo-500"
+                      style={{ width: `${(row.b / maxPos) * 100}%` }}
+                      title={`${ownerName(teamB)} ${row.position}\nContributors: ${insight.b.names}\nLineup impact: ${insight.b.starterImpact}\nTrend: ${insight.b.trend}\nVolatility: ${insight.b.volatility}\nRisk: ${insight.b.risk}`}
+                    />
                   </div>
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  A: {insight.a.starterImpact} | B: {insight.b.starterImpact}
                 </div>
               </div>
             );
