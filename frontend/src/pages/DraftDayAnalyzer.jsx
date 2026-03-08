@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import apiClient from '@api/client';
+import {
+  fetchAllPlayers,
+  fetchCurrentUser,
+  fetchDraftHistory,
+  fetchHistoricalRankings,
+  fetchLeagueOwners,
+  fetchLeagueSettings,
+  fetchModelPredictions,
+  fetchPlayerSeasonDetails,
+  queryDraftAdvisor,
+  runDraftSimulation,
+} from '@api/draftAnalyzerApi';
+import { normalizeApiError } from '@api/fetching';
 import PlayerInsightCard from '@components/draft/insights/PlayerInsightCard';
 import OwnerStrategyPanel from '@components/draft/insights/OwnerStrategyPanel';
 import DraftDynamicsPanel from '@components/draft/insights/DraftDynamicsPanel';
@@ -42,20 +54,6 @@ const PLACEHOLDER_NAME_PATTERNS = [/^generic\b/i, /^unknown\b/i, /^placeholder\b
 const parseNumber = (value, fallback = 0) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
-};
-
-const extractApiErrorDetail = (error, fallback) => {
-  const payload = error?.response?.data;
-  if (typeof payload === 'string' && payload.trim()) {
-    return payload;
-  }
-  if (payload?.detail) {
-    return payload.detail;
-  }
-  if (error?.message) {
-    return error.message;
-  }
-  return fallback;
 };
 
 const loadUiState = () => {
@@ -199,8 +197,8 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     if (!activeLeagueId || !draftYear) return;
     const sessionId = `LEAGUE_${activeLeagueId}_YEAR_${draftYear}`;
     try {
-      const res = await apiClient.get(`/draft/history?session_id=${sessionId}`);
-      setHistory(Array.isArray(res.data) ? res.data : []);
+      const data = await fetchDraftHistory(sessionId);
+      setHistory(Array.isArray(data) ? data : []);
     } catch {
       setHistory([]);
     }
@@ -209,32 +207,28 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   useEffect(() => {
     if (!activeLeagueId) return;
 
-    apiClient
-      .get('/auth/me')
-      .then((res) => {
-        setCurrentUserId(Number(res?.data?.id || 0) || null);
-        setCurrentUserIsCommissioner(Boolean(res?.data?.is_commissioner));
+    fetchCurrentUser()
+      .then((data) => {
+        setCurrentUserId(Number(data?.id || 0) || null);
+        setCurrentUserIsCommissioner(Boolean(data?.is_commissioner));
       })
       .catch(() => {
         setCurrentUserId(null);
         setCurrentUserIsCommissioner(false);
       });
 
-    apiClient
-      .get(`/leagues/owners?league_id=${activeLeagueId}`)
-      .then((res) => setOwners(Array.isArray(res.data) ? res.data : []))
+    fetchLeagueOwners(activeLeagueId)
+      .then((data) => setOwners(Array.isArray(data) ? data : []))
       .catch(() => setOwners([]));
 
-    apiClient
-      .get('/players/')
-      .then((res) => setPlayers(Array.isArray(res.data) ? res.data : []))
+    fetchAllPlayers()
+      .then((data) => setPlayers(Array.isArray(data) ? data : []))
       .catch(() => setPlayers([]));
 
-    apiClient
-      .get(`/leagues/${activeLeagueId}/settings`)
-      .then((res) => {
-        if (res?.data?.draft_year) {
-          setDraftYear(Number(res.data.draft_year));
+    fetchLeagueSettings(activeLeagueId)
+      .then((data) => {
+        if (data?.draft_year) {
+          setDraftYear(Number(data.draft_year));
         }
       })
       .catch(() => {});
@@ -265,26 +259,19 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
     );
 
-    const params = new URLSearchParams();
-    params.set('season', String(rankingSeason));
-    params.set('league_id', String(activeLeagueId));
-    if (rankingOwnerId) params.set('owner_id', String(rankingOwnerId));
-    params.set('limit', '300');
-
-    apiClient
-      .get(`/draft/rankings?${params.toString()}`)
-      .then((res) => {
+    fetchHistoricalRankings({
+      season: rankingSeason,
+      leagueId: activeLeagueId,
+      ownerId: rankingOwnerId,
+      limit: 300,
+    })
+      .then((data) => {
         setRankingsError('');
-        setHistoricalRankings(Array.isArray(res.data) ? res.data : []);
+        setHistoricalRankings(Array.isArray(data) ? data : []);
       })
       .catch((error) => {
         setHistoricalRankings([]);
-        setRankingsError(
-          extractApiErrorDetail(
-            error,
-            'Unable to load historical rankings right now.'
-          )
-        );
+        setRankingsError(normalizeApiError(error, 'Unable to load historical rankings right now.'));
       })
       .finally(() => setRankingsLoading(false));
   }, [
@@ -709,15 +696,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     };
 
     try {
-      const response = await apiClient.post('/draft/model/predict', payload);
-      setModelInsights(response?.data || null);
+      const data = await fetchModelPredictions(payload);
+      setModelInsights(data || null);
     } catch (error) {
-      setInsightsError(
-        extractApiErrorDetail(
-          error,
-          'Unable to refresh model insights right now.'
-        )
-      );
+      setInsightsError(normalizeApiError(error, 'Unable to refresh model insights right now.'));
       setModelInsights(null);
     } finally {
       setInsightsLoading(false);
@@ -763,14 +745,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         seed: Number(draftYear),
         teams_count: Math.max(2, owners.length || 12),
       };
-      const res = await apiClient.post('/draft/simulation', payload);
-      setSimulationResult(res?.data || null);
-      openDrawer('Simulation Result', res?.data || null);
+      const data = await runDraftSimulation(payload);
+      setSimulationResult(data || null);
+      openDrawer('Simulation Result', data || null);
     } catch (error) {
-      const detail = extractApiErrorDetail(
-        error,
-        'Simulation failed. Please try again.'
-      );
+      const detail = normalizeApiError(error, 'Simulation failed. Please try again.');
       setSimulationError(detail);
     } finally {
       setSimulationLoading(false);
@@ -794,17 +773,12 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       setPlayerInfoSeason(null);
 
       try {
-        const response = await apiClient.get(
-          `/players/${player.id}/season-details?season=${rankingSeason}`
-        );
-        setPlayerInfoSeason(response?.data || null);
+        const data = await fetchPlayerSeasonDetails(player.id, rankingSeason);
+        setPlayerInfoSeason(data || null);
       } catch (error) {
         setPlayerInfoSeason(null);
         setPlayerInfoError(
-          extractApiErrorDetail(
-            error,
-            'Unable to load player details right now.'
-          )
+          normalizeApiError(error, 'Unable to load player details right now.')
         );
       } finally {
         setPlayerInfoLoading(false);
@@ -845,7 +819,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             ? `Compare ${selectedPlayer?.name || 'this player'} against ${comparisonCandidate?.name || 'the next best alternative'}.`
             : `Explain the recommendation and bidding strategy for ${selectedPlayer?.name || 'this player'}.`;
 
-        const response = await apiClient.post('/advisor/draft-day/query', {
+        const data = await queryDraftAdvisor({
           owner_id: ownerId,
           season: Number(draftYear),
           league_id: Number(activeLeagueId),
@@ -854,13 +828,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             action === 'Compare' ? Number(comparisonCandidate?.id || 0) || null : null,
           question,
         });
-        setAdvisorMessage(response?.data || null);
-        setDrawerContent(response?.data || null);
+        setAdvisorMessage(data || null);
+        setDrawerContent(data || null);
       } catch (error) {
-        const detail = extractApiErrorDetail(
-          error,
-          'Draft Day advisor request failed. Please retry.'
-        );
+        const detail = normalizeApiError(error, 'Draft Day advisor request failed. Please retry.');
         setAdvisorError(detail);
         setDrawerError(detail);
       } finally {
