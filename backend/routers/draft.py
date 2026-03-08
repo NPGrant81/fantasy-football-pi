@@ -482,6 +482,14 @@ def run_draft_simulation(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    logger.info(
+        "draft_simulation.request user_id=%s perspective_owner_id=%s iterations=%s teams_count=%s",
+        current_user.id,
+        payload.perspective_owner_id,
+        payload.iterations,
+        payload.teams_count,
+    )
+
     if not current_user.league_id:
         raise HTTPException(status_code=400, detail="User must belong to a league")
 
@@ -558,14 +566,22 @@ def run_draft_simulation(
         focal_player_reliability_weight=float(strategy.player_reliability_weight),
     )
 
-    result = run_monte_carlo_from_paths(
-        draft_results_path=str(draft_results_path),
-        players_path=str(players_path),
-        historical_rankings_path=str(historical_rankings_path),
-        draft_budget_path=str(draft_budget_path) if draft_budget_path.exists() else None,
-        yearly_results_path=yearly_results_path,
-        config=simulation_config,
-    )
+    try:
+        result = run_monte_carlo_from_paths(
+            draft_results_path=str(draft_results_path),
+            players_path=str(players_path),
+            historical_rankings_path=str(historical_rankings_path),
+            draft_budget_path=str(draft_budget_path) if draft_budget_path.exists() else None,
+            yearly_results_path=yearly_results_path,
+            config=simulation_config,
+        )
+    except Exception:
+        logger.exception(
+            "draft_simulation.failed user_id=%s perspective_owner_id=%s",
+            current_user.id,
+            perspective_owner_id,
+        )
+        raise
 
     focal_summary: dict[str, Any] = {}
     if not result.owner_summary.empty:
@@ -617,6 +633,13 @@ def run_draft_simulation(
     )
     league_avg_points = (
         float(league_owner_means["avg_projected_points"].mean()) if not league_owner_means.empty else 0.0
+    )
+
+    logger.info(
+        "draft_simulation.success user_id=%s perspective_owner_id=%s simulation_runs=%s",
+        current_user.id,
+        perspective_owner_id,
+        safe_iterations,
     )
 
     return {

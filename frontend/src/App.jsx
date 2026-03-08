@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
   useParams,
+  useLocation,
 } from 'react-router-dom';
 import apiClient from '@api/client';
 import './App.css';
@@ -62,6 +63,154 @@ const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
   return <YourLockerRoom activeOwnerId={ownerId || fallbackOwnerId} />;
+}
+
+function resolveLayoutPageTitle(pathname) {
+  if (pathname === '/') return 'League Dashboard';
+  if (pathname === '/draft') return 'Draft Board';
+  if (pathname === '/draft-day-analyzer') return 'Draft Day Analyzer';
+  if (pathname === '/team' || pathname.startsWith('/team/')) return 'Locker Room';
+  if (pathname === '/ledger') return 'My Ledger Statement';
+  if (pathname === '/matchups') return 'Matchups';
+  if (pathname.startsWith('/matchup/')) return 'Game Center';
+  if (pathname === '/admin') return 'Site Admin';
+  if (pathname === '/admin/manage-commissioners') return 'Invite / Manage Commissioners';
+  if (pathname === '/commissioner') return 'Commissioner Control Panel';
+  if (pathname === '/commissioner/lineup-rules') return 'Lineup Rules';
+  if (pathname === '/commissioner/manage-owners') return 'Manage Owners';
+  if (pathname === '/commissioner/manage-waiver-rules') return 'Manage Waiver Rules';
+  if (pathname === '/commissioner/manage-trades') return 'Manage Trades';
+  if (pathname === '/commissioner/manage-scoring-rules') return 'Manage Scoring Rules';
+  if (pathname === '/commissioner/manage-divisions') return 'Manage Divisions';
+  if (pathname === '/commissioner/keeper-rules') return 'Keeper Rules';
+  if (pathname === '/commissioner/ledger-statement') return 'Ledger Statement';
+  if (pathname === '/waivers') return 'Waiver Wire';
+  if (pathname === '/waiver-rules') return 'Waiver Rules';
+  if (pathname === '/bug-report') return 'Bug Report';
+  if (pathname === '/keepers') return 'Manage Keepers';
+  if (pathname === '/analytics') return 'League Analytics';
+  if (pathname === '/playoffs') return 'Playoff Bracket';
+  return 'Fantasy Pi';
+}
+
+function AuthenticatedShell({
+  username,
+  activeLeagueId,
+  handleLogout,
+  layoutAlert,
+  token,
+  activeOwnerId,
+}) {
+  const location = useLocation();
+  const headerTitle = resolveLayoutPageTitle(location.pathname);
+
+  return (
+    <Layout
+      username={username}
+      leagueId={activeLeagueId}
+      alert={layoutAlert}
+      onLogout={handleLogout}
+      pageTitle={headerTitle}
+    >
+      <Suspense
+        fallback={
+          <div className="p-8 text-slate-400 animate-pulse">Loading...</div>
+        }
+      >
+        <Routes>
+          <Route path="/" element={<Home username={username} />} />
+          <Route
+            path="/draft"
+            element={
+              <DraftBoard
+                token={token}
+                activeOwnerId={activeOwnerId}
+                activeLeagueId={activeLeagueId}
+              />
+            }
+          />
+          <Route
+            path="/draft-day-analyzer"
+            element={
+              <DraftDayAnalyzer
+                activeOwnerId={activeOwnerId}
+                activeLeagueId={activeLeagueId}
+              />
+            }
+          />
+          <Route
+            path="/team"
+            element={<YourLockerRoom activeOwnerId={activeOwnerId} />}
+          />
+          <Route path="/ledger" element={<LedgerStatementOwner />} />
+          <Route
+            path="/team/:ownerId"
+            element={<TeamRoute fallbackOwnerId={activeOwnerId} />}
+          />
+          <Route path="/matchups" element={<Matchups />} />
+          <Route path="/matchup/:id" element={<GameCenter />} />
+          <Route path="/admin" element={<SiteAdmin />} />
+          <Route
+            path="/admin/manage-commissioners"
+            element={<ManageCommissioners />}
+          />
+          <Route path="/commissioner" element={<CommissionerDashboard />} />
+          <Route
+            path="/commissioner/lineup-rules"
+            element={<LineupRules />}
+          />
+          <Route
+            path="/commissioner/manage-owners"
+            element={<ManageOwners />}
+          />
+          <Route
+            path="/commissioner/manage-waiver-rules"
+            element={<ManageWaiverRules />}
+          />
+          <Route
+            path="/commissioner/manage-trades"
+            element={<ManageTrades />}
+          />
+          <Route
+            path="/commissioner/manage-scoring-rules"
+            element={<ManageScoringRules />}
+          />
+          <Route
+            path="/commissioner/manage-divisions"
+            element={<ManageDivisions />}
+          />
+          <Route
+            path="/commissioner/keeper-rules"
+            element={<KeeperRules />}
+          />
+          <Route
+            path="/commissioner/ledger-statement"
+            element={<LedgerStatement />}
+          />
+          <Route
+            path="/waivers"
+            element={
+              <Waivers
+                ownerId={activeOwnerId}
+                username={username}
+                leagueName={activeLeagueId}
+              />
+            }
+          />
+          <Route
+            path="/waiver-rules"
+            element={<WaiverRules leagueId={activeLeagueId} />}
+          />
+          <Route path="/bug-report" element={<BugReport />} />
+          <Route path="/keepers" element={<Keepers />} />
+          <Route path="/analytics" element={<AnalyticsDashboard />} />
+          <Route path="/playoffs" element={<PlayoffBracket />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Suspense>
+      <LeagueAdvisor />
+    </Layout>
+  );
 }
 
 function App() {
@@ -263,110 +412,14 @@ function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
-        <Layout
+        <AuthenticatedShell
           username={username}
-          leagueId={activeLeagueId}
-          alert={layoutAlert}
-          onLogout={handleLogout}
-        >
-          <Suspense
-            fallback={
-              <div className="p-8 text-slate-400 animate-pulse">Loading...</div>
-            }
-          >
-            <Routes>
-              <Route path="/" element={<Home username={username} />} />
-              <Route
-                path="/draft"
-                element={
-                  <DraftBoard
-                    token={token}
-                    activeOwnerId={activeOwnerId}
-                    activeLeagueId={activeLeagueId}
-                  />
-                }
-              />
-              <Route
-                path="/draft-day-analyzer"
-                element={
-                  <DraftDayAnalyzer
-                    activeOwnerId={activeOwnerId}
-                    activeLeagueId={activeLeagueId}
-                  />
-                }
-              />
-              <Route
-                path="/team"
-                element={<YourLockerRoom activeOwnerId={activeOwnerId} />}
-              />
-              <Route path="/ledger" element={<LedgerStatementOwner />} />
-              <Route
-                path="/team/:ownerId"
-                element={<TeamRoute fallbackOwnerId={activeOwnerId} />}
-              />
-              <Route path="/matchups" element={<Matchups />} />
-              <Route path="/matchup/:id" element={<GameCenter />} />
-              <Route path="/admin" element={<SiteAdmin />} />
-              <Route
-                path="/admin/manage-commissioners"
-                element={<ManageCommissioners />}
-              />
-              <Route path="/commissioner" element={<CommissionerDashboard />} />
-              <Route
-                path="/commissioner/lineup-rules"
-                element={<LineupRules />}
-              />
-              <Route
-                path="/commissioner/manage-owners"
-                element={<ManageOwners />}
-              />
-              <Route
-                path="/commissioner/manage-waiver-rules"
-                element={<ManageWaiverRules />}
-              />
-              <Route
-                path="/commissioner/manage-trades"
-                element={<ManageTrades />}
-              />
-              <Route
-                path="/commissioner/manage-scoring-rules"
-                element={<ManageScoringRules />}
-              />
-              <Route
-                path="/commissioner/manage-divisions"
-                element={<ManageDivisions />}
-              />
-              <Route
-                path="/commissioner/keeper-rules"
-                element={<KeeperRules />}
-              />
-              <Route
-                path="/commissioner/ledger-statement"
-                element={<LedgerStatement />}
-              />
-              <Route
-                path="/waivers"
-                element={
-                  <Waivers
-                    ownerId={activeOwnerId}
-                    username={username}
-                    leagueName={activeLeagueId}
-                  />
-                }
-              />
-              <Route
-                path="/waiver-rules"
-                element={<WaiverRules leagueId={activeLeagueId} />}
-              />
-              <Route path="/bug-report" element={<BugReport />} />
-              <Route path="/keepers" element={<Keepers />} />
-              <Route path="/analytics" element={<AnalyticsDashboard />} />
-              <Route path="/playoffs" element={<PlayoffBracket />} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </Suspense>
-          <LeagueAdvisor />
-        </Layout>
+          activeLeagueId={activeLeagueId}
+          handleLogout={handleLogout}
+          layoutAlert={layoutAlert}
+          token={token}
+          activeOwnerId={activeOwnerId}
+        />
       </BrowserRouter>
     </ThemeProvider>
   );
