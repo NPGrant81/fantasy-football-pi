@@ -4,6 +4,7 @@ import PlayerInsightCard from '@components/draft/insights/PlayerInsightCard';
 import OwnerStrategyPanel from '@components/draft/insights/OwnerStrategyPanel';
 import DraftDynamicsPanel from '@components/draft/insights/DraftDynamicsPanel';
 import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   POSITION_CAPS,
   STRATEGY_MAX_SPEND_SHARE,
@@ -13,10 +14,6 @@ import {
   buttonPrimary,
   buttonSecondary,
   cardSurface,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
   modalCloseButton,
   modalOverlay,
   modalSurface,
@@ -893,14 +890,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   };
 
   return (
-    <div className={pageShell}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>Draft Day Analyzer</h1>
-        <p className={pageSubtitle}>
-          Dedicated strategy workspace with virtualized player rack, advisor,
-          and simulation.
-        </p>
-      </div>
+    <PageTemplate
+      title="Draft Day Analyzer"
+      subtitle="Dedicated strategy workspace with virtualized player rack, advisor, and simulation."
+    >
 
       <section className={`${cardSurface} space-y-4`}>
         <div className="flex flex-wrap items-center gap-2">
@@ -1317,6 +1310,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </PageTemplate>
   );
 }
