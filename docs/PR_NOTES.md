@@ -20,8 +20,9 @@ assess impact and risk across all areas.
   - `ManageScoringRules` page: list, create, and edit rules with position/stat filters
   - Hardened form validation: requires at least one stat weight before saving
 - **Player deduplication audit + CI gate**
-  - `scripts/audit_player_duplicates.py` scans for players sharing the same
-    `(full_name, position, team)` canonical key
+  - `backend/scripts/audit_player_duplicates.py` scans for players grouped by
+    `player_service.canonical_player_key()` (prefers `gsis_id`/`espn_id`, then falls back to
+    normalized name + position + canonicalized team)
   - New `dedupe_players` management command resolves rows without data loss
   - CI job (`ci.yml` backend stage) fails the build if duplicates are detected
 - **Draft Day Analyzer improvements**
