@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.services.scoring_service import calculate_points_for_stats, recalculate_league_week_scores
+from backend.services.scoring_service import calculate_points_for_stats, recalculate_league_week_scores, recalculate_matchup_scores
 
 
 @pytest.fixture
@@ -184,3 +184,245 @@ def test_recalculate_league_week_scores_updates_matchup_totals(db_session):
     assert matchup.away_score == pytest.approx(14.0)
     assert matchup.is_completed is True
     assert matchup.game_status == "FINAL"
+
+
+def test_recalculate_matchup_scores_isolates_draft_picks_by_league(db_session):
+    """DraftPick rows from a different league must not bleed into recalculation."""
+    league_a = models.League(name="League A")
+    league_b = models.League(name="League B")
+    db_session.add_all([league_a, league_b])
+    db_session.commit()
+    db_session.refresh(league_a)
+    db_session.refresh(league_b)
+
+    # owner belongs to league_a but also has a STARTER pick in league_b
+    home = models.User(username="multi-league-home", hashed_password="pw", league_id=league_a.id)
+    away = models.User(username="away-single", hashed_password="pw", league_id=league_a.id)
+    db_session.add_all([home, away])
+    db_session.commit()
+    db_session.refresh(home)
+    db_session.refresh(away)
+
+    player_a = models.Player(name="Player A", position="QB", nfl_team="AAA")
+    player_b = models.Player(name="Player B", position="QB", nfl_team="BBB")
+    away_player = models.Player(name="Away Player", position="WR", nfl_team="CCC")
+    db_session.add_all([player_a, player_b, away_player])
+    db_session.commit()
+    db_session.refresh(player_a)
+    db_session.refresh(player_b)
+    db_session.refresh(away_player)
+
+    # home has a STARTER in league_a and an extra STARTER in league_b (should be excluded)
+    db_session.add_all(
+        [
+            models.DraftPick(
+                owner_id=home.id,
+                player_id=player_a.id,
+                league_id=league_a.id,
+                current_status="STARTER",
+            ),
+            models.DraftPick(
+                owner_id=home.id,
+                player_id=player_b.id,
+                league_id=league_b.id,
+                current_status="STARTER",
+            ),
+            models.DraftPick(
+                owner_id=away.id,
+                player_id=away_player.id,
+                league_id=league_a.id,
+                current_status="STARTER",
+            ),
+        ]
+    )
+
+    db_session.add_all(
+        [
+            models.ScoringRule(
+                league_id=league_a.id,
+                season_year=2026,
+                category="passing",
+                event_name="passing_yards",
+                range_min=0,
+                range_max=9999,
+                point_value=0.04,
+                calculation_type="per_unit",
+                applicable_positions=["QB"],
+                is_active=True,
+            ),
+            models.ScoringRule(
+                league_id=league_a.id,
+                season_year=2026,
+                category="receiving",
+                event_name="receptions",
+                range_min=0,
+                range_max=999,
+                point_value=1.0,
+                calculation_type="ppr",
+                applicable_positions=["WR"],
+                is_active=True,
+            ),
+        ]
+    )
+
+    db_session.add_all(
+        [
+            models.PlayerWeeklyStat(
+                player_id=player_a.id,
+                season=2026,
+                week=5,
+                stats={"passing_yards": 200},
+                fantasy_points=0,
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=player_b.id,
+                season=2026,
+                week=5,
+                stats={"passing_yards": 400},
+                fantasy_points=0,
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=away_player.id,
+                season=2026,
+                week=5,
+                stats={"receptions": 5},
+                fantasy_points=0,
+                source="test",
+            ),
+        ]
+    )
+
+    matchup = models.Matchup(
+        week=5,
+        league_id=league_a.id,
+        home_team_id=home.id,
+        away_team_id=away.id,
+        home_score=0,
+        away_score=0,
+    )
+    db_session.add(matchup)
+    db_session.commit()
+    db_session.refresh(matchup)
+
+    recalculate_matchup_scores(db_session, matchup=matchup, season=2026, season_year=2026)
+    db_session.commit()
+    db_session.refresh(matchup)
+
+    # Only player_a (league_a) should count: 200 * 0.04 = 8.0
+    # player_b (league_b) must NOT be included
+    assert matchup.home_score == pytest.approx(8.0)
+    # away: 5 receptions * 1.0 = 5.0
+    assert matchup.away_score == pytest.approx(5.0)
+
+
+def test_recalculate_matchup_scores_includes_legacy_null_league_id_picks(db_session):
+    """Legacy DraftPick rows with league_id=NULL must still be counted."""
+    league = models.League(name="Legacy League")
+    db_session.add(league)
+    db_session.commit()
+    db_session.refresh(league)
+
+    home = models.User(username="legacy-home", hashed_password="pw", league_id=league.id)
+    away = models.User(username="legacy-away", hashed_password="pw", league_id=league.id)
+    db_session.add_all([home, away])
+    db_session.commit()
+    db_session.refresh(home)
+    db_session.refresh(away)
+
+    player_home = models.Player(name="Legacy QB", position="QB", nfl_team="AAA")
+    player_away = models.Player(name="Legacy WR", position="WR", nfl_team="BBB")
+    db_session.add_all([player_home, player_away])
+    db_session.commit()
+    db_session.refresh(player_home)
+    db_session.refresh(player_away)
+
+    # Legacy rows: league_id is NULL
+    db_session.add_all(
+        [
+            models.DraftPick(
+                owner_id=home.id,
+                player_id=player_home.id,
+                league_id=None,
+                current_status="STARTER",
+            ),
+            models.DraftPick(
+                owner_id=away.id,
+                player_id=player_away.id,
+                league_id=None,
+                current_status="STARTER",
+            ),
+        ]
+    )
+
+    db_session.add_all(
+        [
+            models.ScoringRule(
+                league_id=league.id,
+                season_year=2026,
+                category="passing",
+                event_name="passing_yards",
+                range_min=0,
+                range_max=9999,
+                point_value=0.04,
+                calculation_type="per_unit",
+                applicable_positions=["QB"],
+                is_active=True,
+            ),
+            models.ScoringRule(
+                league_id=league.id,
+                season_year=2026,
+                category="receiving",
+                event_name="receptions",
+                range_min=0,
+                range_max=999,
+                point_value=1.0,
+                calculation_type="ppr",
+                applicable_positions=["WR"],
+                is_active=True,
+            ),
+        ]
+    )
+
+    db_session.add_all(
+        [
+            models.PlayerWeeklyStat(
+                player_id=player_home.id,
+                season=2026,
+                week=1,
+                stats={"passing_yards": 250},
+                fantasy_points=0,
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=player_away.id,
+                season=2026,
+                week=1,
+                stats={"receptions": 7},
+                fantasy_points=0,
+                source="test",
+            ),
+        ]
+    )
+
+    matchup = models.Matchup(
+        week=1,
+        league_id=league.id,
+        home_team_id=home.id,
+        away_team_id=away.id,
+        home_score=0,
+        away_score=0,
+    )
+    db_session.add(matchup)
+    db_session.commit()
+    db_session.refresh(matchup)
+
+    recalculate_matchup_scores(db_session, matchup=matchup, season=2026, season_year=2026)
+    db_session.commit()
+    db_session.refresh(matchup)
+
+    # 250 * 0.04 = 10.0
+    assert matchup.home_score == pytest.approx(10.0)
+    # 7 * 1.0 = 7.0
+    assert matchup.away_score == pytest.approx(7.0)
