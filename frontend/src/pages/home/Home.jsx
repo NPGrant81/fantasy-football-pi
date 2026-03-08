@@ -28,6 +28,9 @@ export default function Home({ username }) {
     }
   };
   const [news, setNews] = useState([]);
+  const [topFreeAgents, setTopFreeAgents] = useState([]);
+  const [bidLoadingId, setBidLoadingId] = useState(null);
+  const [bidMessage, setBidMessage] = useState('');
   const [leagueName, setLeagueName] = useState('');
   const leagueId = localStorage.getItem('fantasyLeagueId');
 
@@ -54,7 +57,31 @@ export default function Home({ username }) {
       .get(`/leagues/${leagueId}/news`)
       .then((res) => setNews(res.data))
       .catch(() => setNews([]));
+
+    apiClient
+      .get(`/players/top-free-agents?league_id=${leagueId}&limit=10`)
+      .then((res) => setTopFreeAgents(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setTopFreeAgents([]));
   }, [leagueId]);
+
+  const handleQuickBid = async (player) => {
+    if (!player?.id) return;
+    setBidMessage('');
+    setBidLoadingId(player.id);
+    try {
+      await apiClient.post('/waivers/claim', {
+        player_id: player.id,
+        bid_amount: 0,
+      });
+      setTopFreeAgents((prev) => prev.filter((item) => item.id !== player.id));
+      setBidMessage(`Claim submitted for ${player.name}.`);
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setBidMessage(typeof detail === 'string' ? detail : 'Bid failed. Check waiver status and roster limits.');
+    } finally {
+      setBidLoadingId(null);
+    }
+  };
   // --- 1.1 CONFIGURATION ---
   // Note: This page currently serves as a static landing.
   // Future 1.2 Data Retrieval for "League News" will go here.
@@ -234,6 +261,52 @@ export default function Home({ username }) {
               <div className="mt-4 text-center text-xs italic text-slate-500 dark:text-slate-400">
                 End of feed
               </div>
+            )}
+          </div>
+        </div>
+
+        <div className={cardSurface}>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Hot Pickups
+            </h2>
+            <Link to="/waivers" className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline">
+              Full Waiver Wire
+            </Link>
+          </div>
+          {bidMessage ? (
+            <div className="mb-3 rounded border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs text-slate-700 dark:text-slate-300">
+              {bidMessage}
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            {topFreeAgents.length > 0 ? (
+              topFreeAgents.map((player, idx) => (
+                <div
+                  key={player.id}
+                  className="flex items-center justify-between gap-2 rounded border border-slate-200 dark:border-slate-700 p-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                      {idx + 1}. {player.name}
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      {player.position} - {player.nfl_team || 'FA'} - ROS {Number(player.projected_points || 0).toFixed(1)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleQuickBid(player)}
+                    disabled={bidLoadingId === player.id}
+                    className="shrink-0 rounded bg-cyan-600 px-2 py-1 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+                  >
+                    {bidLoadingId === player.id ? 'Bidding...' : 'Bid'}
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs italic text-slate-500 dark:text-slate-400">
+                No free agents available for this league.
+              </p>
             )}
           </div>
         </div>

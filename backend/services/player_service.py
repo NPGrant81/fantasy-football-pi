@@ -93,3 +93,30 @@ def get_league_free_agents(db: Session, league_id: int):
         models.Player.position.in_(ALLOWED_POSITIONS)
     ).limit(250).all()
     return dedupe_players(rows)[:50]
+
+
+def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
+    """Return top available free agents ranked by projected ROS points."""
+    safe_limit = max(1, min(int(limit), 25))
+
+    owned_ids_query = db.query(models.DraftPick.player_id).filter(
+        models.DraftPick.league_id == league_id
+    )
+
+    rows = (
+        db.query(models.Player)
+        .filter(
+            ~models.Player.id.in_(owned_ids_query),
+            models.Player.position.in_(ALLOWED_POSITIONS),
+        )
+        .order_by(
+            models.Player.projected_points.desc(),
+            models.Player.adp.asc(),
+            models.Player.name.asc(),
+        )
+        .limit(400)
+        .all()
+    )
+
+    deduped = dedupe_players(rows)
+    return deduped[:safe_limit]
