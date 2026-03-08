@@ -330,6 +330,14 @@ export default function Home({ username }) {
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       Score {Number(player.pickup_score || 0).toFixed(1)}
                     </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Trend {player.pickup_trend_label || 'Steady'} ({Number(player.pickup_trend_score || 0).toFixed(1)})
+                    </p>
+                    {Number(player.recent_claim_count || 0) > 0 ? (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Claims {Number(player.recent_claim_count || 0)}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="shrink-0 flex items-center gap-2">
                     <span className="rounded border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-300">

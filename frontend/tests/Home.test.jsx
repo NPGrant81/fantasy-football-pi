@@ -191,6 +191,47 @@ describe('Home (League Dashboard)', () => {
     });
   });
 
+  test('renders hot pickups trend and claim metadata when available', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/leagues/1/news') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/players/top-free-agents?league_id=1&limit=10') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 101,
+              name: 'Hot Add',
+              position: 'WR',
+              nfl_team: 'BUF',
+              projected_points: 123.4,
+              pickup_score: 129.5,
+              pickup_tier: 'A',
+              pickup_trend_label: 'Rising',
+              pickup_trend_score: 1.8,
+              recent_claim_count: 3,
+            },
+          ],
+        });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderHome('alice');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Hot Add/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Trend Rising/i)).toBeInTheDocument();
+    expect(screen.getByText(/Claims 3/i)).toBeInTheDocument();
+  });
+
   test('shows "no owners" message when standings are empty', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/leagues/1') {
