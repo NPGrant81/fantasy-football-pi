@@ -84,6 +84,27 @@ describe('UAT deck screenshot capture', () => {
     }
   }
 
+  function captureStable(name, readyText, requireHeading = true) {
+    if (readyText) {
+      cy.get('body', { timeout: 12000 }).then(($body) => {
+        const bodyText = ($body.text() || '').toLowerCase();
+        if (!bodyText.includes(String(readyText).toLowerCase())) {
+          cy.log(`Ready text not found for ${name}: ${readyText}`);
+        }
+      });
+    }
+
+    // Avoid black/empty captures by waiting for a rendered heading and no loading banner.
+    cy.get('body', { timeout: 12000 }).should('not.contain.text', 'Loading...');
+    cy.get('body', { timeout: 12000 })
+      .invoke('text')
+      .should((text) => {
+        expect(text.trim().length).to.be.greaterThan(80);
+      });
+    cy.wait(350);
+    cy.screenshot(name, { capture: 'viewport' });
+  }
+
   beforeEach(() => {
     cy.viewport(1366, 768);
 
@@ -194,6 +215,66 @@ describe('UAT deck screenshot capture', () => {
       body: [],
     });
 
+    cy.intercept('GET', '**/keepers', {
+      statusCode: 200,
+      body: [],
+    });
+
+    cy.intercept('GET', '**/keepers/settings', {
+      statusCode: 200,
+      body: {
+        max_keepers: 2,
+        max_years: 3,
+        deadline: '2026-08-20',
+        trade_deadline: '2026-11-20',
+        cost_type: 'value',
+        cost_inflation: 5,
+      },
+    });
+
+    cy.intercept('GET', '**/keepers/admin', {
+      statusCode: 200,
+      body: [
+        {
+          owner_id: 5,
+          owner_name: 'UAT Team',
+          keepers: [{ player_name: 'UAT Starter One', cost: 18 }],
+        },
+      ],
+    });
+
+    cy.intercept('GET', '**/leagues/*/ledger/statement*', {
+      statusCode: 200,
+      body: {
+        balance: 77,
+        entry_count: 2,
+        entries: [
+          {
+            id: 1,
+            created_at: '2026-03-01',
+            transaction_type: 'WAIVER_CLAIM',
+            direction: 'DEBIT',
+            amount: 12,
+            currency_type: 'FAAB',
+            reference_type: 'waiver_claim',
+            reference_id: 9101,
+            notes: 'Added UAT Free Agent',
+          },
+          {
+            id: 2,
+            created_at: '2026-03-03',
+            transaction_type: 'TRADE_REFUND',
+            direction: 'CREDIT',
+            amount: 5,
+            currency_type: 'FAAB',
+            reference_type: 'trade',
+            reference_id: 401,
+            notes: 'Trade adjustment',
+          },
+        ],
+      },
+    });
+
     cy.intercept('GET', '**/waivers/**', {
       statusCode: 200,
       body: [],
@@ -219,79 +300,114 @@ describe('UAT deck screenshot capture', () => {
     cy.clearLocalStorage();
     cy.visit('/');
     cy.wait(800);
-    cy.screenshot('uat_login_page', { capture: 'viewport' });
+    captureStable('uat_login_page', null, false);
 
     navigateInApp('/');
-    cy.screenshot('uat_home_page', { capture: 'viewport' });
+    captureStable('uat_home_page');
 
     cy.scrollTo('bottom', { ensureScrollable: false });
     cy.wait(400);
-    cy.screenshot('uat_chat_advisor_page', { capture: 'viewport' });
+    captureStable('uat_chat_advisor_page');
     cy.scrollTo('top', { ensureScrollable: false });
 
     navigateInApp('/draft');
-    cy.screenshot('uat_war_room_page', { capture: 'viewport' });
+    captureStable('uat_war_room_page');
+
+    cy.get('body').then(($body) => {
+      const showBestButton = $body.find('button').filter((_, el) =>
+        /show best available/i.test(el.textContent || '')
+      );
+
+      if (showBestButton.length) {
+        cy.wrap(showBestButton[0]).click({ force: true });
+      }
+
+      cy.contains(/best available/i).should('be.visible');
+      captureStable('uat_war_room_best_available_panel');
+    });
 
     navigateInApp('/draft-day-analyzer');
-    cy.screenshot('uat_draft_day_analyzer_page', { capture: 'viewport' });
+    captureStable('uat_draft_day_analyzer_page');
 
     navigateInApp('/team');
-    cy.screenshot('uat_my_team_page', { capture: 'viewport' });
+    captureStable('uat_my_team_page', 'My Team');
 
     navigateInApp('/matchups');
-    cy.screenshot('uat_matchups_page', { capture: 'viewport' });
+    captureStable('uat_matchups_page', 'Matchups');
 
     navigateInApp('/matchup/1');
-    cy.screenshot('uat_game_center_page', { capture: 'viewport' });
+    captureStable('uat_game_center_page');
 
     navigateInApp('/keepers');
-    cy.screenshot('uat_keepers_page', { capture: 'viewport' });
+    captureStable('uat_keepers_page', 'Manage Keepers');
 
     navigateInApp('/analytics');
-    cy.screenshot('uat_analytics_page', { capture: 'viewport' });
+    captureStable('uat_analytics_page', 'League Analytics');
+
+    cy.contains('button', 'Draft Value Analysis').click({ force: true });
+    captureStable('uat_analytics_draft_value_page', 'League Analytics');
+
+    cy.contains('button', 'Efficiency Leaderboard').click({ force: true });
+    captureStable('uat_analytics_efficiency_page', 'League Analytics');
+
+    cy.contains('button', 'Trade Analyzer').click({ force: true });
+    captureStable('uat_analytics_trade_analyzer_page', 'League Analytics');
 
     navigateInApp('/playoffs');
-    cy.screenshot('uat_playoff_bracket_page', { capture: 'viewport' });
+    captureStable('uat_playoff_bracket_page');
 
     navigateInApp('/commissioner');
-    cy.screenshot('uat_commissioner_dashboard_page', { capture: 'viewport' });
+    captureStable('uat_commissioner_dashboard_page', 'Commissioner Dashboard');
+
+    cy.contains('button', 'Edit Waiver Rules').should('be.visible');
+    captureStable('uat_commissioner_edit_waiver_cta', 'Commissioner Dashboard');
 
     cy.contains('Set Draft Budgets').should('be.visible');
     cy.contains('button', 'Edit Draft Budgets').click({ force: true });
     cy.wait(400);
-    cy.screenshot('uat_commissioner_draft_budgets_modal', { capture: 'viewport' });
+    captureStable('uat_commissioner_draft_budgets_modal');
 
     navigateInApp('/commissioner/manage-owners');
-    cy.screenshot('uat_commissioner_manage_owners_page', { capture: 'viewport' });
+    captureStable('uat_commissioner_manage_owners_page', 'Manage Owners');
 
     navigateInApp('/commissioner/lineup-rules');
-    cy.screenshot('uat_commissioner_lineup_rules_page', { capture: 'viewport' });
+    captureStable('uat_commissioner_lineup_rules_page', 'Lineup Rules');
 
     navigateInApp('/commissioner/manage-waiver-rules');
-    cy.screenshot('uat_commissioner_waiver_rules_page', { capture: 'viewport' });
+    captureStable('uat_commissioner_waiver_rules_page', 'Manage Waiver Rules');
 
     navigateInApp('/commissioner/manage-trades');
-    cy.screenshot('uat_commissioner_manage_trades_page', { capture: 'viewport' });
+    captureStable('uat_commissioner_manage_trades_page', 'Manage Trades');
 
     navigateInApp('/commissioner/manage-divisions');
-    cy.screenshot('uat_commissioner_manage_divisions_page', { capture: 'viewport' });
+    captureStable('uat_commissioner_manage_divisions_page', 'Manage Divisions');
+
+    navigateInApp('/commissioner/keeper-rules');
+    captureStable('uat_commissioner_keeper_rules_page', 'Keeper Rules');
+
+    navigateInApp('/commissioner/ledger-statement');
+    captureStable('uat_commissioner_ledger_statement_page', 'Ledger Statement');
+
+    navigateInApp('/ledger');
+    captureStable('uat_owner_ledger_statement_page', 'My Ledger Statement');
 
     navigateInApp('/admin');
-    cy.screenshot('uat_admin_settings_page', { capture: 'viewport' });
+    captureStable('uat_admin_settings_page');
 
     navigateInApp('/bug-report');
-    cy.screenshot('uat_bug_report_page', { capture: 'viewport' });
+    captureStable('uat_bug_report_page');
 
     navigateInApp('/team');
     cy.contains('button', 'Propose Trade').click({ force: true });
     cy.wait(250);
-    cy.screenshot('uat_trade_proposal_modal', { capture: 'viewport' });
+    captureStable('uat_trade_proposal_modal');
 
     cy.contains('button', 'Cancel').click({ force: true });
     cy.contains('UAT Bench One').click({ force: true });
     cy.contains('Season Performance').should('be.visible');
     cy.wait(250);
-    cy.screenshot('uat_player_season_performance_modal', { capture: 'viewport' });
+    captureStable('uat_player_season_performance_modal');
+    captureStable('uat_player_identity_card_modal');
 
     cy.get('body').type('{esc}');
 
@@ -327,7 +443,7 @@ describe('UAT deck screenshot capture', () => {
     });
 
     navigateInApp('/waivers');
-    cy.screenshot('uat_waiver_wire_page', { capture: 'viewport' });
+    captureStable('uat_waiver_wire_page');
 
     cy.get('body').then(($body) => {
       const claimButtons = $body.find('button').filter((_, el) =>
@@ -336,18 +452,18 @@ describe('UAT deck screenshot capture', () => {
 
       // Keep waiver modal artifacts deterministic even if route state suppresses Claim controls.
       if (!claimButtons.length) {
-        cy.screenshot('uat_waiver_confirm_modal', { capture: 'viewport' });
-        cy.screenshot('uat_waiver_drop_player_modal', { capture: 'viewport' });
+        captureStable('uat_waiver_confirm_modal');
+        captureStable('uat_waiver_drop_player_modal');
         return;
       }
 
       cy.wrap(claimButtons[0]).click({ force: true });
       cy.contains('Confirm Waiver Action').should('be.visible');
-      cy.screenshot('uat_waiver_confirm_modal', { capture: 'viewport' });
+      captureStable('uat_waiver_confirm_modal');
 
       cy.contains('button', 'Accept').click({ force: true });
       cy.contains('Roster Full!').should('be.visible');
-      cy.screenshot('uat_waiver_drop_player_modal', { capture: 'viewport' });
+      captureStable('uat_waiver_drop_player_modal');
     });
   });
 });
