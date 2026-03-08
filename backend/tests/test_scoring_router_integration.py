@@ -308,3 +308,84 @@ Receptions,1-999,2 points each,8004
     change_types = {row["change_type"] for row in history}
     assert "template_applied" in change_types
     assert "deleted" in change_types
+
+
+def test_commissioner_rule_update_propagates_to_recalc_and_matchup_detail(client, api_db):
+    league, commissioner = _seed_league_and_commissioner(api_db)
+    matchup = _seed_matchup_data(api_db, league.id)
+
+    app.dependency_overrides[check_is_commissioner] = lambda: commissioner
+    app.dependency_overrides[get_current_user] = lambda: commissioner
+
+    create_response = client.post(
+        "/scoring/rules",
+        json={
+            "category": "receiving",
+            "event_name": "receptions",
+            "description": "Commissioner base receptions",
+            "range_min": 0,
+            "range_max": 999,
+            "point_value": 1.0,
+            "calculation_type": "per_unit",
+            "applicable_positions": ["WR"],
+            "position_ids": [8004],
+            "season_year": 2026,
+            "source": "custom",
+            "is_active": True,
+        },
+    )
+    assert create_response.status_code == 200
+    created_rule = create_response.json()
+    rule_id = int(created_rule["id"])
+
+    week_recalc_response = client.post(
+        "/scoring/calculate/weeks/5/recalculate",
+        json={"season": 2026, "season_year": 2026},
+    )
+    assert week_recalc_response.status_code == 200
+    week_payload = week_recalc_response.json()
+    assert int(week_payload["recalculated_matchups"]) == 1
+
+    first_scores = sorted(
+        [
+            float(week_payload["results"][0]["home_score"]),
+            float(week_payload["results"][0]["away_score"]),
+        ]
+    )
+    assert first_scores == pytest.approx([1.0, 5.0])
+
+    update_response = client.put(
+        f"/scoring/rules/{rule_id}",
+        json={"point_value": 2.0},
+    )
+    assert update_response.status_code == 200
+    updated_rule = update_response.json()
+    assert float(updated_rule["point_value"]) == pytest.approx(2.0)
+
+    matchup_recalc_response = client.post(
+        f"/scoring/calculate/matchups/{matchup.id}/recalculate",
+        json={"season": 2026, "season_year": 2026},
+    )
+    assert matchup_recalc_response.status_code == 200
+    recalc_payload = matchup_recalc_response.json()
+    recalc_scores = sorted([
+        float(recalc_payload["home_score"]),
+        float(recalc_payload["away_score"]),
+    ])
+    assert recalc_scores == pytest.approx([2.0, 10.0])
+
+    matchup_detail_response = client.get(f"/matchups/{matchup.id}")
+    assert matchup_detail_response.status_code == 200
+    detail = matchup_detail_response.json()
+    projected_scores = sorted([
+        float(detail["home_projected"]),
+        float(detail["away_projected"]),
+    ])
+    assert projected_scores == pytest.approx([2.0, 10.0])
+
+    history_response = client.get(f"/scoring/history?season_year=2026&rule_id={rule_id}")
+    assert history_response.status_code == 200
+    history = history_response.json()
+    change_types = {row["change_type"] for row in history}
+    assert "created" in change_types
+    assert "updated" in change_types
