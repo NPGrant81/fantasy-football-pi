@@ -31,7 +31,7 @@ import {
 } from '@utils/uiStandards';
 
 export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
-  const showAnalyzerPanels = false;
+  const showAnalyzerPanels = import.meta.env.VITE_SHOW_ANALYZER_PANELS === 'true';
   // --- 1.1 STATE MANAGEMENT ---
   const [showBestSidebar, setShowBestSidebar] = useState(false);
   const [owners, setOwners] = useState([]);
