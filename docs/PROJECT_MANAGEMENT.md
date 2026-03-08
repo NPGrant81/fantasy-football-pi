@@ -18,6 +18,17 @@ Tasks:
 
 ---
 
+## Issue Hygiene (Resolved vs Open)
+
+To avoid backlog confusion between completed work and net-new work, use this standard:
+
+- Track implementation-complete issues in `docs/ISSUE_STATUS.md` under `Resolved Issue Closure Queue`.
+- Close corresponding GitHub issues as soon as close-out notes are posted.
+- Do not create a new issue for a problem area that already has a `Pending` resolved entry.
+- During planning/refinement, clear pending close items before adding overlapping backlog scope.
+
+---
+
 ## 📖 STORY NUMBERING FRAMEWORK
 
 This project uses **Agile Story numbering** to organize features and tasks with clear structure for VS Code file mapping and development sequencing.

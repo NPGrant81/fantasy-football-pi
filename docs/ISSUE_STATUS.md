@@ -10,6 +10,50 @@
 
 ---
 
+## Resolved Issue Closure Queue (New Standard)
+
+- **Issue #131**: `Create Dedicated Draft Day Analyzer Page + Fix Advisor & Simulation Failures`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #131 Close-Out Notes`
+- **Issue #19**: `Story 5.3: Waiver Processing Logic Description`
+  - **Implementation Status:** Resolved in current waiver system implementation
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
+- **Issue #20**: `Story 5.4: Waiver Result Notifications Description`
+  - **Implementation Status:** Resolved in current waiver notification flow
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
+- **Issue #31**: `Waiver Wire Rules: Page Setup & Navigation`
+  - **Implementation Status:** Resolved in commissioner waiver-rules page rollout
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
+- **Issue #32**: `Waiver Wire Rules: Configuration Form`
+  - **Implementation Status:** Resolved in commissioner waiver-rules configuration UI
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
+- **Issue #33**: `Waiver Wire Rules: Transactions History & Audit`
+  - **Implementation Status:** Resolved in waiver history/audit surfaces
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
+- **Issue #34**: `Waiver Wire Rules: Backend Integration`
+  - **Implementation Status:** Resolved in waiver backend/router/service integration
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
+- **Issue #35**: `Waiver Wire Rules: Testing`
+  - **Implementation Status:** Resolved for current waiver baseline and CI workflow
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
+
+### Issue Hygiene Protocol
+
+- When work is complete in code, add the issue to this queue immediately.
+- Post a close-out comment with verification summary, then close the GitHub issue.
+- If closure cannot be completed in the same session, keep an explicit `Pending` entry here to avoid duplicate net-new issue creation.
+- During sprint planning, treat `Pending` items as administrative closure tasks first, before creating new overlapping issues.
+
+---
+
 ## ✅ COMPLETED STORIES
 
 ### Story 5.1: Free Agent Search

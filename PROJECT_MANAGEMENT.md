@@ -5,6 +5,17 @@
 
 ---
 
+## Issue Hygiene (Resolved vs Open)
+
+To avoid confusion between completed scope and net-new backlog:
+
+- Mark implementation-complete items in `docs/ISSUE_STATUS.md` under `Resolved Issue Closure Queue`.
+- Post close-out notes and close the GitHub issue promptly after verification.
+- Keep unresolved administrative closures explicitly marked as `Pending` until closed.
+- Clear pending closure items before creating new issues for the same problem area.
+
+---
+
 ## 🗺️ PROJECT MILESTONES
 
 The project is organized into 7 milestones that map development phases from foundation through Release 1.0.  

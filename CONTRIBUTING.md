@@ -140,6 +140,34 @@ hit breakpoints as you interact with the UI.
      - whether `Execution Tier` changed for impacted scenarios
      - any new entries added to `Defect_Rollup` template fields if applicable
 
+7. **Workflow YAML hygiene gate (new standard).**
+   - Any edit under `.github/workflows/*.yml` must be made in the actual tracked file,
+     not a temporary chat/editor buffer.
+   - Before commit, verify workflow structure with:
+     - one `- name:` per step item
+     - `run`, `env`, `if`, and `uses` nested under the same step item only
+     - no stray tokens/lines (for example isolated `-q` fragments)
+   - Run a final sanity check before push:
+     - `git diff -- .github/workflows/*.yml`
+     - `python -m scripts.repo_hygiene_check`
+   - PRs that modify workflows should include a brief note that YAML structure was
+     reviewed and CI syntax is valid.
+
+8. **Issue triage checklist (required before merge).**
+   - Confirm whether each issue touched by the PR is:
+     - `Resolved in code and ready to close`, or
+     - `Still open with remaining implementation work`.
+   - If resolved, update `docs/ISSUE_STATUS.md` (`Resolved Issue Closure Queue`) with:
+     - issue number/title
+     - implementation status
+     - close-out note reference
+   - Post/prepare a GitHub close comment that includes validation evidence.
+   - Close resolved issues before creating new overlapping issues in the same area.
+   - In the PR description, include an `Issue Hygiene` section with:
+     - `Closed:` list
+     - `Pending close:` list
+     - `Net new:` list
+
 ---
 
 By adhering to these standards, the frontend stops being a black box and
