@@ -8,7 +8,12 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.services.scoring_service import calculate_points_for_stats, recalculate_league_week_scores, recalculate_matchup_scores
+from backend.services.scoring_service import (
+    calculate_player_week_points,
+    calculate_points_for_stats,
+    recalculate_league_week_scores,
+    recalculate_matchup_scores,
+)
 
 
 @pytest.fixture
@@ -67,6 +72,84 @@ def test_calculate_points_for_stats_handles_decimal_and_ppr_rules():
     assert total == pytest.approx(18.0)
     assert len(breakdown) == 2
     assert {item.event_name for item in breakdown} == {"passing_yards", "passing_tds"}
+
+
+def test_calculate_points_for_stats_supports_stat_key_aliases_and_dst_normalization():
+    rules = [
+        models.ScoringRule(
+            league_id=1,
+            category="passing",
+            event_name="passing_yards",
+            range_min=0,
+            range_max=9999,
+            point_value=0.04,
+            calculation_type="per_unit",
+            applicable_positions=["QB"],
+        ),
+        models.ScoringRule(
+            league_id=1,
+            category="fantasy_points",
+            event_name="fantasy_points",
+            range_min=0,
+            range_max=999,
+            point_value=1.0,
+            calculation_type="per_unit",
+            applicable_positions=["DEF"],
+        ),
+    ]
+
+    total, breakdown = calculate_points_for_stats(
+        stats={
+            "pass_yds": 275,
+            "final_score": 11.5,
+        },
+        position="D/ST",
+        rules=rules,
+    )
+
+    # QB-only passing rule must not apply to DST, but DEF position alias should.
+    assert total == pytest.approx(11.5)
+    assert len(breakdown) == 1
+    assert breakdown[0].event_name == "fantasy_points"
+    assert breakdown[0].stat_key == "final_score"
+
+
+def test_calculate_player_week_points_falls_back_to_weekly_fantasy_points_without_rules(db_session):
+    league = models.League(name="No Rules League")
+    db_session.add(league)
+    db_session.commit()
+    db_session.refresh(league)
+
+    player = models.Player(name="Fallback QB", position="QB", nfl_team="AAA")
+    db_session.add(player)
+    db_session.commit()
+    db_session.refresh(player)
+
+    db_session.add(
+        models.PlayerWeeklyStat(
+            player_id=player.id,
+            season=2026,
+            week=9,
+            stats={"passing_yards": 320},
+            fantasy_points=24.3,
+            source="test",
+        )
+    )
+    db_session.commit()
+
+    total, breakdown, payload = calculate_player_week_points(
+        db_session,
+        league_id=league.id,
+        player_id=player.id,
+        season=2026,
+        week=9,
+        position="QB",
+        season_year=2026,
+    )
+
+    assert total == pytest.approx(24.3)
+    assert breakdown == []
+    assert payload.get("fantasy_points") == pytest.approx(24.3)
 
 
 def test_recalculate_league_week_scores_updates_matchup_totals(db_session):
