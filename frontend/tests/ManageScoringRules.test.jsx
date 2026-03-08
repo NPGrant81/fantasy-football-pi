@@ -73,6 +73,38 @@ describe('ManageScoringRules page', () => {
           applicable_positions: ['QB'],
         })
       );
+      const payload = apiClient.post.mock.calls[0][1];
+      expect(payload).not.toHaveProperty('range_min');
+      expect(payload).not.toHaveProperty('range_max');
+    });
+  });
+
+  test('includes range fields when explicitly provided', async () => {
+    apiClient.post.mockResolvedValue({ data: { id: 9 } });
+    render(<ManageScoringRules />);
+
+    fireEvent.change(screen.getByPlaceholderText(/Category/i), {
+      target: { value: 'passing' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Event Name/i), {
+      target: { value: 'passing_yards' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Point Value/i), {
+      target: { value: '0.04' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/^Min$/i), {
+      target: { value: '0' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/^Max$/i), {
+      target: { value: '500' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Rule/i }));
+
+    await waitFor(() => {
+      const payload = apiClient.post.mock.calls[0][1];
+      expect(payload.range_min).toBe(0);
+      expect(payload.range_max).toBe(500);
     });
   });
 
