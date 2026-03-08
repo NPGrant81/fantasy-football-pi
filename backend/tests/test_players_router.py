@@ -21,28 +21,28 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
             name=f"Owned Player {suffix}",
             position="WR",
             nfl_team="AAA",
-            projected_points=999.0,
+            projected_points=999999.0,
             adp=1.0,
         )
         top = models.Player(
             name=f"Top Player {suffix}",
             position="RB",
             nfl_team="BBB",
-            projected_points=240.5,
+            projected_points=999998.0,
             adp=12.0,
         )
         second = models.Player(
             name=f"Second Player {suffix}",
             position="WR",
             nfl_team="CCC",
-            projected_points=220.0,
+            projected_points=999997.0,
             adp=20.0,
         )
         third = models.Player(
             name=f"Third Player {suffix}",
             position="QB",
             nfl_team="DDD",
-            projected_points=180.0,
+            projected_points=999996.0,
             adp=30.0,
         )
         session.add_all([owned, top, second, third])
