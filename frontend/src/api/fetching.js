@@ -9,8 +9,31 @@ export function normalizeApiError(error, fallbackMessage = 'Request failed.') {
   if (typeof payload === 'string' && payload.trim()) {
     return payload;
   }
-  if (payload?.detail) {
-    return String(payload.detail);
+  if (payload?.detail != null) {
+    const detail = payload.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail;
+    }
+    if (Array.isArray(detail)) {
+      const parts = detail
+        .map((item) => {
+          if (item == null) return '';
+          if (typeof item === 'string') return item;
+          if (typeof item === 'object') {
+            return item.msg || item.message || item.detail || JSON.stringify(item);
+          }
+          return String(item);
+        })
+        .filter(Boolean);
+      return parts.length ? parts.join('; ') : JSON.stringify(detail);
+    }
+    if (typeof detail === 'object') {
+      if (typeof detail.msg === 'string' && detail.msg) return detail.msg;
+      if (typeof detail.message === 'string' && detail.message) return detail.message;
+      if (typeof detail.detail === 'string' && detail.detail) return detail.detail;
+      return JSON.stringify(detail);
+    }
+    return String(detail);
   }
   if (payload?.message) {
     return String(payload.message);

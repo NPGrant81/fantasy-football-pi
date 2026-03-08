@@ -60,11 +60,14 @@ def _dataset_checks(db: Session) -> list[CheckResult]:
 
     out: list[CheckResult] = []
     for label, sql in sql_map.items():
-        count = int(db.execute(text(sql)).scalar() or 0)
-        status = "PASS" if count > 0 else "WARN"
-        if label in {"draft_values_2025", "player_weekly_stats_total"} and count == 0:
-            status = "WARN"
-        out.append(CheckResult(name=f"dataset:{label}", status=status, details=f"count={count}"))
+        try:
+            count = int(db.execute(text(sql)).scalar() or 0)
+            status = "PASS" if count > 0 else "WARN"
+            if label in {"draft_values_2025", "player_weekly_stats_total"} and count == 0:
+                status = "WARN"
+            out.append(CheckResult(name=f"dataset:{label}", status=status, details=f"count={count}"))
+        except Exception as exc:
+            out.append(CheckResult(name=f"dataset:{label}", status="FAIL", details=str(exc)))
 
     data_dir = Path(__file__).resolve().parents[1] / "backend" / "data"
     csv_files = ["draft_results.csv", "players.csv", "historical_rankings.csv", "draft_budget.csv"]
@@ -198,7 +201,7 @@ def _endpoint_source_map() -> list[tuple[str, str]]:
     ]
 
 
-def build_report() -> str:
+def build_report() -> tuple[str, list[CheckResult], list[CheckResult]]:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     ensure_runtime_schema()
 
@@ -250,14 +253,16 @@ def build_report() -> str:
     lines.append("- `WARN` on sparse historical datasets means endpoint may function but output quality may be reduced.")
     lines.append("- `/draft/simulation` health depends on CSV freshness/shape, not only PostgreSQL values.")
 
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines) + "\n", dataset_results, api_results
 
 
 def main() -> None:
-    report = build_report()
+    report, dataset_results, api_results = build_report()
     out_path = Path(__file__).resolve().parents[1] / "docs" / "DRAFT_ANALYZER_API_AUDIT.md"
     out_path.write_text(report, encoding="utf-8")
     print(f"wrote_report={out_path}")
+    has_failures = any(item.status == "FAIL" for item in [*dataset_results, *api_results])
+    sys.exit(1 if has_failures else 0)
 
 
 if __name__ == "__main__":

@@ -136,6 +136,7 @@ def test_simulation_handles_missing_position_ids_in_draft_results():
     rankings = _sample_rankings(players)
     draft_results = _sample_draft_results().copy()
     draft_results.loc[0, "PositionID"] = None
+    draft_results.loc[1, "PositionID"] = float("nan")
 
     config = SimulationConfig(iterations=2, seed=13, teams_count=4, roster_size=8, target_owner_id=1)
 

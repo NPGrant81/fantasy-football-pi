@@ -2,12 +2,14 @@ from uuid import uuid4
 
 from backend.database import SessionLocal
 import backend.models as models
+from backend.core import security
 
 
 def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
     suffix = uuid4().hex[:8]
     created_ids: list[int] = []
     league_id = None
+    owner_username = None
 
     session = SessionLocal()
     try:
@@ -59,6 +61,7 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
         session.add(owner_user)
         session.commit()
         session.refresh(owner_user)
+        owner_username = owner_user.username
 
         session.add(
             models.DraftPick(
@@ -73,6 +76,8 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
         session.close()
 
     try:
+        token = security.create_access_token({"sub": owner_username})
+        client.cookies.set("ffpi_access_token", token)
         response = client.get(f"/players/top-free-agents?league_id={league_id}&limit=2")
         assert response.status_code == 200
         data = response.json()
@@ -83,6 +88,7 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
         assert names[1] == f"Second Player {suffix}"
         assert f"Owned Player {suffix}" not in names
     finally:
+        client.cookies.clear()
         cleanup = SessionLocal()
         try:
             if league_id is not None:
