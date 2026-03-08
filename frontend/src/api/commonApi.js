@@ -14,3 +14,10 @@ export function fetchLeagueOwners(leagueId) {
     retries: 1,
   });
 }
+
+export function fetchOwnerRoster(ownerId, week = 1) {
+  return getJson(`/team/${ownerId}`, {
+    params: { week },
+    retries: 1,
+  });
+}
