@@ -19,6 +19,56 @@ export default function Home({ username }) {
   const [sortField, setSortField] = useState('wins');
   const [sortAsc, setSortAsc] = useState(false);
 
+  const normalizeStandingRow = (row) => {
+    const wins = Number(row?.wins ?? row?.overall_record?.wins ?? 0);
+    const losses = Number(row?.losses ?? row?.overall_record?.losses ?? 0);
+    const ties = Number(row?.ties ?? row?.overall_record?.ties ?? 0);
+    const pf = Number(row?.pf ?? row?.points_for ?? row?.standings_metrics?.points_for ?? 0);
+    const pa = Number(row?.pa ?? row?.points_against ?? row?.standings_metrics?.points_against ?? 0);
+    const winPct = Number(
+      row?.win_pct ??
+        row?.overall_record?.win_pct ??
+        row?.standings_metrics?.overall_record?.win_pct ??
+        0
+    );
+
+    return {
+      ...row,
+      wins,
+      losses,
+      ties,
+      pf,
+      pa,
+      win_pct: winPct,
+    };
+  };
+
+  const sortedStandings = [...standings]
+    .map(normalizeStandingRow)
+    .sort((a, b) => {
+      const direction = sortAsc ? 1 : -1;
+
+      if (sortField === 'record') {
+        const aRecord = [a.wins, -a.losses, a.ties, a.pf];
+        const bRecord = [b.wins, -b.losses, b.ties, b.pf];
+        for (let idx = 0; idx < aRecord.length; idx += 1) {
+          if (aRecord[idx] < bRecord[idx]) return -1 * direction;
+          if (aRecord[idx] > bRecord[idx]) return 1 * direction;
+        }
+        return 0;
+      }
+
+      let av = a[sortField] ?? 0;
+      let bv = b[sortField] ?? 0;
+      if (sortField === 'team_name' || sortField === 'username') {
+        av = String(av).toLowerCase();
+        bv = String(bv).toLowerCase();
+      }
+      if (av < bv) return -1 * direction;
+      if (av > bv) return 1 * direction;
+      return 0;
+    });
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
@@ -135,7 +185,7 @@ export default function Home({ username }) {
                   </th>
                   <th
                     className="px-4 py-3 cursor-pointer"
-                    onClick={() => handleSort('wins')}
+                    onClick={() => handleSort('record')}
                   >
                     W-L-T
                   </th>
@@ -157,23 +207,7 @@ export default function Home({ username }) {
               <tbody>
                 {standings.length > 0 ? (
                   <>
-                    {/* apply sorting */}
-                    {[...standings]
-                      .sort((a, b) => {
-                        let av = a[sortField] || 0;
-                        let bv = b[sortField] || 0;
-                        if (
-                          sortField === 'team_name' ||
-                          sortField === 'username'
-                        ) {
-                          av = av.toLowerCase();
-                          bv = bv.toLowerCase();
-                        }
-                        if (av < bv) return sortAsc ? -1 : 1;
-                        if (av > bv) return sortAsc ? 1 : -1;
-                        return 0;
-                      })
-                      .map((owner, idx) => (
+                    {sortedStandings.map((owner, idx) => (
                         <tr
                           key={owner.id}
                           className="border-b border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"

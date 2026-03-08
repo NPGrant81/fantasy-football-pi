@@ -270,6 +270,58 @@ describe('Home (League Dashboard)', () => {
     });
   });
 
+  test('W-L-T header sorts by full record context', async () => {
+    const mockOwners = [
+      {
+        id: 1,
+        username: 'alpha',
+        team_name: 'Alpha',
+        wins: 6,
+        losses: 4,
+        ties: 0,
+        pf: 900,
+        pa: 800,
+      },
+      {
+        id: 2,
+        username: 'bravo',
+        team_name: 'Bravo',
+        wins: 7,
+        losses: 3,
+        ties: 0,
+        pf: 850,
+        pa: 810,
+      },
+    ];
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'L' } });
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: mockOwners });
+      }
+      if (url === '/leagues/1/news') return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderHome('alice');
+    await waitFor(() => screen.getByText('Alpha'));
+
+    const recordHeader = screen.getByText('W-L-T');
+    // first click sorts ascending: fewer wins first
+    recordHeader.click();
+    await waitFor(() => {
+      const rowsAsc = screen.getAllByRole('row');
+      expect(rowsAsc[1]).toHaveTextContent('Alpha');
+    });
+
+    // second click toggles descending: better record first
+    recordHeader.click();
+    await waitFor(() => {
+      const rowsDesc = screen.getAllByRole('row');
+      expect(rowsDesc[1]).toHaveTextContent('Bravo');
+    });
+  });
+
   test('does not fetch data when league ID is missing', () => {
     localStorage.removeItem('fantasyLeagueId');
 

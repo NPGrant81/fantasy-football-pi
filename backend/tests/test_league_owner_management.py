@@ -178,12 +178,18 @@ def test_get_league_owners_returns_stats(db_session):
     assert o1_data['ties'] == 0
     assert o1_data['pf'] == 120.5
     assert o1_data['pa'] == 110.0
+    assert o1_data['points_for'] == 120.5
+    assert o1_data['points_against'] == 110.0
+    assert o1_data['win_pct'] == 1.0
     # owner2 should have a loss and swapped pf/pa
     o2_data = next(o for o in owners if o['id'] == owner2.id)
     assert o2_data['wins'] == 0
     assert o2_data['losses'] == 1
     assert o2_data['pf'] == 110.0
     assert o2_data['pa'] == 120.5
+    assert o2_data['points_for'] == 110.0
+    assert o2_data['points_against'] == 120.5
+    assert o2_data['win_pct'] == 0.0
 
     # now test division grouping sorts by division id first
     # assign owners to divisions
