@@ -54,7 +54,7 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
             username=f"owner-{suffix}",
             email=None,
             hashed_password="h",
-                league_id=league_id,
+            league_id=league_id,
         )
         session.add(owner_user)
         session.commit()
@@ -64,7 +64,7 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
             models.DraftPick(
                 owner_id=owner_user.id,
                 player_id=owned.id,
-                    league_id=league_id,
+                league_id=league_id,
                 current_status="STARTER",
             )
         )
@@ -73,7 +73,7 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
         session.close()
 
     try:
-            response = client.get(f"/players/top-free-agents?league_id={league_id}&limit=2")
+        response = client.get(f"/players/top-free-agents?league_id={league_id}&limit=2")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 2
@@ -85,12 +85,20 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
     finally:
         cleanup = SessionLocal()
         try:
-                if league_id is not None:
-                    cleanup.query(models.DraftPick).filter(models.DraftPick.league_id == league_id).delete(synchronize_session=False)
-                    cleanup.query(models.User).filter(models.User.league_id == league_id).delete(synchronize_session=False)
-                    cleanup.query(models.League).filter(models.League.id == league_id).delete(synchronize_session=False)
+            if league_id is not None:
+                cleanup.query(models.DraftPick).filter(
+                    models.DraftPick.league_id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.query(models.User).filter(
+                    models.User.league_id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.query(models.League).filter(
+                    models.League.id == league_id
+                ).delete(synchronize_session=False)
             if created_ids:
-                cleanup.query(models.Player).filter(models.Player.id.in_(created_ids)).delete(synchronize_session=False)
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
             cleanup.commit()
         finally:
             cleanup.close()
