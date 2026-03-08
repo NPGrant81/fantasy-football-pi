@@ -12,13 +12,18 @@ import {
   FiInbox,
 } from 'react-icons/fi';
 import TeamLogo from '@components/TeamLogo';
+import PageTemplate from '@components/layout/PageTemplate';
 
 // Professional Imports
-import apiClient from '@api/client';
+import {
+  fetchCurrentUser,
+  fetchLeagueById,
+} from '@api/commonApi';
+import { fetchWeekMatchups } from '@api/matchupsApi';
+import { normalizeApiError } from '@api/fetching';
 import {
   buttonSecondary,
   cardSurface,
-  pageShell,
 } from '@utils/uiStandards';
 
 export default function Matchups() {
@@ -42,6 +47,7 @@ export default function Matchups() {
     return p.get('view') !== 'actual';
   });
   const [showScoreInfo, setShowScoreInfo] = useState(false);
+  const [matchupsError, setMatchupsError] = useState('');
 
   const syncQueryParams = (nextWeek, projectedState) => {
     if (typeof window === 'undefined') return;
@@ -74,15 +80,13 @@ export default function Matchups() {
 
     async function fetchUserLeague() {
       try {
-        const userRes = await apiClient.get('/auth/me');
+        const user = await fetchCurrentUser();
         let leagueName = '';
-        if (userRes.data.league_id) {
-          const leagueRes = await apiClient.get(
-            `/leagues/${userRes.data.league_id}`
-          );
-          leagueName = leagueRes.data.name;
+        if (user?.league_id) {
+          const league = await fetchLeagueById(user.league_id);
+          leagueName = league?.name || '';
         }
-        setUserInfo({ username: userRes.data.username, leagueName });
+        setUserInfo({ username: user?.username || '', leagueName });
       } catch {
         setUserInfo({ username: '', leagueName: '' });
       }
@@ -94,11 +98,13 @@ export default function Matchups() {
     // Note: We don't call setLoading(true) here anymore because the state
     // is initialized as true or set during week-change transitions.
     try {
-      const res = await apiClient.get(`/matchups/week/${week}`);
+      const data = await fetchWeekMatchups(week);
       // some backends may wrap or return object; ensure we always store an array
-      setGames(Array.isArray(res.data) ? res.data : []);
+      setGames(Array.isArray(data) ? data : []);
+      setMatchupsError('');
     } catch (err) {
       console.error('Matchup feed failed:', err);
+      setMatchupsError(normalizeApiError(err, 'Unable to load matchups right now.'));
     } finally {
       setLoading(false);
     }
@@ -139,7 +145,11 @@ export default function Matchups() {
 
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
-    <div className={`${pageShell} pb-20 animate-fade-in`}>
+    <PageTemplate
+      title="Matchups"
+      subtitle="Weekly matchups, projected outcomes, and direct game-center navigation."
+      className="pb-20 animate-fade-in"
+    >
       {/* Optional back nav; page title is now handled by global Layout header */}
       <div className="mb-4 flex justify-end">
         {showBack && (
@@ -275,6 +285,12 @@ export default function Matchups() {
       </div>
 
       {/* 2.3 MATCHUP GRID */}
+      {matchupsError ? (
+        <div className="rounded-md border border-rose-900 bg-rose-950/30 p-3 text-sm text-rose-300">
+          {matchupsError}
+        </div>
+      ) : null}
+
       {loading ? (
         // Skeleton Loading
         <div>
@@ -439,6 +455,6 @@ export default function Matchups() {
           ))}
         </div>
       )}
-    </div>
+    </PageTemplate>
   );
 }

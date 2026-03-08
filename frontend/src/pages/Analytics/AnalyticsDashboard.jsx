@@ -17,14 +17,11 @@ import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
 import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
 import RivalryGraph from '../../components/charts/RivalryGraph';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   buttonPrimary,
   buttonSecondary,
   cardSurface,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
@@ -96,13 +93,10 @@ const AnalyticsDashboard = () => {
   };
 
   return (
-    <div className={pageShell}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>League Analytics</h1>
-        <p className={pageSubtitle}>
-          Advanced insights and visualizations for your fantasy league.
-        </p>
-      </div>
+    <PageTemplate
+      title="League Analytics"
+      subtitle="Advanced insights and visualizations for your fantasy league."
+    >
 
       <div className="flex flex-wrap gap-2">
         {charts.map((chart) => (
@@ -118,7 +112,7 @@ const AnalyticsDashboard = () => {
       </div>
 
       <div className={cardSurface}>{renderChart()}</div>
-    </div>
+    </PageTemplate>
   );
 };
 

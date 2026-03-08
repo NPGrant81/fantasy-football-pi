@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import apiClient from '@api/client';
+import { fetchCurrentUser, fetchLeagueOwners } from '@api/commonApi';
+import { fetchRosterStrengthAnalytics } from '@api/analyticsApi';
+import { normalizeApiError } from '@api/fetching';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -32,15 +34,15 @@ export default function TradeAnalyzer() {
   useEffect(() => {
     async function loadOwners() {
       try {
-        const ures = await apiClient.get('/auth/me');
-        const lid = ures.data?.league_id;
+        const user = await fetchCurrentUser();
+        const lid = user?.league_id;
         setLeagueId(lid);
         if (!lid) return;
-        const res = await apiClient.get(`/leagues/owners?league_id=${lid}`);
-        setOwners(res.data || []);
+        const ownersPayload = await fetchLeagueOwners(lid);
+        setOwners(ownersPayload || []);
       } catch (err) {
         console.error(err);
-        setError('failed to load owners');
+        setError(normalizeApiError(err, 'failed to load owners'));
       }
     }
     loadOwners();
@@ -50,10 +52,7 @@ export default function TradeAnalyzer() {
     async (ownerId, setter) => {
       if (!leagueId || !ownerId) return;
       try {
-        const res = await apiClient.get(`/analytics/roster-strength`, {
-          params: { league_id: leagueId, owner_id: ownerId },
-        });
-        const payload = res.data;
+        const payload = await fetchRosterStrengthAnalytics(leagueId, ownerId);
         const rows = payload && payload.rows ? payload.rows : payload;
         const counts = rows?.[ownerId] || {};
         setter(counts);
