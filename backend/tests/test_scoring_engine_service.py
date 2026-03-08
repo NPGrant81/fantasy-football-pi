@@ -426,3 +426,136 @@ def test_recalculate_matchup_scores_includes_legacy_null_league_id_picks(db_sess
     assert matchup.home_score == pytest.approx(10.0)
     # 7 * 1.0 = 7.0
     assert matchup.away_score == pytest.approx(7.0)
+
+
+def test_recalculate_matchup_scores_excludes_taxi_picks(db_session):
+    """A DraftPick with is_taxi=True must not be scored even if current_status='STARTER'."""
+    league = models.League(name="Taxi Test League")
+    db_session.add(league)
+    db_session.commit()
+    db_session.refresh(league)
+
+    home = models.User(username="taxi-home", hashed_password="pw", league_id=league.id)
+    away = models.User(username="taxi-away", hashed_password="pw", league_id=league.id)
+    db_session.add_all([home, away])
+    db_session.commit()
+    db_session.refresh(home)
+    db_session.refresh(away)
+
+    # home: one real starter + one taxi pick that erroneously has current_status='STARTER'
+    real_starter = models.Player(name="Real Starter QB", position="QB", nfl_team="AAA")
+    taxi_player = models.Player(name="Taxi QB", position="QB", nfl_team="BBB")
+    away_starter = models.Player(name="Away WR", position="WR", nfl_team="CCC")
+    db_session.add_all([real_starter, taxi_player, away_starter])
+    db_session.commit()
+    db_session.refresh(real_starter)
+    db_session.refresh(taxi_player)
+    db_session.refresh(away_starter)
+
+    db_session.add_all(
+        [
+            models.DraftPick(
+                owner_id=home.id,
+                player_id=real_starter.id,
+                league_id=league.id,
+                current_status="STARTER",
+                is_taxi=False,
+            ),
+            # Taxi pick with STARTER status — must be excluded
+            models.DraftPick(
+                owner_id=home.id,
+                player_id=taxi_player.id,
+                league_id=league.id,
+                current_status="STARTER",
+                is_taxi=True,
+            ),
+            models.DraftPick(
+                owner_id=away.id,
+                player_id=away_starter.id,
+                league_id=league.id,
+                current_status="STARTER",
+                is_taxi=False,
+            ),
+        ]
+    )
+
+    db_session.add_all(
+        [
+            models.ScoringRule(
+                league_id=league.id,
+                season_year=2026,
+                category="passing",
+                event_name="passing_yards",
+                range_min=0,
+                range_max=9999,
+                point_value=0.04,
+                calculation_type="per_unit",
+                applicable_positions=["QB"],
+                is_active=True,
+            ),
+            models.ScoringRule(
+                league_id=league.id,
+                season_year=2026,
+                category="receiving",
+                event_name="receptions",
+                range_min=0,
+                range_max=999,
+                point_value=1.0,
+                calculation_type="ppr",
+                applicable_positions=["WR"],
+                is_active=True,
+            ),
+        ]
+    )
+
+    db_session.add_all(
+        [
+            models.PlayerWeeklyStat(
+                player_id=real_starter.id,
+                season=2026,
+                week=7,
+                stats={"passing_yards": 300},
+                fantasy_points=0,
+                source="test",
+            ),
+            # Taxi player has stats but must not contribute to home score
+            models.PlayerWeeklyStat(
+                player_id=taxi_player.id,
+                season=2026,
+                week=7,
+                stats={"passing_yards": 500},
+                fantasy_points=0,
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=away_starter.id,
+                season=2026,
+                week=7,
+                stats={"receptions": 4},
+                fantasy_points=0,
+                source="test",
+            ),
+        ]
+    )
+
+    matchup = models.Matchup(
+        week=7,
+        league_id=league.id,
+        home_team_id=home.id,
+        away_team_id=away.id,
+        home_score=0,
+        away_score=0,
+    )
+    db_session.add(matchup)
+    db_session.commit()
+    db_session.refresh(matchup)
+
+    recalculate_matchup_scores(db_session, matchup=matchup, season=2026, season_year=2026)
+    db_session.commit()
+    db_session.refresh(matchup)
+
+    # Only real_starter counts: 300 * 0.04 = 12.0
+    # taxi_player (500 passing yards) must NOT be included
+    assert matchup.home_score == pytest.approx(12.0)
+    # away: 4 receptions * 1.0 = 4.0
+    assert matchup.away_score == pytest.approx(4.0)

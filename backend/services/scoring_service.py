@@ -222,6 +222,7 @@ def recalculate_matchup_scores(
         .filter(
             models.DraftPick.owner_id == matchup.home_team_id,
             models.DraftPick.current_status == "STARTER",
+            models.DraftPick.is_taxi == False,  # noqa: E712
             league_filter,
         )
         .all()
@@ -231,6 +232,7 @@ def recalculate_matchup_scores(
         .filter(
             models.DraftPick.owner_id == matchup.away_team_id,
             models.DraftPick.current_status == "STARTER",
+            models.DraftPick.is_taxi == False,  # noqa: E712
             league_filter,
         )
         .all()
