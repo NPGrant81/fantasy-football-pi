@@ -34,7 +34,7 @@ describe('Keepers page', () => {
 
   test('fetches keeper data and roster', async () => {
     apiClient.get.mockImplementation((url) => {
-      if (url === '/keepers') {
+      if (url === '/keepers/') {
         return Promise.resolve({
           data: {
             selections: [],
@@ -82,7 +82,7 @@ describe('Keepers page', () => {
 
   test('ineligible players are disabled', async () => {
     apiClient.get.mockImplementation((url) => {
-      if (url === '/keepers') {
+      if (url === '/keepers/') {
         return Promise.resolve({
           data: {
             selections: [],
@@ -112,7 +112,7 @@ describe('Keepers page', () => {
 
   test('toggle player and submit', async () => {
     apiClient.get.mockImplementation((url) => {
-      if (url === '/keepers') {
+      if (url === '/keepers/') {
         return Promise.resolve({
           data: {
             selections: [],
@@ -156,7 +156,7 @@ describe('Keepers page', () => {
     fireEvent.click(screen.getByText(/Submit List/i));
     await waitFor(() =>
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/keepers',
+        '/keepers/',
         expect.any(Object)
       )
     );

@@ -3,11 +3,23 @@ import { vi } from 'vitest';
 
 // react-force-graph-2d is mocked globally in setupTests.jsx
 
-vi.mock('../src/api/client', () => ({
-  default: {
+vi.mock('../src/api/client', () => {
+  const client = {
     get: vi.fn(),
-  },
-}));
+  };
+  client.request = vi.fn((config = {}) => {
+    const method = String(config.method || 'get').toLowerCase();
+    const handler = client[method];
+    if (typeof handler !== 'function') {
+      return Promise.reject(new Error(`Unsupported method: ${method}`));
+    }
+    if (config.params !== undefined || config.data !== undefined) {
+      return handler(config.url, { params: config.params, data: config.data });
+    }
+    return handler(config.url);
+  });
+  return { default: client };
+});
 
 import RivalryGraph from '../src/components/charts/RivalryGraph';
 import apiClient from '../src/api/client';
@@ -81,7 +93,7 @@ describe('RivalryGraph', () => {
   test('shows error message when API call fails', async () => {
     apiClient.get
       .mockResolvedValueOnce({ data: { league_id: 3 } }) // /auth/me
-      .mockRejectedValueOnce(new Error('Network error')); // /rivalry
+      .mockRejectedValue(new Error('Network error')); // /rivalry (including retry)
 
     render(<RivalryGraph />);
 
