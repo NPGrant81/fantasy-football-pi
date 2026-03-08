@@ -20,6 +20,8 @@ This matrix captures edge-case scoring scenarios, expected behavior, and automat
 | SC-08 | Win probability zero-total fallback | `matchups` router | If both projected totals are zero, return 50/50 probabilities | `backend/tests/test_matchups_scoring_router.py::test_calculate_win_probabilities_handles_zero_projection_totals` | Pass |
 | SC-09 | Mid-season scoring changes propagation | Commissioner settings -> scoring/matchups | Scoring changes recalc future weeks and preserve auditability | Planned under `#100` integration suite | Pending |
 | SC-10 | Concurrent rules edits | Commissioner settings endpoints | Rule updates remain atomic with rollback on failure | Planned under `#100` integration suite | Pending |
+| SC-11 | CSV import replacement + audit trail | `scoring` router `/import/apply` + `/history` | Season replacement deactivates stale rules and logs imported/deleted change events | `backend/tests/test_scoring_router_integration.py::test_import_apply_replacement_deactivates_stale_rules_and_logs_history` | Added (this pass) |
+| SC-12 | Imported rules scoring parity | `scoring` router `/import/apply` + `/calculate/matchups/{id}/recalculate` | Matchup recalculation totals match imported rule math from weekly stats | `backend/tests/test_scoring_router_integration.py::test_imported_rules_drive_matchup_recalculation_scores` | Added (this pass) |
 
 ## Notes
 - This matrix is intentionally scoped to high-risk boundaries first: league isolation, legacy data compatibility, and fallback behavior.
