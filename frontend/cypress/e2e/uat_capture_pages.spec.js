@@ -102,7 +102,9 @@ describe('UAT deck screenshot capture', () => {
         expect(text.trim().length).to.be.greaterThan(80);
       });
     if (requireHeading) {
-      cy.get('h1, h2, h3', { timeout: 12000 }).should('be.visible');
+      cy.get('h1:visible, h2:visible, h3:visible', { timeout: 12000 })
+        .its('length')
+        .should('be.greaterThan', 0);
     }
     cy.wait(350);
     cy.screenshot(name, { capture: 'viewport' });
