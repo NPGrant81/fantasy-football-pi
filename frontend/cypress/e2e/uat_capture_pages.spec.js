@@ -94,13 +94,16 @@ describe('UAT deck screenshot capture', () => {
       });
     }
 
-    // Avoid black/empty captures by waiting for a rendered heading and no loading banner.
+    // Avoid black/empty captures by waiting for no loading banner.
     cy.get('body', { timeout: 12000 }).should('not.contain.text', 'Loading...');
     cy.get('body', { timeout: 12000 })
       .invoke('text')
       .should((text) => {
         expect(text.trim().length).to.be.greaterThan(80);
       });
+    if (requireHeading) {
+      cy.get('h1, h2, h3', { timeout: 12000 }).should('be.visible');
+    }
     cy.wait(350);
     cy.screenshot(name, { capture: 'viewport' });
   }
