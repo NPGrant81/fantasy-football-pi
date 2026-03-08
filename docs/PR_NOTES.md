@@ -34,9 +34,9 @@ assess impact and risk across all areas.
   - `docs/RASPBERRY_PI_DEPLOYMENT.md` — nginx reverse-proxy + systemd service runbook
   - `docs/CLOUDFLARE_TUNNEL_SETUP.md` — Cloudflare tunnel config for `pplinsighthub.com`
 - **UAT artifacts refresh**
-  - Updated `uat_master.xlsx` and `uat_overview.pptx` for the current page set
-  - New Cypress capture spec (`cypress/e2e/uat_screenshot_capture.cy.js`)
-  - `scripts/update_deck_images.py` automation for future deck refreshes
+  - Updated `docs/uat/uat_master.xlsx` and `docs/uat/uat_overview.pptx` for the current page set
+  - New Cypress capture spec (`frontend/cypress/e2e/uat_capture_pages.spec.js`)
+  - `scripts/update_uat_deck_images.py` automation for future deck refreshes
   - `docs/uat/UAT_DECK_IMAGE_COVERAGE.md` tracks slide→screenshot mapping
 
 ### Validation
