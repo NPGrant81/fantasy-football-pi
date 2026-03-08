@@ -8,7 +8,7 @@ import { INSIGHT_VOCABULARY_HINT } from '../draft/insights/insightVocabulary';
 
 import GeminiBadge from './GeminiBadge';
 
-import ReactMarkdown from 'react-markdown';
+import MarkdownRenderer from '../MarkdownRenderer';
 
 export default function ChatInterface({ initialQuery = '' }) {
   // --- 1.1 STATE MANAGEMENT ---
@@ -142,22 +142,7 @@ export default function ChatInterface({ initialQuery = '' }) {
                   : `${bgColors.main} text-slate-200 rounded-tl-none border ${borderColors.main}`
               }`}
             >
-              <ReactMarkdown
-                components={{
-                  strong: ({ ...props }) => (
-                    <span
-                      className={`font-bold ${textColors.warning}`}
-                      {...props}
-                    />
-                  ),
-                  ul: ({ ...props }) => (
-                    <ul className="list-disc pl-5 space-y-1 my-2" {...props} />
-                  ),
-                  li: ({ ...props }) => <li className="pl-1" {...props} />,
-                }}
-              >
-                {msg.text}
-              </ReactMarkdown>
+              <MarkdownRenderer>{msg.text}</MarkdownRenderer>
             </div>
           </div>
         ))}
