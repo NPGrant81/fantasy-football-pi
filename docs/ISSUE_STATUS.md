@@ -141,17 +141,17 @@
 
 ### Story 6.2: Playoff Bracket Visualization
 
-- **Status:** ❌ NOT STARTED
+- **Status:** 🔄 PARTIAL (Core delivered, dynamic structure follow-up open)
 - **Priority:** Medium
-- **Notes:** Requires bracket generation and visualization component (bracket-lib, react-bracket)
-- **Complexity:** High - requires tournament logic
+- **Notes:** Baseline bracket, historical mode, and bracket-type UX delivered. Remaining dynamic commissioner-settings behavior is tracked in GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154).
+- **Complexity:** Medium/High - structure mapping across league configurations
 
 ### Story 6.4: Matchup Win Probability
 
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED
 - **Priority:** Medium
-- **Notes:** Requires predictive algorithm based on player projections and health
-- **Complexity:** High - ML/stats heavy
+- **Notes:** Implemented projected win percentage formula and progress bar UX in Matchups + Game Center. Closed via GitHub issue `#24`.
+- **Complexity:** Baseline complete; future refinements can extend model sophistication.
 
 ### Story 7.2: Dark/Light Mode Toggle
 
@@ -222,10 +222,10 @@
 
 ## SUMMARY
 
-- **Total Open Issues:** 21
-- **✅ Fully Completed:** 6 stories (5.1, 2.1-2.3, 4.2-4.4, 5.2-5.4, 3.1, 6)
-- **🔄 Partially Completed:** 2 stories (6.1, 6.3)
-- **❌ Not Started:** 5 stories (6.2, 6.4, 7.2, 7.3, 1.2)
+- **Total Open Issues:** Dynamic; use `gh issue list --state open` for current count.
+- **✅ Fully Completed:** Includes Story `6.4` and Story `7.3`.
+- **🔄 Partially Completed:** Stories `6.1`, `6.2`, `6.3`.
+- **❌ Not Started:** Stories `1.2` and `7.2` remain explicitly not started.
 - **🏗️ Infrastructure:** 3 tasks (0.1 ✅, 0.2 ⏳, 0.3 ⏳)
 
 ---
@@ -243,13 +243,15 @@
 
 ### P2 (Medium Priority)
 
-3. **Story 6.2** - Playoff bracket visualization
-   - Effort: 2-3 days
-   - Impact: Late-season engagement
+3. **Story 6.2 follow-up** - Dynamic commissioner-settings bracket structure
+  - Effort: 2-3 days
+  - Impact: Correct bracket behavior across league formats
+  - Tracking: GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154)
 
-4. **Story 6.4** - Matchup win probability
-   - Effort: 2-3 days
-   - Impact: Strategic decision-making
+4. **Quality hardening sweep** - Edge-case tests and docs governance
+  - Effort: 2-4 days
+  - Impact: Lower regression risk and cleaner contributor pathways
+  - Tracking: GitHub issues [#43](https://github.com/NPGrant81/fantasy-football-pi/issues/43), [#100](https://github.com/NPGrant81/fantasy-football-pi/issues/100), [#155](https://github.com/NPGrant81/fantasy-football-pi/issues/155), [#156](https://github.com/NPGrant81/fantasy-football-pi/issues/156)
 
 ### P3 (Low Priority / Polish)
 
