@@ -12,6 +12,11 @@ import DraftBoardGrid from '@components/draft/DraftBoardGrid';
 import BestAvailableList from '@components/draft/BestAvailableList';
 import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
 import {
+  POSITION_CAPS,
+  STRATEGY_MAX_SPEND_SHARE,
+  normalizePos,
+} from '@components/draft/insights/insightVocabulary';
+import {
   modalCloseButton,
   modalOverlay,
   modalSurface,
@@ -49,6 +54,27 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     useState(false);
   const [draftPopupData, setDraftPopupData] = useState(null);
   const [historicalRankings, setHistoricalRankings] = useState([]);
+  const [simulationPerspectiveOwnerId, setSimulationPerspectiveOwnerId] =
+    useState('');
+  const [modelInsights, setModelInsights] = useState({ recommendations: [] });
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState('');
+  const [simulationIterations] = useState(500);
+  const [simulationAggressiveness] = useState(0.5);
+  const [simulationRiskTolerance] = useState(0.5);
+  const [simulationReliability] = useState(0.5);
+  const [simulationQbWeight] = useState(1);
+  const [simulationRbWeight] = useState(1);
+  const [simulationWrWeight] = useState(1);
+  const [simulationTeWeight] = useState(1);
+  const [simulationResult, setSimulationResult] = useState(null);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+  const [simulationError, setSimulationError] = useState('');
+  const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [advisorError, setAdvisorError] = useState('');
+  const [advisorMessage, setAdvisorMessage] = useState('');
+  const [lastNominationKey, setLastNominationKey] = useState('');
+  const [lastBidEventKey, setLastBidEventKey] = useState('');
 
   const sessionId = useMemo(() => {
     if (activeLeagueId && draftYear) {
