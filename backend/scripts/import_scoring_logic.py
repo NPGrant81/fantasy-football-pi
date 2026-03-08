@@ -1,27 +1,21 @@
-import csv
-from sqlalchemy.orm import Session
-from database import SessionLocal
-import models
+from __future__ import annotations
 
-CSV_PATH = 'backend/data/scoring_logic.csv'
-LEAGUE_ID = 1  # Change as needed for testing
+import sys
+from pathlib import Path
 
-def import_scoring_logic(league_id=LEAGUE_ID):
-    db: Session = SessionLocal()
-    with open(CSV_PATH, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            rule = models.ScoringRule(
-                event=row['Event'],
-                range_yds=row['Range_Yds'],
-                point_value=row['Point_Value'],
-                position_ids=row['PostionID'],
-                league_id=league_id
-            )
-            db.add(rule)
-        db.commit()
-    db.close()
-    print(f"Imported scoring logic for league {league_id} from {CSV_PATH}")
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-if __name__ == '__main__':
+from backend.scripts.import_scoring_rules import insert_rules, parse_file
+
+CSV_PATH = "backend/data/scoring_logic.csv"
+LEAGUE_ID = 1
+
+
+def import_scoring_logic(league_id: int = LEAGUE_ID, csv_path: str = CSV_PATH) -> None:
+    records = parse_file(csv_path, source_platform="legacy_csv")
+    insert_rules(league_id, records)
+    print(f"Imported scoring logic for league {league_id} from {csv_path}")
+
+
+if __name__ == "__main__":
     import_scoring_logic()

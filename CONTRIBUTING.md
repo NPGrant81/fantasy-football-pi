@@ -113,9 +113,32 @@ hit breakpoints as you interact with the UI.
    - If docs in `docs/` change, ensure index updates are included in the same
      PR.
 
-4. **Follow the DoD on every PR.** Any pull request lacking one of the three
+4. **UAT artifacts must be updated with every feature or behavior change.**
+   - Any new feature, workflow change, validation rule, or UI behavior update
+     must include matching updates in `docs/uat/uat_master.xlsx` and
+     `docs/uat/uat_overview.pptx` in the same PR.
+   - If you add/rename routes, pages, or user-visible actions, add or amend
+     UAT rows so testers can validate the new behavior.
+   - If screenshots are impacted, refresh deck images using the documented
+     source mapping in `docs/uat/UAT_DECK_IMAGE_COVERAGE.md`.
+   - If release-critical behavior changes, ensure impacted rows are marked with
+     the correct `Execution Tier` (`P0/P1/P2`).
+   - If a change affects expected outcomes, update
+     `docs/uat/UAT_MASTER_DOCUMENT_INSTRUCTIONS.md` when policy/process needs
+     clarification.
+
+5. **Follow the DoD on every PR.** Any pull request lacking one of the three
    DoD checks (tests, debugger walkthrough, clean console) should be
    rejected until the developer demonstrates compliance.
+
+6. **PR review gate: UAT sync check.**
+   - Reviewers should reject PRs with user-facing changes if UAT artifacts were
+     not updated.
+   - Minimum expected evidence in PR description:
+     - list of updated UAT IDs or sections
+     - slides/pages/screenshots updated in `docs/uat/uat_overview.pptx`
+     - whether `Execution Tier` changed for impacted scenarios
+     - any new entries added to `Defect_Rollup` template fields if applicable
 
 ---
 

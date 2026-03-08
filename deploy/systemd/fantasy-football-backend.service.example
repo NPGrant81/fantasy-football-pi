@@ -1,0 +1,17 @@
+[Unit]
+Description=Fantasy Football PI FastAPI Backend
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=www-data
+WorkingDirectory=/home/pi/fantasy-football-pi
+EnvironmentFile=/etc/fantasy-football-pi/backend.env
+ExecStart=/home/pi/fantasy-football-pi/backend/venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

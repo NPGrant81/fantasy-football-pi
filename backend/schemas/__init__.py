@@ -12,7 +12,14 @@ from .league import League, LeagueCreate, Team, TeamCreate
 from .draft import DraftPickCreate, DraftPickShow, DraftPickBase, HistoricalRankingResponse
 
 # 4. SCORING
-from .scoring import ScoringRule, ScoringRuleCreate
+from .scoring import (
+    ScoringRule,
+    ScoringRuleCreate,
+    ScoringTemplate,
+    ScoringTemplateCreate,
+    ScoringRuleProposal,
+    ScoringRuleProposalCreate,
+)
 
 # 5. WAIVERS & TRADES (Uncomment these lines once those files have classes)
 # from .waiver import WaiverClaim, WaiverClaimCreate

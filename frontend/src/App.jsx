@@ -29,6 +29,7 @@ const LineupRules = lazy(() => import('./pages/commissioner/LineupRules'));
 const ManageOwners = lazy(() => import('./pages/commissioner/ManageOwners'));
 const Home = lazy(() => import('./pages/home/Home'));
 const DraftBoard = lazy(() => import('./pages/DraftBoard'));
+const DraftDayAnalyzer = lazy(() => import('./pages/DraftDayAnalyzer'));
 const Waivers = lazy(() => import('./pages/WaiverWire'));
 const WaiverRules = lazy(() => import('./pages/WaiverRules'));
 const SiteAdmin = lazy(() => import('./pages/admin/SiteAdmin'));
@@ -39,6 +40,9 @@ const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
 const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
+const ManageScoringRules = lazy(
+  () => import('./pages/commissioner/ManageScoringRules')
+);
 const ManageDivisions = lazy(
   () => import('./pages/commissioner/ManageDivisions')
 );
@@ -283,6 +287,15 @@ function App() {
                 }
               />
               <Route
+                path="/draft-day-analyzer"
+                element={
+                  <DraftDayAnalyzer
+                    activeOwnerId={activeOwnerId}
+                    activeLeagueId={activeLeagueId}
+                  />
+                }
+              />
+              <Route
                 path="/team"
                 element={<YourLockerRoom activeOwnerId={activeOwnerId} />}
               />
@@ -314,6 +327,10 @@ function App() {
               <Route
                 path="/commissioner/manage-trades"
                 element={<ManageTrades />}
+              />
+              <Route
+                path="/commissioner/manage-scoring-rules"
+                element={<ManageScoringRules />}
               />
               <Route
                 path="/commissioner/manage-divisions"

@@ -14,6 +14,7 @@ import { vi } from 'vitest';
 // further boilerplate is required.
 import apiClient from '@/api/client';
 import DraftBoard from '@/pages/DraftBoard';
+import DraftDayAnalyzer from '@/pages/DraftDayAnalyzer';
 import WaiverWire from '@/pages/WaiverWire';
 import WaiverRules from '@/pages/WaiverRules';
 import ManageWaiverRules from '@/pages/commissioner/ManageWaiverRules';
@@ -154,7 +155,7 @@ describe('DraftBoard (Smoke Test)', () => {
     });
   });
 
-  test('renders historical rankings panel data', async () => {
+  test('does not render analyzer panels in war room', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url.startsWith('/leagues/owners'))
         return Promise.resolve({ data: [] });
@@ -195,12 +196,14 @@ describe('DraftBoard (Smoke Test)', () => {
     render(<DraftBoard token="test-token" activeOwnerId={1} activeLeagueId={1} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Historical Rankings/i)).toBeInTheDocument();
-      expect(screen.getByText(/Ranked Player/i)).toBeInTheDocument();
+      expect(screen.getByText(/Draft Board/i)).toBeInTheDocument();
     });
+
+    expect(screen.queryByText(/Historical Rankings/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Perspective Simulation/i)).not.toBeInTheDocument();
   });
 
-  test('renders perspective simulation controls', async () => {
+  test('renders analyzer modules on dedicated page', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url.startsWith('/leagues/owners')) {
         return Promise.resolve({
@@ -212,23 +215,34 @@ describe('DraftBoard (Smoke Test)', () => {
       }
       if (url === '/players/') return Promise.resolve({ data: [] });
       if (url.startsWith('/draft/history')) return Promise.resolve({ data: [] });
-      if (url.startsWith('/draft/rankings')) return Promise.resolve({ data: [] });
+      if (url.startsWith('/draft/rankings')) {
+        return Promise.resolve({
+          data: [
+            {
+              player_id: 10,
+              player_name: 'Ranked Player',
+              position: 'WR',
+              season: 2026,
+              rank: 1,
+              predicted_auction_value: 48,
+              value_over_replacement: 18,
+              consensus_tier: 'S',
+            },
+          ],
+        });
+      }
       if (url.startsWith('/leagues/1/settings')) {
         return Promise.resolve({ data: { draft_year: 2026, roster_size: 16 } });
       }
       if (url.startsWith('/leagues/1/budgets')) return Promise.resolve({ data: [] });
-      if (url === '/auth/me') {
-        return Promise.resolve({
-          data: { is_commissioner: false, username: 'alice' },
-        });
-      }
-      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'The Big Show' } });
       return Promise.resolve({ data: [] });
     });
 
-    render(<DraftBoard token="test-token" activeOwnerId={1} activeLeagueId={1} />);
+    render(<DraftDayAnalyzer activeOwnerId={1} activeLeagueId={1} />);
 
     await waitFor(() => {
+      expect(screen.getByText(/Draft Day Analyzer/i)).toBeInTheDocument();
+      expect(screen.getByText(/Historical Rankings/i)).toBeInTheDocument();
       expect(screen.getByText(/Perspective Simulation/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Run Simulation/i })).toBeInTheDocument();
     });

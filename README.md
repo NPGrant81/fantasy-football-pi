@@ -21,6 +21,8 @@ or commit it yourself.
 - Permissions notes: [permissions.md](docs/permissions.md)
 - API inventory + full page matrix: [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md)
 - Responsive audit by platform (Windows/Raspberry Pi/Linux): [RESPONSIVE_AUDIT_ENVIRONMENT.md](docs/RESPONSIVE_AUDIT_ENVIRONMENT.md)
+- Raspberry Pi deployment runbook (Nginx + systemd): [RASPBERRY_PI_DEPLOYMENT.md](docs/RASPBERRY_PI_DEPLOYMENT.md)
+- Cloudflare tunnel setup (`pplinsighthub.com`): [CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md)
 
 ## API Overview (Condensed)
 
@@ -131,6 +133,20 @@ pip install -r requirements-lock.txt
 ```bash
 cd backend
 python -m pip freeze > requirements-lock.txt
+```
+
+- Audit player duplicate bleed-over (dry run):
+
+```bash
+cd backend
+python -m backend.manage audit-player-duplicates --fail-on-duplicates
+```
+
+- Apply player duplicate cleanup (re-point references then remove dup rows):
+
+```bash
+cd backend
+python -m backend.manage audit-player-duplicates --apply
 ```
 
 CI behavior

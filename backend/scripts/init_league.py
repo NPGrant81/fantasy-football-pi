@@ -10,13 +10,27 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.database import engine, SessionLocal, Base
 import models
 from core import security # 1.1.2 Use the professional core security module
+from backend.scripts.import_scoring_rules import insert_rules, parse_file
 
 def reset_db_schema():
     # 1.1.3 Postgres Nuclear Option (Keep your CASCADE logic)
     print("🗑️ Resetting Database Schema...")
     with engine.connect() as connection:
         with connection.begin():
-            tables = ["matchups", "draft_picks", "league_settings", "scoring_rules", "players", "users", "leagues"]
+            tables = [
+                "scoring_rule_votes",
+                "scoring_rule_proposals",
+                "scoring_rule_change_logs",
+                "scoring_template_rules",
+                "scoring_templates",
+                "scoring_rules",
+                "matchups",
+                "draft_picks",
+                "league_settings",
+                "players",
+                "users",
+                "leagues",
+            ]
             for table in tables:
                 connection.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE;"))
     
@@ -47,7 +61,17 @@ def seed_data():
         db.add(admin)
 
         # 2.3 LOAD SCORING RULES
-        # (Include your initial_rules list from your previous init_league file here)
+        csv_path = os.path.join(os.path.dirname(__file__), "..", "data", "scoring_logic.csv")
+        csv_path = os.path.abspath(csv_path)
+        if os.path.exists(csv_path):
+            try:
+                print("📥 Importing baseline scoring rules...")
+                records = parse_file(csv_path, source_platform="bootstrap")
+                insert_rules(league.id, records)
+            except Exception as exc:
+                print(f"⚠️ Skipped scoring bootstrap import: {exc}")
+        else:
+            print("⚠️ No baseline scoring CSV found; skipping scoring import.")
         
         db.commit()
         print("✅ League and Superuser initialized successfully!")

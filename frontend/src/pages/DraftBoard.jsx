@@ -31,6 +31,7 @@ import {
 } from '@utils/uiStandards';
 
 export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
+  const showAnalyzerPanels = false;
   // --- 1.1 STATE MANAGEMENT ---
   const [showBestSidebar, setShowBestSidebar] = useState(false);
   const [owners, setOwners] = useState([]);
@@ -1174,6 +1175,8 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />
 
+      {showAnalyzerPanels && (
+        <>
       <section className="mt-3 rounded-lg border border-emerald-900/70 bg-slate-900/60 p-3 col-span-12">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-emerald-300">
@@ -1584,6 +1587,8 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           </div>
         ) : null}
       </section>
+        </>
+        )}
 
       <div className="relative">
         <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">

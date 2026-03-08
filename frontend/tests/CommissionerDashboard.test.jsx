@@ -98,6 +98,7 @@ describe('CommissionerDashboard (Commissioner Controls)', () => {
     render(<CommissionerDashboard />);
     await waitFor(() => {
       expect(screen.getByText(/Keeper Rules/i)).toBeInTheDocument();
+      expect(screen.getByText(/Manage Scoring Rules/i)).toBeInTheDocument();
     });
   });
 });

@@ -142,6 +142,16 @@ export default function CommissionerDashboard() {
           tone="yellow"
         />
         <AdminActionCard
+          icon={FiSettings}
+          badge="SCORING"
+          title="Manage Scoring Rules"
+          description="Create and revise scoring events, run preview simulations, and trigger approved recalculations."
+          onClick={() => navigate('/commissioner/manage-scoring-rules')}
+          loading={false}
+          actionLabel="Edit Scoring Rules"
+          tone="red"
+        />
+        <AdminActionCard
           icon={FiGrid}
           badge="DIVISIONS"
           title="Manage Divisions"

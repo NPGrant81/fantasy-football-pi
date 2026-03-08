@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import apiClient from '@api/client';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -20,70 +21,89 @@ ChartJS.register(
 );
 
 const WeeklyMatchupChart = () => {
-  const [selectedWeek, setSelectedWeek] = useState(6);
+  const [selectedWeek, setSelectedWeek] = React.useState(null);
+  const [rows, setRows] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
 
-  // Mock matchup data for Week 6
-  const matchupData = {
-    1: [
-      { team: 'The Big Show', score: 145 },
-      { team: 'Thunder Dome', score: 112 },
-      { team: 'Gridiron Giants', score: 128 },
-      { team: 'End Zone Warriors', score: 98 },
-    ],
-    2: [
-      { team: 'The Big Show', score: 132 },
-      { team: 'Thunder Dome', score: 118 },
-      { team: 'Gridiron Giants', score: 105 },
-      { team: 'End Zone Warriors', score: 125 },
-    ],
-    3: [
-      { team: 'The Big Show', score: 118 },
-      { team: 'Thunder Dome', score: 108 },
-      { team: 'Gridiron Giants', score: 142 },
-      { team: 'End Zone Warriors', score: 95 },
-    ],
-    4: [
-      { team: 'The Big Show', score: 155 },
-      { team: 'Thunder Dome', score: 125 },
-      { team: 'Gridiron Giants', score: 115 },
-      { team: 'End Zone Warriors', score: 110 },
-    ],
-    5: [
-      { team: 'The Big Show', score: 128 },
-      { team: 'Thunder Dome', score: 115 },
-      { team: 'Gridiron Giants', score: 138 },
-      { team: 'End Zone Warriors', score: 118 },
-    ],
-    6: [
-      { team: 'The Big Show', score: 142 },
-      { team: 'Thunder Dome', score: 102 },
-      { team: 'Gridiron Giants', score: 125 },
-      { team: 'End Zone Warriors', score: 108 },
-    ],
-  };
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        const leagueId = userRes.data?.league_id;
+        if (!leagueId) {
+          setError('League not found.');
+          return;
+        }
 
-  const currentWeekData = matchupData[selectedWeek];
+        const season = new Date().getFullYear();
+        const res = await apiClient.get(
+          `/analytics/league/${leagueId}/weekly-matchups`,
+          {
+            params: { season, start_week: 1, end_week: 17 },
+          }
+        );
 
-  // Sort by score descending
-  const sortedData = [...currentWeekData].sort((a, b) => b.score - a.score);
+        const payload = res.data;
+        const resolvedRows =
+          payload && !Array.isArray(payload) && Array.isArray(payload.rows)
+            ? payload.rows
+            : payload;
+
+        const safeRows = Array.isArray(resolvedRows) ? resolvedRows : [];
+        setRows(safeRows);
+        if (safeRows.length) {
+          setSelectedWeek(Number(safeRows[safeRows.length - 1].week));
+        }
+      } catch (err) {
+        console.error(err);
+        setError(err?.message || 'Failed to load weekly matchup data.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
+
+  if (loading) {
+    return <p>Loading weekly matchup comparison...</p>;
+  }
+
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
+  }
+
+  if (!rows.length) {
+    return <p>No weekly matchup data available.</p>;
+  }
+
+  const selectedRow = rows.find((row) => Number(row.week) === Number(selectedWeek)) || rows[0];
+  const sortedData = [...(selectedRow.entries || [])].sort(
+    (a, b) => Number(b.score || 0) - Number(a.score || 0)
+  );
 
   const data = {
     labels: sortedData.map((d) => d.team),
     datasets: [
       {
-        label: `Week ${selectedWeek} Scores`,
-        data: sortedData.map((d) => d.score),
+        label: `Week ${selectedRow.week} Scores`,
+        data: sortedData.map((d) => Number(d.score || 0)),
         backgroundColor: [
           'rgba(54, 162, 235, 0.8)',
           'rgba(255, 99, 132, 0.8)',
           'rgba(75, 192, 192, 0.8)',
           'rgba(255, 206, 86, 0.8)',
+          'rgba(153, 102, 255, 0.8)',
+          'rgba(255, 159, 64, 0.8)',
         ],
         borderColor: [
           'rgba(54, 162, 235, 1)',
           'rgba(255, 99, 132, 1)',
           'rgba(75, 192, 192, 1)',
           'rgba(255, 206, 86, 1)',
+          'rgba(153, 102, 255, 1)',
+          'rgba(255, 159, 64, 1)',
         ],
         borderWidth: 2,
       },
@@ -105,8 +125,8 @@ const WeeklyMatchupChart = () => {
         borderWidth: 1,
         padding: 12,
         callbacks: {
-          label: function (context) {
-            return `Score: ${context.parsed.y} points`;
+          label(context) {
+            return `Score: ${context.parsed.y.toFixed(2)} points`;
           },
         },
       },
@@ -162,11 +182,9 @@ const WeeklyMatchupChart = () => {
           marginBottom: '20px',
         }}
       >
-        <h3 style={{ color: '#ffffff', margin: 0 }}>
-          📊 Weekly Matchup Comparison
-        </h3>
+        <h3 style={{ color: '#ffffff', margin: 0 }}>Weekly Matchup Comparison</h3>
         <select
-          value={selectedWeek}
+          value={selectedRow.week}
           onChange={(e) => setSelectedWeek(Number(e.target.value))}
           style={{
             padding: '8px 16px',
@@ -178,15 +196,15 @@ const WeeklyMatchupChart = () => {
             fontSize: '14px',
           }}
         >
-          {[1, 2, 3, 4, 5, 6].map((week) => (
-            <option key={week} value={week}>
-              Week {week}
+          {rows.map((row) => (
+            <option key={row.week} value={row.week}>
+              Week {row.week}
             </option>
           ))}
         </select>
       </div>
       <p style={{ color: '#cccccc', fontSize: '14px', marginBottom: '20px' }}>
-        Team performance comparison for the selected week
+        Team scoring comparison for the selected week.
       </p>
       <Bar data={data} options={options} />
     </div>

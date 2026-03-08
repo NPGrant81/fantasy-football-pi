@@ -8,7 +8,15 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.routers.analytics import get_efficiency_leaderboard, get_weekly_stats, get_roster_strength, get_rivalry_graph
+from backend.routers.analytics import (
+    get_draft_value_data,
+    get_efficiency_leaderboard,
+    get_player_heatmap_data,
+    get_rivalry_graph,
+    get_roster_strength,
+    get_weekly_matchup_comparison,
+    get_weekly_stats,
+)
 
 
 @pytest.fixture
@@ -88,20 +96,25 @@ def test_leaderboard_and_weekly(db_session):
     # query leaderboard (should order manager1 first because avg efficiency 0.833 vs 0.9? wait compute: m1=(100/120+80/100)/2=0.833
     # m2=0.9 -> m2 should appear first
     lb = get_efficiency_leaderboard(league_id=10, season=2026, db=db_session)
-    assert isinstance(lb, list)
-    assert lb[0]["manager_id"] == 2
-    assert lb[1]["manager_id"] == 1
-    assert "efficiency_display" in lb[0]
+    assert isinstance(lb, dict)
+    assert isinstance(lb["rows"], list)
+    assert lb["rows"][0]["manager_id"] == 2
+    assert lb["rows"][1]["manager_id"] == 1
+    assert "efficiency_display" in lb["rows"][0]
+    assert lb["meta"]["league_id"] == 10
+    assert lb["meta"]["season"] == 2026
+    assert "scoring_profile" in lb["meta"]
     # ensure JSON data is not returned by leaderboard (should be removed)
-    assert "optimal_lineup_json" not in lb[0]
+    assert "optimal_lineup_json" not in lb["rows"][0]
 
     # weekly stats for manager 1
     weeks = get_weekly_stats(league_id=10, manager_id=1, season=2026, db=db_session)
     # the table contains no JSON yet, but weekly stats returns max/actual
-    assert len(weeks) == 2
-    assert weeks[0]["week"] == 1
-    assert weeks[0]["actual"] == 100
-    assert weeks[0]["max"] == 120
+    assert len(weeks["rows"]) == 2
+    assert weeks["rows"][0]["week"] == 1
+    assert weeks["rows"][0]["actual"] == 100
+    assert weeks["rows"][0]["max"] == 120
+    assert weeks["meta"]["metric"] == "manager_weekly_stats"
 
     # raw SQL: view should exist and return same managers
     from sqlalchemy import text
@@ -140,22 +153,24 @@ def test_roster_strength(db_session):
     make_pick(db_session, owner_id=2, league_id=5, player_id=p_wr.id, status="STARTER")
 
     res = get_roster_strength(league_id=5, owner_id=1, other_owner_id=2, db=db_session)
-    assert 1 in res and 2 in res
-    assert res[1]["QB"] == 1
-    assert res[1]["RB"] == 1
-    assert res[1]["WR"] == 0
-    assert res[2]["WR"] == 1
+    rows = res["rows"]
+    assert 1 in rows and 2 in rows
+    assert rows[1]["QB"] == 1
+    assert rows[1]["RB"] == 1
+    assert rows[1]["WR"] == 0
+    assert rows[2]["WR"] == 1
+    assert res["meta"]["metric"] == "roster_strength"
 
     # edge case: no picks
     res2 = get_roster_strength(league_id=5, owner_id=99, db=db_session)
-    assert res2 == {99: {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "DEF": 0, "K": 0}}
+    assert res2["rows"] == {99: {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "DEF": 0, "K": 0}}
 
 
 # edge case: no data returns empty lists
 
 def test_empty_queries(db_session):
-    assert get_efficiency_leaderboard(league_id=999, season=2026, db=db_session) == []
-    assert get_weekly_stats(league_id=999, manager_id=1, season=2026, db=db_session) == []
+    assert get_efficiency_leaderboard(league_id=999, season=2026, db=db_session)["rows"] == []
+    assert get_weekly_stats(league_id=999, manager_id=1, season=2026, db=db_session)["rows"] == []
 
 
 def test_rivalry_graph(db_session):
@@ -205,9 +220,89 @@ def test_rivalry_graph(db_session):
     edge = res['edges'][0]
     assert edge['games'] == 2
     assert edge['trades'] == 1
+    assert res['meta']['metric'] == 'league_rivalry_graph'
     # verify wins mapping contains both owners
     assert u1.id in edge['wins'] and u2.id in edge['wins']
     # ensure empty returns if no data
     empty = get_rivalry_graph(league.id + 1, db=db_session)
     assert empty['nodes'] == []
     assert empty['edges'] == []
+
+
+def test_draft_value_and_heatmap_payloads(db_session):
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="TrendOwner", team_name="Trend Team")
+
+    qb = models.Player(name="QB Alpha", position="QB", nfl_team="AAA", adp=12.0, projected_points=280)
+    wr = models.Player(name="WR Beta", position="WR", nfl_team="BBB", adp=20.0, projected_points=255)
+    db_session.add_all([qb, wr])
+    db_session.commit()
+    db_session.refresh(qb)
+    db_session.refresh(wr)
+
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner.id, league_id=league.id, player_id=qb.id, current_status="STARTER", amount=0),
+            models.DraftPick(owner_id=owner.id, league_id=league.id, player_id=wr.id, current_status="STARTER", amount=0),
+        ]
+    )
+    db_session.add_all(
+        [
+            models.PlayerWeeklyStat(player_id=qb.id, season=2026, week=1, fantasy_points=22.5, stats={"passing_yards": 280}, source="test"),
+            models.PlayerWeeklyStat(player_id=qb.id, season=2026, week=2, fantasy_points=18.0, stats={"passing_yards": 240}, source="test"),
+            models.PlayerWeeklyStat(player_id=wr.id, season=2026, week=1, fantasy_points=16.2, stats={"receptions": 6}, source="test"),
+            models.PlayerWeeklyStat(player_id=wr.id, season=2026, week=2, fantasy_points=19.8, stats={"receptions": 8}, source="test"),
+        ]
+    )
+    db_session.commit()
+
+    draft_value = get_draft_value_data(league_id=league.id, season=2026, limit=20, db=db_session)
+    assert draft_value["rows"]
+    assert draft_value["meta"]["metric"] == "draft_value_analysis"
+    assert {row["player_name"] for row in draft_value["rows"]} >= {"QB Alpha", "WR Beta"}
+
+    heatmap = get_player_heatmap_data(league_id=league.id, season=2026, limit=5, weeks=4, db=db_session)
+    assert heatmap["rows"]
+    assert len(heatmap["week_labels"]) == 2
+    assert heatmap["meta"]["metric"] == "player_performance_heatmap"
+
+
+def test_weekly_matchup_comparison_payload(db_session):
+    league = make_league(db_session)
+    home = make_user(db_session, league.id, username="Home", team_name="Home Team")
+    away = make_user(db_session, league.id, username="Away", team_name="Away Team")
+
+    db_session.add_all(
+        [
+            models.Matchup(
+                league_id=league.id,
+                week=1,
+                home_team_id=home.id,
+                away_team_id=away.id,
+                home_score=123.4,
+                away_score=117.2,
+                is_completed=True,
+            ),
+            models.Matchup(
+                league_id=league.id,
+                week=2,
+                home_team_id=away.id,
+                away_team_id=home.id,
+                home_score=101.0,
+                away_score=110.5,
+                is_completed=True,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    comparison = get_weekly_matchup_comparison(
+        league_id=league.id,
+        season=2026,
+        start_week=1,
+        end_week=2,
+        db=db_session,
+    )
+    assert comparison["meta"]["metric"] == "weekly_matchup_comparison"
+    assert len(comparison["rows"]) == 2
+    assert comparison["rows"][0]["entries"][0]["score"] >= comparison["rows"][0]["entries"][1]["score"]
