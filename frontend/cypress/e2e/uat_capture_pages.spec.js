@@ -97,24 +97,19 @@ describe('UAT deck screenshot capture', () => {
       body: authUser,
     });
 
-    cy.intercept('GET', '**/leagues/**', (req) => {
-      if (req.url.includes('/settings')) {
-        req.reply({
-          statusCode: 200,
-          body: {
-            draft_year: 2026,
-            roster_size: 14,
-            waiver_deadline: 'Wed 11:59 PM',
-            trade_deadline: 'Nov 20',
-          },
-        });
-        return;
-      }
+    cy.intercept('GET', /\/leagues\/\d+\/settings/, {
+      statusCode: 200,
+      body: {
+        draft_year: 2026,
+        roster_size: 14,
+        waiver_deadline: 'Wed 11:59 PM',
+        trade_deadline: 'Nov 20',
+      },
+    });
 
-      req.reply({
-        statusCode: 200,
-        body: { id: 1, name: 'UAT League', draft_status: 'INACTIVE' },
-      });
+    cy.intercept('GET', /\/leagues\/\d+([?#]|$)/, {
+      statusCode: 200,
+      body: { id: 1, name: 'UAT League', draft_status: 'INACTIVE' },
     });
 
     cy.intercept('GET', '**/leagues/owners*', {
