@@ -46,6 +46,12 @@ function toNumberOrZero(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function toNumberOrNull(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function getErrorMessage(error, fallback) {
   return error?.response?.data?.detail || fallback;
 }
@@ -68,12 +74,14 @@ function normalizeRuleForForm(rule) {
 }
 
 function buildRulePayload(form) {
+  const rangeMin = toNumberOrNull(form.range_min);
+  const rangeMax = toNumberOrNull(form.range_max);
   return {
     category: String(form.category).trim(),
     event_name: String(form.event_name).trim(),
     description: String(form.description || '').trim() || null,
-    range_min: toNumberOrZero(form.range_min),
-    range_max: toNumberOrZero(form.range_max),
+    ...(rangeMin !== null && { range_min: rangeMin }),
+    ...(rangeMax !== null && { range_max: rangeMax }),
     point_value: toNumberOrZero(form.point_value),
     calculation_type: String(form.calculation_type || 'flat_bonus').trim(),
     applicable_positions: parsePositions(form.applicable_positions),
