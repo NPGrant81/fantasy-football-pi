@@ -119,4 +119,12 @@ def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
     )
 
     deduped = dedupe_players(rows)
-    return deduped[:safe_limit]
+    ranked = sorted(
+        deduped,
+        key=lambda player: (
+            -(float(player.projected_points or 0.0)),
+            float(player.adp or 999999.0),
+            player.name or "",
+        ),
+    )
+    return ranked[:safe_limit]
