@@ -3,6 +3,8 @@
 **Session:** February 18, 2026  
 **Commits:** 3 major commits
 
+> Status note (March 8, 2026): This document is a historical session snapshot. Use `docs/PROJECT_MANAGEMENT.md` and `docs/ISSUE_STATUS.md` for current story status and active priorities.
+
 ---
 
 ## 📊 Work Completed
@@ -17,7 +19,7 @@
 2. **GitHub Issues Review** (Commits e739f93, 709c1b8)
    - Reviewed all 21 open issues
    - Documented completion status
-   - 8 stories fully implemented, 2 partially, 5 not started
+   - Snapshot at time of session: 8 stories fully implemented, 2 partially, 5 not started
    - Created ISSUE_STATUS.md tracking document
 
 3. **Testing Infrastructure Fixes** (Commit 62196d9)
@@ -149,11 +151,11 @@ Root/
 3. Implement missing tests for pages (Home, Matchups, etc.)
 4. Add E2E tests with Cypress
 
-### Medium Term (This Month)
+### Medium Term (This Month, Session Snapshot)
 
 1. Complete Story 6.1: Add W-L-T/PF/PA to standings
 2. Complete Story 6.3: Add top agents ranking
-3. Implement Story 6.2: Playoff bracket visualization
+3. Continue Story 6.2 dynamic bracket-structure follow-up (tracked in issue #154)
 4. Fix remaining GitHub issues
 
 ---

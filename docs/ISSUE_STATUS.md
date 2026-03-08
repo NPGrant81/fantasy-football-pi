@@ -256,8 +256,7 @@
 ### P3 (Low Priority / Polish)
 
 5. **Story 7.2** - Dark/Light mode toggle
-6. **Story 7.3** - Bug reporting form
-7. **Story 1.2** - Historical data archiving
+6. **Story 1.2** - Historical data archiving
 
 ---
 

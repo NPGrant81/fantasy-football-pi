@@ -324,7 +324,7 @@ This project uses **Agile Story numbering** to organize features and tasks with 
 ### Backlog (Low Priority / Polish)
 
 - **Story 7.2** - Dark/Light mode toggle
-- **Story 7.3** - Bug reporting form (completed)
+- **Story 7.3** - Bug reporting form enhancements (optional polish only; core delivered)
 - **Story 1.2** - Historical data archiving
 - **Story 0.2** - Cloudflare Tunnel Setup (optional)
 - **Story 0.3** - Database Scheduled Backups
