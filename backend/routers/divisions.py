@@ -494,10 +494,28 @@ def report_division_name(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=403, detail="You can only report division names for your own league")
+
+    division_name = payload.division_name.strip()
+
+    if payload.season is not None:
+        existing_names = {
+            d.name
+            for d in db.query(models.Division)
+            .filter(models.Division.league_id == league_id, models.Division.season == payload.season)
+            .all()
+        }
+        if existing_names and division_name not in existing_names:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Division name '{division_name}' does not exist for season {payload.season} in this league",
+            )
+
     report = models.DivisionNameReport(
         league_id=league_id,
         season=payload.season,
-        division_name=payload.division_name.strip(),
+        division_name=division_name,
         reason=payload.reason,
         reported_by_user_id=current_user.id,
     )

@@ -1,13 +1,5 @@
-// Create a React component for a Draft Value Board scatter plot
-// Uses Chart.js (react-chartjs-2) to visualize fantasy football draft value
-// X-axis: Average Draft Position (ADP) - lower is better
-// Y-axis: Projected Points for the season
-// Players above the trend line are "value picks"
-// Include sample data for 15 NFL players (mix of QB, RB, WR, TE)
-// Dark theme styling to match our fantasy football app
-// Make the chart responsive and interactive with tooltips
-
 import React from 'react';
+import apiClient from '@api/client';
 import {
   Chart as ChartJS,
   LinearScale,
@@ -18,162 +10,109 @@ import {
 } from 'chart.js';
 import { Scatter } from 'react-chartjs-2';
 
-// Register Chart.js components
 ChartJS.register(LinearScale, PointElement, LineElement, Tooltip, Legend);
 
-const DraftValueBoard = () => {
-  // Sample fantasy football player data
-  const players = [
-    {
-      name: 'Christian McCaffrey',
-      position: 'RB',
-      adp: 1.2,
-      projectedPoints: 320,
-      color: 'rgba(255, 99, 132, 0.8)',
-    },
-    {
-      name: 'CeeDee Lamb',
-      position: 'WR',
-      adp: 2.5,
-      projectedPoints: 290,
-      color: 'rgba(54, 162, 235, 0.8)',
-    },
-    {
-      name: 'Tyreek Hill',
-      position: 'WR',
-      adp: 4.8,
-      projectedPoints: 285,
-      color: 'rgba(54, 162, 235, 0.8)',
-    },
-    {
-      name: 'Bijan Robinson',
-      position: 'RB',
-      adp: 3.1,
-      projectedPoints: 275,
-      color: 'rgba(255, 99, 132, 0.8)',
-    },
-    {
-      name: 'Amon-Ra St. Brown',
-      position: 'WR',
-      adp: 8.5,
-      projectedPoints: 270,
-      color: 'rgba(54, 162, 235, 0.8)',
-    },
-    {
-      name: 'Breece Hall',
-      position: 'RB',
-      adp: 6.2,
-      projectedPoints: 268,
-      color: 'rgba(255, 99, 132, 0.8)',
-    },
-    {
-      name: "Ja'Marr Chase",
-      position: 'WR',
-      adp: 5.7,
-      projectedPoints: 282,
-      color: 'rgba(54, 162, 235, 0.8)',
-    },
-    {
-      name: 'Josh Allen',
-      position: 'QB',
-      adp: 12.3,
-      projectedPoints: 310,
-      color: 'rgba(75, 192, 192, 0.8)',
-    },
-    {
-      name: 'Travis Kelce',
-      position: 'TE',
-      adp: 15.8,
-      projectedPoints: 195,
-      color: 'rgba(255, 206, 86, 0.8)',
-    },
-    {
-      name: 'Garrett Wilson',
-      position: 'WR',
-      adp: 18.4,
-      projectedPoints: 245,
-      color: 'rgba(54, 162, 235, 0.8)',
-    },
-    {
-      name: 'Derrick Henry',
-      position: 'RB',
-      adp: 22.1,
-      projectedPoints: 220,
-      color: 'rgba(255, 99, 132, 0.8)',
-    },
-    {
-      name: 'Jalen Hurts',
-      position: 'QB',
-      adp: 9.8,
-      projectedPoints: 305,
-      color: 'rgba(75, 192, 192, 0.8)',
-    },
-    {
-      name: 'Mark Andrews',
-      position: 'TE',
-      adp: 28.5,
-      projectedPoints: 175,
-      color: 'rgba(255, 206, 86, 0.8)',
-    },
-    {
-      name: 'Joe Mixon',
-      position: 'RB',
-      adp: 25.7,
-      projectedPoints: 210,
-      color: 'rgba(255, 99, 132, 0.8)',
-    },
-    {
-      name: 'Cooper Kupp',
-      position: 'WR',
-      adp: 11.2,
-      projectedPoints: 265,
-      color: 'rgba(54, 162, 235, 0.8)',
-    },
-  ];
+const POSITION_COLORS = {
+  RB: {
+    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+    borderColor: 'rgba(255, 99, 132, 1)',
+  },
+  WR: {
+    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+    borderColor: 'rgba(54, 162, 235, 1)',
+  },
+  QB: {
+    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+    borderColor: 'rgba(75, 192, 192, 1)',
+  },
+  TE: {
+    backgroundColor: 'rgba(255, 206, 86, 0.6)',
+    borderColor: 'rgba(255, 206, 86, 1)',
+  },
+};
 
-  // Group players by position for the chart
-  const datasets = [
-    {
-      label: 'Running Backs',
-      data: players
-        .filter((p) => p.position === 'RB')
-        .map((p) => ({ x: p.adp, y: p.projectedPoints, playerName: p.name })),
-      backgroundColor: 'rgba(255, 99, 132, 0.6)',
-      borderColor: 'rgba(255, 99, 132, 1)',
+const POSITION_LABELS = {
+  RB: 'Running Backs',
+  WR: 'Wide Receivers',
+  QB: 'Quarterbacks',
+  TE: 'Tight Ends',
+};
+
+const DraftValueBoard = () => {
+  const [rows, setRows] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
+
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const userRes = await apiClient.get('/auth/me');
+        const leagueId = userRes.data?.league_id;
+        if (!leagueId) {
+          setError('League not found.');
+          return;
+        }
+
+        const season = new Date().getFullYear();
+        const res = await apiClient.get(
+          `/analytics/league/${leagueId}/draft-value`,
+          {
+            params: { season, limit: 80 },
+          }
+        );
+
+        const payload = res.data;
+        const resolvedRows =
+          payload && !Array.isArray(payload) && Array.isArray(payload.rows)
+            ? payload.rows
+            : payload;
+
+        setRows(Array.isArray(resolvedRows) ? resolvedRows : []);
+      } catch (err) {
+        console.error(err);
+        setError(err?.message || 'Failed to load draft value data.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
+
+  if (loading) {
+    return <p>Loading draft value analysis...</p>;
+  }
+
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
+  }
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return <p>No draft value data available.</p>;
+  }
+
+  const supportedRows = rows.filter((row) =>
+    Object.prototype.hasOwnProperty.call(POSITION_COLORS, String(row.position || '').toUpperCase())
+  );
+
+  const datasets = Object.keys(POSITION_COLORS).map((position) => {
+    const color = POSITION_COLORS[position];
+    return {
+      label: POSITION_LABELS[position],
+      data: supportedRows
+        .filter((row) => String(row.position || '').toUpperCase() === position)
+        .map((row) => ({
+          x: Number(row.adp || 0),
+          y: Number(row.projected_points || 0),
+          playerName: row.player_name,
+          valueScore: Number(row.value_score || 0),
+        })),
+      backgroundColor: color.backgroundColor,
+      borderColor: color.borderColor,
       pointRadius: 8,
       pointHoverRadius: 12,
-    },
-    {
-      label: 'Wide Receivers',
-      data: players
-        .filter((p) => p.position === 'WR')
-        .map((p) => ({ x: p.adp, y: p.projectedPoints, playerName: p.name })),
-      backgroundColor: 'rgba(54, 162, 235, 0.6)',
-      borderColor: 'rgba(54, 162, 235, 1)',
-      pointRadius: 8,
-      pointHoverRadius: 12,
-    },
-    {
-      label: 'Quarterbacks',
-      data: players
-        .filter((p) => p.position === 'QB')
-        .map((p) => ({ x: p.adp, y: p.projectedPoints, playerName: p.name })),
-      backgroundColor: 'rgba(75, 192, 192, 0.6)',
-      borderColor: 'rgba(75, 192, 192, 1)',
-      pointRadius: 8,
-      pointHoverRadius: 12,
-    },
-    {
-      label: 'Tight Ends',
-      data: players
-        .filter((p) => p.position === 'TE')
-        .map((p) => ({ x: p.adp, y: p.projectedPoints, playerName: p.name })),
-      backgroundColor: 'rgba(255, 206, 86, 0.6)',
-      borderColor: 'rgba(255, 206, 86, 1)',
-      pointRadius: 8,
-      pointHoverRadius: 12,
-    },
-  ];
+    };
+  });
 
   const options = {
     responsive: true,
@@ -196,14 +135,14 @@ const DraftValueBoard = () => {
         borderColor: '#4a90e2',
         borderWidth: 1,
         padding: 12,
-        displayColors: true,
         callbacks: {
-          label: function (context) {
+          label(context) {
             const player = context.raw;
             return [
               `${player.playerName}`,
-              `ADP: ${player.x.toFixed(1)}`,
-              `Projected: ${player.y} pts`,
+              `ADP: ${Number(player.x || 0).toFixed(1)}`,
+              `Projected: ${Number(player.y || 0).toFixed(1)} pts`,
+              `Value Score: ${Number(player.valueScore || 0).toFixed(3)}`,
             ];
           },
         },
@@ -228,7 +167,7 @@ const DraftValueBoard = () => {
         grid: {
           color: 'rgba(255, 255, 255, 0.1)',
         },
-        reverse: true, // Lower ADP numbers (better picks) on the left
+        reverse: true,
       },
       y: {
         type: 'linear',
@@ -269,7 +208,7 @@ const DraftValueBoard = () => {
           textAlign: 'center',
         }}
       >
-        📊 Draft Value Analysis
+        Draft Value Analysis
       </h3>
       <p
         style={{
@@ -279,8 +218,7 @@ const DraftValueBoard = () => {
           marginBottom: '20px',
         }}
       >
-        Players in the upper-right quadrant offer the best value (high points,
-        drafted late)
+        Higher points with later ADP indicate stronger draft value opportunities.
       </p>
       <Scatter data={{ datasets }} options={options} />
     </div>

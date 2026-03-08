@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from ..database import get_db
 from .. import models
+from ..services import scoring_service
 
 router = APIRouter(
     prefix="/matchups",
@@ -77,25 +79,79 @@ def get_week_info(week_num: int):
     return label, date_str
 
 # --- Helper: Get Starters ---
-def get_team_starters(db: Session, owner_id: int):
-    """Fetches currently active starters for a given owner."""
-    picks = db.query(models.DraftPick).filter(
+def _resolve_season_year(db: Session, league_id: Optional[int]) -> int:
+    if not league_id:
+        return datetime.now().year
+
+    settings = (
+        db.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == league_id)
+        .first()
+    )
+    if settings and settings.draft_year:
+        return int(settings.draft_year)
+    return datetime.now().year
+
+
+def get_team_starters(
+    db: Session,
+    owner_id: int,
+    *,
+    league_id: Optional[int],
+    season: int,
+    week: int,
+):
+    """Fetch currently active starters with scoring-service projections and actuals."""
+    picks_q = db.query(models.DraftPick).filter(
         models.DraftPick.owner_id == owner_id,
-        models.DraftPick.current_status == 'STARTER'
-    ).all()
-    
+        models.DraftPick.current_status == 'STARTER',
+    )
+    if league_id is not None:
+        picks_q = picks_q.filter(
+            or_(
+                models.DraftPick.league_id == league_id,
+                models.DraftPick.league_id.is_(None),
+            )
+        )
+    picks = picks_q.all()
+
+    player_ids = [pick.player_id for pick in picks if pick.player_id is not None]
+    players = (
+        db.query(models.Player)
+        .filter(models.Player.id.in_(player_ids))
+        .all()
+        if player_ids
+        else []
+    )
+    player_by_id = {player.id: player for player in players}
+
     roster = []
     for pick in picks:
-        player = db.query(models.Player).filter(models.Player.id == pick.player_id).first()
+        player = player_by_id.get(pick.player_id)
         if player:
-            # Mock stats for now (Real logic would fetch weekly stats)
+            projected_points = 0.0
+            actual_points = 0.0
+
+            if league_id:
+                calculated, _, stats_payload = scoring_service.calculate_player_week_points(
+                    db,
+                    league_id=league_id,
+                    player_id=player.id,
+                    season=season,
+                    week=week,
+                    position=player.position,
+                    season_year=season,
+                )
+                projected_points = float(calculated)
+                actual_points = float(stats_payload.get("fantasy_points", calculated) or 0.0)
+
             roster.append(PlayerGameStats(
                 player_id=player.id,
                 name=player.name,
                 position=player.position,
                 nfl_team=player.nfl_team,
-                projected=15.5, # Mock projection
-                actual=0.0      # Mock actual
+                projected=projected_points,
+                actual=actual_points,
             ))
             
     # Sort by Position (QB, RB, WR, TE, K, DEF)
@@ -114,10 +170,23 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
     for game in games:
         home = db.query(models.User).filter(models.User.id == game.home_team_id).first()
         away = db.query(models.User).filter(models.User.id == game.away_team_id).first()
-        
+
         if home and away:
-            home_roster = get_team_starters(db, home.id)
-            away_roster = get_team_starters(db, away.id)
+            season_year = _resolve_season_year(db, game.league_id)
+            home_roster = get_team_starters(
+                db,
+                home.id,
+                league_id=game.league_id,
+                season=season_year,
+                week=game.week,
+            )
+            away_roster = get_team_starters(
+                db,
+                away.id,
+                league_id=game.league_id,
+                season=season_year,
+                week=game.week,
+            )
             home_total_proj = sum(p.projected for p in home_roster)
             away_total_proj = sum(p.projected for p in away_roster)
 
@@ -136,7 +205,7 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
                     division_id=home.division_id,
                     division_name=home.division_obj.name if home.division_obj else None,
                 ),
-                home_score=game.home_score,
+                home_score=float(game.home_score or 0.0),
                 home_projected=home_total_proj,
                 away_team=away.username,
                 away_team_id=away.id,
@@ -150,10 +219,10 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
                     division_id=away.division_id,
                     division_name=away.division_obj.name if away.division_obj else None,
                 ),
-                away_score=game.away_score,
+                away_score=float(game.away_score or 0.0),
                 away_projected=away_total_proj,
                 is_completed=game.is_completed,
-                game_status=game.game_status,
+                game_status=game.game_status or "NOT_STARTED",
                 label=label,
                 date_range=date_str,
                 division_context=DivisionContext(
@@ -180,10 +249,23 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
     home = db.query(models.User).filter(models.User.id == game.home_team_id).first()
     away = db.query(models.User).filter(models.User.id == game.away_team_id).first()
     label, date_str = get_week_info(game.week)
+    season_year = _resolve_season_year(db, game.league_id)
 
     # Fetch Real Rosters
-    home_roster = get_team_starters(db, home.id)
-    away_roster = get_team_starters(db, away.id)
+    home_roster = get_team_starters(
+        db,
+        home.id,
+        league_id=game.league_id,
+        season=season_year,
+        week=game.week,
+    )
+    away_roster = get_team_starters(
+        db,
+        away.id,
+        league_id=game.league_id,
+        season=season_year,
+        week=game.week,
+    )
 
     # Recalculate Totals based on Roster (Optional polish)
     home_total_proj = sum(p.projected for p in home_roster)
@@ -204,7 +286,7 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
             division_id=home.division_id,
             division_name=home.division_obj.name if home.division_obj else None,
         ),
-        home_score=game.home_score,
+        home_score=float(game.home_score or 0.0),
         home_projected=home_total_proj, # Use sum of players
         home_roster=home_roster,        # <--- Sending Roster
         
@@ -220,12 +302,12 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
             division_id=away.division_id,
             division_name=away.division_obj.name if away.division_obj else None,
         ),
-        away_score=game.away_score,
+        away_score=float(game.away_score or 0.0),
         away_projected=away_total_proj, # Use sum of players
         away_roster=away_roster,        # <--- Sending Roster
         
         is_completed=game.is_completed,
-        game_status=game.game_status,
+        game_status=game.game_status or "NOT_STARTED",
         label=label,
         date_range=date_str,
         division_context=DivisionContext(

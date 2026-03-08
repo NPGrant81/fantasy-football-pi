@@ -335,7 +335,9 @@ export default function ManageDivisions() {
               disabled={!enabled}
               onChange={(e) => setAssignmentMethod(e.target.value)}
             >
-              <option value="manual">Manual</option>
+              <option value="manual" disabled>
+                Manual (coming soon)
+              </option>
               <option value="random">Random (seeded)</option>
               <option value="heuristic">Heuristic (deterministic)</option>
             </select>

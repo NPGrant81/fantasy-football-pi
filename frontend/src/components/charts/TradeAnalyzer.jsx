@@ -53,7 +53,9 @@ export default function TradeAnalyzer() {
         const res = await apiClient.get(`/analytics/roster-strength`, {
           params: { league_id: leagueId, owner_id: ownerId },
         });
-        const counts = res.data[ownerId] || {};
+        const payload = res.data;
+        const rows = payload && payload.rows ? payload.rows : payload;
+        const counts = rows?.[ownerId] || {};
         setter(counts);
       } catch (err) {
         console.error(err);

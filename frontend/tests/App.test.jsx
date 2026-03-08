@@ -135,7 +135,35 @@ describe('App (basic)', () => {
     // Verify league ID from form input is saved (not from server response)
     await waitFor(() => {
       expect(localStorage.getItem('fantasyLeagueId')).toBe('5');
+      // Verify fantasyToken is set so auth persists across refresh
+      expect(localStorage.getItem('fantasyToken')).toBe('cookie-session');
     });
+  });
+
+  test('logout clears fantasyToken so auth check is not re-triggered', async () => {
+    localStorage.setItem('fantasyToken', 'cookie-session');
+    localStorage.setItem('fantasyLeagueId', '1');
+    localStorage.setItem('user_id', '7');
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me')
+        return Promise.resolve({ data: { user_id: 7, username: 'alice' } });
+      return Promise.resolve({ data: {} });
+    });
+    apiClient.post.mockResolvedValue({});
+
+    render(<App />);
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+    expect(screen.getByTestId('layout')).toBeInTheDocument();
+
+    // Trigger logout via the captured Layout prop
+    capturedLayoutProps.onLogout();
+
+    await waitFor(() => {
+      expect(localStorage.getItem('fantasyToken')).toBeNull();
+      expect(localStorage.getItem('user_id')).toBeNull();
+      expect(localStorage.getItem('fantasyLeagueId')).toBeNull();
+    });
+    expect(screen.getByText(/FantasyFootball-PI Login/i)).toBeInTheDocument();
   });
 
   test('visiting /playoffs renders playoff bracket', async () => {
