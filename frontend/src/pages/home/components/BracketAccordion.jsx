@@ -20,6 +20,14 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     return String(token).replaceAll('_', ' ');
   };
 
+  const hasConsolation = Boolean(bracket?.seeding_policy?.playoff_consolation);
+
+  useEffect(() => {
+    if (view === 'consolation' && !hasConsolation) {
+      setView('championship');
+    }
+  }, [view, hasConsolation]);
+
   const renderTeamLine = ({
     teamId,
     seed,
@@ -191,7 +199,7 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     );
   };
 
-  const renderMatches = (matches) => {
+  const renderMatches = (matches, bracketType = 'championship') => {
     if (!matches || !Array.isArray(matches)) return null;
     const grouped = matches.reduce((acc, match) => {
       const key = String(match.round || 1);
@@ -202,13 +210,16 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     const roundKeys = Object.keys(grouped)
       .map((r) => Number(r))
       .sort((a, b) => a - b);
+    const roundLabels = bracket?.seeding_policy?.round_labels?.[bracketType] || {};
 
     return (
       <div className="overflow-x-auto">
         <div className="flex gap-4 pb-2 min-w-max">
           {roundKeys.map((roundNum) => (
             <div key={roundNum} className="min-w-[250px]">
-              <div className="mb-2 text-xs uppercase tracking-wider text-slate-400">Round {roundNum}</div>
+              <div className="mb-2 text-xs uppercase tracking-wider text-slate-400">
+                {roundLabels[String(roundNum)] || `Round ${roundNum}`}
+              </div>
               {grouped[String(roundNum)].map((match) => renderMatchCard(match))}
             </div>
           ))}
@@ -294,7 +305,9 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
                 onChange={(e) => setView(e.target.value)}
               >
                 <option value="championship">Champion</option>
-                <option value="consolation">Toilet Bowl</option>
+                {hasConsolation ? (
+                  <option value="consolation">Toilet Bowl</option>
+                ) : null}
               </select>
             </div>
             <h3 className="text-sm text-slate-400 mb-2 uppercase">
@@ -314,7 +327,8 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
               {renderMatches(
                 view === 'championship'
                   ? bracket.championship
-                  : bracket.consolation
+                  : bracket.consolation,
+                view
               )}
             </div>
           </div>

@@ -72,6 +72,51 @@ def _effective_playoff_qualifiers(configured: int, owner_count: int) -> int:
     return desired
 
 
+def _build_round_labels(
+    championship_matches: List[Dict[str, Any]],
+    consolation_matches: List[Dict[str, Any]],
+    qualifiers: int,
+) -> Dict[str, Dict[str, str]]:
+    """Build user-friendly labels for rounds currently present in payload."""
+    championship_rounds = sorted(
+        {int(m.get("round") or 1) for m in championship_matches}
+    )
+    consolation_rounds = sorted(
+        {int(m.get("round") or 1) for m in consolation_matches}
+    )
+
+    championship_labels: Dict[str, str] = {}
+    if championship_rounds:
+        for index, round_num in enumerate(championship_rounds, start=1):
+            rounds_remaining = len(championship_rounds) - index + 1
+            if rounds_remaining == 1:
+                label = "Championship Final"
+            elif rounds_remaining == 2:
+                label = "Semifinal"
+            elif qualifiers == 6 and index == 1:
+                label = "Wildcard Round"
+            elif rounds_remaining == 3:
+                label = "Quarterfinal"
+            else:
+                label = f"Round {round_num}"
+            championship_labels[str(round_num)] = label
+
+    consolation_labels: Dict[str, str] = {}
+    if consolation_rounds:
+        for index, round_num in enumerate(consolation_rounds, start=1):
+            rounds_remaining = len(consolation_rounds) - index + 1
+            if rounds_remaining == 1:
+                label = "Toilet Bowl Final"
+            else:
+                label = f"Consolation Round {index}"
+            consolation_labels[str(round_num)] = label
+
+    return {
+        "championship": championship_labels,
+        "consolation": consolation_labels,
+    }
+
+
 def _division_winner_owner_ids(owners_data: List[Dict[str, Any]]) -> set[int]:
     winners: set[int] = set()
     grouped: dict[int, List[Dict[str, Any]]] = {}
@@ -356,6 +401,11 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
             "playoff_qualifiers": effective_qualifiers,
             "playoff_reseed": settings.playoff_reseed,
             "playoff_consolation": bool(settings.playoff_consolation),
+            "round_labels": _build_round_labels(
+                bracket.get("championship", []),
+                consolation,
+                effective_qualifiers,
+            ),
         },
         "meta": {
             "league_id": req.league_id,
@@ -510,6 +560,7 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
             "playoff_qualifiers": effective_qualifiers,
             "playoff_reseed": settings.playoff_reseed,
             "playoff_consolation": settings.playoff_consolation,
+            "round_labels": _build_round_labels(champ, consolation, effective_qualifiers),
         },
         "meta": {
             "league_id": league_id,

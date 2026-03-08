@@ -43,6 +43,13 @@ describe('PlayoffBracket page', () => {
         },
       ],
       consolation: [],
+      seeding_policy: {
+        playoff_consolation: true,
+        round_labels: {
+          championship: { '1': 'Wildcard Round' },
+          consolation: {},
+        },
+      },
     };
 
     apiClient.get.mockImplementation((url) => {
@@ -90,6 +97,7 @@ describe('PlayoffBracket page', () => {
     await waitFor(() => {
       expect(screen.getByText(/m1/)).toBeInTheDocument();
     });
+    expect(screen.getByText(/Wildcard Round/i)).toBeInTheDocument();
   });
 
   test('handles seasons endpoint wrapped in object', async () => {
@@ -116,5 +124,55 @@ describe('PlayoffBracket page', () => {
     screen.getByRole('button', { name: /See Historical/i }).click();
     // make sure selector shows the one season
     expect(await screen.findByDisplayValue('2024')).toBeInTheDocument();
+  });
+
+  test('hides toilet bowl view when consolation is disabled', async () => {
+    const bracketData = {
+      championship: [
+        {
+          match_id: 'm1',
+          round: 1,
+          is_bye: false,
+          team_1_id: 1,
+          team_2_id: 2,
+          winner_to: 'r2_m1',
+        },
+      ],
+      consolation: [],
+      seeding_policy: {
+        playoff_consolation: false,
+        round_labels: {
+          championship: { '1': 'Semifinal' },
+          consolation: {},
+        },
+      },
+    };
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url.startsWith('/playoffs/seasons')) {
+        return Promise.resolve({ data: [2026] });
+      }
+      if (url.startsWith('/playoffs/bracket')) {
+        return Promise.resolve({ data: bracketData });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+    apiClient.post.mockResolvedValue({ data: { ok: true } });
+
+    render(
+      <PlayoffBracket username="alice" leagueId={1} setSubHeader={() => {}} />
+    );
+
+    const matches = screen.getAllByText(/Playoff Bracket/i);
+    matches[1].click();
+
+    await waitFor(() => {
+      expect(screen.getByText(/m1/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Semifinal/i)).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Toilet Bowl/i })).not.toBeInTheDocument();
   });
 });
