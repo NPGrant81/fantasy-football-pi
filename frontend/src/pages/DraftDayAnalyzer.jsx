@@ -3,6 +3,7 @@ import apiClient from '@api/client';
 import PlayerInsightCard from '@components/draft/insights/PlayerInsightCard';
 import OwnerStrategyPanel from '@components/draft/insights/OwnerStrategyPanel';
 import DraftDynamicsPanel from '@components/draft/insights/DraftDynamicsPanel';
+import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
 import {
   POSITION_CAPS,
   STRATEGY_MAX_SPEND_SHARE,
@@ -16,7 +17,12 @@ import {
   pageShell,
   pageSubtitle,
   pageTitle,
+  modalCloseButton,
+  modalOverlay,
+  modalSurface,
+  modalTitle,
 } from '@utils/uiStandards';
+import { FiX } from 'react-icons/fi';
 
 const POSITION_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 const SORTABLE_COLUMNS = ['name', 'team', 'position', 'value', 'confidence'];
@@ -108,6 +114,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
   const [historicalRankings, setHistoricalRankings] = useState([]);
   const [rankingsLoading, setRankingsLoading] = useState(false);
+  const [rankingsError, setRankingsError] = useState('');
 
   const initialUi = useMemo(() => loadUiState(), []);
   const [selectedPlayerId, setSelectedPlayerId] = useState(
@@ -132,6 +139,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const [simulationLoading, setSimulationLoading] = useState(false);
   const [simulationError, setSimulationError] = useState('');
   const [simulationResult, setSimulationResult] = useState(null);
+
+  const [showPlayerInfoCard, setShowPlayerInfoCard] = useState(false);
+  const [playerInfoLoading, setPlayerInfoLoading] = useState(false);
+  const [playerInfoError, setPlayerInfoError] = useState('');
+  const [playerInfoSeason, setPlayerInfoSeason] = useState(null);
 
   const [advisorMessage, setAdvisorMessage] = useState(null);
   const [advisorError, setAdvisorError] = useState('');
@@ -222,9 +234,16 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     apiClient
       .get(`/draft/rankings?${params.toString()}`)
       .then((res) => {
+        setRankingsError('');
         setHistoricalRankings(Array.isArray(res.data) ? res.data : []);
       })
-      .catch(() => setHistoricalRankings([]))
+      .catch((error) => {
+        setHistoricalRankings([]);
+        setRankingsError(
+          error?.response?.data?.detail ||
+            'Unable to load historical rankings right now.'
+        );
+      })
       .finally(() => setRankingsLoading(false));
   }, [activeLeagueId, activeOwnerId, rankingSeason]);
 
@@ -276,8 +295,14 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           name: player.name || 'Unknown',
           team: player.nfl_team || '-',
           position: normalizePos(player.position),
-          value: parseNumber(ranking?.predicted_auction_value, 0),
-          confidence: parseNumber(ranking?.confidence_score, 0),
+          value:
+            ranking?.predicted_auction_value == null
+              ? null
+              : parseNumber(ranking.predicted_auction_value, 0),
+          confidence:
+            ranking?.confidence_score == null
+              ? null
+              : parseNumber(ranking.confidence_score, 0),
           recommendation: ranking || null,
         };
       });
@@ -300,16 +325,26 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
   const sortedPlayers = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1;
-    const rows = [...filteredPlayers];
+    const rows = filteredPlayers.map((row, index) => ({ ...row, _stableIndex: index }));
     rows.sort((left, right) => {
       const a = left[sortColumn];
       const b = right[sortColumn];
       if (typeof a === 'number' && typeof b === 'number') {
-        return (a - b) * direction;
+        const primary = (a - b) * direction;
+        if (primary !== 0) return primary;
+      } else if (a == null && b != null) {
+        return 1;
+      } else if (a != null && b == null) {
+        return -1;
+      } else {
+        const primary = String(a || '').localeCompare(String(b || '')) * direction;
+        if (primary !== 0) return primary;
       }
-      return String(a || '').localeCompare(String(b || '')) * direction;
+      const byName = String(left.name || '').localeCompare(String(right.name || ''));
+      if (byName !== 0) return byName;
+      return left._stableIndex - right._stableIndex;
     });
-    return rows;
+    return rows.map(({ _stableIndex, ...row }) => row);
   }, [filteredPlayers, sortColumn, sortDirection]);
 
   useEffect(() => {
@@ -376,7 +411,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   ]);
 
   const fallbackInsightRecommendation = useMemo(() => {
-    if (!selectedPlayer) return null;
+    if (!selectedPlayer || selectedPlayer.value == null) return null;
 
     const impliedRisk = Math.max(5, Math.min(95, 100 - parseNumber(selectedPlayer.confidence, 0)));
     const baseValue = parseNumber(selectedPlayer.value, 0);
@@ -668,7 +703,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       const detail =
         error?.response?.data?.detail || 'Simulation failed. Please try again.';
       setSimulationError(detail);
-      openDrawer('Simulation Error', { detail });
     } finally {
       setSimulationLoading(false);
     }
@@ -680,6 +714,32 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     owners.length,
     openDrawer,
   ]);
+
+  const openPlayerInfo = useCallback(
+    async (player) => {
+      setSelectedPlayerId(player.id);
+      setShowPlayerInfoCard(true);
+      setPlayerInfoLoading(true);
+      setPlayerInfoError('');
+      setPlayerInfoSeason(null);
+
+      try {
+        const response = await apiClient.get(
+          `/players/${player.id}/season-details?season=${rankingSeason}`
+        );
+        setPlayerInfoSeason(response?.data || null);
+      } catch (error) {
+        setPlayerInfoSeason(null);
+        setPlayerInfoError(
+          error?.response?.data?.detail ||
+            'Unable to load player details right now.'
+        );
+      } finally {
+        setPlayerInfoLoading(false);
+      }
+    },
+    [rankingSeason]
+  );
 
   const callAdvisorAction = useCallback(
     async (action) => {
@@ -854,7 +914,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                 <button
                   key={player.id}
                   type="button"
-                  onClick={() => setSelectedPlayerId(player.id)}
+                  onClick={() => openPlayerInfo(player)}
                   className={`grid w-full grid-cols-12 px-3 py-2 text-left text-sm transition ${
                     selected
                       ? 'bg-cyan-950/30 text-cyan-200'
@@ -866,15 +926,26 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   <span className="col-span-2 truncate text-slate-400">{player.team}</span>
                   <span className="col-span-2 font-bold">{player.position}</span>
                   <span className="col-span-2 text-right text-emerald-300">
-                    {player.value.toFixed(1)}
+                    {player.value == null
+                      ? rankingSeasonOffset === 0
+                        ? 'Pending data update'
+                        : 'No data'
+                      : player.value.toFixed(1)}
                   </span>
                   <span className="col-span-2 text-right text-indigo-300">
-                    {player.confidence.toFixed(1)}
+                    {player.confidence == null
+                      ? '--'
+                      : `${player.confidence.toFixed(1)}%`}
                   </span>
                 </button>
               );
             })}
             <div style={{ height: `${virtualMeta.bottomPad}px` }} />
+            {!sortedPlayers.length ? (
+              <div className="px-3 py-6 text-center text-sm text-slate-400">
+                No players found.
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -919,6 +990,12 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
         {rankingsLoading ? (
           <div className="text-xs text-slate-400">Loading rankings...</div>
+        ) : rankingsError ? (
+          <div className="text-xs text-rose-300">{rankingsError}</div>
+        ) : availableHistoricalRankings.length === 0 ? (
+          <div className="text-xs text-slate-400">
+            No rankings data available for season {rankingSeason}.
+          </div>
         ) : (
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {availableHistoricalRankings.slice(0, 18).map((entry) => (
@@ -1067,6 +1144,88 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           <div className="text-slate-500">No details loaded yet.</div>
         )}
       </Drawer>
+
+      {showPlayerInfoCard ? (
+        <div className={`${modalOverlay} pointer-events-none`}>
+          <div className={`${modalSurface} pointer-events-auto max-w-3xl p-6`}>
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className={`${modalTitle} mb-0 w-full justify-center text-center`}>
+                Player Info Card
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPlayerInfoCard(false)}
+                className={modalCloseButton}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {playerInfoLoading ? (
+              <div className="py-10 text-center text-slate-400 animate-pulse">
+                Loading player details...
+              </div>
+            ) : playerInfoError ? (
+              <div className="rounded-md border border-rose-900 bg-rose-950/30 p-3 text-sm text-rose-300">
+                {playerInfoError}
+              </div>
+            ) : selectedPlayer ? (
+              <div className="space-y-4">
+                <PlayerIdentityCard
+                  playerName={playerInfoSeason?.player_name || selectedPlayer.name}
+                  position={playerInfoSeason?.position || selectedPlayer.position}
+                  nflTeam={playerInfoSeason?.nfl_team || selectedPlayer.team}
+                  headshotUrl={playerInfoSeason?.headshot_url || ''}
+                />
+
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">Season</div>
+                    <div className="text-lg font-black text-slate-100">{rankingSeason}</div>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">Value</div>
+                    <div className="text-lg font-black text-emerald-300">
+                      {selectedPlayer.value == null
+                        ? rankingSeasonOffset === 0
+                          ? 'Pending'
+                          : 'N/A'
+                        : `$${Number(selectedPlayer.value).toFixed(1)}`}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">Confidence</div>
+                    <div className="text-lg font-black text-indigo-300">
+                      {selectedPlayer.confidence == null
+                        ? '--'
+                        : `${Number(selectedPlayer.confidence).toFixed(1)}%`}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+                    <div className="text-[10px] uppercase text-slate-500">Tier</div>
+                    <div className="text-lg font-black text-cyan-300">
+                      {selectedPlayer.recommendation?.consensus_tier || '--'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-300">
+                  <div className="mb-1 text-slate-500">Valuation Details</div>
+                  <div>Final Score: {Number(selectedPlayer.recommendation?.final_score || 0).toFixed(2)}</div>
+                  <div>
+                    Predicted Auction Value: ${Number(selectedPlayer.recommendation?.predicted_auction_value || 0).toFixed(2)}
+                  </div>
+                  <div>
+                    Value Over Replacement: {Number(selectedPlayer.recommendation?.value_over_replacement || 0).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-slate-500">No player selected.</div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
