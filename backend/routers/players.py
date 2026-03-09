@@ -38,6 +38,15 @@ def get_free_agents(
     return player_service.get_league_free_agents(db, current_user.league_id)
 
 
+@router.get("/top-free-agents")
+def get_top_free_agents(
+    league_id: int = Query(...),
+    limit: int = Query(10, ge=1, le=25),
+    db: Session = Depends(get_db),
+):
+    return player_service.get_top_free_agents(db, league_id, limit)
+
+
 @router.get("/{player_id}/season-details")
 def get_player_season_details(
     player_id: int,

@@ -93,3 +93,76 @@ def get_league_free_agents(db: Session, league_id: int):
         models.Player.position.in_(ALLOWED_POSITIONS)
     ).limit(250).all()
     return dedupe_players(rows)[:50]
+
+
+def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
+    owned_ids_query = db.query(models.DraftPick.player_id).filter(
+        models.DraftPick.league_id == league_id
+    )
+
+    rows = db.query(models.Player).filter(
+        ~models.Player.id.in_(owned_ids_query),
+        models.Player.position.in_(ALLOWED_POSITIONS),
+    ).limit(500).all()
+
+    candidates = dedupe_players(rows)
+    if not candidates:
+        return []
+
+    player_ids = [p.id for p in candidates if p.id is not None]
+    claims_by_player: dict[int, int] = {pid: 0 for pid in player_ids}
+    if player_ids:
+        claim_rows = db.query(models.WaiverClaim.player_id).filter(
+            models.WaiverClaim.league_id == league_id,
+            models.WaiverClaim.player_id.in_(player_ids),
+        ).all()
+        for (pid,) in claim_rows:
+            if pid is not None:
+                claims_by_player[pid] = claims_by_player.get(pid, 0) + 1
+
+    ranked = []
+    for player in candidates:
+        projected_points = float(player.projected_points or 0.0)
+        adp_value = float(player.adp or 0.0)
+        adp_component = max(0.0, 200.0 - adp_value)
+        recent_claim_count = int(claims_by_player.get(player.id, 0))
+        claim_component = min(25.0, recent_claim_count * 5.0)
+
+        # Deterministic weighted ranking formula for hot pickups.
+        pickup_score = round(projected_points * 0.65 + adp_component * 0.25 + claim_component * 0.10, 2)
+
+        reasons = []
+        if projected_points >= 140:
+            reasons.append("High projection")
+        if adp_value and adp_value <= 80:
+            reasons.append("Strong ADP")
+        if recent_claim_count >= 2:
+            reasons.append("Waiver momentum")
+        if not reasons:
+            reasons.append("Roster depth")
+
+        ranked.append(
+            {
+                "id": player.id,
+                "name": player.name,
+                "position": player.position,
+                "nfl_team": player.nfl_team,
+                "projected_points": projected_points,
+                "adp": adp_value,
+                "recent_claim_count": recent_claim_count,
+                "pickup_score": pickup_score,
+                "pickup_reasons": reasons[:2],
+            }
+        )
+
+    ranked.sort(
+        key=lambda row: (
+            -row["pickup_score"],
+            -row["recent_claim_count"],
+            -row["projected_points"],
+            row["adp"] if row["adp"] > 0 else 9999,
+            row["name"] or "",
+            row["id"] or 0,
+        )
+    )
+    return ranked[: max(1, min(int(limit or 10), 25))]

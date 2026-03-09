@@ -80,6 +80,7 @@ export default function Home({ username }) {
     return sortAsc ? ' ▲' : ' ▼';
   };
   const [news, setNews] = useState([]);
+  const [topFreeAgents, setTopFreeAgents] = useState([]);
   const [leagueName, setLeagueName] = useState('');
   const leagueId = localStorage.getItem('fantasyLeagueId');
 
@@ -106,6 +107,11 @@ export default function Home({ username }) {
       .get(`/leagues/${leagueId}/news`)
       .then((res) => setNews(res.data))
       .catch(() => setNews([]));
+
+    apiClient
+      .get(`/players/top-free-agents?league_id=${leagueId}&limit=10`)
+      .then((res) => setTopFreeAgents(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setTopFreeAgents([]));
   }, [leagueId]);
   // --- 1.1 CONFIGURATION ---
   // Note: This page currently serves as a static landing.
@@ -269,6 +275,65 @@ export default function Home({ username }) {
             ) : (
               <div className="mt-4 text-center text-xs italic text-slate-500 dark:text-slate-400">
                 End of feed
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={cardSurface}>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Hot Pickups
+            </h2>
+            <Link to="/waivers" className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline">
+              Full Waiver Wire
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {topFreeAgents.length > 0 ? (
+              topFreeAgents.map((player, idx) => (
+                <div
+                  key={player.id}
+                  className="rounded-lg border border-slate-300 dark:border-slate-700 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {idx + 1}. {player.name}
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {player.position || 'N/A'} {player.nfl_team ? `- ${player.nfl_team}` : ''}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Score
+                      </div>
+                      <div className="text-sm font-bold text-cyan-600 dark:text-cyan-300">
+                        {player.pickup_score ?? 0}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(player.pickup_reasons || []).map((reason) => (
+                      <span
+                        key={`${player.id}-${reason}`}
+                        className="rounded-full border border-slate-300 dark:border-slate-600 px-2 py-0.5 text-[11px] text-slate-600 dark:text-slate-300"
+                      >
+                        {reason}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    Claims: {player.recent_claim_count ?? 0} · Proj: {player.projected_points ?? 0} · ADP: {player.adp ?? 0}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs italic text-slate-500 dark:text-slate-400">
+                No pickup candidates yet.
               </div>
             )}
           </div>
