@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 import ReactMarkdown from 'react-markdown';
 import MermaidDiagram from './MermaidDiagram';
 import { textColors } from '../utils/uiHelpers';

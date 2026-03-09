@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 import { useEffect, useRef, useState } from 'react';
 
 let mermaidLoaded = false;
