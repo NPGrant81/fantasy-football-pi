@@ -46,15 +46,15 @@
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
 - **Issue #186**: `Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #186 Close-Out Notes`
 - **Issue #187**: `Improve Bug Report UI to Display GitHub Issue Link and Better Error Handling`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #187 Close-Out Notes`
 - **Issue #188**: `Add Support for Mermaid Diagrams in Markdown (MD) Across the Platform`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics` via merged PR #191 commits
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #188 Close-Out Notes`
 
 ### Issue Hygiene Protocol

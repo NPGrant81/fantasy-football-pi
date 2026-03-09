@@ -9,17 +9,17 @@
 
 - **Issue #186**: `Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Evidence:** `d957f4e` (PAT-first auth + App fallback), `0604b59` (integration coverage)
   - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #186 Close-Out Notes`
 - **Issue #187**: `Improve Bug Report UI to Display GitHub Issue Link and Better Error Handling`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Evidence:** `d957f4e` (success/warning messaging), `8e0b05b` (loading/disable/retry + frontend tests)
   - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #187 Close-Out Notes`
 - **Issue #188**: `Add Support for Mermaid Diagrams in Markdown (MD) Across the Platform`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics` via merged PR #191 commits
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Evidence:** `1fa6eb7` (Mermaid rendering support), `65197ff` (follow-up review hardening)
   - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #188 Close-Out Notes`
 
