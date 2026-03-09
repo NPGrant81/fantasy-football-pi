@@ -363,6 +363,41 @@ describe('Home (League Dashboard)', () => {
     });
   });
 
+  test('renders PF and PA from points_for/points_against fallback fields', async () => {
+    const mockOwners = [
+      {
+        id: 11,
+        username: 'fallback-owner',
+        team_name: 'Fallback Team',
+        wins: 3,
+        losses: 1,
+        ties: 0,
+        points_for: 412.6,
+        points_against: 355.2,
+      },
+    ];
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'L' } });
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: mockOwners });
+      }
+      if (url === '/leagues/1/news') return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderHome('alice');
+
+    await waitFor(() => {
+      expect(screen.getByText('Fallback Team')).toBeInTheDocument();
+    });
+
+    const table = screen.getByRole('table');
+    const scope = within(table);
+    expect(scope.getByText('412.6')).toBeInTheDocument();
+    expect(scope.getByText('355.2')).toBeInTheDocument();
+  });
+
   test('does not fetch data when league ID is missing', () => {
     localStorage.removeItem('fantasyLeagueId');
 

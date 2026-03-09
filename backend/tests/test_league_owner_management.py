@@ -206,6 +206,56 @@ def test_get_league_owners_returns_stats(db_session):
     assert 'division_id' in grouped[0]
 
 
+def test_get_league_owners_ignores_other_league_matchups(db_session):
+    league_one = models.League(name="League One")
+    league_two = models.League(name="League Two")
+    db_session.add_all([league_one, league_two])
+    db_session.commit()
+    db_session.refresh(league_one)
+    db_session.refresh(league_two)
+
+    owner1 = models.User(username="owner1", email=None, hashed_password="h", league_id=league_one.id)
+    owner2 = models.User(username="owner2", email=None, hashed_password="h", league_id=league_one.id)
+    outsider = models.User(username="outsider", email=None, hashed_password="h", league_id=league_two.id)
+    db_session.add_all([owner1, owner2, outsider])
+    db_session.commit()
+    db_session.refresh(owner1)
+    db_session.refresh(owner2)
+    db_session.refresh(outsider)
+
+    # league_one matchup: owner1 beats owner2
+    in_league = models.Matchup(
+        week=1,
+        home_team_id=owner1.id,
+        away_team_id=owner2.id,
+        home_score=101.0,
+        away_score=99.0,
+        is_completed=True,
+        league_id=league_one.id,
+    )
+    # cross-league contamination case: owner1 appears in a league_two matchup
+    other_league = models.Matchup(
+        week=1,
+        home_team_id=owner1.id,
+        away_team_id=outsider.id,
+        home_score=300.0,
+        away_score=10.0,
+        is_completed=True,
+        league_id=league_two.id,
+    )
+    db_session.add_all([in_league, other_league])
+    db_session.commit()
+
+    owners = get_league_owners(league_id=league_one.id, db=db_session)
+    owner1_row = next(o for o in owners if o["id"] == owner1.id)
+
+    # Stats should only reflect league_one matchup data.
+    assert owner1_row["wins"] == 1
+    assert owner1_row["losses"] == 0
+    assert owner1_row["pf"] == 101.0
+    assert owner1_row["pa"] == 99.0
+
+
 def test_update_scoring_rules_storage(db_session):
     # verify that the extended scoring rule fields are saved correctly
     league = models.League(name="ScoreLeague")

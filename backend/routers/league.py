@@ -221,10 +221,11 @@ def get_league_owners(league_id: int = Query(...),
         owner_id = owner.id
         w = l = t = pf = pa = division_wins = 0
         matches = db.query(models.Matchup).filter(
+            models.Matchup.league_id == league_id,
             or_(
                 models.Matchup.home_team_id == owner_id,
                 models.Matchup.away_team_id == owner_id,
-            )
+            ),
         ).all()
         for m in matches:
             # skip not-yet-played
