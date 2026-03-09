@@ -1,5 +1,7 @@
 import React from 'react';
-import apiClient from '@api/client';
+import { fetchCurrentUser } from '@api/commonApi';
+import { fetchPlayerHeatmapAnalytics } from '@api/analyticsApi';
+import { normalizeApiError } from '@api/fetching';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,27 +34,20 @@ const PlayerHeatmap = () => {
   React.useEffect(() => {
     const load = async () => {
       try {
-        const userRes = await apiClient.get('/auth/me');
-        const leagueId = userRes.data?.league_id;
+        const user = await fetchCurrentUser();
+        const leagueId = user?.league_id;
         if (!leagueId) {
           setError('League not found.');
           return;
         }
 
         const season = new Date().getFullYear();
-        const res = await apiClient.get(
-          `/analytics/league/${leagueId}/player-heatmap`,
-          {
-            params: { season, limit: 8, weeks: 8 },
-          }
-        );
-
-        const payload = res.data || {};
+        const payload = (await fetchPlayerHeatmapAnalytics(leagueId, season, 8, 8)) || {};
         setRows(Array.isArray(payload.rows) ? payload.rows : []);
         setWeeks(Array.isArray(payload.week_labels) ? payload.week_labels : []);
       } catch (err) {
         console.error(err);
-        setError(err?.message || 'Failed to load player heatmap data.');
+        setError(normalizeApiError(err, 'Failed to load player heatmap data.'));
       } finally {
         setLoading(false);
       }

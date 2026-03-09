@@ -1,7 +1,27 @@
 # GitHub Issues Status Report
 
-**Date:** February 18, 2026  
-**Branch:** main
+**Date:** March 8, 2026  
+**Branch:** feature/scoring-integration-analytics
+
+---
+
+## Resolved Issue Closure Queue (March 2026)
+
+- **Issue #186**: `Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
+  - **Close-Out Evidence:** `d957f4e` (PAT-first auth + App fallback), `0604b59` (integration coverage)
+  - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #186 Close-Out Notes`
+- **Issue #187**: `Improve Bug Report UI to Display GitHub Issue Link and Better Error Handling`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
+  - **Close-Out Evidence:** `d957f4e` (success/warning messaging), `8e0b05b` (loading/disable/retry + frontend tests)
+  - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #187 Close-Out Notes`
+- **Issue #188**: `Add Support for Mermaid Diagrams in Markdown (MD) Across the Platform`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics` via merged PR #191 commits
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
+  - **Close-Out Evidence:** `1fa6eb7` (Mermaid rendering support), `65197ff` (follow-up review hardening)
+  - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #188 Close-Out Notes`
 
 ---
 
@@ -92,17 +112,17 @@
 
 ### Story 6.2: Playoff Bracket Visualization
 
-- **Status:** ❌ NOT STARTED
+- **Status:** 🔄 PARTIAL (Core delivered, dynamic structure follow-up open)
 - **Priority:** Medium
-- **Notes:** Requires bracket generation and visualization component (bracket-lib, react-bracket)
-- **Complexity:** High - requires tournament logic
+- **Notes:** Baseline bracket, historical mode, and bracket-type UX delivered. Remaining dynamic commissioner-settings behavior is tracked in GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154).
+- **Complexity:** Medium/High - structure mapping across league configurations
 
 ### Story 6.4: Matchup Win Probability
 
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED
 - **Priority:** Medium
-- **Notes:** Requires predictive algorithm based on player projections and health
-- **Complexity:** High - ML/stats heavy
+- **Notes:** Implemented projected win percentage formula and progress bar UX in Matchups + Game Center. Closed via GitHub issue `#24`.
+- **Complexity:** Baseline complete; future refinements can extend model sophistication.
 
 ### Story 7.2: Dark/Light Mode Toggle
 
@@ -113,9 +133,9 @@
 
 ### Story 7.3: Bug Reporting Form
 
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED
 - **Priority:** Low
-- **Notes:** User feedback mechanism for bug reports
+- **Notes:** Users can submit bug or feature reports via `/bug-report`; backend stores entries and opens GitHub issues with PAT-first auth and GitHub App fallback. UI now includes success/warning/error feedback, issue links, loading disablement, and retry action.
 - **Complexity:** Low - form + email/storage
 
 ### Story 1.2: Historical Data Archiving
@@ -176,14 +196,26 @@
 - **Change:** Created comprehensive tracking of feature completion
 - **Impact:** Clear roadmap for remaining work
 
+### 🐞 Bug Report Reliability + UX Hardening
+
+- **Commit(s):** `d957f4e`, `0604b59`, `8e0b05b`
+- **Change:** Added PAT-first GitHub issue auth with App fallback, endpoint-level integration tests, and frontend loading/retry UX coverage.
+- **Impact:** Bug reports now degrade gracefully and provide clearer user outcomes when GitHub issue creation fails.
+
+### 🧩 Mermaid Markdown Rendering
+
+- **Commit(s):** `1fa6eb7`, `65197ff`
+- **Change:** Added Mermaid diagram support in shared markdown rendering paths and follow-up reliability fixes.
+- **Impact:** Platform markdown views can render Mermaid diagrams for richer technical documentation.
+
 ---
 
 ## SUMMARY
 
-- **Total Open Issues:** 21
-- **✅ Fully Completed:** 6 stories (5.1, 2.1-2.3, 4.2-4.4, 5.2-5.4, 3.1, 6)
-- **🔄 Partially Completed:** 2 stories (6.1, 6.3)
-- **❌ Not Started:** 5 stories (6.2, 6.4, 7.2, 7.3, 1.2)
+- **Total Open Issues:** Dynamic; use `gh issue list --state open` for current count.
+- **✅ Fully Completed:** Includes Story `6.4` and Story `7.3`.
+- **🔄 Partially Completed:** Stories `6.1`, `6.2`, `6.3`.
+- **❌ Not Started:** Stories `1.2` and `7.2` remain explicitly not started.
 - **🏗️ Infrastructure:** 3 tasks (0.1 ✅, 0.2 ⏳, 0.3 ⏳)
 
 ---
@@ -201,19 +233,20 @@
 
 ### P2 (Medium Priority)
 
-3. **Story 6.2** - Playoff bracket visualization
-   - Effort: 2-3 days
-   - Impact: Late-season engagement
+3. **Story 6.2 follow-up** - Dynamic commissioner-settings bracket structure
+  - Effort: 2-3 days
+  - Impact: Correct bracket behavior across league formats
+  - Tracking: GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154)
 
-4. **Story 6.4** - Matchup win probability
-   - Effort: 2-3 days
-   - Impact: Strategic decision-making
+4. **Quality hardening sweep** - Edge-case tests and docs governance
+  - Effort: 2-4 days
+  - Impact: Lower regression risk and cleaner contributor pathways
+  - Tracking: GitHub issues [#43](https://github.com/NPGrant81/fantasy-football-pi/issues/43), [#100](https://github.com/NPGrant81/fantasy-football-pi/issues/100), [#155](https://github.com/NPGrant81/fantasy-football-pi/issues/155), [#156](https://github.com/NPGrant81/fantasy-football-pi/issues/156)
 
 ### P3 (Low Priority / Polish)
 
 5. **Story 7.2** - Dark/Light mode toggle
-6. **Story 7.3** - Bug reporting form
-7. **Story 1.2** - Historical data archiving
+6. **Story 1.2** - Historical data archiving
 
 ---
 

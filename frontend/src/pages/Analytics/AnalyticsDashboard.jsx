@@ -10,6 +10,15 @@
 // Add padding and spacing for clean look
 
 import React from 'react';
+import {
+  FiBarChart2,
+  FiTrendingUp,
+  FiUsers,
+  FiActivity,
+  FiGrid,
+  FiShuffle,
+  FiGitBranch,
+} from 'react-icons/fi';
 import DraftValueBoard from '../../components/charts/DraftValueBoard';
 import ManagerTrendChart from '../../components/charts/ManagerTrendChart';
 import ManagerEfficiencyLeaderboard from '../../components/charts/ManagerEfficiencyLeaderboard';
@@ -17,30 +26,69 @@ import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
 import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
 import RivalryGraph from '../../components/charts/RivalryGraph';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   buttonPrimary,
   buttonSecondary,
   cardSurface,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
 
 const AnalyticsDashboard = () => {
   const [selected, setSelected] = React.useState(null); // null, 'draft','manager','weekly','heatmap'
+  const [loadingChart, setLoadingChart] = React.useState(false);
 
   const charts = [
-    { key: 'draft', label: 'Draft Value Analysis' },
-    { key: 'efficiency', label: 'Efficiency Leaderboard' },
-    { key: 'manager', label: 'Manager Performance Trends' },
-    { key: 'weekly', label: 'Weekly Matchup Comparison' },
-    { key: 'heatmap', label: 'Player Heatmap' },
-    { key: 'trade', label: 'Trade Analyzer' },
-    { key: 'rivalry', label: 'League Rivalry Graph' },
+    {
+      key: 'draft',
+      label: 'Draft Value Analysis',
+      description: 'Compare projected output versus draft cost.',
+      icon: FiBarChart2,
+    },
+    {
+      key: 'efficiency',
+      label: 'Efficiency Leaderboard',
+      description: 'Rank managers by lineup efficiency trends.',
+      icon: FiUsers,
+    },
+    {
+      key: 'manager',
+      label: 'Manager Performance Trends',
+      description: 'View weekly actual versus optimal scoring.',
+      icon: FiTrendingUp,
+    },
+    {
+      key: 'weekly',
+      label: 'Weekly Matchup Comparison',
+      description: 'Inspect week-level team scoring distribution.',
+      icon: FiActivity,
+    },
+    {
+      key: 'heatmap',
+      label: 'Player Heatmap',
+      description: 'Scan player-by-week output in a matrix view.',
+      icon: FiGrid,
+    },
+    {
+      key: 'trade',
+      label: 'Trade Analyzer',
+      description: 'Model value exchange and draft-cash balancing.',
+      icon: FiShuffle,
+    },
+    {
+      key: 'rivalry',
+      label: 'League Rivalry Graph',
+      description: 'Visualize manager relationship intensity.',
+      icon: FiGitBranch,
+    },
   ];
+
+  const handleSelectChart = (chartKey) => {
+    setLoadingChart(true);
+    setSelected(chartKey);
+    window.setTimeout(() => setLoadingChart(false), 200);
+  };
 
   const renderChart = () => {
     switch (selected) {
@@ -96,29 +144,36 @@ const AnalyticsDashboard = () => {
   };
 
   return (
-    <div className={pageShell}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>League Analytics</h1>
-        <p className={pageSubtitle}>
-          Advanced insights and visualizations for your fantasy league.
-        </p>
-      </div>
+    <PageTemplate
+      title="League Analytics"
+      subtitle="Advanced insights and visualizations for your fantasy league."
+    >
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {charts.map((chart) => (
           <button
             key={chart.key}
             type="button"
-            className={selected === chart.key ? buttonPrimary : buttonSecondary}
-            onClick={() => setSelected(chart.key)}
+            className={`${selected === chart.key ? buttonPrimary : buttonSecondary} min-h-[88px] flex-col items-start gap-1 text-left`}
+            onClick={() => handleSelectChart(chart.key)}
+            disabled={loadingChart}
           >
-            {chart.label}
+            <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider">
+              <chart.icon /> {chart.label}
+            </span>
+            <span className="text-xs font-medium normal-case opacity-90">{chart.description}</span>
           </button>
         ))}
       </div>
 
-      <div className={cardSurface}>{renderChart()}</div>
-    </div>
+      <div className={cardSurface}>
+        {loadingChart ? (
+          <div className="text-sm text-slate-500">Loading analytics view...</div>
+        ) : (
+          renderChart()
+        )}
+      </div>
+    </PageTemplate>
   );
 };
 

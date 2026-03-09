@@ -191,6 +191,47 @@ describe('Home (League Dashboard)', () => {
     });
   });
 
+  test('renders hot pickups trend and claim metadata when available', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/leagues/1/news') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/players/top-free-agents?league_id=1&limit=10') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 101,
+              name: 'Hot Add',
+              position: 'WR',
+              nfl_team: 'BUF',
+              projected_points: 123.4,
+              pickup_score: 129.5,
+              pickup_tier: 'A',
+              pickup_trend_label: 'Rising',
+              pickup_trend_score: 1.8,
+              recent_claim_count: 3,
+            },
+          ],
+        });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderHome('alice');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Hot Add/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Trend Rising/i)).toBeInTheDocument();
+    expect(screen.getByText(/Claims 3/i)).toBeInTheDocument();
+  });
+
   test('shows "no owners" message when standings are empty', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/leagues/1') {
@@ -306,15 +347,15 @@ describe('Home (League Dashboard)', () => {
     renderHome('alice');
     await waitFor(() => screen.getByText('Alpha'));
 
-    const recordHeader = screen.getByText(/W-L-T/i);
-    // First click sorts ascending: fewer wins first.
+    const recordHeader = screen.getByText('W-L-T');
+    // first click sorts ascending: fewer wins first
     recordHeader.click();
     await waitFor(() => {
       const rowsAsc = screen.getAllByRole('row');
       expect(rowsAsc[1]).toHaveTextContent('Alpha');
     });
 
-    // Second click sorts descending: better record first.
+    // second click toggles descending: better record first
     recordHeader.click();
     await waitFor(() => {
       const rowsDesc = screen.getAllByRole('row');
@@ -355,43 +396,6 @@ describe('Home (League Dashboard)', () => {
     const scope = within(table);
     expect(scope.getByText('412.6')).toBeInTheDocument();
     expect(scope.getByText('355.2')).toBeInTheDocument();
-  });
-
-  test('renders hot pickups with ranking reason tags', async () => {
-    apiClient.get.mockImplementation((url) => {
-      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'L' } });
-      if (url === '/leagues/owners?league_id=1') {
-        return Promise.resolve({ data: [] });
-      }
-      if (url === '/leagues/1/news') return Promise.resolve({ data: [] });
-      if (url === '/players/top-free-agents?league_id=1&limit=10') {
-        return Promise.resolve({
-          data: [
-            {
-              id: 99,
-              name: 'Hot Pickup',
-              position: 'WR',
-              nfl_team: 'BUF',
-              pickup_score: 144.2,
-              projected_points: 171.0,
-              adp: 42.0,
-              recent_claim_count: 3,
-              pickup_reasons: ['High projection', 'Waiver momentum'],
-            },
-          ],
-        });
-      }
-      return Promise.reject(new Error('Unknown URL'));
-    });
-
-    renderHome('alice');
-
-    await waitFor(() => {
-      expect(screen.getByText(/Hot Pickup/i)).toBeInTheDocument();
-    });
-    expect(screen.getByText(/High projection/i)).toBeInTheDocument();
-    expect(screen.getByText(/Waiver momentum/i)).toBeInTheDocument();
-    expect(screen.getByText(/Claims: 3/i)).toBeInTheDocument();
   });
 
   test('does not fetch data when league ID is missing', () => {

@@ -1,7 +1,9 @@
 // Manager trend analysis line chart backed by analytics API weekly stats.
 
 import React from 'react';
-import apiClient from '@api/client';
+import { fetchCurrentUser } from '@api/commonApi';
+import { fetchManagerWeeklyStats, resolveRows } from '@api/analyticsApi';
+import { normalizeApiError } from '@api/fetching';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -39,27 +41,19 @@ const ManagerTrendChart = () => {
   React.useEffect(() => {
     const load = async () => {
       try {
-        const userRes = await apiClient.get('/auth/me');
-        const leagueId = userRes.data?.league_id;
-        const managerId = userRes.data?.user_id;
+        const user = await fetchCurrentUser();
+        const leagueId = user?.league_id;
+        const managerId = user?.id || user?.user_id;
         if (!leagueId || !managerId) {
           setError('Unable to determine league or user');
           setLoading(false);
           return;
         }
-        const res = await apiClient.get(
-          `/analytics/league/${leagueId}/weekly-stats`,
-          { params: { manager_id: managerId } }
-        );
-        const payload = res.data;
-        if (payload && !Array.isArray(payload) && Array.isArray(payload.rows)) {
-          setStats(payload.rows);
-        } else {
-          setStats(payload || []);
-        }
+        const payload = await fetchManagerWeeklyStats(leagueId, managerId);
+        setStats(resolveRows(payload));
       } catch (err) {
         console.error(err);
-        setError(err.message || 'Failed to load stats');
+        setError(normalizeApiError(err, 'Failed to load stats'));
       } finally {
         setLoading(false);
       }

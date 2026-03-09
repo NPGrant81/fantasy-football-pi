@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import apiClient from '@api/client';
+import { normalizeApiError } from '@api/fetching';
 import {
   buttonDanger,
   buttonPrimary,
@@ -14,6 +15,24 @@ import {
   tableSurface,
 } from '@utils/uiStandards';
 
+const POSITION_OPTIONS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+
+const CALCULATION_TYPES = [
+  { value: 'flat_bonus', label: 'Flat Bonus', help: 'Adds/subtracts a fixed value when event condition is met.' },
+  { value: 'per_unit', label: 'Per Unit', help: 'Multiplies stat amount by point value (e.g., passing yards * 0.04).' },
+  { value: 'decimal', label: 'Decimal', help: 'Variant of per-unit scoring that allows fractional granularity.' },
+  { value: 'ppr', label: 'PPR', help: 'Adds points per reception (full point per reception).' },
+  { value: 'half_ppr', label: 'Half-PPR', help: 'Adds half-point per reception.' },
+  { value: 'tiered', label: 'Tiered Range', help: 'Applies scoring by ranges using min/max bounds.' },
+];
+
+const SOURCE_OPTIONS = [
+  { value: 'custom', label: 'Custom Rule Set (manual)' },
+  { value: 'template', label: 'Template Applied Rule' },
+  { value: 'imported', label: 'CSV Imported Rule' },
+  { value: 'system', label: 'System Default Rule' },
+];
+
 const defaultRule = {
   category: '',
   event_name: '',
@@ -22,7 +41,7 @@ const defaultRule = {
   range_max: '',
   point_value: '',
   calculation_type: 'flat_bonus',
-  applicable_positions: '',
+  applicable_positions: ['ALL'],
   season_year: '',
   source: 'custom',
 };
@@ -34,29 +53,17 @@ const defaultSimulatorStats = `{
   "receptions": 0
 }`;
 
-function parsePositions(value) {
-  return String(value || '')
-    .split(',')
-    .map((part) => part.trim().toUpperCase())
-    .filter(Boolean);
-}
-
-function toNumberOrZero(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function toNumberOrNull(value) {
   if (value === '' || value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function getErrorMessage(error, fallback) {
-  return error?.response?.data?.detail || fallback;
-}
-
 function normalizeRuleForForm(rule) {
+  const positions = Array.isArray(rule.applicable_positions) && rule.applicable_positions.length
+    ? rule.applicable_positions
+    : ['ALL'];
+
   return {
     category: rule.category || '',
     event_name: rule.event_name || '',
@@ -65,26 +72,67 @@ function normalizeRuleForForm(rule) {
     range_max: rule.range_max ?? '',
     point_value: rule.point_value ?? '',
     calculation_type: rule.calculation_type || 'flat_bonus',
-    applicable_positions: Array.isArray(rule.applicable_positions)
-      ? rule.applicable_positions.join(', ')
-      : '',
+    applicable_positions: positions,
     season_year: rule.season_year ?? '',
     source: rule.source || 'custom',
   };
 }
 
+function validateRuleForm(form) {
+  const errors = {};
+  if (!String(form.category || '').trim()) {
+    errors.category = 'Category is required.';
+  }
+  if (!String(form.event_name || '').trim()) {
+    errors.event_name = 'Event name is required.';
+  }
+  if (form.point_value === '' || form.point_value === null || form.point_value === undefined) {
+    errors.point_value = 'Point value is required.';
+  } else if (!Number.isFinite(Number(form.point_value))) {
+    errors.point_value = 'Point value must be numeric.';
+  }
+
+  if (form.range_min !== '' && !Number.isFinite(Number(form.range_min))) {
+    errors.range_min = 'Min must be numeric.';
+  }
+  if (form.range_max !== '' && !Number.isFinite(Number(form.range_max))) {
+    errors.range_max = 'Max must be numeric.';
+  }
+  if (
+    form.range_min !== '' &&
+    form.range_max !== '' &&
+    Number.isFinite(Number(form.range_min)) &&
+    Number.isFinite(Number(form.range_max)) &&
+    Number(form.range_min) > Number(form.range_max)
+  ) {
+    errors.range_max = 'Max must be greater than or equal to min.';
+  }
+
+  if (form.season_year !== '' && !Number.isInteger(Number(form.season_year))) {
+    errors.season_year = 'Season year must be a whole number.';
+  }
+
+  return errors;
+}
+
 function buildRulePayload(form) {
-  const rangeMin = toNumberOrNull(form.range_min);
-  const rangeMax = toNumberOrNull(form.range_max);
+  const selectedPositions = Array.isArray(form.applicable_positions)
+    ? form.applicable_positions
+    : [];
+
+  const normalizedPositions = selectedPositions.includes('ALL')
+    ? []
+    : selectedPositions;
+
   return {
     category: String(form.category).trim(),
     event_name: String(form.event_name).trim(),
     description: String(form.description || '').trim() || null,
-    ...(rangeMin !== null && { range_min: rangeMin }),
-    ...(rangeMax !== null && { range_max: rangeMax }),
-    point_value: toNumberOrZero(form.point_value),
+    ...(toNumberOrNull(form.range_min) !== null && { range_min: Number(form.range_min) }),
+    ...(toNumberOrNull(form.range_max) !== null && { range_max: Number(form.range_max) }),
+    point_value: Number(form.point_value),
     calculation_type: String(form.calculation_type || 'flat_bonus').trim(),
-    applicable_positions: parsePositions(form.applicable_positions),
+    applicable_positions: normalizedPositions,
     position_ids: [],
     season_year: form.season_year === '' ? null : Number(form.season_year),
     source: String(form.source || 'custom').trim() || 'custom',
@@ -96,6 +144,7 @@ export default function ManageScoringRules() {
   const [rules, setRules] = useState([]);
   const [form, setForm] = useState(defaultRule);
   const [editingRuleId, setEditingRuleId] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -112,6 +161,19 @@ export default function ManageScoringRules() {
   const [recalcSeason, setRecalcSeason] = useState(new Date().getFullYear());
   const [recalcWeek, setRecalcWeek] = useState(1);
   const [recalcBusy, setRecalcBusy] = useState(false);
+
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvPreview, setCsvPreview] = useState([]);
+  const [csvPreviewLoading, setCsvPreviewLoading] = useState(false);
+  const [csvApplyLoading, setCsvApplyLoading] = useState(false);
+  const [csvError, setCsvError] = useState('');
+  const [csvReplaceExisting, setCsvReplaceExisting] = useState(false);
+  const [csvSeasonYear, setCsvSeasonYear] = useState('');
+
+  const selectedCalculationType = useMemo(
+    () => CALCULATION_TYPES.find((type) => type.value === form.calculation_type),
+    [form.calculation_type]
+  );
 
   const ruleCountLabel = useMemo(() => {
     if (!rules.length) return 'No rules loaded';
@@ -131,7 +193,7 @@ export default function ManageScoringRules() {
       const response = await apiClient.get(`/scoring/rules?${params.toString()}`);
       setRules(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to load scoring rules.'));
+      setError(normalizeApiError(err, 'Failed to load scoring rules.'));
     } finally {
       setLoading(false);
     }
@@ -144,6 +206,7 @@ export default function ManageScoringRules() {
   const resetForm = () => {
     setForm(defaultRule);
     setEditingRuleId(null);
+    setFieldErrors({});
   };
 
   const onFormChange = (event) => {
@@ -151,22 +214,37 @@ export default function ManageScoringRules() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const togglePosition = (position) => {
+    setForm((prev) => {
+      const selected = new Set(prev.applicable_positions || []);
+      if (position === 'ALL') {
+        return { ...prev, applicable_positions: ['ALL'] };
+      }
+
+      selected.delete('ALL');
+      if (selected.has(position)) {
+        selected.delete(position);
+      } else {
+        selected.add(position);
+      }
+
+      if (!selected.size) {
+        selected.add('ALL');
+      }
+
+      return { ...prev, applicable_positions: Array.from(selected) };
+    });
+  };
+
   const onSubmit = async (event) => {
     event.preventDefault();
     setMessage('');
     setError('');
 
-    if (!form.category || !form.event_name || form.point_value === '') {
-      setError('Category, event name, and point value are required.');
-      return;
-    }
-
-    if (
-      form.range_min !== '' &&
-      form.range_max !== '' &&
-      Number(form.range_min) > Number(form.range_max)
-    ) {
-      setError('Range min must be less than or equal to max.');
+    const validationErrors = validateRuleForm(form);
+    setFieldErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
+      setError('Please resolve required and invalid fields before saving.');
       return;
     }
 
@@ -184,7 +262,7 @@ export default function ManageScoringRules() {
       resetForm();
       await fetchRules();
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to save scoring rule.'));
+      setError(normalizeApiError(err, 'Unable to save scoring rule.'));
     } finally {
       setSubmitting(false);
     }
@@ -193,6 +271,7 @@ export default function ManageScoringRules() {
   const onEdit = (rule) => {
     setEditingRuleId(rule.id);
     setForm(normalizeRuleForForm(rule));
+    setFieldErrors({});
     setMessage('');
     setError('');
   };
@@ -208,8 +287,16 @@ export default function ManageScoringRules() {
       setMessage('Scoring rule deactivated.');
       await fetchRules();
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to deactivate scoring rule.'));
+      setError(normalizeApiError(err, 'Unable to deactivate scoring rule.'));
     }
+  };
+
+  const parseSimulatorPayload = () => {
+    const parsed = JSON.parse(simStatsText);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Stats payload must be a JSON object.');
+    }
+    return parsed;
   };
 
   const onRunPreview = async () => {
@@ -218,10 +305,7 @@ export default function ManageScoringRules() {
     let parsedStats;
 
     try {
-      parsedStats = JSON.parse(simStatsText);
-      if (!parsedStats || typeof parsedStats !== 'object' || Array.isArray(parsedStats)) {
-        throw new Error('Stats must be a JSON object.');
-      }
+      parsedStats = parseSimulatorPayload();
     } catch (err) {
       setSimError(err.message || 'Invalid JSON payload for simulator stats.');
       return;
@@ -237,7 +321,7 @@ export default function ManageScoringRules() {
       const response = await apiClient.post('/scoring/calculate/player-preview', payload);
       setSimResult(response.data || null);
     } catch (err) {
-      setSimError(getErrorMessage(err, 'Unable to run scoring preview.'));
+      setSimError(normalizeApiError(err, 'Unable to run scoring preview.'));
     } finally {
       setSimLoading(false);
     }
@@ -260,10 +344,70 @@ export default function ManageScoringRules() {
         `Week ${recalcWeek} recalculated for ${response?.data?.recalculated_matchups ?? 0} matchup(s).`
       );
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to recalculate week scoring.'));
+      setError(normalizeApiError(err, 'Unable to recalculate week scoring.'));
     } finally {
       setRecalcBusy(false);
     }
+  };
+
+  const readCsvFileText = async () => {
+    if (!csvFile) {
+      throw new Error('Please choose a CSV file before preview/apply.');
+    }
+    const text = await csvFile.text();
+    if (!text.trim()) {
+      throw new Error('Selected CSV file is empty.');
+    }
+    return text;
+  };
+
+  const onPreviewCsvImport = async () => {
+    setCsvError('');
+    setCsvPreview([]);
+    setCsvPreviewLoading(true);
+    try {
+      const csvContent = await readCsvFileText();
+      const payload = {
+        csv_content: csvContent,
+        season_year: csvSeasonYear === '' ? null : Number(csvSeasonYear),
+        source_platform: 'imported',
+      };
+      const response = await apiClient.post('/scoring/import/preview', payload);
+      const previewRules = Array.isArray(response?.data?.rules) ? response.data.rules : [];
+      setCsvPreview(previewRules);
+      setMessage(`CSV preview loaded (${previewRules.length} row(s)).`);
+    } catch (err) {
+      setCsvError(normalizeApiError(err, err?.message || 'Unable to preview CSV import.'));
+    } finally {
+      setCsvPreviewLoading(false);
+    }
+  };
+
+  const onApplyCsvImport = async () => {
+    setCsvError('');
+    setCsvApplyLoading(true);
+    try {
+      const csvContent = await readCsvFileText();
+      const payload = {
+        csv_content: csvContent,
+        season_year: csvSeasonYear === '' ? null : Number(csvSeasonYear),
+        source_platform: 'imported',
+        replace_existing_for_season: csvReplaceExisting,
+      };
+      const response = await apiClient.post('/scoring/import/apply', payload);
+      const importedCount = Array.isArray(response.data) ? response.data.length : 0;
+      setMessage(`Imported ${importedCount} scoring rule(s) from CSV.`);
+      await fetchRules();
+    } catch (err) {
+      setCsvError(normalizeApiError(err, err?.message || 'Unable to apply CSV import.'));
+    } finally {
+      setCsvApplyLoading(false);
+    }
+  };
+
+  const renderFieldError = (fieldName) => {
+    if (!fieldErrors[fieldName]) return null;
+    return <div className="mt-1 text-xs text-red-400">{fieldErrors[fieldName]}</div>;
   };
 
   return (
@@ -293,97 +437,166 @@ export default function ManageScoringRules() {
         </div>
 
         <form onSubmit={onSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <input
-              name="category"
-              value={form.category}
-              onChange={onFormChange}
-              placeholder="Category"
-              className={inputBase}
-            />
-            <input
-              name="event_name"
-              value={form.event_name}
-              onChange={onFormChange}
-              placeholder="Event Name"
-              className={inputBase}
-            />
-            <input
-              name="description"
-              value={form.description}
-              onChange={onFormChange}
-              placeholder="Description"
-              className={inputBase}
-            />
-            <div className="flex gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Category *
+              </label>
+              <input
+                name="category"
+                value={form.category}
+                onChange={onFormChange}
+                placeholder="Category"
+                className={inputBase}
+              />
+              {renderFieldError('category')}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Event Name *
+              </label>
+              <input
+                name="event_name"
+                value={form.event_name}
+                onChange={onFormChange}
+                placeholder="Event Name"
+                className={inputBase}
+              />
+              {renderFieldError('event_name')}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Point Value *
+              </label>
+              <input
+                name="point_value"
+                value={form.point_value}
+                onChange={onFormChange}
+                placeholder="Point Value"
+                className={inputBase}
+              />
+              {renderFieldError('point_value')}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Description
+              </label>
+              <input
+                name="description"
+                value={form.description}
+                onChange={onFormChange}
+                placeholder="Description"
+                className={inputBase}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Range Min
+              </label>
               <input
                 name="range_min"
                 value={form.range_min}
                 onChange={onFormChange}
                 placeholder="Min"
-                className={`${inputBase} flex-1`}
+                className={inputBase}
               />
+              {renderFieldError('range_min')}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Range Max
+              </label>
               <input
                 name="range_max"
                 value={form.range_max}
                 onChange={onFormChange}
                 placeholder="Max"
-                className={`${inputBase} flex-1`}
+                className={inputBase}
               />
+              {renderFieldError('range_max')}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Rule Type
+              </label>
+              <select
+                name="calculation_type"
+                value={form.calculation_type}
+                onChange={onFormChange}
+                className={inputBase}
+              >
+                {CALCULATION_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400" title={selectedCalculationType?.help}>
+                {selectedCalculationType?.help}
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
-            <input
-              name="point_value"
-              value={form.point_value}
-              onChange={onFormChange}
-              placeholder="Point Value"
-              className={inputBase}
-            />
-            <select
-              name="calculation_type"
-              value={form.calculation_type}
-              onChange={onFormChange}
-              className={inputBase}
-            >
-              <option value="flat_bonus">Flat Bonus</option>
-              <option value="per_unit">Per Unit</option>
-              <option value="decimal">Decimal</option>
-              <option value="ppr">PPR</option>
-              <option value="half_ppr">Half-PPR</option>
-              <option value="tiered">Tiered</option>
-            </select>
-            <input
-              name="applicable_positions"
-              value={form.applicable_positions}
-              onChange={onFormChange}
-              placeholder="Positions (QB, RB, WR, TE, ALL)"
-              className={inputBase}
-            />
-            <input
-              name="season_year"
-              value={form.season_year}
-              onChange={onFormChange}
-              placeholder="Season Year"
-              className={inputBase}
-            />
-            <input
-              name="source"
-              value={form.source}
-              onChange={onFormChange}
-              placeholder="Source"
-              className={inputBase}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Applicable Positions
+              </label>
+              <div className="flex flex-wrap gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2">
+                {POSITION_OPTIONS.map((position) => {
+                  const isSelected = (form.applicable_positions || []).includes(position);
+                  return (
+                    <button
+                      key={position}
+                      type="button"
+                      className={`${isSelected ? buttonPrimary : buttonSecondary} px-3 py-1 text-xs`}
+                      onClick={() => togglePosition(position)}
+                    >
+                      {position}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Choose one or more positions. Selecting ALL applies the rule league-wide.
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Season Year
+                </label>
+                <input
+                  name="season_year"
+                  value={form.season_year}
+                  onChange={onFormChange}
+                  placeholder="e.g. 2026 (blank = all seasons)"
+                  className={inputBase}
+                />
+                {renderFieldError('season_year')}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Source
+                </label>
+                <select
+                  name="source"
+                  value={form.source}
+                  onChange={onFormChange}
+                  className={inputBase}
+                >
+                  {SOURCE_OPTIONS.map((source) => (
+                    <option key={source.value} value={source.value}>{source.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button type="submit" className={buttonPrimary} disabled={submitting}>
-              {submitting
-                ? 'Saving...'
-                : editingRuleId
-                ? 'Update Rule'
-                : 'Add Rule'}
+              {submitting ? 'Saving...' : editingRuleId ? 'Update Rule' : 'Add Rule'}
             </button>
             <button type="button" className={buttonSecondary} onClick={resetForm}>
               Clear Form
@@ -393,6 +606,84 @@ export default function ManageScoringRules() {
 
         {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
         {message && <div className="mt-4 text-sm text-cyan-300">{message}</div>}
+      </div>
+
+      <div className={cardSurface}>
+        <h2 className="mb-3 text-lg font-bold text-slate-900 dark:text-white">CSV Import</h2>
+        <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
+          Bulk-load scoring rules from CSV, preview parsed rows, then apply to active rules.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              CSV File
+            </label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(event) => setCsvFile(event.target.files?.[0] || null)}
+              className={inputBase}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Season Year (optional)
+            </label>
+            <input
+              value={csvSeasonYear}
+              onChange={(event) => setCsvSeasonYear(event.target.value)}
+              placeholder="e.g. 2026"
+              className={inputBase}
+            />
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+            <input
+              type="checkbox"
+              checked={csvReplaceExisting}
+              onChange={(event) => setCsvReplaceExisting(event.target.checked)}
+            />
+            Replace existing rules for season
+          </label>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          <button type="button" className={buttonSecondary} onClick={onPreviewCsvImport} disabled={csvPreviewLoading}>
+            {csvPreviewLoading ? 'Previewing...' : 'Preview Import'}
+          </button>
+          <button type="button" className={buttonPrimary} onClick={onApplyCsvImport} disabled={csvApplyLoading}>
+            {csvApplyLoading ? 'Applying...' : 'Apply Import'}
+          </button>
+        </div>
+
+        {csvError ? <div className="text-sm text-red-400 mb-2">{csvError}</div> : null}
+
+        {csvPreview.length > 0 ? (
+          <div className={tableSurface}>
+            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+              <thead className={tableHead}>
+                <tr>
+                  <th className="px-3 py-2">Category</th>
+                  <th className="px-3 py-2">Event</th>
+                  <th className="px-3 py-2">Type</th>
+                  <th className="px-3 py-2">Points</th>
+                  <th className="px-3 py-2">Positions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {csvPreview.slice(0, 10).map((row, idx) => (
+                  <tr key={`${row.event_name}-${idx}`} className="border-t border-slate-300 dark:border-slate-800">
+                    <td className="px-3 py-2">{row.category}</td>
+                    <td className="px-3 py-2">{row.event_name}</td>
+                    <td className="px-3 py-2">{row.calculation_type}</td>
+                    <td className="px-3 py-2">{row.point_value}</td>
+                    <td className="px-3 py-2">{(row.applicable_positions || []).join(', ') || 'ALL'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </div>
 
       <div className={cardSurface}>
@@ -428,7 +719,7 @@ export default function ManageScoringRules() {
                     <td className="px-3 py-2">{rule.point_value}</td>
                     <td className="px-3 py-2">{rule.calculation_type}</td>
                     <td className="px-3 py-2">{(rule.applicable_positions || []).join(', ') || 'ALL'}</td>
-                    <td className="px-3 py-2">{rule.season_year || 'Any'}</td>
+                    <td className="px-3 py-2">{rule.season_year || 'All seasons'}</td>
                     <td className="px-3 py-2">
                       <button
                         type="button"
@@ -489,13 +780,18 @@ export default function ManageScoringRules() {
 
         {simError && <div className="mt-3 text-sm text-red-400">{simError}</div>}
         {simResult && (
-          <div className="mt-4 rounded-lg border border-slate-300 dark:border-slate-700 p-3">
-            <div className="mb-2 text-sm font-semibold text-cyan-300">
+          <div className="mt-4 rounded-lg border border-slate-300 dark:border-slate-700 p-3 space-y-2">
+            <div className="text-sm font-semibold text-cyan-300">
               Total Preview Points: {simResult.points}
             </div>
             <div className="text-xs text-slate-600 dark:text-slate-400">
               Rules evaluated: {simResult.rules_evaluated}
             </div>
+            {Array.isArray(simResult.breakdown) && simResult.breakdown.length > 0 ? (
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Breakdown: {simResult.breakdown.map((item) => `${item.event_name}: ${item.points_awarded}`).join(' | ')}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

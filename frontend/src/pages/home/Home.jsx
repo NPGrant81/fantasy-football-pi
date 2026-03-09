@@ -18,16 +18,24 @@ export default function Home({ username }) {
   const [standings, setStandings] = useState([]);
   const [sortField, setSortField] = useState('wins');
   const [sortAsc, setSortAsc] = useState(false);
+  const [news, setNews] = useState([]);
+  const [topFreeAgents, setTopFreeAgents] = useState([]);
+  const [bidLoadingId, setBidLoadingId] = useState(null);
+  const [bidMessage, setBidMessage] = useState('');
+  const [leagueName, setLeagueName] = useState('');
+  const leagueId = localStorage.getItem('fantasyLeagueId');
 
   const normalizeStandingRow = (row) => {
     const wins = Number(row?.wins ?? row?.overall_record?.wins ?? 0);
     const losses = Number(row?.losses ?? row?.overall_record?.losses ?? 0);
     const ties = Number(row?.ties ?? row?.overall_record?.ties ?? 0);
-    const pf = Number(
-      row?.pf ?? row?.points_for ?? row?.standings_metrics?.points_for ?? 0
-    );
-    const pa = Number(
-      row?.pa ?? row?.points_against ?? row?.standings_metrics?.points_against ?? 0
+    const pf = Number(row?.pf ?? row?.points_for ?? row?.standings_metrics?.points_for ?? 0);
+    const pa = Number(row?.pa ?? row?.points_against ?? row?.standings_metrics?.points_against ?? 0);
+    const winPct = Number(
+      row?.win_pct ??
+        row?.overall_record?.win_pct ??
+        row?.standings_metrics?.overall_record?.win_pct ??
+        0
     );
 
     return {
@@ -37,6 +45,7 @@ export default function Home({ username }) {
       ties,
       pf,
       pa,
+      win_pct: winPct,
     };
   };
 
@@ -79,10 +88,6 @@ export default function Home({ username }) {
     if (sortField !== field) return '';
     return sortAsc ? ' ▲' : ' ▼';
   };
-  const [news, setNews] = useState([]);
-  const [topFreeAgents, setTopFreeAgents] = useState([]);
-  const [leagueName, setLeagueName] = useState('');
-  const leagueId = localStorage.getItem('fantasyLeagueId');
 
   const displayRankReason = (owner) => {
     const reason = owner?.tiebreak_context?.rank_reason;
@@ -92,17 +97,17 @@ export default function Home({ username }) {
 
   useEffect(() => {
     if (!leagueId) return;
-    // Fetch league name
+
     apiClient
       .get(`/leagues/${leagueId}`)
       .then((res) => setLeagueName(res.data.name))
       .catch(() => setLeagueName('League'));
-    // Fetch standings (owners, sorted by points for desc, then W-L)
+
     apiClient
       .get(`/leagues/owners?league_id=${leagueId}`)
       .then((res) => setStandings(res.data))
       .catch(() => setStandings([]));
-    // Fetch news (stub: replace with real endpoint if available)
+
     apiClient
       .get(`/leagues/${leagueId}/news`)
       .then((res) => setNews(res.data))
@@ -113,20 +118,33 @@ export default function Home({ username }) {
       .then((res) => setTopFreeAgents(Array.isArray(res.data) ? res.data : []))
       .catch(() => setTopFreeAgents([]));
   }, [leagueId]);
-  // --- 1.1 CONFIGURATION ---
-  // Note: This page currently serves as a static landing.
-  // Future 1.2 Data Retrieval for "League News" will go here.
+
+  const handleQuickBid = async (player) => {
+    if (!player?.id) return;
+    setBidMessage('');
+    setBidLoadingId(player.id);
+    try {
+      await apiClient.post('/waivers/claim', {
+        player_id: player.id,
+        bid_amount: 0,
+      });
+      setTopFreeAgents((prev) => prev.filter((item) => item.id !== player.id));
+      setBidMessage(`Claim submitted for ${player.name}.`);
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setBidMessage(typeof detail === 'string' ? detail : 'Bid failed. Check waiver status and roster limits.');
+    } finally {
+      setBidLoadingId(null);
+    }
+  };
 
   return (
     <div className={`${pageShell} animate-fade-in`}>
-      {/* 2.1 WELCOME BANNER */}
       <div className={`${pageHeader} border-b-0 pb-0`}>
         <h1 className={pageTitle}>{leagueName || 'League Dashboard'}</h1>
         <p className={pageSubtitle}>
           Welcome back,{' '}
-          <span className="font-bold text-slate-900 dark:text-white">
-            {username}
-          </span>
+          <span className="font-bold text-slate-900 dark:text-white">{username}</span>
           . Open the menu{' '}
           <span className="inline-block rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-700 dark:text-yellow-300">
             ☰
@@ -135,15 +153,11 @@ export default function Home({ username }) {
         </p>
       </div>
 
-      {/* 2.2 STANDINGS & ACTIVITY GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 2.2.1 STANDINGS MODULE */}
         <div className={`lg:col-span-2 ${cardSurface}`}>
           <div className="flex items-center gap-2 mb-4">
             <FiAward className="text-yellow-500" size={24} />
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Current Standings
-            </h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Current Standings</h2>
           </div>
 
           <div className={`${tableSurface} overflow-x-auto`}>
@@ -151,35 +165,20 @@ export default function Home({ username }) {
               <thead className={tableHead}>
                 <tr>
                   <th className="px-4 py-3 min-w-[64px]">Rank</th>
-                  <th
-                    className="px-4 py-3 cursor-pointer min-w-[160px]"
-                    onClick={() => handleSort('team_name')}
-                  >
+                  <th className="px-4 py-3 cursor-pointer min-w-[160px]" onClick={() => handleSort('team_name')}>
                     Team{sortIndicator('team_name')}
                   </th>
                   <th className="px-4 py-3 min-w-[92px]">Div</th>
-                  <th
-                    className="px-4 py-3 cursor-pointer min-w-[132px]"
-                    onClick={() => handleSort('username')}
-                  >
+                  <th className="px-4 py-3 cursor-pointer min-w-[132px]" onClick={() => handleSort('username')}>
                     Owner{sortIndicator('username')}
                   </th>
-                  <th
-                    className="px-4 py-3 cursor-pointer min-w-[96px]"
-                    onClick={() => handleSort('record')}
-                  >
+                  <th className="px-4 py-3 cursor-pointer min-w-[96px]" onClick={() => handleSort('record')}>
                     W-L-T{sortIndicator('record')}
                   </th>
-                  <th
-                    className="px-4 py-3 cursor-pointer min-w-[84px]"
-                    onClick={() => handleSort('pf')}
-                  >
+                  <th className="px-4 py-3 cursor-pointer min-w-[84px]" onClick={() => handleSort('pf')}>
                     PF{sortIndicator('pf')}
                   </th>
-                  <th
-                    className="px-4 py-3 cursor-pointer min-w-[84px]"
-                    onClick={() => handleSort('pa')}
-                  >
+                  <th className="px-4 py-3 cursor-pointer min-w-[84px]" onClick={() => handleSort('pa')}>
                     PA{sortIndicator('pa')}
                   </th>
                   <th className="px-4 py-3 min-w-[124px]">TB Context</th>
@@ -187,59 +186,48 @@ export default function Home({ username }) {
               </thead>
               <tbody>
                 {standings.length > 0 ? (
-                  <>
-                    {sortedStandings.map((owner, idx) => (
-                        <tr
-                          key={owner.id}
-                          className="border-b border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
-                        >
-                          <td
-                            className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-600 dark:text-slate-400'}`}
-                          >
-                            {idx + 1}
-                          </td>
-                          <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
-                            <Link
-                              to={`/team/${owner.id}`}
-                              className="hover:text-blue-400 transition-colors"
-                            >
-                              {owner.team_name || owner.username}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-3">
-                            {owner.division_name ? (
-                              <span className="rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-700">
-                                {owner.division_name}
-                              </span>
-                            ) : (
-                              '-'
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Link
-                              to={`/team/${owner.id}`}
-                              className="hover:text-blue-400 transition-colors"
-                            >
-                              {owner.username}
-                            </Link>
-                          </td>
-                          <td className="px-4 py-3">
-                            {owner.wins}-{owner.losses}-{owner.ties}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums">{owner.pf}</td>
-                          <td className="px-4 py-3 text-right tabular-nums">{owner.pa}</td>
-                          <td className="px-4 py-3 text-xs capitalize text-slate-500 dark:text-slate-400">
-                            {displayRankReason(owner)}
-                          </td>
-                        </tr>
-                      ))}
-                  </>
+                  sortedStandings.map((owner, idx) => (
+                    <tr
+                      key={owner.id}
+                      className="border-b border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
+                    >
+                      <td
+                        className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-600 dark:text-slate-400'}`}
+                      >
+                        {idx + 1}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
+                        <Link to={`/team/${owner.id}`} className="hover:text-blue-400 transition-colors">
+                          {owner.team_name || owner.username}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        {owner.division_name ? (
+                          <span className="rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-700">
+                            {owner.division_name}
+                          </span>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link to={`/team/${owner.id}`} className="hover:text-blue-400 transition-colors">
+                          {owner.username}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        {owner.wins}-{owner.losses}-{owner.ties}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">{owner.pf}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{owner.pa}</td>
+                      <td className="px-4 py-3 text-xs capitalize text-slate-500 dark:text-slate-400">
+                        {displayRankReason(owner)}
+                      </td>
+                    </tr>
+                  ))
                 ) : (
                   <tr>
-                    <td
-                      colSpan={8}
-                      className="text-center py-6 text-slate-500 dark:text-slate-400"
-                    >
+                    <td colSpan={8} className="text-center py-6 text-slate-500 dark:text-slate-400">
                       No owners found for this league.
                     </td>
                   </tr>
@@ -249,13 +237,10 @@ export default function Home({ username }) {
           </div>
         </div>
 
-        {/* 2.2.2 RECENT ACTIVITY MODULE */}
         <div className={cardSurface}>
           <div className="flex items-center gap-2 mb-4">
             <FiActivity className="text-blue-500" size={24} />
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              League News
-            </h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">League News</h2>
           </div>
           <div className="space-y-3">
             {news.length > 0 ? (
@@ -264,77 +249,68 @@ export default function Home({ username }) {
                   key={idx}
                   className={`w-full justify-between gap-3 ${item.type === 'info' ? 'border-l-2 border-green-500' : 'border-l-2 border-yellow-500'}`}
                 >
-                  <span className="text-slate-300 font-bold truncate">
-                    {item.title}
-                  </span>
-                  <span className="text-slate-500 text-xs shrink-0">
-                    {item.timestamp}
-                  </span>
+                  <span className="text-slate-300 font-bold truncate">{item.title}</span>
+                  <span className="text-slate-500 text-xs shrink-0">{item.timestamp}</span>
                 </FeedPill>
               ))
             ) : (
-              <div className="mt-4 text-center text-xs italic text-slate-500 dark:text-slate-400">
-                End of feed
-              </div>
+              <div className="mt-4 text-center text-xs italic text-slate-500 dark:text-slate-400">End of feed</div>
             )}
           </div>
         </div>
 
         <div className={cardSurface}>
           <div className="flex items-center justify-between gap-2 mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Hot Pickups
-            </h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Hot Pickups</h2>
             <Link to="/waivers" className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline">
               Full Waiver Wire
             </Link>
           </div>
+          {bidMessage ? (
+            <div className="mb-3 rounded border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs text-slate-700 dark:text-slate-300">
+              {bidMessage}
+            </div>
+          ) : null}
           <div className="space-y-2">
             {topFreeAgents.length > 0 ? (
               topFreeAgents.map((player, idx) => (
                 <div
                   key={player.id}
-                  className="rounded-lg border border-slate-300 dark:border-slate-700 p-3"
+                  className="flex items-center justify-between gap-2 rounded border border-slate-200 dark:border-slate-700 p-2"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                        {idx + 1}. {player.name}
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {player.position || 'N/A'} {player.nfl_team ? `- ${player.nfl_team}` : ''}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Score
-                      </div>
-                      <div className="text-sm font-bold text-cyan-600 dark:text-cyan-300">
-                        {player.pickup_score ?? 0}
-                      </div>
-                    </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{idx + 1}. {player.name}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      {player.position} - {player.nfl_team || 'FA'} - ROS {Number(player.projected_points || 0).toFixed(1)}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Score {Number(player.pickup_score || 0).toFixed(1)}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Trend {player.pickup_trend_label || 'Steady'} ({Number(player.pickup_trend_score || 0).toFixed(1)})
+                    </p>
+                    {Number(player.recent_claim_count || 0) > 0 ? (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Claims {Number(player.recent_claim_count || 0)}
+                      </p>
+                    ) : null}
                   </div>
-
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(player.pickup_reasons || []).map((reason) => (
-                      <span
-                        key={`${player.id}-${reason}`}
-                        className="rounded-full border border-slate-300 dark:border-slate-600 px-2 py-0.5 text-[11px] text-slate-600 dark:text-slate-300"
-                      >
-                        {reason}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                    Claims: {player.recent_claim_count ?? 0} · Proj: {player.projected_points ?? 0} · ADP: {player.adp ?? 0}
+                  <div className="shrink-0 flex items-center gap-2">
+                    <span className="rounded border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-300">
+                      {player.pickup_tier || 'C'} Tier
+                    </span>
+                    <button
+                      onClick={() => handleQuickBid(player)}
+                      disabled={bidLoadingId === player.id}
+                      className="shrink-0 rounded bg-cyan-600 px-2 py-1 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+                    >
+                      {bidLoadingId === player.id ? 'Bidding...' : 'Bid'}
+                    </button>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-xs italic text-slate-500 dark:text-slate-400">
-                No pickup candidates yet.
-              </div>
+              <p className="text-xs italic text-slate-500 dark:text-slate-400">No free agents available for this league.</p>
             )}
           </div>
         </div>

@@ -96,73 +96,154 @@ def get_league_free_agents(db: Session, league_id: int):
 
 
 def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
+    """Return top available free agents ranked by projection, ADP, and waiver momentum."""
+    safe_limit = max(1, min(int(limit), 25))
     owned_ids_query = db.query(models.DraftPick.player_id).filter(
         models.DraftPick.league_id == league_id
     )
+    rows = (
+        db.query(models.Player)
+        .filter(
+            ~models.Player.id.in_(owned_ids_query),
+            models.Player.position.in_(ALLOWED_POSITIONS),
+        )
+        .order_by(
+            models.Player.projected_points.desc(),
+            models.Player.adp.asc(),
+            models.Player.name.asc(),
+        )
+        .limit(400)
+        .all()
+    )
 
-    rows = db.query(models.Player).filter(
-        ~models.Player.id.in_(owned_ids_query),
-        models.Player.position.in_(ALLOWED_POSITIONS),
-    ).limit(500).all()
+    deduped = dedupe_players(rows)
 
-    candidates = dedupe_players(rows)
-    if not candidates:
+    momentum_by_player: dict[int, float] = {}
+    claim_counts: dict[int, int] = {}
+
+    # Use recent transaction history as the primary demand signal for pickups.
+    recent_transactions = (
+        db.query(
+            models.TransactionHistory.player_id,
+            models.TransactionHistory.transaction_type,
+        )
+        .filter(
+            models.TransactionHistory.league_id == league_id,
+            models.TransactionHistory.transaction_type.in_(["waiver_add", "waiver_drop"]),
+        )
+        .order_by(
+            models.TransactionHistory.timestamp.desc(),
+            models.TransactionHistory.id.desc(),
+        )
+        .limit(250)
+        .all()
+    )
+
+    for player_id, transaction_type in recent_transactions:
+        current = momentum_by_player.get(int(player_id), 0.0)
+        if transaction_type == "waiver_add":
+            momentum_by_player[int(player_id)] = current + 1.0
+        elif transaction_type == "waiver_drop":
+            momentum_by_player[int(player_id)] = current - 0.6
+
+    # Waiver claims can supplement momentum in environments that persist claims.
+    recent_claims = (
+        db.query(models.WaiverClaim.player_id, models.WaiverClaim.status)
+        .filter(models.WaiverClaim.league_id == league_id)
+        .order_by(models.WaiverClaim.id.desc())
+        .limit(250)
+        .all()
+    )
+
+    for player_id, status in recent_claims:
+        normalized_status = str(status or "").upper()
+        pid = int(player_id)
+        claim_counts[pid] = claim_counts.get(pid, 0) + 1
+        current = momentum_by_player.get(pid, 0.0)
+        if normalized_status in {"PENDING", "APPROVED", "SUCCESS"}:
+            momentum_by_player[pid] = current + 0.8
+        elif normalized_status in {"REJECTED", "FAILED", "CANCELLED"}:
+            momentum_by_player[pid] = current - 0.3
+
+    scarcity_bonus = {
+        "QB": 1.5,
+        "RB": 3.0,
+        "WR": 2.5,
+        "TE": 2.0,
+        "K": 0.8,
+        "DEF": 1.0,
+    }
+
+    scored: list[tuple[models.Player, float]] = []
+    trend_meta: dict[int, tuple[float, str, int]] = {}
+    for player in deduped:
+        player_id = int(player.id or 0)
+        projection = float(player.projected_points or 0.0)
+        adp_value = float(player.adp) if player.adp is not None else 999.0
+        normalized_adp = adp_value if adp_value > 0 else 999.0
+        adp_signal = max(0.0, 250.0 - min(normalized_adp, 250.0)) / 25.0
+        position_signal = scarcity_bonus.get((player.position or "").upper(), 1.0)
+        raw_momentum = float(momentum_by_player.get(player_id, 0.0))
+        trend_signal = max(-2.0, min(4.0, raw_momentum * 0.6))
+
+        if trend_signal >= 1.2:
+            trend_label = "Rising"
+        elif trend_signal <= -0.5:
+            trend_label = "Cooling"
+        else:
+            trend_label = "Steady"
+
+        pickup_score = round(projection + adp_signal + position_signal + trend_signal, 2)
+        trend_meta[player_id] = (
+            round(trend_signal, 2),
+            trend_label,
+            int(claim_counts.get(player_id, 0)),
+        )
+        scored.append((player, pickup_score))
+
+    ranked = sorted(
+        scored,
+        key=lambda row: (
+            -row[1],
+            -(float(row[0].projected_points or 0.0)),
+            float(row[0].adp or 999999.0),
+            row[0].name or "",
+        ),
+    )
+
+    if not ranked:
         return []
 
-    player_ids = [p.id for p in candidates if p.id is not None]
-    claims_by_player: dict[int, int] = {pid: 0 for pid in player_ids}
-    if player_ids:
-        claim_rows = db.query(models.WaiverClaim.player_id).filter(
-            models.WaiverClaim.league_id == league_id,
-            models.WaiverClaim.player_id.in_(player_ids),
-        ).all()
-        for (pid,) in claim_rows:
-            if pid is not None:
-                claims_by_player[pid] = claims_by_player.get(pid, 0) + 1
+    top_score = ranked[0][1]
+    payload: list[dict] = []
+    for index, (player, pickup_score) in enumerate(ranked[:safe_limit], start=1):
+        trend_score, trend_label, recent_claim_count = trend_meta.get(int(player.id or 0), (0.0, "Steady", 0))
+        ratio = (pickup_score / top_score) if top_score > 0 else 0.0
+        if ratio >= 0.98:
+            tier = "S"
+        elif ratio >= 0.94:
+            tier = "A"
+        elif ratio >= 0.90:
+            tier = "B"
+        else:
+            tier = "C"
 
-    ranked = []
-    for player in candidates:
-        projected_points = float(player.projected_points or 0.0)
-        adp_value = float(player.adp or 0.0)
-        adp_component = max(0.0, 200.0 - adp_value)
-        recent_claim_count = int(claims_by_player.get(player.id, 0))
-        claim_component = min(25.0, recent_claim_count * 5.0)
-
-        # Deterministic weighted ranking formula for hot pickups.
-        pickup_score = round(projected_points * 0.65 + adp_component * 0.25 + claim_component * 0.10, 2)
-
-        reasons = []
-        if projected_points >= 140:
-            reasons.append("High projection")
-        if adp_value and adp_value <= 80:
-            reasons.append("Strong ADP")
-        if recent_claim_count >= 2:
-            reasons.append("Waiver momentum")
-        if not reasons:
-            reasons.append("Roster depth")
-
-        ranked.append(
+        payload.append(
             {
                 "id": player.id,
                 "name": player.name,
                 "position": player.position,
                 "nfl_team": player.nfl_team,
-                "projected_points": projected_points,
-                "adp": adp_value,
-                "recent_claim_count": recent_claim_count,
+                "projected_points": float(player.projected_points or 0.0),
+                "adp": float(player.adp or 0.0),
+                "pickup_rank": index,
                 "pickup_score": pickup_score,
-                "pickup_reasons": reasons[:2],
+                "pickup_tier": tier,
+                "pickup_trend_score": float(trend_score),
+                "pickup_trend_label": trend_label,
+                "recent_claim_count": recent_claim_count,
+                "pickup_rationale": "projection_plus_adp_plus_waiver_momentum",
             }
         )
 
-    ranked.sort(
-        key=lambda row: (
-            -row["pickup_score"],
-            -row["recent_claim_count"],
-            -row["projected_points"],
-            row["adp"] if row["adp"] > 0 else 9999,
-            row["name"] or "",
-            row["id"] or 0,
-        )
-    )
-    return ranked[: max(1, min(int(limit or 10), 25))]
+    return payload

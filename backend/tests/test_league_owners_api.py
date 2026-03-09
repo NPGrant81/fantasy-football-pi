@@ -43,7 +43,7 @@ def override_dependencies(api_db):
     app.dependency_overrides.clear()
 
 
-def test_get_league_owners_contract_and_scoping(client, api_db):
+def test_get_league_owners_contract_and_league_scoped_stats(client, api_db):
     league_one = models.League(name="L1")
     league_two = models.League(name="L2")
     api_db.add_all([league_one, league_two])
@@ -60,8 +60,8 @@ def test_get_league_owners_contract_and_scoping(client, api_db):
     api_db.refresh(owner_b)
     api_db.refresh(outsider)
 
-    # In-scope matchup for league_one.
-    in_scope = models.Matchup(
+    # In-league completed matchup: owner_a beats owner_b.
+    matchup_l1 = models.Matchup(
         week=1,
         home_team_id=owner_a.id,
         away_team_id=owner_b.id,
@@ -70,8 +70,8 @@ def test_get_league_owners_contract_and_scoping(client, api_db):
         is_completed=True,
         league_id=league_one.id,
     )
-    # Out-of-scope matchup that should not affect league_one standings.
-    out_of_scope = models.Matchup(
+    # Different league matchup includes owner_a and must be ignored.
+    matchup_l2 = models.Matchup(
         week=1,
         home_team_id=owner_a.id,
         away_team_id=outsider.id,
@@ -80,31 +80,26 @@ def test_get_league_owners_contract_and_scoping(client, api_db):
         is_completed=True,
         league_id=league_two.id,
     )
-    api_db.add_all([in_scope, out_of_scope])
+    api_db.add_all([matchup_l1, matchup_l2])
     api_db.commit()
 
     response = client.get(f"/leagues/owners?league_id={league_one.id}")
 
     assert response.status_code == 200
     payload = response.json()
-    owner_row = next(row for row in payload if row["id"] == owner_a.id)
+    assert isinstance(payload, list)
 
-    for field in [
-        "wins",
-        "losses",
-        "ties",
-        "pf",
-        "pa",
-        "points_for",
-        "points_against",
-        "win_pct",
-    ]:
-        assert field in owner_row
+    owner_a_row = next(row for row in payload if row["id"] == owner_a.id)
 
-    assert owner_row["wins"] == 1
-    assert owner_row["losses"] == 0
-    assert owner_row["ties"] == 0
-    assert owner_row["pf"] == 111.5
-    assert owner_row["pa"] == 108.0
-    assert owner_row["points_for"] == 111.5
-    assert owner_row["points_against"] == 108.0
+    # Contract fields consumed by Home standings table.
+    for field in ["wins", "losses", "ties", "pf", "pa", "points_for", "points_against", "win_pct"]:
+        assert field in owner_a_row
+
+    # Stats should include only league_one data.
+    assert owner_a_row["wins"] == 1
+    assert owner_a_row["losses"] == 0
+    assert owner_a_row["ties"] == 0
+    assert owner_a_row["pf"] == 111.5
+    assert owner_a_row["pa"] == 108.0
+    assert owner_a_row["points_for"] == 111.5
+    assert owner_a_row["points_against"] == 108.0

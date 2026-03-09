@@ -1,9 +1,24 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 
-vi.mock('../src/api/client', () => ({
-  default: { get: vi.fn(), post: vi.fn() },
-}));
+vi.mock('../src/api/client', () => {
+  const client = { get: vi.fn(), post: vi.fn() };
+  client.request = vi.fn((config = {}) => {
+    const method = String(config.method || 'get').toLowerCase();
+    const handler = client[method];
+    if (typeof handler !== 'function') {
+      return Promise.reject(new Error(`Unsupported method: ${method}`));
+    }
+    if (method === 'post' || method === 'put' || method === 'patch') {
+      return handler(config.url, config.data);
+    }
+    if (config.params !== undefined) {
+      return handler(config.url, { params: config.params });
+    }
+    return handler(config.url);
+  });
+  return { default: client };
+});
 
 vi.mock('../src/components/draft/insights/PlayerInsightCard', () => ({
   default: () => <div data-testid="player-insight-card">Player Insight</div>,

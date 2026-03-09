@@ -1,11 +1,23 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 
-vi.mock('../src/api/client', () => ({
-  default: {
+vi.mock('../src/api/client', () => {
+  const client = {
     get: vi.fn(),
-  },
-}));
+  };
+  client.request = vi.fn((config = {}) => {
+    const method = String(config.method || 'get').toLowerCase();
+    const handler = client[method];
+    if (typeof handler !== 'function') {
+      return Promise.reject(new Error(`Unsupported method: ${method}`));
+    }
+    if (config.params !== undefined || config.data !== undefined) {
+      return handler(config.url, { params: config.params, data: config.data });
+    }
+    return handler(config.url);
+  });
+  return { default: client };
+});
 
 vi.mock('react-router-dom', () => ({
   Link: ({ to, children, ..._props }) => (
@@ -126,8 +138,10 @@ describe('AnalyticsDashboard', () => {
   test('trade analyzer button updates selection', async () => {
     render(<AnalyticsDashboard />);
     fireEvent.click(screen.getByText(/Trade Analyzer/i));
-    // dashboard always fetches /auth/me on selection; ensure no analytics call is made
-    expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    // TradeAnalyzer mounts asynchronously; wait for auth bootstrap request.
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    });
     expect(apiClient.get).not.toHaveBeenCalledWith(
       expect.stringContaining('/analytics/')
     );

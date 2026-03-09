@@ -18,6 +18,8 @@ Create GitHub Actions workflows for linting, type checking, and dependency scann
 - [ ] Add Node linting
 - [ ] Add dependency vulnerability scanning
 - [ ] Add test runner
+- [ ] Add workflow YAML validation as a required CI guardrail
+- [ ] Document workflow-edit hygiene to prevent malformed step blocks
 
 ---
 
@@ -26,3 +28,5 @@ Create GitHub Actions workflows for linting, type checking, and dependency scann
 - CI runs on every PR
 - CI validates cross‑platform compatibility
 - CI blocks unsafe dependencies
+- CI fails fast on invalid workflow YAML structure
+- Workflow changes include reviewer-visible evidence of syntax/hygiene verification
