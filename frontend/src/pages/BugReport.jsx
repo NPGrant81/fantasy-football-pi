@@ -80,13 +80,23 @@ export default function BugReport() {
       setTitle('');
       setDescription('');
       setIssueType('bug');
-      setStatus({
-        type: 'success',
-        message: response.data?.issue_warning
-          ? `Bug report submitted. ${response.data.issue_warning}`
-          : 'Bug report submitted. Thank you!',
-        issueUrl: response.data?.issue_url || '',
-      });
+      const issueUrl = response.data?.issue_url || '';
+      const issueWarning = response.data?.issue_warning || '';
+      if (issueWarning) {
+        setStatus({
+          type: 'warning',
+          message: `Bug report submitted. ${issueWarning} You can still track the report in-app and create a GitHub issue manually if needed.`,
+          issueUrl,
+        });
+      } else {
+        setStatus({
+          type: 'success',
+          message: issueUrl
+            ? 'Bug report submitted and GitHub issue created. Thank you!'
+            : 'Bug report submitted. Thank you!',
+          issueUrl,
+        });
+      }
     } catch (err) {
       const detail = err.response?.data?.detail || 'Unable to submit report.';
       setStatus({ type: 'error', message: detail, issueUrl: '' });
@@ -109,6 +119,8 @@ export default function BugReport() {
             className={`rounded-lg px-4 py-3 text-sm font-bold ${
               status.type === 'success'
                 ? 'bg-green-900/40 text-green-300 border border-green-700'
+                : status.type === 'warning'
+                ? 'bg-amber-900/40 text-amber-300 border border-amber-700'
                 : 'bg-red-900/40 text-red-300 border border-red-700'
             }`}
           >
