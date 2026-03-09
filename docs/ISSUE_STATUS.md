@@ -44,6 +44,18 @@
   - **Implementation Status:** Resolved for current waiver baseline and CI workflow
   - **GitHub Status:** Pending manual close comment + close action
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
+- **Issue #186**: `Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #186 Close-Out Notes`
+- **Issue #187**: `Improve Bug Report UI to Display GitHub Issue Link and Better Error Handling`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #187 Close-Out Notes`
+- **Issue #188**: `Add Support for Mermaid Diagrams in Markdown (MD) Across the Platform`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics` via merged PR #191 commits
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #188 Close-Out Notes`
 
 ### Issue Hygiene Protocol
 
@@ -164,7 +176,7 @@
 
 - **Status:** ✅ COMPLETED
 - **Priority:** Low
-- **Notes:** Full feedback form implemented on `/bug-report`; backend persists reports, optionally creates GitHub issue, and records user email.
+- **Notes:** Full feedback form implemented on `/bug-report`; backend persists reports, creates GitHub issues using PAT-first auth with App fallback, and records user email. UX includes loading/success/warning/error states and retry support.
 - **Complexity:** Low - form + email/storage
 
 ### Story 1.2: Historical Data Archiving

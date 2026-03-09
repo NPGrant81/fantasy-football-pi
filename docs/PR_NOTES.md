@@ -86,6 +86,113 @@ Validation: route/navigation, War Room separation, persistence behavior, and sim
 
 ---
 
+## Issue #186 Close-Out Notes
+
+Issue: `#186` - Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)
+
+### Resolution summary
+
+- Implemented PAT-first GitHub authentication for issue creation (`GITHUB_TOKEN`/`GH_TOKEN`) with GitHub App credentials as fallback.
+- Added explicit warning/error logging for GitHub issue creation failures while preserving successful in-app bug report persistence.
+- Standardized auth/header flow for GitHub API requests and improved failure message clarity.
+- Added backend utility tests covering PAT path, App fallback path, and missing-auth failure path.
+- Added endpoint integration coverage for `/feedback/bug` success and warning responses.
+
+### Verification checklist for issue closure
+
+- [x] Bug report submissions succeed even when GitHub issue creation fails.
+- [x] PAT auth path is tested and used as primary when configured.
+- [x] App fallback path is tested and available when PAT is absent.
+- [x] `/feedback/bug` integration tests validate returned issue URL and warning behavior.
+
+### Suggested GitHub Issue close comment
+
+```md
+Closed via `feature/scoring-integration-analytics`.
+
+Issue #186 is complete:
+- Added PAT-first GitHub auth for bug-report issue creation (`GITHUB_TOKEN` / `GH_TOKEN`).
+- Added GitHub App credential fallback when PAT is not configured.
+- Hardened error/warning logging so report persistence and GitHub issue creation failures are clearly separated.
+- Added backend tests for PAT path, App fallback, and no-auth failure.
+- Added `/feedback/bug` integration coverage for both success and warning outcomes.
+
+Validation: targeted backend tests pass for utility and router flows, and bug reports now degrade gracefully when GitHub issue creation is unavailable.
+```
+
+---
+
+## Issue #187 Close-Out Notes
+
+Issue: `#187` - Improve Bug Report UI to Display GitHub Issue Link and Better Error Handling
+
+### Resolution summary
+
+- Enhanced success/warning/error UX on `/bug-report` to clearly communicate outcome states.
+- Added loading state with submit-button text update and full form disablement during submission.
+- Added retry flow for failed submissions using preserved request payload (`Retry Submit`).
+- Kept success path issue-link surfacing and warning-path guidance for manual follow-up when needed.
+- Added dedicated frontend tests for loading/disable state and retry flow.
+
+### Verification checklist for issue closure
+
+- [x] Submit button enters loading state during async submission.
+- [x] Form controls are disabled while a submission is in flight.
+- [x] Error state presents retry action.
+- [x] Retry path reuses last payload and can complete successfully.
+- [x] Frontend tests validate loading and retry behavior.
+
+### Suggested GitHub Issue close comment
+
+```md
+Closed via `feature/scoring-integration-analytics`.
+
+Issue #187 is complete:
+- Improved bug-report success/warning/error messaging to reduce ambiguity.
+- Added loading UX (`Submitting...`) and disabled form controls during submit.
+- Added retry action (`Retry Submit`) for transient failures.
+- Preserved issue-link surfacing when GitHub issue creation succeeds.
+- Added dedicated frontend tests for loading/disable and retry flows.
+
+Validation: `frontend/tests/BugReport.test.jsx` passes (2/2), and frontend production build passes after the UX changes.
+```
+
+---
+
+## Issue #188 Close-Out Notes
+
+Issue: `#188` - Add Support for Mermaid Diagrams in Markdown (MD) Across the Platform
+
+### Resolution summary
+
+- Added shared markdown rendering support for Mermaid diagrams in frontend markdown contexts.
+- Introduced Mermaid diagram component integration and wiring in key markdown display surfaces.
+- Added targeted frontend tests for Mermaid rendering and shared markdown renderer behavior.
+- Applied review follow-up hardening to ID/language handling to stabilize Mermaid parsing/render behavior.
+
+### Verification checklist for issue closure
+
+- [x] Mermaid fenced code blocks render through shared markdown path.
+- [x] Existing markdown rendering continues to work for non-Mermaid content.
+- [x] Frontend tests cover renderer + Mermaid component behavior.
+- [x] Frontend build succeeds with Mermaid dependency integrated.
+
+### Suggested GitHub Issue close comment
+
+```md
+Closed via `feature/scoring-integration-analytics` (merged PR #191 commits).
+
+Issue #188 is complete:
+- Added Mermaid support in shared Markdown rendering.
+- Integrated Mermaid diagram rendering component into markdown display flows.
+- Added frontend test coverage for Mermaid + markdown renderer behavior.
+- Included review-driven hardening updates for stable rendering behavior.
+
+Validation: targeted Mermaid tests pass and frontend build succeeds with Mermaid enabled.
+```
+
+---
+
 ## Bulk Close Comment Pack (Resolved Open Issues)
 
 ### Issue #19

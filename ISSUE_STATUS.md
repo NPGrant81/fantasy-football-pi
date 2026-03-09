@@ -5,6 +5,26 @@
 
 ---
 
+## Resolved Issue Closure Queue (March 2026)
+
+- **Issue #186**: `Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Evidence:** `d957f4e` (PAT-first auth + App fallback), `0604b59` (integration coverage)
+  - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #186 Close-Out Notes`
+- **Issue #187**: `Improve Bug Report UI to Display GitHub Issue Link and Better Error Handling`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Evidence:** `d957f4e` (success/warning messaging), `8e0b05b` (loading/disable/retry + frontend tests)
+  - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #187 Close-Out Notes`
+- **Issue #188**: `Add Support for Mermaid Diagrams in Markdown (MD) Across the Platform`
+  - **Implementation Status:** Resolved in `feature/scoring-integration-analytics` via merged PR #191 commits
+  - **GitHub Status:** Pending manual close comment + close action
+  - **Close-Out Evidence:** `1fa6eb7` (Mermaid rendering support), `65197ff` (follow-up review hardening)
+  - **Close Comment Source:** `docs/PR_NOTES.md` -> `Issue #188 Close-Out Notes`
+
+---
+
 ## ✅ COMPLETED STORIES
 
 ### Story 5.1: Free Agent Search
@@ -115,7 +135,7 @@
 
 - **Status:** ✅ COMPLETED
 - **Priority:** Low
-- **Notes:** Users can submit bug or feature reports via `/bug-report`; backend stores entries and can open GitHub issues automatically.
+- **Notes:** Users can submit bug or feature reports via `/bug-report`; backend stores entries and opens GitHub issues with PAT-first auth and GitHub App fallback. UI now includes success/warning/error feedback, issue links, loading disablement, and retry action.
 - **Complexity:** Low - form + email/storage
 
 ### Story 1.2: Historical Data Archiving
@@ -175,6 +195,18 @@
 - **Commit:** `e739f93` - "docs: add GitHub issues status report and completion tracking"
 - **Change:** Created comprehensive tracking of feature completion
 - **Impact:** Clear roadmap for remaining work
+
+### 🐞 Bug Report Reliability + UX Hardening
+
+- **Commit(s):** `d957f4e`, `0604b59`, `8e0b05b`
+- **Change:** Added PAT-first GitHub issue auth with App fallback, endpoint-level integration tests, and frontend loading/retry UX coverage.
+- **Impact:** Bug reports now degrade gracefully and provide clearer user outcomes when GitHub issue creation fails.
+
+### 🧩 Mermaid Markdown Rendering
+
+- **Commit(s):** `1fa6eb7`, `65197ff`
+- **Change:** Added Mermaid diagram support in shared markdown rendering paths and follow-up reliability fixes.
+- **Impact:** Platform markdown views can render Mermaid diagrams for richer technical documentation.
 
 ---
 
