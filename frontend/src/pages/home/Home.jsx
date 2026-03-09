@@ -19,6 +19,53 @@ export default function Home({ username }) {
   const [sortField, setSortField] = useState('wins');
   const [sortAsc, setSortAsc] = useState(false);
 
+  const normalizeStandingRow = (row) => {
+    const wins = Number(row?.wins ?? row?.overall_record?.wins ?? 0);
+    const losses = Number(row?.losses ?? row?.overall_record?.losses ?? 0);
+    const ties = Number(row?.ties ?? row?.overall_record?.ties ?? 0);
+    const pf = Number(
+      row?.pf ?? row?.points_for ?? row?.standings_metrics?.points_for ?? 0
+    );
+    const pa = Number(
+      row?.pa ?? row?.points_against ?? row?.standings_metrics?.points_against ?? 0
+    );
+
+    return {
+      ...row,
+      wins,
+      losses,
+      ties,
+      pf,
+      pa,
+    };
+  };
+
+  const sortedStandings = [...standings]
+    .map(normalizeStandingRow)
+    .sort((a, b) => {
+      const direction = sortAsc ? 1 : -1;
+
+      if (sortField === 'record') {
+        const aRecord = [a.wins, -a.losses, a.ties, a.pf];
+        const bRecord = [b.wins, -b.losses, b.ties, b.pf];
+        for (let idx = 0; idx < aRecord.length; idx += 1) {
+          if (aRecord[idx] < bRecord[idx]) return -1 * direction;
+          if (aRecord[idx] > bRecord[idx]) return 1 * direction;
+        }
+        return 0;
+      }
+
+      let av = a[sortField] ?? 0;
+      let bv = b[sortField] ?? 0;
+      if (sortField === 'team_name' || sortField === 'username') {
+        av = String(av).toLowerCase();
+        bv = String(bv).toLowerCase();
+      }
+      if (av < bv) return -1 * direction;
+      if (av > bv) return 1 * direction;
+      return 0;
+    });
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
@@ -26,6 +73,11 @@ export default function Home({ username }) {
       setSortField(field);
       setSortAsc(true);
     }
+  };
+
+  const sortIndicator = (field) => {
+    if (sortField !== field) return '';
+    return sortAsc ? ' ▲' : ' ▼';
   };
   const [news, setNews] = useState([]);
   const [leagueName, setLeagueName] = useState('');
@@ -88,65 +140,49 @@ export default function Home({ username }) {
             </h2>
           </div>
 
-          <div className={tableSurface}>
-            <table className="w-full text-sm text-left text-slate-700 dark:text-slate-300">
+          <div className={`${tableSurface} overflow-x-auto`}>
+            <table className="w-full min-w-[760px] text-sm text-left text-slate-700 dark:text-slate-300">
               <thead className={tableHead}>
                 <tr>
-                  <th className="px-4 py-3">Rank</th>
+                  <th className="px-4 py-3 min-w-[64px]">Rank</th>
                   <th
-                    className="px-4 py-3 cursor-pointer"
+                    className="px-4 py-3 cursor-pointer min-w-[160px]"
                     onClick={() => handleSort('team_name')}
                   >
-                    Team
+                    Team{sortIndicator('team_name')}
                   </th>
-                  <th className="px-4 py-3">Div</th>
+                  <th className="px-4 py-3 min-w-[92px]">Div</th>
                   <th
-                    className="px-4 py-3 cursor-pointer"
+                    className="px-4 py-3 cursor-pointer min-w-[132px]"
                     onClick={() => handleSort('username')}
                   >
-                    Owner
+                    Owner{sortIndicator('username')}
                   </th>
                   <th
-                    className="px-4 py-3 cursor-pointer"
-                    onClick={() => handleSort('wins')}
+                    className="px-4 py-3 cursor-pointer min-w-[96px]"
+                    onClick={() => handleSort('record')}
                   >
-                    W-L-T
+                    W-L-T{sortIndicator('record')}
                   </th>
                   <th
-                    className="px-4 py-3 cursor-pointer"
+                    className="px-4 py-3 cursor-pointer min-w-[84px]"
                     onClick={() => handleSort('pf')}
                   >
-                    PF
+                    PF{sortIndicator('pf')}
                   </th>
                   <th
-                    className="px-4 py-3 cursor-pointer"
+                    className="px-4 py-3 cursor-pointer min-w-[84px]"
                     onClick={() => handleSort('pa')}
                   >
-                    PA
+                    PA{sortIndicator('pa')}
                   </th>
-                  <th className="px-4 py-3">TB Context</th>
+                  <th className="px-4 py-3 min-w-[124px]">TB Context</th>
                 </tr>
               </thead>
               <tbody>
                 {standings.length > 0 ? (
                   <>
-                    {/* apply sorting */}
-                    {[...standings]
-                      .sort((a, b) => {
-                        let av = a[sortField] || 0;
-                        let bv = b[sortField] || 0;
-                        if (
-                          sortField === 'team_name' ||
-                          sortField === 'username'
-                        ) {
-                          av = av.toLowerCase();
-                          bv = bv.toLowerCase();
-                        }
-                        if (av < bv) return sortAsc ? -1 : 1;
-                        if (av > bv) return sortAsc ? 1 : -1;
-                        return 0;
-                      })
-                      .map((owner, idx) => (
+                    {sortedStandings.map((owner, idx) => (
                         <tr
                           key={owner.id}
                           className="border-b border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
@@ -184,8 +220,8 @@ export default function Home({ username }) {
                           <td className="px-4 py-3">
                             {owner.wins}-{owner.losses}-{owner.ties}
                           </td>
-                          <td className="px-4 py-3">{owner.pf}</td>
-                          <td className="px-4 py-3">{owner.pa}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{owner.pf}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{owner.pa}</td>
                           <td className="px-4 py-3 text-xs capitalize text-slate-500 dark:text-slate-400">
                             {displayRankReason(owner)}
                           </td>

@@ -178,12 +178,18 @@ def test_get_league_owners_returns_stats(db_session):
     assert o1_data['ties'] == 0
     assert o1_data['pf'] == 120.5
     assert o1_data['pa'] == 110.0
+    assert o1_data['points_for'] == 120.5
+    assert o1_data['points_against'] == 110.0
+    assert o1_data['win_pct'] == 1.0
     # owner2 should have a loss and swapped pf/pa
     o2_data = next(o for o in owners if o['id'] == owner2.id)
     assert o2_data['wins'] == 0
     assert o2_data['losses'] == 1
     assert o2_data['pf'] == 110.0
     assert o2_data['pa'] == 120.5
+    assert o2_data['points_for'] == 110.0
+    assert o2_data['points_against'] == 120.5
+    assert o2_data['win_pct'] == 0.0
 
     # now test division grouping sorts by division id first
     # assign owners to divisions
@@ -198,6 +204,54 @@ def test_get_league_owners_returns_stats(db_session):
     grouped = get_league_owners(league_id=league.id, group_by_division=True, db=db_session)
     # first owner should belong to division1 (West id maybe?) after sorting; ensure field present
     assert 'division_id' in grouped[0]
+
+
+def test_get_league_owners_ignores_matchups_from_other_leagues(db_session):
+    league_one = models.League(name="LeagueOne")
+    league_two = models.League(name="LeagueTwo")
+    db_session.add_all([league_one, league_two])
+    db_session.commit()
+    db_session.refresh(league_one)
+    db_session.refresh(league_two)
+
+    owner_a = models.User(username="a", email=None, hashed_password="h", league_id=league_one.id)
+    owner_b = models.User(username="b", email=None, hashed_password="h", league_id=league_one.id)
+    outsider = models.User(username="x", email=None, hashed_password="h", league_id=league_two.id)
+    db_session.add_all([owner_a, owner_b, outsider])
+    db_session.commit()
+    db_session.refresh(owner_a)
+    db_session.refresh(owner_b)
+    db_session.refresh(outsider)
+
+    in_scope = models.Matchup(
+        week=1,
+        home_team_id=owner_a.id,
+        away_team_id=owner_b.id,
+        home_score=99.0,
+        away_score=88.0,
+        is_completed=True,
+        league_id=league_one.id,
+    )
+    out_of_scope = models.Matchup(
+        week=1,
+        home_team_id=owner_a.id,
+        away_team_id=outsider.id,
+        home_score=300.0,
+        away_score=1.0,
+        is_completed=True,
+        league_id=league_two.id,
+    )
+    db_session.add_all([in_scope, out_of_scope])
+    db_session.commit()
+
+    owners = get_league_owners(league_id=league_one.id, db=db_session)
+    owner_row = next(o for o in owners if o['id'] == owner_a.id)
+
+    # Stats should only include the league_one matchup.
+    assert owner_row['wins'] == 1
+    assert owner_row['losses'] == 0
+    assert owner_row['pf'] == 99.0
+    assert owner_row['pa'] == 88.0
 
 
 def test_update_scoring_rules_storage(db_session):

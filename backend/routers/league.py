@@ -221,6 +221,7 @@ def get_league_owners(league_id: int = Query(...),
         owner_id = owner.id
         w = l = t = pf = pa = division_wins = 0
         matches = db.query(models.Matchup).filter(
+            models.Matchup.league_id == league_id,
             or_(
                 models.Matchup.home_team_id == owner_id,
                 models.Matchup.away_team_id == owner_id,
@@ -266,6 +267,9 @@ def get_league_owners(league_id: int = Query(...),
             "ties": t,
             "pf": pf,
             "pa": pa,
+            "points_for": pf,
+            "points_against": pa,
+            "win_pct": overall_record["win_pct"],
             "division_wins": division_wins,
             "overall_record": overall_record,
         }
