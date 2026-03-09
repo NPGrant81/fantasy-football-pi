@@ -1,7 +1,10 @@
+import logging
 import os
 import time
 import requests
 from jose import jwt
+
+logger = logging.getLogger(__name__)
 
 GITHUB_API_BASE = "https://api.github.com"
 DEFAULT_REPO = "NPGrant81/fantasy-football-pi"
@@ -64,14 +67,38 @@ def _create_issue(repo, token, title, body, labels):
     return response.json()
 
 
+def _resolve_token(app_id, installation_id, private_key):
+    """Return a GitHub API token using PAT or GitHub App credentials.
+
+    Priority:
+    1. ``GITHUB_TOKEN`` environment variable (Personal Access Token)
+    2. GitHub App installation token (requires App ID, installation ID, and
+       private key)
+
+    Raises ``RuntimeError`` when neither set of credentials is available.
+    """
+    pat = os.getenv("GITHUB_TOKEN")
+    if pat:
+        logger.debug("Using GITHUB_TOKEN (PAT) for GitHub API authentication")
+        return pat
+
+    if app_id and installation_id and private_key:
+        logger.debug("Using GitHub App installation token for authentication")
+        return _get_installation_token(app_id, installation_id, private_key)
+
+    raise RuntimeError(
+        "GitHub credentials are not configured. "
+        "Set GITHUB_TOKEN (Personal Access Token) or configure GitHub App "
+        "credentials (GITHUB_APP_ID, GITHUB_APP_INSTALLATION_ID, "
+        "GITHUB_APP_PRIVATE_KEY / GITHUB_APP_PRIVATE_KEY_PATH)."
+    )
+
+
 def create_bug_issue(report, labels=None):
     app_id = os.getenv("GITHUB_APP_ID")
     installation_id = os.getenv("GITHUB_APP_INSTALLATION_ID")
     repo = os.getenv("GITHUB_ISSUE_REPO", DEFAULT_REPO)
     private_key = _get_private_key()
-
-    if not app_id or not installation_id or not private_key:
-        raise RuntimeError("GitHub App credentials are not configured")
 
     title = report["title"]
     body = "\n".join(
@@ -91,5 +118,5 @@ def create_bug_issue(report, labels=None):
     if issue_type:
         label_list.append(f"issue-type:{issue_type}")
 
-    token = _get_installation_token(app_id, installation_id, private_key)
+    token = _resolve_token(app_id, installation_id, private_key)
     return _create_issue(repo, token, title, body, label_list)

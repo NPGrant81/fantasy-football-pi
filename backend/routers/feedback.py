@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,8 @@ from ..core.security import get_current_user
 from ..database import get_db
 from .. import models
 from utils.github_issues import create_bug_issue
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/feedback", tags=["Feedback"])
 
@@ -61,8 +64,10 @@ def create_bug_report(
         issue = create_bug_issue(issue_payload)
         report.github_issue_url = issue.get("html_url")
         db.commit()
+        logger.info("GitHub issue created: %s", report.github_issue_url)
     except Exception as exc:
         issue_warning = f"GitHub issue not created: {exc}"
+        logger.error("Failed to create GitHub issue for bug report %s: %s", report.id, exc)
 
     return {
         "message": "Bug report submitted",

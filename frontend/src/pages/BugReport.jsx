@@ -80,13 +80,17 @@ export default function BugReport() {
       setTitle('');
       setDescription('');
       setIssueType('bug');
-      setStatus({
-        type: 'success',
-        message: response.data?.issue_warning
-          ? `Bug report submitted. ${response.data.issue_warning}`
-          : 'Bug report submitted. Thank you!',
-        issueUrl: response.data?.issue_url || '',
-      });
+      const issueUrl = response.data?.issue_url || '';
+      const issueWarning = response.data?.issue_warning;
+      let message;
+      if (issueUrl) {
+        message = 'Bug report submitted and GitHub issue created.';
+      } else if (issueWarning) {
+        message = `Bug report submitted. ${issueWarning}`;
+      } else {
+        message = 'Bug report submitted. Thank you!';
+      }
+      setStatus({ type: 'success', message, issueUrl });
     } catch (err) {
       const detail = err.response?.data?.detail || 'Unable to submit report.';
       setStatus({ type: 'error', message: detail, issueUrl: '' });
