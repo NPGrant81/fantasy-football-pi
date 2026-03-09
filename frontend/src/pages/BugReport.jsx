@@ -28,6 +28,8 @@ export default function BugReport() {
   const [contactEmail, setContactEmail] = useState('');
   const [saveEmail, setSaveEmail] = useState(true);
   const [status, setStatus] = useState({ type: '', message: '', issueUrl: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastPayload, setLastPayload] = useState(null);
 
   useEffect(() => {
     apiClient
@@ -59,8 +61,8 @@ export default function BugReport() {
     []
   );
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const submitReport = async (payload) => {
+    setIsSubmitting(true);
     setStatus({ type: '', message: '', issueUrl: '' });
 
     try {
@@ -68,18 +70,12 @@ export default function BugReport() {
         await apiClient.put('/auth/email', { email: contactEmail });
       }
 
-      const response = await apiClient.post('/feedback/bug', {
-        title,
-        description,
-        page_name: pageName || null,
-        issue_type: issueType || null,
-        page_url: pageUrl,
-        contact_email: contactEmail || null,
-      });
+      const response = await apiClient.post('/feedback/bug', payload);
 
       setTitle('');
       setDescription('');
       setIssueType('bug');
+      setLastPayload(null);
       const issueUrl = response.data?.issue_url || '';
       const issueWarning = response.data?.issue_warning || '';
       if (issueWarning) {
@@ -99,8 +95,29 @@ export default function BugReport() {
       }
     } catch (err) {
       const detail = err.response?.data?.detail || 'Unable to submit report.';
+      setLastPayload(payload);
       setStatus({ type: 'error', message: detail, issueUrl: '' });
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    await submitReport({
+      title,
+      description,
+      page_name: pageName || null,
+      issue_type: issueType || null,
+      page_url: pageUrl,
+      contact_email: contactEmail || null,
+    });
+  };
+
+  const handleRetry = async () => {
+    if (!lastPayload || isSubmitting) return;
+    await submitReport(lastPayload);
   };
 
   return (
@@ -137,6 +154,18 @@ export default function BugReport() {
                 </a>
               </div>
             )}
+            {status.type === 'error' && lastPayload && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  disabled={isSubmitting}
+                  className="rounded-md border border-red-500 px-3 py-1 text-xs font-bold text-red-200 hover:bg-red-900/30 disabled:opacity-60"
+                >
+                  {isSubmitting ? 'Retrying...' : 'Retry Submit'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -149,6 +178,7 @@ export default function BugReport() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Short summary of the issue"
+            disabled={isSubmitting}
             required
           />
         </div>
@@ -162,6 +192,7 @@ export default function BugReport() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Steps to reproduce, expected behavior, and what happened"
+            disabled={isSubmitting}
             required
           />
         </div>
@@ -175,6 +206,7 @@ export default function BugReport() {
               className={inputBase}
               value={pageName}
               onChange={(e) => setPageName(e.target.value)}
+              disabled={isSubmitting}
             >
               <option value="">Select page</option>
               {pageOptions.map((option) => (
@@ -192,6 +224,7 @@ export default function BugReport() {
               className={inputBase}
               value={issueType}
               onChange={(e) => setIssueType(e.target.value)}
+              disabled={isSubmitting}
             >
               <option value="bug">Bug</option>
               <option value="feature">Feature</option>
@@ -219,19 +252,25 @@ export default function BugReport() {
             value={contactEmail}
             onChange={(e) => setContactEmail(e.target.value)}
             placeholder="you@example.com"
+            disabled={isSubmitting}
           />
           <label className="flex items-center gap-2 text-xs text-slate-400 mt-2">
             <input
               type="checkbox"
               checked={saveEmail}
               onChange={(e) => setSaveEmail(e.target.checked)}
+              disabled={isSubmitting}
             />
             Save this email to my profile for future reports
           </label>
         </div>
 
-        <button type="submit" className={`${buttonPrimary} w-full`}>
-          Submit Bug Report
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className={`${buttonPrimary} w-full disabled:opacity-60 disabled:cursor-not-allowed`}
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit Bug Report'}
         </button>
       </form>
     </div>
