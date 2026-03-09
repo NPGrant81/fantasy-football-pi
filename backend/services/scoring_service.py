@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -215,11 +216,17 @@ def recalculate_matchup_scores(
     if matchup.league_id is None:
         raise ValueError("matchup.league_id is required for scoring recalculation")
 
+    league_filter = or_(
+        models.DraftPick.league_id == matchup.league_id,
+        models.DraftPick.league_id.is_(None),
+    )
     home_starters = (
         db.query(models.DraftPick)
         .filter(
             models.DraftPick.owner_id == matchup.home_team_id,
             models.DraftPick.current_status == "STARTER",
+            models.DraftPick.is_taxi.is_(False),
+            league_filter,
         )
         .all()
     )
@@ -228,6 +235,8 @@ def recalculate_matchup_scores(
         .filter(
             models.DraftPick.owner_id == matchup.away_team_id,
             models.DraftPick.current_status == "STARTER",
+            models.DraftPick.is_taxi.is_(False),
+            league_filter,
         )
         .all()
     )

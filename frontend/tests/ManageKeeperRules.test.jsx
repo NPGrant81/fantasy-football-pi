@@ -53,7 +53,7 @@ describe('ManageKeeperRules page', () => {
       expect(screen.getByLabelText(/Max Keepers Per Owner/i)).toBeInTheDocument()
     );
     expect(screen.getByDisplayValue('2')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('round')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Cost Type/i)).toHaveValue('round');
   });
 
   test('submits updated settings', async () => {

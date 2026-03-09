@@ -8,7 +8,11 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.routers.matchups import get_matchup_detail, get_team_starters
+from backend.routers.matchups import (
+    calculate_win_probabilities,
+    get_matchup_detail,
+    get_team_starters,
+)
 
 
 @pytest.fixture
@@ -242,3 +246,12 @@ def test_get_matchup_detail_aggregates_projected_from_scored_starters(db_session
     assert payload.away_projected == pytest.approx(6.0)
     assert payload.home_roster[0].projected == pytest.approx(10.0)
     assert payload.away_roster[0].projected == pytest.approx(6.0)
+    assert payload.home_win_probability == pytest.approx(62.5)
+    assert payload.away_win_probability == pytest.approx(37.5)
+
+
+def test_calculate_win_probabilities_handles_zero_projection_totals():
+    home_probability, away_probability = calculate_win_probabilities(0.0, 0.0)
+
+    assert home_probability == pytest.approx(50.0)
+    assert away_probability == pytest.approx(50.0)

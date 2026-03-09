@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 // using the 2D-specific build avoids pulling in AFRAME/VR extras
 // the module exports a default component, not a named one
 import ForceGraph2D from 'react-force-graph-2d';
-import apiClient from '@api/client';
+import { fetchCurrentUser } from '@api/commonApi';
+import { fetchRivalryAnalytics } from '@api/analyticsApi';
+import { normalizeApiError } from '@api/fetching';
 
 // Visualizes head-to-head and trade relationships between managers in a league
 const RivalryGraph = () => {
@@ -13,17 +15,15 @@ const RivalryGraph = () => {
   useEffect(() => {
     async function load() {
       try {
-        const userRes = await apiClient.get('/auth/me');
-        const leagueId = userRes.data?.league_id;
+        const user = await fetchCurrentUser();
+        const leagueId = user?.league_id;
         if (!leagueId) {
           setError('League not found');
           setLoading(false);
           return;
         }
-        const res = await apiClient.get(
-          `/analytics/league/${leagueId}/rivalry`
-        );
-        const { nodes, edges } = res.data || { nodes: [], edges: [] };
+        const payload = await fetchRivalryAnalytics(leagueId);
+        const { nodes, edges } = payload || { nodes: [], edges: [] };
         // convert edges to force-graph links
         const links = edges.map((e) => ({
           source: e.source,
@@ -34,7 +34,7 @@ const RivalryGraph = () => {
         setGraphData({ nodes, links });
       } catch (err) {
         console.error(err);
-        setError(err.message || 'Failed to load rivalry data');
+        setError(normalizeApiError(err, 'Failed to load rivalry data'));
       } finally {
         setLoading(false);
       }

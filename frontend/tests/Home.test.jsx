@@ -191,6 +191,47 @@ describe('Home (League Dashboard)', () => {
     });
   });
 
+  test('renders hot pickups trend and claim metadata when available', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/leagues/1/news') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/players/top-free-agents?league_id=1&limit=10') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 101,
+              name: 'Hot Add',
+              position: 'WR',
+              nfl_team: 'BUF',
+              projected_points: 123.4,
+              pickup_score: 129.5,
+              pickup_tier: 'A',
+              pickup_trend_label: 'Rising',
+              pickup_trend_score: 1.8,
+              recent_claim_count: 3,
+            },
+          ],
+        });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderHome('alice');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Hot Add/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Trend Rising/i)).toBeInTheDocument();
+    expect(screen.getByText(/Claims 3/i)).toBeInTheDocument();
+  });
+
   test('shows "no owners" message when standings are empty', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/leagues/1') {
@@ -268,6 +309,93 @@ describe('Home (League Dashboard)', () => {
       const rowsDesc = screen.getAllByRole('row');
       expect(rowsDesc[1]).toHaveTextContent('A');
     });
+  });
+
+  test('W-L-T header sorts by full record context', async () => {
+    const mockOwners = [
+      {
+        id: 1,
+        username: 'alpha',
+        team_name: 'Alpha',
+        wins: 6,
+        losses: 4,
+        ties: 0,
+        pf: 900,
+        pa: 800,
+      },
+      {
+        id: 2,
+        username: 'bravo',
+        team_name: 'Bravo',
+        wins: 7,
+        losses: 3,
+        ties: 0,
+        pf: 850,
+        pa: 810,
+      },
+    ];
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'L' } });
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: mockOwners });
+      }
+      if (url === '/leagues/1/news') return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderHome('alice');
+    await waitFor(() => screen.getByText('Alpha'));
+
+    const recordHeader = screen.getByText('W-L-T');
+    // first click sorts ascending: fewer wins first
+    recordHeader.click();
+    await waitFor(() => {
+      const rowsAsc = screen.getAllByRole('row');
+      expect(rowsAsc[1]).toHaveTextContent('Alpha');
+    });
+
+    // second click toggles descending: better record first
+    recordHeader.click();
+    await waitFor(() => {
+      const rowsDesc = screen.getAllByRole('row');
+      expect(rowsDesc[1]).toHaveTextContent('Bravo');
+    });
+  });
+
+  test('renders PF and PA from points_for/points_against fallback fields', async () => {
+    const mockOwners = [
+      {
+        id: 11,
+        username: 'fallback-owner',
+        team_name: 'Fallback Team',
+        wins: 3,
+        losses: 1,
+        ties: 0,
+        points_for: 412.6,
+        points_against: 355.2,
+      },
+    ];
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') return Promise.resolve({ data: { name: 'L' } });
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: mockOwners });
+      }
+      if (url === '/leagues/1/news') return Promise.resolve({ data: [] });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    renderHome('alice');
+
+    await waitFor(() => {
+      expect(screen.getByText('Fallback Team')).toBeInTheDocument();
+    });
+
+    const table = screen.getByRole('table');
+    const scope = within(table);
+    expect(scope.getByText('412.6')).toBeInTheDocument();
+    expect(scope.getByText('355.2')).toBeInTheDocument();
   });
 
   test('does not fetch data when league ID is missing', () => {

@@ -321,6 +321,80 @@ def _build_consistency_factors(
     return factors
 
 
+def _fallback_draft_value_rows_from_players(
+    db: Session,
+    *,
+    season: int,
+    normalized_position: str,
+) -> list[tuple[Any, models.Player]]:
+    players_query = db.query(models.Player)
+    if normalized_position:
+        players_query = players_query.filter(models.Player.position == normalized_position)
+
+    players = players_query.all()
+    if not players:
+        return []
+
+    per_position_points: dict[str, list[float]] = {}
+    for player in players:
+        pos = (player.position or "UNK").upper()
+        projected = float(player.projected_points or 0.0)
+        if projected <= 0 and player.adp is not None:
+            projected = max(8.0, 300.0 - float(player.adp))
+        per_position_points.setdefault(pos, []).append(projected)
+
+    replacement_by_position: dict[str, float] = {}
+    for pos, points in per_position_points.items():
+        if not points:
+            replacement_by_position[pos] = 0.0
+            continue
+        sorted_points = sorted(points, reverse=True)
+        replacement_idx = min(len(sorted_points) - 1, max(0, int(len(sorted_points) * 0.6)))
+        replacement_by_position[pos] = float(sorted_points[replacement_idx])
+
+    class _FallbackDraftValue:
+        def __init__(self, *, avg_auction_value: float, value_over_replacement: float, consensus_tier: str):
+            self.season = season
+            self.avg_auction_value = avg_auction_value
+            self.value_over_replacement = value_over_replacement
+            self.consensus_tier = consensus_tier
+
+    fallback_rows: list[tuple[Any, models.Player]] = []
+    for player in players:
+        pos = (player.position or "UNK").upper()
+        projected = float(player.projected_points or 0.0)
+        if projected <= 0 and player.adp is not None:
+            projected = max(8.0, 300.0 - float(player.adp))
+
+        replacement = float(replacement_by_position.get(pos, 0.0))
+        value_over_replacement = max(0.0, projected - replacement)
+        auction_value = max(1.0, projected * 0.11 + value_over_replacement * 0.09)
+
+        if auction_value >= 45:
+            tier = "S"
+        elif auction_value >= 30:
+            tier = "A"
+        elif auction_value >= 18:
+            tier = "B"
+        elif auction_value >= 8:
+            tier = "C"
+        else:
+            tier = "D"
+
+        fallback_rows.append(
+            (
+                _FallbackDraftValue(
+                    avg_auction_value=float(round(auction_value, 2)),
+                    value_over_replacement=float(round(value_over_replacement, 2)),
+                    consensus_tier=tier,
+                ),
+                player,
+            )
+        )
+
+    return fallback_rows
+
+
 def get_historical_rankings(
     db: Session,
     *,
@@ -343,6 +417,12 @@ def get_historical_rankings(
         query = query.filter(models.Player.position == normalized_position)
 
     query_rows = query.all()
+    if not query_rows:
+        query_rows = _fallback_draft_value_rows_from_players(
+            db,
+            season=season,
+            normalized_position=normalized_position,
+        )
 
     league_weights = _build_league_position_weights(db, league_id=league_id)
     owner_position_affinity = _build_owner_position_affinity(

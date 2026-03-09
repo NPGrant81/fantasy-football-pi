@@ -1,5 +1,10 @@
 import React from 'react';
-import apiClient from '@api/client';
+import { fetchCurrentUser } from '@api/commonApi';
+import {
+  fetchWeeklyMatchupsAnalytics,
+  resolveRows,
+} from '@api/analyticsApi';
+import { normalizeApiError } from '@api/fetching';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,35 +34,23 @@ const WeeklyMatchupChart = () => {
   React.useEffect(() => {
     const load = async () => {
       try {
-        const userRes = await apiClient.get('/auth/me');
-        const leagueId = userRes.data?.league_id;
+        const user = await fetchCurrentUser();
+        const leagueId = user?.league_id;
         if (!leagueId) {
           setError('League not found.');
           return;
         }
 
         const season = new Date().getFullYear();
-        const res = await apiClient.get(
-          `/analytics/league/${leagueId}/weekly-matchups`,
-          {
-            params: { season, start_week: 1, end_week: 17 },
-          }
-        );
-
-        const payload = res.data;
-        const resolvedRows =
-          payload && !Array.isArray(payload) && Array.isArray(payload.rows)
-            ? payload.rows
-            : payload;
-
-        const safeRows = Array.isArray(resolvedRows) ? resolvedRows : [];
+        const payload = await fetchWeeklyMatchupsAnalytics(leagueId, season);
+        const safeRows = resolveRows(payload);
         setRows(safeRows);
         if (safeRows.length) {
           setSelectedWeek(Number(safeRows[safeRows.length - 1].week));
         }
       } catch (err) {
         console.error(err);
-        setError(err?.message || 'Failed to load weekly matchup data.');
+        setError(normalizeApiError(err, 'Failed to load weekly matchup data.'));
       } finally {
         setLoading(false);
       }

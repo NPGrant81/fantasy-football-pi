@@ -18,6 +18,19 @@ Tasks:
 
 ---
 
+## Issue Hygiene (Resolved vs Open)
+
+To avoid backlog confusion between completed work and net-new work, use this standard:
+
+- Track implementation-complete issues in `docs/ISSUE_STATUS.md` under `Resolved Issue Closure Queue`.
+- Close corresponding GitHub issues as soon as close-out notes are posted.
+- Do not create a new issue for a problem area that already has a `Pending` resolved entry.
+- During planning/refinement, clear pending close items before adding overlapping backlog scope.
+- Feed recurring break/fix findings from `docs/CLI_CHECKIN_LESSONS_LEARNED.md` into planning and standards updates.
+- Use issue `#156` for markdown governance and doc-to-issue correlation sweep tracking.
+
+---
+
 ## 📖 STORY NUMBERING FRAMEWORK
 
 This project uses **Agile Story numbering** to organize features and tasks with clear structure for VS Code file mapping and development sequencing.
@@ -154,17 +167,17 @@ This project uses **Agile Story numbering** to organize features and tasks with 
 
 ### Story 6.2: Playoff Bracket Visualization
 
-- **Status:** ❌ NOT STARTED
+- **Status:** 🔄 PARTIAL (Core delivered, dynamic structure follow-up open)
 - **Priority:** Medium
-- **Notes:** Requires bracket generation and visualization component (bracket-lib, react-bracket)
-- **Complexity:** High - requires tournament logic
+- **Notes:** Baseline bracket, historical mode, and bracket-type UX delivered. Remaining dynamic commissioner-settings behavior is tracked in GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154).
+- **Complexity:** Medium/High - structure mapping across league configurations
 
 ### Story 6.4: Matchup Win Probability
 
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED
 - **Priority:** Medium
-- **Notes:** Requires predictive algorithm based on player projections and health
-- **Complexity:** High - ML/stats heavy
+- **Notes:** Implemented projected win percentage formula and progress bar UX in Matchups + Game Center. Closed via GitHub issue `#24`.
+- **Complexity:** Baseline complete; future refinements can extend model sophistication.
 
 ### Story 7.2: Dark/Light Mode Toggle
 
@@ -175,9 +188,9 @@ This project uses **Agile Story numbering** to organize features and tasks with 
 
 ### Story 7.3: Bug Reporting Form
 
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED
 - **Priority:** Low
-- **Notes:** User feedback mechanism for bug reports
+- **Notes:** Users can submit bug or feature reports via `/bug-report`; backend stores entries and can open GitHub issues automatically.
 - **Complexity:** Low - form + email/storage
 
 ### Story 1.2: Historical Data Archiving
@@ -261,10 +274,10 @@ This project uses **Agile Story numbering** to organize features and tasks with 
 
 ## SUMMARY
 
-- **Total Stories Tracked:** 25+
-- **✅ Fully Completed:** 7 stories (0.1, 2.1-2.3, 3.1, 4.2-4.4, 5.1-5.4, 6)
-- **🔄 Partially Completed:** 2 stories (6.1, 6.3)
-- **❌ Not Started:** 5 stories (1.2, 6.2, 6.4, 7.2, 7.3)
+- **Total Stories Tracked:** Dynamic; use GitHub issue board as source of truth.
+- **✅ Fully Completed:** Includes Story `6.4` and Story `7.3`.
+- **🔄 Partially Completed:** Stories `6.1`, `6.2`, `6.3`.
+- **❌ Not Started:** Stories `1.2` and `7.2` remain explicitly not started.
 - **⏳ Planned (Story 8.x):** 3 commissioner tool features
 - **🏗️ Infrastructure (Story 0.x):** 1 complete, 2 in progress
 - **Total Stories Tracked:** 35+
@@ -298,18 +311,20 @@ This project uses **Agile Story numbering** to organize features and tasks with 
 
 ### Sprint 3: Playoff Features (Story 6.x)
 
-6. **Story 6.2** - Playoff bracket visualization
-   - Effort: 2-3 days
-   - Impact: Late-season engagement
+6. **Story 6.2 follow-up** - Dynamic commissioner-settings bracket structure
+  - Effort: 2-3 days
+  - Impact: Correct bracket behavior across league formats
+  - Tracking: GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154)
 
-7. **Story 6.4** - Matchup win probability
-   - Effort: 2-3 days
-   - Impact: Strategic decision-making
+7. **Quality hardening sweep** - Edge-case tests and docs governance
+  - Effort: 2-4 days
+  - Impact: Lower regression risk and cleaner contributor pathways
+  - Tracking: GitHub issues [#43](https://github.com/NPGrant81/fantasy-football-pi/issues/43), [#100](https://github.com/NPGrant81/fantasy-football-pi/issues/100), [#155](https://github.com/NPGrant81/fantasy-football-pi/issues/155), [#156](https://github.com/NPGrant81/fantasy-football-pi/issues/156)
 
 ### Backlog (Low Priority / Polish)
 
 - **Story 7.2** - Dark/Light mode toggle
-- **Story 7.3** - Bug reporting form
+- **Story 7.3** - Bug reporting form enhancements (optional polish only; core delivered)
 - **Story 1.2** - Historical data archiving
 - **Story 0.2** - Cloudflare Tunnel Setup (optional)
 - **Story 0.3** - Database Scheduled Backups

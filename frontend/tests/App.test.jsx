@@ -176,7 +176,6 @@ describe('App (basic)', () => {
     render(<App />);
     // ensure auth fetch happens
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
-
-    expect(screen.getByText('PlayoffBracket')).toBeInTheDocument();
+    expect(await screen.findByText('PlayoffBracket')).toBeInTheDocument();
   });
 });

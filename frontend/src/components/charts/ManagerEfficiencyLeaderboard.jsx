@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import apiClient from '@api/client';
+import { fetchCurrentUser } from '@api/commonApi';
+import {
+  fetchManagerEfficiencyLeaderboard,
+  resolveRows,
+} from '@api/analyticsApi';
+import { normalizeApiError } from '@api/fetching';
 
 // Simple table-based leaderboard showing manager efficiency
 const ManagerEfficiencyLeaderboard = () => {
@@ -10,25 +15,18 @@ const ManagerEfficiencyLeaderboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const userRes = await apiClient.get('/auth/me');
-        const leagueId = userRes.data?.league_id;
+        const user = await fetchCurrentUser();
+        const leagueId = user?.league_id;
         if (!leagueId) {
           setError('League not found');
           setLoading(false);
           return;
         }
-        const res = await apiClient.get(
-          `/analytics/league/${leagueId}/leaderboard`
-        );
-        // API may return object with rows property or raw array
-        let payload = res.data;
-        if (payload && !Array.isArray(payload) && Array.isArray(payload.rows)) {
-          payload = payload.rows;
-        }
-        setRows(payload || []);
+        const payload = await fetchManagerEfficiencyLeaderboard(leagueId);
+        setRows(resolveRows(payload));
       } catch (err) {
         console.error(err);
-        setError(err.message || 'Failed to load leaderboard');
+        setError(normalizeApiError(err, 'Failed to load leaderboard'));
       } finally {
         setLoading(false);
       }

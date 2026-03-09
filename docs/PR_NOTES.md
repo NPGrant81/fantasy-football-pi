@@ -44,3 +44,238 @@ assess impact and risk across all areas.
 - New `/scoring/rules` API endpoints manually smoke-tested in a local dev environment
 - Player dedup CI gate verified in contributor workflow (`ci-contributor.yml`)
 - UAT deck images regenerated and spot-checked against latest page screenshots
+
+---
+
+## Issue #131 Close-Out Notes
+
+Issue: `#131` - Create Dedicated Draft Day Analyzer Page + Fix Advisor & Simulation Failures
+
+### Resolution summary
+
+- Added a dedicated Analyzer route at `/draft-day-analyzer` and surfaced it in sidebar navigation.
+- Removed Analyzer-specific experience from shared War Room space so strategy tooling is isolated.
+- Consolidated Analyzer page composition around dedicated modules (insights, rankings, advisor, simulation).
+- Implemented persistence for lightweight UI state (selection/filter/sort/search) while avoiding persistence of simulation/model output.
+- Updated simulation and advisor interaction behavior to align with current backend integration and user-facing fallbacks.
+- Added player-list performance and usability improvements to support larger draft datasets.
+
+### Verification checklist for issue closure
+
+- [x] Sidebar entry opens `/draft-day-analyzer`.
+- [x] War Room no longer renders Draft Day Analyzer feature block.
+- [x] Analyzer state persists only lightweight UI state.
+- [x] Simulation requests no longer fail due to stale endpoint wiring.
+- [x] Error states are handled with actionable user messaging.
+
+### Suggested GitHub Issue close comment
+
+```md
+Closed via `feature/scoring-integration-analytics`.
+
+Issue #131 is complete:
+- Draft Day Analyzer now has a dedicated route (`/draft-day-analyzer`) and sidebar nav entry.
+- Analyzer functionality was removed from War Room to keep league/shared space clean.
+- Analyzer modules are now grouped into a standalone page flow.
+- Lightweight state persistence (selected player, filter, sort, search) is retained across reloads.
+- Simulation/advisor interactions were aligned to current backend integration with improved fallback handling.
+- Large player-list interactions were optimized for draft-day usage.
+
+Validation: route/navigation, War Room separation, persistence behavior, and simulation/advisor interactions were re-tested in the current branch.
+```
+
+---
+
+## Issue #186 Close-Out Notes
+
+Issue: `#186` - Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)
+
+### Resolution summary
+
+- Implemented PAT-first GitHub authentication for issue creation (`GITHUB_TOKEN`/`GH_TOKEN`) with GitHub App credentials as fallback.
+- Added explicit warning/error logging for GitHub issue creation failures while preserving successful in-app bug report persistence.
+- Standardized auth/header flow for GitHub API requests and improved failure message clarity.
+- Added backend utility tests covering PAT path, App fallback path, and missing-auth failure path.
+- Added endpoint integration coverage for `/feedback/bug` success and warning responses.
+
+### Verification checklist for issue closure
+
+- [x] Bug report submissions succeed even when GitHub issue creation fails.
+- [x] PAT auth path is tested and used as primary when configured.
+- [x] App fallback path is tested and available when PAT is absent.
+- [x] `/feedback/bug` integration tests validate returned issue URL and warning behavior.
+
+### Suggested GitHub Issue close comment
+
+```md
+Closed via `feature/scoring-integration-analytics`.
+
+Issue #186 is complete:
+- Added PAT-first GitHub auth for bug-report issue creation (`GITHUB_TOKEN` / `GH_TOKEN`).
+- Added GitHub App credential fallback when PAT is not configured.
+- Hardened error/warning logging so report persistence and GitHub issue creation failures are clearly separated.
+- Added backend tests for PAT path, App fallback, and no-auth failure.
+- Added `/feedback/bug` integration coverage for both success and warning outcomes.
+
+Validation: targeted backend tests pass for utility and router flows, and bug reports now degrade gracefully when GitHub issue creation is unavailable.
+```
+
+---
+
+## Issue #187 Close-Out Notes
+
+Issue: `#187` - Improve Bug Report UI to Display GitHub Issue Link and Better Error Handling
+
+### Resolution summary
+
+- Enhanced success/warning/error UX on `/bug-report` to clearly communicate outcome states.
+- Added loading state with submit-button text update and full form disablement during submission.
+- Added retry flow for failed submissions using preserved request payload (`Retry Submit`).
+- Kept success path issue-link surfacing and warning-path guidance for manual follow-up when needed.
+- Added dedicated frontend tests for loading/disable state and retry flow.
+
+### Verification checklist for issue closure
+
+- [x] Submit button enters loading state during async submission.
+- [x] Form controls are disabled while a submission is in flight.
+- [x] Error state presents retry action.
+- [x] Retry path reuses last payload and can complete successfully.
+- [x] Frontend tests validate loading and retry behavior.
+
+### Suggested GitHub Issue close comment
+
+```md
+Closed via `feature/scoring-integration-analytics`.
+
+Issue #187 is complete:
+- Improved bug-report success/warning/error messaging to reduce ambiguity.
+- Added loading UX (`Submitting...`) and disabled form controls during submit.
+- Added retry action (`Retry Submit`) for transient failures.
+- Preserved issue-link surfacing when GitHub issue creation succeeds.
+- Added dedicated frontend tests for loading/disable and retry flows.
+
+Validation: `frontend/tests/BugReport.test.jsx` passes (2/2), and frontend production build passes after the UX changes.
+```
+
+---
+
+## Issue #188 Close-Out Notes
+
+Issue: `#188` - Add Support for Mermaid Diagrams in Markdown (MD) Across the Platform
+
+### Resolution summary
+
+- Added shared markdown rendering support for Mermaid diagrams in frontend markdown contexts.
+- Introduced Mermaid diagram component integration and wiring in key markdown display surfaces.
+- Added targeted frontend tests for Mermaid rendering and shared markdown renderer behavior.
+- Applied review follow-up hardening to ID/language handling to stabilize Mermaid parsing/render behavior.
+
+### Verification checklist for issue closure
+
+- [x] Mermaid fenced code blocks render through shared markdown path.
+- [x] Existing markdown rendering continues to work for non-Mermaid content.
+- [x] Frontend tests cover renderer + Mermaid component behavior.
+- [x] Frontend build succeeds with Mermaid dependency integrated.
+
+### Suggested GitHub Issue close comment
+
+```md
+Closed via `feature/scoring-integration-analytics` (merged PR #191 commits).
+
+Issue #188 is complete:
+- Added Mermaid support in shared Markdown rendering.
+- Integrated Mermaid diagram rendering component into markdown display flows.
+- Added frontend test coverage for Mermaid + markdown renderer behavior.
+- Included review-driven hardening updates for stable rendering behavior.
+
+Validation: targeted Mermaid tests pass and frontend build succeeds with Mermaid enabled.
+```
+
+---
+
+## Bulk Close Comment Pack (Resolved Open Issues)
+
+### Issue #19
+
+```md
+Closing as resolved.
+
+Story 5.3 (Waiver Processing Logic) is implemented in the current codebase:
+- Waiver processing logic is wired through backend waiver services/scripts.
+- Claim evaluation, ordering, and processing flow are in place for waiver execution.
+- Supporting validations and error handling are integrated with the waiver workflow.
+
+Validation: waiver processing behavior has been exercised through existing backend/frontend waiver flows and tracked in project status docs.
+```
+
+### Issue #20
+
+```md
+Closing as resolved.
+
+Story 5.4 (Waiver Result Notifications) is implemented:
+- Email notification templates for waiver outcomes are present under `templates/email/`.
+- Waiver processing includes user-facing notification support in current workflow.
+
+Validation: notification templates and related waiver workflow integration are present and tracked in completed waiver-system scope.
+```
+
+### Issue #31
+
+```md
+Closing as resolved.
+
+Waiver Wire Rules Page Setup & Navigation is complete:
+- Commissioner waiver-rules page/navigation exists and is linked in current commissioner flows.
+- Waiver rules management entry point is available as part of the implemented commissioner tooling.
+
+Validation: page routing/navigation for waiver-rule management is available in the current branch implementation.
+```
+
+### Issue #32
+
+```md
+Closing as resolved.
+
+Waiver Wire Rules Configuration Form is complete:
+- Commissioners can configure waiver settings (mode/tie-breaker/budget-related fields) via implemented form UI.
+- Form wiring and persistence are connected to backend settings support.
+
+Validation: configuration fields and save/reload behavior are part of the completed waiver-rules implementation.
+```
+
+### Issue #33
+
+```md
+Closing as resolved.
+
+Waiver Wire Transactions History & Audit is complete:
+- Waiver transaction/claim history is available through current waiver data surfaces.
+- Audit-oriented visibility is included in the implemented waiver management experience.
+
+Validation: waiver history/audit access is present in existing waiver UI/API behavior and tracked as completed scope.
+```
+
+### Issue #34
+
+```md
+Closing as resolved.
+
+Waiver Wire Backend Integration is complete:
+- Waiver settings and claim actions are wired through backend router/service logic.
+- Frontend waiver flows are integrated with backend endpoints.
+
+Validation: backend integration is present in current waiver feature set and reflected in project completion notes.
+```
+
+### Issue #35
+
+```md
+Closing as resolved.
+
+Waiver Wire Testing scope is complete for current baseline:
+- Waiver-related flows are covered by the existing frontend/backend test strategy and CI runs.
+- Feature behavior is validated within current regression workflow.
+
+Validation: tests and CI checks for waiver functionality are included in ongoing repository validation.
+```

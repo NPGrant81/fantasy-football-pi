@@ -1,5 +1,10 @@
 import React from 'react';
-import apiClient from '@api/client';
+import { fetchCurrentUser } from '@api/commonApi';
+import {
+  fetchDraftValueAnalytics,
+  resolveRows,
+} from '@api/analyticsApi';
+import { normalizeApiError } from '@api/fetching';
 import {
   Chart as ChartJS,
   LinearScale,
@@ -46,31 +51,19 @@ const DraftValueBoard = () => {
   React.useEffect(() => {
     const load = async () => {
       try {
-        const userRes = await apiClient.get('/auth/me');
-        const leagueId = userRes.data?.league_id;
+        const user = await fetchCurrentUser();
+        const leagueId = user?.league_id;
         if (!leagueId) {
           setError('League not found.');
           return;
         }
 
         const season = new Date().getFullYear();
-        const res = await apiClient.get(
-          `/analytics/league/${leagueId}/draft-value`,
-          {
-            params: { season, limit: 80 },
-          }
-        );
-
-        const payload = res.data;
-        const resolvedRows =
-          payload && !Array.isArray(payload) && Array.isArray(payload.rows)
-            ? payload.rows
-            : payload;
-
-        setRows(Array.isArray(resolvedRows) ? resolvedRows : []);
+        const payload = await fetchDraftValueAnalytics(leagueId, season, 80);
+        setRows(resolveRows(payload));
       } catch (err) {
         console.error(err);
-        setError(err?.message || 'Failed to load draft value data.');
+        setError(normalizeApiError(err, 'Failed to load draft value data.'));
       } finally {
         setLoading(false);
       }

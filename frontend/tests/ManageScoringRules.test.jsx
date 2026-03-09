@@ -57,9 +57,7 @@ describe('ManageScoringRules page', () => {
     fireEvent.change(screen.getByPlaceholderText(/Point Value/i), {
       target: { value: '4' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Positions/i), {
-      target: { value: 'QB' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'QB' }));
 
     fireEvent.click(screen.getByRole('button', { name: /Add Rule/i }));
 

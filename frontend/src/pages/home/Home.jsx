@@ -19,6 +19,56 @@ export default function Home({ username }) {
   const [sortField, setSortField] = useState('wins');
   const [sortAsc, setSortAsc] = useState(false);
 
+  const normalizeStandingRow = (row) => {
+    const wins = Number(row?.wins ?? row?.overall_record?.wins ?? 0);
+    const losses = Number(row?.losses ?? row?.overall_record?.losses ?? 0);
+    const ties = Number(row?.ties ?? row?.overall_record?.ties ?? 0);
+    const pf = Number(row?.pf ?? row?.points_for ?? row?.standings_metrics?.points_for ?? 0);
+    const pa = Number(row?.pa ?? row?.points_against ?? row?.standings_metrics?.points_against ?? 0);
+    const winPct = Number(
+      row?.win_pct ??
+        row?.overall_record?.win_pct ??
+        row?.standings_metrics?.overall_record?.win_pct ??
+        0
+    );
+
+    return {
+      ...row,
+      wins,
+      losses,
+      ties,
+      pf,
+      pa,
+      win_pct: winPct,
+    };
+  };
+
+  const sortedStandings = [...standings]
+    .map(normalizeStandingRow)
+    .sort((a, b) => {
+      const direction = sortAsc ? 1 : -1;
+
+      if (sortField === 'record') {
+        const aRecord = [a.wins, -a.losses, a.ties, a.pf];
+        const bRecord = [b.wins, -b.losses, b.ties, b.pf];
+        for (let idx = 0; idx < aRecord.length; idx += 1) {
+          if (aRecord[idx] < bRecord[idx]) return -1 * direction;
+          if (aRecord[idx] > bRecord[idx]) return 1 * direction;
+        }
+        return 0;
+      }
+
+      let av = a[sortField] ?? 0;
+      let bv = b[sortField] ?? 0;
+      if (sortField === 'team_name' || sortField === 'username') {
+        av = String(av).toLowerCase();
+        bv = String(bv).toLowerCase();
+      }
+      if (av < bv) return -1 * direction;
+      if (av > bv) return 1 * direction;
+      return 0;
+    });
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
@@ -28,6 +78,9 @@ export default function Home({ username }) {
     }
   };
   const [news, setNews] = useState([]);
+  const [topFreeAgents, setTopFreeAgents] = useState([]);
+  const [bidLoadingId, setBidLoadingId] = useState(null);
+  const [bidMessage, setBidMessage] = useState('');
   const [leagueName, setLeagueName] = useState('');
   const leagueId = localStorage.getItem('fantasyLeagueId');
 
@@ -54,7 +107,31 @@ export default function Home({ username }) {
       .get(`/leagues/${leagueId}/news`)
       .then((res) => setNews(res.data))
       .catch(() => setNews([]));
+
+    apiClient
+      .get(`/players/top-free-agents?league_id=${leagueId}&limit=10`)
+      .then((res) => setTopFreeAgents(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setTopFreeAgents([]));
   }, [leagueId]);
+
+  const handleQuickBid = async (player) => {
+    if (!player?.id) return;
+    setBidMessage('');
+    setBidLoadingId(player.id);
+    try {
+      await apiClient.post('/waivers/claim', {
+        player_id: player.id,
+        bid_amount: 0,
+      });
+      setTopFreeAgents((prev) => prev.filter((item) => item.id !== player.id));
+      setBidMessage(`Claim submitted for ${player.name}.`);
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      setBidMessage(typeof detail === 'string' ? detail : 'Bid failed. Check waiver status and roster limits.');
+    } finally {
+      setBidLoadingId(null);
+    }
+  };
   // --- 1.1 CONFIGURATION ---
   // Note: This page currently serves as a static landing.
   // Future 1.2 Data Retrieval for "League News" will go here.
@@ -108,7 +185,7 @@ export default function Home({ username }) {
                   </th>
                   <th
                     className="px-4 py-3 cursor-pointer"
-                    onClick={() => handleSort('wins')}
+                    onClick={() => handleSort('record')}
                   >
                     W-L-T
                   </th>
@@ -130,23 +207,7 @@ export default function Home({ username }) {
               <tbody>
                 {standings.length > 0 ? (
                   <>
-                    {/* apply sorting */}
-                    {[...standings]
-                      .sort((a, b) => {
-                        let av = a[sortField] || 0;
-                        let bv = b[sortField] || 0;
-                        if (
-                          sortField === 'team_name' ||
-                          sortField === 'username'
-                        ) {
-                          av = av.toLowerCase();
-                          bv = bv.toLowerCase();
-                        }
-                        if (av < bv) return sortAsc ? -1 : 1;
-                        if (av > bv) return sortAsc ? 1 : -1;
-                        return 0;
-                      })
-                      .map((owner, idx) => (
+                    {sortedStandings.map((owner, idx) => (
                         <tr
                           key={owner.id}
                           className="border-b border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
@@ -234,6 +295,68 @@ export default function Home({ username }) {
               <div className="mt-4 text-center text-xs italic text-slate-500 dark:text-slate-400">
                 End of feed
               </div>
+            )}
+          </div>
+        </div>
+
+        <div className={cardSurface}>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Hot Pickups
+            </h2>
+            <Link to="/waivers" className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline">
+              Full Waiver Wire
+            </Link>
+          </div>
+          {bidMessage ? (
+            <div className="mb-3 rounded border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs text-slate-700 dark:text-slate-300">
+              {bidMessage}
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            {topFreeAgents.length > 0 ? (
+              topFreeAgents.map((player, idx) => (
+                <div
+                  key={player.id}
+                  className="flex items-center justify-between gap-2 rounded border border-slate-200 dark:border-slate-700 p-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                      {idx + 1}. {player.name}
+                    </p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      {player.position} - {player.nfl_team || 'FA'} - ROS {Number(player.projected_points || 0).toFixed(1)}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Score {Number(player.pickup_score || 0).toFixed(1)}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Trend {player.pickup_trend_label || 'Steady'} ({Number(player.pickup_trend_score || 0).toFixed(1)})
+                    </p>
+                    {Number(player.recent_claim_count || 0) > 0 ? (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Claims {Number(player.recent_claim_count || 0)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <span className="rounded border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-300">
+                      {player.pickup_tier || 'C'} Tier
+                    </span>
+                  <button
+                    onClick={() => handleQuickBid(player)}
+                    disabled={bidLoadingId === player.id}
+                    className="shrink-0 rounded bg-cyan-600 px-2 py-1 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
+                  >
+                    {bidLoadingId === player.id ? 'Bidding...' : 'Bid'}
+                  </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs italic text-slate-500 dark:text-slate-400">
+                No free agents available for this league.
+              </p>
             )}
           </div>
         </div>

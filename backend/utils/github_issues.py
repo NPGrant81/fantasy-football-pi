@@ -1,10 +1,13 @@
 import os
 import time
+import logging
 import requests
 from jose import jwt
 
 GITHUB_API_BASE = "https://api.github.com"
 DEFAULT_REPO = "NPGrant81/fantasy-football-pi"
+
+logger = logging.getLogger(__name__)
 
 
 def _get_private_key():
@@ -18,6 +21,14 @@ def _get_private_key():
         return raw_key.replace("\\n", "\n")
 
     return None
+
+
+def _get_pat_token():
+    token = (os.getenv("GITHUB_TOKEN") or "").strip()
+    if token:
+        return token
+    fallback = (os.getenv("GH_TOKEN") or "").strip()
+    return fallback or None
 
 
 def _get_app_jwt(app_id, private_key):
@@ -55,12 +66,22 @@ def _create_issue(repo, token, title, body, labels):
             "labels": labels,
         },
         headers={
-            "Authorization": f"token {token}",
+            "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
         },
         timeout=30,
     )
-    response.raise_for_status()
+    if response.status_code >= 400:
+        message = "unknown error"
+        try:
+            payload = response.json()
+            if isinstance(payload, dict) and payload.get("message"):
+                message = str(payload.get("message"))
+        except Exception:
+            message = response.text or message
+        raise RuntimeError(
+            f"GitHub issue creation failed ({response.status_code}): {message}"
+        )
     return response.json()
 
 
@@ -69,9 +90,6 @@ def create_bug_issue(report, labels=None):
     installation_id = os.getenv("GITHUB_APP_INSTALLATION_ID")
     repo = os.getenv("GITHUB_ISSUE_REPO", DEFAULT_REPO)
     private_key = _get_private_key()
-
-    if not app_id or not installation_id or not private_key:
-        raise RuntimeError("GitHub App credentials are not configured")
 
     title = report["title"]
     body = "\n".join(
@@ -91,5 +109,31 @@ def create_bug_issue(report, labels=None):
     if issue_type:
         label_list.append(f"issue-type:{issue_type}")
 
-    token = _get_installation_token(app_id, installation_id, private_key)
-    return _create_issue(repo, token, title, body, label_list)
+    pat_token = _get_pat_token()
+    if pat_token:
+        try:
+            logger.info("Creating GitHub issue using PAT auth")
+            return _create_issue(repo, pat_token, title, body, label_list)
+        except Exception as exc:
+            logger.warning(
+                "PAT GitHub issue creation failed; attempting app auth fallback: %s",
+                exc,
+            )
+
+    if not app_id or not installation_id or not private_key:
+        logger.error(
+            "GitHub issue auth unavailable: missing PAT and incomplete app credentials"
+        )
+        raise RuntimeError(
+            "GitHub issue creation auth is not configured. Set GITHUB_TOKEN or GitHub App credentials."
+        )
+
+    try:
+        logger.info("Creating GitHub issue using GitHub App installation token")
+        token = _get_installation_token(app_id, installation_id, private_key)
+        if not token:
+            raise RuntimeError("Empty installation token returned")
+        return _create_issue(repo, token, title, body, label_list)
+    except Exception as exc:
+        logger.exception("GitHub App issue creation failed: %s", exc)
+        raise RuntimeError(f"GitHub issue creation failed: {exc}") from exc

@@ -10,6 +10,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
 from backend.routers import draft as draft_router
+from backend.services.draft_rankings_service import (
+    get_historical_rankings as get_historical_rankings_service,
+)
 
 
 @pytest.fixture
@@ -143,3 +146,88 @@ def test_model_predict_returns_budget_aware_recommendations(db_session, monkeypa
     assert rec.within_owner_budget is False
     assert "budget-capped" in rec.flags
     assert "scarcity-boost" in rec.flags
+
+
+def test_rankings_blocks_non_commissioner_cross_owner(db_session):
+    _, _, owner_a, owner_b = _create_users(db_session)
+
+    with pytest.raises(HTTPException) as exc:
+        draft_router.get_historical_rankings(
+            season=2026,
+            league_id=owner_a.league_id,
+            owner_id=owner_b.id,
+            db=db_session,
+            current_user=owner_a,
+        )
+
+    assert exc.value.status_code == 403
+
+
+def test_rankings_service_falls_back_to_player_projections_when_no_draft_values(db_session):
+    db_session.add_all(
+        [
+            models.Player(
+                id=9001,
+                name="Fallback Alpha",
+                position="RB",
+                nfl_team="AAA",
+                projected_points=280.0,
+            ),
+            models.Player(
+                id=9002,
+                name="Fallback Beta",
+                position="RB",
+                nfl_team="BBB",
+                projected_points=240.0,
+            ),
+            models.Player(
+                id=9003,
+                name="Fallback Gamma",
+                position="WR",
+                nfl_team="CCC",
+                adp=40.0,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    rows = get_historical_rankings_service(
+        db_session,
+        season=2026,
+        limit=10,
+        league_id=None,
+        owner_id=None,
+        position=None,
+    )
+
+    assert rows, "Expected fallback rankings to return players"
+    assert all(row["season"] == 2026 for row in rows)
+    assert rows[0]["player_name"] == "Fallback Alpha"
+    assert rows[0]["predicted_auction_value"] >= rows[1]["predicted_auction_value"]
+    assert all(row["rank"] >= 1 for row in rows)
+
+
+def test_simulation_returns_backend_error_detail(db_session, monkeypatch):
+    _, _, owner_a, _ = _create_users(db_session)
+
+    def _raise_simulation_error(**kwargs):
+        raise RuntimeError("sim engine unavailable")
+
+    monkeypatch.setattr(draft_router, "run_monte_carlo_from_paths", _raise_simulation_error)
+    monkeypatch.setattr(Path, "exists", lambda self: True)
+
+    payload = draft_router.DraftSimulationRequest(
+        perspective_owner_id=owner_a.id,
+        iterations=100,
+        teams_count=12,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        draft_router.run_draft_simulation(
+            payload=payload,
+            db=db_session,
+            current_user=owner_a,
+        )
+
+    assert exc.value.status_code == 500
+    assert "sim engine unavailable" in str(exc.value.detail)

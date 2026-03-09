@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, UTC
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from .. import models
 from utils.github_issues import create_bug_issue
 
 router = APIRouter(prefix="/feedback", tags=["Feedback"])
+logger = logging.getLogger(__name__)
 
 
 class BugReportCreate(BaseModel):
@@ -39,7 +41,7 @@ def create_bug_report(
         issue_type=payload.issue_type,
         page_url=payload.page_url,
         status="OPEN",
-        created_at=datetime.utcnow().isoformat()
+        created_at=datetime.now(UTC).isoformat()
     )
 
     db.add(report)
@@ -62,6 +64,12 @@ def create_bug_report(
         report.github_issue_url = issue.get("html_url")
         db.commit()
     except Exception as exc:
+        logger.warning(
+            "Failed to create GitHub issue for bug report id=%s user_id=%s: %s",
+            report.id,
+            current_user.id,
+            exc,
+        )
         issue_warning = f"GitHub issue not created: {exc}"
 
     return {
