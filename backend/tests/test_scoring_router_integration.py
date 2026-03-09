@@ -389,3 +389,96 @@ def test_commissioner_rule_update_propagates_to_recalc_and_matchup_detail(client
     change_types = {row["change_type"] for row in history}
     assert "created" in change_types
     assert "updated" in change_types
+
+
+def test_import_replacement_propagates_without_stale_rule_leakage(client, api_db):
+    league, commissioner = _seed_league_and_commissioner(api_db)
+    matchup = _seed_matchup_data(api_db, league.id)
+
+    app.dependency_overrides[check_is_commissioner] = lambda: commissioner
+    app.dependency_overrides[get_current_user] = lambda: commissioner
+
+    # Baseline active rule to be replaced.
+    base_rule_response = client.post(
+        "/scoring/rules",
+        json={
+            "category": "receiving",
+            "event_name": "receptions",
+            "description": "Baseline receptions rule",
+            "range_min": 0,
+            "range_max": 999,
+            "point_value": 1.0,
+            "calculation_type": "per_unit",
+            "applicable_positions": ["WR"],
+            "position_ids": [8004],
+            "season_year": 2026,
+            "source": "custom",
+            "is_active": True,
+        },
+    )
+    assert base_rule_response.status_code == 200
+
+    baseline_recalc = client.post(
+        f"/scoring/calculate/matchups/{matchup.id}/recalculate",
+        json={"season": 2026, "season_year": 2026},
+    )
+    assert baseline_recalc.status_code == 200
+    baseline_scores = sorted(
+        [
+            float(baseline_recalc.json()["home_score"]),
+            float(baseline_recalc.json()["away_score"]),
+        ]
+    )
+    assert baseline_scores == pytest.approx([1.0, 5.0])
+
+    # Replace season rules from import; old active rule should be deactivated.
+    replacement_csv = """Event,Range_Yds,Point_Value,PostionID
+Receptions,1-999,2 points each,8004
+"""
+    replace_response = client.post(
+        "/scoring/import/apply",
+        json={
+            "csv_content": replacement_csv,
+            "season_year": 2026,
+            "source_platform": "espn_csv",
+            "replace_existing_for_season": True,
+        },
+    )
+    assert replace_response.status_code == 200
+
+    ruleset_response = client.get("/scoring/rulesets/current?season_year=2026")
+    assert ruleset_response.status_code == 200
+    ruleset = ruleset_response.json()
+    assert int(ruleset["active_rule_count"]) == 1
+    assert len(ruleset["rules"]) == 1
+    assert float(ruleset["rules"][0]["point_value"]) == pytest.approx(2.0)
+
+    replaced_recalc = client.post(
+        f"/scoring/calculate/matchups/{matchup.id}/recalculate",
+        json={"season": 2026, "season_year": 2026},
+    )
+    assert replaced_recalc.status_code == 200
+    replaced_scores = sorted(
+        [
+            float(replaced_recalc.json()["home_score"]),
+            float(replaced_recalc.json()["away_score"]),
+        ]
+    )
+    assert replaced_scores == pytest.approx([2.0, 10.0])
+
+    detail_response = client.get(f"/matchups/{matchup.id}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    projected_scores = sorted(
+        [
+            float(detail["home_projected"]),
+            float(detail["away_projected"]),
+        ]
+    )
+    assert projected_scores == pytest.approx([2.0, 10.0])
+
+    history_response = client.get("/scoring/history?season_year=2026")
+    assert history_response.status_code == 200
+    change_types = {row["change_type"] for row in history_response.json()}
+    assert "imported" in change_types
+    assert "deleted" in change_types
