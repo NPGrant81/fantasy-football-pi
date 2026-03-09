@@ -14,29 +14,29 @@ async function getMermaid() {
   return mermaidInstance;
 }
 
-let diagramIdCounter = 0;
-
 export default function MermaidDiagram({ chart }) {
   const containerRef = useRef(null);
-  const [error, setError] = useState(null);
-  const [svg, setSvg] = useState('');
+  // resultByChart maps chart string -> { svg } | { error }
+  // A missing entry means the chart is still rendering (loading state)
+  const [resultByChart, setResultByChart] = useState({});
 
   useEffect(() => {
     let cancelled = false;
-    setError(null);
-    setSvg('');
 
     getMermaid()
       .then(async (mermaid) => {
-        const id = `mermaid-diagram-${++diagramIdCounter}`;
+        const id = `mermaid-diagram-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
         const { svg: renderedSvg } = await mermaid.render(id, chart);
         if (!cancelled) {
-          setSvg(renderedSvg);
+          setResultByChart((prev) => ({ ...prev, [chart]: { svg: renderedSvg } }));
         }
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err?.message || 'Invalid diagram syntax');
+          setResultByChart((prev) => ({
+            ...prev,
+            [chart]: { error: err?.message || 'Invalid diagram syntax' },
+          }));
         }
       });
 
@@ -45,22 +45,24 @@ export default function MermaidDiagram({ chart }) {
     };
   }, [chart]);
 
-  if (error) {
+  const result = resultByChart[chart];
+
+  if (!result) {
+    return (
+      <div className="text-xs text-slate-400 italic py-2">
+        Rendering diagram…
+      </div>
+    );
+  }
+
+  if (result.error) {
     return (
       <div
         role="alert"
         className="rounded-md border border-red-500 bg-red-900/20 p-3 text-xs text-red-300"
       >
         <span className="font-semibold">Diagram error: </span>
-        {error}
-      </div>
-    );
-  }
-
-  if (!svg) {
-    return (
-      <div className="text-xs text-slate-400 italic py-2">
-        Rendering diagram…
+        {result.error}
       </div>
     );
   }
@@ -69,7 +71,7 @@ export default function MermaidDiagram({ chart }) {
     <div
       ref={containerRef}
       className="my-2 overflow-x-auto"
-      dangerouslySetInnerHTML={{ __html: svg }}
+      dangerouslySetInnerHTML={{ __html: result.svg }}
     />
   );
 }

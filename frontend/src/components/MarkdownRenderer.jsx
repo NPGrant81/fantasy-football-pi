@@ -3,7 +3,7 @@ import MermaidDiagram from './MermaidDiagram';
 import { textColors } from '../utils/uiHelpers';
 
 function CodeBlock({ className, children, ...props }) {
-  const language = /language-(\w+)/.exec(className || '')?.[1];
+  const language = /language-([\w-]+)/.exec(className || '')?.[1];
   if (language === 'mermaid') {
     return <MermaidDiagram chart={String(children).trim()} />;
   }
