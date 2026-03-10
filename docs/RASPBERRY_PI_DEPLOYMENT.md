@@ -5,6 +5,8 @@ This is the recommended production-style setup for Raspberry Pi:
 - Nginx reverse proxies backend API routes to FastAPI on `127.0.0.1:8000`.
 - systemd keeps the FastAPI backend running.
 
+Quick reference: `docs/PI_UPDATE_CHEATSHEET.md`
+
 ## 1. Install Base Packages (Pi)
 
 ```bash
@@ -90,6 +92,56 @@ sudo rsync -av --delete dist/ /var/www/fantasy-football-pi/frontend/dist/
 sudo systemctl restart fantasy-football-backend
 sudo systemctl reload nginx
 ```
+
+## 8. How To Decide What Must Be Updated On Pi
+
+Use this flow every time you SSH into the Pi.
+
+### A. Pull and inspect what changed
+
+```bash
+cd /home/pi/fantasy-football-pi
+git fetch origin
+git log --oneline HEAD..origin/main
+git diff --name-only HEAD..origin/main
+```
+
+Optional helper (recommended):
+
+```bash
+cd /home/pi/fantasy-football-pi
+bash scripts/pi_update_plan.sh origin/main
+```
+
+The helper prints a command checklist based on changed file paths.
+
+### B. Apply updates based on changed paths
+
+Run only the commands required by the files that changed.
+
+| Changed path(s) | Required action on Pi |
+| --- | --- |
+| `backend/requirements*.txt` | `cd backend && ./venv/bin/pip install -r requirements-lock.txt` |
+| `backend/**` (code) | `sudo systemctl restart fantasy-football-backend` |
+| `frontend/**` | `cd frontend && npm ci --legacy-peer-deps && npm run build && sudo rsync -av --delete dist/ /var/www/fantasy-football-pi/frontend/dist/` |
+| `deploy/nginx/**` | `sudo cp deploy/nginx/fantasy-football-pi.conf.example /etc/nginx/sites-available/fantasy-football-pi.conf && sudo nginx -t && sudo systemctl reload nginx` |
+| `deploy/systemd/fantasy-football-backend.service.example` | `sudo cp .../fantasy-football-backend.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart fantasy-football-backend` |
+| `deploy/systemd/cloudflared*.example` | copy updated unit files to `/etc/systemd/system/`, then `sudo systemctl daemon-reload` and restart/enable relevant units |
+| `deploy/cloudflared/**` | copy updated config to `/etc/cloudflared/config.yml`, then `sudo systemctl restart cloudflared` |
+| `ops/backup/**` or `deploy/systemd/microsd-db-backup*.example` | re-copy backup script/units, then `sudo systemctl daemon-reload && sudo systemctl enable --now microsd-db-backup.timer` |
+| `docs/**` only | no runtime update required |
+
+### C. Verify after update
+
+```bash
+curl -fsS http://127.0.0.1:8000/health
+sudo systemctl status fantasy-football-backend --no-pager
+sudo systemctl status nginx --no-pager
+sudo systemctl status cloudflared --no-pager
+sudo systemctl list-timers --all | grep microsd-db-backup
+```
+
+If all changed files were docs-only, skip service restarts.
 
 ## Notes
 

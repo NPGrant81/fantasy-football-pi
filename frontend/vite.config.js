@@ -9,9 +9,8 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, __dirname, '');
-  const apiTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8010';
-
+  const env = loadEnv(mode, process.cwd(), '');
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8010';
   return {
     plugins: [react()],
 
@@ -31,33 +30,33 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
       // 3.1.1 Proxy Rules: Routes API calls to your Raspberry Pi / Local Python Backend
-      '/auth': apiTarget,
-      '/draft/': apiTarget,
-      '/draft/pick': apiTarget,
-      '/draft/history': apiTarget,
+      '/auth': apiProxyTarget,
+      '/draft/': apiProxyTarget,
+      '/draft/pick': apiProxyTarget,
+      '/draft/history': apiProxyTarget,
       // only proxy the actual admin API endpoints; the client-side UI also uses
       // /admin paths, so forwarding everything breaks SPA routing (see
       // Manage Commissioners page). narrowing prevents 404s on reload.
-      '/admin/tools': apiTarget,
-      '/admin/create-test-league': apiTarget,
-      '/admin/reset-draft': apiTarget,
-      '/team/': apiTarget,
-      '/league': apiTarget,
-      '/leagues': apiTarget,
-      '/players': apiTarget,
-      '/advisor': apiTarget,
-      '/dashboard': apiTarget,
-      '/waivers/': apiTarget,
-      '/trades': apiTarget,
-      '/scoring': apiTarget,
-      '/keepers/': apiTarget,
-      '/playoffs/': apiTarget,
-      '/analytics/': apiTarget,
-      '/nfl': apiTarget,
-      '/feedback': apiTarget,
-      '/bug-reports': apiTarget,
-      '/etl': apiTarget,
-      '/matchups/': apiTarget,
+      '/admin/tools': apiProxyTarget,
+      '/admin/create-test-league': apiProxyTarget,
+      '/admin/reset-draft': apiProxyTarget,
+      '/team/': apiProxyTarget,
+      '/league': apiProxyTarget,
+      '/leagues': apiProxyTarget,
+      '/players': apiProxyTarget,
+      '/advisor': apiProxyTarget,
+      '/dashboard': apiProxyTarget,
+      '/waivers/': apiProxyTarget,
+      '/trades': apiProxyTarget,
+      '/scoring': apiProxyTarget,
+      '/keepers/': apiProxyTarget,
+      '/playoffs/': apiProxyTarget,
+      '/analytics/': apiProxyTarget,
+      '/nfl': apiProxyTarget,
+      '/feedback': apiProxyTarget,
+      '/bug-reports': apiProxyTarget,
+      '/etl': apiProxyTarget,
+      '/matchups/': apiProxyTarget,
       },
     },
   };

@@ -38,6 +38,10 @@ def test_create_access_token_and_decode():
     assert payload.get("sub") == "alice"
 
 
+def test_verify_password_with_unknown_hash_format_returns_false():
+    assert security.verify_password("secret", "not-a-valid-hash-format") is False
+
+
 @pytest.mark.asyncio
 async def test_check_is_commissioner_allows_and_denies():
     class UserObj:

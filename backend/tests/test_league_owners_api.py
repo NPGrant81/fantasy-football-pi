@@ -103,3 +103,40 @@ def test_get_league_owners_contract_and_league_scoped_stats(client, api_db):
     assert owner_a_row["pa"] == 108.0
     assert owner_a_row["points_for"] == 111.5
     assert owner_a_row["points_against"] == 108.0
+
+
+def test_get_league_owners_ignores_legacy_null_league_matchups(client, api_db):
+    league = models.League(name="L3")
+    api_db.add(league)
+    api_db.commit()
+    api_db.refresh(league)
+
+    owner_a = models.User(username="owner-null-a", email=None, hashed_password="h", league_id=league.id)
+    owner_b = models.User(username="owner-null-b", email=None, hashed_password="h", league_id=league.id)
+    api_db.add_all([owner_a, owner_b])
+    api_db.commit()
+    api_db.refresh(owner_a)
+    api_db.refresh(owner_b)
+
+    api_db.add(
+        models.Matchup(
+            week=2,
+            home_team_id=owner_a.id,
+            away_team_id=owner_b.id,
+            home_score=400.0,
+            away_score=1.0,
+            is_completed=True,
+            league_id=None,
+        )
+    )
+    api_db.commit()
+
+    response = client.get(f"/leagues/owners?league_id={league.id}")
+    assert response.status_code == 200
+    payload = response.json()
+    owner_a_row = next(row for row in payload if row["id"] == owner_a.id)
+
+    assert owner_a_row["wins"] == 0
+    assert owner_a_row["losses"] == 0
+    assert owner_a_row["pf"] == 0.0
+    assert owner_a_row["pa"] == 0.0
