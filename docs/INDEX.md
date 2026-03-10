@@ -13,6 +13,7 @@ Refer to the appropriate file for more information.
 - [Data Validation Strategy](DATA_VALIDATION_STRATEGY.md)
 - [Db Migration Phase1](DB_MIGRATION_PHASE1.md)
 - [Dependency Maintenance](DEPENDENCY_MAINTENANCE.md)
+- [Dev Environment Guide](dev-environment.md)
 - [Doc Issue Correlation Map](DOC_ISSUE_CORRELATION_MAP.md)
 - [Draft Analyzer Api Audit](DRAFT_ANALYZER_API_AUDIT.md)
 - [Draft Day Advisor Mode](DRAFT_DAY_ADVISOR_MODE.md)
