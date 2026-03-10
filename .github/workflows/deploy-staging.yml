@@ -1,0 +1,186 @@
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Deploy a new ref or rollback to a previous ref
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - rollback
+      release_ref:
+        description: Git ref to deploy (branch, tag, or SHA)
+        required: false
+        default: main
+        type: string
+      rollback_ref:
+        description: Optional rollback ref (falls back to last successful staging ref)
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-staging-env:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Validate required staging deployment secrets
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.STAGING_DEPLOY_SSH_KEY }}
+          DEPLOY_APP_DIR: ${{ secrets.STAGING_DEPLOY_APP_DIR }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for var in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_APP_DIR; do
+            if [ -z "${!var:-}" ]; then
+              echo "Missing required secret: $var"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Staging deployment validation failed due to missing secrets."
+            exit 1
+          fi
+
+      - name: Publish staging deployment intent
+        run: |
+          {
+            echo "## Staging Deployment Request"
+            echo ""
+            echo "- Action: ${{ inputs.action }}"
+            echo "- Release ref: ${{ inputs.release_ref }}"
+            echo "- Rollback ref: ${{ inputs.rollback_ref || 'auto(last_success_staging.ref)' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: validate-staging-env
+    environment: staging
+    steps:
+      - name: Checkout repository metadata
+        uses: actions/checkout@v4
+
+      - name: Configure SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_DEPLOY_SSH_KEY }}
+
+      - name: Trust staging host
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Execute staging deploy or rollback
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_DEPLOY_USER }}
+          DEPLOY_APP_DIR: ${{ secrets.STAGING_DEPLOY_APP_DIR }}
+          ACTION: ${{ inputs.action }}
+          RELEASE_REF: ${{ inputs.release_ref }}
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: |
+          set -euo pipefail
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR='$DEPLOY_APP_DIR' ACTION='$ACTION' RELEASE_REF='$RELEASE_REF' ROLLBACK_REF='$ROLLBACK_REF' bash -s" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          cd "$APP_DIR"
+          mkdir -p .deploy
+
+          git fetch --all --tags
+
+          if [ "$ACTION" = "deploy" ]; then
+            TARGET_REF_RESOLVED=$(git rev-parse "$RELEASE_REF")
+            CURRENT_REF=$(git rev-parse HEAD)
+            echo "$CURRENT_REF" > .deploy/last_success_staging.ref
+            git checkout --force "$TARGET_REF_RESOLVED"
+          elif [ "$ACTION" = "rollback" ]; then
+            if [ -n "$ROLLBACK_REF" ]; then
+              TARGET_REF_RESOLVED=$(git rev-parse "$ROLLBACK_REF")
+            elif [ -f .deploy/last_success_staging.ref ]; then
+              TARGET_REF_RESOLVED=$(cat .deploy/last_success_staging.ref)
+            else
+              echo "No rollback reference found. Provide rollback_ref input."
+              exit 1
+            fi
+            git checkout --force "$TARGET_REF_RESOLVED"
+          else
+            echo "Unsupported action: $ACTION"
+            exit 1
+          fi
+
+          cd backend
+          if [ ! -x ./venv/bin/python ]; then
+            python3 -m venv venv
+          fi
+          ./venv/bin/pip install -r requirements-lock.txt
+
+          cd ../frontend
+          npm ci --legacy-peer-deps
+          npm run build
+
+          sudo mkdir -p /var/www/fantasy-football-pi/frontend
+          sudo rsync -av --delete dist/ /var/www/fantasy-football-pi/frontend/dist/
+
+          sudo systemctl restart fantasy-football-backend
+          sudo systemctl reload nginx
+
+          cd ..
+          echo "$TARGET_REF_RESOLVED" > .deploy/current_staging.ref
+          echo "DEPLOYED_REF=$TARGET_REF_RESOLVED"
+          REMOTE_SCRIPT
+
+      - name: Publish staging deployment summary
+        if: always()
+        run: |
+          {
+            echo "## Staging Deployment Result"
+            echo ""
+            echo "- Outcome: ${{ job.status }}"
+            echo "- Action: ${{ inputs.action }}"
+            echo "- Requested release ref: ${{ inputs.release_ref }}"
+            echo "- Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL not configured; skipping Slack notification."
+            exit 0
+          fi
+          payload=$(cat <<EOF
+          {
+            "text": "Staging deployment ${{ job.status }} for ${{ github.repository }}. Action=${{ inputs.action }}, ref=${{ inputs.release_ref }}. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+          )
+          curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+      - name: Notify Teams
+        if: always()
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: |
+          if [ -z "$TEAMS_WEBHOOK_URL" ]; then
+            echo "TEAMS_WEBHOOK_URL not configured; skipping Teams notification."
+            exit 0
+          fi
+          payload=$(cat <<EOF
+          {
+            "text": "Staging deployment ${{ job.status }} for ${{ github.repository }}. Action=${{ inputs.action }}, ref=${{ inputs.release_ref }}. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+          )
+          curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$TEAMS_WEBHOOK_URL"
