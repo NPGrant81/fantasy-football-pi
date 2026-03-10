@@ -89,6 +89,9 @@
 - Every styling PR that touches routes updates this matrix.
 - Theme-toggle smoke checks are required for touched routes (light and dark).
 - Responsive audit remains active in CI.
+- Repository hygiene now includes a Stage 2 guardrail check:
+  - Route pages cannot introduce raw `<table>` markup unless they import
+    `@components/table/TablePrimitives`.
 
 ### 9) Layering and Spacing Guardrails
 
