@@ -4,6 +4,9 @@ This guide configures your existing Cloudflare Tunnel:
 - Domain: `pplinsighthub.com`
 - Tunnel name: `ppl-insight-hub-prod1`
 
+For full CLI-first workflow (install/login/create/config/DNS/systemd), see:
+`docs/cloudflare-tunnel-cli.md`
+
 ## 1. Prerequisites
 
 - Nginx is running and serving app on origin port `80`.

@@ -6,6 +6,7 @@ Refer to the appropriate file for more information.
 - [Api Page Matrix](API_PAGE_MATRIX.md)
 - [Architecture](ARCHITECTURE.md)
 - [Cloudflare Tunnel Setup](CLOUDFLARE_TUNNEL_SETUP.md)
+- [Cloudflare Tunnel CLI Runbook](cloudflare-tunnel-cli.md)
 - [Cloudflare Tunnel Monitoring](cloudflare-tunnel-monitoring.md)
 - [Cloudflare Tunnel systemd Runbook](cloudflare-tunnel-systemd.md)
 - [Cross Module Edge Case Test Matrix](CROSS_MODULE_EDGE_CASE_TEST_MATRIX.md)
