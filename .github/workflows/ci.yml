@@ -129,6 +129,125 @@ jobs:
           DURATION=$((NOW_EPOCH - START_EPOCH))
           echo "duration_seconds=$DURATION" >> "$GITHUB_OUTPUT"
 
+  api-integration:
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      duration_seconds: ${{ steps.timing_end.outputs.duration_seconds }}
+      failure_category: ${{ steps.result_category.outputs.category }}
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: fantasy_pi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:password@localhost:5432/fantasy_pi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Record API integration job start time
+        id: timing_start
+        run: |
+          echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Seed database
+        run: |
+          python -m backend.manage seed
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Run API integration and contract tests
+        run: |
+          python -m pytest backend/tests/test_api_integration_pipeline.py -q
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Run API smoke checks against local service
+        run: |
+          set -euo pipefail
+          python -m uvicorn backend.main:app --host 127.0.0.1 --port 8012 > api-smoke.log 2>&1 &
+          UVICORN_PID=$!
+
+          cleanup() {
+            kill "$UVICORN_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for i in {1..25}; do
+            if curl -fsS http://127.0.0.1:8012/health > /tmp/health.json; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl -fsS http://127.0.0.1:8012/openapi.json > /tmp/openapi.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          health = json.loads(Path('/tmp/health.json').read_text(encoding='utf-8'))
+          openapi = json.loads(Path('/tmp/openapi.json').read_text(encoding='utf-8'))
+
+          assert health.get('status') in {'ok', 'degraded'}, health
+          assert '/auth/token' in openapi.get('paths', {}), 'Missing /auth/token in OpenAPI paths'
+          assert '/health' in openapi.get('paths', {}), 'Missing /health in OpenAPI paths'
+          print('API smoke contract checks passed.')
+          PY
+
+      - name: Upload API smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-smoke-logs
+          if-no-files-found: ignore
+          path: api-smoke.log
+
+      - name: Categorize API integration failure
+        if: always()
+        id: result_category
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "category=none" >> "$GITHUB_OUTPUT"
+          else
+            echo "category=api_contract" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Record API integration job duration
+        if: always()
+        id: timing_end
+        env:
+          START_EPOCH: ${{ steps.timing_start.outputs.epoch }}
+        run: |
+          NOW_EPOCH=$(date +%s)
+          if [ -z "$START_EPOCH" ]; then
+            START_EPOCH=$NOW_EPOCH
+          fi
+          DURATION=$((NOW_EPOCH - START_EPOCH))
+          echo "duration_seconds=$DURATION" >> "$GITHUB_OUTPUT"
+
   frontend-test:
     runs-on: ubuntu-latest
     outputs:
@@ -289,7 +408,7 @@ jobs:
   observability:
     name: CI Observability Report
     runs-on: ubuntu-latest
-    needs: [test, frontend-test, e2e]
+    needs: [test, api-integration, frontend-test, e2e]
     if: always()
     steps:
       - name: Build CI dashboard summary
@@ -297,11 +416,14 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           BACKEND_RESULT: ${{ needs.test.result }}
           FRONTEND_RESULT: ${{ needs['frontend-test'].result }}
+          API_CONTRACT_RESULT: ${{ needs['api-integration'].result }}
           API_RESULT: ${{ needs.e2e.result }}
           BACKEND_DURATION: ${{ needs.test.outputs.duration_seconds }}
+          API_CONTRACT_DURATION: ${{ needs['api-integration'].outputs.duration_seconds }}
           FRONTEND_DURATION: ${{ needs['frontend-test'].outputs.duration_seconds }}
           API_DURATION: ${{ needs.e2e.outputs.duration_seconds }}
           BACKEND_CATEGORY: ${{ needs.test.outputs.failure_category }}
+          API_CONTRACT_CATEGORY: ${{ needs['api-integration'].outputs.failure_category }}
           FRONTEND_CATEGORY: ${{ needs['frontend-test'].outputs.failure_category }}
           API_CATEGORY: ${{ needs.e2e.outputs.failure_category }}
         run: |
@@ -316,12 +438,14 @@ jobs:
           }
 
           BACKEND_DURATION=${BACKEND_DURATION:-0}
+          API_CONTRACT_DURATION=${API_CONTRACT_DURATION:-0}
           FRONTEND_DURATION=${FRONTEND_DURATION:-0}
           API_DURATION=${API_DURATION:-0}
-          TOTAL_DURATION=$((BACKEND_DURATION + FRONTEND_DURATION + API_DURATION))
+          TOTAL_DURATION=$((BACKEND_DURATION + API_CONTRACT_DURATION + FRONTEND_DURATION + API_DURATION))
 
           FAILED_CATEGORIES=""
           [ "$BACKEND_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES backend"
+          [ "$API_CONTRACT_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES api_contract"
           [ "$FRONTEND_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES frontend"
           [ "$API_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES api"
 
@@ -337,6 +461,7 @@ jobs:
             echo "| Area | Status | Duration (s) | Failure Category |"
             echo "|---|---|---:|---|"
             echo "| Backend | $(status_icon "$BACKEND_RESULT") | $BACKEND_DURATION | ${BACKEND_CATEGORY:-none} |"
+            echo "| API Contract & Smoke | $(status_icon "$API_CONTRACT_RESULT") | $API_CONTRACT_DURATION | ${API_CONTRACT_CATEGORY:-none} |"
             echo "| Frontend | $(status_icon "$FRONTEND_RESULT") | $FRONTEND_DURATION | ${FRONTEND_CATEGORY:-none} |"
             echo "| API / E2E | $(status_icon "$API_RESULT") | $API_DURATION | ${API_CATEGORY:-none} |"
             echo "| Deployment | NOT RUN | 0 | deployment_not_in_scope |"
@@ -346,11 +471,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack on CI failure
-        if: needs.test.result != 'success' || needs['frontend-test'].result != 'success' || needs.e2e.result != 'success'
+        if: needs.test.result != 'success' || needs['api-integration'].result != 'success' || needs['frontend-test'].result != 'success' || needs.e2e.result != 'success'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           BACKEND_RESULT: ${{ needs.test.result }}
+          API_CONTRACT_RESULT: ${{ needs['api-integration'].result }}
           FRONTEND_RESULT: ${{ needs['frontend-test'].result }}
           API_RESULT: ${{ needs.e2e.result }}
         run: |
@@ -361,18 +487,19 @@ jobs:
 
           payload=$(cat <<EOF
           {
-            "text": "CI failed for ${{ github.repository }} on ${{ github.ref_name }}. Backend=$BACKEND_RESULT, Frontend=$FRONTEND_RESULT, API/E2E=$API_RESULT. Run: $RUN_URL"
+            "text": "CI failed for ${{ github.repository }} on ${{ github.ref_name }}. Backend=$BACKEND_RESULT, API Contract=$API_CONTRACT_RESULT, Frontend=$FRONTEND_RESULT, API/E2E=$API_RESULT. Run: $RUN_URL"
           }
           EOF
           )
           curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
 
       - name: Notify Teams on CI failure
-        if: needs.test.result != 'success' || needs['frontend-test'].result != 'success' || needs.e2e.result != 'success'
+        if: needs.test.result != 'success' || needs['api-integration'].result != 'success' || needs['frontend-test'].result != 'success' || needs.e2e.result != 'success'
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           BACKEND_RESULT: ${{ needs.test.result }}
+          API_CONTRACT_RESULT: ${{ needs['api-integration'].result }}
           FRONTEND_RESULT: ${{ needs['frontend-test'].result }}
           API_RESULT: ${{ needs.e2e.result }}
         run: |
@@ -383,7 +510,7 @@ jobs:
 
           payload=$(cat <<EOF
           {
-            "text": "CI failed for ${{ github.repository }} on ${{ github.ref_name }}. Backend=$BACKEND_RESULT, Frontend=$FRONTEND_RESULT, API/E2E=$API_RESULT. Run: $RUN_URL"
+            "text": "CI failed for ${{ github.repository }} on ${{ github.ref_name }}. Backend=$BACKEND_RESULT, API Contract=$API_CONTRACT_RESULT, Frontend=$FRONTEND_RESULT, API/E2E=$API_RESULT. Run: $RUN_URL"
           }
           EOF
           )
