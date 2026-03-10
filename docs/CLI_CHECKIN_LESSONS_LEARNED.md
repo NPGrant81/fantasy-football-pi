@@ -33,6 +33,11 @@ This file records concrete break/fix learnings from CLI-driven check-ins so futu
 - Fix applied: Closed completed issues, split remaining scope to a dedicated carryover issue.
 - Guardrail: For partial completion, close finished parent scope and open focused follow-up issue with explicit dependency links.
 
+6. PR review feedback must be cleared before merge/closure
+- Symptom: A PR was merged while automated review threads still contained unresolved actionable comments.
+- Fix applied: Added a required pre-close PR check to verify no unresolved review threads remain.
+- Guardrail: Do not merge or close linked issues until review feedback is audited and either resolved in code/docs or explicitly deferred in PR comments.
+
 ## CLI Workflow Practices That Worked
 - Use targeted smoke calls after backend changes (API payload checks before UI assumptions).
 - Run narrow pytest modules first, then broader groups when stable.
@@ -42,3 +47,16 @@ This file records concrete break/fix learnings from CLI-driven check-ins so futu
 - Keep this file updated whenever a regression root cause is found and fixed.
 - Link each major lesson to a related issue when possible.
 - Promote recurring guardrails into `CONTRIBUTING.md` when they become team standards.
+
+## Required Pre-Close PR Check (New)
+Before merging a PR and closing related issue(s), run this checklist:
+
+1. Check conversation-level comments and reviews.
+- `gh pr view <PR_NUMBER> --repo NPGrant81/fantasy-football-pi --json comments,reviews,reviewDecision`
+
+2. Check inline review threads for unresolved feedback.
+- `gh api graphql -f query='query { repository(owner:"NPGrant81", name:"fantasy-football-pi") { pullRequest(number:<PR_NUMBER>) { reviewThreads(first:100) { nodes { isResolved isOutdated comments(first:20) { nodes { author { login } body path line } } } } } } }'`
+
+3. Merge gate.
+- If any actionable thread is unresolved (`isResolved=false` and not outdated), do not merge yet.
+- Resolve in follow-up commit(s), then re-check before merging and closing issue(s).
