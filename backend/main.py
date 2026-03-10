@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 from fastapi import FastAPI, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,6 +66,8 @@ else:
     )
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 from contextlib import asynccontextmanager
 
@@ -309,3 +312,24 @@ app.include_router(scoring.router)
 @app.get("/")
 def read_root():
     return {"message": "Fantasy Football API is Running!"}
+
+
+@app.get("/health")
+def health_check():
+    db_ok = True
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception:
+        db_ok = False
+        # Keep full exception details in server logs only.
+        logger.exception("Health check DB probe failed")
+
+    payload = {
+        "status": "ok" if db_ok else "degraded",
+        "service": "fantasy-football-backend",
+        "database": "ok" if db_ok else "error",
+    }
+    if db_ok:
+        return payload
+    return JSONResponse(status_code=503, content=payload)

@@ -6,6 +6,8 @@ Refer to the appropriate file for more information.
 - [Api Page Matrix](API_PAGE_MATRIX.md)
 - [Architecture](ARCHITECTURE.md)
 - [Cloudflare Tunnel Setup](CLOUDFLARE_TUNNEL_SETUP.md)
+- [Cloudflare Tunnel Monitoring](cloudflare-tunnel-monitoring.md)
+- [Cross Module Edge Case Test Matrix](CROSS_MODULE_EDGE_CASE_TEST_MATRIX.md)
 - [Data Validation Strategy](DATA_VALIDATION_STRATEGY.md)
 - [Db Migration Phase1](DB_MIGRATION_PHASE1.md)
 - [Dependency Maintenance](DEPENDENCY_MAINTENANCE.md)

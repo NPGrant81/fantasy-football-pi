@@ -5,12 +5,30 @@
 # If tunnel runs ON the Pi, service should point to localhost:80.
 # If tunnel runs on another host (Windows PC), change service to the Pi LAN IP,
 # e.g. http://192.168.1.50:80.
+# Ensure your reverse proxy forwards /health to FastAPI so health probes test
+# application and DB reachability, not only static content.
 
 tunnel: ppl-insight-hub-prod1
 
 ingress:
   - hostname: pplinsighthub.com
     service: http://127.0.0.1:80
+    healthcheck:
+      path: /health
+      interval: 30s
+      timeout: 5s
+      retries: 2
+    originRequest:
+      connectTimeout: 5s
+      noHappyEyeballs: true
   - hostname: www.pplinsighthub.com
     service: http://127.0.0.1:80
+    healthcheck:
+      path: /health
+      interval: 30s
+      timeout: 5s
+      retries: 2
+    originRequest:
+      connectTimeout: 5s
+      noHappyEyeballs: true
   - service: http_status:404
