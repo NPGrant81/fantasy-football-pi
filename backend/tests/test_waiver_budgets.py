@@ -130,3 +130,53 @@ def test_get_waiver_budgets_uses_ledger_when_present(client):
     assert entry["starting_budget"] == 100
     assert entry["spent_budget"] == 25
     assert entry["remaining_budget"] == 75
+
+
+def test_get_waiver_budgets_ignores_keeper_lock_currency(client):
+    league = models.League(name="Test League Mixed Currencies")
+    user = models.User(username="keeper-waiver-owner", hashed_password="x")
+    db = client.app.dependency_overrides[get_db]().__next__()
+    db.add(league)
+    db.commit()
+
+    user.league_id = league.id
+    db.add(user)
+    db.commit()
+
+    db.add_all(
+        [
+            models.EconomicLedger(
+                league_id=league.id,
+                season_year=2026,
+                currency_type="FAAB",
+                amount=100,
+                from_owner_id=None,
+                to_owner_id=user.id,
+                transaction_type="SEASON_ALLOCATION",
+                reference_type="LEAGUE_SETTINGS",
+                reference_id=f"{league.id}:2026",
+            ),
+            models.EconomicLedger(
+                league_id=league.id,
+                season_year=2026,
+                currency_type="DRAFT_DOLLARS",
+                amount=20,
+                from_owner_id=user.id,
+                to_owner_id=None,
+                transaction_type="KEEPER_LOCK",
+                reference_type="LEAGUE_KEEPER_LOCK",
+                reference_id=f"{league.id}:2026:{user.id}",
+            ),
+        ]
+    )
+    db.commit()
+
+    res = client.get(f"/leagues/{league.id}/waiver-budgets")
+    assert res.status_code == 200
+    payload = res.json()
+
+    assert len(payload) == 1
+    assert payload[0]["owner_id"] == user.id
+    assert payload[0]["starting_budget"] == 100
+    assert payload[0]["spent_budget"] == 0
+    assert payload[0]["remaining_budget"] == 100

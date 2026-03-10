@@ -255,3 +255,23 @@ def test_calculate_win_probabilities_handles_zero_projection_totals():
 
     assert home_probability == pytest.approx(50.0)
     assert away_probability == pytest.approx(50.0)
+
+
+def test_get_matchup_detail_handles_empty_away_roster(db_session):
+    """Game-center payload should remain valid when one side has no active starters."""
+    seeded = _seed_matchup_data(db_session)
+
+    db_session.query(models.DraftPick).filter(
+        models.DraftPick.owner_id == seeded["away_id"],
+        models.DraftPick.current_status == "STARTER",
+    ).delete()
+    db_session.commit()
+
+    payload = get_matchup_detail(seeded["matchup_id"], db_session)
+
+    assert payload.home_projected == pytest.approx(10.0)
+    assert payload.away_projected == pytest.approx(0.0)
+    assert len(payload.home_roster) == 1
+    assert payload.away_roster == []
+    assert payload.home_win_probability == pytest.approx(100.0)
+    assert payload.away_win_probability == pytest.approx(0.0)

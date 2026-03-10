@@ -216,3 +216,37 @@ def test_generate_bracket_respects_consolation_toggle(client, api_db):
 
     assert body['consolation'] == []
     assert body['seeding_policy']['playoff_consolation'] is False
+
+
+def test_get_bracket_falls_back_to_historical_snapshot_when_matches_missing(client, api_db):
+    db, _ = api_db
+    league, _ = make_league_with_users(db, num_users=4)
+
+    db.add(
+        models.PlayoffSnapshot(
+            league_id=league.id,
+            season=2024,
+            data={
+                "championship": [
+                    {
+                        "match_id": "hist_r1_m1",
+                        "round": 1,
+                        "is_bye": False,
+                        "team_1_id": None,
+                        "team_2_id": None,
+                        "winner_to": None,
+                    }
+                ],
+                "consolation": [],
+            },
+        )
+    )
+    db.commit()
+
+    res = client.get(f'/playoffs/bracket?league_id={league.id}&season=2024')
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["championship"][0]["match_id"] == "hist_r1_m1"
+    assert body["meta"]["source"] == "snapshot"
+    assert body["meta"]["is_historical"] is True
