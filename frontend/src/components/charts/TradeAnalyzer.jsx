@@ -554,7 +554,12 @@ export default function TradeAnalyzer() {
           <h4 className="text-sm font-black uppercase tracking-wider text-slate-200">Trade Summary</h4>
           <div className="text-sm text-slate-300">{ownerName(teamA)}: <span className={gradeTone(gradeA)}>{gradeA}</span></div>
           <div className="text-sm text-slate-300">{ownerName(teamB)}: <span className={gradeTone(gradeB)}>{gradeB}</span></div>
-          <div className="text-xs text-slate-500">Lineup impact A/B: {impactA.toFixed(2)} / {impactB.toFixed(2)}</div>
+          <div
+            className="text-xs text-slate-500"
+            aria-label={`Lineup impact for ${ownerName(teamA)} and ${ownerName(teamB)}: ${impactA.toFixed(2)} / ${impactB.toFixed(2)}`}
+          >
+            Lineup impact A/B: {impactA.toFixed(2)} / {impactB.toFixed(2)}
+          </div>
           <div className="text-xs text-slate-400">{buildRationale()}</div>
         </section>
 

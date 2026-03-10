@@ -972,7 +972,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               </div>
             ) : null}
             {rankingsLoading && sortedPlayers.length ? (
-              <div className="px-3 py-2 text-xs text-slate-400">Refreshing player values...</div>
+              <div className="px-3 py-2 text-xs text-slate-400" aria-live="polite">Refreshing player values...</div>
             ) : null}
             <div style={{ height: `${virtualMeta.topPad}px` }} />
             {virtualMeta.rows.map((player) => {
