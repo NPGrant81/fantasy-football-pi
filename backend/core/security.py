@@ -65,6 +65,9 @@ def verify_password(plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
     except (ValueError, TypeError):
         return False
+    except Exception:
+        # Treat unknown/legacy hash formats as invalid credentials instead of 500.
+        return False
 
 def get_password_hash(password):
     # when running automated tests we don't want to invoke bcrypt

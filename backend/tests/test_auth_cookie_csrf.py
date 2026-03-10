@@ -112,3 +112,23 @@ def test_csrf_required_for_cookie_authenticated_write_requests(client, api_db, m
     )
     assert allowed.status_code == 200
     assert allowed.json()["email"] == "new-email@test.com"
+
+
+def test_login_with_malformed_hash_returns_401_not_500(client, api_db):
+    user = models.User(
+        username="legacy-hash-user",
+        email="legacy-hash-user@test.com",
+        hashed_password="h",
+        league_id=1,
+    )
+    api_db.add(user)
+    api_db.commit()
+
+    response = client.post(
+        "/auth/token",
+        data={"username": "legacy-hash-user", "password": "secret"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Incorrect username or password"
