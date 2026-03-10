@@ -62,6 +62,39 @@ describe('tradeAnalyzerLogic', () => {
     expect(loss).toBe(Number((15 * BENCH_MULTIPLIER).toFixed(2)));
   });
 
+  test('uses each replacement at most once across multiple starters', () => {
+    const outgoing = [
+      { player_id: 1, position: 'RB', projected_points: 20, is_starter: true },
+      { player_id: 2, position: 'RB', projected_points: 18, is_starter: true },
+    ];
+    const roster = [
+      ...outgoing,
+      { player_id: 3, position: 'RB', projected_points: 12, is_starter: false },
+      { player_id: 4, position: 'RB', projected_points: 9, is_starter: false },
+    ];
+
+    const loss = computeOutgoingLossWithReplacement(outgoing, roster);
+    expect(loss).toBe(17);
+  });
+
+  test('starter replacement assignment is stable regardless of outgoing order', () => {
+    const outgoingA = [
+      { player_id: 10, position: 'WR', projected_points: 12, is_starter: true },
+      { player_id: 11, position: 'WR', projected_points: 20, is_starter: true },
+    ];
+    const outgoingB = [...outgoingA].reverse();
+    const roster = [
+      ...outgoingA,
+      { player_id: 12, position: 'WR', projected_points: 15, is_starter: false },
+      { player_id: 13, position: 'WR', projected_points: 5, is_starter: false },
+    ];
+
+    const lossA = computeOutgoingLossWithReplacement(outgoingA, roster);
+    const lossB = computeOutgoingLossWithReplacement(outgoingB, roster);
+    expect(lossA).toBe(12);
+    expect(lossB).toBe(12);
+  });
+
   test('computes net lineup impact using incoming gain minus replacement-aware loss', () => {
     const incoming = [
       { player_id: 11, position: 'RB', projected_points: 16, is_starter: true },

@@ -71,15 +71,16 @@ export function computeOutgoingLossWithReplacement(outgoingPlayers = [], fullRos
   });
   const usedReplacementIds = new Set();
 
-  let totalLoss = 0;
-  outgoingPlayers.forEach((player) => {
-    if (!player) return;
+  const starters = outgoingPlayers
+    .filter((player) => player?.is_starter)
+    .sort((a, b) => computePlayerValue(b) - computePlayerValue(a));
+  const benchOutgoing = outgoingPlayers.filter((player) => player && !player?.is_starter);
 
+  let totalLoss = 0;
+
+  starters.forEach((player) => {
+    if (!player) return;
     const starterValue = computePlayerValue(player);
-    if (!player.is_starter) {
-      totalLoss += computeLineupAdjustedValue(player);
-      return;
-    }
 
     const outgoingPos = normalizePosition(player.position);
     const replacement = replacementPool
@@ -88,7 +89,12 @@ export function computeOutgoingLossWithReplacement(outgoingPlayers = [], fullRos
         if (usedReplacementIds.has(candidate.player_id)) return false;
         return normalizePosition(candidate.position) === outgoingPos;
       })
-      .sort((a, b) => computePlayerValue(b) - computePlayerValue(a))[0];
+      .sort((a, b) => {
+        const byValue = computePlayerValue(b) - computePlayerValue(a);
+        if (byValue !== 0) return byValue;
+        return toNumber(a?.player_id, Number.MAX_SAFE_INTEGER)
+          - toNumber(b?.player_id, Number.MAX_SAFE_INTEGER);
+      })[0];
 
     if (replacement?.player_id != null) {
       usedReplacementIds.add(replacement.player_id);
@@ -96,6 +102,10 @@ export function computeOutgoingLossWithReplacement(outgoingPlayers = [], fullRos
 
     const replacementValue = replacement ? computePlayerValue(replacement) : 0;
     totalLoss += Math.max(0, starterValue - replacementValue);
+  });
+
+  benchOutgoing.forEach((player) => {
+    totalLoss += computeLineupAdjustedValue(player);
   });
 
   return Number(totalLoss.toFixed(2));
