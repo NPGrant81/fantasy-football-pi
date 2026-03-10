@@ -23,6 +23,7 @@ or commit it yourself.
 - Responsive audit by platform (Windows/Raspberry Pi/Linux): [RESPONSIVE_AUDIT_ENVIRONMENT.md](docs/RESPONSIVE_AUDIT_ENVIRONMENT.md)
 - Raspberry Pi deployment runbook (Nginx + systemd): [RASPBERRY_PI_DEPLOYMENT.md](docs/RASPBERRY_PI_DEPLOYMENT.md)
 - Cloudflare tunnel setup (`pplinsighthub.com`): [CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md)
+- Dev environment + VS Code tunnel workflow: [dev-environment.md](docs/dev-environment.md)
 
 ## API Overview (Condensed)
 
