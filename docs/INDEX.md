@@ -25,6 +25,7 @@ Refer to the appropriate file for more information.
 - [Project Management](PROJECT_MANAGEMENT.md)
 - [Raspberry Pi Deployment](RASPBERRY_PI_DEPLOYMENT.md)
 - [Responsive Audit Environment](RESPONSIVE_AUDIT_ENVIRONMENT.md)
+- [Restore Runbook](restore.md)
 - [Scoring Edge Case Test Matrix](SCORING_EDGE_CASE_TEST_MATRIX.md)
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)

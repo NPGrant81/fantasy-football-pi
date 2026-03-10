@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule Fantasy Football Pi DB backup to microSD
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=5m
+Unit=microsd-db-backup.service
+
+[Install]
+WantedBy=timers.target

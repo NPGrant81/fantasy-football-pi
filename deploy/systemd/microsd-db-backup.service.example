@@ -1,0 +1,19 @@
+[Unit]
+Description=Run Fantasy Football Pi DB backup to microSD
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/fantasy-football-pi
+Environment=BACKUP_MOUNT=/mnt/microsd
+Environment=BACKUP_SUBDIR=backups/fantasy-football-pi
+Environment=RETENTION_DAYS=14
+ExecStart=/bin/bash /opt/fantasy-football-pi/ops/backup/microsd_db_backup.sh
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/mnt/microsd
