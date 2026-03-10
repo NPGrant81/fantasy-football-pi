@@ -1,0 +1,9 @@
+[Unit]
+Description=Cloudflared connectivity watchdog check
+After=cloudflared.service
+Wants=cloudflared.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -lc '/usr/bin/curl --silent --show-error --fail --max-time 8 https://pplinsighthub.com/health > /dev/null'
+ExecStartPost=/bin/bash -lc 'if [ $? -ne 0 ]; then /usr/bin/systemctl restart cloudflared.service; fi'

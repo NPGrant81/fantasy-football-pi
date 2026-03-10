@@ -309,3 +309,24 @@ app.include_router(scoring.router)
 @app.get("/")
 def read_root():
     return {"message": "Fantasy Football API is Running!"}
+
+
+@app.get("/health")
+def health_check():
+    db_ok = True
+    db_error = None
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception as exc:
+        db_ok = False
+        db_error = str(exc)
+
+    payload = {
+        "status": "ok" if db_ok else "degraded",
+        "service": "fantasy-football-backend",
+        "database": "ok" if db_ok else "error",
+    }
+    if db_error:
+        payload["error"] = db_error
+    return payload
