@@ -31,9 +31,10 @@ jobs:
         with:
           working-directory: frontend
           install: false
-          start: npm run dev
-          wait-on: http://localhost:5173
+          start: npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+          wait-on: http://127.0.0.1:5173
           wait-on-timeout: 120
+          config: baseUrl=http://127.0.0.1:5173
           browser: chrome
           spec: cypress/e2e/accessibility_smoke.spec.js
 
@@ -42,9 +43,10 @@ jobs:
         with:
           working-directory: frontend
           install: false
-          start: npm run dev
-          wait-on: http://localhost:5173
+          start: npm run dev -- --host 127.0.0.1 --port 5174 --strictPort
+          wait-on: http://127.0.0.1:5174
           wait-on-timeout: 120
+          config: baseUrl=http://127.0.0.1:5174
           browser: chrome
           spec: cypress/e2e/uat_capture_pages.spec.js
 
