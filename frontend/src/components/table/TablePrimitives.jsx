@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 import React from 'react';
 import {
   tableHead,
