@@ -4,6 +4,7 @@ import React from 'react';
 import { fetchCurrentUser } from '@api/commonApi';
 import { fetchManagerWeeklyStats, resolveRows } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
+import { ErrorState, LoadingState } from '@components/common/AsyncState';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -63,10 +64,10 @@ const ManagerTrendChart = () => {
 
   // default fallback data if no stats yet or loading
   if (loading) {
-    return <p>Loading trend chart...</p>;
+    return <LoadingState message="Loading trend chart..." />;
   }
   if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+    return <ErrorState message={error} />;
   }
 
   const weeks = safeStats.map((s) => `Week ${s.week}`);

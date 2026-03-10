@@ -8,18 +8,24 @@ import {
   SessionHeader,
   DraftHistoryFeed,
 } from '@components/draft';
+import PageTemplate from '@components/layout/PageTemplate';
 import DraftBoardGrid from '@components/draft/DraftBoardGrid';
 import BestAvailableList from '@components/draft/BestAvailableList';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
 import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
 import {
+  StandardTable,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
+import {
+  layerModal,
   modalCloseButton,
   modalOverlay,
   modalSurface,
   modalTitle,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
+  tableCell,
+  tableCellNumeric,
 } from '@utils/uiStandards';
 
 export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
@@ -460,13 +466,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   );
 
   return (
-    <div className={`${pageShell} overflow-hidden`}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>Draft Board</h1>
-        <p className={pageSubtitle}>
-          {leagueName ? `${leagueName} • ` : ''}Live auction control room.
-        </p>
-      </div>
+    <PageTemplate
+      title="Draft Board"
+      subtitle={`${leagueName ? `${leagueName} - ` : ''}Live auction control room.`}
+      className="overflow-hidden"
+    >
 
       {/* banner rendered below via SessionHeader */}
       <SessionHeader
@@ -546,7 +550,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       </div>
 
       {draftPopupData && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
+        <div className={`fixed inset-0 ${layerModal} flex items-center justify-center pointer-events-none`}>
           <div className="bg-sky-500 text-white border-2 border-sky-300 px-10 py-8 text-center shadow-2xl min-w-[420px] max-w-[92vw]">
             <div className="text-6xl leading-tight font-medium">{draftPopupData.playerName}</div>
             <div className="text-6xl leading-tight font-light mt-2">Drafted to</div>
@@ -581,8 +585,8 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             </div>
 
             {playerPerformanceLoading ? (
-              <div className="py-10 text-center text-slate-400 animate-pulse">
-                Loading season details...
+              <div className="py-10 text-center">
+                <LoadingState message="Loading season details..." className="justify-center" />
               </div>
             ) : playerPerformance ? (
               <>
@@ -646,45 +650,50 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
                   </div>
                   <div className="max-h-64 overflow-y-auto">
                     {(playerPerformance.weekly || []).length === 0 ? (
-                      <div className="p-6 text-center text-slate-500">
-                        No weekly performance data yet for this season.
+                      <div className="p-6 text-center">
+                        <EmptyState
+                          message="No weekly performance data yet for this season."
+                          className="justify-center"
+                        />
                       </div>
                     ) : (
-                      <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                        <thead className="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-900">
-                          <tr>
-                            <th className="px-4 py-2">Week</th>
-                            <th className="px-4 py-2 text-right">
-                              Fantasy Pts
-                            </th>
-                          </tr>
-                        </thead>
+                      <StandardTable>
+                        <StandardTableHead
+                          headers={[
+                            { key: 'week', label: 'Week', className: 'px-4 py-2' },
+                            {
+                              key: 'fantasyPoints',
+                              label: 'Fantasy Pts',
+                              className: 'px-4 py-2 text-right',
+                            },
+                          ]}
+                        />
                         <tbody>
                           {playerPerformance.weekly.map((row) => (
-                            <tr
-                              key={row.week}
-                              className="border-t border-slate-300 dark:border-slate-800"
-                            >
-                              <td className="px-4 py-2">Week {row.week}</td>
-                              <td className="px-4 py-2 text-right font-mono text-blue-400">
+                            <StandardTableRow key={row.week} className="hover:bg-transparent dark:hover:bg-transparent">
+                              <td className={tableCell}>Week {row.week}</td>
+                              <td className={`${tableCellNumeric} font-mono text-blue-400`}>
                                 {Number(row.fantasy_points || 0).toFixed(2)}
                               </td>
-                            </tr>
+                            </StandardTableRow>
                           ))}
                         </tbody>
-                      </table>
+                      </StandardTable>
                     )}
                   </div>
                 </div>
               </>
             ) : (
-              <div className="py-10 text-center text-slate-500">
-                No season details available.
+              <div className="py-10 text-center">
+                <EmptyState
+                  message="No season details available."
+                  className="justify-center"
+                />
               </div>
             )}
           </div>
         </div>
       )}
-    </div>
+    </PageTemplate>
   );
 }

@@ -9,18 +9,24 @@ import {
 } from 'react-icons/fi';
 import apiClient from '@api/client';
 import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
+import {
   buttonDanger,
   buttonPrimary,
   buttonSecondary,
   cardSurface,
   inputBase,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
-  tableHead,
-  tableSurface,
+  tableCell,
+  textCaption,
+  textMeta,
 } from '@utils/uiStandards';
+import PageTemplate from '@components/layout/PageTemplate';
+import { ErrorState, LoadingState } from '@components/common/AsyncState';
 
 const OWNER_LIMIT_DEFAULT = 12;
 
@@ -208,37 +214,27 @@ export default function ManageOwners() {
 
   if (loading) {
     return (
-      <div
-        className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}
-      >
-        Loading Owner Management...
+      <div className={pageShell}>
+        <LoadingState message="Loading owner management..." className="mt-20" />
       </div>
     );
   }
 
   return (
-    <div className={`${pageShell} min-h-screen`}>
-      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className={pageTitle}>Manage Owners</h1>
-          <p className={`${pageSubtitle} mt-1`}>
-            Set total owners, invite owners, update owner details, and remove
-            opt-outs.
-          </p>
-        </div>
+    <PageTemplate
+      title="Manage Owners"
+      subtitle="Set total owners, invite owners, update owner details, and remove opt-outs."
+      actions={
         <Link
           to="/commissioner"
           className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
-      </div>
+      }
+    >
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-800/60 bg-red-900/20 p-3 text-sm text-red-200">
-          {error}
-        </div>
-      )}
+      {error ? <ErrorState message={error} className="mb-4" /> : null}
       {notice && (
         <div className="mb-4 rounded-lg border border-green-800/60 bg-green-900/20 p-3 text-sm text-green-200">
           {notice}
@@ -248,7 +244,7 @@ export default function ManageOwners() {
       <div className={`${cardSurface} mb-0`}>
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+            <label className={`mb-2 block font-bold ${textMeta}`}>
               Total Owners in League
             </label>
             <input
@@ -269,7 +265,7 @@ export default function ManageOwners() {
           >
             Save Owner Count
           </button>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
+          <p className={textCaption}>
             Current owners: {ownerCount}
           </p>
         </div>
@@ -301,7 +297,7 @@ export default function ManageOwners() {
           </button>
         </div>
         {!canAddOwner && (
-          <p className="mt-3 text-xs text-orange-300">
+          <p className="mt-3 text-xs text-orange-600 dark:text-orange-300">
             Owner limit reached. Increase total owners to add more.
           </p>
         )}
@@ -311,19 +307,19 @@ export default function ManageOwners() {
         <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
           Current Owners
         </h2>
-        <div className={tableSurface}>
-          <table className="w-full text-left text-sm">
-            <thead className={tableHead}>
-              <tr>
-                <th className="px-3 py-3">Name</th>
-                <th className="px-3 py-3">Email</th>
-                <th className="px-3 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+        <StandardTableContainer>
+          <StandardTable>
+            <StandardTableHead
+              headers={[
+                { key: 'name', label: 'Name', className: 'px-3 py-3' },
+                { key: 'email', label: 'Email', className: 'px-3 py-3' },
+                { key: 'actions', label: 'Actions', className: 'px-3 py-3' },
+              ]}
+            />
+            <tbody>
               {owners.map((owner) => (
-                <tr key={owner.id}>
-                  <td className="px-3 py-3">
+                <StandardTableRow key={owner.id}>
+                  <td className={tableCell}>
                     <input
                       value={owner.username || ''}
                       onChange={(e) =>
@@ -332,7 +328,7 @@ export default function ManageOwners() {
                       className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className={tableCell}>
                     <input
                       value={owner.email || ''}
                       onChange={(e) =>
@@ -341,7 +337,7 @@ export default function ManageOwners() {
                       className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className={tableCell}>
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => saveOwner(owner)}
@@ -357,16 +353,16 @@ export default function ManageOwners() {
                       >
                         <FiTrash2 /> Remove
                       </button>
-                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
+                      <span className={`inline-flex items-center gap-1 ${textCaption}`}>
                         <FiMail /> invite/login details sent on add
                       </span>
                     </div>
                   </td>
-                </tr>
+                </StandardTableRow>
               ))}
             </tbody>
-          </table>
-        </div>
+          </StandardTable>
+        </StandardTableContainer>
       </div>
 
       {dirtyOwners.length > 0 && (
@@ -374,6 +370,6 @@ export default function ManageOwners() {
           {dirtyOwners.length} owner row(s) have unsaved edits.
         </p>
       )}
-    </div>
+    </PageTemplate>
   );
 }

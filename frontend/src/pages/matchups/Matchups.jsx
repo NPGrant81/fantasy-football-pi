@@ -24,6 +24,7 @@ import { normalizeApiError } from '@api/fetching';
 import {
   buttonSecondary,
   cardSurface,
+  layerDropdown,
 } from '@utils/uiStandards';
 
 export default function Matchups() {
@@ -273,7 +274,7 @@ export default function Matchups() {
               </button>
 
               {showScoreInfo && (
-                <div className="absolute right-0 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300 shadow-xl z-20">
+                <div className={`absolute right-0 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300 shadow-xl ${layerDropdown}`}>
                   {showProjected
                     ? 'Projected shows the expected team total based on current starters and league scoring rules.'
                     : 'Actual shows the current recorded matchup total from live/completed scoring updates.'}

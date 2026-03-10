@@ -2,6 +2,7 @@ import React from 'react';
 import { fetchCurrentUser } from '@api/commonApi';
 import { fetchPlayerHeatmapAnalytics } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
+import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -57,15 +58,15 @@ const PlayerHeatmap = () => {
   }, []);
 
   if (loading) {
-    return <p>Loading player heatmap...</p>;
+    return <LoadingState message="Loading player heatmap..." />;
   }
 
   if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+    return <ErrorState message={error} />;
   }
 
   if (!rows.length || !weeks.length) {
-    return <p>No player heatmap data available.</p>;
+    return <EmptyState message="No player heatmap data available." />;
   }
 
   const players = rows.map((row) => row.player_name);

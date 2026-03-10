@@ -1,4 +1,5 @@
 import React from 'react';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
 import { buttonPrimary, tableHead, tableSurface } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
@@ -62,7 +63,7 @@ export default function WaiverTable({
   if (loading) {
     return (
       <div className="rounded-xl border border-slate-300 bg-white/80 p-20 text-center font-black uppercase tracking-widest text-slate-500 animate-pulse dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-        Scanning the wire...
+        <LoadingState message="Scanning the wire..." className="justify-center" />
       </div>
     );
   }
@@ -70,7 +71,7 @@ export default function WaiverTable({
   if (!players.length) {
     return (
       <div className="rounded-xl border border-slate-300 bg-white/80 p-12 text-center font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-        No available players found.
+        <EmptyState message="No available players found." className="justify-center" />
       </div>
     );
   }

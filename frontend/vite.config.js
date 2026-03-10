@@ -8,16 +8,14 @@ import { dirname } from 'path';
 // 1.1.1 ESM Polyfill: Defining __dirname for Vite/ESM compatibility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8010';
-
   return {
     plugins: [react()],
 
   // --- 2.1 PATH RESOLUTION ---
-  resolve: {
+    resolve: {
     // 2.1.1 Aliasing: Simplifies imports (e.g., import X from '@/components/X')
     alias: {
       '@': path.resolve(__dirname, './src'),

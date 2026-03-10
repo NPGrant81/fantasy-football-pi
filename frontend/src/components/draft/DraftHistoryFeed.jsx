@@ -1,4 +1,5 @@
 import { normalizePos } from '@utils';
+import { layerDrawer } from '@utils/uiStandards';
 import { getPosColor } from '../../utils/uiHelpers';
 import FeedPill from '../feeds/FeedPill';
 
@@ -11,7 +12,7 @@ export default function DraftHistoryFeed({ history = [], owners = [] }) {
 
   // --- 2.1 RENDER LOGIC (Horizontal Ticker) ---
   return (
-    <div className="fixed bottom-0 md:bottom-2 left-0 w-full bg-slate-950 border-t border-yellow-600 z-50 shadow-2xl overflow-x-hidden">
+    <div className={`fixed bottom-0 md:bottom-2 left-0 w-full bg-slate-950 border-t border-yellow-600 ${layerDrawer} shadow-2xl overflow-x-hidden`}>
       <div className="flex items-center gap-4 py-2 animate-marquee whitespace-nowrap">
         <span className="text-yellow-500 font-black uppercase italic tracking-tighter flex items-center gap-2 ml-4">
           <span className="relative flex h-2 w-2">

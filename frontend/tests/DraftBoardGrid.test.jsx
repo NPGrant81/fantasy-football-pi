@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { vi } from 'vitest';
 // ensure VITE_API_BASE_URL exists to keep apiClient happy during tests
@@ -260,7 +260,7 @@ describe('DraftBoard page layout', () => {
     DraftBoard = (await import('../src/pages/DraftBoard')).default;
   });
 
-  it('renders board full-width and keeps best-available overlay hidden by default', () => {
+  it('renders board full-width and keeps best-available overlay hidden by default', async () => {
     const { container } = render(
       <DraftBoard
         token={null}
@@ -269,14 +269,16 @@ describe('DraftBoard page layout', () => {
         setSubHeader={() => {}}
       />
     );
-    const aside = container.querySelector('aside');
-    expect(aside).toBeNull();
-    const section = container.querySelector('section');
-    // board stays full width and no longer shrinks for a side column
-    expect(section).toHaveClass('col-span-12');
+    await waitFor(() => {
+      const aside = container.querySelector('aside');
+      expect(aside).toBeNull();
+      const section = container.querySelector('section');
+      // board stays full width and no longer shrinks for a side column
+      expect(section).toHaveClass('col-span-12');
+    });
   });
 
-  it('sidebar toggle button shows/hides the list', () => {
+  it('sidebar toggle button shows/hides the list', async () => {
     const { container } = render(
       <DraftBoard
         token={null}
@@ -287,7 +289,9 @@ describe('DraftBoard page layout', () => {
     );
     const toggle = screen.getByRole('button', { name: /show\s*best/i });
     fireEvent.click(toggle);
-    const aside = container.querySelector('aside');
-    expect(aside).toBeInTheDocument();
+    await waitFor(() => {
+      const aside = container.querySelector('aside');
+      expect(aside).toBeInTheDocument();
+    });
   });
 });

@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import apiClient from '@api/client';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   buttonPrimary,
   cardSurface,
   inputBase,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 const PAGE_MAP = {
@@ -121,15 +118,10 @@ export default function BugReport() {
   };
 
   return (
-    <div className={pageShell}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>Bug Report</h1>
-        <p className={`${pageSubtitle} mt-2`}>
-          Tell us what went wrong and where it happened. We will open a GitHub
-          issue and log the report for review.
-        </p>
-      </div>
-
+    <PageTemplate
+      title="Bug Report"
+      subtitle="Tell us what went wrong and where it happened. We will open a GitHub issue and log the report for review."
+    >
       <form onSubmit={handleSubmit} className={`${cardSurface} space-y-5`}>
         {status.message && (
           <div
@@ -273,6 +265,6 @@ export default function BugReport() {
           {isSubmitting ? 'Submitting...' : 'Submit Bug Report'}
         </button>
       </form>
-    </div>
+    </PageTemplate>
   );
 }

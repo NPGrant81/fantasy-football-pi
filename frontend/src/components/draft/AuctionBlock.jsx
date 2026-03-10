@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import { POSITIONS, normalizePos, MIN_BID } from '@utils';
 import { getPosColor } from '../../utils/uiHelpers';
+import FloatingLayer from '@components/overlay/FloatingLayer';
 
 export default function AuctionBlock({
   // control flags
@@ -34,6 +36,8 @@ export default function AuctionBlock({
   isCommissioner,
   lastDraftedText,
 }) {
+  const suggestionsAnchorRef = useRef(null);
+
   // --- 1.1 LOGIC ---
   const nominator = owners.find((o) => o.id === nominatorId);
   const nominatorName = nominator
@@ -260,7 +264,7 @@ export default function AuctionBlock({
               </button>
             ))}
           </div>
-          <div className="relative min-w-0">
+          <div ref={suggestionsAnchorRef} className="relative min-w-0">
             <input
               className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-lg font-bold outline-none focus:border-yellow-500 transition-colors"
               value={playerName}
@@ -268,7 +272,13 @@ export default function AuctionBlock({
               placeholder="Nominate Player..."
             />
             {showSuggestions && suggestions.length > 0 && (
-              <ul className="absolute z-50 w-full bg-slate-900 border border-slate-700 mt-1 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+              <FloatingLayer
+                anchorRef={suggestionsAnchorRef}
+                open={showSuggestions && suggestions.length > 0}
+                offset={4}
+                className="bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto"
+              >
+                <ul>
                 {suggestions.map((p) => (
                   <li
                     key={p.id}
@@ -290,7 +300,8 @@ export default function AuctionBlock({
                     </div>
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </FloatingLayer>
             )}
           </div>
         </div>

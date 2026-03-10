@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { layerBackdrop, layerDrawer } from '@utils/uiStandards';
 
 import {
   FiX,
@@ -74,14 +75,14 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
   return (
     <>
       <div
-        className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-40 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/80 backdrop-blur-sm ${layerBackdrop} transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
       />
 
       <div
-        className={`fixed top-0 left-0 z-50 flex h-full w-[85%] transform flex-col border-r border-slate-300 bg-white shadow-2xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-950 sm:max-w-sm md:max-w-md ${
+        className={`fixed top-0 left-0 ${layerDrawer} flex h-full w-[85%] transform flex-col border-r border-slate-300 bg-white shadow-2xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-950 sm:max-w-sm md:max-w-md ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

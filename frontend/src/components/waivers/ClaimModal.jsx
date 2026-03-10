@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FiX, FiInfo } from 'react-icons/fi';
+import { modalOverlay } from '@utils/uiStandards';
 
 const ClaimModal = ({
   player,
@@ -24,7 +25,7 @@ const ClaimModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className={`${modalOverlay} backdrop-blur-sm bg-black/70`}>
       <div className="bg-slate-900 border border-slate-700 rounded-xl w-full sm:max-w-md shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-800/50">

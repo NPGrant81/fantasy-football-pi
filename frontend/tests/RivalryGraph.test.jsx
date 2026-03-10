@@ -30,7 +30,7 @@ describe('RivalryGraph', () => {
   });
 
   test('shows loading state initially', () => {
-    apiClient.get.mockResolvedValue({ data: {} });
+    apiClient.get.mockImplementation(() => new Promise(() => {}));
     render(<RivalryGraph />);
     expect(screen.getByText(/Loading rivalry graph/i)).toBeInTheDocument();
   });

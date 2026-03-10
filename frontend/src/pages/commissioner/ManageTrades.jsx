@@ -2,17 +2,20 @@ import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
+import PageTemplate from '@components/layout/PageTemplate';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
+import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
 import {
   buttonDanger,
   buttonPrimary,
   buttonSecondary,
   cardSurface,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
-  tableHead,
-  tableSurface,
+  tableCell,
 } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
@@ -60,19 +63,18 @@ export default function ManageTrades() {
   };
 
   return (
-    <div className={pageShell}>
-      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className={pageTitle}>Manage Trades</h1>
-          <p className={pageSubtitle}>View and review pending trades.</p>
-        </div>
+    <PageTemplate
+      title="Manage Trades"
+      subtitle="View and review pending trades."
+      actions={
         <Link
           to="/commissioner"
           className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
-      </div>
+      }
+    >
 
       {message && (
         <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-300">
@@ -85,40 +87,31 @@ export default function ManageTrades() {
           Pending Trades
         </h2>
         {loading ? (
-          <div className="text-slate-600 dark:text-slate-400">Loading...</div>
+          <LoadingState />
         ) : !Array.isArray(trades) || trades.length === 0 ? (
-          <div className="text-slate-600 dark:text-slate-400">
-            No pending trades.
-          </div>
+          <EmptyState message="No pending trades." />
         ) : (
-          <div className={tableSurface}>
-            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-              <thead className={tableHead}>
-                <tr>
-                  <th>From</th>
-                  <th>To</th>
-                  <th>Players</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+          <StandardTableContainer>
+            <StandardTable>
+              <StandardTableHead
+                headers={[
+                  { key: 'from', label: 'From' },
+                  { key: 'to', label: 'To' },
+                  { key: 'players', label: 'Players' },
+                  { key: 'actions', label: 'Actions' },
+                ]}
+              />
               <tbody>
                 {trades.map((trade) => (
-                  <tr
-                    key={trade.id}
-                    className="border-t border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
-                  >
-                    <td className="px-3 py-2">
-                      {trade.from_team || trade.from_user}
-                    </td>
-                    <td className="px-3 py-2">
-                      {trade.to_team || trade.to_user}
-                    </td>
-                    <td>
+                  <StandardTableRow key={trade.id}>
+                    <td className={tableCell}>{trade.from_team || trade.from_user}</td>
+                    <td className={tableCell}>{trade.to_team || trade.to_user}</td>
+                    <td className={tableCell}>
                       {trade.players && trade.players.length > 0
                         ? trade.players.map((p) => p.name).join(', ')
                         : 'N/A'}
                     </td>
-                    <td className="px-3 py-2 space-x-2">
+                    <td className={`${tableCell} space-x-2`}>
                       <button
                         type="button"
                         className={buttonPrimary}
@@ -134,14 +127,14 @@ export default function ManageTrades() {
                         Deny
                       </button>
                     </td>
-                  </tr>
+                  </StandardTableRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </StandardTable>
+          </StandardTableContainer>
         )}
       </div>
-    </div>
+    </PageTemplate>
   );
 }
 // ...existing code...

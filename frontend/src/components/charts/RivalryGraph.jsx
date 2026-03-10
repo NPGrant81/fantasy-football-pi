@@ -5,6 +5,7 @@ import ForceGraph2D from 'react-force-graph-2d';
 import { fetchCurrentUser } from '@api/commonApi';
 import { fetchRivalryAnalytics } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
+import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
 
 // Visualizes head-to-head and trade relationships between managers in a league
 const RivalryGraph = () => {
@@ -43,13 +44,13 @@ const RivalryGraph = () => {
   }, []);
 
   if (loading) {
-    return <p>Loading rivalry graph...</p>;
+    return <LoadingState message="Loading rivalry graph..." />;
   }
   if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+    return <ErrorState message={error} />;
   }
   if (graphData.nodes.length === 0) {
-    return <p>No rivalry data available.</p>;
+    return <EmptyState message="No rivalry data available." />;
   }
 
   return (

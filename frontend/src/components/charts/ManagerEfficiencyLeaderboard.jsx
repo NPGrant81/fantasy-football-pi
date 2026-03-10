@@ -5,6 +5,7 @@ import {
   resolveRows,
 } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
+import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
 
 // Simple table-based leaderboard showing manager efficiency
 const ManagerEfficiencyLeaderboard = () => {
@@ -36,18 +37,18 @@ const ManagerEfficiencyLeaderboard = () => {
   }, []);
 
   if (loading) {
-    return <p>Loading leaderboard...</p>;
+    return <LoadingState message="Loading leaderboard..." />;
   }
   if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+    return <ErrorState message={error} />;
   }
 
   if (!Array.isArray(rows)) {
     console.warn('ManagerEfficiencyLeaderboard: rows is not an array', rows);
-    return <p>No efficiency data available.</p>;
+    return <EmptyState message="No efficiency data available." />;
   }
   if (rows.length === 0) {
-    return <p>No efficiency data available.</p>;
+    return <EmptyState message="No efficiency data available." />;
   }
 
   return (

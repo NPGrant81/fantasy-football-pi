@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { FiCheckCircle, FiClock, FiRepeat, FiSearch, FiX } from 'react-icons/fi';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
 import InlineError from '@components/common/InlineError';
 import {
   fetchCurrentUser,
@@ -353,7 +354,9 @@ export default function TradeAnalyzer() {
         </label>
       </div>
 
-      {loading ? <div className="text-xs text-slate-500">Loading roster...</div> : null}
+      {loading ? (
+        <LoadingState message="Loading roster..." className="text-xs text-slate-500" />
+      ) : null}
 
       <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/50 p-2">
         {visible.map((player) => {
@@ -376,7 +379,10 @@ export default function TradeAnalyzer() {
           );
         })}
         {!visible.length ? (
-          <div className="text-xs text-slate-500">No players match current filter.</div>
+          <EmptyState
+            message="No players match current filter."
+            className="text-xs text-slate-500"
+          />
         ) : null}
       </div>
 
@@ -436,7 +442,10 @@ export default function TradeAnalyzer() {
             </div>
           ))}
           {!(side === 'A' ? selectedAPlayers : selectedBPlayers).length ? (
-            <div className="text-xs text-slate-500">No players selected yet.</div>
+            <EmptyState
+              message="No players selected yet."
+              className="text-xs text-slate-500"
+            />
           ) : null}
         </div>
       </details>
@@ -545,7 +554,12 @@ export default function TradeAnalyzer() {
           <h4 className="text-sm font-black uppercase tracking-wider text-slate-200">Trade Summary</h4>
           <div className="text-sm text-slate-300">{ownerName(teamA)}: <span className={gradeTone(gradeA)}>{gradeA}</span></div>
           <div className="text-sm text-slate-300">{ownerName(teamB)}: <span className={gradeTone(gradeB)}>{gradeB}</span></div>
-          <div className="text-xs text-slate-500">Lineup impact A/B: {impactA.toFixed(2)} / {impactB.toFixed(2)}</div>
+          <div
+            className="text-xs text-slate-500"
+            aria-label={`Lineup impact for ${ownerName(teamA)} and ${ownerName(teamB)}: ${impactA.toFixed(2)} / ${impactB.toFixed(2)}`}
+          >
+            Lineup impact A/B: {impactA.toFixed(2)} / {impactB.toFixed(2)}
+          </div>
           <div className="text-xs text-slate-400">{buildRationale()}</div>
         </section>
 

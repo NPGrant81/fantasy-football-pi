@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '@api/client';
+import { LoadingState } from '@components/common/AsyncState';
 /* ignore-breakpoints */
 
 export default function BracketAccordion({ leagueId: propLeagueId }) {
@@ -265,7 +266,7 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
           Playoff Bracket
         </summary>
 
-        {loading && <div className="text-slate-400 mt-2">Loading...</div>}
+        {loading && <LoadingState message="Loading..." className="mt-2" />}
         {!loading && bracket && (
           <div className="mt-4">
             {bracket.seeding_policy ? (

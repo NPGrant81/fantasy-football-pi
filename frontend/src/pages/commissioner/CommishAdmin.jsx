@@ -1,13 +1,10 @@
 import React from 'react';
 import { FiTool } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   buttonPrimary,
   cardSurface,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
@@ -26,17 +23,16 @@ export default function CommishAdmin() {
   ];
 
   return (
-    <div className={pageShell}>
-      <div className={pageHeader}>
-        <div className="flex items-center gap-3">
-          <FiTool className="text-2xl text-cyan-500" />
-          <h1 className={pageTitle}>Commissioner Controls</h1>
-        </div>
-        <p className={pageSubtitle}>
-          League-level management and configuration.
-        </p>
-      </div>
-
+    <PageTemplate
+      title="Commissioner Controls"
+      subtitle="League-level management and configuration."
+      metadata={
+        <span className="inline-flex items-center gap-2">
+          <FiTool className="text-cyan-500" />
+          Admin tools
+        </span>
+      }
+    >
       <div className={cardSurface}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {actions.map((action) => (
@@ -51,6 +47,6 @@ export default function CommishAdmin() {
           ))}
         </div>
       </div>
-    </div>
+    </PageTemplate>
   );
 }

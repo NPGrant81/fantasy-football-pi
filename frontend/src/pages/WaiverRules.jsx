@@ -2,13 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '@api/client';
+import { LoadingState } from '@components/common/AsyncState';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   buttonPrimary,
   cardSurface,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 export default function WaiverRules({ leagueId }) {
@@ -37,22 +36,17 @@ export default function WaiverRules({ leagueId }) {
 
   if (rules === null) {
     return (
-      <div
-        className={`${pageShell} text-center text-slate-600 dark:text-slate-400`}
-      >
-        Loading waiver rules...
+      <div className={pageShell}>
+        <LoadingState message="Loading waiver rules..." />
       </div>
     );
   }
 
   return (
-    <div className={pageShell}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>Waiver Wire Rules</h1>
-        <p className={pageSubtitle}>
-          Current waiver deadlines, budgets, and tie-break settings.
-        </p>
-      </div>
+    <PageTemplate
+      title="Waiver Wire Rules"
+      subtitle="Current waiver deadlines, budgets, and tie-break settings."
+    >
 
       <div
         className={`${cardSurface} space-y-4 text-slate-700 dark:text-slate-300`}
@@ -85,6 +79,6 @@ export default function WaiverRules({ leagueId }) {
           </button>
         </div>
       )}
-    </div>
+    </PageTemplate>
   );
 }

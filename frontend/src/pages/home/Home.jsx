@@ -2,16 +2,22 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
+import PageTemplate from '@components/layout/PageTemplate';
+import { EmptyState } from '@components/common/AsyncState';
+import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableRow,
+  StandardTableStateRow,
+} from '@components/table/TablePrimitives';
 import FeedPill from '../../components/feeds/FeedPill';
 import { FiAward, FiActivity } from 'react-icons/fi';
 import {
   cardSurface,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
+  tableCell,
+  tableCellNumeric,
   tableHead,
-  tableSurface,
+  textCaption,
 } from '@utils/uiStandards';
 
 export default function Home({ username }) {
@@ -105,7 +111,7 @@ export default function Home({ username }) {
 
     apiClient
       .get(`/leagues/owners?league_id=${leagueId}`)
-      .then((res) => setStandings(res.data))
+      .then((res) => setStandings(Array.isArray(res.data) ? res.data : []))
       .catch(() => setStandings([]));
 
     apiClient
@@ -139,19 +145,19 @@ export default function Home({ username }) {
   };
 
   return (
-    <div className={`${pageShell} animate-fade-in`}>
-      <div className={`${pageHeader} border-b-0 pb-0`}>
-        <h1 className={pageTitle}>{leagueName || 'League Dashboard'}</h1>
-        <p className={pageSubtitle}>
-          Welcome back,{' '}
-          <span className="font-bold text-slate-900 dark:text-white">{username}</span>
-          . Open the menu{' '}
+    <PageTemplate
+      title={leagueName || 'League Dashboard'}
+      subtitle={
+        <>
+          Welcome back, <span className="font-bold text-slate-900 dark:text-white">{username}</span>. Open the menu{' '}
           <span className="inline-block rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-700 dark:text-yellow-300">
             ☰
           </span>{' '}
           to access the War Room.
-        </p>
-      </div>
+        </>
+      }
+      className="animate-fade-in"
+    >
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className={`lg:col-span-2 ${cardSurface}`}>
@@ -160,8 +166,8 @@ export default function Home({ username }) {
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Current Standings</h2>
           </div>
 
-          <div className={`${tableSurface} overflow-x-auto`}>
-            <table className="w-full min-w-[760px] text-sm text-left text-slate-700 dark:text-slate-300">
+          <StandardTableContainer>
+            <StandardTable className="min-w-[760px]">
               <thead className={tableHead}>
                 <tr>
                   <th className="px-4 py-3 min-w-[64px]">Rank</th>
@@ -187,21 +193,21 @@ export default function Home({ username }) {
               <tbody>
                 {standings.length > 0 ? (
                   sortedStandings.map((owner, idx) => (
-                    <tr
+                    <StandardTableRow
                       key={owner.id}
-                      className="border-b border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
+                      className="border-b border-slate-300 dark:border-slate-800"
                     >
                       <td
-                        className={`px-4 py-3 font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-600 dark:text-slate-400'}`}
+                        className={`${tableCell} font-bold ${idx === 0 ? 'text-yellow-500' : 'text-slate-600 dark:text-slate-400'}`}
                       >
                         {idx + 1}
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
+                      <td className={`${tableCell} font-medium text-slate-900 dark:text-white`}>
                         <Link to={`/team/${owner.id}`} className="hover:text-blue-400 transition-colors">
                           {owner.team_name || owner.username}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={tableCell}>
                         {owner.division_name ? (
                           <span className="rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-700">
                             {owner.division_name}
@@ -210,31 +216,29 @@ export default function Home({ username }) {
                           '-'
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={tableCell}>
                         <Link to={`/team/${owner.id}`} className="hover:text-blue-400 transition-colors">
                           {owner.username}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={tableCell}>
                         {owner.wins}-{owner.losses}-{owner.ties}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">{owner.pf}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{owner.pa}</td>
-                      <td className="px-4 py-3 text-xs capitalize text-slate-500 dark:text-slate-400">
+                      <td className={tableCellNumeric}>{owner.pf}</td>
+                      <td className={tableCellNumeric}>{owner.pa}</td>
+                      <td className={`${tableCell} ${textCaption} capitalize`}>
                         {displayRankReason(owner)}
                       </td>
-                    </tr>
+                    </StandardTableRow>
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan={8} className="text-center py-6 text-slate-500 dark:text-slate-400">
-                      No owners found for this league.
-                    </td>
-                  </tr>
+                  <StandardTableStateRow colSpan={8}>
+                    No owners found for this league.
+                  </StandardTableStateRow>
                 )}
               </tbody>
-            </table>
-          </div>
+            </StandardTable>
+          </StandardTableContainer>
         </div>
 
         <div className={cardSurface}>
@@ -310,11 +314,14 @@ export default function Home({ username }) {
                 </div>
               ))
             ) : (
-              <p className="text-xs italic text-slate-500 dark:text-slate-400">No free agents available for this league.</p>
+              <EmptyState
+                message="No free agents available for this league."
+                className="text-xs italic"
+              />
             )}
           </div>
         </div>
       </div>
-    </div>
+    </PageTemplate>
   );
 }

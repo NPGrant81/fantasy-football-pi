@@ -12,11 +12,9 @@ import {
 import apiClient from '@api/client';
 import Toast from '@components/Toast';
 import AdminActionCard from '@components/admin/AdminActionCard';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '../../utils/uiStandards';
 
 export default function SiteAdmin() {
@@ -196,19 +194,16 @@ export default function SiteAdmin() {
   };
 
   return (
-    <div className={pageShell}>
-      <div className={`${pageHeader} flex items-start gap-4`}>
-        <FiTool className="mt-1 text-2xl text-purple-500" />
-        <div>
-          <h1 className={pageTitle}>Site Admin</h1>
-          <p className={pageSubtitle}>System-level and maintenance tools</p>
-          {lastSync && (
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Last action: {lastSync}
-            </p>
-          )}
-        </div>
-      </div>
+    <PageTemplate
+      title="Site Admin"
+      subtitle="System-level and maintenance tools"
+      metadata={
+        lastSync ? (
+          <span>Last action: {lastSync}</span>
+        ) : null
+      }
+      actions={<FiTool className="text-2xl text-purple-500" />}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AdminActionCard
           icon={FiRefreshCw}
@@ -303,6 +298,6 @@ export default function SiteAdmin() {
           onClose={() => setToast(null)}
         />
       )}
-    </div>
+    </PageTemplate>
   );
 }

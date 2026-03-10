@@ -8,18 +8,23 @@ import {
   FiUserPlus,
 } from 'react-icons/fi';
 import apiClient from '@api/client';
+import PageTemplate from '@components/layout/PageTemplate';
+import { ErrorState, LoadingState } from '@components/common/AsyncState';
+import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
 import {
   buttonDanger,
   buttonPrimary,
   buttonSecondary,
   cardSurface,
   inputBase,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
-  tableHead,
-  tableSurface,
+  tableCell,
+  textCaption,
 } from '../../utils/uiStandards';
 
 export default function ManageCommissioners() {
@@ -158,37 +163,27 @@ export default function ManageCommissioners() {
 
   if (loading) {
     return (
-      <div
-        className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}
-      >
-        Loading Commissioner Management...
+      <div className={pageShell}>
+        <LoadingState message="Loading commissioner management..." className="mt-20" />
       </div>
     );
   }
 
   return (
-    <div className={pageShell}>
-      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className={pageTitle}>Invite / Manage Commissioners</h1>
-          <p className={`${pageSubtitle} mt-1`}>
-            Invite commissioners, update account details, assign league IDs, and
-            remove commissioner access.
-          </p>
-        </div>
+    <PageTemplate
+      title="Invite / Manage Commissioners"
+      subtitle="Invite commissioners, update account details, assign league IDs, and remove commissioner access."
+      actions={
         <Link
           to="/admin"
           className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
-      </div>
+      }
+    >
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-800/60 bg-red-900/20 p-3 text-sm text-red-200">
-          {error}
-        </div>
-      )}
+      {error ? <ErrorState message={error} className="mb-4" /> : null}
       {notice && (
         <div className="mb-4 rounded-lg border border-green-800/60 bg-green-900/20 p-3 text-sm text-green-200">
           {notice}
@@ -232,20 +227,20 @@ export default function ManageCommissioners() {
         <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
           Current Commissioners
         </h2>
-        <div className={tableSurface}>
-          <table className="w-full text-left text-sm">
-            <thead className={tableHead}>
-              <tr>
-                <th className="px-3 py-3">Name</th>
-                <th className="px-3 py-3">Email</th>
-                <th className="px-3 py-3">League ID</th>
-                <th className="px-3 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+        <StandardTableContainer>
+          <StandardTable>
+            <StandardTableHead
+              headers={[
+                { key: 'name', label: 'Name', className: 'px-3 py-3' },
+                { key: 'email', label: 'Email', className: 'px-3 py-3' },
+                { key: 'league', label: 'League ID', className: 'px-3 py-3' },
+                { key: 'actions', label: 'Actions', className: 'px-3 py-3' },
+              ]}
+            />
+            <tbody>
               {commissioners.map((commissioner) => (
-                <tr key={commissioner.id}>
-                  <td className="px-3 py-3">
+                <StandardTableRow key={commissioner.id}>
+                  <td className={tableCell}>
                     <input
                       value={commissioner.username || ''}
                       onChange={(e) =>
@@ -254,7 +249,7 @@ export default function ManageCommissioners() {
                       className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className={tableCell}>
                     <input
                       value={commissioner.email || ''}
                       onChange={(e) =>
@@ -263,7 +258,7 @@ export default function ManageCommissioners() {
                       className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className={tableCell}>
                     <input
                       value={commissioner.league_id ?? ''}
                       onChange={(e) =>
@@ -276,7 +271,7 @@ export default function ManageCommissioners() {
                       className={`${inputBase} py-1`}
                     />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className={tableCell}>
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => saveCommissioner(commissioner)}
@@ -292,16 +287,16 @@ export default function ManageCommissioners() {
                       >
                         <FiTrash2 /> Remove Access
                       </button>
-                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
+                      <span className={`inline-flex items-center gap-1 ${textCaption}`}>
                         <FiMail /> invite/login details sent on add
                       </span>
                     </div>
                   </td>
-                </tr>
+                </StandardTableRow>
               ))}
             </tbody>
-          </table>
-        </div>
+          </StandardTable>
+        </StandardTableContainer>
       </div>
 
       {dirtyRows.length > 0 && (
@@ -309,6 +304,6 @@ export default function ManageCommissioners() {
           {dirtyRows.length} commissioner row(s) have unsaved edits.
         </p>
       )}
-    </div>
+    </PageTemplate>
   );
 }

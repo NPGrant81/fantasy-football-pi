@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
+import { ErrorState, LoadingState } from '@components/common/AsyncState';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
+  cardSurface,
   buttonPrimary,
   buttonSecondary,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
@@ -19,6 +19,7 @@ export default function Keepers() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
+  const [loadError, setLoadError] = useState('');
   // base budget is derived from keeper data and roster rather than state
   // (keeps eslint happy and avoids cascading renders)
   // const [baseBudget, setBaseBudget] = useState(0); // now derived via memo
@@ -29,6 +30,7 @@ export default function Keepers() {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setLoadError('');
       try {
         const res = await apiClient.get('/keepers/');
         setKeeperData(res.data);
@@ -37,6 +39,7 @@ export default function Keepers() {
         }
       } catch (err) {
         console.error('failed to load keeper data', err);
+        setLoadError('Unable to load keeper data right now.');
       }
       if (userId) {
         try {
@@ -47,6 +50,7 @@ export default function Keepers() {
         } catch (e) {
           console.error('failed to load roster', e);
           setRoster([]);
+          setLoadError((current) => current || 'Unable to load roster right now.');
         }
       }
       setLoading(false);
@@ -112,13 +116,24 @@ export default function Keepers() {
 
   if (loading) {
     return (
-      <div className={`${pageShell} text-slate-600 dark:text-slate-400`}>
-        Loading keepers...
+      <div className={pageShell}>
+        <LoadingState message="Loading keepers..." />
       </div>
     );
   }
 
-  const maxAllowed = keeperData?.max_allowed || 0;
+  if (!keeperData) {
+    return (
+      <div className={pageShell}>
+        <ErrorState
+          message={loadError || 'No keeper data available.'}
+          className="mt-6"
+        />
+      </div>
+    );
+  }
+
+  const maxAllowed = keeperData.max_allowed || 0;
   const selectedCount = selected.size;
   const estimatedBudget =
     computedBaseBudget -
@@ -128,108 +143,107 @@ export default function Keepers() {
     }, 0);
 
   return (
-    <div className={`${pageShell} min-h-screen text-slate-900 dark:text-white`}>
-      <div
-        className={`${pageHeader} flex flex-col gap-3 md:flex-row md:items-start md:justify-between`}
-      >
-        <div>
-          <h1 className={pageTitle}>Manage Keepers</h1>
-          <p className={pageSubtitle}>
-            Review keeper slots, submit, and lock selections.
-          </p>
-        </div>
-        <div className="text-sm text-slate-700 dark:text-slate-300">
-          Estimated Budget: ${estimatedBudget}
-          <br />
-          Draft Budget: ${keeperData?.effective_budget ?? 0}
+    <PageTemplate
+      title="Manage Keepers"
+      subtitle="Review keeper slots, submit, and lock selections."
+      metadata={`Estimated Budget: $${estimatedBudget} | Draft Budget: $${keeperData.effective_budget ?? 0}`}
+      actions={
+        <Link
+          to="/team"
+          className={`${buttonSecondary} inline-flex gap-2 px-3 py-1.5 text-xs no-underline`}
+        >
+          ← Back to My Team
+        </Link>
+      }
+    >
+      <div className={cardSurface}>
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+          {selectedCount} of {maxAllowed} chosen
+        </p>
+      </div>
+
+      <div className={cardSurface}>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+          {Array.from({ length: maxAllowed }).map((_, idx) => {
+            const pid = Array.from(selected)[idx];
+            const player = roster.find((r) => r.player_id === pid);
+            return (
+              <div
+                key={idx}
+                onClick={() => player && togglePlayer(player.player_id)}
+                className={`h-24 w-full cursor-pointer rounded-lg border p-1 flex flex-col items-center justify-center ${
+                  keeperData.recommended?.some(
+                    (r) => r.player_id === player?.player_id
+                  )
+                    ? 'border-yellow-500'
+                    : 'border-slate-300 dark:border-slate-700'
+                }`}
+              >
+                {player ? (
+                  <>
+                    <span className="font-semibold text-slate-900 dark:text-white">Selected Keeper</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-300">
+                      ${player.draft_price || 0}
+                      {player.projected_value != null && (
+                        <> / ${player.projected_value}</>
+                      )}
+                    </span>
+                    {keeperData.recommended?.some(
+                      (r) => r.player_id === player.player_id
+                    ) && <span className="text-yellow-500 text-xs">★</span>}
+                  </>
+                ) : (
+                  <span className="text-slate-500 dark:text-slate-400">Empty</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="text-yellow-300">
-        {selectedCount} of {maxAllowed} chosen
-      </div>
-
-      {/* slot grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {Array.from({ length: maxAllowed }).map((_, idx) => {
-          const pid = Array.from(selected)[idx];
-          const player = roster.find((r) => r.player_id === pid);
-          return (
-            <div
-              key={idx}
-              onClick={() => player && togglePlayer(player.player_id)}
-              className={`cursor-pointer h-24 w-full border rounded-lg flex flex-col items-center justify-center p-1 ${
-                keeperData?.recommended?.some(
-                  (r) => r.player_id === player?.player_id
-                )
-                  ? 'border-yellow-400'
-                  : 'border-slate-600'
-              }`}
-            >
-              {player ? (
-                <>
-                  <span className="font-semibold">Selected Keeper</span>
-                  <span className="text-xs text-slate-600 dark:text-slate-300">
-                    ${player.draft_price || 0}
-                    {player.projected_value != null && (
-                      <> / ${player.projected_value}</>
-                    )}
+      <div className={cardSurface}>
+        <div className="space-y-2">
+          {roster.map((p) => {
+            const isRec = keeperData.recommended?.some(
+              (r) => r.player_id === p.player_id
+            );
+            return (
+              <label key={p.player_id} className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={selected.has(p.player_id)}
+                  onChange={() => togglePlayer(p.player_id)}
+                  disabled={
+                    keeperData.ineligible?.includes(p.player_id) ||
+                    (!selected.has(p.player_id) && selectedCount >= maxAllowed)
+                  }
+                />
+                <span>{p.name}</span>
+                <span>(draft: ${p.draft_price || 0})</span>
+                {keeperData.ineligible?.includes(p.player_id) && (
+                  <span
+                    className="ml-1 text-xs text-red-500"
+                    title="Reached max keeper years"
+                  >
+                    🚫
                   </span>
-                  {keeperData?.recommended?.some(
-                    (r) => r.player_id === player.player_id
-                  ) && <span className="text-yellow-300 text-xs">★</span>}
-                </>
-              ) : (
-                <span className="text-slate-500 dark:text-slate-400">
-                  Empty
-                </span>
-              )}
-            </div>
-          );
-        })}
+                )}
+                {p.projected_value != null && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    &nbsp;| proj: ${p.projected_value}
+                  </span>
+                )}
+                {isRec && <span className="ml-1 text-xs text-yellow-500">★</span>}
+              </label>
+            );
+          })}
+        </div>
       </div>
 
-      {/* roster selector */}
-      <div className="space-y-2">
-        {roster.map((p) => {
-          const isRec = keeperData?.recommended?.some(
-            (r) => r.player_id === p.player_id
-          );
-          return (
-            <label key={p.player_id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={selected.has(p.player_id)}
-                onChange={() => togglePlayer(p.player_id)}
-                disabled={
-                  keeperData?.ineligible?.includes(p.player_id) ||
-                  (!selected.has(p.player_id) && selectedCount >= maxAllowed)
-                }
-              />
-              <span>{p.name}</span>
-              <span>(draft: ${p.draft_price || 0})</span>
-              {keeperData?.ineligible?.includes(p.player_id) && (
-                <span
-                  className="text-red-400 text-xs ml-1"
-                  title="Reached max keeper years"
-                >
-                  🚫
-                </span>
-              )}
-              {p.projected_value != null && (
-                <span className="text-slate-500 dark:text-slate-400 text-xs">
-                  &nbsp;| proj: ${p.projected_value}
-                </span>
-              )}
-              {isRec && <span className="ml-1 text-yellow-300 text-xs">★</span>}
-            </label>
-          );
-        })}
-      </div>
-      {keeperData?.recommended && keeperData.recommended.length > 0 && (
-        <div className="mt-4 text-yellow-300">
-          <strong>Recommended surplus</strong>
-          <ul className="list-disc list-inside">
+      {keeperData.recommended && keeperData.recommended.length > 0 && (
+        <div className={cardSurface}>
+          <strong className="text-slate-900 dark:text-white">Recommended surplus</strong>
+          <ul className="list-disc list-inside text-slate-700 dark:text-slate-300">
             {keeperData.recommended.map((r) => (
               <li key={r.player_id}>
                 ID {r.player_id}: surplus ${r.surplus.toFixed(1)}
@@ -239,7 +253,7 @@ export default function Keepers() {
         </div>
       )}
 
-      <div className="flex gap-4">
+      <div className={`${cardSurface} flex gap-4`}>
         <button
           onClick={handleSubmit}
           disabled={saving}
@@ -255,13 +269,6 @@ export default function Keepers() {
           {locking ? 'Locking...' : 'Lock In Keepers'}
         </button>
       </div>
-
-      <Link
-        to="/team"
-        className={`${buttonSecondary} inline-flex w-fit gap-2 px-3 py-1.5 text-xs no-underline`}
-      >
-        ← Back to My Team
-      </Link>
-    </div>
+    </PageTemplate>
   );
 }

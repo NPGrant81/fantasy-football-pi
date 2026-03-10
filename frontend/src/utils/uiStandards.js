@@ -1,3 +1,4 @@
+// --- 1.0 PAGE SHELL + HEADER TOKENS ---
 export const pageShell = 'w-full p-4 md:p-6 space-y-6';
 
 export const layoutAlertBar =
@@ -11,6 +12,17 @@ export const pageTitle =
 
 export const pageSubtitle = 'text-sm text-slate-600 dark:text-slate-400';
 
+// --- 1.1 TYPOGRAPHY TOKENS ---
+export const textBody = 'text-sm text-slate-700 dark:text-slate-300';
+
+export const textMuted = 'text-sm text-slate-600 dark:text-slate-400';
+
+export const textMeta =
+  'text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400';
+
+export const textCaption = 'text-xs text-slate-500 dark:text-slate-400';
+
+// --- 1.2 SURFACE + TABLE TOKENS ---
 export const cardSurface =
   'rounded-xl border border-slate-300 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 p-4 md:p-6 shadow-sm';
 
@@ -20,6 +32,40 @@ export const tableSurface =
 export const tableHead =
   'bg-slate-100 dark:bg-slate-950/70 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-500';
 
+export const tableCell = 'px-3 py-2';
+
+export const tableCellNumeric = 'px-3 py-2 text-right tabular-nums';
+
+export const tableRow =
+  'border-t border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40';
+
+export const tableStateCell = 'px-3 py-4 text-slate-500 dark:text-slate-400';
+
+// --- 1.3 LAYERING TOKENS (LOW -> HIGH) ---
+export const layerNav = 'z-30';
+
+export const layerBackdrop = 'z-40';
+
+export const layerDrawer = 'z-50';
+
+export const layerDropdown = 'z-[60]';
+
+export const layerModal = 'z-[70]';
+
+export const layerToast = 'z-[90]';
+
+// --- 1.4 SPACING TOKENS (VERTICAL STACK RHYTHM) ---
+export const stackSpacingXs = 'space-y-1';
+
+export const stackSpacingSm = 'space-y-2';
+
+export const stackSpacingMd = 'space-y-4';
+
+export const stackSpacingLg = 'space-y-6';
+
+export const stackSpacingXl = 'space-y-8';
+
+// --- 1.5 FORM + BUTTON TOKENS ---
 export const inputBase =
   'w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-cyan-500/40';
 
@@ -32,8 +78,9 @@ export const buttonSecondary = `${buttonBase} bg-slate-200 text-slate-900 hover:
 
 export const buttonDanger = `${buttonBase} bg-red-600 text-white hover:bg-red-500 focus:ring-red-500`;
 
+// --- 1.6 MODAL TOKENS ---
 export const modalOverlay =
-  'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4';
+  `fixed inset-0 ${layerModal} flex items-center justify-center bg-black/60 p-4`;
 
 export const modalSurface =
   'relative w-full sm:max-w-lg rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 shadow-2xl';
@@ -50,6 +97,7 @@ export const modalDescription =
 export const modalPlaceholder =
   'text-center text-slate-500 dark:text-slate-400';
 
+// --- 1.7 COMPONENT-SPECIFIC TONE TOKENS ---
 export const adminActionToneStyles = {
   blue: {
     hoverBorder: 'hover:border-blue-500/30',

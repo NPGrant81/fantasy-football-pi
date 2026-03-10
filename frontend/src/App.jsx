@@ -14,6 +14,7 @@ import './App.css';
 import Layout from './components/Layout';
 import LeagueSelector from './components/LeagueSelector';
 import LeagueAdvisor from './components/LeagueAdvisor';
+import { LoadingState } from '@components/common/AsyncState';
 import { ThemeProvider } from './context/ThemeContext';
 
 // Import Pages (Lazy Loaded)
@@ -114,7 +115,9 @@ function AuthenticatedShell({
     >
       <Suspense
         fallback={
-          <div className="p-8 text-slate-400 animate-pulse">Loading...</div>
+          <div className="p-8 text-slate-400">
+            <LoadingState message="Loading..." />
+          </div>
         }
       >
         <Routes>

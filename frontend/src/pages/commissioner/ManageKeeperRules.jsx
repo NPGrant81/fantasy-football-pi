@@ -2,18 +2,22 @@ import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
+import PageTemplate from '@components/layout/PageTemplate';
+import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
 import {
   buttonDanger,
   buttonPrimary,
   buttonSecondary,
   cardSurface,
   inputBase,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
-  tableHead,
-  tableSurface,
+  tableCell,
+  textMuted,
 } from '@utils/uiStandards';
 
 export default function ManageKeeperRules() {
@@ -119,21 +123,19 @@ export default function ManageKeeperRules() {
   };
 
   return (
-    <div className={`${pageShell} min-h-screen`}>
-      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className={pageTitle}>Keeper Rules</h1>
-          <p className={pageSubtitle}>
-            Configure keeper limits, deadlines, and commissioner overrides.
-          </p>
-        </div>
+    <PageTemplate
+      title="Keeper Rules"
+      subtitle="Configure keeper limits, deadlines, and commissioner overrides."
+      actions={
         <Link
           to="/commissioner"
           className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
-      </div>
+      }
+      className="min-h-screen"
+    >
 
       <form onSubmit={handleSubmit} className={`${cardSurface} mb-0`}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -275,26 +277,23 @@ export default function ManageKeeperRules() {
           Reset All Keepers
         </button>
         {ownersLoading ? (
-          <p className="text-slate-600 dark:text-slate-400">Loading...</p>
+          <LoadingState message="Loading keeper lists..." className={textMuted} />
         ) : owners.length ? (
-          <div className={tableSurface}>
-            <table className="w-full text-sm text-slate-700 dark:text-slate-300">
-              <thead className={tableHead}>
-                <tr>
-                  <th className="px-3 py-2">Owner</th>
-                  <th className="px-3 py-2">Selections</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
+          <StandardTableContainer>
+            <StandardTable>
+              <StandardTableHead
+                headers={[
+                  { key: 'owner', label: 'Owner' },
+                  { key: 'selections', label: 'Selections' },
+                  { key: 'actions', label: 'Actions' },
+                ]}
+              />
               <tbody>
                 {owners.map((o) => (
-                  <tr
-                    key={o.owner_id}
-                    className="border-t border-slate-300 dark:border-slate-800"
-                  >
-                    <td className="px-3 py-2">{o.username || o.owner_id}</td>
-                    <td className="px-3 py-2">{o.selections.length}</td>
-                    <td className="px-3 py-2">
+                  <StandardTableRow key={o.owner_id} className="hover:bg-transparent dark:hover:bg-transparent">
+                    <td className={tableCell}>{o.username || o.owner_id}</td>
+                    <td className={tableCell}>{o.selections.length}</td>
+                    <td className={tableCell}>
                       <button
                         className={`${buttonSecondary} px-3 py-1 text-xs`}
                         onClick={() => vetoOwner(o.owner_id)}
@@ -302,17 +301,15 @@ export default function ManageKeeperRules() {
                         Veto
                       </button>
                     </td>
-                  </tr>
+                  </StandardTableRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </StandardTable>
+          </StandardTableContainer>
         ) : (
-          <p className="text-slate-500 dark:text-slate-400 italic">
-            No keeper lists submitted yet.
-          </p>
+          <EmptyState message="No keeper lists submitted yet." className={`${textMuted} italic`} />
         )}
       </div>
-    </div>
+    </PageTemplate>
   );
 }
