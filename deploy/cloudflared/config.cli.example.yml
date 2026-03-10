@@ -1,0 +1,29 @@
+# Cloudflare Tunnel CLI config template (frontend + backend split hostnames)
+# Example domain:
+#   app.pplinsighthub.com -> frontend (nginx/static)
+#   api.pplinsighthub.com -> backend (FastAPI)
+#
+# Replace tunnel name/uuid and credentials-file path before use.
+
+tunnel: fantasy-football-prod
+credentials-file: /etc/cloudflared/<tunnel-uuid>.json
+
+ingress:
+  - hostname: app.pplinsighthub.com
+    service: http://127.0.0.1:80
+    originRequest:
+      connectTimeout: 5s
+      noHappyEyeballs: true
+
+  - hostname: api.pplinsighthub.com
+    service: http://127.0.0.1:8000
+    healthcheck:
+      path: /health
+      interval: 30s
+      timeout: 5s
+      retries: 2
+    originRequest:
+      connectTimeout: 5s
+      noHappyEyeballs: true
+
+  - service: http_status:404
