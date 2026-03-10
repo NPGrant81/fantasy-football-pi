@@ -7,6 +7,7 @@ Refer to the appropriate file for more information.
 - [Architecture](ARCHITECTURE.md)
 - [Cloudflare Tunnel Setup](CLOUDFLARE_TUNNEL_SETUP.md)
 - [Cloudflare Tunnel Monitoring](cloudflare-tunnel-monitoring.md)
+- [Cloudflare Tunnel systemd Runbook](cloudflare-tunnel-systemd.md)
 - [Cross Module Edge Case Test Matrix](CROSS_MODULE_EDGE_CASE_TEST_MATRIX.md)
 - [Data Validation Strategy](DATA_VALIDATION_STRATEGY.md)
 - [Db Migration Phase1](DB_MIGRATION_PHASE1.md)
