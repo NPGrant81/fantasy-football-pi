@@ -63,6 +63,50 @@ export function summarizeTradeSide(players = []) {
   );
 }
 
+export function computeOutgoingLossWithReplacement(outgoingPlayers = [], fullRoster = []) {
+  const outgoingIds = new Set(outgoingPlayers.map((player) => player?.player_id));
+  const replacementPool = fullRoster.filter((player) => {
+    const playerId = player?.player_id;
+    return playerId != null && !outgoingIds.has(playerId);
+  });
+  const usedReplacementIds = new Set();
+
+  let totalLoss = 0;
+  outgoingPlayers.forEach((player) => {
+    if (!player) return;
+
+    const starterValue = computePlayerValue(player);
+    if (!player.is_starter) {
+      totalLoss += computeLineupAdjustedValue(player);
+      return;
+    }
+
+    const outgoingPos = normalizePosition(player.position);
+    const replacement = replacementPool
+      .filter((candidate) => {
+        if (!candidate) return false;
+        if (usedReplacementIds.has(candidate.player_id)) return false;
+        return normalizePosition(candidate.position) === outgoingPos;
+      })
+      .sort((a, b) => computePlayerValue(b) - computePlayerValue(a))[0];
+
+    if (replacement?.player_id != null) {
+      usedReplacementIds.add(replacement.player_id);
+    }
+
+    const replacementValue = replacement ? computePlayerValue(replacement) : 0;
+    totalLoss += Math.max(0, starterValue - replacementValue);
+  });
+
+  return Number(totalLoss.toFixed(2));
+}
+
+export function computeNetLineupImpact({ incomingPlayers = [], outgoingPlayers = [], fullRoster = [] }) {
+  const incomingGain = summarizeTradeSide(incomingPlayers);
+  const outgoingLoss = computeOutgoingLossWithReplacement(outgoingPlayers, fullRoster);
+  return Number((incomingGain - outgoingLoss).toFixed(2));
+}
+
 export function gradeForDelta(delta) {
   const abs = Math.abs(delta);
   if (abs <= 2) return ['A', 'A'];

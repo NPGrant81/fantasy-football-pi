@@ -10,6 +10,7 @@ import { normalizeApiError } from '@api/fetching';
 import { buttonPrimary, buttonSecondary, cardSurface, inputBase } from '@utils/uiStandards';
 import {
   buildCashRecommendation,
+  computeNetLineupImpact,
   computeLineupAdjustedValue,
   computePlayerValue,
   deriveRiskPenalty,
@@ -166,7 +167,27 @@ export default function TradeAnalyzer() {
   const totalB = useMemo(() => summarizeTradeSide(selectedBPlayers), [selectedBPlayers]);
   const delta = useMemo(() => Number((totalA - totalB).toFixed(2)), [totalA, totalB]);
 
-  const [gradeA, gradeB] = useMemo(() => gradeForDelta(delta), [delta]);
+  const impactA = useMemo(
+    () => computeNetLineupImpact({
+      incomingPlayers: selectedBPlayers,
+      outgoingPlayers: selectedAPlayers,
+      fullRoster: rosterA,
+    }),
+    [selectedAPlayers, selectedBPlayers, rosterA]
+  );
+
+  const impactB = useMemo(
+    () => computeNetLineupImpact({
+      incomingPlayers: selectedAPlayers,
+      outgoingPlayers: selectedBPlayers,
+      fullRoster: rosterB,
+    }),
+    [selectedAPlayers, selectedBPlayers, rosterB]
+  );
+
+  const impactDelta = useMemo(() => Number((impactA - impactB).toFixed(2)), [impactA, impactB]);
+
+  const [gradeA, gradeB] = useMemo(() => gradeForDelta(impactDelta), [impactDelta]);
 
   const positionRows = useMemo(() => {
     const bucket = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'DST', 'K'];
@@ -248,11 +269,15 @@ export default function TradeAnalyzer() {
     return table;
   }, [selectedAPlayers, selectedBPlayers]);
 
-  const cashRecommendation = useMemo(() => buildCashRecommendation(delta), [delta]);
+  const cashRecommendation = useMemo(() => buildCashRecommendation(impactDelta), [impactDelta]);
 
   const buildRationale = () => {
-    if (delta > 2) return 'Team A gains more near-term starting value based on selected players.';
-    if (delta < -2) return 'Team B gains more near-term starting value based on selected players.';
+    if (impactDelta > 2) {
+      return 'Team A gains more near-term lineup value after replacement effects.';
+    }
+    if (impactDelta < -2) {
+      return 'Team B gains more near-term lineup value after replacement effects.';
+    }
     return 'Trade is close to balanced with similar projected value exchange.';
   };
 
@@ -520,6 +545,7 @@ export default function TradeAnalyzer() {
           <h4 className="text-sm font-black uppercase tracking-wider text-slate-200">Trade Summary</h4>
           <div className="text-sm text-slate-300">{ownerName(teamA)}: <span className={gradeTone(gradeA)}>{gradeA}</span></div>
           <div className="text-sm text-slate-300">{ownerName(teamB)}: <span className={gradeTone(gradeB)}>{gradeB}</span></div>
+          <div className="text-xs text-slate-500">Lineup impact A/B: {impactA.toFixed(2)} / {impactB.toFixed(2)}</div>
           <div className="text-xs text-slate-400">{buildRationale()}</div>
         </section>
 
