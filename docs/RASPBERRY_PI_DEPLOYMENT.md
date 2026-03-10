@@ -104,6 +104,15 @@ git log --oneline HEAD..origin/main
 git diff --name-only HEAD..origin/main
 ```
 
+Optional helper (recommended):
+
+```bash
+cd /home/pi/fantasy-football-pi
+bash scripts/pi_update_plan.sh origin/main
+```
+
+The helper prints a command checklist based on changed file paths.
+
 ### B. Apply updates based on changed paths
 
 Run only the commands required by the files that changed.
