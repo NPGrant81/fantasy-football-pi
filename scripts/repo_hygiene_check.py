@@ -118,11 +118,37 @@ def check_frontend_component_naming() -> list[str]:
     return issues
 
 
+def check_frontend_ui_guardrails() -> list[str]:
+    """Enforce baseline frontend standardization guardrails.
+
+    Current guardrail scope (Stage 2):
+    - Route pages should not introduce raw `<table>` markup unless they also
+      consume shared table primitives from `@components/table/TablePrimitives`.
+    """
+    issues: list[str] = []
+    pages_dir = FRONTEND_SRC / "pages"
+    if not pages_dir.exists():
+        return issues
+
+    for file in list(pages_dir.rglob("*.jsx")) + list(pages_dir.rglob("*.tsx")):
+        text = _read_text(file)
+        has_raw_table = "<table" in text
+        uses_primitives = "@components/table/TablePrimitives" in text
+        if has_raw_table and not uses_primitives:
+            issues.append(
+                "route page contains raw <table> without TablePrimitives import: "
+                f"{file.relative_to(ROOT).as_posix()}"
+            )
+
+    return issues
+
+
 def main() -> int:
     issues: list[str] = []
     issues.extend(check_docs_index())
     issues.extend(check_case_collisions())
     issues.extend(check_frontend_component_naming())
+    issues.extend(check_frontend_ui_guardrails())
 
     if issues:
         print("repo hygiene check failed:")
