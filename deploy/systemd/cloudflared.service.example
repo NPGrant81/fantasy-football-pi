@@ -14,7 +14,6 @@ Restart=on-failure
 RestartSec=5
 TimeoutStartSec=30
 TimeoutStopSec=20
-WatchdogSec=60
 
 # Hardening
 NoNewPrivileges=true

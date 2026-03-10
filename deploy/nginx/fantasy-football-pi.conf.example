@@ -54,7 +54,7 @@ server {
 
     # Frontend calls backend routes directly (no /api prefix), so proxy those
     # route families to the FastAPI service.
-    location ~ ^/(auth|draft|admin/tools|admin/create-test-league|admin/reset-draft|team|league|leagues|players|advisor|dashboard|waivers|trades|scoring|keepers|playoffs|analytics|nfl|feedback|bug-reports|etl|matchups)(/|$) {
+    location ~ ^/(auth|draft|admin/tools|admin/create-test-league|admin/reset-draft|team|league|leagues|players|advisor|dashboard|waivers|trades|scoring|keepers|playoffs|analytics|nfl|feedback|bug-reports|etl|matchups|health)(/|$) {
         limit_req zone=api_rate_limit burst=20 nodelay;
 
         proxy_pass http://127.0.0.1:8000;

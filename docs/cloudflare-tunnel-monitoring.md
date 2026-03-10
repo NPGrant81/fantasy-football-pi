@@ -9,7 +9,7 @@ Provide lightweight, Pi-friendly observability for Cloudflare Tunnel uptime and 
 ## Architecture
 - `cloudflared.service` keeps the tunnel process alive with `Restart=on-failure`.
 - `cloudflared-watchdog.timer` executes every minute and checks `https://pplinsighthub.com/health`.
-- Backend `/health` endpoint verifies app process and DB reachability.
+- Backend `/health` endpoint verifies app process and DB reachability (`200` healthy, `503` degraded).
 - Optional external monitor (UptimeRobot, Healthchecks.io, Pulsetic) verifies public endpoint availability.
 
 ## Mermaid Diagram
@@ -26,6 +26,9 @@ flowchart LR
 
 ## 1. Tunnel Health Checks
 Use `deploy/cloudflared/config.ppl-insight-hub-prod1.example.yml` as baseline.
+
+Important routing note:
+- Ensure your reverse proxy forwards `/health` to FastAPI (`127.0.0.1:8000`) so health checks validate API + DB status.
 
 Recommended ingress block settings:
 - `healthcheck.path: /health`
@@ -144,3 +147,8 @@ Recovery:
 - systemd restart reliability: yes (`Restart=on-failure`, tuning in service template)
 - Logs retained and observable: yes (journalctl + retention guidance)
 - Clear playbook: yes (this document)
+
+## Endpoint Semantics
+- `GET /health` returns `200` with `status=ok` when DB probe succeeds.
+- `GET /health` returns `503` with `status=degraded` when DB probe fails.
+- Health payload intentionally avoids exposing raw DB exception details.
