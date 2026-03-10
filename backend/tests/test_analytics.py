@@ -306,3 +306,86 @@ def test_weekly_matchup_comparison_payload(db_session):
     assert comparison["meta"]["metric"] == "weekly_matchup_comparison"
     assert len(comparison["rows"]) == 2
     assert comparison["rows"][0]["entries"][0]["score"] >= comparison["rows"][0]["entries"][1]["score"]
+
+
+def test_weekly_matchup_comparison_ignores_malformed_rows(db_session):
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="Owner", team_name="Owner Team")
+
+    # One valid matchup plus malformed legacy rows should not crash payload generation.
+    db_session.add_all(
+        [
+            models.Matchup(
+                league_id=league.id,
+                week=1,
+                home_team_id=owner.id,
+                away_team_id=owner.id,
+                home_score=99.0,
+                away_score=97.0,
+                is_completed=True,
+            ),
+            models.Matchup(
+                league_id=league.id,
+                week=2,
+                home_team_id=None,
+                away_team_id=owner.id,
+                home_score=101.0,
+                away_score=88.0,
+                is_completed=True,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    comparison = get_weekly_matchup_comparison(
+        league_id=league.id,
+        season=2026,
+        start_week=1,
+        end_week=5,
+        db=db_session,
+    )
+
+    assert comparison["meta"]["metric"] == "weekly_matchup_comparison"
+    assert len(comparison["rows"]) == 1
+    assert comparison["rows"][0]["week"] == 1
+
+
+def test_rivalry_graph_ignores_null_trade_rows(db_session):
+    league = make_league(db_session)
+    u1 = make_user(db_session, league.id, username="A", team_name="A Team")
+    u2 = make_user(db_session, league.id, username="B", team_name="B Team")
+
+    db_session.add(
+        models.Matchup(
+            league_id=league.id,
+            week=1,
+            home_team_id=u1.id,
+            away_team_id=u2.id,
+            home_score=120.0,
+            away_score=110.0,
+            is_completed=True,
+        )
+    )
+    db_session.add_all(
+        [
+            models.TransactionHistory(
+                league_id=league.id,
+                player_id=1,
+                old_owner_id=u1.id,
+                new_owner_id=u2.id,
+                transaction_type="trade",
+            ),
+            models.TransactionHistory(
+                league_id=league.id,
+                player_id=2,
+                old_owner_id=None,
+                new_owner_id=u2.id,
+                transaction_type="trade",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    res = get_rivalry_graph(league.id, db=db_session)
+    assert len(res["edges"]) == 1
+    assert res["edges"][0]["trades"] == 1

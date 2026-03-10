@@ -12,6 +12,23 @@ from .team import organize_roster
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
+def _safe_int(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sorted_owner_pair(first, second) -> tuple[int, int] | None:
+    a = _safe_int(first)
+    b = _safe_int(second)
+    if a is None or b is None:
+        return None
+    return tuple(sorted((a, b)))
+
+
 def _resolved_season(season: int | None) -> int:
     if season is None:
         return datetime.now().year
@@ -107,8 +124,6 @@ def get_efficiency_leaderboard(
         query = (
             db.query(
                 models.ManagerEfficiency.manager_id,
-                models.ManagerEfficiency.league_id,
-                models.ManagerEfficiency.season,
                 sa.func.sum(models.ManagerEfficiency.actual_points_total).label('actual'),
                 sa.func.sum(models.ManagerEfficiency.optimal_points_total).label('optimal'),
                 sa.func.avg(models.ManagerEfficiency.efficiency_rating).label('avg_efficiency'),
@@ -440,6 +455,7 @@ def get_weekly_matchup_comparison(
     team_name_by_id = {
         int(row.id): (row.team_name or row.username or f"Team {row.id}")
         for row in users
+        if row.id is not None
     }
 
     matchups = (
@@ -455,19 +471,28 @@ def get_weekly_matchup_comparison(
 
     by_week: dict[int, list[dict]] = {}
     for matchup in matchups:
-        week_no = int(matchup.week or 0)
+        week_no = _safe_int(matchup.week)
+        if week_no is None:
+            continue
+
+        home_id = _safe_int(matchup.home_team_id)
+        away_id = _safe_int(matchup.away_team_id)
+        if home_id is None or away_id is None:
+            # Legacy/malformed matchup rows should not crash analytics payloads.
+            continue
+
         entries = by_week.setdefault(week_no, [])
         entries.append(
             {
-                "team_id": int(matchup.home_team_id),
-                "team": team_name_by_id.get(int(matchup.home_team_id), f"Team {matchup.home_team_id}"),
+                "team_id": home_id,
+                "team": team_name_by_id.get(home_id, f"Team {home_id}"),
                 "score": float(matchup.home_score or 0.0),
             }
         )
         entries.append(
             {
-                "team_id": int(matchup.away_team_id),
-                "team": team_name_by_id.get(int(matchup.away_team_id), f"Team {matchup.away_team_id}"),
+                "team_id": away_id,
+                "team": team_name_by_id.get(away_id, f"Team {away_id}"),
                 "score": float(matchup.away_score or 0.0),
             }
         )
@@ -507,7 +532,7 @@ def get_rivalry_graph(
         .filter(models.User.league_id == league_id)
         .all()
     )
-    nodes = [{"id": o.id, "label": o.username or f"{o.id}"} for o in owners]
+    nodes = [{"id": o.id, "label": o.username or f"{o.id}"} for o in owners if o.id is not None]
 
     # gather completed matchups
     matchup_rows = (
@@ -519,18 +544,29 @@ def get_rivalry_graph(
     # aggregate head-to-head results keyed by sorted pair
     results: dict = {}
     for m in matchup_rows:
-        key = tuple(sorted([m.home_team_id, m.away_team_id]))
+        key = _sorted_owner_pair(m.home_team_id, m.away_team_id)
+        if key is None:
+            continue
+
+        home_id = _safe_int(m.home_team_id)
+        away_id = _safe_int(m.away_team_id)
+        if home_id is None or away_id is None:
+            continue
+
         if key not in results:
             results[key] = {"games": 0, "a_wins": 0, "b_wins": 0}
         results[key]["games"] += 1
-        if m.home_score > m.away_score:
+        home_score = float(m.home_score or 0.0)
+        away_score = float(m.away_score or 0.0)
+
+        if home_score > away_score:
             # home wins counts toward the smaller id (a) if sorted
-            if key[0] == m.home_team_id:
+            if key[0] == home_id:
                 results[key]["a_wins"] += 1
             else:
                 results[key]["b_wins"] += 1
-        elif m.away_score > m.home_score:
-            if key[0] == m.away_team_id:
+        elif away_score > home_score:
+            if key[0] == away_id:
                 results[key]["a_wins"] += 1
             else:
                 results[key]["b_wins"] += 1
@@ -551,7 +587,9 @@ def get_rivalry_graph(
     )
     trades: dict = {}
     for old_id, new_id, cnt in trade_rows:
-        key = tuple(sorted([old_id, new_id]))
+        key = _sorted_owner_pair(old_id, new_id)
+        if key is None:
+            continue
         trades[key] = trades.get(key, 0) + cnt
 
     edges = []
