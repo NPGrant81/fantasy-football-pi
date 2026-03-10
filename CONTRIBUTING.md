@@ -168,6 +168,15 @@ hit breakpoints as you interact with the UI.
      - `Pending close:` list
      - `Net new:` list
 
+9. **PR feedback closure gate (required before merge/issue close).**
+   - Before merging any PR and before closing linked issues, confirm review feedback is resolved.
+   - Required checks:
+     - `gh pr view <PR_NUMBER> --repo NPGrant81/fantasy-football-pi --json comments,reviews,reviewDecision`
+     - `gh api graphql -f query='query { repository(owner:"NPGrant81", name:"fantasy-football-pi") { pullRequest(number:<PR_NUMBER>) { reviewThreads(first:100) { nodes { isResolved isOutdated comments(first:20) { nodes { author { login } body path line } } } } } } }'`
+   - Merge/closure rule:
+     - If any actionable thread remains unresolved (`isResolved=false` and not outdated), do not merge yet.
+     - Either address it in follow-up commits or explicitly defer it with rationale in PR comments before merge.
+
 ---
 
 By adhering to these standards, the frontend stops being a black box and
