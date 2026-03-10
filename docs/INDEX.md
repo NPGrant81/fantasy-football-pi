@@ -20,6 +20,7 @@ Refer to the appropriate file for more information.
 - [Draft Analyzer Api Audit](DRAFT_ANALYZER_API_AUDIT.md)
 - [Draft Day Advisor Mode](DRAFT_DAY_ADVISOR_MODE.md)
 - [Frontend Ui Standards](FRONTEND_UI_STANDARDS.md)
+- [Frontend Ci Pipeline Optimization](FRONTEND_CI_PIPELINE_OPTIMIZATION.md)
 - [Issue Status](ISSUE_STATUS.md)
 - [Model Serving And Integration](model-serving-and-integration.md)
 - [Monte Carlo Simulation](monte-carlo-simulation.md)
