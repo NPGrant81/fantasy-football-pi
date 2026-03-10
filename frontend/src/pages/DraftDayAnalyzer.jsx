@@ -860,6 +860,15 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     setSortDirection(column === 'name' ? 'asc' : 'desc');
   };
 
+  const handleSearchChange = useCallback((event) => {
+    const nextQuery = event.target.value;
+    setSearchQuery(nextQuery);
+    // New search should return to default ranking sort while preserving filter/year toggles.
+    setSortColumn(DEFAULT_UI_STATE.sortColumn);
+    setSortDirection(DEFAULT_UI_STATE.sortDirection);
+    setScrollTop(0);
+  }, []);
+
   return (
     <PageTemplate
       title="Draft Day Analyzer"
@@ -899,7 +908,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
           <input
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             placeholder="Search players"
             className="ml-auto w-full max-w-sm rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
           />
@@ -950,6 +959,19 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             className="overflow-y-auto"
             style={{ height: `${containerHeight}px` }}
           >
+            {rankingsLoading && !sortedPlayers.length ? (
+              <div className="space-y-2 px-3 py-3" aria-label="Loading player rows">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <div
+                    key={`skeleton-${index}`}
+                    className="h-9 animate-pulse rounded border border-slate-800 bg-slate-900"
+                  />
+                ))}
+              </div>
+            ) : null}
+            {rankingsLoading && sortedPlayers.length ? (
+              <div className="px-3 py-2 text-xs text-slate-400">Refreshing player values...</div>
+            ) : null}
             <div style={{ height: `${virtualMeta.topPad}px` }} />
             {virtualMeta.rows.map((player) => {
               const selected = player.id === Number(selectedPlayerId);
@@ -984,7 +1006,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               );
             })}
             <div style={{ height: `${virtualMeta.bottomPad}px` }} />
-            {!sortedPlayers.length ? (
+            {!rankingsLoading && !sortedPlayers.length ? (
               <div className="px-3 py-6 text-center text-sm text-slate-400">
                 No players found.
               </div>
