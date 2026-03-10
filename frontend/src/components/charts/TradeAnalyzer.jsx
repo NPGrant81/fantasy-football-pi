@@ -9,6 +9,18 @@ import {
 } from '@api/commonApi';
 import { normalizeApiError } from '@api/fetching';
 import { buttonPrimary, buttonSecondary, cardSurface, inputBase } from '@utils/uiStandards';
+import {
+  buildCashRecommendation,
+  computeNetLineupImpact,
+  computeLineupAdjustedValue,
+  computePlayerValue,
+  deriveRiskPenalty,
+  deriveTrendAdjustment,
+  deriveVolatilityPenalty,
+  gradeForDelta,
+  normalizePosition,
+  summarizeTradeSide,
+} from './tradeAnalyzerLogic';
 
 export default function TradeAnalyzer() {
   const [owners, setOwners] = useState([]);
@@ -33,27 +45,6 @@ export default function TradeAnalyzer() {
   const [analysisError, setAnalysisError] = useState('');
 
   const positions = ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'DST', 'K'];
-
-  const scorePlayer = (player) => {
-    const projected = Number(player?.projected_points || 0);
-    const starterBonus = player?.is_starter ? 2.5 : 0;
-    const byePenalty = player?.bye_week ? 0.15 : 0;
-    return Number((projected + starterBonus - byePenalty).toFixed(2));
-  };
-
-  const normalizePosition = (position) => {
-    if (position === 'DEF') return 'DST';
-    return String(position || '').toUpperCase();
-  };
-
-  const gradeForDelta = (delta) => {
-    const abs = Math.abs(delta);
-    if (abs <= 2) return ['A', 'A'];
-    if (abs <= 5) return delta > 0 ? ['A', 'B'] : ['B', 'A'];
-    if (abs <= 10) return delta > 0 ? ['B', 'C'] : ['C', 'B'];
-    if (abs <= 15) return delta > 0 ? ['B', 'D'] : ['D', 'B'];
-    return delta > 0 ? ['A', 'F'] : ['F', 'A'];
-  };
 
   const gradeTone = (grade) => {
     if (grade.startsWith('A')) return 'text-emerald-300';
@@ -173,11 +164,31 @@ export default function TradeAnalyzer() {
     [rosterB, searchB, posFilterB, filteredRoster]
   );
 
-  const totalA = useMemo(() => selectedAPlayers.reduce((sum, p) => sum + scorePlayer(p), 0), [selectedAPlayers]);
-  const totalB = useMemo(() => selectedBPlayers.reduce((sum, p) => sum + scorePlayer(p), 0), [selectedBPlayers]);
+  const totalA = useMemo(() => summarizeTradeSide(selectedAPlayers), [selectedAPlayers]);
+  const totalB = useMemo(() => summarizeTradeSide(selectedBPlayers), [selectedBPlayers]);
   const delta = useMemo(() => Number((totalA - totalB).toFixed(2)), [totalA, totalB]);
 
-  const [gradeA, gradeB] = useMemo(() => gradeForDelta(delta), [delta]);
+  const impactA = useMemo(
+    () => computeNetLineupImpact({
+      incomingPlayers: selectedBPlayers,
+      outgoingPlayers: selectedAPlayers,
+      fullRoster: rosterA,
+    }),
+    [selectedAPlayers, selectedBPlayers, rosterA]
+  );
+
+  const impactB = useMemo(
+    () => computeNetLineupImpact({
+      incomingPlayers: selectedAPlayers,
+      outgoingPlayers: selectedBPlayers,
+      fullRoster: rosterB,
+    }),
+    [selectedAPlayers, selectedBPlayers, rosterB]
+  );
+
+  const impactDelta = useMemo(() => Number((impactA - impactB).toFixed(2)), [impactA, impactB]);
+
+  const [gradeA, gradeB] = useMemo(() => gradeForDelta(impactDelta), [impactDelta]);
 
   const positionRows = useMemo(() => {
     const bucket = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'DST', 'K'];
@@ -185,7 +196,7 @@ export default function TradeAnalyzer() {
       const map = Object.fromEntries(bucket.map((k) => [k, 0]));
       players.forEach((player) => {
         const pos = normalizePosition(player.position);
-        const value = scorePlayer(player);
+        const value = computeLineupAdjustedValue(player);
         if (['RB', 'WR', 'TE'].includes(pos)) {
           map.FLEX += value;
         }
@@ -222,7 +233,7 @@ export default function TradeAnalyzer() {
         };
       }
 
-      const values = match.map((player) => scorePlayer(player));
+      const values = match.map((player) => computePlayerValue(player));
       const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
       const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
       const stdDev = Math.sqrt(variance);
@@ -235,9 +246,17 @@ export default function TradeAnalyzer() {
       return {
         names: match.slice(0, 3).map((player) => player.name).join(', '),
         starterImpact: `${starterCount} starter / ${benchCount} bench`,
-        trend: highProjection >= Math.ceil(match.length / 2) ? 'upward' : 'flat',
-        volatility: stdDev >= 3 ? 'medium-high' : 'low',
-        risk: byeRisk >= 2 ? 'elevated' : 'low',
+        trend:
+          deriveTrendAdjustment({
+            trend_adjustment: (highProjection - Math.max(0, match.length - highProjection)) * 0.5,
+          }) > 0
+            ? 'upward'
+            : 'flat',
+        volatility:
+          deriveVolatilityPenalty({ volatility_penalty: stdDev }) >= 1.5
+            ? 'medium-high'
+            : 'low',
+        risk: deriveRiskPenalty({ risk_penalty: byeRisk }) >= 1 ? 'elevated' : 'low',
       };
     };
 
@@ -251,34 +270,15 @@ export default function TradeAnalyzer() {
     return table;
   }, [selectedAPlayers, selectedBPlayers]);
 
-  const cashRecommendation = useMemo(() => {
-    const abs = Math.abs(delta);
-    if (abs <= 10) return null;
-
-    if (abs <= 15) {
-      return {
-        amount: Math.round(abs * 0.45),
-        tier: 'Slightly Unbalanced',
-        explanation: 'Adjustment recommended because value swing is above 10 points.',
-      };
-    }
-    if (abs <= 25) {
-      return {
-        amount: Math.round(abs * 0.6),
-        tier: 'Moderately Unbalanced',
-        explanation: 'Cash can rebalance immediate starter impact and depth tradeoff.',
-      };
-    }
-    return {
-      amount: Math.round(abs * 0.75),
-      tier: 'Highly Unbalanced',
-      explanation: 'Large imbalance: strong recommendation to include draft cash.',
-    };
-  }, [delta]);
+  const cashRecommendation = useMemo(() => buildCashRecommendation(impactDelta), [impactDelta]);
 
   const buildRationale = () => {
-    if (delta > 2) return 'Team A gains more near-term starting value based on selected players.';
-    if (delta < -2) return 'Team B gains more near-term starting value based on selected players.';
+    if (impactDelta > 2) {
+      return 'Team A gains more near-term lineup value after replacement effects.';
+    }
+    if (impactDelta < -2) {
+      return 'Team B gains more near-term lineup value after replacement effects.';
+    }
     return 'Trade is close to balanced with similar projected value exchange.';
   };
 
@@ -395,7 +395,7 @@ export default function TradeAnalyzer() {
             <div className="min-w-0">
               <div className="truncate text-slate-100">{player.name}</div>
               <div className="text-slate-500">
-                {normalizePosition(player.position)} | {player.nfl_team || 'N/A'} | Bye {player.bye_week || '--'} | Val {scorePlayer(player)}
+                {normalizePosition(player.position)} | {player.nfl_team || 'N/A'} | Bye {player.bye_week || '--'} | Val {computeLineupAdjustedValue(player)}
               </div>
             </div>
             <div className="ml-2 flex items-center gap-2">
@@ -428,7 +428,7 @@ export default function TradeAnalyzer() {
               <div className="min-w-0">
                 <div className="truncate text-slate-100">{player.name}</div>
                 <div className="text-slate-500">
-                  {normalizePosition(player.position)} | {player.nfl_team || 'N/A'} | Bye {player.bye_week || '--'} | Val {scorePlayer(player)}
+                  {normalizePosition(player.position)} | {player.nfl_team || 'N/A'} | Bye {player.bye_week || '--'} | Val {computeLineupAdjustedValue(player)}
                 </div>
               </div>
               <button
@@ -554,6 +554,7 @@ export default function TradeAnalyzer() {
           <h4 className="text-sm font-black uppercase tracking-wider text-slate-200">Trade Summary</h4>
           <div className="text-sm text-slate-300">{ownerName(teamA)}: <span className={gradeTone(gradeA)}>{gradeA}</span></div>
           <div className="text-sm text-slate-300">{ownerName(teamB)}: <span className={gradeTone(gradeB)}>{gradeB}</span></div>
+          <div className="text-xs text-slate-500">Lineup impact A/B: {impactA.toFixed(2)} / {impactB.toFixed(2)}</div>
           <div className="text-xs text-slate-400">{buildRationale()}</div>
         </section>
 
