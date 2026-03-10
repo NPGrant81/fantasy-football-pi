@@ -50,6 +50,11 @@ sudo systemctl enable --now cloudflared.service
 sudo systemctl enable --now cloudflared-watchdog.timer
 ```
 
+Or use the one-command helper:
+```bash
+sudo bash deploy/systemd/install_cloudflared_monitoring.sh
+```
+
 ## 3. Logging And Retention
 Runtime checks:
 ```bash
