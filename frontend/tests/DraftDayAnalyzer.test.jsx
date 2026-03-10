@@ -52,8 +52,19 @@ const rankingsPayload = [
   { player_id: 103, rank: 3, player_name: 'Player C', position: 'RB', predicted_auction_value: 42, confidence_score: 74, consensus_tier: 'B' },
 ];
 
+const rankingsPayloadPreviousYear = [
+  { player_id: 101, rank: 1, player_name: 'Player A', position: 'WR', predicted_auction_value: 5, confidence_score: 65, consensus_tier: 'C' },
+  { player_id: 102, rank: 2, player_name: 'Player B', position: 'WR', predicted_auction_value: 15, confidence_score: 70, consensus_tier: 'B' },
+  { player_id: 103, rank: 3, player_name: 'Player C', position: 'RB', predicted_auction_value: 25, confidence_score: 78, consensus_tier: 'B' },
+];
+
+const getVisiblePlayerRows = () =>
+  screen
+    .getAllByRole('button')
+    .filter((row) => /Player [A-C]/.test(row.textContent || '') && /BUF|KC|SF/.test(row.textContent || ''));
+
 const buildGetMock = () =>
-  vi.fn((url) => {
+  vi.fn((url, config = {}) => {
     if (url.startsWith('/leagues/owners')) {
       return Promise.resolve({ data: ownersPayload });
     }
@@ -67,7 +78,19 @@ const buildGetMock = () =>
       return Promise.resolve({ data: [] });
     }
     if (url.startsWith('/draft/rankings')) {
-      return Promise.resolve({ data: rankingsPayload });
+      const season = Number(config?.params?.season || 2026);
+      return Promise.resolve({
+        data: season === 2025 ? rankingsPayloadPreviousYear : rankingsPayload,
+      });
+    }
+    if (url.startsWith('/players/') && url.endsWith('/season-details')) {
+      return Promise.resolve({
+        data: {
+          player_name: 'Player Detail',
+          position: 'WR',
+          nfl_team: 'BUF',
+        },
+      });
     }
     return Promise.resolve({ data: [] });
   });
@@ -166,5 +189,64 @@ describe('DraftDayAnalyzer advisor actions', () => {
 
     expect(await screen.findByText('Explain Details')).toBeInTheDocument();
     expect(await screen.findByText(/Action handled/i)).toBeInTheDocument();
+  });
+
+  test('clicking a player row opens Player Info Card modal', async () => {
+    render(<DraftDayAnalyzer activeOwnerId={1} activeLeagueId={1} />);
+
+    const playerA = await screen.findByRole('button', { name: /Player A/i });
+    fireEvent.click(playerA);
+
+    expect(await screen.findByText('Player Info Card')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/players/101/season-details',
+        expect.objectContaining({ params: expect.objectContaining({ season: 2026 }) })
+      )
+    );
+  });
+
+  test('value sort persists across position and year toggles', async () => {
+    render(<DraftDayAnalyzer activeOwnerId={1} activeLeagueId={1} />);
+
+    await screen.findByRole('button', { name: /Player A/i });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Value' }));
+    fireEvent.click(screen.getByRole('button', { name: 'WR' }));
+
+    await waitFor(() =>
+      expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player B')
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Previous Year \(2025\)/i }));
+
+    await waitFor(() =>
+      expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player A')
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Current Year \(2026\)/i }));
+
+    await waitFor(() =>
+      expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player B')
+    );
+  });
+
+  test('new search resets sorting to default value desc order', async () => {
+    render(<DraftDayAnalyzer activeOwnerId={1} activeLeagueId={1} />);
+
+    await screen.findByRole('button', { name: /Player A/i });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Value' }));
+    await waitFor(() =>
+      expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player C')
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Search players'), {
+      target: { value: 'Player' },
+    });
+
+    await waitFor(() =>
+      expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player A')
+    );
   });
 });
