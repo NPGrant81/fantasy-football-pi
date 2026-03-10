@@ -35,6 +35,7 @@ Refer to the appropriate file for more information.
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
 - [Ui Reference](UI_REFERENCE.md)
+- [Ui Ux Automation Pipeline](UI_UX_AUTOMATION_PIPELINE.md)
 - [Cli Checkin Lessons Learned](CLI_CHECKIN_LESSONS_LEARNED.md)
 - [Ci Cd Observability](CI_CD_OBSERVABILITY.md)
 - [Uat Master Instructions](uat/UAT_MASTER_DOCUMENT_INSTRUCTIONS.md)

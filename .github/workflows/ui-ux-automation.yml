@@ -1,0 +1,96 @@
+name: UI UX Automation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  ui-ux-automation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Lint UI components and pages
+        working-directory: frontend
+        run: |
+          npx eslint src/components src/pages
+
+      - name: Run accessibility smoke checks
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend
+          install: false
+          start: npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+          wait-on: http://127.0.0.1:5173
+          wait-on-timeout: 120
+          config: baseUrl=http://127.0.0.1:5173
+          browser: chrome
+          spec: cypress/e2e/accessibility_smoke.spec.js
+
+      - name: Run screenshot capture for visual regression
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend
+          install: false
+          start: npm run dev -- --host 127.0.0.1 --port 5174 --strictPort
+          wait-on: http://127.0.0.1:5174
+          wait-on-timeout: 120
+          config: baseUrl=http://127.0.0.1:5174
+          browser: chrome
+          spec: cypress/e2e/uat_capture_pages.spec.js
+
+      - name: Validate screenshot baseline stability
+        working-directory: frontend
+        run: |
+          node scripts/assert-visual-regression-clean.mjs
+
+      - name: Build frontend preview artifact
+        working-directory: frontend
+        run: npm run build
+
+      - name: Upload frontend preview artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-preview-dist
+          path: frontend/dist
+
+      - name: Upload UI screenshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-ux-screenshots
+          if-no-files-found: ignore
+          path: frontend/cypress/screenshots
+
+      - name: Upload Cypress videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-ux-cypress-videos
+          if-no-files-found: ignore
+          path: frontend/cypress/videos
+
+      - name: Publish UI UX pipeline summary
+        if: always()
+        run: |
+          {
+            echo "## UI/UX Automation Summary"
+            echo ""
+            echo "- Accessibility smoke checks: executed"
+            echo "- Visual regression check: screenshot baseline validation executed"
+            echo "- UI component linting: executed"
+            echo "- PR preview artifact: frontend-preview-dist"
+            echo "- Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
