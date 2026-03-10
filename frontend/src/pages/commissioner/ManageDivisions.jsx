@@ -2,17 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
 import apiClient from '@api/client';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
+import PageTemplate from '@components/layout/PageTemplate';
+import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
 import {
   buttonPrimary,
   buttonSecondary,
   cardSurface,
   inputBase,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
-  tableHead,
-  tableSurface,
+  tableCell,
+  textCaption,
+  textMeta,
+  textMuted,
 } from '@utils/uiStandards';
 
 function getDetailMessage(err, fallback) {
@@ -255,21 +261,18 @@ export default function ManageDivisions() {
   };
 
   return (
-    <div className={pageShell}>
-      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className={pageTitle}>Manage Divisions</h1>
-          <p className={pageSubtitle}>
-            Configure division structure, preview deterministic balancing, and finalize assignments.
-          </p>
-        </div>
+    <PageTemplate
+      title="Manage Divisions"
+      subtitle="Configure division structure, preview deterministic balancing, and finalize assignments."
+      actions={
         <Link
           to="/commissioner"
           className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
-      </div>
+      }
+    >
 
       {message && (
         <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-300">
@@ -281,7 +284,7 @@ export default function ManageDivisions() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block mb-2 text-sm font-bold text-slate-900 dark:text-white">
-              Season
+            Season
             </label>
             <input
               type="number"
@@ -362,7 +365,7 @@ export default function ManageDivisions() {
           <div className="space-y-2">
             {names.map((row, idx) => (
               <div key={`division-name-${idx}`} className="grid grid-cols-12 gap-2 items-center">
-                <div className="col-span-2 text-xs text-slate-500 dark:text-slate-400 uppercase">
+                <div className={`col-span-2 ${textMeta}`}>
                   #{idx + 1}
                 </div>
                 <input
@@ -382,7 +385,7 @@ export default function ManageDivisions() {
           </div>
         </div>
 
-        <div className="mt-5 text-xs text-slate-500 dark:text-slate-400">
+        <div className={`mt-5 ${textCaption}`}>
           {enabled ? (
             <>
               Teams per division: <strong>{teamsPerDivision || 0}</strong>. Rules: league must have at least 6
@@ -412,51 +415,46 @@ export default function ManageDivisions() {
       <div className={cardSurface}>
         <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-3">Assignment Preview</h2>
         {!preview ? (
-          <p className="text-slate-600 dark:text-slate-400">
-            No preview generated yet. Save configuration and click <em>Preview Assignment</em>.
-          </p>
+          <EmptyState message="No preview generated yet. Save configuration and click Preview Assignment." className={textMuted} />
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
               <div className="rounded-lg border border-slate-300 dark:border-slate-800 p-3">
-                <div className="text-xs uppercase text-slate-500">Method</div>
+                <div className={textMeta}>Method</div>
                 <div className="text-sm font-bold text-slate-900 dark:text-white">{preview.assignment_method}</div>
               </div>
               <div className="rounded-lg border border-slate-300 dark:border-slate-800 p-3">
-                <div className="text-xs uppercase text-slate-500">Confidence</div>
+                <div className={textMeta}>Confidence</div>
                 <div className="text-sm font-bold text-slate-900 dark:text-white">{preview.confidence_score}</div>
               </div>
               <div className="rounded-lg border border-slate-300 dark:border-slate-800 p-3">
-                <div className="text-xs uppercase text-slate-500">Imbalance</div>
+                <div className={textMeta}>Imbalance</div>
                 <div className="text-sm font-bold text-slate-900 dark:text-white">
                   {preview.imbalance_pct}%{preview.imbalance_warning ? ' (warning)' : ''}
                 </div>
               </div>
             </div>
 
-            <div className={tableSurface}>
-              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                <thead className={tableHead}>
-                  <tr>
-                    <th className="px-3 py-2">Division</th>
-                    <th className="px-3 py-2">Team IDs</th>
-                    <th className="px-3 py-2">Avg Strength</th>
-                  </tr>
-                </thead>
+            <StandardTableContainer>
+              <StandardTable>
+                <StandardTableHead
+                  headers={[
+                    { key: 'division', label: 'Division' },
+                    { key: 'teamIds', label: 'Team IDs' },
+                    { key: 'avgStrength', label: 'Avg Strength' },
+                  ]}
+                />
                 <tbody>
                   {(preview.assignments || []).map((row) => (
-                    <tr
-                      key={`preview-row-${row.division_index}`}
-                      className="border-t border-slate-300 dark:border-slate-800"
-                    >
-                      <td className="px-3 py-2">{row.division_index + 1}</td>
-                      <td className="px-3 py-2">{(row.team_ids || []).join(', ') || '-'}</td>
-                      <td className="px-3 py-2">{row.strength_avg ?? '-'}</td>
-                    </tr>
+                    <StandardTableRow key={`preview-row-${row.division_index}`} className="hover:bg-transparent dark:hover:bg-transparent">
+                      <td className={tableCell}>{row.division_index + 1}</td>
+                      <td className={tableCell}>{(row.team_ids || []).join(', ') || '-'}</td>
+                      <td className={tableCell}>{row.strength_avg ?? '-'}</td>
+                    </StandardTableRow>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </StandardTable>
+            </StandardTableContainer>
           </>
         )}
       </div>
@@ -492,7 +490,7 @@ export default function ManageDivisions() {
         </div>
       </div>
 
-      {loading && <div className="text-sm text-slate-500">Loading division context...</div>}
-    </div>
+      {loading ? <LoadingState message="Loading division context..." className={textMuted} /> : null}
+    </PageTemplate>
   );
 }

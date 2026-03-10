@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
 
 export default function LeagueSelector({ onLeagueSelect, _token }) {
   const [leagues, setLeagues] = useState([]);
@@ -51,9 +52,7 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
 
         {/* LOADING STATE */}
         {loading ? (
-          <div className="text-center text-slate-500 animate-pulse mb-6">
-            Loading Leagues...
-          </div>
+          <LoadingState message="Loading leagues..." className="mb-6" />
         ) : (
           /* LIST OF LEAGUES */
           <div className="space-y-3 mb-6 max-h-60 overflow-y-auto custom-scrollbar">
@@ -70,9 +69,7 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
               </button>
             ))}
             {leagues.length === 0 && (
-              <div className="text-center text-slate-500 italic">
-                No leagues found. Create one!
-              </div>
+              <EmptyState message="No leagues found. Create one!" />
             )}
           </div>
         )}

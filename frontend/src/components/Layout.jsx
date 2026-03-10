@@ -1,7 +1,7 @@
 // frontend/src/components/Layout.jsx
 import { useState } from 'react';
 import { FiMenu } from 'react-icons/fi';
-import { layoutAlertBar } from '../utils/uiStandards';
+import { layoutAlertBar, layerNav } from '../utils/uiStandards';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
 
@@ -14,7 +14,7 @@ export default function Layout({ children, username, leagueId, alert, pageTitle 
   return (
     <div className="min-h-screen w-full bg-white dark:bg-slate-950 text-black dark:text-white font-sans overflow-hidden">
       {/* 2.2 TOP NAVIGATION BAR */}
-      <header className="sticky top-0 z-30 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-300 dark:border-slate-800 h-16 px-4 flex items-center text-black dark:text-white">
+      <header className={`sticky top-0 ${layerNav} bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-300 dark:border-slate-800 h-16 px-4 flex items-center text-black dark:text-white`}>
         <div className="flex items-center gap-3 min-w-0">
           {/* Mobile Trigger */}
           <button

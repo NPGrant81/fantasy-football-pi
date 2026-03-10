@@ -2,17 +2,21 @@ import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
+import PageTemplate from '@components/layout/PageTemplate';
+import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
 import {
   buttonSecondary,
   buttonPrimary,
   cardSurface,
   inputBase,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
-  tableHead,
-  tableSurface,
+  tableCell,
+  textMuted,
 } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
@@ -110,21 +114,18 @@ export default function ManageWaiverRules() {
   };
 
   return (
-    <div className={pageShell}>
-      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className={pageTitle}>Manage Waiver Rules</h1>
-          <p className={pageSubtitle}>
-            Configure waiver timing, budget, and tie-break behavior.
-          </p>
-        </div>
+    <PageTemplate
+      title="Manage Waiver Rules"
+      subtitle="Configure waiver timing, budget, and tie-break behavior."
+      actions={
         <Link
           to="/commissioner"
           className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
-      </div>
+      }
+    >
 
       <form onSubmit={handleSubmit} className={`${cardSurface} mb-0`}>
         <label
@@ -213,19 +214,19 @@ export default function ManageWaiverRules() {
         <h2 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">
           Current Waiver Rules
         </h2>
-        <div className="text-slate-700 dark:text-slate-300">
+        <div className={textMuted}>
           <strong>Waiver Deadline:</strong> {waiverDeadline || 'Not set'}
         </div>
-        <div className="text-slate-700 dark:text-slate-300">
+        <div className={textMuted}>
           <strong>Starting Budget:</strong> {startingBudget || 'Default'}
         </div>
-        <div className="text-slate-700 dark:text-slate-300">
+        <div className={textMuted}>
           <strong>Waiver System:</strong> {waiverSystem}
         </div>
-        <div className="text-slate-700 dark:text-slate-300">
+        <div className={textMuted}>
           <strong>Tie-breaker:</strong> {tieBreaker}
         </div>
-        <div className="text-slate-700 dark:text-slate-300">
+        <div className={textMuted}>
           <strong>Roster Size Limit:</strong> {rosterSize || 'Default'}
         </div>
       </div>
@@ -235,85 +236,75 @@ export default function ManageWaiverRules() {
           Owner Budgets
         </h2>
         {budgetsLoading ? (
-          <p className="text-slate-400">Loading budgets...</p>
+          <LoadingState message="Loading budgets..." className={textMuted} />
         ) : budgets.length ? (
-          <div className={`${tableSurface} mb-8`}>
-            <table className="w-full text-sm text-slate-700 dark:text-slate-300">
-              <thead className={tableHead}>
-                <tr>
-                  <th className="px-3 py-2">Owner ID</th>
-                  <th className="px-3 py-2">Starting</th>
-                  <th className="px-3 py-2">Remaining</th>
-                  <th className="px-3 py-2">Spent</th>
-                </tr>
-              </thead>
+          <StandardTableContainer className="mb-8">
+            <StandardTable>
+              <StandardTableHead
+                headers={[
+                  { key: 'owner', label: 'Owner ID' },
+                  { key: 'starting', label: 'Starting' },
+                  { key: 'remaining', label: 'Remaining' },
+                  { key: 'spent', label: 'Spent' },
+                ]}
+              />
               <tbody>
                 {budgets.map((b) => (
-                  <tr
-                    key={b.owner_id}
-                    className="border-t border-slate-300 dark:border-slate-800"
-                  >
-                    <td className="px-3 py-2">{b.owner_id}</td>
-                    <td className="px-3 py-2">{b.starting_budget}</td>
-                    <td className="px-3 py-2">{b.remaining_budget}</td>
-                    <td className="px-3 py-2">{b.spent_budget}</td>
-                  </tr>
+                  <StandardTableRow key={b.owner_id} className="hover:bg-transparent dark:hover:bg-transparent">
+                    <td className={tableCell}>{b.owner_id}</td>
+                    <td className={tableCell}>{b.starting_budget}</td>
+                    <td className={tableCell}>{b.remaining_budget}</td>
+                    <td className={tableCell}>{b.spent_budget}</td>
+                  </StandardTableRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </StandardTable>
+          </StandardTableContainer>
         ) : (
-          <p className="text-slate-500 dark:text-slate-400 italic mb-8">
-            No budget data yet.
-          </p>
+          <EmptyState message="No budget data yet." className={`${textMuted} mb-8`} />
         )}
 
         <h2 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">
           Waiver Claim History
         </h2>
         {claimsLoading ? (
-          <p className="text-slate-400">Loading history...</p>
+          <LoadingState message="Loading history..." className={textMuted} />
         ) : claims.length ? (
-          <div className={tableSurface}>
-            <table className="w-full text-sm text-slate-700 dark:text-slate-300">
-              <thead className={tableHead}>
-                <tr>
-                  <th className="px-3 py-2">Time</th>
-                  <th className="px-3 py-2">User</th>
-                  <th className="px-3 py-2">Player</th>
-                  <th className="px-3 py-2">Dropped</th>
-                  <th className="px-3 py-2">Bid</th>
-                  <th className="px-3 py-2">Status</th>
-                </tr>
-              </thead>
+          <StandardTableContainer>
+            <StandardTable>
+              <StandardTableHead
+                headers={[
+                  { key: 'time', label: 'Time' },
+                  { key: 'user', label: 'User' },
+                  { key: 'player', label: 'Player' },
+                  { key: 'dropped', label: 'Dropped' },
+                  { key: 'bid', label: 'Bid' },
+                  { key: 'status', label: 'Status' },
+                ]}
+              />
               <tbody>
                 {claims.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-t border-slate-300 dark:border-slate-800"
-                  >
+                  <StandardTableRow key={c.id} className="hover:bg-transparent dark:hover:bg-transparent">
                     <td className="px-3 py-2 text-xs font-mono text-slate-400">
                       {c.id /* no timestamp field yet */}
                     </td>
-                    <td className="px-3 py-2">{c.username || c.user_id}</td>
-                    <td className="px-3 py-2">
+                    <td className={tableCell}>{c.username || c.user_id}</td>
+                    <td className={tableCell}>
                       {c.player_name || c.player_id}
                     </td>
-                    <td className="px-3 py-2">{c.drop_player_name || '-'}</td>
-                    <td className="px-3 py-2">{c.bid_amount}</td>
-                    <td className="px-3 py-2 capitalize">{c.status}</td>
-                  </tr>
+                    <td className={tableCell}>{c.drop_player_name || '-'}</td>
+                    <td className={tableCell}>{c.bid_amount}</td>
+                    <td className={`${tableCell} capitalize`}>{c.status}</td>
+                  </StandardTableRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </StandardTable>
+          </StandardTableContainer>
         ) : (
-          <p className="text-slate-500 dark:text-slate-400 italic">
-            No claims recorded yet.
-          </p>
+          <EmptyState message="No claims recorded yet." className={textMuted} />
         )}
       </div>
-    </div>
+    </PageTemplate>
   );
 }
 // ...existing code...

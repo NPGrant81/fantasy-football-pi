@@ -5,6 +5,7 @@ import {
   resolveRows,
 } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
+import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -60,15 +61,15 @@ const WeeklyMatchupChart = () => {
   }, []);
 
   if (loading) {
-    return <p>Loading weekly matchup comparison...</p>;
+    return <LoadingState message="Loading weekly matchup comparison..." />;
   }
 
   if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+    return <ErrorState message={error} />;
   }
 
   if (!rows.length) {
-    return <p>No weekly matchup data available.</p>;
+    return <EmptyState message="No weekly matchup data available." />;
   }
 
   const selectedRow = rows.find((row) => Number(row.week) === Number(selectedWeek)) || rows[0];

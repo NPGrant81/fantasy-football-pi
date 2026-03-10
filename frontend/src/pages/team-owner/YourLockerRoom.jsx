@@ -16,6 +16,17 @@ import OwnerManagementModal from '../commissioner/components/OwnerManagementModa
 import WaiverWireRulesModal from '../commissioner/components/WaiverWireRulesModal';
 import TradeRulesModal from '../commissioner/components/TradeRulesModal';
 import PlayerIdentityCard from '../../components/player/PlayerIdentityCard';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from '@components/common/AsyncState';
+import PageTemplate from '@components/layout/PageTemplate';
+import {
+  StandardTable,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
 
 // Professional Imports
 import apiClient from '@api/client';
@@ -29,10 +40,9 @@ import {
   modalOverlay,
   modalSurface,
   modalTitle,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
+  tableCell,
+  tableCellNumeric,
 } from '@utils/uiStandards';
 
 // --- 1.1 CONSTANTS & HELPERS (Outside Render) ---
@@ -934,15 +944,15 @@ export default function YourLockerRoom({ activeOwnerId }) {
 
   if (loading)
     return (
-      <div
-        className={`${pageShell} animate-pulse text-slate-600 dark:text-slate-400`}
-      >
-        Loading Roster...
+      <div className={pageShell}>
+        <LoadingState message="Loading roster..." />
       </div>
     );
   if (!teamData)
     return (
-      <div className={`${pageShell} text-red-500`}>Error loading team.</div>
+      <div className={pageShell}>
+        <ErrorState message="Error loading team." />
+      </div>
     );
 
   const controlButtonClass =
@@ -953,15 +963,20 @@ export default function YourLockerRoom({ activeOwnerId }) {
   // --- LOCKER ROOM/ROSTER/WAIVER UI (from Dashboard.jsx) ---
   if (!summary)
     return (
-      <div
-        className={`${pageShell} text-center animate-pulse text-slate-500 dark:text-slate-400 font-black`}
-      >
-        Loading your locker room...
+      <div className={`${pageShell} text-center`}>
+        <LoadingState
+          message="Loading your locker room..."
+          className="justify-center font-black"
+        />
       </div>
     );
 
   return (
-    <div className={`${pageShell} text-slate-900 dark:text-white min-h-screen`}>
+    <PageTemplate
+      title="Your Locker Room"
+      subtitle="Manage lineups, waivers, trades, and keeper decisions."
+      className="text-slate-900 dark:text-white min-h-screen"
+    >
       {/* Commissioner Modals */}
       <ScoringRulesModal
         open={showScoring}
@@ -1057,13 +1072,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
         </div>
       )}
 
-      {/* HEADER SECTION */}
-      <div className={`${pageHeader} mb-6`}>
-        <h1 className={pageTitle}>Your Locker Room</h1>
-        <p className={pageSubtitle}>
-          Manage lineups, waivers, trades, and keeper decisions.
-        </p>
-
+      <div className="mb-6">
         <div className="mt-6 flex flex-wrap items-center gap-2 lg:flex-nowrap lg:gap-2 lg:overflow-x-auto">
           <div className="contents">
             <button
@@ -1432,37 +1441,37 @@ export default function YourLockerRoom({ activeOwnerId }) {
                         No weekly performance data yet for this season.
                       </div>
                     ) : (
-                      <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                        <thead className="bg-slate-100 dark:bg-slate-900 text-xs uppercase text-slate-500">
-                          <tr>
-                            <th className="px-4 py-2">Week</th>
-                            <th className="px-4 py-2 text-right">
-                              Fantasy Pts
-                            </th>
-                          </tr>
-                        </thead>
+                      <StandardTable>
+                        <StandardTableHead
+                          headers={[
+                            { key: 'week', label: 'Week', className: 'px-4 py-2' },
+                            {
+                              key: 'fantasyPoints',
+                              label: 'Fantasy Pts',
+                              className: 'px-4 py-2 text-right',
+                            },
+                          ]}
+                        />
                         <tbody>
                           {playerPerformance.weekly.map((row) => (
-                            <tr
-                              key={row.week}
-                              className="border-t border-slate-300 dark:border-slate-800"
-                            >
-                              <td className="px-4 py-2">Week {row.week}</td>
-                              <td className="px-4 py-2 text-right font-mono text-blue-400">
+                            <StandardTableRow key={row.week} className="hover:bg-transparent dark:hover:bg-transparent">
+                              <td className={tableCell}>Week {row.week}</td>
+                              <td className={`${tableCellNumeric} font-mono text-blue-400`}>
                                 {Number(row.fantasy_points || 0).toFixed(2)}
                               </td>
-                            </tr>
+                            </StandardTableRow>
                           ))}
                         </tbody>
-                      </table>
+                      </StandardTable>
                     )}
                   </div>
                 </div>
               </>
             ) : (
-              <div className="py-10 text-center text-slate-500">
-                No season details available.
-              </div>
+              <EmptyState
+                message="No season details available."
+                className="py-10 text-center justify-center"
+              />
             )}
           </div>
         </div>
@@ -1933,6 +1942,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
         )}
       </div>
 
-    </div>
+    </PageTemplate>
   );
 }

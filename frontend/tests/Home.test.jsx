@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => ({
@@ -256,13 +257,27 @@ describe('Home (League Dashboard)', () => {
   // playoff bracket is now accessed via sidebar; home page no longer
   // renders it directly.  verify nothing obvious about it is present.
   test('home page does not render bracket accordion', async () => {
-    apiClient.get.mockResolvedValue({ data: { name: 'The Big Show' } });
-    apiClient.get.mockResolvedValue({ data: [] });
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/leagues/owners?league_id=1') {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/leagues/1/news') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
     renderHome('alice');
+    await waitFor(() => {
+      expect(screen.getByText(/THE BIG SHOW/i)).toBeInTheDocument();
+    });
     expect(screen.queryByText(/playoff bracket/i)).not.toBeInTheDocument();
   });
 
   test('sorting headers reorder standings', async () => {
+    const user = userEvent.setup();
     const mockOwners = [
       {
         id: 1,
@@ -298,13 +313,13 @@ describe('Home (League Dashboard)', () => {
     // click PF header to sort ascending
     const pfHeader = screen.getByText('PF');
     // sort ascending
-    pfHeader.click();
+    await user.click(pfHeader);
     await waitFor(() => {
       const rowsAsc = screen.getAllByRole('row');
       expect(rowsAsc[1]).toHaveTextContent('Z');
     });
     // toggle descending
-    pfHeader.click();
+    await user.click(pfHeader);
     await waitFor(() => {
       const rowsDesc = screen.getAllByRole('row');
       expect(rowsDesc[1]).toHaveTextContent('A');
@@ -312,6 +327,7 @@ describe('Home (League Dashboard)', () => {
   });
 
   test('W-L-T header sorts by full record context', async () => {
+    const user = userEvent.setup();
     const mockOwners = [
       {
         id: 1,
@@ -349,14 +365,14 @@ describe('Home (League Dashboard)', () => {
 
     const recordHeader = screen.getByText('W-L-T');
     // first click sorts ascending: fewer wins first
-    recordHeader.click();
+    await user.click(recordHeader);
     await waitFor(() => {
       const rowsAsc = screen.getAllByRole('row');
       expect(rowsAsc[1]).toHaveTextContent('Alpha');
     });
 
     // second click toggles descending: better record first
-    recordHeader.click();
+    await user.click(recordHeader);
     await waitFor(() => {
       const rowsDesc = screen.getAllByRole('row');
       expect(rowsDesc[1]).toHaveTextContent('Bravo');

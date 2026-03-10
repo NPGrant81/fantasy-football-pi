@@ -2,15 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 import apiClient from '@api/client';
+import { ErrorState, LoadingState } from '@components/common/AsyncState';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   buttonPrimary,
   buttonSecondary,
   cardSurface,
   inputBase,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 const clamp = (value, min, max) =>
@@ -115,36 +114,28 @@ export default function LineupRules() {
 
   if (loading) {
     return (
-      <div
-        className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}
-      >
-        Loading Lineup Rules...
+      <div className={pageShell}>
+        <LoadingState message="Loading lineup rules..." className="mt-20" />
       </div>
     );
   }
 
   return (
-    <div className={`${pageShell} min-h-screen`}>
-      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className={pageTitle}>Lineup Rules</h1>
-          <p className={`${pageSubtitle} mt-1`}>
-            Configure league roster limits and lineup submission behavior.
-          </p>
-        </div>
+    <PageTemplate
+      title="Lineup Rules"
+      subtitle="Configure league roster limits and lineup submission behavior."
+      actions={
         <Link
           to="/commissioner"
           className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
-      </div>
+      }
+      className="min-h-screen"
+    >
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-800/60 bg-red-900/20 p-3 text-sm text-red-200 flex items-center gap-2">
-          <FiAlertTriangle /> {error}
-        </div>
-      )}
+      {error ? <ErrorState message={error} className="mb-4" /> : null}
       {success && (
         <div className="mb-4 rounded-lg border border-green-800/60 bg-green-900/20 p-3 text-sm text-green-200 flex items-center gap-2">
           <FiCheckCircle /> {success}
@@ -278,7 +269,7 @@ export default function LineupRules() {
           </button>
         </div>
       </div>
-    </div>
+    </PageTemplate>
   );
 }
 

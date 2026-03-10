@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import apiClient from '@api/client';
 import { normalizeApiError } from '@api/fetching';
+import PageTemplate from '@components/layout/PageTemplate';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
+import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+} from '@components/table/TablePrimitives';
 import {
   buttonDanger,
   buttonPrimary,
   buttonSecondary,
   cardSurface,
   inputBase,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
-  tableHead,
-  tableSurface,
+  tableCell,
+  textCaption,
+  textMuted,
 } from '@utils/uiStandards';
 
 const POSITION_OPTIONS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
@@ -411,13 +416,11 @@ export default function ManageScoringRules() {
   };
 
   return (
-    <div className={`${pageShell} min-h-screen`}>
-      <div className={pageHeader}>
-        <h1 className={pageTitle}>Manage Scoring Rules</h1>
-        <p className={pageSubtitle}>
-          Commissioner controls for scoring rule creation, simulation previews, and retroactive week recalculation.
-        </p>
-      </div>
+    <PageTemplate
+      title="Manage Scoring Rules"
+      subtitle="Commissioner controls for scoring rule creation, simulation previews, and retroactive week recalculation."
+      className="min-h-screen"
+    >
 
       <div className={`${cardSurface} mb-0`}>
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -433,7 +436,7 @@ export default function ManageScoringRules() {
               className="w-full md:w-40 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
             />
           </div>
-          <div className="text-sm text-slate-600 dark:text-slate-400">{ruleCountLabel}</div>
+          <div className={textMuted}>{ruleCountLabel}</div>
         </div>
 
         <form onSubmit={onSubmit}>
@@ -610,7 +613,7 @@ export default function ManageScoringRules() {
 
       <div className={cardSurface}>
         <h2 className="mb-3 text-lg font-bold text-slate-900 dark:text-white">CSV Import</h2>
-        <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
+        <p className={`mb-3 ${textMuted}`}>
           Bulk-load scoring rules from CSV, preview parsed rows, then apply to active rules.
         </p>
 
@@ -637,7 +640,7 @@ export default function ManageScoringRules() {
               className={inputBase}
             />
           </div>
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+          <label className={`inline-flex items-center gap-2 ${textMuted}`}>
             <input
               type="checkbox"
               checked={csvReplaceExisting}
@@ -659,68 +662,65 @@ export default function ManageScoringRules() {
         {csvError ? <div className="text-sm text-red-400 mb-2">{csvError}</div> : null}
 
         {csvPreview.length > 0 ? (
-          <div className={tableSurface}>
-            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-              <thead className={tableHead}>
-                <tr>
-                  <th className="px-3 py-2">Category</th>
-                  <th className="px-3 py-2">Event</th>
-                  <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Points</th>
-                  <th className="px-3 py-2">Positions</th>
-                </tr>
-              </thead>
+          <StandardTableContainer>
+            <StandardTable className="text-xs">
+              <StandardTableHead
+                headers={[
+                  { key: 'category', label: 'Category' },
+                  { key: 'event', label: 'Event' },
+                  { key: 'type', label: 'Type' },
+                  { key: 'points', label: 'Points' },
+                  { key: 'positions', label: 'Positions' },
+                ]}
+              />
               <tbody>
                 {csvPreview.slice(0, 10).map((row, idx) => (
-                  <tr key={`${row.event_name}-${idx}`} className="border-t border-slate-300 dark:border-slate-800">
-                    <td className="px-3 py-2">{row.category}</td>
-                    <td className="px-3 py-2">{row.event_name}</td>
-                    <td className="px-3 py-2">{row.calculation_type}</td>
-                    <td className="px-3 py-2">{row.point_value}</td>
-                    <td className="px-3 py-2">{(row.applicable_positions || []).join(', ') || 'ALL'}</td>
-                  </tr>
+                  <StandardTableRow key={`${row.event_name}-${idx}`} className="hover:bg-transparent dark:hover:bg-transparent">
+                    <td className={tableCell}>{row.category}</td>
+                    <td className={tableCell}>{row.event_name}</td>
+                    <td className={tableCell}>{row.calculation_type}</td>
+                    <td className={tableCell}>{row.point_value}</td>
+                    <td className={tableCell}>{(row.applicable_positions || []).join(', ') || 'ALL'}</td>
+                  </StandardTableRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </StandardTable>
+          </StandardTableContainer>
         ) : null}
       </div>
 
       <div className={cardSurface}>
         <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Current Rules</h2>
         {loading ? (
-          <div className="text-slate-600 dark:text-slate-400">Loading...</div>
+          <LoadingState />
         ) : rules.length === 0 ? (
-          <div className="text-slate-600 dark:text-slate-400">No scoring rules found.</div>
+          <EmptyState message="No scoring rules found." />
         ) : (
-          <div className={tableSurface}>
-            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-              <thead className={tableHead}>
-                <tr>
-                  <th className="px-3 py-2">Category</th>
-                  <th className="px-3 py-2">Event</th>
-                  <th className="px-3 py-2">Range</th>
-                  <th className="px-3 py-2">Value</th>
-                  <th className="px-3 py-2">Type</th>
-                  <th className="px-3 py-2">Positions</th>
-                  <th className="px-3 py-2">Season</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
+          <StandardTableContainer>
+            <StandardTable>
+              <StandardTableHead
+                headers={[
+                  { key: 'category', label: 'Category' },
+                  { key: 'event', label: 'Event' },
+                  { key: 'range', label: 'Range' },
+                  { key: 'value', label: 'Value' },
+                  { key: 'type', label: 'Type' },
+                  { key: 'positions', label: 'Positions' },
+                  { key: 'season', label: 'Season' },
+                  { key: 'actions', label: 'Actions' },
+                ]}
+              />
               <tbody>
                 {rules.map((rule) => (
-                  <tr
-                    key={rule.id}
-                    className="border-t border-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/40"
-                  >
-                    <td className="px-3 py-2">{rule.category}</td>
-                    <td className="px-3 py-2">{rule.event_name}</td>
-                    <td className="px-3 py-2">{rule.range_min}-{rule.range_max}</td>
-                    <td className="px-3 py-2">{rule.point_value}</td>
-                    <td className="px-3 py-2">{rule.calculation_type}</td>
-                    <td className="px-3 py-2">{(rule.applicable_positions || []).join(', ') || 'ALL'}</td>
-                    <td className="px-3 py-2">{rule.season_year || 'All seasons'}</td>
-                    <td className="px-3 py-2">
+                  <StandardTableRow key={rule.id}>
+                    <td className={tableCell}>{rule.category}</td>
+                    <td className={tableCell}>{rule.event_name}</td>
+                    <td className={tableCell}>{rule.range_min}-{rule.range_max}</td>
+                    <td className={tableCell}>{rule.point_value}</td>
+                    <td className={tableCell}>{rule.calculation_type}</td>
+                    <td className={tableCell}>{(rule.applicable_positions || []).join(', ') || 'ALL'}</td>
+                    <td className={tableCell}>{rule.season_year || 'All seasons'}</td>
+                    <td className={tableCell}>
                       <button
                         type="button"
                         className={`${buttonSecondary} mr-2 px-3 py-1 text-xs`}
@@ -736,17 +736,17 @@ export default function ManageScoringRules() {
                         Delete
                       </button>
                     </td>
-                  </tr>
+                  </StandardTableRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </StandardTable>
+          </StandardTableContainer>
         )}
       </div>
 
       <div className={cardSurface}>
         <h2 className="mb-3 text-lg font-bold text-slate-900 dark:text-white">Scoring Preview Simulator</h2>
-        <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
+        <p className={`mb-3 ${textMuted}`}>
           Validate stat payloads before publishing rule changes. Useful for player card and draft analyzer previews.
         </p>
 
@@ -767,7 +767,7 @@ export default function ManageScoringRules() {
           <button type="button" className={buttonPrimary} onClick={onRunPreview} disabled={simLoading}>
             {simLoading ? 'Running...' : 'Run Preview'}
           </button>
-          <div className="md:col-span-2 text-sm text-slate-600 dark:text-slate-400">
+          <div className={`md:col-span-2 ${textMuted}`}>
             Backend endpoint: <code>/scoring/calculate/player-preview</code>
           </div>
         </div>
@@ -784,11 +784,11 @@ export default function ManageScoringRules() {
             <div className="text-sm font-semibold text-cyan-300">
               Total Preview Points: {simResult.points}
             </div>
-            <div className="text-xs text-slate-600 dark:text-slate-400">
+            <div className={textCaption}>
               Rules evaluated: {simResult.rules_evaluated}
             </div>
             {Array.isArray(simResult.breakdown) && simResult.breakdown.length > 0 ? (
-              <div className="text-xs text-slate-500 dark:text-slate-400">
+              <div className={textCaption}>
                 Breakdown: {simResult.breakdown.map((item) => `${item.event_name}: ${item.points_awarded}`).join(' | ')}
               </div>
             ) : null}
@@ -798,7 +798,7 @@ export default function ManageScoringRules() {
 
       <div className={cardSurface}>
         <h2 className="mb-3 text-lg font-bold text-slate-900 dark:text-white">Retroactive Week Recalculation</h2>
-        <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
+        <p className={`mb-3 ${textMuted}`}>
           Recompute weekly matchup totals after approved mid-season scoring changes.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -824,6 +824,6 @@ export default function ManageScoringRules() {
           </button>
         </div>
       </div>
-    </div>
+    </PageTemplate>
   );
 }

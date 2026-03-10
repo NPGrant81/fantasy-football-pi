@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,12 +8,15 @@ import { dirname } from 'path';
 // 1.1.1 ESM Polyfill: Defining __dirname for Vite/ESM compatibility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, __dirname, '');
+  const apiTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8010';
 
-export default defineConfig({
-  plugins: [react()],
+  return {
+    plugins: [react()],
 
   // --- 2.1 PATH RESOLUTION ---
-  resolve: {
+    resolve: {
     // 2.1.1 Aliasing: Simplifies imports (e.g., import X from '@/components/X')
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -25,36 +28,37 @@ export default defineConfig({
   },
 
   // --- 3.1 DEVELOPMENT SERVER ---
-  server: {
-    proxy: {
+    server: {
+      proxy: {
       // 3.1.1 Proxy Rules: Routes API calls to your Raspberry Pi / Local Python Backend
-      '/auth': 'http://127.0.0.1:8000',
-      '/draft/': 'http://127.0.0.1:8000',
-      '/draft/pick': 'http://127.0.0.1:8000',
-      '/draft/history': 'http://127.0.0.1:8000',
+      '/auth': apiTarget,
+      '/draft/': apiTarget,
+      '/draft/pick': apiTarget,
+      '/draft/history': apiTarget,
       // only proxy the actual admin API endpoints; the client-side UI also uses
       // /admin paths, so forwarding everything breaks SPA routing (see
       // Manage Commissioners page). narrowing prevents 404s on reload.
-      '/admin/tools': 'http://127.0.0.1:8000',
-      '/admin/create-test-league': 'http://127.0.0.1:8000',
-      '/admin/reset-draft': 'http://127.0.0.1:8000',
-      '/team/': 'http://127.0.0.1:8000',
-      '/league': 'http://127.0.0.1:8000',
-      '/leagues': 'http://127.0.0.1:8000',
-      '/players': 'http://127.0.0.1:8000',
-      '/advisor': 'http://127.0.0.1:8000',
-      '/dashboard': 'http://127.0.0.1:8000',
-      '/waivers/': 'http://127.0.0.1:8000',
-      '/trades': 'http://127.0.0.1:8000',
-      '/scoring': 'http://127.0.0.1:8000',
-      '/keepers/': 'http://127.0.0.1:8000',
-      '/playoffs/': 'http://127.0.0.1:8000',
-      '/analytics/': 'http://127.0.0.1:8000',
-      '/nfl': 'http://127.0.0.1:8000',
-      '/feedback': 'http://127.0.0.1:8000',
-      '/bug-reports': 'http://127.0.0.1:8000',
-      '/etl': 'http://127.0.0.1:8000',
-      '/matchups/': 'http://127.0.0.1:8000',
+      '/admin/tools': apiTarget,
+      '/admin/create-test-league': apiTarget,
+      '/admin/reset-draft': apiTarget,
+      '/team/': apiTarget,
+      '/league': apiTarget,
+      '/leagues': apiTarget,
+      '/players': apiTarget,
+      '/advisor': apiTarget,
+      '/dashboard': apiTarget,
+      '/waivers/': apiTarget,
+      '/trades': apiTarget,
+      '/scoring': apiTarget,
+      '/keepers/': apiTarget,
+      '/playoffs/': apiTarget,
+      '/analytics/': apiTarget,
+      '/nfl': apiTarget,
+      '/feedback': apiTarget,
+      '/bug-reports': apiTarget,
+      '/etl': apiTarget,
+      '/matchups/': apiTarget,
+      },
     },
-  },
+  };
 });

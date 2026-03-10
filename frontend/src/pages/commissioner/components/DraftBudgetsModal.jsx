@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
 import {
   buttonPrimary,
   buttonSecondary,
@@ -90,10 +91,11 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
         </div>
         <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
           {loading && (
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              Loading budgets...
-            </div>
+            <LoadingState message="Loading budgets..." className="text-sm text-slate-500 dark:text-slate-400" />
           )}
+          {!loading && budgetRows.length === 0 ? (
+            <EmptyState message="No budget rows available." className="text-sm" />
+          ) : null}
           {!loading &&
             budgetRows.map((row) => (
               <div

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { bgColors, textColors, borderColors } from '../utils/uiHelpers';
+import { layerDrawer } from '@utils/uiStandards';
 import { GeminiBadge } from './chat';
 import { INSIGHT_VOCABULARY_HINT } from './draft/insights/insightVocabulary';
 // ESLint doesn't properly detect JSX component usage, so suppressions below
@@ -138,7 +139,7 @@ export default function ChatInterface({ initialQuery = '' }) {
 
   // --- 3.1 RENDER: CONTAINER ---
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className={`fixed bottom-6 right-6 ${layerDrawer} flex flex-col items-end`}>
       {/* 3.2 CHAT WINDOW */}
       {isOpen && (
         <div

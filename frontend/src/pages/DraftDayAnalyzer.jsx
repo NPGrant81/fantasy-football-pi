@@ -17,6 +17,7 @@ import OwnerStrategyPanel from '@components/draft/insights/OwnerStrategyPanel';
 import DraftDynamicsPanel from '@components/draft/insights/DraftDynamicsPanel';
 import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
 import PageTemplate from '@components/layout/PageTemplate';
+import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
 import {
   POSITION_CAPS,
   STRATEGY_MAX_SPEND_SHARE,
@@ -26,6 +27,7 @@ import {
   buttonPrimary,
   buttonSecondary,
   cardSurface,
+  layerDrawer,
   modalCloseButton,
   modalOverlay,
   modalSurface,
@@ -89,7 +91,7 @@ const loadUiState = () => {
 function Drawer({ open, title, loading, error, children, onClose }) {
   return (
     <aside
-      className={`fixed right-0 top-0 z-50 h-screen w-full max-w-md transform border-l border-slate-700 bg-slate-950/95 shadow-2xl transition-transform duration-200 ${
+      className={`fixed right-0 top-0 ${layerDrawer} h-screen w-full max-w-md transform border-l border-slate-700 bg-slate-950/95 shadow-2xl transition-transform duration-200 ${
         open ? 'translate-x-0' : 'translate-x-full'
       }`}
       inert={!open}
@@ -107,8 +109,8 @@ function Drawer({ open, title, loading, error, children, onClose }) {
         </button>
       </div>
       <div className="h-[calc(100vh-64px)] overflow-y-auto p-4 text-sm text-slate-300">
-        {loading ? <div className="text-slate-400">Loading...</div> : null}
-        {error ? <div className="text-rose-300">{error}</div> : null}
+        {loading ? <LoadingState /> : null}
+        {error ? <ErrorState message={error} /> : null}
         {!loading && !error ? children : null}
       </div>
     </aside>
@@ -985,9 +987,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             })}
             <div style={{ height: `${virtualMeta.bottomPad}px` }} />
             {!sortedPlayers.length ? (
-              <div className="px-3 py-6 text-center text-sm text-slate-400">
-                No players found.
-              </div>
+              <EmptyState
+                message="No players found."
+                className="px-3 py-6 text-center text-sm justify-center"
+              />
             ) : null}
           </div>
         </div>
@@ -1007,8 +1010,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             Selected: {selectedPlayer?.name || '-'}
           </span>
         </div>
-        {insightsError ? <div className="text-xs text-rose-300">{insightsError}</div> : null}
-        {insightsLoading ? <div className="text-xs text-slate-400">Refreshing model insights...</div> : null}
+        {insightsError ? <ErrorState message={insightsError} className="text-xs" /> : null}
+        {insightsLoading ? (
+          <LoadingState message="Refreshing model insights..." className="text-xs" />
+        ) : null}
 
         <div className="grid gap-3 xl:grid-cols-3">
           <PlayerInsightCard recommendation={selectedInsightRecommendation} bidAmount={0} />
@@ -1032,10 +1037,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         </div>
 
         {rankingsLoading ? (
-          <div className="text-xs text-slate-400">Loading rankings...</div>
+          <LoadingState message="Loading rankings..." className="text-xs" />
         ) : rankingsError ? (
           <div className="space-y-2">
-            <div className="text-xs text-rose-300">{rankingsError}</div>
+            <ErrorState message={rankingsError} className="text-xs" />
             <button
               type="button"
               className={buttonSecondary}
@@ -1048,9 +1053,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             </button>
           </div>
         ) : availableHistoricalRankings.length === 0 ? (
-          <div className="text-xs text-slate-400">
-            No rankings data available for season {rankingSeason}.
-          </div>
+          <EmptyState
+            message={`No rankings data available for season ${rankingSeason}.`}
+            className="text-xs"
+          />
         ) : (
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {availableHistoricalRankings.slice(0, 18).map((entry) => (
@@ -1080,8 +1086,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           <span className="text-xs text-slate-500">Alerts & Actions</span>
         </div>
 
-        {advisorError ? <div className="text-xs text-rose-300">{advisorError}</div> : null}
-        {advisorLoading ? <div className="text-xs text-slate-400">Updating advisor...</div> : null}
+        {advisorError ? <ErrorState message={advisorError} className="text-xs" /> : null}
+        {advisorLoading ? (
+          <LoadingState message="Updating advisor..." className="text-xs" />
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           <button
@@ -1124,7 +1132,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             ))}
           </div>
         ) : (
-          <div className="text-xs text-slate-500">No active alerts.</div>
+          <EmptyState message="No active alerts." className="text-xs" />
         )}
       </section>
 
@@ -1176,7 +1184,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           </div>
         </div>
 
-        {simulationError ? <div className="text-xs text-rose-300">{simulationError}</div> : null}
+        {simulationError ? <ErrorState message={simulationError} className="text-xs" /> : null}
         {simulationResult ? (
           <div className="text-xs text-slate-300">
             Simulation completed. Opened in drawer for deep-dive details.
@@ -1196,7 +1204,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             {JSON.stringify(drawerContent, null, 2)}
           </pre>
         ) : (
-          <div className="text-slate-500">No details loaded yet.</div>
+          <EmptyState message="No details loaded yet." />
         )}
       </Drawer>
 
@@ -1217,13 +1225,14 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             </div>
 
             {playerInfoLoading ? (
-              <div className="py-10 text-center text-slate-400 animate-pulse">
-                Loading player details...
+              <div className="py-10 text-center">
+                <LoadingState
+                  message="Loading player details..."
+                  className="justify-center"
+                />
               </div>
             ) : playerInfoError ? (
-              <div className="rounded-md border border-rose-900 bg-rose-950/30 p-3 text-sm text-rose-300">
-                {playerInfoError}
-              </div>
+              <ErrorState message={playerInfoError} className="rounded-md" />
             ) : selectedPlayer ? (
               <div className="space-y-4">
                 <PlayerIdentityCard
@@ -1276,7 +1285,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-slate-500">No player selected.</div>
+              <EmptyState message="No player selected." className="text-sm" />
             )}
           </div>
         </div>

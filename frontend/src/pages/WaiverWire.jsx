@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import GlobalSearch from '../components/GlobalSearch';
 import apiClient from '@api/client';
 import Toast from '@components/Toast';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   WaiverTable,
   WaiverPositionTabs,
@@ -12,10 +13,8 @@ import {
   buttonPrimary,
   buttonSecondary,
   cardSurface,
-  pageHeader,
+  layerModal,
   pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '../utils/uiStandards';
 
 export default function WaiverWire({ ownerId, username, leagueName }) {
@@ -218,55 +217,53 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   });
 
   return (
-    <div className={pageShell}>
-      {/* 2.3 UI: HEADER & SEARCH */}
-      <div
-        className={`${pageHeader} flex flex-col md:flex-row justify-between md:items-end gap-4`}
-      >
-        <div className="space-y-2">
-          {showBack && (
-            <button
-              className={`${buttonSecondary} px-3 py-1.5 text-xs`}
-              onClick={() => navigate(-1)}
-            >
-              ← Back
-            </button>
-          )}
-          <h1 className={pageTitle}>Waiver Wire</h1>
-          <p className={pageSubtitle}>Available free agents</p>
-          <div className="text-sm text-slate-600 dark:text-slate-300">
-            User:{' '}
-            <span className="font-semibold text-slate-900 dark:text-white">
-              {username || 'Unknown'}
-            </span>{' '}
-            | League:{' '}
-            <span className="font-semibold text-slate-900 dark:text-white">
-              {leagueName || 'Unknown'}
-            </span>
-            {waiverDeadline && (
-              <div className="mt-1 text-xs text-cyan-600 dark:text-cyan-300">
-                Waiver Deadline: {waiverDeadline}
-              </div>
-            )}
-            <div className="mt-1 text-xs">
-              <a
-                href="/waiver-rules"
-                className="underline text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300"
-              >
-                View waiver rules
-              </a>
+    <PageTemplate
+      title="Waiver Wire"
+      subtitle="Available free agents"
+      metadata={
+        <div className="text-sm text-slate-600 dark:text-slate-300">
+          User:{' '}
+          <span className="font-semibold text-slate-900 dark:text-white">
+            {username || 'Unknown'}
+          </span>{' '}
+          | League:{' '}
+          <span className="font-semibold text-slate-900 dark:text-white">
+            {leagueName || 'Unknown'}
+          </span>
+          {waiverDeadline && (
+            <div className="mt-1 text-xs text-cyan-600 dark:text-cyan-300">
+              Waiver Deadline: {waiverDeadline}
             </div>
+          )}
+          <div className="mt-1 text-xs">
+            <a
+              href="/waiver-rules"
+              className="underline text-cyan-600 hover:text-cyan-500 dark:text-cyan-400 dark:hover:text-cyan-300"
+            >
+              View waiver rules
+            </a>
           </div>
         </div>
+      }
+      actions={
+        showBack ? (
+          <button
+            className={`${buttonSecondary} px-3 py-1.5 text-xs`}
+            onClick={() => navigate(-1)}
+          >
+            ← Back
+          </button>
+        ) : null
+      }
+    >
 
-        <div className="flex gap-4 w-full md:w-auto">
-          <GlobalSearch
-            onPlayerSelect={(player) => {
-              setSearchQuery(player.name);
-              setActiveTab(player.position);
-            }}
-          />
-        </div>
+      <div className="w-full md:w-auto">
+        <GlobalSearch
+          onPlayerSelect={(player) => {
+            setSearchQuery(player.name);
+            setActiveTab(player.position);
+          }}
+        />
       </div>
 
       {/* 2.4 UI: TABS & TABLE */}
@@ -309,7 +306,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
       />
 
       {confirmAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className={`fixed inset-0 ${layerModal} flex items-center justify-center bg-black/70 p-4`}>
           <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
             <h3 className="text-lg font-black tracking-tight text-white">
               Confirm Waiver Action
@@ -339,6 +336,6 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
           onClose={() => setToast(null)}
         />
       )}
-    </div>
+    </PageTemplate>
   );
 }

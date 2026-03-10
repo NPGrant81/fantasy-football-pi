@@ -26,6 +26,7 @@ import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
 import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
 import RivalryGraph from '../../components/charts/RivalryGraph';
+import { LoadingState } from '@components/common/AsyncState';
 import PageTemplate from '@components/layout/PageTemplate';
 import {
   buttonPrimary,
@@ -168,7 +169,7 @@ const AnalyticsDashboard = () => {
 
       <div className={cardSurface}>
         {loadingChart ? (
-          <div className="text-sm text-slate-500">Loading analytics view...</div>
+          <LoadingState message="Loading analytics view..." className="text-sm text-slate-500" />
         ) : (
           renderChart()
         )}

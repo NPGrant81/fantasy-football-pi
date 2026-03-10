@@ -1,10 +1,12 @@
 // frontend/src/components/GlobalSearch.jsx
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { FiSearch, FiUser, FiX } from 'react-icons/fi';
+import FloatingLayer from '@components/overlay/FloatingLayer';
 
 export default function GlobalSearch({ onPlayerSelect }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const searchAnchorRef = useRef(null);
 
   const handleSearch = async (val) => {
     setQuery(val);
@@ -23,7 +25,7 @@ export default function GlobalSearch({ onPlayerSelect }) {
   };
 
   return (
-    <div className="relative w-full sm:max-w-md md:max-w-lg group">
+    <div ref={searchAnchorRef} className="relative w-full sm:max-w-md md:max-w-lg group">
       <div className="flex items-center bg-slate-800 border border-slate-700 rounded-full px-4 py-2 focus-within:border-purple-500 transition-all">
         <FiSearch className="text-slate-400 mr-2" />
         <input
@@ -40,7 +42,12 @@ export default function GlobalSearch({ onPlayerSelect }) {
 
       {/* RESULTS DROPDOWN */}
       {results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
+        <FloatingLayer
+          anchorRef={searchAnchorRef}
+          open={results.length > 0}
+          offset={8}
+          className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
+        >
           {results.map((player) => (
             <div
               key={player.id}
@@ -60,7 +67,7 @@ export default function GlobalSearch({ onPlayerSelect }) {
               </div>
             </div>
           ))}
-        </div>
+        </FloatingLayer>
       )}
     </div>
   );

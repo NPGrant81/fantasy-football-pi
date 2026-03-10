@@ -1,3 +1,5 @@
+import { EmptyState } from '@components/common/AsyncState';
+
 /* ignore-breakpoints */
 export default function OwnerStrategyPanel({
   insightOwnerId,
@@ -64,7 +66,7 @@ export default function OwnerStrategyPanel({
                 ).toFixed(2)} left.
               </div>
             ) : (
-              <div>No recommendation selected yet.</div>
+                <EmptyState message="No recommendation selected yet." className="text-xs" />
             )}
           </div>
 

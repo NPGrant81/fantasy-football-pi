@@ -16,12 +16,9 @@ import {
 import apiClient from '@api/client';
 import DraftBudgetsModal from './components/DraftBudgetsModal';
 import AdminActionCard from '@components/admin/AdminActionCard';
-import {
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
-} from '@utils/uiStandards';
+import { LoadingState } from '@components/common/AsyncState';
+import PageTemplate from '@components/layout/PageTemplate';
+import { pageShell } from '@utils/uiStandards';
 
 // --- 1.1 STATIC DATA (Declared Outside to avoid re-creations) ---
 export default function CommissionerDashboard() {
@@ -66,25 +63,23 @@ export default function CommissionerDashboard() {
 
   if (loading) {
     return (
-      <div
-        className={`${pageShell} text-center mt-20 animate-pulse text-slate-600 dark:text-slate-400 font-black`}
-      >
-        Entering The War Room...
+      <div className={pageShell}>
+        <LoadingState message="Entering the war room..." className="mt-20" />
       </div>
     );
   }
 
   return (
-    <div className={`${pageShell} min-h-screen text-slate-900 dark:text-white`}>
-      <div className={`${pageHeader} flex items-start gap-3`}>
-        <FiTool className="mt-1 text-2xl text-yellow-500" />
-        <div>
-          <h1 className={pageTitle}>Commissioner Control Panel</h1>
-          <p className={pageSubtitle}>
-            League-level controls and configuration tools
-          </p>
-        </div>
-      </div>
+    <PageTemplate
+      title="Commissioner Control Panel"
+      subtitle="League-level controls and configuration tools"
+      metadata={
+        <span className="inline-flex items-center gap-2">
+          <FiTool className="text-yellow-500" />
+          Control tools
+        </span>
+      }
+    >
       <DraftBudgetsModal
         open={showBudgets}
         onClose={() => setShowBudgets(false)}
@@ -182,6 +177,6 @@ export default function CommissionerDashboard() {
           tone="blue"
         />
       </div>
-    </div>
+    </PageTemplate>
   );
 }

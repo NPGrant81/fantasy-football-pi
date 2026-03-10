@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+  StandardTableStateRow,
+} from '@components/table/TablePrimitives';
+import {
   cardSurface,
   inputBase,
   pageShell,
-  tableHead,
-  tableSurface,
+  tableCell,
+  tableCellNumeric,
+  textMeta,
 } from '@utils/uiStandards';
 
 const CURRENCY_OPTIONS = [
@@ -56,7 +64,7 @@ export default function LedgerStatementOwner() {
     <div className={pageShell}>
       <div className={`${cardSurface} grid grid-cols-1 gap-4 md:grid-cols-3`}>
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase text-slate-600 dark:text-slate-400">
+          <label className={`mb-2 block font-bold ${textMeta}`}>
             Currency
           </label>
           <select
@@ -73,7 +81,7 @@ export default function LedgerStatementOwner() {
         </div>
 
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase text-slate-600 dark:text-slate-400">
+          <label className={`mb-2 block font-bold ${textMeta}`}>
             Season Year
           </label>
           <input
@@ -86,7 +94,7 @@ export default function LedgerStatementOwner() {
         </div>
 
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase text-slate-600 dark:text-slate-400">
+          <label className={`mb-2 block font-bold ${textMeta}`}>
             Balance
           </label>
           <div className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-bold text-slate-900 dark:text-white">
@@ -95,54 +103,45 @@ export default function LedgerStatementOwner() {
         </div>
       </div>
 
-      <div className={tableSurface}>
-        <table className="w-full text-sm text-slate-700 dark:text-slate-300">
-          <thead className={tableHead}>
-            <tr>
-              <th className="px-3 py-2 text-left">Created</th>
-              <th className="px-3 py-2 text-left">Type</th>
-              <th className="px-3 py-2 text-left">Direction</th>
-              <th className="px-3 py-2 text-right">Amount</th>
-              <th className="px-3 py-2 text-left">Currency</th>
-              <th className="px-3 py-2 text-left">Reference</th>
-              <th className="px-3 py-2 text-left">Notes</th>
-            </tr>
-          </thead>
+      <StandardTableContainer>
+        <StandardTable>
+          <StandardTableHead
+            headers={[
+              { key: 'created', label: 'Created', className: 'px-3 py-2 text-left' },
+              { key: 'type', label: 'Type', className: 'px-3 py-2 text-left' },
+              { key: 'direction', label: 'Direction', className: 'px-3 py-2 text-left' },
+              { key: 'amount', label: 'Amount', className: 'px-3 py-2 text-right' },
+              { key: 'currency', label: 'Currency', className: 'px-3 py-2 text-left' },
+              { key: 'reference', label: 'Reference', className: 'px-3 py-2 text-left' },
+              { key: 'notes', label: 'Notes', className: 'px-3 py-2 text-left' },
+            ]}
+          />
           <tbody>
             {statementLoading ? (
-              <tr>
-                <td className="px-3 py-4 text-slate-500 dark:text-slate-400" colSpan={7}>
-                  Loading statement...
-                </td>
-              </tr>
+              <StandardTableStateRow colSpan={7}>Loading statement...</StandardTableStateRow>
             ) : statement?.entries?.length ? (
               statement.entries.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className="border-t border-slate-300 dark:border-slate-800"
-                >
-                  <td className="px-3 py-2">{entry.created_at || '-'}</td>
-                  <td className="px-3 py-2">{entry.transaction_type}</td>
-                  <td className="px-3 py-2">{entry.direction}</td>
-                  <td className="px-3 py-2 text-right">{entry.amount}</td>
-                  <td className="px-3 py-2">{entry.currency_type}</td>
-                  <td className="px-3 py-2">
+                <StandardTableRow key={entry.id} className="hover:bg-transparent dark:hover:bg-transparent">
+                  <td className={tableCell}>{entry.created_at || '-'}</td>
+                  <td className={tableCell}>{entry.transaction_type}</td>
+                  <td className={tableCell}>{entry.direction}</td>
+                  <td className={tableCellNumeric}>{entry.amount}</td>
+                  <td className={tableCell}>{entry.currency_type}</td>
+                  <td className={tableCell}>
                     {entry.reference_type || '-'}
                     {entry.reference_id ? `:${entry.reference_id}` : ''}
                   </td>
-                  <td className="px-3 py-2">{entry.notes || '-'}</td>
-                </tr>
+                  <td className={tableCell}>{entry.notes || '-'}</td>
+                </StandardTableRow>
               ))
             ) : (
-              <tr>
-                <td className="px-3 py-4 text-slate-500 dark:text-slate-400" colSpan={7}>
-                  No ledger entries found for the selected filters.
-                </td>
-              </tr>
+              <StandardTableStateRow colSpan={7}>
+                No ledger entries found for the selected filters.
+              </StandardTableStateRow>
             )}
           </tbody>
-        </table>
-      </div>
+        </StandardTable>
+      </StandardTableContainer>
     </div>
   );
 }

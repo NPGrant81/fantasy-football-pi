@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -156,7 +156,9 @@ describe('App (basic)', () => {
     expect(screen.getByTestId('layout')).toBeInTheDocument();
 
     // Trigger logout via the captured Layout prop
-    capturedLayoutProps.onLogout();
+    await act(async () => {
+      capturedLayoutProps.onLogout();
+    });
 
     await waitFor(() => {
       expect(localStorage.getItem('fantasyToken')).toBeNull();

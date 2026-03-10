@@ -5,6 +5,7 @@ import {
   resolveRows,
 } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
+import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
 import {
   Chart as ChartJS,
   LinearScale,
@@ -73,15 +74,15 @@ const DraftValueBoard = () => {
   }, []);
 
   if (loading) {
-    return <p>Loading draft value analysis...</p>;
+    return <LoadingState message="Loading draft value analysis..." />;
   }
 
   if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
+    return <ErrorState message={error} />;
   }
 
   if (!Array.isArray(rows) || rows.length === 0) {
-    return <p>No draft value data available.</p>;
+    return <EmptyState message="No draft value data available." />;
   }
 
   const supportedRows = rows.filter((row) =>

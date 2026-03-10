@@ -2,17 +2,16 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { FiArrowLeft, FiInfo, FiToggleRight, FiToggleLeft } from 'react-icons/fi';
+import { EmptyState, LoadingState } from '@components/common/AsyncState';
 import TeamLogo from '@components/TeamLogo';
+import PageTemplate from '@components/layout/PageTemplate';
 
 // Professional Imports
 import apiClient from '@api/client';
 import {
   buttonSecondary,
   cardSurface,
-  pageHeader,
   pageShell,
-  pageSubtitle,
-  pageTitle,
 } from '@utils/uiStandards';
 
 // --- 1.1 SUB-COMPONENTS (Declared Outside) ---
@@ -136,34 +135,32 @@ export default function GameCenter() {
   // 2.1.1 Handle Loading & Empty States
   if (loading) {
     return (
-      <div
-        className={`${pageShell} text-center py-20 text-slate-600 dark:text-slate-400 animate-pulse font-black`}
-      >
-        Loading Matchup Data...
+      <div className={`${pageShell} py-20 text-center`}>
+        <LoadingState
+          message="Loading matchup data..."
+          className="justify-center font-black"
+        />
       </div>
     );
   }
 
   if (!game) {
     return (
-      <div
-        className={`${pageShell} text-center py-20 text-slate-600 dark:text-slate-400 font-black`}
-      >
-        Matchup data unavailable.
+      <div className={`${pageShell} py-20 text-center`}>
+        <EmptyState
+          message="Matchup data unavailable."
+          className="justify-center font-black"
+        />
       </div>
     );
   }
 
   return (
-    <div className={`${pageShell} pb-20 animate-fade-in`}>
-      {/* 2.2 HEADER & NAVIGATION */}
-      <div className={`${pageHeader} flex items-start justify-between`}>
-        <div>
-          <h1 className={pageTitle}>Week {game.week} Matchup</h1>
-          <p className={pageSubtitle}>
-            {showProjected ? 'Projected' : 'Actual'} scoring view with starter breakdown.
-          </p>
-        </div>
+    <PageTemplate
+      title={`Week ${game.week} Matchup`}
+      subtitle={`${showProjected ? 'Projected' : 'Actual'} scoring view with starter breakdown.`}
+      className="pb-20 animate-fade-in"
+      actions={
         <Link
           to={`/matchups?week=${game.week}&view=${showProjected ? 'projected' : 'actual'}`}
           aria-label="Back to matchups"
@@ -171,7 +168,8 @@ export default function GameCenter() {
         >
           <FiArrowLeft size={16} /> Back
         </Link>
-      </div>
+      }
+    >
 
       {/* 2.3 SCOREBOARD BANNER */}
       <div
@@ -304,6 +302,6 @@ export default function GameCenter() {
           showProjected={showProjected}
         />
       </div>
-    </div>
+    </PageTemplate>
   );
 }

@@ -20,6 +20,14 @@
 - Finite pass complete: back-button color standardization (non-DraftBoard routes) and sidebar color/state standardization.
 - Waiver child components standardized: `WaiverTable`, `WaiverPositionTabs`, and `DropPlayerModal` now use shared tokenized surfaces/buttons.
 - DraftBoard enhancement: clicking drafted player cards now opens the shared Season Performance modal pattern; `PlayerIdentityCard` updated to larger headshot + stronger position/name hierarchy.
+- PageTemplate tranche started for remaining legacy routes: `Keepers`, `CommissionerDashboard`, and `ManageOwners` now use shared page-header contracts.
+- PageTemplate route-header sweep completed for legacy admin/commissioner/owner routes (`Home`, `WaiverWire`, `GameCenter`, `SiteAdmin`, `ManageCommissioners`, `ManageTrades`, `ManageWaiverRules`, `LedgerStatement`, `LineupRules`, `ManageDivisions`, `ManageKeeperRules`, `ManageScoringRules`, `DraftBoard`, `YourLockerRoom`).
+- Stage 2 tracking issue opened: #204 (`Typography, Tables, Shared Components`). Initial tranche adds shared typography tokens (`textBody`, `textMuted`, `textMeta`, `textCaption`) and reusable table primitives (`TablePrimitives`) adopted in commissioner pages (`ManageTrades`, `LedgerStatement`, `ManageWaiverRules`).
+- Stage 2 expansion completed for additional admin/commissioner table-heavy pages (`ManageCommissioners`, `ManageOwners`, `ManageDivisions`, `ManageScoringRules`, `ManageKeeperRules`, `team-owner/LedgerStatementOwner`) using shared table primitives and text tokens.
+- Phase 3 follow-on issue opened: #205 (`Layering, Theme Polish, Rendering UX`) with dedicated tracks for dropdown front-layer reliability, overlap prevention, spacing rules, toast contract, and load-state consistency.
+- Phase 3 tranche 1 delivered: shared layering token scale and spacing scale contracts added in `uiStandards` (`layerNav`, `layerBackdrop`, `layerDrawer`, `layerDropdown`, `layerModal`, `layerToast`, `stackSpacing*`).
+- Overlay reliability baseline added with `FloatingLayer` portal primitive; `GlobalSearch` and DraftBoard `AuctionBlock` suggestion menus now render through the portal to avoid parent clipping and stacking-context conflicts.
+- Shell/overlay adopters aligned to layer tokens (`Layout`, `Sidebar`, `Toast`) to remove hardcoded z-index values.
 - Alignment matrix below is kept current as route/component layers are standardized.
 
 ## Core Standards
@@ -82,6 +90,37 @@
 - Theme-toggle smoke checks are required for touched routes (light and dark).
 - Responsive audit remains active in CI.
 
+### 9) Layering and Spacing Guardrails
+
+- Use layer tokens from `uiStandards`; do not hardcode arbitrary z-index values in route/component markup.
+- Dropdowns and popovers that can be clipped by parent containers should use the shared portal primitive (`FloatingLayer`).
+- Layer order baseline:
+  - `layerNav` < `layerBackdrop` < `layerDrawer` < `layerDropdown` < `layerModal` < `layerToast`
+- Use stack spacing tokens (`stackSpacingXs|Sm|Md|Lg|Xl`) for standardized vertical rhythm in new/edited route sections.
+
+### 10) Toast Contract
+
+- Use `Toast` with explicit type contract: `success | error | warning | info | loading`.
+- Dismiss policy baseline:
+  - `loading` defaults to sticky (manual close).
+  - non-loading variants auto-dismiss unless `sticky` is set.
+- Accessibility baseline:
+  - `aria-live="assertive"` for `error`.
+  - `aria-live="polite"` for non-error toasts.
+  - Escape key should dismiss active toast.
+
+### 11) Loading/Empty/Error Contract
+
+- Use shared async state primitives from `frontend/src/components/common/AsyncState.jsx`:
+  - `LoadingState`
+  - `EmptyState`
+  - `ErrorState`
+- New/edited pages should avoid ad-hoc plain-text loading/empty/error placeholders when these primitives apply.
+- Distinguish async states explicitly:
+  - loading: active in-flight operation
+  - empty: successful fetch with no items
+  - error: failed fetch or action
+
 ## Shared Primitive Source
 
 - `frontend/src/utils/uiStandards.js`
@@ -98,6 +137,7 @@ This file provides reusable class contracts for shell, headers, cards, tables, i
 | `CommishAdmin` | Updated | Replaced oversized ad-hoc green tiles with standardized action grid. |
 | `ManageTrades` | Updated | Standardized page header, table surface, and action buttons. |
 | `ManageWaiverRules` | Updated | Standardized form controls, tables, and typography hierarchy. |
+| `TablePrimitives` | Updated | Shared table container/head/row/state components introduced and adopted in commissioner migration tranche. |
 | `PlayoffBracket` | Updated | Standardized page header and card wrapping of bracket content. |
 | `Dashboard` | Updated | Placeholder aligned with shared shell and card style. |
 | `LockerRoom` | Updated | Placeholder aligned with shared shell and card style. |
@@ -109,6 +149,7 @@ This file provides reusable class contracts for shell, headers, cards, tables, i
 | `LineupRules` | Updated | Standardized shell/header, form controls, and save actions with shared tokens. |
 | `ManageScoringRules` | Updated | Standardized shell/header/form/table/actions and removed legacy hardcoded title styles. |
 | `ManageKeeperRules` | Updated | Standardized shell/header/form/table/actions and improved light/dark contrast safety. |
+| `LedgerStatementOwner` | Updated | Owner ledger now uses shared table primitives and Stage 2 text tokens. |
 | `WaiverWire` | Updated | Standardized shell/header, draft-lock surface, and confirm modal actions. |
 | `Waiver` child components | Updated | `WaiverTable`, `WaiverPositionTabs`, and `DropPlayerModal` aligned to shared table/modal/button tokens. |
 | `WaiverRules` | Updated | Standardized shell/header/card/actions with light/dark-safe route typography. |
@@ -118,15 +159,54 @@ This file provides reusable class contracts for shell, headers, cards, tables, i
 | `GameCenter` | Updated | Standardized shell/header and matchup banner heading contrast in both themes. |
 | `BugReport` | Updated | Standardized shell/header/form controls and removed legacy hardcoded title color. |
 | `Sidebar` | Updated | Theme-safe container/header/footer and unified nav active/hover states with standardized slate/cyan palette. |
-| Remaining route pages | Partial | Major high-traffic pages aligned; continue component-level convergence. |
+| Remaining route pages | Updated | Route-level page header contract migration is complete for current pages; continue component-level convergence. |
 
 ## Next Sweep Candidates
 
-1. Waiver `ClaimModal` tokenization pass
-2. Final `MyTeam` deep-module pass (remaining module-level surface consistency)
-3. `DraftBoard` child components (`AuctionBlock`, `SessionHeader`, lists) — deferred per current scope
+1. Phase 3 layering safety pass: z-index token scale + dropdown/popover front-layer reliability
+2. Phase 3 spacing rules/guidelines codification with examples and guardrails
+3. Phase 3 rendering UX pass: shared loading/empty/error contracts and toast standardization
 
 Status note: shared admin/component pass is now implemented under strict token usage.
+
+## Post-Sweep Verification (Criticality-Based)
+
+Use this checklist to run a full-site verification pass after any major UI standardization sweep.
+
+### Criticality Tiers
+
+- Tier 0 (critical path): login/auth shell, `Home`, `DraftBoard`, `WaiverWire`, `MyTeam`/`YourLockerRoom`, commissioner controls (`CommissionerDashboard`, `ManageScoringRules`, `ManageOwners`, `ManageWaiverRules`), `Matchups`, `GameCenter`.
+- Tier 1 (high visibility): `DraftDayAnalyzer`, `Keepers`, `LedgerStatement`, `LedgerStatementOwner`, `PlayoffBracket`, `SiteAdmin`, `ManageCommissioners`, `ManageTrades`, `ManageDivisions`, `LineupRules`, `ManageKeeperRules`.
+- Tier 2 (supporting): `BugReport`, `Dashboard`, `LockerRoom`, auxiliary overlays and helper components.
+
+### Full-Site Sweep Checklist
+
+1. Stage 1 contract check:
+Route pages should use `PageTemplate` + standardized title/subtitle/metadata conventions.
+2. Stage 2 token check:
+Route-level tables use shared table primitives/tokens (`TablePrimitives`, `tableCell*`, `tableHead`, `tableRow`, `tableStateCell`).
+3. Stage 3 layering check:
+No hardcoded fixed-overlay z-index values; use layer tokens (`layerNav`..`layerToast`) and portal overlays (`FloatingLayer`) where clipping risk exists.
+4. Theme and contrast check:
+Run the Theme Toggle Smoke Checklist below for all Tier 0 pages and touched Tier 1 pages.
+5. Interaction safety check:
+Dropdowns/popovers/modals/toasts do not clip under headers/drawers and remain usable on small viewports.
+6. State rendering check:
+Loading, empty, error, and success states are visually distinct and layout-stable.
+7. Regression checks:
+Run focused test suites for touched routes/components and run `npm run build` before closure.
+
+### Closure Criteria For Sweep Completion
+
+- All Tier 0 pages pass checklist items 1-7.
+- All changed Tier 1 pages pass checklist items 1-7.
+- No new hardcoded fixed-overlay z-index classes introduced in touched files.
+- Documentation and GitHub issue comments are updated with validation evidence.
+
+## Phase 4 Decision
+
+- Not required to mark Stages 1-3 complete.
+- Optional if you want a dedicated quality-hardening cycle focused on a11y audits, visual regression automation, and performance budgets.
 
 ## Theme Toggle Smoke Checklist (Per Touched Route)
 

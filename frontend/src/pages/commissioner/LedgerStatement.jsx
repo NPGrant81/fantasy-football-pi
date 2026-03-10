@@ -2,16 +2,21 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
 import apiClient from '@api/client';
+import PageTemplate from '@components/layout/PageTemplate';
+import {
+  StandardTable,
+  StandardTableContainer,
+  StandardTableHead,
+  StandardTableRow,
+  StandardTableStateRow,
+} from '@components/table/TablePrimitives';
 import {
   buttonSecondary,
   cardSurface,
   inputBase,
-  pageHeader,
-  pageShell,
-  pageSubtitle,
-  pageTitle,
-  tableHead,
-  tableSurface,
+  tableCell,
+  tableCellNumeric,
+  textMeta,
 } from '@utils/uiStandards';
 
 const CURRENCY_OPTIONS = [
@@ -96,21 +101,18 @@ export default function LedgerStatement() {
   }, [owners, ownerId]);
 
   return (
-    <div className={pageShell}>
-      <div className={`${pageHeader} flex items-center justify-between gap-4`}>
-        <div>
-          <h1 className={pageTitle}>Ledger Statement</h1>
-          <p className={pageSubtitle}>
-            Auditable transaction ledger for a selected owner.
-          </p>
-        </div>
+    <PageTemplate
+      title="Ledger Statement"
+      subtitle="Auditable transaction ledger for a selected owner."
+      actions={
         <Link
           to="/commissioner"
           className={`${buttonSecondary} gap-2 px-3 py-2 text-sm no-underline`}
         >
           <FiChevronLeft /> Back
         </Link>
-      </div>
+      }
+    >
 
       <div className={`${cardSurface} grid grid-cols-1 gap-4 md:grid-cols-4`}>
         <div>
@@ -176,7 +178,7 @@ export default function LedgerStatement() {
 
       <div className={`${cardSurface} grid grid-cols-1 gap-4 md:grid-cols-3`}>
         <div>
-          <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <div className={textMeta}>
             Owner
           </div>
           <div className="text-lg font-bold text-slate-900 dark:text-white">
@@ -184,7 +186,7 @@ export default function LedgerStatement() {
           </div>
         </div>
         <div>
-          <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <div className={textMeta}>
             Balance
           </div>
           <div className="text-lg font-bold text-slate-900 dark:text-white">
@@ -192,7 +194,7 @@ export default function LedgerStatement() {
           </div>
         </div>
         <div>
-          <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <div className={textMeta}>
             Entries
           </div>
           <div className="text-lg font-bold text-slate-900 dark:text-white">
@@ -201,54 +203,45 @@ export default function LedgerStatement() {
         </div>
       </div>
 
-      <div className={tableSurface}>
-        <table className="w-full text-sm text-slate-700 dark:text-slate-300">
-          <thead className={tableHead}>
-            <tr>
-              <th className="px-3 py-2 text-left">Created</th>
-              <th className="px-3 py-2 text-left">Type</th>
-              <th className="px-3 py-2 text-left">Direction</th>
-              <th className="px-3 py-2 text-right">Amount</th>
-              <th className="px-3 py-2 text-left">Currency</th>
-              <th className="px-3 py-2 text-left">Reference</th>
-              <th className="px-3 py-2 text-left">Notes</th>
-            </tr>
-          </thead>
+      <StandardTableContainer>
+        <StandardTable>
+          <StandardTableHead
+            headers={[
+              { key: 'created', label: 'Created', className: 'px-3 py-2 text-left' },
+              { key: 'type', label: 'Type', className: 'px-3 py-2 text-left' },
+              { key: 'direction', label: 'Direction', className: 'px-3 py-2 text-left' },
+              { key: 'amount', label: 'Amount', className: 'px-3 py-2 text-right' },
+              { key: 'currency', label: 'Currency', className: 'px-3 py-2 text-left' },
+              { key: 'reference', label: 'Reference', className: 'px-3 py-2 text-left' },
+              { key: 'notes', label: 'Notes', className: 'px-3 py-2 text-left' },
+            ]}
+          />
           <tbody>
             {statementLoading ? (
-              <tr>
-                <td className="px-3 py-4 text-slate-500 dark:text-slate-400" colSpan={7}>
-                  Loading statement...
-                </td>
-              </tr>
+              <StandardTableStateRow colSpan={7}>Loading statement...</StandardTableStateRow>
             ) : statement?.entries?.length ? (
               statement.entries.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className="border-t border-slate-300 dark:border-slate-800"
-                >
-                  <td className="px-3 py-2">{entry.created_at || '-'}</td>
-                  <td className="px-3 py-2">{entry.transaction_type}</td>
-                  <td className="px-3 py-2">{entry.direction}</td>
-                  <td className="px-3 py-2 text-right">{entry.amount}</td>
-                  <td className="px-3 py-2">{entry.currency_type}</td>
-                  <td className="px-3 py-2">
+                <StandardTableRow key={entry.id} className="hover:bg-transparent dark:hover:bg-transparent">
+                  <td className={tableCell}>{entry.created_at || '-'}</td>
+                  <td className={tableCell}>{entry.transaction_type}</td>
+                  <td className={tableCell}>{entry.direction}</td>
+                  <td className={tableCellNumeric}>{entry.amount}</td>
+                  <td className={tableCell}>{entry.currency_type}</td>
+                  <td className={tableCell}>
                     {entry.reference_type || '-'}
                     {entry.reference_id ? `:${entry.reference_id}` : ''}
                   </td>
-                  <td className="px-3 py-2">{entry.notes || '-'}</td>
-                </tr>
+                  <td className={tableCell}>{entry.notes || '-'}</td>
+                </StandardTableRow>
               ))
             ) : (
-              <tr>
-                <td className="px-3 py-4 text-slate-500 dark:text-slate-400" colSpan={7}>
-                  No ledger entries found for the selected filters.
-                </td>
-              </tr>
+              <StandardTableStateRow colSpan={7}>
+                No ledger entries found for the selected filters.
+              </StandardTableStateRow>
             )}
           </tbody>
-        </table>
-      </div>
-    </div>
+        </StandardTable>
+      </StandardTableContainer>
+    </PageTemplate>
   );
 }
