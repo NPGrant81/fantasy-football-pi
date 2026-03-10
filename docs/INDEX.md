@@ -20,6 +20,7 @@ Refer to the appropriate file for more information.
 - [Monte Carlo Simulation](monte-carlo-simulation.md)
 - [Markdown Governance Sweep Report](MARKDOWN_GOVERNANCE_SWEEP_REPORT.md)
 - [Permissions](permissions.md)
+- [Pi Update Cheatsheet](PI_UPDATE_CHEATSHEET.md)
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
 - [Pr Notes](PR_NOTES.md)
 - [Project Management](PROJECT_MANAGEMENT.md)

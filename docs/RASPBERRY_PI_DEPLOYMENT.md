@@ -5,6 +5,8 @@ This is the recommended production-style setup for Raspberry Pi:
 - Nginx reverse proxies backend API routes to FastAPI on `127.0.0.1:8000`.
 - systemd keeps the FastAPI backend running.
 
+Quick reference: `docs/PI_UPDATE_CHEATSHEET.md`
+
 ## 1. Install Base Packages (Pi)
 
 ```bash
