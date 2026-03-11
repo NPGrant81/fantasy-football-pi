@@ -492,11 +492,9 @@ export default function YourLockerRoom({ activeOwnerId }) {
       ...p,
       status: 'STARTER',
     }));
-    const sits = [
-      ...(weeklyPlan.sits || []),
-      ...(weeklyPlan.byePlayers || []),
-    ].map((p) => ({ ...p, status: 'BENCH' }));
-    setRecState([...starts, ...sits]);
+    const sits = (weeklyPlan.sits || []).map((p) => ({ ...p, status: 'SIT' }));
+    const byes = (weeklyPlan.byePlayers || []).map((p) => ({ ...p, status: 'BENCH' }));
+    setRecState([...starts, ...sits, ...byes]);
   }, [viewMode, weeklyPlan.starters, weeklyPlan.sits, weeklyPlan.byePlayers]);
   const [startSitSort] = useState('position');
   // FIX: Start loading as true to avoid sync setState inside useEffect
@@ -759,6 +757,27 @@ export default function YourLockerRoom({ activeOwnerId }) {
     },
     [canEditLineup, selectedWeek, viewMode]
   );
+
+  const applyRecommendedLineup = useCallback(() => {
+    const starterIds = new Set(
+      recState
+        .filter((p) => p.status === 'STARTER')
+        .map((p) => Number(p.player_id ?? p.id))
+    );
+    setRosterState((prev) =>
+      prev.map((player) => ({
+        ...player,
+        status: starterIds.has(Number(player.player_id ?? player.id))
+          ? 'STARTER'
+          : 'BENCH',
+      }))
+    );
+    setViewMode('actual');
+    setToast({
+      message: 'Recommended lineup applied. Review and submit when ready.',
+      type: 'success',
+    });
+  }, [recState]);
 
   const handleDragStart = useCallback(
     (player) => {
@@ -1705,7 +1724,17 @@ export default function YourLockerRoom({ activeOwnerId }) {
             </div>
           </>
         )}
-        {viewMode === 'actual' && (
+              {viewMode === 'recommended' && (
+                <button
+                  type="button"
+                  onClick={applyRecommendedLineup}
+                  className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider ${buttonPrimary}`}
+                >
+                  Apply to My Lineup
+                </button>
+              )}
+
+              {viewMode === 'actual' && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div
               className="rounded-xl border border-green-400/40 bg-green-100/60 p-4 dark:border-green-900/60 dark:bg-green-900/10"
