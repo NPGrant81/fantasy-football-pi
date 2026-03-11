@@ -15,6 +15,30 @@ import {
 const clamp = (value, min, max) =>
   Math.max(min, Math.min(max, Number(value) || min));
 
+const STARTER_LIMIT_KEYS = {
+  QB: 'MAX_QB',
+  RB: 'MAX_RB',
+  WR: 'MAX_WR',
+  TE: 'MAX_TE',
+  K: 'MAX_K',
+  DEF: 'MAX_DEF',
+  FLEX: 'MAX_FLEX',
+};
+
+const sanitizeStartingSlotsForSave = (slots) => {
+  const next = { ...(slots || {}) };
+
+  for (const [position, limitKey] of Object.entries(STARTER_LIMIT_KEYS)) {
+    const starterCount = Number(next[position]);
+    const positionLimit = Number(next[limitKey]);
+    if (!Number.isFinite(starterCount) || starterCount < 0) continue;
+    if (!Number.isFinite(positionLimit) || positionLimit < 0) continue;
+    next[position] = Math.min(Math.trunc(starterCount), Math.trunc(positionLimit));
+  }
+
+  return next;
+};
+
 export default function LineupRules() {
   const leagueId = localStorage.getItem('fantasyLeagueId');
 
@@ -82,7 +106,7 @@ export default function LineupRules() {
     setSuccess('');
 
     try {
-      const nextStartingSlots = {
+      const nextStartingSlots = sanitizeStartingSlotsForSave({
         ...(baseConfig.starting_slots || {}),
         ACTIVE_ROSTER_SIZE: clamp(activeRosterSize, 5, 12),
         MAX_QB: clamp(qbLimit, 1, 3),
@@ -98,7 +122,7 @@ export default function LineupRules() {
         TAXI_SIZE: clamp(taxiSize, 0, 5),
         ALLOW_PARTIAL_LINEUP: allowPartialLineup ? 1 : 0,
         REQUIRE_WEEKLY_SUBMIT: requireWeeklySubmit ? 1 : 0,
-      };
+      });
 
       const payload = {
         ...baseConfig,

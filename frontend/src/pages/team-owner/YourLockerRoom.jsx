@@ -78,6 +78,16 @@ const DEFAULT_MAX_POSITION_LIMITS = {
   DEF: 1,
 };
 
+const STARTER_LIMIT_KEYS = {
+  QB: 'MAX_QB',
+  RB: 'MAX_RB',
+  WR: 'MAX_WR',
+  TE: 'MAX_TE',
+  K: 'MAX_K',
+  DEF: 'MAX_DEF',
+  FLEX: 'MAX_FLEX',
+};
+
 const clampInt = (value, min, max) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return min;
@@ -107,6 +117,15 @@ const normalizeStartingSlots = (slots) => {
       merged[normalizedKey] =
         Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     }
+  }
+
+  for (const [position, limitKey] of Object.entries(STARTER_LIMIT_KEYS)) {
+    const parsedLimit = Number(slots[limitKey]);
+    const limit =
+      Number.isFinite(parsedLimit) && parsedLimit >= 0
+        ? Math.trunc(parsedLimit)
+        : merged[position];
+    merged[position] = Math.min(merged[position], limit);
   }
 
   return merged;

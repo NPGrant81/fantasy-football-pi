@@ -203,6 +203,42 @@ describe('LineupRules', () => {
     );
   });
 
+  test('save clamps existing starter counts so they cannot exceed max position limits', async () => {
+    apiClient.get.mockResolvedValueOnce({
+      data: {
+        ...BASE_CONFIG,
+        starting_slots: {
+          ...BASE_SLOTS,
+          QB: 2,
+          RB: 5,
+          WR: 2,
+          TE: 1,
+          ACTIVE_ROSTER_SIZE: 10,
+          MAX_QB: 2,
+          MAX_RB: 4,
+          MAX_WR: 5,
+          MAX_TE: 3,
+        },
+      },
+    });
+    apiClient.put.mockResolvedValueOnce({ data: {} });
+
+    render(<LineupRules />);
+    await waitFor(() =>
+      expect(screen.getByText(/Save Lineup Rules/i)).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByText(/Save Lineup Rules/i));
+
+    await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(1));
+
+    const [, payload] = apiClient.put.mock.calls[0];
+    expect(payload.starting_slots.QB).toBe(2);
+    expect(payload.starting_slots.RB).toBe(4);
+    expect(payload.starting_slots.WR).toBe(2);
+    expect(payload.starting_slots.TE).toBe(1);
+  });
+
   test('shows error when no league is selected', async () => {
     localStorage.removeItem('fantasyLeagueId');
 

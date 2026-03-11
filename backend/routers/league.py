@@ -170,6 +170,7 @@ def validate_lineup_rules(config: LeagueConfigFull) -> None:
     te = parse_int("MAX_TE", 3)
     k = parse_int("MAX_K", 1)
     defense = parse_int("MAX_DEF", 1)
+    flex = parse_int("MAX_FLEX", 1)
 
     rules = {
         "QB": (qb, 1, 3),
@@ -189,6 +190,34 @@ def validate_lineup_rules(config: LeagueConfigFull) -> None:
 
     if defense != 1:
         raise HTTPException(status_code=400, detail="MAX_DEF must be exactly 1.")
+
+    if flex < 0 or flex > 1:
+        raise HTTPException(status_code=400, detail="MAX_FLEX must be 0 or 1.")
+
+    starter_counts = {
+        "QB": parse_int("QB", 0),
+        "RB": parse_int("RB", 0),
+        "WR": parse_int("WR", 0),
+        "TE": parse_int("TE", 0),
+        "K": parse_int("K", 0),
+        "DEF": parse_int("DEF", 0),
+        "FLEX": parse_int("FLEX", 0),
+    }
+    starter_limits = {
+        "QB": qb,
+        "RB": rb,
+        "WR": wr,
+        "TE": te,
+        "K": k,
+        "DEF": defense,
+        "FLEX": flex,
+    }
+    for position, starter_count in starter_counts.items():
+        if starter_count > starter_limits[position]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{position} starter count cannot exceed MAX_{position}.",
+            )
 
     allow_partial = parse_int("ALLOW_PARTIAL_LINEUP", 0)
     if allow_partial not in (0, 1):

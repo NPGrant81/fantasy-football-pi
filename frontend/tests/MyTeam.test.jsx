@@ -39,27 +39,82 @@ vi.mock('../src/components/LeagueAdvisor', () => ({
 import MyTeam from '../src/pages/team-owner/MyTeam';
 import apiClient from '../src/api/client';
 
-const commissionerRulesScenario = ({ maxQb }) => ({
+const commissionerRulesScenario = ({
+  maxQb,
+  qb = 1,
+  rb = 0,
+  wr = 0,
+  te = 0,
+  flex = 0,
+  activeRosterSize = 5,
+  maxRb = 2,
+  maxWr = 1,
+  maxTe = 1,
+}) => ({
   scoring_rules: [],
   starting_slots: {
-    ACTIVE_ROSTER_SIZE: 5,
+    ACTIVE_ROSTER_SIZE: activeRosterSize,
     ALLOW_PARTIAL_LINEUP: 0,
-    QB: 1,
-    RB: 0,
-    WR: 0,
-    TE: 0,
+    QB: qb,
+    RB: rb,
+    WR: wr,
+    TE: te,
     K: 0,
     DEF: 0,
-    FLEX: 0,
+    FLEX: flex,
     MAX_QB: maxQb,
-    MAX_RB: 2,
-    MAX_WR: 1,
-    MAX_TE: 1,
+    MAX_RB: maxRb,
+    MAX_WR: maxWr,
+    MAX_TE: maxTe,
     MAX_K: 0,
+    MAX_FLEX: flex > 0 ? 1 : 0,
   },
 });
 
-function mockOwnerRulesSyncApi(getCurrentSettings) {
+function mockOwnerRulesSyncApi(getCurrentSettings, roster = null) {
+  const resolvedRoster = roster || [
+    {
+      id: 1,
+      player_id: 1,
+      name: 'QB1',
+      position: 'QB',
+      nfl_team: 'NYJ',
+      status: 'STARTER',
+    },
+    {
+      id: 2,
+      player_id: 2,
+      name: 'QB2',
+      position: 'QB',
+      nfl_team: 'NE',
+      status: 'STARTER',
+    },
+    {
+      id: 3,
+      player_id: 3,
+      name: 'QB3',
+      position: 'QB',
+      nfl_team: 'BUF',
+      status: 'STARTER',
+    },
+    {
+      id: 4,
+      player_id: 4,
+      name: 'RB1',
+      position: 'RB',
+      nfl_team: 'PHI',
+      status: 'STARTER',
+    },
+    {
+      id: 5,
+      player_id: 5,
+      name: 'RB2',
+      position: 'RB',
+      nfl_team: 'DET',
+      status: 'STARTER',
+    },
+  ];
+
   apiClient.get.mockImplementation((url) => {
     if (url === '/auth/me') {
       return Promise.resolve({
@@ -94,48 +149,7 @@ function mockOwnerRulesSyncApi(getCurrentSettings) {
     if (url.startsWith('/team/1?week=')) {
       return Promise.resolve({
         data: {
-          roster: [
-            {
-              id: 1,
-              player_id: 1,
-              name: 'QB1',
-              position: 'QB',
-              nfl_team: 'NYJ',
-              status: 'STARTER',
-            },
-            {
-              id: 2,
-              player_id: 2,
-              name: 'QB2',
-              position: 'QB',
-              nfl_team: 'NE',
-              status: 'STARTER',
-            },
-            {
-              id: 3,
-              player_id: 3,
-              name: 'QB3',
-              position: 'QB',
-              nfl_team: 'BUF',
-              status: 'STARTER',
-            },
-            {
-              id: 4,
-              player_id: 4,
-              name: 'RB1',
-              position: 'RB',
-              nfl_team: 'PHI',
-              status: 'STARTER',
-            },
-            {
-              id: 5,
-              player_id: 5,
-              name: 'RB2',
-              position: 'RB',
-              nfl_team: 'DET',
-              status: 'STARTER',
-            },
-          ],
+          roster: resolvedRoster,
         },
       });
     }
@@ -855,6 +869,10 @@ describe('MyTeam (Roster & Lineups)', () => {
     currentSettings = commissionerRulesScenario({ maxQb: 3 });
     Object.defineProperty(document, 'visibilityState', {
       configurable: true,
+      value: 'hidden',
+    });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
       value: 'visible',
     });
 
@@ -973,6 +991,40 @@ describe('MyTeam (Roster & Lineups)', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /submit roster/i })).not.toBeDisabled();
     });
+  });
+
+  test('treats impossible starter minimums as capped by the configured max limits', async () => {
+    const repairedRoster = [
+      { id: 1, player_id: 1, name: 'QB1', position: 'QB', nfl_team: 'NYJ', status: 'STARTER' },
+      { id: 2, player_id: 2, name: 'RB1', position: 'RB', nfl_team: 'PHI', status: 'STARTER' },
+      { id: 3, player_id: 3, name: 'RB2', position: 'RB', nfl_team: 'DET', status: 'STARTER' },
+      { id: 4, player_id: 4, name: 'RB3', position: 'RB', nfl_team: 'KC', status: 'STARTER' },
+      { id: 5, player_id: 5, name: 'RB4', position: 'RB', nfl_team: 'CAR', status: 'STARTER' },
+      { id: 6, player_id: 6, name: 'WR1', position: 'WR', nfl_team: 'IND', status: 'STARTER' },
+      { id: 7, player_id: 7, name: 'WR2', position: 'WR', nfl_team: 'LAC', status: 'STARTER' },
+      { id: 8, player_id: 8, name: 'WR3', position: 'WR', nfl_team: 'SEA', status: 'STARTER' },
+      { id: 9, player_id: 9, name: 'TE1', position: 'TE', nfl_team: 'ARI', status: 'STARTER' },
+    ];
+
+    mockOwnerRulesSyncApi(() =>
+      commissionerRulesScenario({
+        maxQb: 3,
+        qb: 1,
+        rb: 5,
+        wr: 2,
+        te: 1,
+        flex: 1,
+        activeRosterSize: 9,
+        maxRb: 4,
+        maxWr: 3,
+        maxTe: 2,
+      }),
+      repairedRoster
+    );
+
+    render(<MyTeam activeOwnerId={1} />);
+
+    await expectSubmitButtonEventuallyEnabled();
   });
 
   test('trade modal shows dollar inputs and sends them', async () => {

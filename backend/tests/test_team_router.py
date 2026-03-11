@@ -200,6 +200,44 @@ def test_validate_lineup_requirements_two_flex_slots():
     assert errors == []
 
 
+def test_validate_lineup_requirements_caps_invalid_minimums_at_configured_maximums():
+    settings = models.LeagueSettings(
+        league_id=40,
+        starting_slots={
+            "QB": 1,
+            "RB": 5,
+            "WR": 2,
+            "TE": 1,
+            "K": 0,
+            "DEF": 0,
+            "FLEX": 1,
+            "ACTIVE_ROSTER_SIZE": 9,
+            "MAX_QB": 3,
+            "MAX_RB": 4,
+            "MAX_WR": 3,
+            "MAX_TE": 2,
+            "MAX_K": 0,
+            "MAX_DEF": 1,
+            "MAX_FLEX": 1,
+        },
+    )
+    starters = [
+        _make_pick("QB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("WR"),
+        _make_pick("WR"),
+        _make_pick("TE"),
+        _make_pick("WR"),
+    ]
+    from backend.routers.team import validate_lineup_requirements
+
+    errors = validate_lineup_requirements(starters, settings)
+    assert errors == []
+
+
 
 
 def test_validate_lineup_skips_taxi():

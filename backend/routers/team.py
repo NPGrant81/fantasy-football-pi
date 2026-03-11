@@ -197,6 +197,14 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
         "DEF": 1,
         "FLEX": 1,
     }
+
+    def parse_non_negative_slot(key: str, default: int = 0) -> int:
+        value = raw_slots.get(key, default)
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return default
+
     allow_partial_lineup = int(raw_slots.get("ALLOW_PARTIAL_LINEUP", 0) or 0) == 1
 
     required_total = int(
@@ -209,8 +217,23 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
 
     # only these keys correspond to actual lineup positions
     slot_positions = {"QB", "RB", "WR", "TE", "K", "DEF", "FLEX"}
+    slot_limit_keys = {
+        "QB": "MAX_QB",
+        "RB": "MAX_RB",
+        "WR": "MAX_WR",
+        "TE": "MAX_TE",
+        "K": "MAX_K",
+        "DEF": "MAX_DEF",
+        "FLEX": "MAX_FLEX",
+    }
     slots: Dict[str, int] = {
-        pos: int(raw_slots.get(pos, 0) or 0)
+        pos: min(
+            parse_non_negative_slot(pos, 0),
+            parse_non_negative_slot(
+                slot_limit_keys[pos],
+                parse_non_negative_slot(pos, 0),
+            ),
+        )
         for pos in slot_positions
     }
 
