@@ -13,9 +13,9 @@ The backend CI pipeline (`test` job in `.github/workflows/ci.yml`) has been opti
 
 ### 2. **Added Static Analysis with Flake8** (Linting)
 - **Step:** `Lint backend with flake8`
-- **Config:** [`.flake8`](.flake8) in repo root (max line length 120, excludes alembic migrations and __pycache__)
-- **Mode:** Advisory (`--exit-zero`) — reports violations but does not fail CI initially
-- **Rationale:** Introduces linting standards to the codebase incrementally; violations can be fixed and the exit-zero mode removed in follow-up PRs
+- **Config:** [`.flake8`](../.flake8) in repo root (max line length 120, excludes alembic migrations and __pycache__)
+- **Mode:** Advisory via `continue-on-error: true` — violations are visible in step outcome but do not fail the full job initially
+- **Rationale:** Introduces linting standards to the codebase incrementally while preserving CI throughput during cleanup
 - **Exclusions:**
   - `backend/alembic` — auto-generated migrations
   - `backend/data` — data files
@@ -42,10 +42,9 @@ The backend CI pipeline (`test` job in `.github/workflows/ci.yml`) has been opti
 - **Artifact Upload:** Test log uploaded as `backend-test-log` artifact for detailed investigation
 
 ### 6. **Parallel Test Execution Readiness**
-- **Addition:** `pytest-xdist` installed in dependencies
-- **Usage:** Tests can be parallelized with `-n auto` (uses 2 CPUs on GitHub Actions runners)
-- **Safety:** Codebase uses SQLite in-memory for test isolation (via `conftest.py`), making parallel execution safe
-- **Status:** Currently disabled to validate the other optimizations; can be enabled in follow-up PR if needed
+- **Usage:** Tests can later be parallelized with `-n auto` once parallel-safety is validated
+- **Safety:** CI runs against the Postgres service via `DATABASE_URL`, so parallel-safety depends on DB setup/teardown and fixture isolation under concurrent workers
+- **Status:** Parallel mode is intentionally disabled; enable in follow-up only after validating Postgres-backed parallel execution behavior
 
 ## Configuration Files
 
@@ -82,8 +81,8 @@ per-file-ignores =
 
 ## Future Improvements
 
-1. **Enable Parallel Execution:** Remove comment guards in test step, use `-n auto` for pytest-xdist
-2. **Fix Flake8 Violations:** Remove `--exit-zero` once baseline violations are fixed
+1. **Enable Parallel Execution:** Add/lock `pytest-xdist` in backend requirements and enable `-n auto` after Postgres parallel-safety validation
+2. **Fix Flake8 Violations:** Remove `continue-on-error` once baseline violations are fixed
 3. **Type Checking:** Consider adding `mypy` step for type validation of backend code
 4. **Environment Matrix:** Test against multiple Python versions (if needed)
 

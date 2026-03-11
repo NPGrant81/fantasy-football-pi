@@ -70,13 +70,11 @@ jobs:
           pip install -r backend/requirements.txt
           # also install ETL-specific packages (used by upstream tests)
           if [ -f etl/requirements.txt ]; then pip install -r etl/requirements.txt; fi
-          # install pytest-xdist for potential parallel test execution
-          pip install pytest-xdist
 
       - name: Lint backend with flake8
         id: backend_lint
         run: |
-          flake8 backend/ --count --statistics --exit-zero
+          flake8 backend/ --count --statistics
         continue-on-error: true
 
       - name: Seed database

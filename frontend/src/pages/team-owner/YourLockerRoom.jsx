@@ -759,25 +759,33 @@ export default function YourLockerRoom({ activeOwnerId }) {
   );
 
   const applyRecommendedLineup = useCallback(() => {
+    if (!canEditLineup) return;
+
     const starterIds = new Set(
       recState
         .filter((p) => p.status === 'STARTER')
         .map((p) => Number(p.player_id ?? p.id))
     );
     setRosterState((prev) =>
-      prev.map((player) => ({
-        ...player,
-        status: starterIds.has(Number(player.player_id ?? player.id))
-          ? 'STARTER'
-          : 'BENCH',
-      }))
+      prev.map((player) => {
+        if (player.is_locked) {
+          return player;
+        }
+
+        return {
+          ...player,
+          status: starterIds.has(Number(player.player_id ?? player.id))
+            ? 'STARTER'
+            : 'BENCH',
+        };
+      })
     );
     setViewMode('actual');
     setToast({
       message: 'Recommended lineup applied. Review and submit when ready.',
       type: 'success',
     });
-  }, [recState]);
+  }, [canEditLineup, recState]);
 
   const handleDragStart = useCallback(
     (player) => {

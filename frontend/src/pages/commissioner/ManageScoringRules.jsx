@@ -19,6 +19,7 @@ import {
   textCaption,
   textMuted,
 } from '@utils/uiStandards';
+import { CALC_TYPE_LABEL } from '@utils/scoringRules';
 
 const POSITION_OPTIONS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
@@ -30,10 +31,6 @@ const CALCULATION_TYPES = [
   { value: 'half_ppr', label: 'Half-PPR', help: 'Adds half-point per reception.' },
   { value: 'tiered', label: 'Tiered Range', help: 'Applies scoring by ranges using min/max bounds.' },
 ];
-
-const CALC_TYPE_LABEL = Object.fromEntries(
-  CALCULATION_TYPES.map((t) => [t.value, t.label])
-);
 
 const SOURCE_OPTIONS = [
   { value: 'custom', label: 'Custom Rule Set (manual)' },
@@ -795,11 +792,13 @@ export default function ManageScoringRules() {
               <div className={textCaption}>
                 Breakdown: {simResult.breakdown.map((item) => `${item.event_name}: ${item.points}`).join(' | ')}
               </div>
-            ) : null}            {simResult.rules_evaluated === 0 && (
+            ) : null}
+            {simResult.rules_evaluated === 0 && (
               <div className={textMuted}>
                 No scoring rules are configured for this league yet. Add rules above to see a point breakdown.
               </div>
-            )}          </div>
+            )}
+          </div>
         )}
       </div>
 

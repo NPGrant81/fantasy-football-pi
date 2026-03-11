@@ -46,6 +46,14 @@ const BASE_CONFIG = {
   starting_slots: BASE_SLOTS,
 };
 
+function slotsWithoutExplicitKeys(slots) {
+  const next = { ...slots };
+  delete next.K;
+  delete next.FLEX;
+  delete next.DEF;
+  return next;
+}
+
 describe('LineupRules', () => {
   beforeEach(() => {
     localStorage.setItem('fantasyLeagueId', '1');
@@ -72,7 +80,12 @@ describe('LineupRules', () => {
   });
 
   test('save includes K slot-count key matching kEnabled toggle (K enabled)', async () => {
-    apiClient.get.mockResolvedValueOnce({ data: BASE_CONFIG });
+    apiClient.get.mockResolvedValueOnce({
+      data: {
+        ...BASE_CONFIG,
+        starting_slots: slotsWithoutExplicitKeys(BASE_SLOTS),
+      },
+    });
     apiClient.put.mockResolvedValueOnce({ data: {} });
 
     render(<LineupRules />);
@@ -86,7 +99,7 @@ describe('LineupRules', () => {
 
     const [, payload] = apiClient.put.mock.calls[0];
     const slots = payload.starting_slots;
-    // K slot-count key must equal MAX_K when K is enabled
+    // K slot-count key must be explicitly reintroduced even if omitted in payload.
     expect(slots.K).toBe(1);
     expect(slots.MAX_K).toBe(1);
   });
