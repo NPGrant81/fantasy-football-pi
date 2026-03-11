@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => ({
@@ -39,10 +39,133 @@ vi.mock('../src/components/LeagueAdvisor', () => ({
 import MyTeam from '../src/pages/team-owner/MyTeam';
 import apiClient from '../src/api/client';
 
+const commissionerRulesScenario = ({ maxQb }) => ({
+  scoring_rules: [],
+  starting_slots: {
+    ACTIVE_ROSTER_SIZE: 5,
+    ALLOW_PARTIAL_LINEUP: 0,
+    QB: 1,
+    RB: 0,
+    WR: 0,
+    TE: 0,
+    K: 0,
+    DEF: 0,
+    FLEX: 0,
+    MAX_QB: maxQb,
+    MAX_RB: 2,
+    MAX_WR: 1,
+    MAX_TE: 1,
+    MAX_K: 0,
+  },
+});
+
+function mockOwnerRulesSyncApi(getCurrentSettings) {
+  apiClient.get.mockImplementation((url) => {
+    if (url === '/auth/me') {
+      return Promise.resolve({
+        data: {
+          user_id: 1,
+          username: 'alice',
+          league_id: 1,
+          is_commissioner: false,
+        },
+      });
+    }
+    if (url === '/leagues/1') {
+      return Promise.resolve({ data: { name: 'The Big Show' } });
+    }
+    if (url === '/leagues/1/settings') {
+      return Promise.resolve({ data: getCurrentSettings() });
+    }
+    if (url === '/dashboard/1') {
+      return Promise.resolve({
+        data: {
+          player_count: 5,
+          active_lineups: 1,
+          pending_waivers: 0,
+          pending_trades: 0,
+          standing: 1,
+          points_for: 0,
+          points_against: 0,
+          roster: [],
+        },
+      });
+    }
+    if (url.startsWith('/team/1?week=')) {
+      return Promise.resolve({
+        data: {
+          roster: [
+            {
+              id: 1,
+              player_id: 1,
+              name: 'QB1',
+              position: 'QB',
+              nfl_team: 'NYJ',
+              status: 'STARTER',
+            },
+            {
+              id: 2,
+              player_id: 2,
+              name: 'QB2',
+              position: 'QB',
+              nfl_team: 'NE',
+              status: 'STARTER',
+            },
+            {
+              id: 3,
+              player_id: 3,
+              name: 'QB3',
+              position: 'QB',
+              nfl_team: 'BUF',
+              status: 'STARTER',
+            },
+            {
+              id: 4,
+              player_id: 4,
+              name: 'RB1',
+              position: 'RB',
+              nfl_team: 'PHI',
+              status: 'STARTER',
+            },
+            {
+              id: 5,
+              player_id: 5,
+              name: 'RB2',
+              position: 'RB',
+              nfl_team: 'DET',
+              status: 'STARTER',
+            },
+          ],
+        },
+      });
+    }
+    if (url === '/scoring/1') {
+      return Promise.resolve({ data: [] });
+    }
+    return Promise.reject(new Error(`Unknown URL: ${url}`));
+  });
+}
+
+async function expectSubmitButtonInitiallyDisabled() {
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: /submit roster/i })).toBeDisabled();
+  });
+}
+
+async function expectSubmitButtonEventuallyEnabled() {
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: /submit roster/i })).not.toBeDisabled();
+  });
+}
+
 describe('MyTeam (Roster & Lineups)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.resetAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   test('renders loading state while fetching team data', () => {
@@ -703,6 +826,153 @@ describe('MyTeam (Roster & Lineups)', () => {
       });
     });
     consoleSpy.mockRestore();
+  });
+
+  test('refreshes commissioner rules on focus so valid updated lineups can be submitted', async () => {
+    let currentSettings = commissionerRulesScenario({ maxQb: 1 });
+
+    mockOwnerRulesSyncApi(() => currentSettings);
+
+    render(<MyTeam activeOwnerId={1} />);
+
+    await expectSubmitButtonInitiallyDisabled();
+
+    currentSettings = commissionerRulesScenario({ maxQb: 3 });
+    window.dispatchEvent(new Event('focus'));
+
+    await expectSubmitButtonEventuallyEnabled();
+  });
+
+  test('refreshes commissioner rules when tab becomes visible again', async () => {
+    let currentSettings = commissionerRulesScenario({ maxQb: 1 });
+    const originalVisibilityState = document.visibilityState;
+
+    mockOwnerRulesSyncApi(() => currentSettings);
+    render(<MyTeam activeOwnerId={1} />);
+
+    await expectSubmitButtonInitiallyDisabled();
+
+    currentSettings = commissionerRulesScenario({ maxQb: 3 });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await expectSubmitButtonEventuallyEnabled();
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: originalVisibilityState,
+    });
+  });
+
+  test('keeps last-known-good lineup rules when refresh fails after initial load', async () => {
+    let failSettingsRefresh = false;
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: {
+            user_id: 1,
+            username: 'alice',
+            league_id: 1,
+            is_commissioner: false,
+          },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/leagues/1/settings') {
+        if (failSettingsRefresh) {
+          return Promise.reject(new Error('settings refresh failed'));
+        }
+        return Promise.resolve({
+          data: commissionerRulesScenario({ maxQb: 3 }),
+        });
+      }
+      if (url === '/dashboard/1') {
+        return Promise.resolve({
+          data: {
+            player_count: 5,
+            active_lineups: 1,
+            pending_waivers: 0,
+            pending_trades: 0,
+            standing: 1,
+            points_for: 0,
+            points_against: 0,
+            roster: [],
+          },
+        });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({
+          data: {
+            roster: [
+              {
+                id: 1,
+                player_id: 1,
+                name: 'QB1',
+                position: 'QB',
+                nfl_team: 'NYJ',
+                status: 'STARTER',
+              },
+              {
+                id: 2,
+                player_id: 2,
+                name: 'QB2',
+                position: 'QB',
+                nfl_team: 'NE',
+                status: 'STARTER',
+              },
+              {
+                id: 3,
+                player_id: 3,
+                name: 'QB3',
+                position: 'QB',
+                nfl_team: 'BUF',
+                status: 'STARTER',
+              },
+              {
+                id: 4,
+                player_id: 4,
+                name: 'RB1',
+                position: 'RB',
+                nfl_team: 'PHI',
+                status: 'STARTER',
+              },
+              {
+                id: 5,
+                player_id: 5,
+                name: 'RB2',
+                position: 'RB',
+                nfl_team: 'DET',
+                status: 'STARTER',
+              },
+            ],
+          },
+        });
+      }
+      if (url === '/scoring/1') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error(`Unknown URL: ${url}`));
+    });
+
+    render(<MyTeam activeOwnerId={1} />);
+
+    await expectSubmitButtonEventuallyEnabled();
+
+    failSettingsRefresh = true;
+    window.dispatchEvent(new Event('focus'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /submit roster/i })).not.toBeDisabled();
+    });
   });
 
   test('trade modal shows dollar inputs and sends them', async () => {

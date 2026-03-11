@@ -342,6 +342,38 @@ export default function YourLockerRoom({ activeOwnerId }) {
 
   const waiverRemaining = computeRemaining(waiverDeadlineSetting);
   const tradeRemaining = computeRemaining(tradeDeadlineSetting);
+  const loadLeagueSettings = useCallback(async (leagueId, options = {}) => {
+    const { resetOnFailure = false } = options;
+
+    try {
+      const settingsRes = await apiClient.get(`/leagues/${leagueId}/settings`);
+      const slots = settingsRes.data.starting_slots || {};
+      setScoringRules(settingsRes.data.scoring_rules || []);
+      setWaiverDeadlineSetting(settingsRes.data.waiver_deadline || null);
+      setTradeDeadlineSetting(settingsRes.data.trade_deadline || null);
+      setStarterRequirements(normalizeStartingSlots(slots));
+      setActiveRosterRequired(clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12));
+      setMaxPositionLimits({
+        QB: clampInt(slots.MAX_QB ?? 1, 1, 3),
+        RB: clampInt(slots.MAX_RB ?? 3, 1, 5),
+        WR: clampInt(slots.MAX_WR ?? 3, 1, 5),
+        TE: clampInt(slots.MAX_TE ?? 2, 1, 3),
+        K: clampInt(slots.MAX_K ?? 1, 0, 1),
+        DEF: 1,
+      });
+      setAllowPartialLineup(Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1);
+      return true;
+    } catch {
+      if (resetOnFailure) {
+        setScoringRules([]);
+        setStarterRequirements(DEFAULT_STARTER_SLOTS);
+        setActiveRosterRequired(9);
+        setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
+        setAllowPartialLineup(false);
+      }
+      return false;
+    }
+  }, []);
   useEffect(() => {
     async function fetchUserLeague() {
       try {
@@ -365,37 +397,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
           } catch {
             setLeagueOwners([]);
           }
-
-          try {
-            const settingsRes = await apiClient.get(
-              `/leagues/${leagueId}/settings`
-            );
-            const slots = settingsRes.data.starting_slots || {};
-            setScoringRules(settingsRes.data.scoring_rules || []);
-            setWaiverDeadlineSetting(settingsRes.data.waiver_deadline || null);
-            setTradeDeadlineSetting(settingsRes.data.trade_deadline || null);
-            setStarterRequirements(normalizeStartingSlots(slots));
-            setActiveRosterRequired(
-              clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12)
-            );
-            setMaxPositionLimits({
-              QB: clampInt(slots.MAX_QB ?? 1, 1, 3),
-              RB: clampInt(slots.MAX_RB ?? 3, 1, 5),
-              WR: clampInt(slots.MAX_WR ?? 3, 1, 5),
-              TE: clampInt(slots.MAX_TE ?? 2, 1, 3),
-              K: clampInt(slots.MAX_K ?? 1, 0, 1),
-              DEF: 1,
-            });
-            setAllowPartialLineup(
-              Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1
-            );
-          } catch {
-            setScoringRules([]);
-            setStarterRequirements(DEFAULT_STARTER_SLOTS);
-            setActiveRosterRequired(9);
-            setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
-            setAllowPartialLineup(false);
-          }
+          await loadLeagueSettings(leagueId, { resetOnFailure: true });
         }
         setUserInfo({
           username: userRes.data.username,
@@ -445,7 +447,32 @@ export default function YourLockerRoom({ activeOwnerId }) {
       }
     }
     fetchUserLeague();
-  }, [viewedOwnerId]);
+  }, [loadLeagueSettings, viewedOwnerId]);
+
+  useEffect(() => {
+    if (!userInfo.leagueId) return undefined;
+
+    const refreshRules = () => {
+      if (document.visibilityState !== 'visible') return;
+      void loadLeagueSettings(userInfo.leagueId);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshRules();
+      }
+    };
+
+    window.addEventListener('focus', refreshRules);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const intervalId = window.setInterval(refreshRules, 30000);
+
+    return () => {
+      window.removeEventListener('focus', refreshRules);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [loadLeagueSettings, userInfo.leagueId]);
 
   useEffect(() => {
     async function loadTargetRoster() {
