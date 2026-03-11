@@ -41,10 +41,10 @@ export default function Keepers() {
   }, []);
 
   const togglePlayer = (playerId, isEligible) => {
-    // Don't allow toggling ineligible players
-    if (!isEligible) return;
-    
     const newSel = new Set(selected);
+    // Allow deselecting existing picks even if they became ineligible.
+    if (!isEligible && !newSel.has(playerId)) return;
+
     if (newSel.has(playerId)) {
       newSel.delete(playerId);
     } else {

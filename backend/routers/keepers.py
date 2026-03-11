@@ -4,7 +4,7 @@ import io
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from fastapi.responses import PlainTextResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 from pydantic import BaseModel
 from sqlalchemy import func
@@ -231,6 +231,7 @@ def get_my_keepers(
     # Fetch draft picks (the pool of available players to keep)
     draft_picks = (
         db.query(models.DraftPick)
+        .options(selectinload(models.DraftPick.player))
         .filter(
             models.DraftPick.owner_id == current_user.id,
             models.DraftPick.league_id == current_user.league_id,
@@ -252,7 +253,7 @@ def get_my_keepers(
         is_eligible = True
         reason_ineligible = None
         
-        if years_kept > 0 and years_kept >= max_years:
+        if max_years is not None and years_kept > 0 and years_kept >= max_years:
             is_eligible = False
             reason_ineligible = f"Already designated as keeper for {years_kept} year(s); max allowed is {max_years}"
         
