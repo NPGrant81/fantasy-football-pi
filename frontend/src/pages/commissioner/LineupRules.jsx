@@ -21,15 +21,15 @@ const clampInt = (value, min, max) => {
   return Math.max(min, Math.min(max, Math.trunc(parsed)));
 };
 
-const normalizeMinimumSlots = ({ existing, maxes, activeRosterSize }) => {
+const normalizeMinimumSlots = ({ maxes, activeRosterSize }) => {
   const mins = {
-    QB: clampInt(existing.QB ?? 1, 0, maxes.QB),
-    RB: clampInt(existing.RB ?? 1, 0, maxes.RB),
-    WR: clampInt(existing.WR ?? 1, 0, maxes.WR),
-    TE: clampInt(existing.TE ?? 1, 0, maxes.TE),
-    K: clampInt(existing.K ?? (maxes.K > 0 ? 1 : 0), 0, maxes.K),
-    DEF: clampInt(existing.DEF ?? 1, 0, maxes.DEF),
-    FLEX: clampInt(existing.FLEX ?? 0, 0, maxes.FLEX),
+    QB: maxes.QB > 0 ? 1 : 0,
+    RB: maxes.RB > 0 ? Math.min(2, maxes.RB) : 0,
+    WR: maxes.WR > 0 ? Math.min(2, maxes.WR) : 0,
+    TE: maxes.TE > 0 ? 1 : 0,
+    K: maxes.K > 0 ? 1 : 0,
+    DEF: maxes.DEF > 0 ? 1 : 0,
+    FLEX: maxes.FLEX > 0 ? 1 : 0,
   };
 
   let totalMins = Object.values(mins).reduce((sum, count) => sum + count, 0);
@@ -115,7 +115,6 @@ export default function LineupRules() {
     setSuccess('');
 
     try {
-      const existing = baseConfig.starting_slots || {};
       const normalizedActiveRosterSize = clampInt(activeRosterSize, 5, 12);
       const maxes = {
         QB: clampInt(qbLimit, 1, 3),
@@ -127,7 +126,6 @@ export default function LineupRules() {
         FLEX: flexEnabled ? 1 : 0,
       };
       const mins = normalizeMinimumSlots({
-        existing,
         maxes,
         activeRosterSize: normalizedActiveRosterSize,
       });

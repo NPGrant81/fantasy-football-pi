@@ -131,35 +131,17 @@ const normalizeStartingSlots = (slots) => {
   return merged;
 };
 
-const normalizeLineupConstraints = (slots) => {
-  const normalizedSlots = slots && typeof slots === 'object' ? slots : {};
-  const activeRosterSize = clampInt(normalizedSlots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12);
-
-  const maxLimits = {
-    QB: clampInt(normalizedSlots.MAX_QB ?? 1, 1, 3),
-    RB: clampInt(normalizedSlots.MAX_RB ?? 3, 1, 5),
-    WR: clampInt(normalizedSlots.MAX_WR ?? 3, 1, 5),
-    TE: clampInt(normalizedSlots.MAX_TE ?? 2, 1, 3),
-    K: clampInt(normalizedSlots.MAX_K ?? 1, 0, 1),
-    DEF: 1,
-  };
-
-  const minsFromSlots = normalizeStartingSlots(normalizedSlots);
+const buildCanonicalStarterSlots = (maxLimits, activeRosterSize) => {
   const starterSlots = {
-    QB: clampInt(minsFromSlots.QB ?? 1, 0, maxLimits.QB),
-    RB: clampInt(minsFromSlots.RB ?? 2, 0, maxLimits.RB),
-    WR: clampInt(minsFromSlots.WR ?? 2, 0, maxLimits.WR),
-    TE: clampInt(minsFromSlots.TE ?? 1, 0, maxLimits.TE),
-    K: clampInt(minsFromSlots.K ?? 1, 0, maxLimits.K),
-    DEF: clampInt(minsFromSlots.DEF ?? 1, 0, maxLimits.DEF),
-    FLEX: clampInt(
-      minsFromSlots.FLEX ?? 1,
-      0,
-      clampInt(normalizedSlots.MAX_FLEX ?? 1, 0, 1)
-    ),
+    QB: maxLimits.QB > 0 ? 1 : 0,
+    RB: maxLimits.RB > 0 ? Math.min(2, maxLimits.RB) : 0,
+    WR: maxLimits.WR > 0 ? Math.min(2, maxLimits.WR) : 0,
+    TE: maxLimits.TE > 0 ? 1 : 0,
+    K: maxLimits.K > 0 ? 1 : 0,
+    DEF: maxLimits.DEF > 0 ? 1 : 0,
+    FLEX: maxLimits.FLEX > 0 ? 1 : 0,
   };
 
-  // Keep minimum sum inside active roster cap to avoid impossible validation state.
   let minimumTotal = Object.values(starterSlots).reduce(
     (sum, count) => sum + Number(count || 0),
     0
@@ -174,6 +156,25 @@ const normalizeLineupConstraints = (slots) => {
       if (minimumTotal <= activeRosterSize) break;
     }
   }
+
+  return starterSlots;
+};
+
+const normalizeLineupConstraints = (slots) => {
+  const normalizedSlots = slots && typeof slots === 'object' ? slots : {};
+  const activeRosterSize = clampInt(normalizedSlots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12);
+
+  const maxLimits = {
+    QB: clampInt(normalizedSlots.MAX_QB ?? normalizedSlots.QB ?? 1, 1, 3),
+    RB: clampInt(normalizedSlots.MAX_RB ?? normalizedSlots.RB ?? 3, 1, 5),
+    WR: clampInt(normalizedSlots.MAX_WR ?? normalizedSlots.WR ?? 3, 1, 5),
+    TE: clampInt(normalizedSlots.MAX_TE ?? normalizedSlots.TE ?? 2, 1, 3),
+    K: clampInt(normalizedSlots.MAX_K ?? normalizedSlots.K ?? 1, 0, 1),
+    DEF: clampInt(normalizedSlots.MAX_DEF ?? normalizedSlots.DEF ?? 1, 0, 1),
+    FLEX: clampInt(normalizedSlots.MAX_FLEX ?? normalizedSlots.FLEX ?? 1, 0, 2),
+  };
+
+  const starterSlots = buildCanonicalStarterSlots(maxLimits, activeRosterSize);
 
   return {
     starterSlots,
@@ -694,6 +695,16 @@ export default function YourLockerRoom({ activeOwnerId }) {
       }
     }
 
+    const flexEligibleCount = counts.RB + counts.WR + counts.TE;
+    const baseFlexUsage =
+      Math.min(counts.RB, Number(starterRequirements.RB ?? 0)) +
+      Math.min(counts.WR, Number(starterRequirements.WR ?? 0)) +
+      Math.min(counts.TE, Number(starterRequirements.TE ?? 0));
+    const flexActual = Math.min(
+      Math.max(flexEligibleCount - baseFlexUsage, 0),
+      Number(starterRequirements.FLEX ?? 0)
+    );
+
     const errors = [];
     if (currentStarters.length < activeRosterRequired && !allowPartialLineup) {
       errors.push('not enough players');
@@ -732,6 +743,11 @@ export default function YourLockerRoom({ activeOwnerId }) {
           valid: (allowPartialLineup || meetsMin) && meetsMax,
         };
       });
+
+    const flexMinimum = Number(starterRequirements.FLEX ?? 0);
+    if (flexMinimum > 0 && flexActual < flexMinimum && !allowPartialLineup) {
+      errors.push('not enough FLEX');
+    }
 
     return {
       errors,

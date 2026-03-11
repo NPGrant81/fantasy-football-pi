@@ -230,7 +230,44 @@ def test_validate_lineup_requirements_caps_invalid_minimums_at_configured_maximu
         _make_pick("WR"),
         _make_pick("WR"),
         _make_pick("TE"),
+        _make_pick("DEF"),
+    ]
+    from backend.routers.team import validate_lineup_requirements
+
+    errors = validate_lineup_requirements(starters, settings)
+    assert errors == []
+
+
+def test_validate_lineup_requirements_ignores_stale_hidden_minimums():
+    settings = models.LeagueSettings(
+        league_id=41,
+        starting_slots={
+            "QB": 2,
+            "RB": 4,
+            "WR": 2,
+            "TE": 0,
+            "K": 1,
+            "DEF": 1,
+            "FLEX": 1,
+            "ACTIVE_ROSTER_SIZE": 8,
+            "MAX_QB": 2,
+            "MAX_RB": 4,
+            "MAX_WR": 5,
+            "MAX_TE": 3,
+            "MAX_K": 0,
+            "MAX_DEF": 1,
+            "MAX_FLEX": 1,
+        },
+    )
+    starters = [
+        _make_pick("QB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
         _make_pick("WR"),
+        _make_pick("WR"),
+        _make_pick("TE"),
+        _make_pick("DEF"),
     ]
     from backend.routers.team import validate_lineup_requirements
 

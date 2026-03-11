@@ -169,6 +169,29 @@ def get_current_year() -> int:
     return datetime.now(timezone.utc).year
 
 
+def _build_canonical_starter_slots(max_limits: Dict[str, int], required_total: int) -> Dict[str, int]:
+    slots: Dict[str, int] = {
+        "QB": 1 if max_limits["QB"] > 0 else 0,
+        "RB": min(2, max_limits["RB"]) if max_limits["RB"] > 0 else 0,
+        "WR": min(2, max_limits["WR"]) if max_limits["WR"] > 0 else 0,
+        "TE": 1 if max_limits["TE"] > 0 else 0,
+        "K": 1 if max_limits["K"] > 0 else 0,
+        "DEF": 1 if max_limits["DEF"] > 0 else 0,
+        "FLEX": 1 if max_limits["FLEX"] > 0 else 0,
+    }
+
+    total_minimums = sum(slots.values())
+    if required_total > 0 and total_minimums > required_total:
+        for pos in ("FLEX", "K", "TE", "WR", "RB", "QB", "DEF"):
+            while slots[pos] > 0 and total_minimums > required_total:
+                slots[pos] -= 1
+                total_minimums -= 1
+            if total_minimums <= required_total:
+                break
+
+    return slots
+
+
 def validate_lineup_requirements(starters: List[models.DraftPick], settings: models.LeagueSettings) -> List[str]:
     """Validate that a proposed set of starters satisfies the league's slot rules.
 
@@ -198,13 +221,6 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
         "FLEX": 1,
     }
 
-    def parse_non_negative_slot(key: str, default: int = 0) -> int:
-        value = raw_slots.get(key, default)
-        try:
-            return max(0, int(value))
-        except (TypeError, ValueError):
-            return default
-
     allow_partial_lineup = int(raw_slots.get("ALLOW_PARTIAL_LINEUP", 0) or 0) == 1
 
     required_total = int(
@@ -225,29 +241,16 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
             return default
 
     max_limits: Dict[str, int] = {
-        "QB": max(1, min(3, _to_int(raw_slots.get("MAX_QB", 1), 1))),
-        "RB": max(1, min(5, _to_int(raw_slots.get("MAX_RB", 3), 3))),
-        "WR": max(1, min(5, _to_int(raw_slots.get("MAX_WR", 3), 3))),
-        "TE": max(1, min(3, _to_int(raw_slots.get("MAX_TE", 2), 2))),
-        "K": max(0, min(1, _to_int(raw_slots.get("MAX_K", 1), 1))),
-        "DEF": 1,
-        "FLEX": max(0, min(1, _to_int(raw_slots.get("MAX_FLEX", 1), 1))),
+        "QB": max(1, min(3, _to_int(raw_slots.get("MAX_QB", raw_slots.get("QB", 1)), 1))),
+        "RB": max(1, min(5, _to_int(raw_slots.get("MAX_RB", raw_slots.get("RB", 3)), 3))),
+        "WR": max(1, min(5, _to_int(raw_slots.get("MAX_WR", raw_slots.get("WR", 3)), 3))),
+        "TE": max(1, min(3, _to_int(raw_slots.get("MAX_TE", raw_slots.get("TE", 2)), 2))),
+        "K": max(0, min(1, _to_int(raw_slots.get("MAX_K", raw_slots.get("K", 1)), 1))),
+        "DEF": max(0, min(1, _to_int(raw_slots.get("MAX_DEF", raw_slots.get("DEF", 1)), 1))),
+        "FLEX": max(0, min(2, _to_int(raw_slots.get("MAX_FLEX", raw_slots.get("FLEX", 1)), 1))),
     }
 
-    slots: Dict[str, int] = {}
-    for pos in slot_positions:
-        configured_min = max(0, _to_int(raw_slots.get(pos, 0), 0))
-        slots[pos] = min(configured_min, max_limits[pos])
-
-    # Guard against stale settings where sum(minimums) exceeds active roster cap.
-    total_minimums = sum(slots.values())
-    if required_total > 0 and total_minimums > required_total:
-        for pos in ("FLEX", "K", "TE", "WR", "RB", "QB", "DEF"):
-            while slots[pos] > 0 and total_minimums > required_total:
-                slots[pos] -= 1
-                total_minimums -= 1
-            if total_minimums <= required_total:
-                break
+    slots = _build_canonical_starter_slots(max_limits, required_total)
 
     # --- build a simple pool of starters by position ---
     pools = {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "K": 0, "DEF": 0}

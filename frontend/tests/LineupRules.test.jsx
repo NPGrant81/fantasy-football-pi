@@ -203,7 +203,7 @@ describe('LineupRules', () => {
     );
   });
 
-  test('save clamps existing starter counts so they cannot exceed max position limits', async () => {
+  test('save recomputes starter minimums from the visible max position limits', async () => {
     apiClient.get.mockResolvedValueOnce({
       data: {
         ...BASE_CONFIG,
@@ -233,10 +233,12 @@ describe('LineupRules', () => {
     await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(1));
 
     const [, payload] = apiClient.put.mock.calls[0];
-    expect(payload.starting_slots.QB).toBe(2);
-    expect(payload.starting_slots.RB).toBe(4);
+    expect(payload.starting_slots.QB).toBe(1);
+    expect(payload.starting_slots.RB).toBe(2);
     expect(payload.starting_slots.WR).toBe(2);
     expect(payload.starting_slots.TE).toBe(1);
+    expect(payload.starting_slots.K).toBe(1);
+    expect(payload.starting_slots.FLEX).toBe(1);
   });
 
   test('shows error when no league is selected', async () => {
