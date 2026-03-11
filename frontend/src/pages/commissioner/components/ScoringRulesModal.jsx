@@ -12,23 +12,18 @@ import {
   tableCell,
   textMuted,
 } from '@utils/uiStandards';
-
-const CALC_TYPE_LABEL = {
-  flat_bonus: 'Flat Bonus',
-  per_unit: 'Per Unit',
-  decimal: 'Decimal',
-  ppr: 'PPR',
-  half_ppr: 'Half-PPR',
-  tiered: 'Tiered Range',
-};
+import { CALC_TYPE_LABEL } from '@utils/scoringRules';
 
 export default function ScoringRulesModal({ open, onClose }) {
   const [rules, setRules] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(open);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     apiClient

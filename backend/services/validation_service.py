@@ -212,14 +212,21 @@ def _manual_dynamic_league_settings_validation(payload: dict[str, Any]) -> Valid
                 total_slots += value
                 counted_starter_slots += 1
 
-        if counted_starter_slots > 0:
+        if counted_starter_slots == 0:
+            errors.setdefault("starting_slots", []).append(
+                "must include at least one starter slot"
+            )
+        else:
             active_roster_size = starting_slots.get("ACTIVE_ROSTER_SIZE")
             # Lineup slot totals are constrained by active starters, not total roster size.
             # Fallback to roster_size only when ACTIVE_ROSTER_SIZE is not provided.
             limit = active_roster_size if isinstance(active_roster_size, int) else roster_size
             if isinstance(limit, int) and total_slots > limit:
+                limit_label = (
+                    "ACTIVE_ROSTER_SIZE" if isinstance(active_roster_size, int) else "roster_size"
+                )
                 errors.setdefault("starting_slots", []).append(
-                    "sum of starting slots cannot exceed ACTIVE_ROSTER_SIZE"
+                    f"sum of starting slots cannot exceed {limit_label}"
                 )
 
     if not isinstance(scoring_rules, list) or len(scoring_rules) == 0:
