@@ -70,6 +70,14 @@ jobs:
           pip install -r backend/requirements.txt
           # also install ETL-specific packages (used by upstream tests)
           if [ -f etl/requirements.txt ]; then pip install -r etl/requirements.txt; fi
+          # install pytest-xdist for potential parallel test execution
+          pip install pytest-xdist
+
+      - name: Lint backend with flake8
+        id: backend_lint
+        run: |
+          flake8 backend/ --count --statistics --exit-zero
+        continue-on-error: true
 
       - name: Seed database
         run: |
@@ -86,26 +94,61 @@ jobs:
           PYTHONPATH: .
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
-      - name: Run backend tests
+      - name: Run backend tests with coverage
+        id: backend_tests
         run: |
-          python -m pytest backend -q
+          python -m pytest backend -q \
+            --tb=short \
+            --cov=backend \
+            --cov-report=xml:backend-coverage.xml \
+            --cov-report=term-missing:skip-covered 2>&1 | tee backend-test.log
         env:
           PYTHONPATH: .
           DATABASE_URL: ${{ env.DATABASE_URL }}
-      - name: Run backend coverage
-        if: always()
-        run: |
-          # limit coverage run to backend directory to avoid unrelated etl tests
-          python -m pytest backend --maxfail=1 --disable-warnings -q --cov=backend --cov-report=xml:backend-coverage.xml
-        env:
-          PYTHONPATH: .
-          DATABASE_URL: ${{ env.DATABASE_URL }}
+
       - name: Upload backend coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
           path: backend-coverage.xml
+
+      - name: Upload backend test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-log
+          if-no-files-found: ignore
+          path: backend-test.log
+
+      - name: Backend failure diagnostics
+        if: failure()
+        run: |
+          echo "Backend CI failure diagnostics:"
+          echo "- Lint step id: backend_lint"
+          echo "- Test step id: backend_tests"
+          if [ -f backend-test.log ]; then
+            echo ""
+            echo "Last 50 lines of backend-test.log:"
+            tail -n 50 backend-test.log
+          fi
+
+      - name: Publish backend CI summary
+        if: always()
+        run: |
+          {
+            echo "## Backend CI Details"
+            echo ""
+            echo "- Lint result: ${{ steps.backend_lint.outcome }}"
+            echo "- Test result: ${{ steps.backend_tests.outcome }}"
+            echo ""
+            if [ -f backend-test.log ]; then
+              echo "### Coverage Summary"
+              echo '```'
+              grep -E 'TOTAL|^[-]{20}' backend-test.log | tail -3 || echo "Coverage data not available"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Categorize backend failure
         if: always()

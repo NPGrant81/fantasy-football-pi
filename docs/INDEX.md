@@ -6,6 +6,7 @@ Refer to the appropriate file for more information.
 - [Api Page Matrix](API_PAGE_MATRIX.md)
 - [Api Integration Pipeline](API_INTEGRATION_PIPELINE.md)
 - [Architecture](ARCHITECTURE.md)
+- [Backend Ci Pipeline Optimization](BACKEND_CI_PIPELINE_OPTIMIZATION.md)
 - [Cloudflare Tunnel Setup](CLOUDFLARE_TUNNEL_SETUP.md)
 - [Cloudflare Tunnel CLI Runbook](cloudflare-tunnel-cli.md)
 - [Cloudflare Tunnel Monitoring](cloudflare-tunnel-monitoring.md)
