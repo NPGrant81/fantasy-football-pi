@@ -73,6 +73,8 @@ class CU:
         self.league_id = user.league_id
         self.future_draft_budget = user.future_draft_budget
         self.is_commissioner = user.is_commissioner
+        self.username = user.username
+        self.team_name = getattr(user, 'team_name', None)
 
 
 def test_owner_keeper_endpoints():
