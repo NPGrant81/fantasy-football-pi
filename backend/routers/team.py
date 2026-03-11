@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Set
+from typing import Any, List, Optional, Dict, Set
 from pydantic import BaseModel, ConfigDict
 from ..database import get_db
 from .. import models
@@ -216,26 +216,38 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
     )
 
     # only these keys correspond to actual lineup positions
-    slot_positions = {"QB", "RB", "WR", "TE", "K", "DEF", "FLEX"}
-    slot_limit_keys = {
-        "QB": "MAX_QB",
-        "RB": "MAX_RB",
-        "WR": "MAX_WR",
-        "TE": "MAX_TE",
-        "K": "MAX_K",
-        "DEF": "MAX_DEF",
-        "FLEX": "MAX_FLEX",
+    slot_positions = ("QB", "RB", "WR", "TE", "K", "DEF", "FLEX")
+
+    def _to_int(value: Any, default: int = 0) -> int:
+        try:
+            return int(value)
+        except Exception:
+            return default
+
+    max_limits: Dict[str, int] = {
+        "QB": max(1, min(3, _to_int(raw_slots.get("MAX_QB", 1), 1))),
+        "RB": max(1, min(5, _to_int(raw_slots.get("MAX_RB", 3), 3))),
+        "WR": max(1, min(5, _to_int(raw_slots.get("MAX_WR", 3), 3))),
+        "TE": max(1, min(3, _to_int(raw_slots.get("MAX_TE", 2), 2))),
+        "K": max(0, min(1, _to_int(raw_slots.get("MAX_K", 1), 1))),
+        "DEF": 1,
+        "FLEX": max(0, min(1, _to_int(raw_slots.get("MAX_FLEX", 1), 1))),
     }
-    slots: Dict[str, int] = {
-        pos: min(
-            parse_non_negative_slot(pos, 0),
-            parse_non_negative_slot(
-                slot_limit_keys[pos],
-                parse_non_negative_slot(pos, 0),
-            ),
-        )
-        for pos in slot_positions
-    }
+
+    slots: Dict[str, int] = {}
+    for pos in slot_positions:
+        configured_min = max(0, _to_int(raw_slots.get(pos, 0), 0))
+        slots[pos] = min(configured_min, max_limits[pos])
+
+    # Guard against stale settings where sum(minimums) exceeds active roster cap.
+    total_minimums = sum(slots.values())
+    if required_total > 0 and total_minimums > required_total:
+        for pos in ("FLEX", "K", "TE", "WR", "RB", "QB", "DEF"):
+            while slots[pos] > 0 and total_minimums > required_total:
+                slots[pos] -= 1
+                total_minimums -= 1
+            if total_minimums <= required_total:
+                break
 
     # --- build a simple pool of starters by position ---
     pools = {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "K": 0, "DEF": 0}

@@ -15,28 +15,37 @@ import {
 const clamp = (value, min, max) =>
   Math.max(min, Math.min(max, Number(value) || min));
 
-const STARTER_LIMIT_KEYS = {
-  QB: 'MAX_QB',
-  RB: 'MAX_RB',
-  WR: 'MAX_WR',
-  TE: 'MAX_TE',
-  K: 'MAX_K',
-  DEF: 'MAX_DEF',
-  FLEX: 'MAX_FLEX',
+const clampInt = (value, min, max) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return min;
+  return Math.max(min, Math.min(max, Math.trunc(parsed)));
 };
 
-const sanitizeStartingSlotsForSave = (slots) => {
-  const next = { ...(slots || {}) };
+const normalizeMinimumSlots = ({ existing, maxes, activeRosterSize }) => {
+  const mins = {
+    QB: clampInt(existing.QB ?? 1, 0, maxes.QB),
+    RB: clampInt(existing.RB ?? 1, 0, maxes.RB),
+    WR: clampInt(existing.WR ?? 1, 0, maxes.WR),
+    TE: clampInt(existing.TE ?? 1, 0, maxes.TE),
+    K: clampInt(existing.K ?? (maxes.K > 0 ? 1 : 0), 0, maxes.K),
+    DEF: clampInt(existing.DEF ?? 1, 0, maxes.DEF),
+    FLEX: clampInt(existing.FLEX ?? 0, 0, maxes.FLEX),
+  };
 
-  for (const [position, limitKey] of Object.entries(STARTER_LIMIT_KEYS)) {
-    const starterCount = Number(next[position]);
-    const positionLimit = Number(next[limitKey]);
-    if (!Number.isFinite(starterCount) || starterCount < 0) continue;
-    if (!Number.isFinite(positionLimit) || positionLimit < 0) continue;
-    next[position] = Math.min(Math.trunc(starterCount), Math.trunc(positionLimit));
+  let totalMins = Object.values(mins).reduce((sum, count) => sum + count, 0);
+  if (totalMins <= activeRosterSize) return mins;
+
+  // Reduce optional slots first if historical values are incompatible.
+  const reductionOrder = ['FLEX', 'K', 'TE', 'WR', 'RB', 'QB', 'DEF'];
+  for (const position of reductionOrder) {
+    while (mins[position] > 0 && totalMins > activeRosterSize) {
+      mins[position] -= 1;
+      totalMins -= 1;
+    }
+    if (totalMins <= activeRosterSize) break;
   }
 
-  return next;
+  return mins;
 };
 
 export default function LineupRules() {
@@ -106,23 +115,46 @@ export default function LineupRules() {
     setSuccess('');
 
     try {
-      const nextStartingSlots = sanitizeStartingSlotsForSave({
-        ...(baseConfig.starting_slots || {}),
-        ACTIVE_ROSTER_SIZE: clamp(activeRosterSize, 5, 12),
-        MAX_QB: clamp(qbLimit, 1, 3),
-        MAX_RB: clamp(rbLimit, 1, 5),
-        MAX_WR: clamp(wrLimit, 1, 5),
-        MAX_TE: clamp(teLimit, 1, 3),
-        MAX_K: kEnabled ? 1 : 0,
+      const existing = baseConfig.starting_slots || {};
+      const normalizedActiveRosterSize = clampInt(activeRosterSize, 5, 12);
+      const maxes = {
+        QB: clampInt(qbLimit, 1, 3),
+        RB: clampInt(rbLimit, 1, 5),
+        WR: clampInt(wrLimit, 1, 5),
+        TE: clampInt(teLimit, 1, 3),
         K: kEnabled ? 1 : 0,
-        MAX_DEF: 1,
         DEF: 1,
-        MAX_FLEX: flexEnabled ? 1 : 0,
         FLEX: flexEnabled ? 1 : 0,
-        TAXI_SIZE: clamp(taxiSize, 0, 5),
+      };
+      const mins = normalizeMinimumSlots({
+        existing,
+        maxes,
+        activeRosterSize: normalizedActiveRosterSize,
+      });
+
+      const nextStartingSlots = {
+        ...(baseConfig.starting_slots || {}),
+        // Minimums required per position
+        QB: mins.QB,
+        RB: mins.RB,
+        WR: mins.WR,
+        TE: mins.TE,
+        K: mins.K,
+        DEF: mins.DEF,
+        FLEX: mins.FLEX,
+        // Maximums allowed per position
+        ACTIVE_ROSTER_SIZE: normalizedActiveRosterSize,
+        MAX_QB: maxes.QB,
+        MAX_RB: maxes.RB,
+        MAX_WR: maxes.WR,
+        MAX_TE: maxes.TE,
+        MAX_K: maxes.K,
+        MAX_DEF: maxes.DEF,
+        MAX_FLEX: maxes.FLEX,
+        TAXI_SIZE: clampInt(taxiSize, 0, 5),
         ALLOW_PARTIAL_LINEUP: allowPartialLineup ? 1 : 0,
         REQUIRE_WEEKLY_SUBMIT: requireWeeklySubmit ? 1 : 0,
-      });
+      };
 
       const payload = {
         ...baseConfig,

@@ -131,6 +131,58 @@ const normalizeStartingSlots = (slots) => {
   return merged;
 };
 
+const normalizeLineupConstraints = (slots) => {
+  const normalizedSlots = slots && typeof slots === 'object' ? slots : {};
+  const activeRosterSize = clampInt(normalizedSlots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12);
+
+  const maxLimits = {
+    QB: clampInt(normalizedSlots.MAX_QB ?? 1, 1, 3),
+    RB: clampInt(normalizedSlots.MAX_RB ?? 3, 1, 5),
+    WR: clampInt(normalizedSlots.MAX_WR ?? 3, 1, 5),
+    TE: clampInt(normalizedSlots.MAX_TE ?? 2, 1, 3),
+    K: clampInt(normalizedSlots.MAX_K ?? 1, 0, 1),
+    DEF: 1,
+  };
+
+  const minsFromSlots = normalizeStartingSlots(normalizedSlots);
+  const starterSlots = {
+    QB: clampInt(minsFromSlots.QB ?? 1, 0, maxLimits.QB),
+    RB: clampInt(minsFromSlots.RB ?? 2, 0, maxLimits.RB),
+    WR: clampInt(minsFromSlots.WR ?? 2, 0, maxLimits.WR),
+    TE: clampInt(minsFromSlots.TE ?? 1, 0, maxLimits.TE),
+    K: clampInt(minsFromSlots.K ?? 1, 0, maxLimits.K),
+    DEF: clampInt(minsFromSlots.DEF ?? 1, 0, maxLimits.DEF),
+    FLEX: clampInt(
+      minsFromSlots.FLEX ?? 1,
+      0,
+      clampInt(normalizedSlots.MAX_FLEX ?? 1, 0, 1)
+    ),
+  };
+
+  // Keep minimum sum inside active roster cap to avoid impossible validation state.
+  let minimumTotal = Object.values(starterSlots).reduce(
+    (sum, count) => sum + Number(count || 0),
+    0
+  );
+  if (minimumTotal > activeRosterSize) {
+    const reductionOrder = ['FLEX', 'K', 'TE', 'WR', 'RB', 'QB', 'DEF'];
+    for (const position of reductionOrder) {
+      while (starterSlots[position] > 0 && minimumTotal > activeRosterSize) {
+        starterSlots[position] -= 1;
+        minimumTotal -= 1;
+      }
+      if (minimumTotal <= activeRosterSize) break;
+    }
+  }
+
+  return {
+    starterSlots,
+    maxLimits,
+    activeRosterSize,
+    allowPartialLineup: Number(normalizedSlots.ALLOW_PARTIAL_LINEUP ?? 0) === 1,
+  };
+};
+
 const getSlotLabel = (position) =>
   position === 'FLEX' ? FLEX_SLOT_LABEL : position;
 
@@ -367,20 +419,14 @@ export default function YourLockerRoom({ activeOwnerId }) {
     try {
       const settingsRes = await apiClient.get(`/leagues/${leagueId}/settings`);
       const slots = settingsRes.data.starting_slots || {};
+      const normalized = normalizeLineupConstraints(slots);
       setScoringRules(settingsRes.data.scoring_rules || []);
       setWaiverDeadlineSetting(settingsRes.data.waiver_deadline || null);
       setTradeDeadlineSetting(settingsRes.data.trade_deadline || null);
-      setStarterRequirements(normalizeStartingSlots(slots));
-      setActiveRosterRequired(clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12));
-      setMaxPositionLimits({
-        QB: clampInt(slots.MAX_QB ?? 1, 1, 3),
-        RB: clampInt(slots.MAX_RB ?? 3, 1, 5),
-        WR: clampInt(slots.MAX_WR ?? 3, 1, 5),
-        TE: clampInt(slots.MAX_TE ?? 2, 1, 3),
-        K: clampInt(slots.MAX_K ?? 1, 0, 1),
-        DEF: 1,
-      });
-      setAllowPartialLineup(Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1);
+      setStarterRequirements(normalized.starterSlots);
+      setActiveRosterRequired(normalized.activeRosterSize);
+      setMaxPositionLimits(normalized.maxLimits);
+      setAllowPartialLineup(normalized.allowPartialLineup);
       return true;
     } catch {
       if (resetOnFailure) {
@@ -666,9 +712,10 @@ export default function YourLockerRoom({ activeOwnerId }) {
       })
       .map((position) => {
         const minimum = Number(starterRequirements[position] ?? 0);
-        const maximum = Number(
+        const configuredMaximum = Number(
           maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
         );
+        const maximum = Math.max(minimum, configuredMaximum);
         const actual = Number(counts[position] || 0);
         const meetsMin = actual >= minimum;
         const meetsMax = actual <= maximum;
