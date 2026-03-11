@@ -31,6 +31,10 @@ const CALCULATION_TYPES = [
   { value: 'tiered', label: 'Tiered Range', help: 'Applies scoring by ranges using min/max bounds.' },
 ];
 
+const CALC_TYPE_LABEL = Object.fromEntries(
+  CALCULATION_TYPES.map((t) => [t.value, t.label])
+);
+
 const SOURCE_OPTIONS = [
   { value: 'custom', label: 'Custom Rule Set (manual)' },
   { value: 'template', label: 'Template Applied Rule' },
@@ -678,7 +682,7 @@ export default function ManageScoringRules() {
                   <StandardTableRow key={`${row.event_name}-${idx}`} className="hover:bg-transparent dark:hover:bg-transparent">
                     <td className={tableCell}>{row.category}</td>
                     <td className={tableCell}>{row.event_name}</td>
-                    <td className={tableCell}>{row.calculation_type}</td>
+                    <td className={tableCell}>{CALC_TYPE_LABEL[row.calculation_type] || row.calculation_type}</td>
                     <td className={tableCell}>{row.point_value}</td>
                     <td className={tableCell}>{(row.applicable_positions || []).join(', ') || 'ALL'}</td>
                   </StandardTableRow>
@@ -717,7 +721,7 @@ export default function ManageScoringRules() {
                     <td className={tableCell}>{rule.event_name}</td>
                     <td className={tableCell}>{rule.range_min}-{rule.range_max}</td>
                     <td className={tableCell}>{rule.point_value}</td>
-                    <td className={tableCell}>{rule.calculation_type}</td>
+                    <td className={tableCell}>{CALC_TYPE_LABEL[rule.calculation_type] || rule.calculation_type}</td>
                     <td className={tableCell}>{(rule.applicable_positions || []).join(', ') || 'ALL'}</td>
                     <td className={tableCell}>{rule.season_year || 'All seasons'}</td>
                     <td className={tableCell}>
@@ -789,10 +793,13 @@ export default function ManageScoringRules() {
             </div>
             {Array.isArray(simResult.breakdown) && simResult.breakdown.length > 0 ? (
               <div className={textCaption}>
-                Breakdown: {simResult.breakdown.map((item) => `${item.event_name}: ${item.points_awarded}`).join(' | ')}
+                Breakdown: {simResult.breakdown.map((item) => `${item.event_name}: ${item.points}`).join(' | ')}
               </div>
-            ) : null}
-          </div>
+            ) : null}            {simResult.rules_evaluated === 0 && (
+              <div className={textMuted}>
+                No scoring rules are configured for this league yet. Add rules above to see a point breakdown.
+              </div>
+            )}          </div>
         )}
       </div>
 

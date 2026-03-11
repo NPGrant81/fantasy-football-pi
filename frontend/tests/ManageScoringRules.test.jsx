@@ -126,4 +126,64 @@ describe('ManageScoringRules page', () => {
       expect(screen.getByText(/Total Preview Points: 18/i)).toBeInTheDocument();
     });
   });
+
+  test('simulator breakdown uses points field (not points_awarded)', async () => {
+    apiClient.post.mockResolvedValueOnce({
+      data: {
+        points: 12,
+        rules_evaluated: 2,
+        breakdown: [
+          { event_name: 'passing_tds', points: 8 },
+          { event_name: 'passing_yards', points: 4 },
+        ],
+      },
+    });
+
+    render(<ManageScoringRules />);
+    fireEvent.click(screen.getByRole('button', { name: /Run Preview/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/passing_tds: 8/)).toBeInTheDocument();
+      expect(screen.getByText(/passing_yards: 4/)).toBeInTheDocument();
+    });
+  });
+
+  test('simulator shows no-rules hint when rules_evaluated is 0', async () => {
+    apiClient.post.mockResolvedValueOnce({
+      data: { points: 0, rules_evaluated: 0, breakdown: [] },
+    });
+
+    render(<ManageScoringRules />);
+    fireEvent.click(screen.getByRole('button', { name: /Run Preview/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/No scoring rules are configured/i)).toBeInTheDocument();
+    });
+  });
+
+  test('current rules table shows human-readable calculation type label', async () => {
+    apiClient.get.mockResolvedValueOnce({
+      data: [
+        {
+          id: 1,
+          category: 'passing',
+          event_name: 'passing_yards',
+          range_min: 0,
+          range_max: 999,
+          point_value: 0.04,
+          calculation_type: 'per_unit',
+          applicable_positions: ['QB'],
+          season_year: null,
+        },
+      ],
+    });
+
+    render(<ManageScoringRules />);
+
+    await waitFor(() => {
+      // Should show the label, not the raw value
+      expect(screen.getByText('Per Unit')).toBeInTheDocument();
+      expect(screen.queryByText('per_unit')).not.toBeInTheDocument();
+    });
+  });
 });
