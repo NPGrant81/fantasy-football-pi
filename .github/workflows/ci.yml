@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -269,6 +270,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Cache Vite and Vitest artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            frontend/node_modules/.vite
+            frontend/.vitest
+          key: frontend-build-cache-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json', 'frontend/vite.config.*', 'frontend/vitest.config.*') }}
+          restore-keys: |
+            frontend-build-cache-${{ runner.os }}-
 
       - name: Install frontend deps
         working-directory: frontend
@@ -280,19 +293,88 @@ jobs:
           npm ci --legacy-peer-deps
 
       - name: Lint & Format Check
+        id: frontend_lint
         working-directory: frontend
         run: |
           npm run lint
+
+      - name: Type check frontend
+        id: frontend_typecheck
+        working-directory: frontend
+        run: |
+          npm run typecheck
+
       - name: Responsive breakpoint audit
+        id: frontend_responsive_audit
         working-directory: frontend
         # script lives one level above the frontend directory
         run: |
           bash ../audit-breakpoints.sh
 
       - name: Run frontend tests
+        id: frontend_unit_tests
         working-directory: frontend
         run: |
           npm run test:coverage -- --run tests/PageSmokes.test.jsx
+
+      - name: Run snapshot tests
+        id: frontend_snapshot_tests
+        working-directory: frontend
+        run: |
+          npm run test:snapshots
+
+      - name: Optional visual regression validation
+        if: github.event_name == 'workflow_dispatch'
+        id: frontend_optional_visual
+        working-directory: frontend
+        run: |
+          npm run test:visual-optional
+
+      - name: Build frontend and capture logs
+        id: frontend_build
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee frontend-build.log
+
+      - name: Upload frontend build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-log
+          if-no-files-found: ignore
+          path: frontend/frontend-build.log
+
+      - name: Frontend failure diagnostics
+        if: failure()
+        working-directory: frontend
+        run: |
+          echo "Frontend CI failure diagnostics:"
+          echo "- Lint step id: frontend_lint"
+          echo "- Type check step id: frontend_typecheck"
+          echo "- Unit test step id: frontend_unit_tests"
+          echo "- Snapshot step id: frontend_snapshot_tests"
+          echo "- Build step id: frontend_build"
+          if [ -f frontend-build.log ]; then
+            echo "Last 100 lines of frontend-build.log:"
+            tail -n 100 frontend-build.log
+          fi
+
+      - name: Publish frontend CI summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend CI Details"
+            echo ""
+            echo "- Lint result: ${{ steps.frontend_lint.outcome }}"
+            echo "- Type check result: ${{ steps.frontend_typecheck.outcome }}"
+            echo "- Responsive audit result: ${{ steps.frontend_responsive_audit.outcome }}"
+            echo "- Unit test result: ${{ steps.frontend_unit_tests.outcome }}"
+            echo "- Snapshot test result: ${{ steps.frontend_snapshot_tests.outcome }}"
+            echo "- Build result: ${{ steps.frontend_build.outcome }}"
+            echo "- Optional visual regression result: ${{ steps.frontend_optional_visual.outcome || 'not_run' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload frontend coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -468,6 +550,7 @@ jobs:
             echo ""
             echo "- Total build time (tracked jobs): ${TOTAL_DURATION}s"
             echo "- Failed categories: $FAILED_CATEGORIES"
+            echo "- Frontend checks include lint, typecheck, responsive audit, unit coverage, snapshots, and build output logs"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack on CI failure
