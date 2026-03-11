@@ -14,7 +14,6 @@ import {
   buttonSecondary,
   cardSurface,
   layerModal,
-  pageShell,
 } from '../utils/uiStandards';
 
 export default function WaiverWire({ ownerId, username, leagueName }) {

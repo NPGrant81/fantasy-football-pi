@@ -13,9 +13,6 @@ import apiClient from '@api/client';
 import Toast from '@components/Toast';
 import AdminActionCard from '@components/admin/AdminActionCard';
 import PageTemplate from '@components/layout/PageTemplate';
-import {
-  pageShell,
-} from '../../utils/uiStandards';
 
 export default function SiteAdmin() {
   const [loading, setLoading] = useState(false);
