@@ -168,6 +168,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerError, setDrawerError] = useState('');
   const [drawerContent, setDrawerContent] = useState(null);
+  const [leaguePositionCaps, setLeaguePositionCaps] = useState(POSITION_CAPS);
 
   const listRef = useRef(null);
 
@@ -232,6 +233,16 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         if (data?.draft_year) {
           setDraftYear(Number(data.draft_year));
         }
+        const slots = data?.starting_slots || {};
+        const caps = {
+          QB: parseNumber(slots.MAX_QB, POSITION_CAPS.QB),
+          RB: parseNumber(slots.MAX_RB, POSITION_CAPS.RB),
+          WR: parseNumber(slots.MAX_WR, POSITION_CAPS.WR),
+          TE: parseNumber(slots.MAX_TE, POSITION_CAPS.TE),
+          DEF: parseNumber(slots.MAX_DEF, POSITION_CAPS.DEF),
+          K: parseNumber(slots.MAX_K, POSITION_CAPS.K),
+        };
+        setLeaguePositionCaps(caps);
       })
       .catch(() => {});
   }, [activeLeagueId]);
@@ -543,8 +554,8 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       })
       .sort((a, b) => b.budget - a.budget);
 
-    const byPositionDemand = Object.keys(POSITION_CAPS).map((position) => {
-      const totalRequired = parseNumber(POSITION_CAPS[position], 0) * ownerCount;
+    const byPositionDemand = Object.keys(leaguePositionCaps).map((position) => {
+      const totalRequired = parseNumber(leaguePositionCaps[position], 0) * ownerCount;
       const alreadyDrafted = draftedByPosition[position] || 0;
       const remainingSlots = Math.max(0, totalRequired - alreadyDrafted);
       const availableCount = availableByPosition[position] || 0;
@@ -577,6 +588,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     draftedPlayerIds.size,
     history,
     rankingByPlayerId,
+    leaguePositionCaps,
   ]);
 
   const ownerStrategyInsights = useMemo(() => {
@@ -588,7 +600,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     const ownerBudget = parseNumber(owner.initial_budget || 200, 200);
     const ownerRemaining = Math.max(0, ownerBudget - ownerSpent);
 
-    const positionalBalance = Object.keys(POSITION_CAPS).map((position) => ({
+    const positionalBalance = Object.keys(leaguePositionCaps).map((position) => ({
       position,
       owner: history.filter(
         (pick) =>
@@ -653,6 +665,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     selectedInsightRecommendation,
     selectedPlayer,
     draftDynamics.leagueAvgBudget,
+    leaguePositionCaps,
   ]);
 
   const availableHistoricalRankings = useMemo(() => {
