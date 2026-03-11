@@ -174,6 +174,80 @@ def test_league_settings_dynamic_rules_detect_invalid_combinations():
     assert "waiver_tiebreaker" in report.errors
 
 
+def test_league_settings_dynamic_rules_ignore_metadata_slot_keys_in_sum_check():
+    report = validate_league_settings_dynamic_rules(
+        {
+            "roster_size": 14,
+            "salary_cap": 200,
+            "starting_slots": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 2,
+                "TE": 1,
+                "K": 1,
+                "DEF": 1,
+                "FLEX": 1,
+                "ACTIVE_ROSTER_SIZE": 9,
+                "MAX_QB": 2,
+                "MAX_RB": 4,
+                "MAX_WR": 5,
+                "MAX_TE": 3,
+                "MAX_K": 0,
+                "MAX_DEF": 1,
+                "MAX_FLEX": 0,
+                "ALLOW_PARTIAL_LINEUP": 1,
+                "REQUIRE_WEEKLY_SUBMIT": 1,
+            },
+            "waiver_deadline": "Wed 11PM",
+            "starting_waiver_budget": 100,
+            "waiver_system": "FAAB",
+            "waiver_tiebreaker": "standings",
+            "trade_deadline": None,
+            "draft_year": 2026,
+            "scoring_rules": [{"category": "passing", "event_name": "TD", "point_value": 4}],
+        }
+    )
+
+    assert report.valid is True
+
+
+def test_league_settings_dynamic_rules_use_active_roster_size_for_slot_cap():
+    report = validate_league_settings_dynamic_rules(
+        {
+            "roster_size": 8,
+            "salary_cap": 200,
+            "starting_slots": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 2,
+                "TE": 1,
+                "K": 0,
+                "DEF": 1,
+                "FLEX": 0,
+                "ACTIVE_ROSTER_SIZE": 9,
+                "MAX_QB": 2,
+                "MAX_RB": 4,
+                "MAX_WR": 5,
+                "MAX_TE": 3,
+                "MAX_K": 0,
+                "MAX_DEF": 1,
+                "MAX_FLEX": 0,
+                "ALLOW_PARTIAL_LINEUP": 1,
+                "REQUIRE_WEEKLY_SUBMIT": 1,
+            },
+            "waiver_deadline": "Wed 11PM",
+            "starting_waiver_budget": 100,
+            "waiver_system": "FAAB",
+            "waiver_tiebreaker": "standings",
+            "trade_deadline": None,
+            "draft_year": 2026,
+            "scoring_rules": [{"category": "passing", "event_name": "TD", "point_value": 4}],
+        }
+    )
+
+    assert report.valid is True
+
+
 def test_playoff_settings_boundary_invalid_payload():
     report = validate_playoff_settings_boundary(
         {

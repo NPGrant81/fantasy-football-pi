@@ -195,6 +195,7 @@ def _manual_dynamic_league_settings_validation(payload: dict[str, Any]) -> Valid
         errors.setdefault("starting_slots", []).append("must include at least one slot")
     else:
         total_slots = 0
+        counted_starter_slots = 0
         for key, value in starting_slots.items():
             if not isinstance(key, str) or not key.strip():
                 errors.setdefault("starting_slots", []).append("contains an invalid slot key")
@@ -202,10 +203,24 @@ def _manual_dynamic_league_settings_validation(payload: dict[str, Any]) -> Valid
             if not isinstance(value, int) or value < 0:
                 errors.setdefault(f"starting_slots.{key}", []).append("must be a non-negative integer")
                 continue
-            total_slots += value
 
-        if isinstance(roster_size, int) and total_slots > roster_size:
-            errors.setdefault("starting_slots", []).append("sum of starting slots cannot exceed roster_size")
+            # Only count concrete starter slots (QB/RB/WR/...) toward the lineup sum.
+            # Metadata keys like MAX_QB, ACTIVE_ROSTER_SIZE, toggles, etc. should not
+            # be included in this check.
+            normalized_key = key.strip().upper()
+            if "_" not in normalized_key:
+                total_slots += value
+                counted_starter_slots += 1
+
+        if counted_starter_slots > 0:
+            active_roster_size = starting_slots.get("ACTIVE_ROSTER_SIZE")
+            # Lineup slot totals are constrained by active starters, not total roster size.
+            # Fallback to roster_size only when ACTIVE_ROSTER_SIZE is not provided.
+            limit = active_roster_size if isinstance(active_roster_size, int) else roster_size
+            if isinstance(limit, int) and total_slots > limit:
+                errors.setdefault("starting_slots", []).append(
+                    "sum of starting slots cannot exceed ACTIVE_ROSTER_SIZE"
+                )
 
     if not isinstance(scoring_rules, list) or len(scoring_rules) == 0:
         errors.setdefault("scoring_rules", []).append("must include at least one scoring rule")

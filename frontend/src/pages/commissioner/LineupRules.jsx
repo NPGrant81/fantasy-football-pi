@@ -90,8 +90,11 @@ export default function LineupRules() {
         MAX_WR: clamp(wrLimit, 1, 5),
         MAX_TE: clamp(teLimit, 1, 3),
         MAX_K: kEnabled ? 1 : 0,
+        K: kEnabled ? 1 : 0,
         MAX_DEF: 1,
+        DEF: 1,
         MAX_FLEX: flexEnabled ? 1 : 0,
+        FLEX: flexEnabled ? 1 : 0,
         TAXI_SIZE: clamp(taxiSize, 0, 5),
         ALLOW_PARTIAL_LINEUP: allowPartialLineup ? 1 : 0,
         REQUIRE_WEEKLY_SUBMIT: requireWeeklySubmit ? 1 : 0,
@@ -106,7 +109,21 @@ export default function LineupRules() {
       setBaseConfig(payload);
       setSuccess('Lineup rules saved.');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to save lineup rules.');
+      // Safely extract error message, handling both string and object responses
+      let errorMsg = 'Failed to save lineup rules.';
+      if (err.response?.data) {
+        const data = err.response.data;
+        // Prefer detail field (standard FastAPI error format)
+        if (typeof data.detail === 'string') {
+          errorMsg = data.detail;
+        } else if (typeof data === 'string') {
+          errorMsg = data;
+        } else if (typeof data.detail === 'object') {
+          // If detail is still an object, stringify it safely for debugging
+          errorMsg = `Validation error: ${JSON.stringify(data.detail)}`;
+        }
+      }
+      setError(errorMsg);
     } finally {
       setSaving(false);
     }

@@ -115,6 +115,35 @@ class LedgerStatementSchema(BaseModel):
     entries: List[LedgerEntrySchema]
 
 
+# --- Helper function to format validation errors as readable string ---
+def format_validation_errors(errors: Dict[str, Any]) -> str:
+    """
+    Convert validation error dict to a readable error message.
+    Handles both pydantic format and manual validation format.
+    """
+    messages = []
+    
+    # Handle pydantic validation errors (detail: list of error dicts)
+    if "detail" in errors and isinstance(errors["detail"], list):
+        for err in errors["detail"]:
+            if isinstance(err, dict):
+                field = err.get("loc", ["unknown"])[-1]
+                msg = err.get("msg", "Invalid value")
+                messages.append(f"{field}: {msg}")
+    # Handle manual validation errors (dict with lists of error strings)
+    else:
+        for field, field_errors in errors.items():
+            if isinstance(field_errors, list):
+                # Join multiple errors for same field with "; "
+                error_text = "; ".join(field_errors)
+                messages.append(f"{field}: {error_text}")
+            else:
+                messages.append(f"{field}: {field_errors}")
+    
+    # Return joined message or generic fallback
+    return " | ".join(messages) if messages else "Validation failed"
+
+
 def validate_lineup_rules(config: LeagueConfigFull) -> None:
     slots = config.starting_slots or {}
 
@@ -734,11 +763,13 @@ def update_league_settings(
 
     boundary_report = validate_league_settings_boundary(settings_payload)
     if not boundary_report.valid:
-        raise HTTPException(status_code=400, detail=boundary_report.errors)
+        error_msg = format_validation_errors(boundary_report.errors)
+        raise HTTPException(status_code=400, detail=error_msg)
 
     dynamic_report = validate_league_settings_dynamic_rules(settings_payload)
     if not dynamic_report.valid:
-        raise HTTPException(status_code=400, detail=dynamic_report.errors)
+        error_msg = format_validation_errors(dynamic_report.errors)
+        raise HTTPException(status_code=400, detail=error_msg)
 
     validate_lineup_rules(config)
 
