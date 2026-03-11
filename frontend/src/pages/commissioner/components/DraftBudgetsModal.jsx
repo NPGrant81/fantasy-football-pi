@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import apiClient from '@api/client';
 import { normalizeApiError } from '@api/fetching';
 import { EmptyState, LoadingState } from '@components/common/AsyncState';
@@ -14,6 +14,7 @@ import {
 } from '@utils/uiStandards';
 
 export default function DraftBudgetsModal({ open, onClose, leagueId }) {
+  const closeTimeoutRef = useRef(null);
   const [draftYear, setDraftYear] = useState(new Date().getFullYear());
   const [owners, setOwners] = useState([]);
   const [budgetRows, setBudgetRows] = useState([]);
@@ -23,9 +24,27 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const clearCloseTimer = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      clearCloseTimer();
+    }
+  }, [open]);
+
+  useEffect(() => () => {
+    clearCloseTimer();
+  }, []);
+
   // Load settings + owners whenever the modal opens
   useEffect(() => {
     if (!open || !leagueId) {
+      clearCloseTimer();
       setOwners([]);
       setBudgetRows([]);
       return;
@@ -156,7 +175,7 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
         </div>
         {saveSuccess && (
           <p className="mt-3 text-sm font-semibold text-green-600 dark:text-green-400">
-            Budgets saved — ledger entries created.
+            Budgets saved. Ledger updated where needed.
           </p>
         )}
         {saveError && (
@@ -168,12 +187,17 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
           </button>
           <button
             className={buttonPrimary}
-            disabled={saving || loading || budgetLoading}
+            disabled={saving || loading || budgetLoading || !leagueId}
             onClick={async () => {
-              if (!leagueId) return;
+              if (!leagueId) {
+                setSaveError('No league selected. Please select a league before saving budgets.');
+                setSaveSuccess(false);
+                return;
+              }
               setSaving(true);
               setSaveError('');
               setSaveSuccess(false);
+              clearCloseTimer();
               try {
                 await apiClient.post(`/leagues/${leagueId}/draft-year`, {
                   year: draftYear,
@@ -186,7 +210,10 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
                   })),
                 });
                 setSaveSuccess(true);
-                setTimeout(onClose, 1500);
+                closeTimeoutRef.current = setTimeout(() => {
+                  closeTimeoutRef.current = null;
+                  onClose();
+                }, 1500);
               } catch (err) {
                 setSaveError(normalizeApiError(err, 'Failed to save budgets.'));
               } finally {
