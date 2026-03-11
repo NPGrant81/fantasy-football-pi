@@ -13,6 +13,7 @@ from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, get_current_active_admin
 from ..services import keeper_service
+from ..services.ledger_service import record_ledger_entry
 from ..services.validation_service import (
     validate_keeper_settings_boundary,
     validate_keeper_settings_dynamic_rules,
@@ -89,6 +90,22 @@ class KeeperImportResult(BaseModel):
     updated: int
     skipped: int
     errors: List[KeeperImportRowResult]
+
+
+class EconomicImportResult(BaseModel):
+    dry_run: bool
+    processed: int
+    inserted: int
+    updated: int
+    skipped: int
+    errors: List[KeeperImportRowResult]
+
+
+VALID_ECON_ENTRY_TYPES = {
+    "STARTING_BUDGET",
+    "TRADE",
+    "AWARD",
+}
 
 
 def _current_keeper_season(db: Session, league_id: int) -> int:
@@ -544,6 +561,21 @@ def download_keeper_history_template(
     )
 
 
+@router.get("/admin/economic-history-template", response_class=PlainTextResponse)
+def download_economic_history_template(
+    current_user: models.User = Depends(get_current_active_admin),
+):
+    if not current_user.is_commissioner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
+
+    return (
+        "season,entry_type,owner_username,owner_team_name,from_owner_username,to_owner_username,amount,currency_type,note,reference_id\n"
+        "2025,STARTING_BUDGET,alice,Team Alice,,,200,DRAFT_DOLLARS,Initial auction budget,budget-2025-alice\n"
+        "2025,TRADE,,,alice,bob,15,DRAFT_DOLLARS,Preseason pick swap,trade-2025-alice-bob-1\n"
+        "2025,AWARD,bob,Team Bob,,,10,DRAFT_DOLLARS,Compensatory bonus,award-2025-bob\n"
+    )
+
+
 @router.post("/admin/import-history", response_model=KeeperImportResult)
 async def import_keeper_history_csv(
     file: UploadFile = File(...),
@@ -661,6 +693,226 @@ async def import_keeper_history_csv(
         db.commit()
 
     return KeeperImportResult(
+        dry_run=dry_run,
+        processed=inserted + updated + skipped,
+        inserted=inserted,
+        updated=updated,
+        skipped=skipped,
+        errors=errors,
+    )
+
+
+@router.post("/admin/import-economic-history", response_model=EconomicImportResult)
+async def import_economic_history_csv(
+    file: UploadFile = File(...),
+    dry_run: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin),
+):
+    if not current_user.is_commissioner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
+
+    payload = await file.read()
+    try:
+        decoded = payload.decode("utf-8-sig")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Unable to decode CSV: {exc}")
+
+    reader = csv.DictReader(io.StringIO(decoded))
+    required_cols = {
+        "season",
+        "entry_type",
+        "owner_username",
+        "owner_team_name",
+        "from_owner_username",
+        "to_owner_username",
+        "amount",
+        "currency_type",
+        "note",
+        "reference_id",
+    }
+    found_cols = set(reader.fieldnames or [])
+    if not required_cols.issubset(found_cols):
+        missing = sorted(required_cols - found_cols)
+        raise HTTPException(status_code=400, detail=f"CSV missing required columns: {', '.join(missing)}")
+
+    inserted = 0
+    updated = 0
+    skipped = 0
+    errors: List[KeeperImportRowResult] = []
+
+    for idx, row in enumerate(reader, start=2):
+        season_raw = (row.get("season") or "").strip()
+        entry_type = (row.get("entry_type") or "").strip().upper()
+        owner_username = (row.get("owner_username") or "").strip()
+        owner_team_name = (row.get("owner_team_name") or "").strip()
+        from_owner_username = (row.get("from_owner_username") or "").strip()
+        to_owner_username = (row.get("to_owner_username") or "").strip()
+        note = (row.get("note") or "").strip()
+        currency_type = ((row.get("currency_type") or "DRAFT_DOLLARS").strip() or "DRAFT_DOLLARS").upper()
+        reference_id = (row.get("reference_id") or "").strip()
+
+        if not season_raw.isdigit():
+            skipped += 1
+            errors.append(KeeperImportRowResult(row_number=idx, status="skipped", detail="invalid season"))
+            continue
+        season = int(season_raw)
+
+        if entry_type not in VALID_ECON_ENTRY_TYPES:
+            skipped += 1
+            errors.append(
+                KeeperImportRowResult(
+                    row_number=idx,
+                    status="skipped",
+                    detail="entry_type must be STARTING_BUDGET, TRADE, or AWARD",
+                )
+            )
+            continue
+
+        try:
+            amount = int(float((row.get("amount") or "").strip()))
+            if amount <= 0:
+                raise ValueError("amount must be positive")
+        except ValueError:
+            skipped += 1
+            errors.append(KeeperImportRowResult(row_number=idx, status="skipped", detail="invalid amount"))
+            continue
+
+        from_owner_id: Optional[int] = None
+        to_owner_id: Optional[int] = None
+
+        if entry_type == "STARTING_BUDGET":
+            owner = _resolve_owner_for_import(
+                db,
+                league_id=current_user.league_id,
+                owner_username=owner_username,
+                owner_team_name=owner_team_name,
+            )
+            if not owner:
+                skipped += 1
+                errors.append(
+                    KeeperImportRowResult(row_number=idx, status="skipped", detail="owner not found")
+                )
+                continue
+            to_owner_id = owner.id
+        elif entry_type == "TRADE":
+            from_owner = _resolve_owner_for_import(
+                db,
+                league_id=current_user.league_id,
+                owner_username=from_owner_username,
+                owner_team_name=None,
+            )
+            to_owner = _resolve_owner_for_import(
+                db,
+                league_id=current_user.league_id,
+                owner_username=to_owner_username,
+                owner_team_name=None,
+            )
+            if not from_owner or not to_owner:
+                skipped += 1
+                errors.append(
+                    KeeperImportRowResult(
+                        row_number=idx,
+                        status="skipped",
+                        detail="from_owner_username/to_owner_username not found",
+                    )
+                )
+                continue
+            if from_owner.id == to_owner.id:
+                skipped += 1
+                errors.append(
+                    KeeperImportRowResult(row_number=idx, status="skipped", detail="trade owners must differ")
+                )
+                continue
+            from_owner_id = from_owner.id
+            to_owner_id = to_owner.id
+        else:  # AWARD
+            owner = _resolve_owner_for_import(
+                db,
+                league_id=current_user.league_id,
+                owner_username=owner_username,
+                owner_team_name=owner_team_name,
+            )
+            if not owner:
+                skipped += 1
+                errors.append(
+                    KeeperImportRowResult(row_number=idx, status="skipped", detail="owner not found")
+                )
+                continue
+            to_owner_id = owner.id
+
+        if not reference_id:
+            reference_id = (
+                f"econ:{season}:{entry_type}:{from_owner_id or 0}:{to_owner_id or 0}:{amount}:{currency_type}"
+            )
+
+        existing_ledger = (
+            db.query(models.EconomicLedger)
+            .filter(
+                models.EconomicLedger.league_id == current_user.league_id,
+                models.EconomicLedger.reference_type == "ECON_HISTORY_IMPORT",
+                models.EconomicLedger.reference_id == reference_id,
+            )
+            .first()
+        )
+        if existing_ledger:
+            skipped += 1
+            continue
+
+        if dry_run:
+            inserted += 1
+            continue
+
+        if entry_type == "STARTING_BUDGET" and to_owner_id is not None:
+            budget = (
+                db.query(models.DraftBudget)
+                .filter(
+                    models.DraftBudget.league_id == current_user.league_id,
+                    models.DraftBudget.owner_id == to_owner_id,
+                    models.DraftBudget.year == season,
+                )
+                .first()
+            )
+            if budget:
+                budget.total_budget = amount
+                updated += 1
+            else:
+                db.add(
+                    models.DraftBudget(
+                        league_id=current_user.league_id,
+                        owner_id=to_owner_id,
+                        year=season,
+                        total_budget=amount,
+                    )
+                )
+
+        record_ledger_entry(
+            db=db,
+            league_id=current_user.league_id,
+            season_year=season,
+            from_owner_id=from_owner_id,
+            to_owner_id=to_owner_id,
+            amount=amount,
+            currency_type=currency_type,
+            transaction_type=(
+                "STARTING_BUDGET_IMPORT"
+                if entry_type == "STARTING_BUDGET"
+                else "TRADE_HISTORY_IMPORT"
+                if entry_type == "TRADE"
+                else "AWARD_HISTORY_IMPORT"
+            ),
+            reference_type="ECON_HISTORY_IMPORT",
+            reference_id=reference_id,
+            notes=note or f"Imported {entry_type.lower().replace('_', ' ')}",
+        )
+        inserted += 1
+
+    if dry_run:
+        db.rollback()
+    else:
+        db.commit()
+
+    return EconomicImportResult(
         dry_run=dry_run,
         processed=inserted + updated + skipped,
         inserted=inserted,
