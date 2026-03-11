@@ -15,18 +15,56 @@ import {
 export default function Keepers() {
   const [keeperData, setKeeperData] = useState(null);
   const [selected, setSelected] = useState(new Set());
+  const [ownerIdentity, setOwnerIdentity] = useState(null);
+  const [ownerId, setOwnerId] = useState(
+    localStorage.getItem('user_id') || null
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
   const [loadError, setLoadError] = useState('');
-  // fetch keeper info once on mount
+
+  // Resolve owner from session when localStorage is empty/stale.
+  useEffect(() => {
+    async function loadOwner() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        const nextOwnerId = res?.data?.user_id;
+        setOwnerIdentity(res?.data || null);
+        if (nextOwnerId) {
+          setOwnerId(String(nextOwnerId));
+          localStorage.setItem('user_id', String(nextOwnerId));
+        }
+      } catch (err) {
+        console.error('failed to load authenticated owner', err);
+        setLoadError((current) => current || 'Unable to load keeper data right now.');
+      }
+    }
+
+    void loadOwner();
+  }, []);
+
+  // fetch keeper info once owner identity is available
   useEffect(() => {
     async function load() {
       setLoading(true);
       setLoadError('');
       try {
         const res = await apiClient.get('/keepers/');
-        setKeeperData(res.data);
+        const normalizedKeeperData = {
+          ...res.data,
+          owner_name:
+            res.data?.owner_name ||
+            ownerIdentity?.team_name ||
+            ownerIdentity?.username ||
+            'My Team',
+          effective_budget: Number(res.data?.effective_budget ?? 0),
+          max_allowed: Number(res.data?.max_allowed ?? 3),
+          available_players: Array.isArray(res.data?.available_players)
+            ? res.data.available_players
+            : [],
+        };
+        setKeeperData(normalizedKeeperData);
         if (res.data && Array.isArray(res.data.selections)) {
           setSelected(new Set(res.data.selections.map((s) => s.player_id)));
         }
@@ -38,7 +76,7 @@ export default function Keepers() {
     }
 
     void load();
-  }, []);
+  }, [ownerId, ownerIdentity]);
 
   const togglePlayer = (playerId, isEligible) => {
     const newSel = new Set(selected);

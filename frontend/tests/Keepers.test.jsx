@@ -227,7 +227,7 @@ describe('Keepers page', () => {
       if (url.startsWith('/team/7?week=')) {
         return Promise.resolve({
           data: {
-            roster: [
+            players: [
               {
                 player_id: 22,
                 name: 'Keeper Candidate',
