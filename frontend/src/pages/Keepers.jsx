@@ -20,15 +20,38 @@ export default function Keepers() {
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [ownerId, setOwnerId] = useState(
+    localStorage.getItem('user_id') || null
+  );
   // base budget is derived from keeper data and roster rather than state
   // (keeps eslint happy and avoids cascading renders)
   // const [baseBudget, setBaseBudget] = useState(0); // now derived via memo
 
-  const userId = localStorage.getItem('user_id');
+  // fetch authenticated owner identity once so roster loading does not depend
+  // on localStorage being present after session restore.
+  useEffect(() => {
+    async function loadOwner() {
+      try {
+        const res = await apiClient.get('/auth/me');
+        const nextOwnerId = res?.data?.user_id;
+        if (nextOwnerId) {
+          setOwnerId(String(nextOwnerId));
+          localStorage.setItem('user_id', String(nextOwnerId));
+        }
+      } catch (err) {
+        console.error('failed to load authenticated owner', err);
+        setLoadError((current) => current || 'Unable to load keeper data right now.');
+      }
+    }
 
-  // fetch keeper info and roster once per user
+    void loadOwner();
+  }, []);
+
+  // fetch keeper info and roster once per authenticated user
   useEffect(() => {
     async function load() {
+      if (!ownerId) return;
+
       setLoading(true);
       setLoadError('');
       try {
@@ -41,22 +64,21 @@ export default function Keepers() {
         console.error('failed to load keeper data', err);
         setLoadError('Unable to load keeper data right now.');
       }
-      if (userId) {
-        try {
-          // backend rejects week 0, fall back to 1 if necessary
-          const weekParam = 1;
-          const rres = await apiClient.get(`/team/${userId}?week=${weekParam}`);
-          setRoster(Array.isArray(rres.data?.roster) ? rres.data.roster : []);
-        } catch (e) {
-          console.error('failed to load roster', e);
-          setRoster([]);
-          setLoadError((current) => current || 'Unable to load roster right now.');
-        }
+      try {
+        // backend rejects week 0, fall back to 1 if necessary
+        const weekParam = 1;
+        const rres = await apiClient.get(`/team/${ownerId}?week=${weekParam}`);
+        setRoster(Array.isArray(rres.data?.roster) ? rres.data.roster : []);
+      } catch (e) {
+        console.error('failed to load roster', e);
+        setRoster([]);
+        setLoadError((current) => current || 'Unable to load roster right now.');
       }
       setLoading(false);
     }
-    load();
-  }, [userId]);
+
+    void load();
+  }, [ownerId]);
 
   // compute base budget from the latest data
   const computedBaseBudget = React.useMemo(() => {

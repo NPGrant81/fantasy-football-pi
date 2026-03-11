@@ -34,6 +34,11 @@ describe('Keepers page', () => {
 
   test('fetches keeper data and roster', async () => {
     apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { user_id: 1, username: 'alice', league_id: 1 },
+        });
+      }
       if (url === '/keepers/') {
         return Promise.resolve({
           data: {
@@ -82,6 +87,11 @@ describe('Keepers page', () => {
 
   test('ineligible players are disabled', async () => {
     apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { user_id: 1, username: 'alice', league_id: 1 },
+        });
+      }
       if (url === '/keepers/') {
         return Promise.resolve({
           data: {
@@ -112,6 +122,11 @@ describe('Keepers page', () => {
 
   test('toggle player and submit', async () => {
     apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { user_id: 1, username: 'alice', league_id: 1 },
+        });
+      }
       if (url === '/keepers/') {
         return Promise.resolve({
           data: {
@@ -160,5 +175,54 @@ describe('Keepers page', () => {
         expect.any(Object)
       )
     );
+  });
+
+  test('loads roster candidates from auth session when localStorage user_id is missing', async () => {
+    localStorage.removeItem('user_id');
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { user_id: 7, username: 'alice', league_id: 1 },
+        });
+      }
+      if (url === '/keepers/') {
+        return Promise.resolve({
+          data: {
+            selections: [],
+            recommended: [],
+            selected_count: 0,
+            max_allowed: 3,
+            estimated_budget: 150,
+            effective_budget: 150,
+          },
+        });
+      }
+      if (url.startsWith('/team/7?week=')) {
+        return Promise.resolve({
+          data: {
+            roster: [
+              {
+                player_id: 22,
+                name: 'Keeper Candidate',
+                draft_price: 12,
+                projected_value: 30,
+              },
+            ],
+          },
+        });
+      }
+      return Promise.reject(new Error(`unknown ${url}`));
+    });
+
+    render(<Keepers />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Keeper Candidate/)).toBeInTheDocument();
+    });
+
+    expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+    expect(apiClient.get).toHaveBeenCalledWith('/keepers/');
+    expect(apiClient.get).toHaveBeenCalledWith('/team/7?week=1');
   });
 });
