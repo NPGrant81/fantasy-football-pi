@@ -1,10 +1,12 @@
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
+import io
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from fastapi import UploadFile
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -19,6 +21,10 @@ from backend.routers.keepers import (
     list_all_keepers,
     veto_owner_list,
     reset_league_keepers,
+    commissioner_override_keeper,
+    import_keeper_history_csv,
+    download_keeper_history_template,
+    KeeperOverrideRequest,
     KeeperSelectionSchema,
     KeeperSettingsUpdate,
 )
@@ -177,3 +183,84 @@ def test_update_keeper_settings_rejects_invalid_values():
         update_keeper_settings(update=invalid, db=db_session, current_user=current_comm)
 
     assert exc.value.status_code == 400
+
+
+def test_commissioner_override_supersedes_owner_submission():
+    db_session = setup_db()
+    league = make_league(db_session)
+    comm = make_user(db_session, league, "comm", is_comm=True)
+    owner = make_user(db_session, league, "owner")
+    player = make_player(db_session, "Override Target")
+
+    # commissioner manually overrides keeper
+    commissioner_override_keeper(
+        request=KeeperOverrideRequest(
+            owner_id=owner.id,
+            player_name=player.name,
+            nfl_team=player.nfl_team,
+            keep_cost=12,
+            years_kept_count=2,
+        ),
+        db=db_session,
+        current_user=CU(comm),
+    )
+
+    # owner submits empty keepers list; override should remain selected
+    req = type("R", (), {})()
+    req.players = []
+    save_my_keepers(request=req, db=db_session, current_user=CU(owner))
+
+    resp = get_my_keepers(db=db_session, current_user=CU(owner))
+    assert resp.selected_count == 1
+    assert any(s.player_id == player.id for s in resp.selections)
+
+
+@pytest.mark.asyncio
+async def test_keeper_history_csv_import_and_template():
+    db_session = setup_db()
+    league = make_league(db_session)
+    comm = make_user(db_session, league, "comm", is_comm=True)
+    owner = make_user(db_session, league, "alice")
+    owner.team_name = "Team Alice"
+    db_session.commit()
+
+    player = models.Player(
+        name="Justin Jefferson",
+        position="WR",
+        nfl_team="MIN",
+        gsis_id="00-0036322",
+    )
+    db_session.add(player)
+    db_session.commit()
+
+    template = download_keeper_history_template(current_user=CU(comm))
+    assert "season,owner_username,owner_team_name,player_name" in template
+
+    csv_text = (
+        "season,owner_username,owner_team_name,player_name,nfl_team,gsis_id,keep_cost,years_kept_count,status\n"
+        "2026,alice,Team Alice,Justin Jefferson,MIN,00-0036322,25,2,historical_import\n"
+    )
+    upload = UploadFile(filename="keepers.csv", file=io.BytesIO(csv_text.encode("utf-8")))
+
+    dry_run_result = await import_keeper_history_csv(
+        file=upload,
+        dry_run=True,
+        db=db_session,
+        current_user=CU(comm),
+    )
+    assert dry_run_result.inserted == 1
+    assert db_session.query(models.Keeper).count() == 0
+
+    upload_real = UploadFile(filename="keepers.csv", file=io.BytesIO(csv_text.encode("utf-8")))
+    write_result = await import_keeper_history_csv(
+        file=upload_real,
+        dry_run=False,
+        db=db_session,
+        current_user=CU(comm),
+    )
+    assert write_result.inserted == 1
+    inserted = db_session.query(models.Keeper).first()
+    assert inserted is not None
+    assert inserted.owner_id == owner.id
+    assert inserted.player_id == player.id
+    assert inserted.status == "historical_import"
