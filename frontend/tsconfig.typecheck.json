@@ -9,7 +9,16 @@
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["vite/client", "vitest/globals"]
+    "types": ["vite/client", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@components/*": ["src/components/*"],
+      "@api/*": ["src/api/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@utils/*": ["src/utils/*"]
+    }
   },
-  "include": ["src/**/*", "tests/**/*", "vite.config.js", "eslint.config.js"]
+  "include": ["src/**/*", "tests/**/*", "vite.config.js", "eslint.config.js"],
+  "exclude": ["node_modules"]
 }
