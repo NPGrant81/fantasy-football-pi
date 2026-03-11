@@ -342,7 +342,9 @@ export default function YourLockerRoom({ activeOwnerId }) {
 
   const waiverRemaining = computeRemaining(waiverDeadlineSetting);
   const tradeRemaining = computeRemaining(tradeDeadlineSetting);
-  const loadLeagueSettings = useCallback(async (leagueId) => {
+  const loadLeagueSettings = useCallback(async (leagueId, options = {}) => {
+    const { resetOnFailure = false } = options;
+
     try {
       const settingsRes = await apiClient.get(`/leagues/${leagueId}/settings`);
       const slots = settingsRes.data.starting_slots || {};
@@ -360,12 +362,16 @@ export default function YourLockerRoom({ activeOwnerId }) {
         DEF: 1,
       });
       setAllowPartialLineup(Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1);
+      return true;
     } catch {
-      setScoringRules([]);
-      setStarterRequirements(DEFAULT_STARTER_SLOTS);
-      setActiveRosterRequired(9);
-      setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
-      setAllowPartialLineup(false);
+      if (resetOnFailure) {
+        setScoringRules([]);
+        setStarterRequirements(DEFAULT_STARTER_SLOTS);
+        setActiveRosterRequired(9);
+        setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
+        setAllowPartialLineup(false);
+      }
+      return false;
     }
   }, []);
   useEffect(() => {
@@ -391,10 +397,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
           } catch {
             setLeagueOwners([]);
           }
-
-          try {
-            await loadLeagueSettings(leagueId);
-          } catch {}
+          await loadLeagueSettings(leagueId, { resetOnFailure: true });
         }
         setUserInfo({
           username: userRes.data.username,
@@ -450,6 +453,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
     if (!userInfo.leagueId) return undefined;
 
     const refreshRules = () => {
+      if (document.visibilityState !== 'visible') return;
       void loadLeagueSettings(userInfo.leagueId);
     };
 

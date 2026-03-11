@@ -870,6 +870,111 @@ describe('MyTeam (Roster & Lineups)', () => {
     });
   });
 
+  test('keeps last-known-good lineup rules when refresh fails after initial load', async () => {
+    let failSettingsRefresh = false;
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: {
+            user_id: 1,
+            username: 'alice',
+            league_id: 1,
+            is_commissioner: false,
+          },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/leagues/1/settings') {
+        if (failSettingsRefresh) {
+          return Promise.reject(new Error('settings refresh failed'));
+        }
+        return Promise.resolve({
+          data: commissionerRulesScenario({ maxQb: 3 }),
+        });
+      }
+      if (url === '/dashboard/1') {
+        return Promise.resolve({
+          data: {
+            player_count: 5,
+            active_lineups: 1,
+            pending_waivers: 0,
+            pending_trades: 0,
+            standing: 1,
+            points_for: 0,
+            points_against: 0,
+            roster: [],
+          },
+        });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({
+          data: {
+            roster: [
+              {
+                id: 1,
+                player_id: 1,
+                name: 'QB1',
+                position: 'QB',
+                nfl_team: 'NYJ',
+                status: 'STARTER',
+              },
+              {
+                id: 2,
+                player_id: 2,
+                name: 'QB2',
+                position: 'QB',
+                nfl_team: 'NE',
+                status: 'STARTER',
+              },
+              {
+                id: 3,
+                player_id: 3,
+                name: 'QB3',
+                position: 'QB',
+                nfl_team: 'BUF',
+                status: 'STARTER',
+              },
+              {
+                id: 4,
+                player_id: 4,
+                name: 'RB1',
+                position: 'RB',
+                nfl_team: 'PHI',
+                status: 'STARTER',
+              },
+              {
+                id: 5,
+                player_id: 5,
+                name: 'RB2',
+                position: 'RB',
+                nfl_team: 'DET',
+                status: 'STARTER',
+              },
+            ],
+          },
+        });
+      }
+      if (url === '/scoring/1') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.reject(new Error(`Unknown URL: ${url}`));
+    });
+
+    render(<MyTeam activeOwnerId={1} />);
+
+    await expectSubmitButtonEventuallyEnabled();
+
+    failSettingsRefresh = true;
+    window.dispatchEvent(new Event('focus'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /submit roster/i })).not.toBeDisabled();
+    });
+  });
+
   test('trade modal shows dollar inputs and sends them', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me')
