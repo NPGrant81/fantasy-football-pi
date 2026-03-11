@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { normalizeApiError } from '@api/fetching';
 import { EmptyState, LoadingState } from '@components/common/AsyncState';
 import {
   buttonPrimary,
@@ -14,54 +15,78 @@ import {
 
 export default function DraftBudgetsModal({ open, onClose, leagueId }) {
   const [draftYear, setDraftYear] = useState(new Date().getFullYear());
+  const [owners, setOwners] = useState([]);
   const [budgetRows, setBudgetRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [budgetLoading, setBudgetLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Load settings + owners whenever the modal opens
   useEffect(() => {
-    if (!open || !leagueId) return;
+    if (!open || !leagueId) {
+      setOwners([]);
+      setBudgetRows([]);
+      return;
+    }
+    let isMounted = true;
     setLoading(true);
+    setSaveError('');
+    setSaveSuccess(false);
     Promise.all([
       apiClient.get(`/leagues/${leagueId}/settings`),
       apiClient.get(`/leagues/owners?league_id=${leagueId}`),
     ])
       .then(([settingsRes, ownersRes]) => {
+        if (!isMounted) return;
         const year = settingsRes.data?.draft_year || new Date().getFullYear();
         setDraftYear(year);
-
-        const owners = ownersRes.data || [];
-        return apiClient
-          .get(`/leagues/${leagueId}/budgets?year=${year}`)
-          .then((budgetsRes) => {
-            const rows = budgetsRes.data || [];
-            if (rows.length === 0) {
-              const seeded = owners.map((owner) => ({
-                owner_id: owner.id,
-                username: owner.username,
-                team_name: owner.team_name,
-                total_budget: 200,
-              }));
-              setBudgetRows(seeded);
-            } else {
-              setBudgetRows(rows);
-            }
-          })
-          .catch(() => {
-            // budgets call failed (table missing or error); seed owners
-            const seeded = owners.map((owner) => ({
-              owner_id: owner.id,
-              username: owner.username,
-              team_name: owner.team_name,
-              total_budget: 200,
-            }));
-            setBudgetRows(seeded);
-          });
+        setOwners(Array.isArray(ownersRes.data) ? ownersRes.data : []);
       })
       .catch(() => {
-        setBudgetRows([]);
+        if (isMounted) setOwners([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [open, leagueId]);
+
+  // Reload budget rows whenever the draft year or owner list changes
+  useEffect(() => {
+    if (!open || !leagueId || owners.length === 0) {
+      setBudgetRows([]);
+      return;
+    }
+    let isMounted = true;
+    setBudgetLoading(true);
+    setSaveError('');
+    const seed = owners.map((o) => ({
+      owner_id: o.id,
+      username: o.username,
+      team_name: o.team_name,
+      total_budget: 200,
+    }));
+    apiClient
+      .get(`/leagues/${leagueId}/budgets?year=${draftYear}`)
+      .then((res) => {
+        if (!isMounted) return;
+        const rows = res.data || [];
+        setBudgetRows(rows.length > 0 ? rows : seed);
+      })
+      .catch(() => {
+        if (isMounted) setBudgetRows(seed);
+      })
+      .finally(() => {
+        if (isMounted) setBudgetLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [open, leagueId, draftYear, owners]);
 
   if (!open) return null;
 
@@ -90,13 +115,13 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
           />
         </div>
         <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
-          {loading && (
+          {(loading || budgetLoading) && (
             <LoadingState message="Loading budgets..." className="text-sm text-slate-500 dark:text-slate-400" />
           )}
-          {!loading && budgetRows.length === 0 ? (
+          {!loading && !budgetLoading && budgetRows.length === 0 ? (
             <EmptyState message="No budget rows available." className="text-sm" />
           ) : null}
-          {!loading &&
+          {!loading && !budgetLoading &&
             budgetRows.map((row) => (
               <div
                 key={row.owner_id}
@@ -129,16 +154,26 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
               </div>
             ))}
         </div>
+        {saveSuccess && (
+          <p className="mt-3 text-sm font-semibold text-green-600 dark:text-green-400">
+            Budgets saved — ledger entries created.
+          </p>
+        )}
+        {saveError && (
+          <p className="mt-3 text-sm text-red-500 dark:text-red-400">{saveError}</p>
+        )}
         <div className="mt-6 flex justify-end gap-3">
           <button className={buttonSecondary} onClick={onClose}>
             Close
           </button>
           <button
             className={buttonPrimary}
-            disabled={saving}
+            disabled={saving || loading || budgetLoading}
             onClick={async () => {
               if (!leagueId) return;
               setSaving(true);
+              setSaveError('');
+              setSaveSuccess(false);
               try {
                 await apiClient.post(`/leagues/${leagueId}/draft-year`, {
                   year: draftYear,
@@ -150,15 +185,16 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
                     total_budget: row.total_budget ?? 200,
                   })),
                 });
-                onClose();
-              } catch {
-                alert('Failed to save budgets.');
+                setSaveSuccess(true);
+                setTimeout(onClose, 1500);
+              } catch (err) {
+                setSaveError(normalizeApiError(err, 'Failed to save budgets.'));
               } finally {
                 setSaving(false);
               }
             }}
           >
-            Save Budgets
+            {saving ? 'Saving…' : 'Save Budgets'}
           </button>
         </div>
       </div>
