@@ -1,0 +1,20 @@
+[flake8]
+max-line-length = 120
+exclude =
+    .git,
+    __pycache__,
+    backend/alembic,
+    backend/data,
+    etl/__pycache__,
+    node_modules,
+    .venv,
+    venv
+# E501 = line too long (handled by max-line-length above)
+# W503 = line break before binary operator (conflicts with black style)
+# E203 = whitespace before ':' (conflicts with black style)
+ignore = W503,E203
+per-file-ignores =
+    # test files may use long lines for readability
+    backend/tests/*:E501
+    # scripts may use loose formatting
+    backend/scripts/*:E501
