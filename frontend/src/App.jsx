@@ -12,9 +12,11 @@ import './App.css';
 
 // Import Components
 import Layout from './components/Layout';
+import BrandMark from './components/BrandMark';
 import LeagueSelector from './components/LeagueSelector';
 import LeagueAdvisor from './components/LeagueAdvisor';
 import { LoadingState } from '@components/common/AsyncState';
+import { BRAND_NAME } from './constants/branding';
 import { ThemeProvider } from './context/ThemeContext';
 
 // Import Pages (Lazy Loaded)
@@ -91,7 +93,7 @@ function resolveLayoutPageTitle(pathname) {
   if (pathname === '/keepers') return 'Manage Keepers';
   if (pathname === '/analytics') return 'League Analytics';
   if (pathname === '/playoffs') return 'Playoff Bracket';
-  return 'Fantasy Pi';
+  return BRAND_NAME;
 }
 
 function AuthenticatedShell({
@@ -104,6 +106,10 @@ function AuthenticatedShell({
 }) {
   const location = useLocation();
   const headerTitle = resolveLayoutPageTitle(location.pathname);
+
+  useEffect(() => {
+    document.title = headerTitle ? `${headerTitle} | ${BRAND_NAME}` : BRAND_NAME;
+  }, [headerTitle]);
 
   return (
     <Layout
@@ -294,6 +300,12 @@ function App() {
       .catch(() => setLayoutAlert(''));
   }, [activeLeagueId, token]);
 
+  useEffect(() => {
+    if (!token) {
+      document.title = `${BRAND_NAME} Login`;
+    }
+  }, [token]);
+
   // --- 1.5 LOGIN HANDLER ---
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -335,14 +347,12 @@ function App() {
           className="bg-slate-800 p-8 rounded-lg shadow-2xl w-96 border border-slate-700"
         >
           <div className="flex flex-col items-center mb-6">
-            <img
-              src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
-              alt="FantasyFootball-PI Logo"
-              className="w-16 h-16 mb-2"
+            <BrandMark
+              containerClassName="flex flex-col items-center"
+              imageClassName="w-16 h-16 mb-2"
+              textClassName="text-3xl font-black text-center text-yellow-500 tracking-tighter"
+              text={`${BRAND_NAME} Login`}
             />
-            <h2 className="text-3xl font-black text-center text-yellow-500 tracking-tighter">
-              FantasyFootball-PI Login
-            </h2>
           </div>
           {error && (
             <div className="mb-4 text-red-400 text-center text-sm font-bold">

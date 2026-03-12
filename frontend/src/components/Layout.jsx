@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { FiMenu } from 'react-icons/fi';
 import { layoutAlertBar, layerNav } from '../utils/uiStandards';
+import BrandMark from './BrandMark';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
 
@@ -25,14 +26,10 @@ export default function Layout({ children, username, leagueId, alert, pageTitle 
           </button>
 
           {/* Branding */}
-          <div className="hidden sm:flex items-center gap-2 font-black text-xl tracking-tighter italic uppercase">
-            <img
-              src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
-              alt="FantasyFootball-PI Logo"
-              className="w-8 h-8"
-            />
-            FANTASY<span className="text-slate-600">Pi</span>
-          </div>
+          <BrandMark
+            containerClassName="hidden sm:flex items-center gap-2 font-black text-xl tracking-tighter italic"
+            imageClassName="w-8 h-8"
+          />
         </div>
 
         <div className="ml-auto flex items-center gap-3 min-w-0">

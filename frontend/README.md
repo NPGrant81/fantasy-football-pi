@@ -1,6 +1,6 @@
-# Frontend (Fantasy Football PI)
+# Frontend (PPL Insight Hub)
 
-Vite + React frontend for the Fantasy Football PI app.
+Vite + React frontend for the PPL Insight Hub app.
 
 ## Quick Start
 
