@@ -352,6 +352,7 @@ function App() {
               imageClassName="w-16 h-16 mb-2"
               textClassName="text-3xl font-black text-center text-yellow-500 tracking-tighter"
               text={`${BRAND_NAME} Login`}
+              textTag="h2"
             />
           </div>
           {error && (
