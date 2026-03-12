@@ -3,6 +3,48 @@
 Date: 2026-03-10
 Related Issue: #206
 
+## Git Worktrees (Parallel Dev Workflow)
+
+Use worktrees only when parallel branch development is needed.
+
+### Standard usage
+- Keep 2 active worktrees by default:
+  - `main`
+  - current issue branch
+
+### Create a worktree for an issue
+```bash
+git fetch origin
+git worktree add ../ffpi-issue-73 -b fix/issue-73-site-visit-logging origin/main
+```
+
+### List worktrees
+```bash
+git worktree list
+```
+
+### Remove a completed worktree
+```bash
+git worktree remove ../ffpi-issue-73
+git worktree prune
+```
+
+### Cleanup routine
+- After each merged PR: remove that branch worktree.
+- Weekly: run `git worktree list` and prune obsolete entries.
+
+### Safety checks
+- Ensure no uncommitted changes before removal:
+```bash
+git -C ../ffpi-issue-73 status
+```
+
+- If a branch is no longer needed after merge:
+```bash
+git branch -d fix/issue-73-site-visit-logging
+git fetch origin --prune
+```
+
 ## Using Cloudflare Tunnel in VS Code
 
 This workflow uses the VS Code extension:

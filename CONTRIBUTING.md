@@ -7,6 +7,38 @@ PR.
 
 ---
 
+## Git Worktree Workflow (Parallel Branches)
+
+This repository may use Git worktrees to support parallel issue work without
+constant branch switching.
+
+1. **When to use worktrees**
+  - Use a separate worktree only when you must keep multiple active branches
+    open at the same time (for example, active PR plus urgent fix).
+
+2. **Default limit**
+  - Keep at most 2 active worktrees in day-to-day use:
+    - one for `main`
+    - one for the current issue branch
+  - Create extra worktrees only for short-lived overlap, then remove them.
+
+3. **Naming convention**
+  - Use `ffpi-issue-<number>` for issue-specific branches.
+  - Use descriptive short names for temporary repair worktrees.
+
+4. **Cleanup routine (required)**
+  - After a PR merges, remove its worktree immediately.
+  - Weekly cleanup:
+    - `git worktree list`
+    - `git worktree remove <path>` for merged/obsolete branches
+    - `git worktree prune`
+
+5. **Safety checks before removal**
+  - Confirm branch status is clean (`git status`).
+  - Confirm PR is merged or intentionally abandoned.
+
+---
+
 ## Frontend Verification & Debugging Standards
 
 To ensure data integrity and system reliability, all frontend development
