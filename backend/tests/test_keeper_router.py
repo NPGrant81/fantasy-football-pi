@@ -23,7 +23,9 @@ from backend.routers.keepers import (
     reset_league_keepers,
     commissioner_override_keeper,
     import_keeper_history_csv,
+    import_economic_history_csv,
     download_keeper_history_template,
+    download_economic_history_template,
     KeeperOverrideRequest,
     KeeperSelectionSchema,
     KeeperSettingsUpdate,
@@ -73,6 +75,8 @@ class CU:
         self.league_id = user.league_id
         self.future_draft_budget = user.future_draft_budget
         self.is_commissioner = user.is_commissioner
+        self.username = user.username
+        self.team_name = getattr(user, 'team_name', None)
 
 
 def test_owner_keeper_endpoints():
@@ -264,3 +268,58 @@ async def test_keeper_history_csv_import_and_template():
     assert inserted.owner_id == owner.id
     assert inserted.player_id == player.id
     assert inserted.status == "historical_import"
+
+
+@pytest.mark.asyncio
+async def test_economic_history_csv_import_and_template():
+    db_session = setup_db()
+    league = make_league(db_session)
+    comm = make_user(db_session, league, "comm", is_comm=True)
+    owner_a = make_user(db_session, league, "alice")
+    owner_b = make_user(db_session, league, "bob")
+    owner_a.team_name = "Team Alice"
+    owner_b.team_name = "Team Bob"
+    db_session.commit()
+
+    template = download_economic_history_template(current_user=CU(comm))
+    assert "season,entry_type,owner_username,owner_team_name" in template
+
+    csv_text = (
+        "season,entry_type,owner_username,owner_team_name,from_owner_username,to_owner_username,amount,currency_type,note,reference_id\n"
+        "2026,STARTING_BUDGET,alice,Team Alice,,,210,DRAFT_DOLLARS,Initial budget,budget-2026-alice\n"
+        "2026,TRADE,,,alice,bob,15,DRAFT_DOLLARS,Trade adjustment,trade-2026-a-b\n"
+        "2026,AWARD,bob,Team Bob,,,10,DRAFT_DOLLARS,Bonus,award-2026-bob\n"
+    )
+    upload_dry = UploadFile(filename="economic.csv", file=io.BytesIO(csv_text.encode("utf-8")))
+
+    dry_result = await import_economic_history_csv(
+        file=upload_dry,
+        dry_run=True,
+        db=db_session,
+        current_user=CU(comm),
+    )
+    assert dry_result.inserted == 3
+    assert db_session.query(models.EconomicLedger).count() == 0
+    assert db_session.query(models.DraftBudget).count() == 0
+
+    upload_real = UploadFile(filename="economic.csv", file=io.BytesIO(csv_text.encode("utf-8")))
+    write_result = await import_economic_history_csv(
+        file=upload_real,
+        dry_run=False,
+        db=db_session,
+        current_user=CU(comm),
+    )
+    assert write_result.inserted == 3
+    assert db_session.query(models.EconomicLedger).count() == 3
+
+    budget = (
+        db_session.query(models.DraftBudget)
+        .filter(
+            models.DraftBudget.league_id == league.id,
+            models.DraftBudget.owner_id == owner_a.id,
+            models.DraftBudget.year == 2026,
+        )
+        .first()
+    )
+    assert budget is not None
+    assert int(budget.total_budget) == 210

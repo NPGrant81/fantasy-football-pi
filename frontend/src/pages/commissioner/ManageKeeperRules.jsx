@@ -46,6 +46,9 @@ export default function ManageKeeperRules() {
   const [historyFile, setHistoryFile] = useState(null);
   const [historyDryRun, setHistoryDryRun] = useState(true);
   const [historyResult, setHistoryResult] = useState(null);
+  const [economicFile, setEconomicFile] = useState(null);
+  const [economicDryRun, setEconomicDryRun] = useState(true);
+  const [economicResult, setEconomicResult] = useState(null);
 
   useEffect(() => {
     fetchSettings();
@@ -218,6 +221,59 @@ export default function ManageKeeperRules() {
     } catch (err) {
       console.error('csv import failed', err);
       setMessage(err.response?.data?.detail || 'CSV import failed');
+    }
+  };
+
+  const downloadEconomicTemplate = async () => {
+    try {
+      const res = await apiClient.get('/keepers/admin/economic-history-template', {
+        responseType: 'text',
+      });
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'economic_history_template.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('economic template download failed', err);
+      setMessage('Unable to download economic CSV template');
+    }
+  };
+
+  const importEconomicCsv = async (e) => {
+    e.preventDefault();
+    setMessage('');
+    setEconomicResult(null);
+
+    if (!economicFile) {
+      setMessage('Choose an economic CSV file before importing.');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', economicFile);
+      const res = await apiClient.post(
+        `/keepers/admin/import-economic-history?dry_run=${economicDryRun ? 'true' : 'false'}`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
+      setEconomicResult(res.data);
+      setMessage(
+        economicDryRun
+          ? 'Economic CSV dry-run complete. Review results below.'
+          : 'Economic CSV import complete.'
+      );
+      fetchOwners();
+    } catch (err) {
+      console.error('economic csv import failed', err);
+      setMessage(err.response?.data?.detail || 'Economic CSV import failed');
     }
   };
 
@@ -558,6 +614,65 @@ export default function ManageKeeperRules() {
                 <div className="font-bold mb-1">Row issues:</div>
                 <ul className="list-disc ml-5 space-y-1">
                   {historyResult.errors.slice(0, 20).map((err, idx) => (
+                    <li key={`${err.row_number}-${idx}`}>
+                      Row {err.row_number}: {err.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </form>
+
+      <form onSubmit={importEconomicCsv} className={cardSurface}>
+        <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
+          Economic History CSV Import
+        </h2>
+        <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+          Import starting budgets, trades, and awards. Owner matching is canonical:
+          username first, then exact team name fallback.
+        </p>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className={buttonSecondary}
+            onClick={downloadEconomicTemplate}
+          >
+            Download Economic Template
+          </button>
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+            <input
+              type="checkbox"
+              checked={economicDryRun}
+              onChange={(e) => setEconomicDryRun(e.target.checked)}
+            />
+            Dry run (no DB writes)
+          </label>
+        </div>
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(e) => setEconomicFile(e.target.files?.[0] || null)}
+          className={`${inputBase} mb-4`}
+        />
+        <div>
+          <button type="submit" className={buttonPrimary}>
+            {economicDryRun ? 'Run Economic Dry-Run' : 'Import Economic History'}
+          </button>
+        </div>
+
+        {economicResult && (
+          <div className="mt-4 rounded-lg border border-slate-300 dark:border-slate-700 p-3 text-sm text-slate-700 dark:text-slate-200">
+            <div>Processed: {economicResult.processed}</div>
+            <div>Inserted: {economicResult.inserted}</div>
+            <div>Updated: {economicResult.updated}</div>
+            <div>Skipped: {economicResult.skipped}</div>
+            {Array.isArray(economicResult.errors) && economicResult.errors.length > 0 && (
+              <div className="mt-3">
+                <div className="font-bold mb-1">Row issues:</div>
+                <ul className="list-disc ml-5 space-y-1">
+                  {economicResult.errors.slice(0, 20).map((err, idx) => (
                     <li key={`${err.row_number}-${idx}`}>
                       Row {err.row_number}: {err.detail}
                     </li>
