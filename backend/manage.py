@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from .database import SessionLocal, engine, Base
 from .scripts.seed import run_seeder
 from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_audit
+from .scripts.audit_invalid_players import run_invalid_player_audit
 from .scripts.finalize_week import run_finalization
 from .core.security import get_password_hash
 
@@ -61,6 +62,37 @@ def audit_player_duplicates(apply_changes: bool, fail_on_duplicates: bool, json_
         raise click.ClickException(
             f"Found {summary['duplicate_groups']} duplicate player groups"
         )
+
+
+@cli.command("audit-invalid-players")
+@click.option("--apply", "apply_changes", is_flag=True, default=False, help="Apply cleanup (default: audit only).")
+@click.option("--allow-reset-draft-picks", is_flag=True, default=False, help="Allow setting draft_picks.player_id to NULL when no replacement exists.")
+@click.option("--league-id", type=int, default=None, help="Scope cleanup to one league.")
+@click.option("--owner-id", type=int, default=None, help="Scope cleanup to one owner ID.")
+@click.option("--owner-team-name", type=str, default=None, help="Scope cleanup to one owner team name.")
+@click.option("--json-output", type=click.Path(dir_okay=False, writable=True), default=None, help="Optional path to write JSON report.")
+def audit_invalid_players(
+    apply_changes: bool,
+    allow_reset_draft_picks: bool,
+    league_id: int | None,
+    owner_id: int | None,
+    owner_team_name: str | None,
+    json_output: str | None,
+):
+    """Audit invalid placeholder players and optionally remap/reset references."""
+    summary = run_invalid_player_audit(
+        apply_changes=apply_changes,
+        allow_reset_draft_picks=allow_reset_draft_picks,
+        league_id=league_id,
+        owner_id=owner_id,
+        owner_team_name=owner_team_name,
+        json_output=json_output,
+    )
+
+    click.echo("Invalid player audit summary")
+    click.echo(f"- Invalid players with scoped refs: {summary['invalid_players_with_scoped_refs']}")
+    click.echo(f"- Actions applied: {summary['actions_applied']}")
+    click.echo(f"- Rows touched: {summary['rows_touched']}")
 
 
 @cli.command("finalize-week")
