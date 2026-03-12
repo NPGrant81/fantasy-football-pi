@@ -19,6 +19,7 @@ export default function Keepers() {
   const [ownerId, setOwnerId] = useState(
     localStorage.getItem('user_id') || null
   );
+  const [rosterFallback, setRosterFallback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
@@ -67,6 +68,26 @@ export default function Keepers() {
         setKeeperData(normalizedKeeperData);
         if (res.data && Array.isArray(res.data.selections)) {
           setSelected(new Set(res.data.selections.map((s) => s.player_id)));
+        }
+
+        const hasAvailablePlayers =
+          Array.isArray(res.data?.available_players) &&
+          res.data.available_players.length > 0;
+        if (!hasAvailablePlayers && ownerId) {
+          try {
+            const rres = await apiClient.get(`/team/${ownerId}?week=1`);
+            const fallbackPlayers = Array.isArray(rres.data?.players)
+              ? rres.data.players
+              : Array.isArray(rres.data?.roster)
+                ? rres.data.roster
+                : [];
+            setRosterFallback(fallbackPlayers);
+          } catch (fallbackErr) {
+            console.error('failed to load roster fallback', fallbackErr);
+            setRosterFallback([]);
+          }
+        } else {
+          setRosterFallback([]);
         }
       } catch (err) {
         console.error('failed to load keeper data', err);
@@ -149,6 +170,20 @@ export default function Keepers() {
 
   const maxAllowed = keeperData.max_allowed || 0;
   const selectedCount = selected.size;
+  const displayedPlayers =
+    keeperData.available_players && keeperData.available_players.length > 0
+      ? keeperData.available_players
+      : rosterFallback.map((player) => ({
+          player_id: player.player_id,
+          name: player.name,
+          position: player.position || '',
+          nfl_team: player.nfl_team || null,
+          draft_price: Number(player.draft_price ?? 0),
+          is_selected: selected.has(player.player_id),
+          is_eligible: true,
+          reason_ineligible: null,
+          years_kept_count: 0,
+        }));
 
   return (
     <PageTemplate
@@ -187,7 +222,7 @@ export default function Keepers() {
             Available Players
           </div>
           <div className="text-3xl font-bold text-slate-600 dark:text-slate-400">
-            {keeperData.available_players?.length || 0}
+              {displayedPlayers.length}
           </div>
         </div>
       </div>
@@ -243,8 +278,8 @@ export default function Keepers() {
           Your Roster - Available to Keep
         </h3>
         <div className="space-y-2 max-h-96 overflow-y-auto">
-          {keeperData.available_players && keeperData.available_players.length > 0 ? (
-            keeperData.available_players.map((p) => {
+          {displayedPlayers.length > 0 ? (
+            displayedPlayers.map((p) => {
               const isSelected = selected.has(p.player_id);
               return (
                 <label
