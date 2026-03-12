@@ -10,7 +10,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # fail if the package isn't installed.
 from database import SessionLocal
 import models
-from backend.services import player_service
+try:
+    # Support both module execution (python -m backend.scripts.daily_sync)
+    # and direct script execution from backend/scripts.
+    from backend.services import player_service
+except ModuleNotFoundError:
+    from services import player_service
 
 def sync_nfl_reality():
     # import here to avoid requiring the package in lightweight test runs

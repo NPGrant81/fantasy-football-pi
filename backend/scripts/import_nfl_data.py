@@ -3,7 +3,12 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
-from backend.services import player_service
+try:
+    # Support both module execution (python -m backend.scripts.import_nfl_data)
+    # and direct script execution from backend/scripts.
+    from backend.services import player_service
+except ModuleNotFoundError:
+    from services import player_service
 
 # 1. Initialize DB
 models.Base.metadata.create_all(bind=engine)

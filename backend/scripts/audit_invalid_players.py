@@ -51,21 +51,26 @@ def _reference_counts(
 ) -> dict[str, int]:
     draft_pick_query = db.query(models.DraftPick).filter(models.DraftPick.player_id == player_id)
     keeper_query = db.query(models.Keeper).filter(models.Keeper.player_id == player_id)
-    waiver_query = db.query(models.WaiverClaim).filter(models.WaiverClaim.player_id == player_id)
+    waiver_target_query = db.query(models.WaiverClaim).filter(models.WaiverClaim.player_id == player_id)
+    waiver_drop_query = db.query(models.WaiverClaim).filter(models.WaiverClaim.drop_player_id == player_id)
 
     if league_id is not None:
         draft_pick_query = draft_pick_query.filter(models.DraftPick.league_id == league_id)
         keeper_query = keeper_query.filter(models.Keeper.league_id == league_id)
-        waiver_query = waiver_query.filter(models.WaiverClaim.league_id == league_id)
+        waiver_target_query = waiver_target_query.filter(models.WaiverClaim.league_id == league_id)
+        waiver_drop_query = waiver_drop_query.filter(models.WaiverClaim.league_id == league_id)
 
     if owner_ids:
         draft_pick_query = draft_pick_query.filter(models.DraftPick.owner_id.in_(owner_ids))
         keeper_query = keeper_query.filter(models.Keeper.owner_id.in_(owner_ids))
+        waiver_target_query = waiver_target_query.filter(models.WaiverClaim.user_id.in_(owner_ids))
+        waiver_drop_query = waiver_drop_query.filter(models.WaiverClaim.user_id.in_(owner_ids))
 
     counts = {
         "draft_picks.player_id": int(draft_pick_query.count()),
         "keepers.player_id": int(keeper_query.count()),
-        "waiver_claims.player_id": int(waiver_query.count()),
+        "waiver_claims.player_id": int(waiver_target_query.count()),
+        "waiver_claims.drop_player_id": int(waiver_drop_query.count()),
     }
     counts["total_scoped_references"] = sum(counts.values())
     return counts
@@ -102,21 +107,26 @@ def _apply_scoped_cleanup(
         "draft_picks.player_id": 0,
         "keepers.player_id": 0,
         "waiver_claims.player_id": 0,
+        "waiver_claims.drop_player_id": 0,
         "players.deleted": 0,
     }
 
     draft_pick_query = db.query(models.DraftPick).filter(models.DraftPick.player_id == player_id)
     keeper_query = db.query(models.Keeper).filter(models.Keeper.player_id == player_id)
-    waiver_query = db.query(models.WaiverClaim).filter(models.WaiverClaim.player_id == player_id)
+    waiver_target_query = db.query(models.WaiverClaim).filter(models.WaiverClaim.player_id == player_id)
+    waiver_drop_query = db.query(models.WaiverClaim).filter(models.WaiverClaim.drop_player_id == player_id)
 
     if league_id is not None:
         draft_pick_query = draft_pick_query.filter(models.DraftPick.league_id == league_id)
         keeper_query = keeper_query.filter(models.Keeper.league_id == league_id)
-        waiver_query = waiver_query.filter(models.WaiverClaim.league_id == league_id)
+        waiver_target_query = waiver_target_query.filter(models.WaiverClaim.league_id == league_id)
+        waiver_drop_query = waiver_drop_query.filter(models.WaiverClaim.league_id == league_id)
 
     if owner_ids:
         draft_pick_query = draft_pick_query.filter(models.DraftPick.owner_id.in_(owner_ids))
         keeper_query = keeper_query.filter(models.Keeper.owner_id.in_(owner_ids))
+        waiver_target_query = waiver_target_query.filter(models.WaiverClaim.user_id.in_(owner_ids))
+        waiver_drop_query = waiver_drop_query.filter(models.WaiverClaim.user_id.in_(owner_ids))
 
     if replacement_id is not None:
         updates["draft_picks.player_id"] = int(
@@ -126,7 +136,10 @@ def _apply_scoped_cleanup(
             keeper_query.update({models.Keeper.player_id: replacement_id}, synchronize_session=False) or 0
         )
         updates["waiver_claims.player_id"] = int(
-            waiver_query.update({models.WaiverClaim.player_id: replacement_id}, synchronize_session=False) or 0
+            waiver_target_query.update({models.WaiverClaim.player_id: replacement_id}, synchronize_session=False) or 0
+        )
+        updates["waiver_claims.drop_player_id"] = int(
+            waiver_drop_query.update({models.WaiverClaim.drop_player_id: replacement_id}, synchronize_session=False) or 0
         )
     elif allow_reset_draft_picks:
         updates["draft_picks.player_id"] = int(
@@ -138,6 +151,12 @@ def _apply_scoped_cleanup(
         "draft_picks": int(db.query(models.DraftPick).filter(models.DraftPick.player_id == player_id).count()),
         "keepers": int(db.query(models.Keeper).filter(models.Keeper.player_id == player_id).count()),
         "waiver_claims": int(db.query(models.WaiverClaim).filter(models.WaiverClaim.player_id == player_id).count()),
+        "waiver_claims_drop": int(db.query(models.WaiverClaim).filter(models.WaiverClaim.drop_player_id == player_id).count()),
+        "transaction_history": int(db.query(models.TransactionHistory).filter(models.TransactionHistory.player_id == player_id).count()),
+        "player_weekly_stats": int(db.query(models.PlayerWeeklyStat).filter(models.PlayerWeeklyStat.player_id == player_id).count()),
+        "trade_proposals.offered": int(db.query(models.TradeProposal).filter(models.TradeProposal.offered_player_id == player_id).count()),
+        "trade_proposals.requested": int(db.query(models.TradeProposal).filter(models.TradeProposal.requested_player_id == player_id).count()),
+        "manual_player_mappings": int(db.query(models.ManualPlayerMapping).filter(models.ManualPlayerMapping.player_id == player_id).count()),
     }
     if sum(remaining_refs.values()) == 0:
         updates["players.deleted"] = int(

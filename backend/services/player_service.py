@@ -129,6 +129,8 @@ def find_existing_player(
 
 
 def _player_dedupe_key(player: models.Player):
+    # Group by canonical identity first so duplicate rows collapse together.
+    # _player_rank then prefers rows that carry external IDs within that group.
     fallback_key = canonical_player_identity(
         player.name,
         player.position,
