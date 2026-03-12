@@ -588,7 +588,23 @@ class BugReport(Base):
 
     user = relationship("User", back_populates="bug_reports")
 
-# --- 10. PLAYER WEEKLY STATS ---
+
+# --- 10. SITE VISITS ---
+class SiteVisit(Base):
+    __tablename__ = "site_visits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    path = Column(String, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    session_id = Column(String, nullable=False, index=True)
+    user_agent = Column(String, nullable=True)
+    referrer = Column(String, nullable=True)
+    client_timestamp = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User")
+
+# --- 11. PLAYER WEEKLY STATS ---
 class PlayerWeeklyStat(Base):
     __tablename__ = "player_weekly_stats"
     __table_args__ = (
@@ -607,7 +623,7 @@ class PlayerWeeklyStat(Base):
     player = relationship("Player")
 
 
-# --- 11. MANAGER EFFICIENCY (Analytics) ---
+# --- 12. MANAGER EFFICIENCY (Analytics) ---
 class ManagerEfficiency(Base):
     __tablename__ = "manager_efficiency"
     __table_args__ = (
@@ -632,7 +648,7 @@ class ManagerEfficiency(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-# --- 11. TRADE PROPOSALS ---
+# --- 13. TRADE PROPOSALS ---
 class TradeProposal(Base):
     __tablename__ = "trade_proposals"
 
@@ -649,7 +665,7 @@ class TradeProposal(Base):
     created_at = Column(String, nullable=True)
 
 
-# --- 13. UNMATCHED PLAYERS (Dead Letter Queue) ---
+# --- 14. UNMATCHED PLAYERS (Dead Letter Queue) ---
 class UnmatchedPlayer(Base):
     __tablename__ = "unmatched_players"
     id = Column(Integer, primary_key=True, index=True)
@@ -660,7 +676,7 @@ class UnmatchedPlayer(Base):
     extra_data = Column(JSON, nullable=True)  # Any additional info (raw row, etc.)
     created_at = Column(String, nullable=True)
 
-# --- 14. MANUAL PLAYER MAPPINGS ---
+# --- 15. MANUAL PLAYER MAPPINGS ---
 class ManualPlayerMapping(Base):
     __tablename__ = "manual_player_mappings"
     id = Column(Integer, primary_key=True, index=True)
