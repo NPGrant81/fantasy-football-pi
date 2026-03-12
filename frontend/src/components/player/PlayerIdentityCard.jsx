@@ -3,6 +3,21 @@ import { useMemo, useState } from 'react';
 import { FiUser } from 'react-icons/fi';
 import TeamLogo from '../TeamLogo';
 
+function buildDefenseLogoUrl(nflTeam) {
+  const normalized = String(nflTeam || '').trim().toUpperCase();
+  if (!normalized) return '';
+
+  const legacyAliases = {
+    JAC: 'JAX',
+    OAK: 'LV',
+    SD: 'LAC',
+    STL: 'LAR',
+    WSH: 'WAS',
+  };
+  const canonical = legacyAliases[normalized] || normalized;
+  return `https://static.www.nfl.com/t_q-best/league/api/clubs/logos/${canonical}.png`;
+}
+
 export default function PlayerIdentityCard({
   title,
   playerName = '',
@@ -32,6 +47,10 @@ export default function PlayerIdentityCard({
     return normalized === 'DEF' || normalized === 'DST' || normalized === 'D/ST';
   }, [position]);
   const canShowDefenseLogo = isDefense && Boolean(nflTeam);
+  const defenseLogoUrl = useMemo(() => {
+    if (!canShowDefenseLogo) return '';
+    return teamLogoUrl || buildDefenseLogoUrl(nflTeam);
+  }, [canShowDefenseLogo, nflTeam, teamLogoUrl]);
 
   return (
     <div className="mb-4 rounded-xl border border-slate-300 bg-white/80 p-3 dark:border-slate-700 dark:bg-slate-900/70">
@@ -78,7 +97,7 @@ export default function PlayerIdentityCard({
           ) : canShowDefenseLogo ? (
             <TeamLogo
               teamInfo={{
-                logo_url: teamLogoUrl || null,
+                logo_url: defenseLogoUrl || null,
                 team_name: `${nflTeam} Defense`,
                 name: `${nflTeam} Defense`,
               }}
