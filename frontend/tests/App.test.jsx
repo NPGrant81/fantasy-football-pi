@@ -59,7 +59,7 @@ describe('App (basic)', () => {
 
   test('renders login screen when no token present', () => {
     render(<App />);
-    expect(screen.getByText(/FantasyFootball-PI Login/i)).toBeInTheDocument();
+    expect(screen.getByText(/PPL Insight Hub Login/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter username/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter password/i)).toBeInTheDocument();
     // Test for new League ID input (from recent changes)
@@ -165,7 +165,7 @@ describe('App (basic)', () => {
       expect(localStorage.getItem('user_id')).toBeNull();
       expect(localStorage.getItem('fantasyLeagueId')).toBeNull();
     });
-    expect(screen.getByText(/FantasyFootball-PI Login/i)).toBeInTheDocument();
+    expect(screen.getByText(/PPL Insight Hub Login/i)).toBeInTheDocument();
   });
 
   test('visiting /playoffs renders playoff bracket', async () => {
