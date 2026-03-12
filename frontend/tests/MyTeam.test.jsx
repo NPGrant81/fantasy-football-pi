@@ -50,11 +50,12 @@ const commissionerRulesScenario = ({
   maxRb = 2,
   maxWr = 1,
   maxTe = 1,
+  allowPartialLineup = 0,
 }) => ({
   scoring_rules: [],
   starting_slots: {
     ACTIVE_ROSTER_SIZE: activeRosterSize,
-    ALLOW_PARTIAL_LINEUP: 0,
+    ALLOW_PARTIAL_LINEUP: allowPartialLineup,
     QB: qb,
     RB: rb,
     WR: wr,
@@ -1069,6 +1070,71 @@ describe('MyTeam (Roster & Lineups)', () => {
       expect(screen.getByText('4 (2-4)')).toBeInTheDocument();
       expect(screen.getByText('0 (1-3)')).toBeInTheDocument();
       expect(screen.queryByText(/^K 0$/)).not.toBeInTheDocument();
+    });
+  });
+
+  test('allows submit when lineup is below minimum thresholds but partial lineups are enabled', async () => {
+    const partialRoster = [
+      { id: 1, player_id: 1, name: 'QB1', position: 'QB', nfl_team: 'NYJ', status: 'STARTER' },
+      { id: 2, player_id: 2, name: 'RB1', position: 'RB', nfl_team: 'PHI', status: 'STARTER' },
+      { id: 3, player_id: 3, name: 'WR1', position: 'WR', nfl_team: 'DET', status: 'STARTER' },
+      { id: 4, player_id: 4, name: 'TE1', position: 'TE', nfl_team: 'KC', status: 'STARTER' },
+      { id: 5, player_id: 5, name: 'DEF1', position: 'DEF', nfl_team: 'SEA', status: 'STARTER' },
+    ];
+
+    mockOwnerRulesSyncApi(
+      () =>
+        commissionerRulesScenario({
+          maxQb: 1,
+          activeRosterSize: 8,
+          maxRb: 3,
+          maxWr: 3,
+          maxTe: 1,
+          flex: 1,
+          allowPartialLineup: 1,
+        }),
+      partialRoster
+    );
+
+    render(<MyTeam activeOwnerId={1} />);
+
+    await expectSubmitButtonEventuallyEnabled();
+    await waitFor(() => {
+      expect(screen.getAllByText('1 (2-3)').length).toBeGreaterThan(0);
+    });
+  });
+
+  test('blocks submit and shows red-tier count when lineup exceeds commissioner max', async () => {
+    const overLimitRoster = [
+      { id: 1, player_id: 1, name: 'QB1', position: 'QB', nfl_team: 'NYJ', status: 'STARTER' },
+      { id: 2, player_id: 2, name: 'RB1', position: 'RB', nfl_team: 'PHI', status: 'STARTER' },
+      { id: 3, player_id: 3, name: 'RB2', position: 'RB', nfl_team: 'DET', status: 'STARTER' },
+      { id: 4, player_id: 4, name: 'RB3', position: 'RB', nfl_team: 'KC', status: 'STARTER' },
+      { id: 5, player_id: 5, name: 'RB4', position: 'RB', nfl_team: 'CAR', status: 'STARTER' },
+      { id: 6, player_id: 6, name: 'WR1', position: 'WR', nfl_team: 'IND', status: 'STARTER' },
+      { id: 7, player_id: 7, name: 'WR2', position: 'WR', nfl_team: 'LAC', status: 'STARTER' },
+      { id: 8, player_id: 8, name: 'TE1', position: 'TE', nfl_team: 'ARI', status: 'STARTER' },
+      { id: 9, player_id: 9, name: 'DEF1', position: 'DEF', nfl_team: 'SEA', status: 'STARTER' },
+    ];
+
+    mockOwnerRulesSyncApi(
+      () =>
+        commissionerRulesScenario({
+          maxQb: 1,
+          activeRosterSize: 9,
+          maxRb: 3,
+          maxWr: 3,
+          maxTe: 1,
+          flex: 1,
+        }),
+      overLimitRoster
+    );
+
+    render(<MyTeam activeOwnerId={1} />);
+
+    await expectSubmitButtonInitiallyDisabled();
+    await waitFor(() => {
+      expect(screen.getByText('4 (2-3)')).toBeInTheDocument();
     });
   });
 

@@ -304,9 +304,10 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
         actual = actual_slot_counts.get(pos, 0)
         if actual < required:
             if pos == "FLEX":
-                errors.append(
-                    "not enough FLEX (needs extra RB/WR/TE starter)"
-                )
+                if not allow_partial_lineup:
+                    errors.append(
+                        "not enough FLEX (needs extra RB/WR/TE starter)"
+                    )
             elif not allow_partial_lineup:
                 errors.append(f"not enough {pos}")
         if actual > required:

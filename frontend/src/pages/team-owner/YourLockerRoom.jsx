@@ -706,11 +706,14 @@ export default function YourLockerRoom({ activeOwnerId }) {
     );
 
     const errors = [];
+    const blockingErrors = [];
     if (currentStarters.length < activeRosterRequired && !allowPartialLineup) {
       errors.push('not enough players');
+      blockingErrors.push('not enough players');
     }
     if (currentStarters.length > activeRosterRequired) {
       errors.push('too many players');
+      blockingErrors.push('too many players');
     }
 
     const tierRows = Object.keys(MIN_ACTIVE_REQUIREMENTS)
@@ -727,13 +730,20 @@ export default function YourLockerRoom({ activeOwnerId }) {
           maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
         );
         const maximum = Math.max(minimum, configuredMaximum);
-        const actual = Number(counts[position] || 0);
+        const actual = position === 'FLEX' ? flexActual : Number(counts[position] || 0);
         const meetsMin = actual >= minimum;
         const meetsMax = actual <= maximum;
 
-        if (minimum > 0 && !meetsMin && !allowPartialLineup)
+        if (minimum > 0 && !meetsMin) {
           errors.push(`not enough ${position}`);
-        if (maximum >= 0 && !meetsMax) errors.push(`too many ${position}`);
+          if (!allowPartialLineup) {
+            blockingErrors.push(`not enough ${position}`);
+          }
+        }
+        if (maximum >= 0 && !meetsMax) {
+          errors.push(`too many ${position}`);
+          blockingErrors.push(`too many ${position}`);
+        }
 
         return {
           position,
@@ -745,12 +755,16 @@ export default function YourLockerRoom({ activeOwnerId }) {
       });
 
     const flexMinimum = Number(starterRequirements.FLEX ?? 0);
-    if (flexMinimum > 0 && flexActual < flexMinimum && !allowPartialLineup) {
+    if (flexMinimum > 0 && flexActual < flexMinimum) {
       errors.push('not enough FLEX');
+      if (!allowPartialLineup) {
+        blockingErrors.push('not enough FLEX');
+      }
     }
 
     return {
       errors,
+      blockingErrors,
       counts,
       tierRows,
       totalActive: currentStarters.length,
@@ -780,8 +794,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
   }, [lineupRuleSnapshot.tierRows]);
 
   const currentStarterValidationErrors = useMemo(
-    () => lineupRuleSnapshot.errors,
-    [lineupRuleSnapshot.errors]
+    () => lineupRuleSnapshot.blockingErrors,
+    [lineupRuleSnapshot.blockingErrors]
   );
 
   const lineupValidationErrors = useMemo(
