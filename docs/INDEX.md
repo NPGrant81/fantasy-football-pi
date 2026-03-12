@@ -13,6 +13,8 @@ Refer to the appropriate file for more information.
 - [Cloudflare Tunnel systemd Runbook](cloudflare-tunnel-systemd.md)
 - [Cross Module Edge Case Test Matrix](CROSS_MODULE_EDGE_CASE_TEST_MATRIX.md)
 - [Data Validation Strategy](DATA_VALIDATION_STRATEGY.md)
+- [Data Dictionary](data-dictionary.md)
+- [Data Source Audit Issue 102](DATA_SOURCE_AUDIT_ISSUE_102.md)
 - [Db Migration Phase1](DB_MIGRATION_PHASE1.md)
 - [Dependency Maintenance](DEPENDENCY_MAINTENANCE.md)
 - [Deployment Workflows](DEPLOYMENT_WORKFLOWS.md)
