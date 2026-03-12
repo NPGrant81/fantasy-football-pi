@@ -13,7 +13,7 @@ entities used by analytics, ML, and draft simulation pipelines.
 | PositionID | `backend/data/positions.csv` | `PositionID` |
 | Budget | `backend/data/draft_budget.csv` | `2024DraftBudget` |
 | Owner Registry | `backend/data/teams.csv` | Owner/team mapping |
-| DraftStrategy | _not yet present in repo_ | `DraftStrategy` |
+| DraftStrategy | `backend/data/draft_strategy.csv` | `DraftStrategy` |
 
 ## Global Normalization Rules
 
@@ -96,8 +96,6 @@ entities used by analytics, ML, and draft simulation pipelines.
 
 ## Known Gaps (Current Repo Snapshot)
 
-- `DraftStrategy` source is referenced by issue scope but not present as a local
-  CSV source in the repository.
 - Owner registry currently uses `team_id`; explicit `owner_id` mapping requires
   a normalization bridge for strict foreign-key style joins.
 

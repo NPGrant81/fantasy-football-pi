@@ -5,6 +5,6 @@ PositionID,Position,PositionStatus
 8005,TE,Active
 8006,Def,Active
 8006,TD,Active
-8099,Kicker,Inactive
-8099,PK,Inactive
+8099,Kicker,Active
+8099,PK,Active
 8007,FB,Active

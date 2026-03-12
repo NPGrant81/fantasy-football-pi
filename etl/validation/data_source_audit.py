@@ -85,6 +85,43 @@ def _collect_values(rows: list[dict[str, str]], column: str | None) -> set[str]:
 
 
 
+def _normalize_year_value(value: str) -> int | None:
+    text = (value or "").strip()
+    if not text:
+        return None
+
+    if text.isdigit():
+        year = int(text)
+        return year if 2000 <= year <= 2100 else None
+
+    # Accept common legacy date forms like 1/1/2024 or 2024-01-01.
+    date_match = re.search(r"(19|20)\d{2}", text)
+    if not date_match:
+        return None
+
+    year = int(date_match.group(0))
+    return year if 2000 <= year <= 2100 else None
+
+
+
+def _collect_values_by_year(
+    rows: list[dict[str, str]], value_column: str | None, year_column: str | None
+) -> dict[int, set[str]]:
+    if not value_column or not year_column:
+        return {}
+
+    values_by_year: dict[int, set[str]] = {}
+    for row in rows:
+        value = (row.get(value_column) or "").strip()
+        year = _normalize_year_value(row.get(year_column) or "")
+        if not value or year is None:
+            continue
+        values_by_year.setdefault(year, set()).add(value)
+
+    return values_by_year
+
+
+
 def _row_count_with_invalid_year(rows: list[dict[str, str]], year_column: str | None) -> int:
     if not year_column:
         return 0
@@ -93,11 +130,7 @@ def _row_count_with_invalid_year(rows: list[dict[str, str]], year_column: str | 
         value = (row.get(year_column) or "").strip()
         if not value:
             continue
-        if not value.isdigit():
-            invalid += 1
-            continue
-        year = int(value)
-        if year < 2000 or year > 2100:
+        if _normalize_year_value(value) is None:
             invalid += 1
     return invalid
 
@@ -154,8 +187,12 @@ def audit_sources(data_dir: Path) -> dict[str, Any]:
     player_ids = _collect_values(dataset_rows["player_id"], players_id_col)
     draft_position_ids = _collect_values(dataset_rows["draft_results"], draft_position_col)
     position_ids = _collect_values(dataset_rows["position_id"], positions_id_col)
-    draft_owner_ids = _collect_values(dataset_rows["draft_results"], draft_owner_col)
-    budget_owner_ids = _collect_values(dataset_rows["budget"], budget_owner_col)
+    draft_owner_ids_by_year = _collect_values_by_year(
+        dataset_rows["draft_results"], draft_owner_col, draft_year_col
+    )
+    budget_owner_ids_by_year = _collect_values_by_year(
+        dataset_rows["budget"], budget_owner_col, budget_year_col
+    )
 
     active_position_ids: set[str] = set()
     if positions_id_col and positions_status_col:
@@ -168,7 +205,16 @@ def audit_sources(data_dir: Path) -> dict[str, Any]:
     missing_player_refs = sorted(draft_player_ids - player_ids)
     missing_position_refs = sorted(draft_position_ids - position_ids)
     inactive_position_refs = sorted(draft_position_ids - active_position_ids) if active_position_ids else []
-    owner_id_mismatch = sorted(draft_owner_ids.symmetric_difference(budget_owner_ids))
+    overlapping_years = sorted(
+        set(draft_owner_ids_by_year.keys()).intersection(budget_owner_ids_by_year.keys())
+    )
+    owner_mismatch_set: set[str] = set()
+    for year in overlapping_years:
+        owner_mismatch_set.update(
+            draft_owner_ids_by_year[year].symmetric_difference(budget_owner_ids_by_year[year])
+        )
+
+    owner_id_mismatch = sorted(owner_mismatch_set)
 
     draft_invalid_year_count = _row_count_with_invalid_year(dataset_rows["draft_results"], draft_year_col)
     budget_invalid_year_count = _row_count_with_invalid_year(dataset_rows["budget"], budget_year_col)
