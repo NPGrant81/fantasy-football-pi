@@ -1,6 +1,7 @@
 /* ignore-breakpoints: card uses fixed styling from uiStandards; responsive behaviour is provided by the parent layout */
 import { useMemo, useState } from 'react';
 import { FiUser } from 'react-icons/fi';
+import TeamLogo from '../TeamLogo';
 
 export default function PlayerIdentityCard({
   title,
@@ -8,6 +9,7 @@ export default function PlayerIdentityCard({
   position = '',
   nflTeam = '',
   headshotUrl = '',
+  teamLogoUrl = '',
 }) {
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -25,6 +27,11 @@ export default function PlayerIdentityCard({
   }, [playerName]);
 
   const canShowImage = Boolean(headshotUrl && !imageFailed);
+  const isDefense = useMemo(() => {
+    const normalized = String(position || '').trim().toUpperCase();
+    return normalized === 'DEF' || normalized === 'DST' || normalized === 'D/ST';
+  }, [position]);
+  const canShowDefenseLogo = isDefense && Boolean(nflTeam);
 
   return (
     <div className="mb-4 rounded-xl border border-slate-300 bg-white/80 p-3 dark:border-slate-700 dark:bg-slate-900/70">
@@ -67,6 +74,17 @@ export default function PlayerIdentityCard({
               alt={`${playerName || 'Player'} headshot`}
               className="h-full w-full object-cover"
               onError={() => setImageFailed(true)}
+            />
+          ) : canShowDefenseLogo ? (
+            <TeamLogo
+              teamInfo={{
+                logo_url: teamLogoUrl || null,
+                team_name: `${nflTeam} Defense`,
+                name: `${nflTeam} Defense`,
+              }}
+              size="xl"
+              className="h-full w-full"
+              showBorder={false}
             />
           ) : (
             <FiUser className="text-3xl text-slate-500 dark:text-slate-400" />

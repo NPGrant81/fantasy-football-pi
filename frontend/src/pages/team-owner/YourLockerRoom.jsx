@@ -1538,6 +1538,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                     playerPerformance.nfl_team || selectedPlayer?.nfl_team || ''
                   }
                   headshotUrl={playerPerformance.headshot_url || ''}
+                  teamLogoUrl={playerPerformance.team_logo_url || ''}
                 />
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
