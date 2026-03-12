@@ -35,8 +35,9 @@ def _build_team_logo_url(team_abbr: Optional[str]) -> Optional[str]:
     }
     normalized = legacy_aliases.get(normalized, normalized)
 
-    # ESPN hosts canonical NFL team logos by abbreviation.
-    return f"https://a.espncdn.com/i/teamlogos/nfl/500/{normalized.lower()}.png"
+    # nflplotR/nflverse logo workflows are team-abbreviation driven.
+    # Use the NFL club logo endpoint keyed by cleaned team abbreviation.
+    return f"https://static.www.nfl.com/t_q-best/league/api/clubs/logos/{normalized}.png"
 
 @router.get("/search")
 def search_players(
