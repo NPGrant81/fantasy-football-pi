@@ -601,6 +601,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
                     playerPerformance.nfl_team || selectedPlayer?.nfl_team || ''
                   }
                   headshotUrl={playerPerformance.headshot_url || ''}
+                  teamLogoUrl={playerPerformance.team_logo_url || ''}
                 />
 
                 <div className="grid grid-cols-2 gap-3 mb-5 md:grid-cols-4">

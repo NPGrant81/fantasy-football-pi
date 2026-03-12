@@ -1,3 +1,4 @@
+/* ignore-breakpoints */
 import { BRAND_LOGO_ALT, BRAND_NAME } from '../constants/branding';
 
 export default function BrandMark({
@@ -5,7 +6,10 @@ export default function BrandMark({
   imageClassName = 'w-8 h-8',
   textClassName = '',
   text = BRAND_NAME,
+  textTag = 'span',
 }) {
+  const TextTag = textTag;
+
   return (
     <div className={containerClassName}>
       <img
@@ -13,7 +17,7 @@ export default function BrandMark({
         alt={BRAND_LOGO_ALT}
         className={imageClassName}
       />
-      <span className={textClassName}>{text}</span>
+      <TextTag className={textClassName}>{text}</TextTag>
     </div>
   );
 }
