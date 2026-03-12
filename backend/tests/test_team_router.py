@@ -200,6 +200,116 @@ def test_validate_lineup_requirements_two_flex_slots():
     assert errors == []
 
 
+def test_validate_lineup_requirements_caps_invalid_minimums_at_configured_maximums():
+    settings = models.LeagueSettings(
+        league_id=40,
+        starting_slots={
+            "QB": 1,
+            "RB": 5,
+            "WR": 2,
+            "TE": 1,
+            "K": 0,
+            "DEF": 0,
+            "FLEX": 1,
+            "ACTIVE_ROSTER_SIZE": 9,
+            "MAX_QB": 3,
+            "MAX_RB": 4,
+            "MAX_WR": 3,
+            "MAX_TE": 2,
+            "MAX_K": 0,
+            "MAX_DEF": 1,
+            "MAX_FLEX": 1,
+        },
+    )
+    starters = [
+        _make_pick("QB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("WR"),
+        _make_pick("WR"),
+        _make_pick("TE"),
+        _make_pick("DEF"),
+    ]
+    from backend.routers.team import validate_lineup_requirements
+
+    errors = validate_lineup_requirements(starters, settings)
+    assert errors == []
+
+
+def test_validate_lineup_requirements_ignores_stale_hidden_minimums():
+    settings = models.LeagueSettings(
+        league_id=41,
+        starting_slots={
+            "QB": 2,
+            "RB": 4,
+            "WR": 2,
+            "TE": 0,
+            "K": 1,
+            "DEF": 1,
+            "FLEX": 1,
+            "ACTIVE_ROSTER_SIZE": 8,
+            "MAX_QB": 2,
+            "MAX_RB": 4,
+            "MAX_WR": 5,
+            "MAX_TE": 3,
+            "MAX_K": 0,
+            "MAX_DEF": 1,
+            "MAX_FLEX": 1,
+        },
+    )
+    starters = [
+        _make_pick("QB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("RB"),
+        _make_pick("WR"),
+        _make_pick("WR"),
+        _make_pick("TE"),
+        _make_pick("DEF"),
+    ]
+    from backend.routers.team import validate_lineup_requirements
+
+    errors = validate_lineup_requirements(starters, settings)
+    assert errors == []
+
+
+def test_validate_lineup_requirements_allows_under_minimum_slots_when_partial_enabled():
+    settings = models.LeagueSettings(
+        league_id=42,
+        starting_slots={
+            "QB": 1,
+            "RB": 2,
+            "WR": 2,
+            "TE": 1,
+            "K": 0,
+            "DEF": 1,
+            "FLEX": 1,
+            "ACTIVE_ROSTER_SIZE": 8,
+            "MAX_QB": 1,
+            "MAX_RB": 3,
+            "MAX_WR": 3,
+            "MAX_TE": 1,
+            "MAX_K": 0,
+            "MAX_DEF": 1,
+            "MAX_FLEX": 1,
+            "ALLOW_PARTIAL_LINEUP": 1,
+        },
+    )
+    starters = [
+        _make_pick("QB"),
+        _make_pick("RB"),
+        _make_pick("WR"),
+        _make_pick("TE"),
+        _make_pick("DEF"),
+    ]
+    from backend.routers.team import validate_lineup_requirements
+
+    errors = validate_lineup_requirements(starters, settings)
+    assert errors == []
+
+
 
 
 def test_validate_lineup_skips_taxi():

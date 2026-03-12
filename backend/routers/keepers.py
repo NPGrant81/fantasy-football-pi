@@ -1,9 +1,13 @@
 from datetime import datetime
+import csv
+import io
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
+from sqlalchemy import func
 
 from ..database import get_db
 from .. import models
@@ -46,6 +50,118 @@ class KeeperPageResponse(BaseModel):
 
 class SubmitKeepersRequest(BaseModel):
     players: List[KeeperSelectionSchema]
+
+
+class KeeperOverrideRequest(BaseModel):
+    owner_id: int
+    player_name: str
+    nfl_team: str
+    season: Optional[int] = None
+    gsis_id: Optional[str] = None
+    keep_cost: float = 0
+    years_kept_count: int = 1
+
+
+class KeeperImportRowResult(BaseModel):
+    row_number: int
+    status: str
+    detail: str
+
+
+class KeeperImportResult(BaseModel):
+    dry_run: bool
+    processed: int
+    inserted: int
+    updated: int
+    skipped: int
+    errors: List[KeeperImportRowResult]
+
+
+def _current_keeper_season(db: Session, league_id: int) -> int:
+    settings = (
+        db.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == league_id)
+        .first()
+    )
+    season = settings.draft_year if settings else None
+    if season is None:
+        raise HTTPException(status_code=400, detail="League season not configured")
+    return int(season)
+
+
+def _resolve_owner_for_import(
+    db: Session,
+    league_id: int,
+    owner_username: Optional[str],
+    owner_team_name: Optional[str],
+) -> Optional[models.User]:
+    owner_username = (owner_username or "").strip()
+    owner_team_name = (owner_team_name or "").strip()
+
+    if owner_username:
+        owner = (
+            db.query(models.User)
+            .filter(
+                models.User.league_id == league_id,
+                func.lower(models.User.username) == owner_username.lower(),
+            )
+            .first()
+        )
+        if owner:
+            return owner
+
+    if owner_team_name:
+        owner = (
+            db.query(models.User)
+            .filter(
+                models.User.league_id == league_id,
+                func.lower(models.User.team_name) == owner_team_name.lower(),
+            )
+            .first()
+        )
+        if owner:
+            return owner
+
+    return None
+
+
+def _resolve_player_for_import(
+    db: Session,
+    player_name: str,
+    nfl_team: str,
+    gsis_id: Optional[str],
+) -> Optional[models.Player]:
+    normalized_gsis = (gsis_id or "").strip()
+    if normalized_gsis:
+        by_gsis = (
+            db.query(models.Player)
+            .filter(models.Player.gsis_id == normalized_gsis)
+            .first()
+        )
+        if by_gsis:
+            return by_gsis
+
+    normalized_name = (player_name or "").strip()
+    normalized_team = (nfl_team or "").strip()
+    if not normalized_name or not normalized_team:
+        return None
+
+    candidates = (
+        db.query(models.Player)
+        .filter(
+            func.lower(models.Player.name) == normalized_name.lower(),
+            func.lower(models.Player.nfl_team) == normalized_team.lower(),
+        )
+        .all()
+    )
+    if not candidates:
+        return None
+
+    # If multiple candidates exist, prefer one with gsis_id set.
+    with_gsis = [p for p in candidates if p.gsis_id]
+    if len(with_gsis) == 1:
+        return with_gsis[0]
+    return candidates[0]
 
 # --- Owner routes ---
 @router.get("/", response_model=KeeperPageResponse)
@@ -114,6 +230,19 @@ def save_my_keepers(
     if season is None:
         raise HTTPException(status_code=400, detail="League season not configured")
 
+    # commissioner overrides always win; owner saves cannot remove/replace them.
+    override_player_ids = {
+        row.player_id
+        for row in db.query(models.Keeper)
+        .filter(
+            models.Keeper.owner_id == current_user.id,
+            models.Keeper.league_id == current_user.league_id,
+            models.Keeper.season == season,
+            models.Keeper.status == "commish_override",
+        )
+        .all()
+    }
+
     # simple: delete existing pending entries for owner and add new ones
     db.query(models.Keeper).filter(
         models.Keeper.owner_id == current_user.id,
@@ -121,6 +250,8 @@ def save_my_keepers(
         models.Keeper.status == "pending",
     ).delete(synchronize_session="fetch")
     for p in request.players:
+        if p.player_id in override_player_ids:
+            continue
         k = models.Keeper(
             league_id=current_user.league_id,
             owner_id=current_user.id,
@@ -258,6 +389,216 @@ def reset_league_keepers(
     season = settings.draft_year if settings else None
     count = keeper_service.reset_keepers(db, current_user.league_id, season, owner_id)
     return {"cleared": count}
+
+
+@router.post("/admin/override")
+def commissioner_override_keeper(
+    request: KeeperOverrideRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin),
+):
+    if not current_user.is_commissioner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
+
+    owner = (
+        db.query(models.User)
+        .filter(
+            models.User.id == request.owner_id,
+            models.User.league_id == current_user.league_id,
+        )
+        .first()
+    )
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found in this league")
+
+    season = int(request.season) if request.season is not None else _current_keeper_season(db, current_user.league_id)
+    player = _resolve_player_for_import(
+        db,
+        player_name=request.player_name,
+        nfl_team=request.nfl_team,
+        gsis_id=request.gsis_id,
+    )
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found by gsis_id or name/team")
+
+    existing = (
+        db.query(models.Keeper)
+        .filter(
+            models.Keeper.owner_id == owner.id,
+            models.Keeper.league_id == current_user.league_id,
+            models.Keeper.season == season,
+            models.Keeper.player_id == player.id,
+        )
+        .first()
+    )
+
+    if existing:
+        existing.keep_cost = request.keep_cost
+        existing.years_kept_count = max(0, int(request.years_kept_count or 0))
+        existing.status = "commish_override"
+        existing.approved_by_commish = True
+        existing.locked_at = datetime.utcnow()
+    else:
+        db.add(
+            models.Keeper(
+                league_id=current_user.league_id,
+                owner_id=owner.id,
+                player_id=player.id,
+                season=season,
+                keep_cost=request.keep_cost,
+                years_kept_count=max(0, int(request.years_kept_count or 0)),
+                approved_by_commish=True,
+                status="commish_override",
+                locked_at=datetime.utcnow(),
+            )
+        )
+
+    db.commit()
+    return {
+        "status": "override_applied",
+        "owner_id": owner.id,
+        "player_id": player.id,
+        "season": season,
+    }
+
+
+@router.get("/admin/history-template", response_class=PlainTextResponse)
+def download_keeper_history_template(
+    current_user: models.User = Depends(get_current_active_admin),
+):
+    if not current_user.is_commissioner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
+
+    return (
+        "season,owner_username,owner_team_name,player_name,nfl_team,gsis_id,keep_cost,years_kept_count,status\n"
+        "2025,alice,Team Alice,Justin Jefferson,MIN,00-0036322,25,2,historical_import\n"
+    )
+
+
+@router.post("/admin/import-history", response_model=KeeperImportResult)
+async def import_keeper_history_csv(
+    file: UploadFile = File(...),
+    dry_run: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_admin),
+):
+    if not current_user.is_commissioner:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
+
+    payload = await file.read()
+    try:
+        decoded = payload.decode("utf-8-sig")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Unable to decode CSV: {exc}")
+
+    reader = csv.DictReader(io.StringIO(decoded))
+    required_cols = {
+        "season",
+        "owner_username",
+        "owner_team_name",
+        "player_name",
+        "nfl_team",
+        "gsis_id",
+        "keep_cost",
+        "years_kept_count",
+        "status",
+    }
+    found_cols = set(reader.fieldnames or [])
+    if not required_cols.issubset(found_cols):
+        missing = sorted(required_cols - found_cols)
+        raise HTTPException(status_code=400, detail=f"CSV missing required columns: {', '.join(missing)}")
+
+    inserted = 0
+    updated = 0
+    skipped = 0
+    errors: List[KeeperImportRowResult] = []
+
+    for idx, row in enumerate(reader, start=2):
+        season_raw = (row.get("season") or "").strip()
+        player_name = (row.get("player_name") or "").strip()
+        nfl_team = (row.get("nfl_team") or "").strip()
+        gsis_id = (row.get("gsis_id") or "").strip() or None
+        owner_username = (row.get("owner_username") or "").strip()
+        owner_team_name = (row.get("owner_team_name") or "").strip()
+        status_val = (row.get("status") or "historical_import").strip() or "historical_import"
+
+        if not season_raw.isdigit():
+            skipped += 1
+            errors.append(KeeperImportRowResult(row_number=idx, status="skipped", detail="invalid season"))
+            continue
+        season = int(season_raw)
+
+        owner = _resolve_owner_for_import(
+            db,
+            league_id=current_user.league_id,
+            owner_username=owner_username,
+            owner_team_name=owner_team_name,
+        )
+        if not owner:
+            skipped += 1
+            errors.append(KeeperImportRowResult(row_number=idx, status="skipped", detail="owner not found"))
+            continue
+
+        player = _resolve_player_for_import(db, player_name=player_name, nfl_team=nfl_team, gsis_id=gsis_id)
+        if not player:
+            skipped += 1
+            errors.append(KeeperImportRowResult(row_number=idx, status="skipped", detail="player not found"))
+            continue
+
+        try:
+            keep_cost = float(row.get("keep_cost") or 0)
+        except ValueError:
+            keep_cost = 0
+        try:
+            years_kept_count = int(float(row.get("years_kept_count") or 0))
+        except ValueError:
+            years_kept_count = 0
+
+        existing = (
+            db.query(models.Keeper)
+            .filter(
+                models.Keeper.league_id == current_user.league_id,
+                models.Keeper.owner_id == owner.id,
+                models.Keeper.player_id == player.id,
+                models.Keeper.season == season,
+            )
+            .first()
+        )
+
+        if existing:
+            existing.keep_cost = keep_cost
+            existing.years_kept_count = max(0, years_kept_count)
+            existing.status = status_val
+            existing.approved_by_commish = True
+            updated += 1
+        else:
+            db.add(
+                models.Keeper(
+                    league_id=current_user.league_id,
+                    owner_id=owner.id,
+                    player_id=player.id,
+                    season=season,
+                    keep_cost=keep_cost,
+                    years_kept_count=max(0, years_kept_count),
+                    approved_by_commish=True,
+                    status=status_val,
+                )
+            )
+            inserted += 1
+
+    if dry_run:
+        db.rollback()
+    else:
+        db.commit()
+
+    return KeeperImportResult(
+        dry_run=dry_run,
+        processed=inserted + updated + skipped,
+        inserted=inserted,
+        updated=updated,
+        skipped=skipped,
+        errors=errors,
+    )
 
 
 # --- Keeper settings endpoints (commissioner only) ---

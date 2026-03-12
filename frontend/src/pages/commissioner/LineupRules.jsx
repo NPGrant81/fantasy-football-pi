@@ -15,6 +15,39 @@ import {
 const clamp = (value, min, max) =>
   Math.max(min, Math.min(max, Number(value) || min));
 
+const clampInt = (value, min, max) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return min;
+  return Math.max(min, Math.min(max, Math.trunc(parsed)));
+};
+
+const normalizeMinimumSlots = ({ maxes, activeRosterSize }) => {
+  const mins = {
+    QB: maxes.QB > 0 ? 1 : 0,
+    RB: maxes.RB > 0 ? Math.min(2, maxes.RB) : 0,
+    WR: maxes.WR > 0 ? Math.min(2, maxes.WR) : 0,
+    TE: maxes.TE > 0 ? 1 : 0,
+    K: maxes.K > 0 ? 1 : 0,
+    DEF: maxes.DEF > 0 ? 1 : 0,
+    FLEX: maxes.FLEX > 0 ? 1 : 0,
+  };
+
+  let totalMins = Object.values(mins).reduce((sum, count) => sum + count, 0);
+  if (totalMins <= activeRosterSize) return mins;
+
+  // Reduce optional slots first if historical values are incompatible.
+  const reductionOrder = ['FLEX', 'K', 'TE', 'WR', 'RB', 'QB', 'DEF'];
+  for (const position of reductionOrder) {
+    while (mins[position] > 0 && totalMins > activeRosterSize) {
+      mins[position] -= 1;
+      totalMins -= 1;
+    }
+    if (totalMins <= activeRosterSize) break;
+  }
+
+  return mins;
+};
+
 export default function LineupRules() {
   const leagueId = localStorage.getItem('fantasyLeagueId');
 
@@ -82,20 +115,41 @@ export default function LineupRules() {
     setSuccess('');
 
     try {
+      const normalizedActiveRosterSize = clampInt(activeRosterSize, 5, 12);
+      const maxes = {
+        QB: clampInt(qbLimit, 1, 3),
+        RB: clampInt(rbLimit, 1, 5),
+        WR: clampInt(wrLimit, 1, 5),
+        TE: clampInt(teLimit, 1, 3),
+        K: kEnabled ? 1 : 0,
+        DEF: 1,
+        FLEX: flexEnabled ? 1 : 0,
+      };
+      const mins = normalizeMinimumSlots({
+        maxes,
+        activeRosterSize: normalizedActiveRosterSize,
+      });
+
       const nextStartingSlots = {
         ...(baseConfig.starting_slots || {}),
-        ACTIVE_ROSTER_SIZE: clamp(activeRosterSize, 5, 12),
-        MAX_QB: clamp(qbLimit, 1, 3),
-        MAX_RB: clamp(rbLimit, 1, 5),
-        MAX_WR: clamp(wrLimit, 1, 5),
-        MAX_TE: clamp(teLimit, 1, 3),
-        MAX_K: kEnabled ? 1 : 0,
-        K: kEnabled ? 1 : 0,
-        MAX_DEF: 1,
-        DEF: 1,
-        MAX_FLEX: flexEnabled ? 1 : 0,
-        FLEX: flexEnabled ? 1 : 0,
-        TAXI_SIZE: clamp(taxiSize, 0, 5),
+        // Minimums required per position
+        QB: mins.QB,
+        RB: mins.RB,
+        WR: mins.WR,
+        TE: mins.TE,
+        K: mins.K,
+        DEF: mins.DEF,
+        FLEX: mins.FLEX,
+        // Maximums allowed per position
+        ACTIVE_ROSTER_SIZE: normalizedActiveRosterSize,
+        MAX_QB: maxes.QB,
+        MAX_RB: maxes.RB,
+        MAX_WR: maxes.WR,
+        MAX_TE: maxes.TE,
+        MAX_K: maxes.K,
+        MAX_DEF: maxes.DEF,
+        MAX_FLEX: maxes.FLEX,
+        TAXI_SIZE: clampInt(taxiSize, 0, 5),
         ALLOW_PARTIAL_LINEUP: allowPartialLineup ? 1 : 0,
         REQUIRE_WEEKLY_SUBMIT: requireWeeklySubmit ? 1 : 0,
       };

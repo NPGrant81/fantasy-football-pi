@@ -78,6 +78,16 @@ const DEFAULT_MAX_POSITION_LIMITS = {
   DEF: 1,
 };
 
+const STARTER_LIMIT_KEYS = {
+  QB: 'MAX_QB',
+  RB: 'MAX_RB',
+  WR: 'MAX_WR',
+  TE: 'MAX_TE',
+  K: 'MAX_K',
+  DEF: 'MAX_DEF',
+  FLEX: 'MAX_FLEX',
+};
+
 const clampInt = (value, min, max) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return min;
@@ -109,7 +119,69 @@ const normalizeStartingSlots = (slots) => {
     }
   }
 
+  for (const [position, limitKey] of Object.entries(STARTER_LIMIT_KEYS)) {
+    const parsedLimit = Number(slots[limitKey]);
+    const limit =
+      Number.isFinite(parsedLimit) && parsedLimit >= 0
+        ? Math.trunc(parsedLimit)
+        : merged[position];
+    merged[position] = Math.min(merged[position], limit);
+  }
+
   return merged;
+};
+
+const buildCanonicalStarterSlots = (maxLimits, activeRosterSize) => {
+  const starterSlots = {
+    QB: maxLimits.QB > 0 ? 1 : 0,
+    RB: maxLimits.RB > 0 ? Math.min(2, maxLimits.RB) : 0,
+    WR: maxLimits.WR > 0 ? Math.min(2, maxLimits.WR) : 0,
+    TE: maxLimits.TE > 0 ? 1 : 0,
+    K: maxLimits.K > 0 ? 1 : 0,
+    DEF: maxLimits.DEF > 0 ? 1 : 0,
+    FLEX: maxLimits.FLEX > 0 ? 1 : 0,
+  };
+
+  let minimumTotal = Object.values(starterSlots).reduce(
+    (sum, count) => sum + Number(count || 0),
+    0
+  );
+  if (minimumTotal > activeRosterSize) {
+    const reductionOrder = ['FLEX', 'K', 'TE', 'WR', 'RB', 'QB', 'DEF'];
+    for (const position of reductionOrder) {
+      while (starterSlots[position] > 0 && minimumTotal > activeRosterSize) {
+        starterSlots[position] -= 1;
+        minimumTotal -= 1;
+      }
+      if (minimumTotal <= activeRosterSize) break;
+    }
+  }
+
+  return starterSlots;
+};
+
+const normalizeLineupConstraints = (slots) => {
+  const normalizedSlots = slots && typeof slots === 'object' ? slots : {};
+  const activeRosterSize = clampInt(normalizedSlots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12);
+
+  const maxLimits = {
+    QB: clampInt(normalizedSlots.MAX_QB ?? normalizedSlots.QB ?? 1, 1, 3),
+    RB: clampInt(normalizedSlots.MAX_RB ?? normalizedSlots.RB ?? 3, 1, 5),
+    WR: clampInt(normalizedSlots.MAX_WR ?? normalizedSlots.WR ?? 3, 1, 5),
+    TE: clampInt(normalizedSlots.MAX_TE ?? normalizedSlots.TE ?? 2, 1, 3),
+    K: clampInt(normalizedSlots.MAX_K ?? normalizedSlots.K ?? 1, 0, 1),
+    DEF: clampInt(normalizedSlots.MAX_DEF ?? normalizedSlots.DEF ?? 1, 0, 1),
+    FLEX: clampInt(normalizedSlots.MAX_FLEX ?? normalizedSlots.FLEX ?? 1, 0, 2),
+  };
+
+  const starterSlots = buildCanonicalStarterSlots(maxLimits, activeRosterSize);
+
+  return {
+    starterSlots,
+    maxLimits,
+    activeRosterSize,
+    allowPartialLineup: Number(normalizedSlots.ALLOW_PARTIAL_LINEUP ?? 0) === 1,
+  };
 };
 
 const getSlotLabel = (position) =>
@@ -348,20 +420,14 @@ export default function YourLockerRoom({ activeOwnerId }) {
     try {
       const settingsRes = await apiClient.get(`/leagues/${leagueId}/settings`);
       const slots = settingsRes.data.starting_slots || {};
+      const normalized = normalizeLineupConstraints(slots);
       setScoringRules(settingsRes.data.scoring_rules || []);
       setWaiverDeadlineSetting(settingsRes.data.waiver_deadline || null);
       setTradeDeadlineSetting(settingsRes.data.trade_deadline || null);
-      setStarterRequirements(normalizeStartingSlots(slots));
-      setActiveRosterRequired(clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12));
-      setMaxPositionLimits({
-        QB: clampInt(slots.MAX_QB ?? 1, 1, 3),
-        RB: clampInt(slots.MAX_RB ?? 3, 1, 5),
-        WR: clampInt(slots.MAX_WR ?? 3, 1, 5),
-        TE: clampInt(slots.MAX_TE ?? 2, 1, 3),
-        K: clampInt(slots.MAX_K ?? 1, 0, 1),
-        DEF: 1,
-      });
-      setAllowPartialLineup(Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1);
+      setStarterRequirements(normalized.starterSlots);
+      setActiveRosterRequired(normalized.activeRosterSize);
+      setMaxPositionLimits(normalized.maxLimits);
+      setAllowPartialLineup(normalized.allowPartialLineup);
       return true;
     } catch {
       if (resetOnFailure) {
@@ -629,12 +695,25 @@ export default function YourLockerRoom({ activeOwnerId }) {
       }
     }
 
+    const flexEligibleCount = counts.RB + counts.WR + counts.TE;
+    const baseFlexUsage =
+      Math.min(counts.RB, Number(starterRequirements.RB ?? 0)) +
+      Math.min(counts.WR, Number(starterRequirements.WR ?? 0)) +
+      Math.min(counts.TE, Number(starterRequirements.TE ?? 0));
+    const flexActual = Math.min(
+      Math.max(flexEligibleCount - baseFlexUsage, 0),
+      Number(starterRequirements.FLEX ?? 0)
+    );
+
     const errors = [];
+    const blockingErrors = [];
     if (currentStarters.length < activeRosterRequired && !allowPartialLineup) {
       errors.push('not enough players');
+      blockingErrors.push('not enough players');
     }
     if (currentStarters.length > activeRosterRequired) {
       errors.push('too many players');
+      blockingErrors.push('too many players');
     }
 
     const tierRows = Object.keys(MIN_ACTIVE_REQUIREMENTS)
@@ -647,16 +726,24 @@ export default function YourLockerRoom({ activeOwnerId }) {
       })
       .map((position) => {
         const minimum = Number(starterRequirements[position] ?? 0);
-        const maximum = Number(
+        const configuredMaximum = Number(
           maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
         );
-        const actual = Number(counts[position] || 0);
+        const maximum = Math.max(minimum, configuredMaximum);
+        const actual = position === 'FLEX' ? flexActual : Number(counts[position] || 0);
         const meetsMin = actual >= minimum;
         const meetsMax = actual <= maximum;
 
-        if (minimum > 0 && !meetsMin && !allowPartialLineup)
+        if (minimum > 0 && !meetsMin) {
           errors.push(`not enough ${position}`);
-        if (maximum >= 0 && !meetsMax) errors.push(`too many ${position}`);
+          if (!allowPartialLineup) {
+            blockingErrors.push(`not enough ${position}`);
+          }
+        }
+        if (maximum >= 0 && !meetsMax) {
+          errors.push(`too many ${position}`);
+          blockingErrors.push(`too many ${position}`);
+        }
 
         return {
           position,
@@ -667,8 +754,17 @@ export default function YourLockerRoom({ activeOwnerId }) {
         };
       });
 
+    const flexMinimum = Number(starterRequirements.FLEX ?? 0);
+    if (flexMinimum > 0 && flexActual < flexMinimum) {
+      errors.push('not enough FLEX');
+      if (!allowPartialLineup) {
+        blockingErrors.push('not enough FLEX');
+      }
+    }
+
     return {
       errors,
+      blockingErrors,
       counts,
       tierRows,
       totalActive: currentStarters.length,
@@ -698,8 +794,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
   }, [lineupRuleSnapshot.tierRows]);
 
   const currentStarterValidationErrors = useMemo(
-    () => lineupRuleSnapshot.errors,
-    [lineupRuleSnapshot.errors]
+    () => lineupRuleSnapshot.blockingErrors,
+    [lineupRuleSnapshot.blockingErrors]
   );
 
   const lineupValidationErrors = useMemo(
