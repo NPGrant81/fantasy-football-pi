@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # fail if the package isn't installed.
 from database import SessionLocal
 import models
+from backend.services import player_service
 
 def sync_nfl_reality():
     # import here to avoid requiring the package in lightweight test runs
@@ -30,12 +31,29 @@ def sync_nfl_reality():
     active_players = df[df['status'] == 'Active']
     
     for _, row in active_players.iterrows():
-        player = db.query(models.Player).filter(models.Player.gsis_id == row['gsis_id']).first()
+        name = row.get('display_name') or row.get('player_name') or row.get('first_name')
+        position = row.get('position')
+        team = row.get('team')
+        if not player_service.is_valid_fantasy_player(
+            name=name,
+            position=position,
+            nfl_team=team,
+        ):
+            continue
+
+        player = player_service.find_existing_player(
+            db,
+            gsis_id=str(row['gsis_id']) if row.get('gsis_id') else None,
+            name=name,
+            position=position,
+            nfl_team=team,
+        )
         if player:
+            player.gsis_id = str(row['gsis_id']) if row.get('gsis_id') else player.gsis_id
             # Update their team if they've been traded or moved
-            if player.nfl_team != row['team']:
-                print(f"🚀 Trade Alert: {player.name} moved from {player.nfl_team} to {row['team']}")
-                player.nfl_team = row['team']
+            if player.nfl_team != team:
+                print(f"🚀 Trade Alert: {player.name} moved from {player.nfl_team} to {team}")
+                player.nfl_team = team
     
     db.commit()
     print("✨ NFL Reality Sync Complete.")

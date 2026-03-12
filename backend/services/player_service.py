@@ -1,6 +1,5 @@
 # backend/services/player_service.py
 from sqlalchemy.orm import Session
-from sqlalchemy import not_
 from .. import models
 
 # Only relevant fantasy positions from active NFL rosters
@@ -15,6 +14,9 @@ TEAM_ALIASES = {
     "OAK": "LV",
 }
 
+PLACEHOLDER_NAME_PREFIXES = ("generic", "unknown", "placeholder", "test")
+PLACEHOLDER_TEAM_CODES = {"", "UAT", "TEST", "MOCK", "FAKE", "TBD", "N/A"}
+
 
 def _canonical_team(team: str | None) -> str:
     value = (team or "").strip().upper()
@@ -25,17 +27,120 @@ def _normalized_name(name: str | None) -> str:
     return (name or "").strip().lower().replace(".", "")
 
 
+def is_placeholder_player_name(name: str | None) -> bool:
+    normalized = _normalized_name(name)
+    if not normalized:
+        return True
+    return normalized.startswith(PLACEHOLDER_NAME_PREFIXES)
+
+
+def is_valid_fantasy_player(
+    *,
+    name: str | None,
+    position: str | None,
+    nfl_team: str | None,
+) -> bool:
+    normalized_position = (position or "").strip().upper()
+    canonical_team = _canonical_team(nfl_team)
+    if normalized_position not in ALLOWED_POSITIONS:
+        return False
+    if is_placeholder_player_name(name):
+        return False
+    if canonical_team in PLACEHOLDER_TEAM_CODES:
+        return False
+    if not canonical_team:
+        return False
+    return True
+
+
+def is_valid_player_row(player: models.Player) -> bool:
+    return is_valid_fantasy_player(
+        name=player.name,
+        position=player.position,
+        nfl_team=player.nfl_team,
+    )
+
+
+def canonical_player_identity(name: str | None, position: str | None, nfl_team: str | None) -> tuple[str, str, str]:
+    return (
+        _normalized_name(name),
+        (position or "").strip().upper(),
+        _canonical_team(nfl_team),
+    )
+
+
+def find_existing_player(
+    db: Session,
+    *,
+    gsis_id: str | None = None,
+    espn_id: str | None = None,
+    name: str | None = None,
+    position: str | None = None,
+    nfl_team: str | None = None,
+) -> models.Player | None:
+    normalized_gsis_id = (gsis_id or "").strip()
+    normalized_espn_id = (espn_id or "").strip()
+    if normalized_gsis_id:
+        existing = (
+            db.query(models.Player)
+            .filter(models.Player.gsis_id == normalized_gsis_id)
+            .first()
+        )
+        if existing:
+            return existing
+
+    if normalized_espn_id:
+        existing = (
+            db.query(models.Player)
+            .filter(models.Player.espn_id == normalized_espn_id)
+            .first()
+        )
+        if existing:
+            return existing
+
+    identity_name, identity_position, identity_team = canonical_player_identity(
+        name,
+        position,
+        nfl_team,
+    )
+    if not identity_name or not identity_position or not identity_team:
+        return None
+
+    candidates = (
+        db.query(models.Player)
+        .filter(models.Player.position == identity_position)
+        .all()
+    )
+    best_match = None
+    best_rank = None
+    for candidate in candidates:
+        if canonical_player_identity(candidate.name, candidate.position, candidate.nfl_team) != (
+            identity_name,
+            identity_position,
+            identity_team,
+        ):
+            continue
+        candidate_rank = _player_rank(candidate)
+        if best_match is None or candidate_rank > best_rank:
+            best_match = candidate
+            best_rank = candidate_rank
+
+    return best_match
+
+
 def _player_dedupe_key(player: models.Player):
+    fallback_key = canonical_player_identity(
+        player.name,
+        player.position,
+        player.nfl_team,
+    )
+    if all(fallback_key):
+        return ("fallback",) + fallback_key
     if player.gsis_id:
         return ("gsis", str(player.gsis_id).strip())
     if player.espn_id:
         return ("espn", str(player.espn_id).strip())
-    return (
-        "fallback",
-        _normalized_name(player.name),
-        (player.position or "").strip().upper(),
-        _canonical_team(player.nfl_team),
-    )
+    return ("orphan", int(player.id or 0))
 
 
 def _player_rank(player: models.Player) -> tuple[int, int]:
@@ -55,6 +160,8 @@ def canonical_player_rank(player: models.Player) -> tuple[int, int]:
 def dedupe_players(players: list[models.Player]) -> list[models.Player]:
     selected: dict[tuple, models.Player] = {}
     for player in players:
+        if not is_valid_player_row(player):
+            continue
         key = _player_dedupe_key(player)
         current = selected.get(key)
         if current is None or _player_rank(player) > _player_rank(current):

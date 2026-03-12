@@ -3,6 +3,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
+from backend.services import player_service
 
 # 1. Initialize DB
 models.Base.metadata.create_all(bind=engine)
@@ -30,6 +31,27 @@ def import_fresh_data():
     
     # 3. Clean Names & Teams
     active_players = active_players.dropna(subset=['team'])
+    active_players = active_players.dropna(subset=['player_name'])
+
+    seen_player_keys = set()
+    deduped_rows = []
+    for _, row in active_players.iterrows():
+        name = row['player_name']
+        position = row['position']
+        team = row['team']
+        if not player_service.is_valid_fantasy_player(
+            name=name,
+            position=position,
+            nfl_team=team,
+        ):
+            continue
+        key = player_service.canonical_player_identity(name, position, team)
+        if key in seen_player_keys:
+            continue
+        seen_player_keys.add(key)
+        deduped_rows.append(row)
+
+    active_players = pd.DataFrame(deduped_rows)
     
     print(f"   - Fantasy Eligible: {len(active_players)} players (QB/RB/WR/TE/K)")
 

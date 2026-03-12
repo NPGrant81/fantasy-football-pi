@@ -6,6 +6,7 @@ import requests
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal, engine
 import models
+from backend.services import player_service
 
 # Add the parent directory (backend) to the system path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,11 +48,18 @@ def iter_roster_athletes(roster_json):
 
 
 def upsert_player(db: Session, name, position, team_abbr, espn_id):
-    existing = db.query(models.Player).filter(models.Player.espn_id == espn_id).first()
+    existing = player_service.find_existing_player(
+        db,
+        espn_id=espn_id,
+        name=name,
+        position=position,
+        nfl_team=team_abbr,
+    )
     if existing:
         existing.name = name
         existing.position = position
         existing.nfl_team = team_abbr
+        existing.espn_id = str(espn_id)
         return existing, False
 
     player = models.Player(
@@ -67,11 +75,18 @@ def upsert_player(db: Session, name, position, team_abbr, espn_id):
 
 def upsert_defense(db: Session, team_abbr):
     espn_id = f"DEF_{team_abbr}"
-    existing = db.query(models.Player).filter(models.Player.espn_id == espn_id).first()
+    existing = player_service.find_existing_player(
+        db,
+        espn_id=espn_id,
+        name=f"{team_abbr} Defense",
+        position="DEF",
+        nfl_team=team_abbr,
+    )
     if existing:
         existing.name = f"{team_abbr} Defense"
         existing.position = "DEF"
         existing.nfl_team = team_abbr
+        existing.espn_id = espn_id
         return False
 
     defense = models.Player(
@@ -113,6 +128,14 @@ def import_active_players():
                 name = athlete.get("fullName") or athlete.get("displayName")
 
                 if not espn_id or not name:
+                    skipped += 1
+                    continue
+
+                if not player_service.is_valid_fantasy_player(
+                    name=name,
+                    position=position,
+                    nfl_team=team_abbr,
+                ):
                     skipped += 1
                     continue
 
