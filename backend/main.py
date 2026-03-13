@@ -88,7 +88,7 @@ async def lifespan(app: FastAPI):
         # idempotent.
         from alembic import command, config as alembic_config
         cfg = alembic_config.Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
-        command.upgrade(cfg, "head")
+        command.upgrade(cfg, "heads")
     except Exception as e:
         # if the DB isn't reachable or alembic isn't configured, we just
         # log and continue.  the runtime schema function will still patch

@@ -217,6 +217,44 @@ class Player(Base):
     bye_week = Column(Integer, nullable=True)
     
     draft_pick = relationship("DraftPick", back_populates="player", uselist=False)
+    seasons = relationship("PlayerSeason", back_populates="player")
+    aliases = relationship("PlayerAlias", back_populates="player")
+
+
+class PlayerSeason(Base):
+    __tablename__ = "player_seasons"
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", name="uq_player_season"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(Integer, nullable=False, index=True)
+    nfl_team = Column(String, nullable=True)
+    position = Column(String, nullable=True)
+    bye_week = Column(Integer, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    source = Column(String(32), nullable=False, default="sync")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    player = relationship("Player", back_populates="seasons")
+
+
+class PlayerAlias(Base):
+    __tablename__ = "player_aliases"
+    __table_args__ = (
+        UniqueConstraint("player_id", "alias_name", "source", name="uq_player_alias_source"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    alias_name = Column(String, nullable=False, index=True)
+    source = Column(String(32), nullable=False, default="canonical")
+    is_primary = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    player = relationship("Player", back_populates="aliases")
 
 # --- 5. DRAFT PICK TABLE ---
 

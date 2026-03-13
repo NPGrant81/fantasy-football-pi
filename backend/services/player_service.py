@@ -129,26 +129,21 @@ def find_existing_player(
 
 
 def _player_dedupe_key(player: models.Player):
-    # Group by canonical identity first so duplicate rows collapse together.
-    # _player_rank then prefers rows that carry external IDs within that group.
-    fallback_key = canonical_player_identity(
-        player.name,
-        player.position,
-        player.nfl_team,
+    # Use canonical display identity for API dedupe so stale provider-specific
+    # rows (same player, different external IDs across refreshes) collapse.
+    return (
+        "fallback",
+        _normalized_name(player.name),
+        (player.position or "").strip().upper(),
     )
-    if all(fallback_key):
-        return ("fallback",) + fallback_key
-    if player.gsis_id:
-        return ("gsis", str(player.gsis_id).strip())
-    if player.espn_id:
-        return ("espn", str(player.espn_id).strip())
-    return ("orphan", int(player.id or 0))
 
 
 def _player_rank(player: models.Player) -> tuple[int, int]:
-    # Prefer rows with external IDs, then prefer most recently inserted IDs.
+    # Prefer rows with external IDs, then prefer active-team rows over FA,
+    # then prefer most recently inserted IDs.
     has_external_id = 1 if (player.gsis_id or player.espn_id) else 0
-    return (has_external_id, int(player.id or 0))
+    has_active_team = 1 if _canonical_team(player.nfl_team) not in {"", "FA"} else 0
+    return (has_external_id, has_active_team, int(player.id or 0))
 
 
 def canonical_player_key(player: models.Player):

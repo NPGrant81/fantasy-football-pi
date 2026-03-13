@@ -16,6 +16,10 @@ try:
     from backend.services import player_service
 except ModuleNotFoundError:
     from services import player_service
+try:
+    from backend.services.player_identity_service import current_season, upsert_player_season
+except ModuleNotFoundError:
+    from services.player_identity_service import current_season, upsert_player_season
 
 def sync_nfl_reality():
     # import here to avoid requiring the package in lightweight test runs
@@ -35,6 +39,8 @@ def sync_nfl_reality():
     # Filter for active players to keep it fast
     active_players = df[df['status'] == 'Active']
     
+    season = current_season()
+
     for _, row in active_players.iterrows():
         name = row.get('display_name') or row.get('player_name') or row.get('first_name')
         position = row.get('position')
@@ -59,6 +65,16 @@ def sync_nfl_reality():
             if player.nfl_team != team:
                 print(f"🚀 Trade Alert: {player.name} moved from {player.nfl_team} to {team}")
                 player.nfl_team = team
+            upsert_player_season(
+                db,
+                player_id=int(player.id),
+                season=season,
+                nfl_team=team,
+                position=player.position,
+                bye_week=player.bye_week,
+                is_active=True,
+                source="nfl_daily_sync",
+            )
     
     db.commit()
     print("✨ NFL Reality Sync Complete.")
