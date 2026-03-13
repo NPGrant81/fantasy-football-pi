@@ -1,8 +1,50 @@
 from uuid import uuid4
 
+import pytest
+from sqlalchemy import text
+
 from backend.database import SessionLocal
 import backend.models as models
 from backend.core import security
+
+
+@pytest.fixture(autouse=True)
+def _sync_players_id_sequence():
+    session = SessionLocal()
+    try:
+        session.execute(
+            text(
+                """
+                SELECT setval(
+                    pg_get_serial_sequence('players', 'id'),
+                    COALESCE((SELECT MAX(id) FROM players), 1),
+                    (SELECT MAX(id) IS NOT NULL FROM players)
+                )
+                """
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    yield
+
+    session = SessionLocal()
+    try:
+        session.execute(
+            text(
+                """
+                SELECT setval(
+                    pg_get_serial_sequence('players', 'id'),
+                    COALESCE((SELECT MAX(id) FROM players), 1),
+                    (SELECT MAX(id) IS NOT NULL FROM players)
+                )
+                """
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
 
 
 def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
