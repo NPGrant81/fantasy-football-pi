@@ -20,6 +20,25 @@ def _build_headshot_url(espn_id: Optional[str]) -> Optional[str]:
         return None
     return f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn_id}.png"
 
+
+def _build_team_logo_url(team_abbr: Optional[str]) -> Optional[str]:
+    if not team_abbr:
+        return None
+
+    normalized = str(team_abbr).strip().upper()
+    legacy_aliases = {
+        "JAC": "JAX",
+        "OAK": "LV",
+        "SD": "LAC",
+        "STL": "LAR",
+        "WSH": "WAS",
+    }
+    normalized = legacy_aliases.get(normalized, normalized)
+
+    # nflplotR/nflverse logo workflows are team-abbreviation driven.
+    # Use the NFL club logo endpoint keyed by cleaned team abbreviation.
+    return f"https://static.www.nfl.com/t_q-best/league/api/clubs/logos/{normalized}.png"
+
 @router.get("/search")
 def search_players(
     q: str = Query(..., min_length=2), 
@@ -86,6 +105,7 @@ def get_player_season_details(
             "nfl_team": player.nfl_team,
             "espn_id": player.espn_id,
             "headshot_url": _build_headshot_url(player.espn_id),
+            "team_logo_url": _build_team_logo_url(player.nfl_team),
             "season": season,
             "games_played": 0,
             "total_fantasy_points": 0.0,
@@ -123,6 +143,7 @@ def get_player_season_details(
         "nfl_team": player.nfl_team,
         "espn_id": player.espn_id,
         "headshot_url": _build_headshot_url(player.espn_id),
+        "team_logo_url": _build_team_logo_url(player.nfl_team),
         "season": season,
         "games_played": games_played,
         "total_fantasy_points": float(total_points or 0.0),

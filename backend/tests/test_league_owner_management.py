@@ -345,3 +345,86 @@ def test_update_league_settings_rejects_invalid_dynamic_values(db_session):
         )
 
     assert exc.value.status_code == 400
+
+
+def test_update_league_settings_normalizes_stale_hidden_lineup_minimums(db_session):
+    league = models.League(name="NormalizedSettingsLeague")
+    db_session.add(league)
+    db_session.commit()
+    db_session.refresh(league)
+
+    commish = models.User(
+        username="commish-normalized-settings",
+        email=None,
+        hashed_password="h",
+        is_commissioner=True,
+        league_id=league.id,
+    )
+    db_session.add(commish)
+    db_session.commit()
+
+    from backend.routers.league import LeagueConfigFull, ScoringRuleSchema, update_league_settings
+
+    config = LeagueConfigFull(
+        roster_size=12,
+        salary_cap=200,
+        starting_slots={
+            "QB": 2,
+            "RB": 5,
+            "WR": 2,
+            "TE": 1,
+            "K": 1,
+            "DEF": 1,
+            "FLEX": 1,
+            "ALLOW_PARTIAL_LINEUP": 0,
+            "REQUIRE_WEEKLY_SUBMIT": 1,
+            "ACTIVE_ROSTER_SIZE": 9,
+            "MAX_QB": 2,
+            "MAX_RB": 4,
+            "MAX_WR": 5,
+            "MAX_TE": 3,
+            "MAX_K": 0,
+            "MAX_DEF": 1,
+            "MAX_FLEX": 0,
+            "TAXI_SIZE": 0,
+        },
+        waiver_deadline=None,
+        starting_waiver_budget=100,
+        waiver_system=None,
+        waiver_tiebreaker=None,
+        trade_deadline=None,
+        draft_year=2026,
+        scoring_rules=[
+            ScoringRuleSchema(
+                category="passing",
+                event_name="Passing Yards",
+                description="Yards gained",
+                range_min=0,
+                range_max=999,
+                point_value=0.1,
+                calculation_type="per_unit",
+                applicable_positions=["QB"],
+            )
+        ],
+    )
+
+    update_league_settings(
+        league_id=league.id,
+        config=config,
+        current_user=commish,
+        db=db_session,
+    )
+
+    saved = (
+        db_session.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == league.id)
+        .first()
+    )
+    assert saved is not None
+    assert saved.starting_slots["QB"] == 1
+    assert saved.starting_slots["RB"] == 2
+    assert saved.starting_slots["WR"] == 2
+    assert saved.starting_slots["TE"] == 1
+    assert saved.starting_slots["K"] == 0
+    assert saved.starting_slots["DEF"] == 1
+    assert saved.starting_slots["FLEX"] == 0

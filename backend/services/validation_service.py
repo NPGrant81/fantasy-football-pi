@@ -194,8 +194,13 @@ def _manual_dynamic_league_settings_validation(payload: dict[str, Any]) -> Valid
     if not isinstance(starting_slots, dict) or not starting_slots:
         errors.setdefault("starting_slots", []).append("must include at least one slot")
     else:
-        total_slots = 0
+        total_minimum_slots = 0
         counted_starter_slots = 0
+        
+        # Extract active roster size for constraint checking
+        active_roster_size = starting_slots.get("ACTIVE_ROSTER_SIZE")
+        limit = active_roster_size if isinstance(active_roster_size, int) else roster_size
+        
         for key, value in starting_slots.items():
             if not isinstance(key, str) or not key.strip():
                 errors.setdefault("starting_slots", []).append("contains an invalid slot key")
@@ -207,9 +212,11 @@ def _manual_dynamic_league_settings_validation(payload: dict[str, Any]) -> Valid
             # Only count concrete starter slots (QB/RB/WR/...) toward the lineup sum.
             # Metadata keys like MAX_QB, ACTIVE_ROSTER_SIZE, toggles, etc. should not
             # be included in this check.
+            # NOTE: Only count minimum required starters (keys without underscore).
+            # Max values (with underscore) represent ceilings per position and don't need to sum.
             normalized_key = key.strip().upper()
             if "_" not in normalized_key:
-                total_slots += value
+                total_minimum_slots += value
                 counted_starter_slots += 1
 
         if counted_starter_slots == 0:
@@ -217,16 +224,14 @@ def _manual_dynamic_league_settings_validation(payload: dict[str, Any]) -> Valid
                 "must include at least one starter slot"
             )
         else:
-            active_roster_size = starting_slots.get("ACTIVE_ROSTER_SIZE")
-            # Lineup slot totals are constrained by active starters, not total roster size.
-            # Fallback to roster_size only when ACTIVE_ROSTER_SIZE is not provided.
-            limit = active_roster_size if isinstance(active_roster_size, int) else roster_size
-            if isinstance(limit, int) and total_slots > limit:
+            # Only validate that MINIMUM required starters can fit in the active roster.
+            # Maximum values per position are flexible ceilings and don't need to be constrained by ACTIVE_ROSTER_SIZE.
+            if isinstance(limit, int) and total_minimum_slots > limit:
                 limit_label = (
                     "ACTIVE_ROSTER_SIZE" if isinstance(active_roster_size, int) else "roster_size"
                 )
                 errors.setdefault("starting_slots", []).append(
-                    f"sum of starting slots cannot exceed {limit_label}"
+                    f"sum of minimum required starters cannot exceed {limit_label} (got {total_minimum_slots}, limit is {limit})"
                 )
 
     if not isinstance(scoring_rules, list) or len(scoring_rules) == 0:

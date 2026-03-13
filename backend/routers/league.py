@@ -115,6 +115,68 @@ class LedgerStatementSchema(BaseModel):
     entries: List[LedgerEntrySchema]
 
 
+def canonicalize_lineup_slots(slots: Dict[str, int] | None) -> Dict[str, int]:
+    raw_slots = dict(slots or {})
+
+    def parse_int(key: str, default: int = 0) -> int:
+        value = raw_slots.get(key, default)
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    active_roster_size = max(5, min(12, parse_int("ACTIVE_ROSTER_SIZE", 9)))
+    max_limits = {
+        "QB": max(1, min(3, parse_int("MAX_QB", parse_int("QB", 1)))),
+        "RB": max(1, min(5, parse_int("MAX_RB", parse_int("RB", 3)))),
+        "WR": max(1, min(5, parse_int("MAX_WR", parse_int("WR", 3)))),
+        "TE": max(1, min(3, parse_int("MAX_TE", parse_int("TE", 2)))),
+        "K": max(0, min(1, parse_int("MAX_K", parse_int("K", 1)))),
+        "DEF": 1,
+        "FLEX": max(0, min(1, parse_int("MAX_FLEX", parse_int("FLEX", 1)))),
+    }
+
+    mins = {
+        "QB": 1 if max_limits["QB"] > 0 else 0,
+        "RB": min(2, max_limits["RB"]) if max_limits["RB"] > 0 else 0,
+        "WR": min(2, max_limits["WR"]) if max_limits["WR"] > 0 else 0,
+        "TE": 1 if max_limits["TE"] > 0 else 0,
+        "K": 1 if max_limits["K"] > 0 else 0,
+        "DEF": 1 if max_limits["DEF"] > 0 else 0,
+        "FLEX": 1 if max_limits["FLEX"] > 0 else 0,
+    }
+
+    total_mins = sum(mins.values())
+    if total_mins > active_roster_size:
+        for position in ("FLEX", "K", "TE", "WR", "RB", "QB", "DEF"):
+            while mins[position] > 0 and total_mins > active_roster_size:
+                mins[position] -= 1
+                total_mins -= 1
+            if total_mins <= active_roster_size:
+                break
+
+    return {
+        **raw_slots,
+        "QB": mins["QB"],
+        "RB": mins["RB"],
+        "WR": mins["WR"],
+        "TE": mins["TE"],
+        "K": mins["K"],
+        "DEF": mins["DEF"],
+        "FLEX": mins["FLEX"],
+        "ACTIVE_ROSTER_SIZE": active_roster_size,
+        "MAX_QB": max_limits["QB"],
+        "MAX_RB": max_limits["RB"],
+        "MAX_WR": max_limits["WR"],
+        "MAX_TE": max_limits["TE"],
+        "MAX_K": max_limits["K"],
+        "MAX_DEF": max_limits["DEF"],
+        "MAX_FLEX": max_limits["FLEX"],
+        "ALLOW_PARTIAL_LINEUP": 1 if parse_int("ALLOW_PARTIAL_LINEUP", 0) == 1 else 0,
+        "REQUIRE_WEEKLY_SUBMIT": 1 if parse_int("REQUIRE_WEEKLY_SUBMIT", 1) == 1 else 0,
+    }
+
+
 # --- Helper function to format validation errors as readable string ---
 def format_validation_errors(errors: Dict[str, Any]) -> str:
     """
@@ -170,6 +232,7 @@ def validate_lineup_rules(config: LeagueConfigFull) -> None:
     te = parse_int("MAX_TE", 3)
     k = parse_int("MAX_K", 1)
     defense = parse_int("MAX_DEF", 1)
+    flex = parse_int("MAX_FLEX", 1)
 
     rules = {
         "QB": (qb, 1, 3),
@@ -189,6 +252,34 @@ def validate_lineup_rules(config: LeagueConfigFull) -> None:
 
     if defense != 1:
         raise HTTPException(status_code=400, detail="MAX_DEF must be exactly 1.")
+
+    if flex < 0 or flex > 1:
+        raise HTTPException(status_code=400, detail="MAX_FLEX must be 0 or 1.")
+
+    starter_counts = {
+        "QB": parse_int("QB", 0),
+        "RB": parse_int("RB", 0),
+        "WR": parse_int("WR", 0),
+        "TE": parse_int("TE", 0),
+        "K": parse_int("K", 0),
+        "DEF": parse_int("DEF", 0),
+        "FLEX": parse_int("FLEX", 0),
+    }
+    starter_limits = {
+        "QB": qb,
+        "RB": rb,
+        "WR": wr,
+        "TE": te,
+        "K": k,
+        "DEF": defense,
+        "FLEX": flex,
+    }
+    for position, starter_count in starter_counts.items():
+        if starter_count > starter_limits[position]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{position} starter count cannot exceed MAX_{position}.",
+            )
 
     allow_partial = parse_int("ALLOW_PARTIAL_LINEUP", 0)
     if allow_partial not in (0, 1):
@@ -748,6 +839,9 @@ def update_league_settings(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    normalized_slots = canonicalize_lineup_slots(config.starting_slots)
+    config = config.model_copy(update={"starting_slots": normalized_slots})
+
     settings_payload = {
         "roster_size": config.roster_size,
         "salary_cap": config.salary_cap,

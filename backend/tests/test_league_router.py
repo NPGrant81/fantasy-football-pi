@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
 from fastapi import HTTPException
-from backend.routers.league import get_league_budgets, get_league_settings, update_league_budgets, BudgetUpdateRequest, BudgetEntry, get_ledger_statement
+from backend.routers.league import get_league_budgets, get_league_settings, update_league_budgets, BudgetUpdateRequest, BudgetEntry, get_ledger_statement, LeagueConfigFull, ScoringRuleSchema, validate_lineup_rules, canonicalize_lineup_slots
 from backend.routers.draft import _get_owner_total_budget
 
 
@@ -246,6 +246,81 @@ def test_get_league_settings_existing(db_session):
     assert cfg.roster_size == 22
     assert cfg.salary_cap == 500
     assert cfg.starting_slots.get("QB") == 2
+
+
+def test_validate_lineup_rules_rejects_starter_counts_above_max_limits():
+    config = LeagueConfigFull(
+        roster_size=14,
+        salary_cap=200,
+        starting_slots={
+            "QB": 1,
+            "RB": 5,
+            "WR": 2,
+            "TE": 1,
+            "K": 0,
+            "DEF": 0,
+            "FLEX": 1,
+            "ACTIVE_ROSTER_SIZE": 9,
+            "MAX_QB": 2,
+            "MAX_RB": 4,
+            "MAX_WR": 5,
+            "MAX_TE": 3,
+            "MAX_K": 0,
+            "MAX_DEF": 1,
+            "MAX_FLEX": 1,
+            "ALLOW_PARTIAL_LINEUP": 0,
+            "REQUIRE_WEEKLY_SUBMIT": 1,
+        },
+        waiver_deadline="Wed 11PM",
+        starting_waiver_budget=100,
+        waiver_system="FAAB",
+        waiver_tiebreaker="standings",
+        trade_deadline=None,
+        draft_year=2026,
+        scoring_rules=[
+            ScoringRuleSchema(
+                category="passing",
+                event_name="TD",
+                point_value=4,
+            )
+        ],
+    )
+
+    with pytest.raises(HTTPException, match="RB starter count cannot exceed MAX_RB"):
+        validate_lineup_rules(config)
+
+
+def test_canonicalize_lineup_slots_rewrites_stale_hidden_minimums():
+    normalized = canonicalize_lineup_slots(
+        {
+            "QB": 2,
+            "RB": 5,
+            "WR": 2,
+            "TE": 1,
+            "K": 1,
+            "DEF": 1,
+            "FLEX": 1,
+            "ALLOW_PARTIAL_LINEUP": 0,
+            "REQUIRE_WEEKLY_SUBMIT": 1,
+            "ACTIVE_ROSTER_SIZE": 9,
+            "MAX_QB": 2,
+            "MAX_RB": 4,
+            "MAX_WR": 5,
+            "MAX_TE": 3,
+            "MAX_K": 0,
+            "MAX_DEF": 1,
+            "MAX_FLEX": 0,
+            "TAXI_SIZE": 0,
+        }
+    )
+
+    assert normalized["QB"] == 1
+    assert normalized["RB"] == 2
+    assert normalized["WR"] == 2
+    assert normalized["TE"] == 1
+    assert normalized["K"] == 0
+    assert normalized["DEF"] == 1
+    assert normalized["FLEX"] == 0
 
 
 def test_get_ledger_statement_owner_self(db_session):
