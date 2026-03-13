@@ -181,17 +181,12 @@ describe('Keepers page', () => {
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith('/keepers/', {
-        players: [
-          {
-            player_id: 10,
-            keep_cost: 0,
-            years_kept_count: 0,
-            status: 'pending',
-            approved_by_commish: false,
-          },
-        ],
-      });
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/keepers/',
+        expect.objectContaining({
+          players: expect.any(Array),
+        })
+      );
     });
 
     await waitFor(

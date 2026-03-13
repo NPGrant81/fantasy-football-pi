@@ -9,7 +9,7 @@ vi.mock('../src/api/client', () => ({
 }));
 
 vi.mock('react-router-dom', () => ({
-  NavLink: ({ to, children, className, ...props }) => (
+  NavLink: ({ to, children, className, end: _end, ...props }) => (
     <a href={to} className={typeof className === 'function' ? className({ isActive: false }) : className} {...props}>
       {children}
     </a>
@@ -49,7 +49,7 @@ describe('Sidebar (Navigation)', () => {
 
   test('renders when isOpen is true', async () => {
     await renderSidebar();
-    expect(screen.getByText(/FANTASY/i)).toBeInTheDocument();
+    expect(screen.getByText(/PPL Insight Hub/i)).toBeInTheDocument();
   });
 
   test('does not render when isOpen is false', async () => {
