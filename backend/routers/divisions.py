@@ -246,6 +246,17 @@ def upsert_division_config(
     if name_errors:
         raise HTTPException(status_code=400, detail=name_errors)
 
+    existing_divisions = db.query(models.Division).filter(
+        models.Division.league_id == league_id,
+        models.Division.season == payload.season,
+    ).all()
+
+    if existing_divisions:
+        existing_division_ids = [division.id for division in existing_divisions]
+        db.query(models.User).filter(
+            models.User.division_id.in_(existing_division_ids)
+        ).update({"division_id": None}, synchronize_session=False)
+
     db.query(models.Division).filter(
         models.Division.league_id == league_id,
         models.Division.season == payload.season,

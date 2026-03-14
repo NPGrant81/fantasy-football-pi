@@ -144,6 +144,63 @@ def test_preview_and_finalize_heuristic_assignment(client, api_db):
     assert commissioner.division_id is not None
 
 
+def test_upsert_config_clears_user_divisions_after_finalize(client, api_db):
+    db, _ = api_db
+    league, commissioner, users = _seed_league(db, team_count=9)
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+
+    initial_payload = {
+        "season": 2026,
+        "enabled": True,
+        "division_count": 3,
+        "assignment_method": "heuristic",
+        "random_seed": "seed-div-2026",
+        "names": [
+            {"name": "Alpha", "order_index": 0},
+            {"name": "Beta", "order_index": 1},
+            {"name": "Gamma", "order_index": 2},
+        ],
+    }
+    cfg = client.put(f"/leagues/{league.id}/divisions/config", json=initial_payload)
+    assert cfg.status_code == 200
+
+    finalize_res = client.post(
+        f"/leagues/{league.id}/divisions/finalize",
+        json={"season": 2026, "assignment_method": "heuristic", "random_seed": "seed-div-2026"},
+    )
+    assert finalize_res.status_code == 200
+
+    assigned_owner = users[1]
+    db.refresh(assigned_owner)
+    assert assigned_owner.division_id is not None
+    old_division_id = assigned_owner.division_id
+
+    reconfig_payload = {
+        "season": 2026,
+        "enabled": True,
+        "division_count": 3,
+        "assignment_method": "random",
+        "random_seed": "seed-div-2026-b",
+        "names": [
+            {"name": "North", "order_index": 0},
+            {"name": "South", "order_index": 1},
+            {"name": "West", "order_index": 2},
+        ],
+    }
+    reconfig = client.put(f"/leagues/{league.id}/divisions/config", json=reconfig_payload)
+    assert reconfig.status_code == 200
+
+    db.refresh(assigned_owner)
+    assert assigned_owner.division_id is None
+    assert assigned_owner.division_obj is None
+    refreshed_divisions = db.query(models.Division).filter(
+        models.Division.league_id == league.id,
+        models.Division.season == 2026,
+    ).all()
+    assert len(refreshed_divisions) == 3
+    assert {division.name for division in refreshed_divisions} == {"North", "South", "West"}
+
+
 def test_report_name_creates_db_queue_entry(client, api_db):
     db, _ = api_db
     league, commissioner, _ = _seed_league(db, team_count=9)
