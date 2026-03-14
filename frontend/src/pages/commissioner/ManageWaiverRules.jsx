@@ -37,11 +37,14 @@ export default function ManageWaiverRules() {
 
   // Fetch current waiver deadline on mount
   useEffect(() => {
+    if (!leagueId) {
+      setMessage('No active league selected.');
+      setClaims([]);
+      setBudgets([]);
+      return;
+    }
+
     async function fetchWaiverSettings() {
-      if (!leagueId) {
-        setMessage('No active league selected.');
-        return;
-      }
       try {
         const res = await apiClient.get(`/leagues/${leagueId}/settings`);
         setWaiverDeadline(res.data.waiver_deadline || '');
@@ -57,6 +60,7 @@ export default function ManageWaiverRules() {
         setMessage('Failed to load waiver rules');
       }
     }
+
     fetchWaiverSettings();
     fetchClaims();
     fetchBudgets();
@@ -64,9 +68,14 @@ export default function ManageWaiverRules() {
 
   // fetch historical waiver claims (commissioner only)
   const fetchClaims = async () => {
+    if (!leagueId) {
+      setClaims([]);
+      return;
+    }
+
     setClaimsLoading(true);
     try {
-      const res = await apiClient.get('/waivers/claims');
+      const res = await apiClient.get(`/leagues/${leagueId}/waivers/claims`);
       setClaims(Array.isArray(res.data) ? res.data : []);
     } catch {
       // ignore failures for now
