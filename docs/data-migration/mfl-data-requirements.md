@@ -17,6 +17,19 @@ Define a stable extraction contract from MFL into CSV so migration/import code c
 
 Confirmed from shared MFL URLs:
 
+- 2002 -> `51155`
+- 2003 -> `52234`
+- 2004 -> `46417`
+- 2005 -> `20248`
+- 2006 -> `22804`
+- 2007 -> `14291`
+- 2008 -> `48937`
+- 2009 -> `24809`
+- 2010 -> `10547`
+- 2011 -> `15794`
+- 2012 -> `33168`
+- 2013 -> `16794`
+- 2014 -> `23495`
 - 2015 -> `43630`
 - 2016 -> `38909`
 - 2017 -> `38909`
@@ -32,7 +45,13 @@ Confirmed from shared MFL URLs:
 
 Gap still open:
 
-- 2002-2014 league ids not yet located.
+- 2001 season league id not yet located (if league existed in 2001).
+
+Technical extraction risk:
+
+- 2002-2003 endpoints currently redirect to legacy host `football7.myfantasyleague.com`,
+  which is not resolving in current runtime checks. These seasons may require manual export/snapshot
+  ingestion if direct API extraction remains unavailable.
 
 ## Report Inventory
 
@@ -230,8 +249,8 @@ High-level mapping targets:
 
 These are the minimum answers needed before implementing #257:
 
-1. Provide league ids for 2002-2014 seasons (or confirm inaccessible).
-2. Confirm first season year to extract (assumed 2001).
+1. Confirm whether 2001 exists and provide league id if available.
+2. Confirm first season year to extract (currently mapped 2002+).
 3. Confirm whether all seasons are public or require authenticated session.
 4. Confirm if franchise ids remain stable across years or if owner identity must be name-based fallback.
 5. Confirm auction vs snake draft format by season (for `winning_bid` expectations).

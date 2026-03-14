@@ -31,6 +31,19 @@ DEFAULT_REPORT_TYPES = [
 
 # Owner-provided mappings from issue discovery.
 KNOWN_LEAGUE_BY_SEASON: dict[int, str] = {
+    2002: "51155",
+    2003: "52234",
+    2004: "46417",
+    2005: "20248",
+    2006: "22804",
+    2007: "14291",
+    2008: "48937",
+    2009: "24809",
+    2010: "10547",
+    2011: "15794",
+    2012: "33168",
+    2013: "16794",
+    2014: "23495",
     2015: "43630",
     2016: "38909",
     2017: "38909",
@@ -396,6 +409,11 @@ def run_mfl_history_extract(
             except Exception as exc:  # noqa: BLE001 - extraction should continue per report
                 failed_reports += 1
                 print(f"[error] season={season} type={report_type} {exc}")
+                if "football7.myfantasyleague.com" in str(exc):
+                    print(
+                        "[hint] legacy host football7.myfantasyleague.com did not resolve; "
+                        "capture this season via manual export/snapshot and import as CSV"
+                    )
 
     summary = ExtractSummary(
         requested_seasons=seasons,
