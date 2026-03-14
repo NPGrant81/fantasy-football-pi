@@ -167,6 +167,7 @@ def login_for_access_token(
         "token_type": "bearer", 
         "owner_id": user.id,
         "league_id": user.league_id,
+        "is_commissioner": user.is_commissioner,
         "division_id": user.division_id,
         "division_name": user.division_obj.name if user.division_obj else None,
     }

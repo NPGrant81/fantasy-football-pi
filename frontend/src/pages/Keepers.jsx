@@ -68,7 +68,12 @@ export default function Keepers() {
         // backend rejects week 0, fall back to 1 if necessary
         const weekParam = 1;
         const rres = await apiClient.get(`/team/${ownerId}?week=${weekParam}`);
-        setRoster(Array.isArray(rres.data?.roster) ? rres.data.roster : []);
+        const nextRoster = Array.isArray(rres.data?.players)
+          ? rres.data.players
+          : Array.isArray(rres.data?.roster)
+            ? rres.data.roster
+            : [];
+        setRoster(nextRoster);
       } catch (e) {
         console.error('failed to load roster', e);
         setRoster([]);
@@ -86,7 +91,7 @@ export default function Keepers() {
     let initialCost = 0;
     keeperData.selections.forEach((s) => {
       const p = roster.find((r) => r.player_id === s.player_id);
-      if (p) initialCost += Number(p.draft_price || 0);
+      if (p) initialCost += Number(p.acquisition_cost || 0);
     });
     return (keeperData.estimated_budget || 0) + initialCost;
   }, [keeperData, roster]);
@@ -161,7 +166,7 @@ export default function Keepers() {
     computedBaseBudget -
     Array.from(selected).reduce((sum, pid) => {
       const p = roster.find((r) => r.player_id === pid);
-      return sum + Number(p?.draft_price || 0);
+      return sum + Number(p?.acquisition_cost || 0);
     }, 0);
 
   return (
@@ -205,7 +210,7 @@ export default function Keepers() {
                   <>
                     <span className="font-semibold text-slate-900 dark:text-white">Selected Keeper</span>
                     <span className="text-xs text-slate-600 dark:text-slate-300">
-                      ${player.draft_price || 0}
+                      ${player.acquisition_cost || 0}
                       {player.projected_value != null && (
                         <> / ${player.projected_value}</>
                       )}
@@ -241,7 +246,7 @@ export default function Keepers() {
                   }
                 />
                 <span>{p.name}</span>
-                <span>(draft: ${p.draft_price || 0})</span>
+                <span>(draft: ${p.acquisition_cost || 0})</span>
                 {keeperData.ineligible?.includes(p.player_id) && (
                   <span
                     className="ml-1 text-xs text-red-500"

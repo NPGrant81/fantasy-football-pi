@@ -66,6 +66,13 @@ function TeamRoute({ fallbackOwnerId }) {
   return <YourLockerRoom activeOwnerId={ownerId || fallbackOwnerId} />;
 }
 
+function RequireCommissioner({ isCommissioner, children }) {
+  if (!isCommissioner) {
+    return <Navigate to="/team" replace />;
+  }
+  return children;
+}
+
 function resolveLayoutPageTitle(pathname) {
   if (pathname === '/') return 'League Dashboard';
   if (pathname === '/draft') return 'Draft Board';
@@ -101,6 +108,7 @@ function AuthenticatedShell({
   layoutAlert,
   token,
   activeOwnerId,
+  isCommissioner,
 }) {
   const location = useLocation();
   const headerTitle = resolveLayoutPageTitle(location.pathname);
@@ -157,38 +165,77 @@ function AuthenticatedShell({
             path="/admin/manage-commissioners"
             element={<ManageCommissioners />}
           />
-          <Route path="/commissioner" element={<CommissionerDashboard />} />
+          <Route
+            path="/commissioner"
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <CommissionerDashboard />
+              </RequireCommissioner>
+            }
+          />
           <Route
             path="/commissioner/lineup-rules"
-            element={<LineupRules />}
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <LineupRules />
+              </RequireCommissioner>
+            }
           />
           <Route
             path="/commissioner/manage-owners"
-            element={<ManageOwners />}
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <ManageOwners />
+              </RequireCommissioner>
+            }
           />
           <Route
             path="/commissioner/manage-waiver-rules"
-            element={<ManageWaiverRules />}
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <ManageWaiverRules />
+              </RequireCommissioner>
+            }
           />
           <Route
             path="/commissioner/manage-trades"
-            element={<ManageTrades />}
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <ManageTrades />
+              </RequireCommissioner>
+            }
           />
           <Route
             path="/commissioner/manage-scoring-rules"
-            element={<ManageScoringRules />}
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <ManageScoringRules />
+              </RequireCommissioner>
+            }
           />
           <Route
             path="/commissioner/manage-divisions"
-            element={<ManageDivisions />}
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <ManageDivisions />
+              </RequireCommissioner>
+            }
           />
           <Route
             path="/commissioner/keeper-rules"
-            element={<KeeperRules />}
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <KeeperRules />
+              </RequireCommissioner>
+            }
           />
           <Route
             path="/commissioner/ledger-statement"
-            element={<LedgerStatement />}
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <LedgerStatement />
+              </RequireCommissioner>
+            }
           />
           <Route
             path="/waivers"
@@ -228,6 +275,7 @@ function App() {
     localStorage.getItem('fantasyToken') ? localStorage.getItem('user_id') : null
   );
   const [username, setUsername] = useState('');
+  const [isCommissioner, setIsCommissioner] = useState(false);
   const [layoutAlert, setLayoutAlert] = useState('');
 
   const [userInput, setUserInput] = useState('');
@@ -241,6 +289,7 @@ function App() {
     setActiveOwnerId(null);
     setActiveLeagueId(null);
     setUsername('');
+    setIsCommissioner(false);
     setLayoutAlert('');
     localStorage.removeItem('fantasyToken');
     localStorage.removeItem('user_id');
@@ -271,7 +320,9 @@ function App() {
         const payload = res?.data || {};
         setToken((current) => current || 'cookie-session');
         setActiveOwnerId(payload.user_id);
+        setActiveLeagueId(payload.league_id || localStorage.getItem('fantasyLeagueId'));
         setUsername(payload.username || '');
+        setIsCommissioner(Boolean(payload.is_commissioner));
       })
       .catch(() => {
         clearAuthState();
@@ -309,15 +360,16 @@ function App() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
 
-      const { owner_id } = response.data;
+      const { owner_id, league_id, is_commissioner } = response.data;
 
       localStorage.setItem('fantasyToken', 'cookie-session');
       localStorage.setItem('user_id', owner_id);
-      localStorage.setItem('fantasyLeagueId', leagueInput); // Use user-provided league ID
+      localStorage.setItem('fantasyLeagueId', String(league_id || leagueInput));
 
       setToken('cookie-session');
       setActiveOwnerId(owner_id);
-      setActiveLeagueId(leagueInput);
+      setActiveLeagueId(String(league_id || leagueInput));
+      setIsCommissioner(Boolean(is_commissioner));
     } catch (err) {
       console.error('Login Error:', err);
       setError('Login Failed. Check credentials.');
@@ -422,6 +474,7 @@ function App() {
           layoutAlert={layoutAlert}
           token={token}
           activeOwnerId={activeOwnerId}
+          isCommissioner={isCommissioner}
         />
       </BrowserRouter>
     </ThemeProvider>
