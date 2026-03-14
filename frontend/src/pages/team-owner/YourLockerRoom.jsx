@@ -112,6 +112,36 @@ const normalizeStartingSlots = (slots) => {
   return merged;
 };
 
+const buildCanonicalStarterMinimums = (maxLimits, requiredTotal) => {
+  const slots = {
+    QB: Number(maxLimits?.QB ?? 0) > 0 ? 1 : 0,
+    RB: Number(maxLimits?.RB ?? 0) > 0 ? Math.min(2, Number(maxLimits.RB)) : 0,
+    WR: Number(maxLimits?.WR ?? 0) > 0 ? Math.min(2, Number(maxLimits.WR)) : 0,
+    TE: Number(maxLimits?.TE ?? 0) > 0 ? 1 : 0,
+    K: Number(maxLimits?.K ?? 0) > 0 ? 1 : 0,
+    DEF: Number(maxLimits?.DEF ?? 0) > 0 ? 1 : 0,
+    FLEX: Number(maxLimits?.FLEX ?? 0) > 0 ? 1 : 0,
+  };
+
+  let totalMinimums = Object.values(slots).reduce(
+    (sum, value) => sum + Number(value || 0),
+    0
+  );
+  if (Number(requiredTotal || 0) > 0 && totalMinimums > Number(requiredTotal)) {
+    for (const position of ['FLEX', 'K', 'TE', 'WR', 'RB', 'QB', 'DEF']) {
+      while (slots[position] > 0 && totalMinimums > Number(requiredTotal)) {
+        slots[position] -= 1;
+        totalMinimums -= 1;
+      }
+      if (totalMinimums <= Number(requiredTotal)) {
+        break;
+      }
+    }
+  }
+
+  return slots;
+};
+
 const getSlotLabel = (position) =>
   position === 'FLEX' ? FLEX_SLOT_LABEL : position;
 
@@ -602,14 +632,19 @@ export default function YourLockerRoom({ activeOwnerId }) {
       }
     }
 
+    const canonicalMinimums = buildCanonicalStarterMinimums(
+      maxPositionLimits,
+      activeRosterRequired
+    );
+
     const flexEligibleCount = counts.RB + counts.WR + counts.TE;
     const baseFlexUsage =
-      Math.min(counts.RB, Number(starterRequirements.RB ?? 0)) +
-      Math.min(counts.WR, Number(starterRequirements.WR ?? 0)) +
-      Math.min(counts.TE, Number(starterRequirements.TE ?? 0));
+      Math.min(counts.RB, Number(canonicalMinimums.RB ?? 0)) +
+      Math.min(counts.WR, Number(canonicalMinimums.WR ?? 0)) +
+      Math.min(counts.TE, Number(canonicalMinimums.TE ?? 0));
     const flexActual = Math.min(
       Math.max(flexEligibleCount - baseFlexUsage, 0),
-      Number(starterRequirements.FLEX ?? 0)
+      Number(canonicalMinimums.FLEX ?? 0)
     );
 
     const errors = [];
@@ -625,14 +660,14 @@ export default function YourLockerRoom({ activeOwnerId }) {
 
     const tierRows = Object.keys(MIN_ACTIVE_REQUIREMENTS)
       .filter((position) => {
-        const minimum = Number(starterRequirements[position] ?? 0);
+        const minimum = Number(canonicalMinimums[position] ?? 0);
         const maximum = Number(
           maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
         );
         return minimum > 0 || maximum > 0;
       })
       .map((position) => {
-        const minimum = Number(starterRequirements[position] ?? 0);
+        const minimum = Number(canonicalMinimums[position] ?? 0);
         const configuredMaximum = Number(
           maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
         );
@@ -662,7 +697,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
         };
       });
 
-    const flexMinimum = Number(starterRequirements.FLEX ?? 0);
+    const flexMinimum = Number(canonicalMinimums.FLEX ?? 0);
     if (flexMinimum > 0 && flexActual < flexMinimum) {
       errors.push('not enough FLEX');
       if (!allowPartialLineup) {
