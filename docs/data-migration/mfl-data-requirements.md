@@ -53,6 +53,27 @@ Technical extraction risk:
   which is not resolving in current runtime checks. These seasons may require manual export/snapshot
   ingestion if direct API extraction remains unavailable.
 
+## Legacy Seasons Manual Fallback (2002-2003)
+
+When API extraction is blocked by legacy host resolution, use the manual CSV fallback path.
+
+1. Scaffold templates:
+  - `python -m backend.manage scaffold-mfl-manual-csv --start-year 2002 --end-year 2003`
+2. Fill generated files under `exports/history_manual/`:
+  - `franchises/{season}.csv`
+  - `players/{season}.csv`
+  - `draftResults/{season}.csv`
+3. Import with existing importer in dry-run mode first:
+  - `python -m backend.manage import-mfl-csv --input-root exports/history_manual --target-league-id <APP_LEAGUE_ID> --start-year 2002 --end-year 2003`
+4. Apply once dry-run results are clean:
+  - Add `--apply` to the command above.
+
+Notes:
+
+- Manual fallback currently focuses on draft-history minimum viable migration (`franchises`, `players`, `draftResults`).
+- Keep required metadata fields populated (`season`, `league_id`, `source_system`, `source_endpoint`, `extracted_at_utc`).
+- Use `source_endpoint=manual_csv` for rows transcribed from manual exports/snapshots.
+
 ## Report Inventory
 
 These report families are required for complete migration coverage.

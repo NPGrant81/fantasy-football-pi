@@ -8,6 +8,12 @@ Primary tracker: GitHub Issue #256 (Define Data Requirements & Schemas)
 
 - `mfl-data-requirements.md`: Required report inventory, field-level contracts, source mapping, and open questions.
 
+## Legacy Host Fallback
+
+- For 2002-2003 seasons, use manual CSV fallback when MFL redirects to unresolved legacy hosts.
+- Template scaffolding command:
+  - `python -m backend.manage scaffold-mfl-manual-csv --start-year 2002 --end-year 2003`
+
 ## Scope
 
 - Source platform: MyFantasyLeague (MFL) HTTP export API.

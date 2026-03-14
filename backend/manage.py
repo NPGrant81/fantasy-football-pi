@@ -14,6 +14,7 @@ from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_a
 from .scripts.audit_invalid_players import run_invalid_player_audit
 from .scripts.extract_mfl_history import run_mfl_history_extract
 from .scripts.import_mfl_csv import run_import_mfl_csv
+from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
 from .scripts.finalize_week import run_finalization
 from .core.security import get_password_hash
 
@@ -182,6 +183,48 @@ def import_mfl_csv(
     click.echo(f"- Draft picks skipped: {summary['draft_picks_skipped']}")
     click.echo(f"- Skipped missing owner map: {summary['skipped_missing_owner_map']}")
     click.echo(f"- Skipped missing player map: {summary['skipped_missing_player_map']}")
+
+
+@cli.command("scaffold-mfl-manual-csv")
+@click.option("--start-year", type=int, required=True, help="First season year to scaffold.")
+@click.option("--end-year", type=int, required=True, help="Last season year to scaffold.")
+@click.option(
+    "--output-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    default="exports/history_manual",
+    show_default=True,
+    help="Output folder for manual header-only CSV templates.",
+)
+@click.option(
+    "--report-types",
+    type=str,
+    default="franchises,players,draftResults",
+    show_default=True,
+    help="Comma-separated report names to scaffold.",
+)
+def scaffold_mfl_manual_csv(
+    start_year: int,
+    end_year: int,
+    output_root: str,
+    report_types: str,
+):
+    """Create header-only CSV templates for manual legacy-season ingestion."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    report_type_list = [part.strip() for part in report_types.split(",") if part.strip()]
+    summary = run_scaffold_mfl_manual_csv(
+        start_year=start_year,
+        end_year=end_year,
+        output_root=output_root,
+        report_types=report_type_list,
+    )
+
+    click.echo("Manual CSV scaffold summary")
+    click.echo(f"- Seasons scaffolded: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Report types: {','.join(summary['report_types'])}")
+    click.echo(f"- Files created: {summary['files_created']}")
+    click.echo(f"- Output root: {summary['output_root']}")
 
 
 @cli.command("finalize-week")
