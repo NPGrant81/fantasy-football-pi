@@ -376,6 +376,7 @@ describe('WaiverWire (Smoke Test)', () => {
 describe('ManageWaiverRules (Smoke Test)', () => {
   beforeEach(() => {
     localStorage.clear();
+    localStorage.setItem('fantasyLeagueId', '1');
     vi.resetAllMocks();
   });
 
