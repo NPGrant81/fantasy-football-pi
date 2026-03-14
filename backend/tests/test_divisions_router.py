@@ -173,7 +173,6 @@ def test_upsert_config_clears_user_divisions_after_finalize(client, api_db):
     assigned_owner = users[1]
     db.refresh(assigned_owner)
     assert assigned_owner.division_id is not None
-    old_division_id = assigned_owner.division_id
 
     reconfig_payload = {
         "season": 2026,
