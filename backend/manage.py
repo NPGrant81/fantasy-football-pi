@@ -13,6 +13,7 @@ from .scripts.seed import run_seeder
 from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_audit
 from .scripts.audit_invalid_players import run_invalid_player_audit
 from .scripts.extract_mfl_history import run_mfl_history_extract
+from .scripts.import_mfl_csv import run_import_mfl_csv
 from .scripts.finalize_week import run_finalization
 from .core.security import get_password_hash
 
@@ -145,6 +146,42 @@ def extract_mfl_history(
     click.echo(f"- Seasons skipped (missing league id): {summary['skipped_missing_league_id']}")
     click.echo(f"- Failed report pulls: {summary['failed_reports']}")
     click.echo(f"- Output root: {summary['output_root']}")
+
+
+@cli.command("import-mfl-csv")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
+@click.option("--target-league-id", type=int, required=True, help="App league_id receiving imported rows.")
+@click.option("--start-year", type=int, required=True, help="First season year to import.")
+@click.option("--end-year", type=int, required=True, help="Last season year to import.")
+@click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write changes (default dry-run).")
+def import_mfl_csv(
+    input_root: str,
+    target_league_id: int,
+    start_year: int,
+    end_year: int,
+    apply_changes: bool,
+):
+    """Import normalized MFL CSV files into app tables with validation."""
+    summary = run_import_mfl_csv(
+        input_root=input_root,
+        target_league_id=target_league_id,
+        start_year=start_year,
+        end_year=end_year,
+        dry_run=not apply_changes,
+    )
+
+    click.echo("MFL CSV import summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Files checked: {summary['files_checked']}")
+    click.echo(f"- Files missing: {summary['files_missing']}")
+    click.echo(f"- Rows validated: {summary['rows_validated']}")
+    click.echo(f"- Rows invalid: {summary['rows_invalid']}")
+    click.echo(f"- Players inserted: {summary['players_inserted']}")
+    click.echo(f"- Players matched: {summary['players_matched']}")
+    click.echo(f"- Draft picks inserted: {summary['draft_picks_inserted']}")
+    click.echo(f"- Draft picks skipped: {summary['draft_picks_skipped']}")
+    click.echo(f"- Skipped missing owner map: {summary['skipped_missing_owner_map']}")
+    click.echo(f"- Skipped missing player map: {summary['skipped_missing_player_map']}")
 
 
 @cli.command("finalize-week")

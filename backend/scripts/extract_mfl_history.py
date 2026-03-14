@@ -20,6 +20,7 @@ import requests
 API_BASE = "https://api.myfantasyleague.com"
 DEFAULT_REPORT_TYPES = [
     "league",
+    "franchises",
     "players",
     "draftResults",
     "rosters",
@@ -140,6 +141,25 @@ def _normalize_players(payload: dict[str, Any], season: int, league_id: str, ext
                 "nfl_team": _first_non_empty(player, ["team", "nfl_team"]),
                 "status": _first_non_empty(player, ["status"]),
                 "raw_player": json.dumps(player, separators=(",", ":")),
+            }
+        )
+    return rows
+
+
+def _normalize_franchises(payload: dict[str, Any], season: int, league_id: str, extracted_at: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    root = payload.get("league") or payload
+    franchises = _as_list((root.get("franchises") or {}).get("franchise"))
+    for franchise in franchises:
+        rows.append(
+            {
+                **_meta(season, league_id, "franchises", extracted_at),
+                "franchise_id": _first_non_empty(franchise, ["id", "franchise_id"]),
+                "franchise_name": _first_non_empty(franchise, ["name", "franchise_name"]),
+                "owner_name": _first_non_empty(franchise, ["owner_name", "owner", "name"]),
+                "owner_email": _first_non_empty(franchise, ["email", "owner_email"]),
+                "division": _first_non_empty(franchise, ["division"]),
+                "raw_franchise": json.dumps(franchise, separators=(",", ":")),
             }
         )
     return rows
@@ -280,6 +300,7 @@ def _normalize_transactions(payload: dict[str, Any], season: int, league_id: str
 
 NORMALIZERS = {
     "league": _normalize_league,
+    "franchises": _normalize_franchises,
     "players": _normalize_players,
     "draftResults": _normalize_draft_results,
     "rosters": _normalize_rosters,
@@ -297,8 +318,9 @@ def _fetch_json(
     timeout_seconds: int,
     session_cookie: str | None,
 ) -> dict[str, Any]:
+    effective_type = "league" if report_type == "franchises" else report_type
     params = {
-        "TYPE": report_type,
+        "TYPE": effective_type,
         "JSON": 1,
     }
     # players can be global, but passing league id is harmless for consistency.
