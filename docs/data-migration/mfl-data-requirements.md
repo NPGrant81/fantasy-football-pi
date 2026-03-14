@@ -284,3 +284,20 @@ These are the minimum answers needed before implementing #257:
 2. Issue #258: implement importer with dry-run and strict validation.
 3. Issue #259: reconciliation checks and mismatch report.
 4. Issue #260: operator runbook with rerun and backfill steps.
+
+## Reconciliation Command (#259)
+
+Command:
+
+- `python -m backend.manage reconcile-mfl-import --input-root exports/history --target-league-id <APP_LEAGUE_ID> --start-year 2025 --end-year 2026 --output-json reports/mfl-reconciliation.json`
+
+What it checks per season:
+
+- `draftResults` CSV valid row count vs imported `draft_picks` rows (`session_id=MFL_{season}`).
+- `franchises` CSV valid row count vs imported distinct draft-pick owners.
+- `players` CSV valid row count vs imported distinct draft-pick players.
+
+Output:
+
+- Console summary with mismatch count and warning count.
+- Optional JSON report with per-season details and mismatch messages for audit.

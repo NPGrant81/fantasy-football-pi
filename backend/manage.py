@@ -14,6 +14,7 @@ from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_a
 from .scripts.audit_invalid_players import run_invalid_player_audit
 from .scripts.extract_mfl_history import run_mfl_history_extract
 from .scripts.import_mfl_csv import run_import_mfl_csv
+from .scripts.reconcile_mfl_import import run_reconcile_mfl_import
 from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
 from .scripts.finalize_week import run_finalization
 from .core.security import get_password_hash
@@ -225,6 +226,39 @@ def scaffold_mfl_manual_csv(
     click.echo(f"- Report types: {','.join(summary['report_types'])}")
     click.echo(f"- Files created: {summary['files_created']}")
     click.echo(f"- Output root: {summary['output_root']}")
+
+
+@cli.command("reconcile-mfl-import")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
+@click.option("--target-league-id", type=int, required=True, help="App league_id to reconcile against imported rows.")
+@click.option("--start-year", type=int, required=True, help="First season year to reconcile.")
+@click.option("--end-year", type=int, required=True, help="Last season year to reconcile.")
+@click.option("--output-json", type=click.Path(file_okay=True, dir_okay=False), default=None, help="Optional JSON output path for machine-readable mismatch report.")
+def reconcile_mfl_import(
+    input_root: str,
+    target_league_id: int,
+    start_year: int,
+    end_year: int,
+    output_json: str | None,
+):
+    """Compare MFL CSV source counts against imported DB counts by season."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    summary = run_reconcile_mfl_import(
+        input_root=input_root,
+        target_league_id=target_league_id,
+        start_year=start_year,
+        end_year=end_year,
+        output_json=output_json,
+    )
+
+    click.echo("MFL import reconciliation summary")
+    click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Mismatch count: {summary['mismatch_count']}")
+    click.echo(f"- Warnings: {len(summary['warnings'])}")
+    if output_json:
+        click.echo(f"- JSON report: {output_json}")
 
 
 @cli.command("finalize-week")
