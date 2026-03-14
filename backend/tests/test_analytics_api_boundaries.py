@@ -49,3 +49,40 @@ def test_analytics_boundaries_reject_out_of_range_and_malformed_query_params(cli
 
     assert out_of_range.status_code == 422
     assert malformed.status_code == 422
+
+
+def test_visit_logging_creates_site_visit_record(client, api_db):
+    payload = {
+        "timestamp": "2026-03-11T10:15:30Z",
+        "path": "/analytics",
+        "userId": None,
+        "sessionId": "test-session-12345",
+        "userAgent": "pytest",
+        "referrer": "http://localhost:5173/",
+    }
+
+    response = client.post("/analytics/visit", json=payload)
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body.get("id") is not None
+    assert body.get("timestamp")
+
+    rows = api_db.query(models.SiteVisit).all()
+    assert len(rows) == 1
+    assert rows[0].path == "/analytics"
+    assert rows[0].session_id == "test-session-12345"
+    assert rows[0].user_id is None
+
+
+def test_visit_logging_rejects_invalid_path(client):
+    response = client.post(
+        "/analytics/visit",
+        json={
+            "timestamp": "2026-03-11T10:15:30Z",
+            "path": "analytics",
+            "sessionId": "test-session-12345",
+        },
+    )
+
+    assert response.status_code == 422

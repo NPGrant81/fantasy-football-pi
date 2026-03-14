@@ -14,6 +14,7 @@ from database import SessionLocal, engine
 import models
 import time
 import requests
+from backend.services.player_identity_service import current_season, ensure_primary_alias, upsert_player_season
 
 def run_uat_sync():
     """Complete UAT reset and sync of player data."""
@@ -59,6 +60,19 @@ def run_uat_sync():
         print("\n" + "=" * 60)
         print("STEP 2: Clearing all players...")
         print("=" * 60)
+        if hasattr(models, "PlayerAlias"):
+            alias_count = db.query(models.PlayerAlias).count()
+            if alias_count > 0:
+                db.query(models.PlayerAlias).delete()
+                db.commit()
+                print(f"✅ Deleted {alias_count} player aliases")
+        if hasattr(models, "PlayerSeason"):
+            season_count = db.query(models.PlayerSeason).count()
+            if season_count > 0:
+                db.query(models.PlayerSeason).delete()
+                db.commit()
+                print(f"✅ Deleted {season_count} player season rows")
+
         player_count = db.query(models.Player).count()
         if player_count > 0:
             db.query(models.Player).delete()
@@ -88,6 +102,17 @@ def run_uat_sync():
             )
             db.add(player)
             db.flush()
+            upsert_player_season(
+                db,
+                player_id=int(player.id),
+                season=current_season(),
+                nfl_team=team_abbr,
+                position=position,
+                bye_week=None,
+                is_active=True,
+                source="uat_sync",
+            )
+            ensure_primary_alias(db, player_id=int(player.id), player_name=name)
             return True
         
         def upsert_defense(team_abbr):
@@ -98,6 +123,17 @@ def run_uat_sync():
             )
             db.add(defense)
             db.flush()
+            upsert_player_season(
+                db,
+                player_id=int(defense.id),
+                season=current_season(),
+                nfl_team=team_abbr,
+                position="DEF",
+                bye_week=None,
+                is_active=True,
+                source="uat_sync",
+            )
+            ensure_primary_alias(db, player_id=int(defense.id), player_name=defense.name)
             return True
         
         # Fetch teams

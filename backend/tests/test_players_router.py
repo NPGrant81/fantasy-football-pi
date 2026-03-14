@@ -1,8 +1,50 @@
 from uuid import uuid4
 
+import pytest
+from sqlalchemy import text
+
 from backend.database import SessionLocal
 import backend.models as models
 from backend.core import security
+
+
+@pytest.fixture(autouse=True)
+def _sync_players_id_sequence():
+    session = SessionLocal()
+    try:
+        session.execute(
+            text(
+                """
+                SELECT setval(
+                    pg_get_serial_sequence('players', 'id'),
+                    COALESCE((SELECT MAX(id) FROM players), 1),
+                    (SELECT MAX(id) IS NOT NULL FROM players)
+                )
+                """
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    yield
+
+    session = SessionLocal()
+    try:
+        session.execute(
+            text(
+                """
+                SELECT setval(
+                    pg_get_serial_sequence('players', 'id'),
+                    COALESCE((SELECT MAX(id) FROM players), 1),
+                    (SELECT MAX(id) IS NOT NULL FROM players)
+                )
+                """
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
 
 
 def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
@@ -230,29 +272,34 @@ def test_players_endpoint_dedupes_name_position_team_aliases(client):
     brandin_name = f"Brandin Cooks Dedup {suffix}"
     brian_name = f"Brian Thomas Jr Dedup {suffix}"
     created_ids: list[int] = []
+    base_id = 700000 + int(suffix[:6], 16)
 
     session = SessionLocal()
     try:
         players = [
             models.Player(
+                id=base_id,
                 name=brandin_name,
                 position="WR",
                 nfl_team="NO",
                 gsis_id=None,
             ),
             models.Player(
+                id=base_id + 1,
                 name=brandin_name,
                 position="WR",
                 nfl_team="NO",
                 gsis_id=None,
             ),
             models.Player(
+                id=base_id + 2,
                 name=brian_name,
                 position="WR",
                 nfl_team="JAX",
                 gsis_id=None,
             ),
             models.Player(
+                id=base_id + 3,
                 name=brian_name,
                 position="WR",
                 nfl_team="JAC",
@@ -284,6 +331,162 @@ def test_players_endpoint_dedupes_name_position_team_aliases(client):
 
         assert len(brandin) == 1
         assert len(brian) == 1
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_players_endpoint_prefers_active_team_over_fa_for_same_name(client):
+    suffix = uuid4().hex[:8]
+    player_name = f"Adam Thielen Dedup {suffix}"
+    created_ids: list[int] = []
+    base_id = 800000 + int(suffix[:6], 16)
+
+    session = SessionLocal()
+    try:
+        players = [
+            models.Player(
+                id=base_id,
+                name=player_name,
+                position="WR",
+                nfl_team="FA",
+                gsis_id=None,
+                espn_id=None,
+            ),
+            models.Player(
+                id=base_id + 1,
+                name=player_name,
+                position="WR",
+                nfl_team="PIT",
+                gsis_id=None,
+                espn_id=None,
+            ),
+        ]
+        session.add_all(players)
+        session.commit()
+        created_ids = [row.id for row in players if row.id is not None]
+    finally:
+        session.close()
+
+    try:
+        response = client.get("/players/")
+        assert response.status_code == 200
+        data = response.json()
+
+        matches = [
+            row
+            for row in data
+            if row.get("name") == player_name and row.get("position") == "WR"
+        ]
+
+        assert len(matches) == 1
+        assert matches[0].get("nfl_team") == "PIT"
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_players_endpoint_prefers_canonical_duplicate_with_external_id(client):
+    suffix = uuid4().hex[:8]
+    russ_name = f"Russell Wilson Dedup {suffix}"
+    created_ids: list[int] = []
+
+    session = SessionLocal()
+    try:
+        players = [
+            models.Player(
+                name=russ_name,
+                position="QB",
+                nfl_team="PIT",
+                gsis_id=None,
+            ),
+            models.Player(
+                name=russ_name,
+                position="QB",
+                nfl_team="PIT",
+                gsis_id=f"GSIS-{suffix}",
+            ),
+        ]
+
+        session.add_all(players)
+        session.commit()
+        created_ids = [row.id for row in players if row.id is not None]
+    finally:
+        session.close()
+
+    try:
+        response = client.get("/players/")
+        assert response.status_code == 200
+        data = response.json()
+
+        russ_rows = [
+            row
+            for row in data
+            if row.get("name") == russ_name and row.get("position") == "QB"
+        ]
+
+        assert len(russ_rows) == 1
+        assert russ_rows[0].get("gsis_id") == f"GSIS-{suffix}"
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_players_endpoint_excludes_placeholder_players(client):
+    suffix = uuid4().hex[:8]
+    created_ids: list[int] = []
+
+    session = SessionLocal()
+    try:
+        players = [
+            models.Player(
+                name=f"Generic K {suffix}",
+                position="K",
+                nfl_team="UAT",
+                gsis_id=f"FILLER-{suffix}",
+            ),
+            models.Player(
+                name=f"Valid Kicker {suffix}",
+                position="K",
+                nfl_team="BUF",
+                gsis_id=f"VALID-{suffix}",
+            ),
+        ]
+        session.add_all(players)
+        session.commit()
+        created_ids = [row.id for row in players if row.id is not None]
+    finally:
+        session.close()
+
+    try:
+        response = client.get("/players/")
+        assert response.status_code == 200
+        data = response.json()
+        names = [row.get("name") for row in data]
+
+        assert f"Valid Kicker {suffix}" in names
+        assert f"Generic K {suffix}" not in names
     finally:
         cleanup = SessionLocal()
         try:

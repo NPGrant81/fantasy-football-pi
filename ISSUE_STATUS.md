@@ -196,6 +196,20 @@
 - **Change:** Created comprehensive tracking of feature completion
 - **Impact:** Clear roadmap for remaining work
 
+### 🧠 Player Metadata Normalization Learning (Issue #103)
+
+- **Issue:** `#103 - Player Metadata Cleanup & Standardization`
+- **Learning Captured:** Player identity must be independent from season/team state.
+- **Phase-1 Changes Implemented:**
+  - Added normalized tables: `player_seasons` and `player_aliases`
+  - Added Alembic migration: `backend/alembic/versions/20260312_01_player_identity_normalization.py`
+  - Added ingestion utility: `backend/services/player_identity_service.py`
+  - Updated sync pipelines to upsert season-dependent rows:
+    - `backend/scripts/import_espn_players.py`
+    - `backend/scripts/daily_sync.py`
+    - `backend/scripts/run_uat_sync.py`
+- **Operational Outcome:** Active-season updates now write to dependent player-season state without relying solely on mutable base-player columns.
+
 ### 🐞 Bug Report Reliability + UX Hardening
 
 - **Commit(s):** `d957f4e`, `0604b59`, `8e0b05b`

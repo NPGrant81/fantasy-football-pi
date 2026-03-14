@@ -50,6 +50,11 @@ vi.mock('../src/api/client', () => ({
 
 import App from '../src/App';
 import apiClient from '../src/api/client';
+import { emitVisitEvent } from '../src/services/visitLogger';
+
+vi.mock('../src/services/visitLogger', () => ({
+  emitVisitEvent: vi.fn(),
+}));
 
 describe('App (basic)', () => {
   beforeEach(() => {
@@ -59,7 +64,7 @@ describe('App (basic)', () => {
 
   test('renders login screen when no token present', () => {
     render(<App />);
-    expect(screen.getByText(/FantasyFootball-PI Login/i)).toBeInTheDocument();
+    expect(screen.getByText(/PPL Insight Hub Login/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter username/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Enter password/i)).toBeInTheDocument();
     // Test for new League ID input (from recent changes)
@@ -67,6 +72,7 @@ describe('App (basic)', () => {
     // Verify default league is set to "The Big Show" (ID 1)
     const leagueInput = screen.getByDisplayValue('1');
     expect(leagueInput).toBeInTheDocument();
+    expect(emitVisitEvent).toHaveBeenCalledWith('/', null);
   });
 
   test('uses token to fetch /auth/me and shows app when valid', async () => {
@@ -165,7 +171,7 @@ describe('App (basic)', () => {
       expect(localStorage.getItem('user_id')).toBeNull();
       expect(localStorage.getItem('fantasyLeagueId')).toBeNull();
     });
-    expect(screen.getByText(/FantasyFootball-PI Login/i)).toBeInTheDocument();
+    expect(screen.getByText(/PPL Insight Hub Login/i)).toBeInTheDocument();
   });
 
   test('visiting /playoffs renders playoff bracket', async () => {

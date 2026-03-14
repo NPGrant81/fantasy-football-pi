@@ -23,7 +23,6 @@ describe('Keepers page', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.resetAllMocks();
-    localStorage.setItem('user_id', '1');
   });
 
   test('renders loading state', () => {
@@ -32,7 +31,7 @@ describe('Keepers page', () => {
     expect(screen.getByText(/Loading keepers/i)).toBeInTheDocument();
   });
 
-  test('fetches keeper data and roster', async () => {
+  test('fetches keeper data with owner context and available players', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me') {
         return Promise.resolve({
@@ -42,9 +41,24 @@ describe('Keepers page', () => {
       if (url === '/keepers/') {
         return Promise.resolve({
           data: {
+            owner_id: 1,
+            owner_name: 'Alice',
             selections: [],
             recommended: [
               { player_id: 10, surplus: 30, keep_cost: 5, projected_value: 35 },
+            ],
+            available_players: [
+              {
+                player_id: 10,
+                name: 'Player Alice',
+                position: 'RB',
+                nfl_team: 'KC',
+                draft_price: 20,
+                is_selected: false,
+                is_eligible: true,
+                reason_ineligible: null,
+                years_kept_count: 0,
+              },
             ],
             selected_count: 0,
             max_allowed: 3,
@@ -53,39 +67,20 @@ describe('Keepers page', () => {
           },
         });
       }
-      if (url.startsWith('/team/1?week=')) {
-        return Promise.resolve({
-          data: {
-            roster: [
-              {
-                player_id: 10,
-                name: 'Alice',
-                draft_price: 20,
-                projected_value: 40,
-              },
-            ],
-          },
-        });
-      }
       return Promise.reject(new Error('unknown'));
     });
 
     render(<Keepers />);
     await waitFor(() =>
-      expect(screen.getByText(/Manage Keepers/i)).toBeInTheDocument()
+      expect(screen.getByText(/Manage Keepers - Alice/i)).toBeInTheDocument()
     );
-    expect(screen.getByText(/Estimated Budget/i)).toBeInTheDocument();
-    expect(screen.getByText(/Alice/)).toBeInTheDocument();
-    // recommended surplus should be shown
-    expect(screen.getByText(/Recommended surplus/i)).toBeInTheDocument();
-    // the slot grid cell should also have a star indicating recommendation
-    expect(screen.getByText('★')).toBeInTheDocument();
-
-    // initial budget should equal 200
-    expect(screen.getByText(/Estimated Budget: \$200/)).toBeInTheDocument();
+    expect(screen.getByText(/Effective Budget: \$200/i)).toBeInTheDocument();
+    // Check for player in the roster section (not recommended)
+    expect(screen.getByText(/Your Roster - Available to Keep/i)).toBeInTheDocument();
+    expect(screen.getByText(/💡 Recommended Keepers/i)).toBeInTheDocument();
   });
 
-  test('ineligible players are disabled', async () => {
+  test('ineligible players show reason and are disabled', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me') {
         return Promise.resolve({
@@ -95,32 +90,42 @@ describe('Keepers page', () => {
       if (url === '/keepers/') {
         return Promise.resolve({
           data: {
+            owner_id: 1,
+            owner_name: 'Bob',
             selections: [],
             recommended: [],
+            available_players: [
+              {
+                player_id: 10,
+                name: 'Player Alice',
+                position: 'WR',
+                nfl_team: 'NYG',
+                draft_price: 5,
+                is_selected: false,
+                is_eligible: false,
+                reason_ineligible: 'Already designated as keeper for 2 year(s); max allowed is 1',
+                years_kept_count: 2,
+              },
+            ],
             selected_count: 0,
             max_allowed: 3,
             estimated_budget: 100,
             effective_budget: 100,
-            ineligible: [10],
           },
-        });
-      }
-      if (url.startsWith('/team/1?week=')) {
-        return Promise.resolve({
-          data: { roster: [{ player_id: 10, name: 'Alice', draft_price: 5 }] },
         });
       }
       return Promise.reject(new Error('unknown'));
     });
 
     render(<Keepers />);
-    await waitFor(() => screen.getByText('Alice'));
+    await waitFor(() => screen.getByText('Player Alice'));
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox).toBeDisabled();
-    expect(screen.getByTitle('Reached max keeper years')).toBeInTheDocument();
+    expect(screen.getByText(/Already designated as keeper/i)).toBeInTheDocument();
   });
 
   test('toggle player and submit', async () => {
+    let callCount = 0;
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me') {
         return Promise.resolve({
@@ -128,52 +133,68 @@ describe('Keepers page', () => {
         });
       }
       if (url === '/keepers/') {
+        callCount++;
         return Promise.resolve({
           data: {
-            selections: [],
+            owner_id: 1,
+            owner_name: 'Charlie',
+            selections: callCount === 1 ? [] : [{ player_id: 10 }],
             recommended: [],
-            selected_count: 0,
+            available_players: [
+              {
+                player_id: 10,
+                name: 'Player Alice',
+                position: 'QB',
+                nfl_team: 'SF',
+                draft_price: 20,
+                is_selected: callCount === 1 ? false : true,
+                is_eligible: true,
+                reason_ineligible: null,
+                years_kept_count: 0,
+              },
+            ],
+            selected_count: callCount === 1 ? 0 : 1,
             max_allowed: 1,
             estimated_budget: 100,
             effective_budget: 100,
           },
         });
       }
-      if (url.startsWith('/team/1?week=')) {
-        return Promise.resolve({
-          data: {
-            roster: [
-              {
-                player_id: 10,
-                name: 'Alice',
-                draft_price: 20,
-                projected_value: 40,
-              },
-            ],
-          },
-        });
-      }
       return Promise.reject(new Error('unknown'));
     });
+
     apiClient.post.mockResolvedValue({ data: {} });
 
     render(<Keepers />);
-    await waitFor(() => screen.getByText('Alice'));
-    // draft price should be displayed
-    expect(screen.getByText(/draft: \$20/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Your Roster - Available to Keep/i)).toBeInTheDocument();
+    });
+
+    // Find the checkbox by role
     const checkbox = screen.getByRole('checkbox');
+    expect(checkbox).toBeInTheDocument();
     fireEvent.click(checkbox);
-    // budget updated (draft_price 20 subtracted from 100)
-    expect(screen.getByText(/Estimated Budget: \$80/)).toBeInTheDocument();
-    // clicking slot should also clear selection and restore budget
-    fireEvent.click(screen.getByText('Alice'));
-    expect(screen.getByText(/Estimated Budget: \$100/)).toBeInTheDocument();
-    fireEvent.click(screen.getByText(/Submit List/i));
-    await waitFor(() =>
+
+    // Find submit button
+    const submitBtn = screen.getByRole('button', { name: /Save Selections/i });
+    expect(submitBtn).toBeInTheDocument();
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
         '/keepers/',
-        expect.any(Object)
-      )
+        expect.objectContaining({
+          players: expect.any(Array),
+        })
+      );
+    });
+
+    await waitFor(
+      () => {
+        const allText = document.documentElement.textContent;
+        expect(allText).toMatch(/1 of 1 chosen/i);
+      },
+      { timeout: 2000 }
     );
   });
 
@@ -201,7 +222,7 @@ describe('Keepers page', () => {
       if (url.startsWith('/team/7?week=')) {
         return Promise.resolve({
           data: {
-            roster: [
+            players: [
               {
                 player_id: 22,
                 name: 'Keeper Candidate',

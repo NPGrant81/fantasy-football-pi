@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { layerBackdrop, layerDrawer } from '@utils/uiStandards';
+import BrandMark from './BrandMark';
 
 import {
   FiX,
@@ -87,16 +88,11 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
         }`}
       >
         <div className="flex items-center justify-between border-b border-slate-300 bg-slate-100 p-6 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-2">
-            <img
-              src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
-              alt="FantasyFootball-PI Logo"
-              className="w-7 h-7"
-            />
-            <h2 className="text-2xl font-black tracking-tighter text-slate-900 dark:text-white">
-              FANTASY<span className="text-cyan-500">Pi</span>
-            </h2>
-          </div>
+          <BrandMark
+            containerClassName="flex items-center gap-2"
+            imageClassName="w-7 h-7"
+            textClassName="text-2xl font-black tracking-tighter text-slate-900 dark:text-white"
+          />
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {leagueName ? leagueName : 'League'}
           </p>

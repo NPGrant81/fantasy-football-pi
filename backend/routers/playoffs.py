@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from ..database import get_db
 from .. import models
 from ..routers.league import get_league_owners
@@ -410,7 +410,7 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
         "meta": {
             "league_id": req.league_id,
             "season": req.season,
-            "is_historical": req.season != datetime.now(UTC).year,
+            "is_historical": req.season != datetime.now(timezone.utc).year,
             "source": "snapshot",
         },
     }
@@ -455,7 +455,7 @@ def get_seasons(league_id: int = Query(...), db: Session = Depends(get_db)) -> L
 
 @router.get("/bracket")
 def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
-    current_year = datetime.now(UTC).year
+    current_year = datetime.now(timezone.utc).year
     snap = (
         db.query(models.PlayoffSnapshot)
         .filter(

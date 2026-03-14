@@ -1275,6 +1275,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   position={playerInfoSeason?.position || selectedPlayer.position}
                   nflTeam={playerInfoSeason?.nfl_team || selectedPlayer.team}
                   headshotUrl={playerInfoSeason?.headshot_url || ''}
+                  teamLogoUrl={playerInfoSeason?.team_logo_url || ''}
                 />
 
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

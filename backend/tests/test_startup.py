@@ -3,7 +3,7 @@ import pytest
 from backend.database import SessionLocal
 from backend.core.security import get_password_hash
 from backend.scripts.seed import run_seeder
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 import models
 
 
@@ -28,10 +28,8 @@ def test_seeder_populates_admin(integration_client):
     """Manually invoke the seeder and verify default admin is inserted."""
     db = SessionLocal()
     try:
-        # ensure seeder will be run against a fresh DB
-        # delete child rows first to avoid FK violations
-        db.execute(models.DraftPick.__table__.delete())
-        db.execute(models.User.__table__.delete())
+        # reset seed-sensitive tables with CASCADE to account for new FKs
+        db.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE"))
         db.commit()
 
         run_seeder(db, get_password_hash)

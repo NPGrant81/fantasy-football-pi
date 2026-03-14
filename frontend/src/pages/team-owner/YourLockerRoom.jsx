@@ -78,6 +78,16 @@ const DEFAULT_MAX_POSITION_LIMITS = {
   DEF: 1,
 };
 
+const STARTER_LIMIT_KEYS = {
+  QB: 'MAX_QB',
+  RB: 'MAX_RB',
+  WR: 'MAX_WR',
+  TE: 'MAX_TE',
+  K: 'MAX_K',
+  DEF: 'MAX_DEF',
+  FLEX: 'MAX_FLEX',
+};
+
 const clampInt = (value, min, max) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return min;
@@ -109,37 +119,69 @@ const normalizeStartingSlots = (slots) => {
     }
   }
 
+  for (const [position, limitKey] of Object.entries(STARTER_LIMIT_KEYS)) {
+    const parsedLimit = Number(slots[limitKey]);
+    const limit =
+      Number.isFinite(parsedLimit) && parsedLimit >= 0
+        ? Math.trunc(parsedLimit)
+        : merged[position];
+    merged[position] = Math.min(merged[position], limit);
+  }
+
   return merged;
 };
 
-const buildCanonicalStarterMinimums = (maxLimits, requiredTotal) => {
-  const slots = {
-    QB: Number(maxLimits?.QB ?? 0) > 0 ? 1 : 0,
-    RB: Number(maxLimits?.RB ?? 0) > 0 ? Math.min(2, Number(maxLimits.RB)) : 0,
-    WR: Number(maxLimits?.WR ?? 0) > 0 ? Math.min(2, Number(maxLimits.WR)) : 0,
-    TE: Number(maxLimits?.TE ?? 0) > 0 ? 1 : 0,
-    K: Number(maxLimits?.K ?? 0) > 0 ? 1 : 0,
-    DEF: Number(maxLimits?.DEF ?? 0) > 0 ? 1 : 0,
-    FLEX: Number(maxLimits?.FLEX ?? 0) > 0 ? 1 : 0,
+const buildCanonicalStarterSlots = (maxLimits, activeRosterSize) => {
+  const starterSlots = {
+    QB: maxLimits.QB > 0 ? 1 : 0,
+    RB: maxLimits.RB > 0 ? Math.min(2, maxLimits.RB) : 0,
+    WR: maxLimits.WR > 0 ? Math.min(2, maxLimits.WR) : 0,
+    TE: maxLimits.TE > 0 ? 1 : 0,
+    K: maxLimits.K > 0 ? 1 : 0,
+    DEF: maxLimits.DEF > 0 ? 1 : 0,
+    FLEX: maxLimits.FLEX > 0 ? 1 : 0,
   };
 
-  let totalMinimums = Object.values(slots).reduce(
-    (sum, value) => sum + Number(value || 0),
+  let minimumTotal = Object.values(starterSlots).reduce(
+    (sum, count) => sum + Number(count || 0),
     0
   );
-  if (Number(requiredTotal || 0) > 0 && totalMinimums > Number(requiredTotal)) {
-    for (const position of ['FLEX', 'K', 'TE', 'WR', 'RB', 'QB', 'DEF']) {
-      while (slots[position] > 0 && totalMinimums > Number(requiredTotal)) {
-        slots[position] -= 1;
-        totalMinimums -= 1;
+  if (minimumTotal > activeRosterSize) {
+    const reductionOrder = ['FLEX', 'K', 'TE', 'WR', 'RB', 'QB', 'DEF'];
+    for (const position of reductionOrder) {
+      while (starterSlots[position] > 0 && minimumTotal > activeRosterSize) {
+        starterSlots[position] -= 1;
+        minimumTotal -= 1;
       }
-      if (totalMinimums <= Number(requiredTotal)) {
-        break;
-      }
+      if (minimumTotal <= activeRosterSize) break;
     }
   }
 
-  return slots;
+  return starterSlots;
+};
+
+const normalizeLineupConstraints = (slots) => {
+  const normalizedSlots = slots && typeof slots === 'object' ? slots : {};
+  const activeRosterSize = clampInt(normalizedSlots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12);
+
+  const maxLimits = {
+    QB: clampInt(normalizedSlots.MAX_QB ?? normalizedSlots.QB ?? 1, 1, 3),
+    RB: clampInt(normalizedSlots.MAX_RB ?? normalizedSlots.RB ?? 3, 1, 5),
+    WR: clampInt(normalizedSlots.MAX_WR ?? normalizedSlots.WR ?? 3, 1, 5),
+    TE: clampInt(normalizedSlots.MAX_TE ?? normalizedSlots.TE ?? 2, 1, 3),
+    K: clampInt(normalizedSlots.MAX_K ?? normalizedSlots.K ?? 1, 0, 1),
+    DEF: clampInt(normalizedSlots.MAX_DEF ?? normalizedSlots.DEF ?? 1, 0, 1),
+    FLEX: clampInt(normalizedSlots.MAX_FLEX ?? normalizedSlots.FLEX ?? 1, 0, 2),
+  };
+
+  const starterSlots = buildCanonicalStarterSlots(maxLimits, activeRosterSize);
+
+  return {
+    starterSlots,
+    maxLimits,
+    activeRosterSize,
+    allowPartialLineup: Number(normalizedSlots.ALLOW_PARTIAL_LINEUP ?? 0) === 1,
+  };
 };
 
 const getSlotLabel = (position) =>
@@ -372,6 +414,32 @@ export default function YourLockerRoom({ activeOwnerId }) {
 
   const waiverRemaining = computeRemaining(waiverDeadlineSetting);
   const tradeRemaining = computeRemaining(tradeDeadlineSetting);
+  const loadLeagueSettings = useCallback(async (leagueId, options = {}) => {
+    const { resetOnFailure = false } = options;
+
+    try {
+      const settingsRes = await apiClient.get(`/leagues/${leagueId}/settings`);
+      const slots = settingsRes.data.starting_slots || {};
+      const normalized = normalizeLineupConstraints(slots);
+      setScoringRules(settingsRes.data.scoring_rules || []);
+      setWaiverDeadlineSetting(settingsRes.data.waiver_deadline || null);
+      setTradeDeadlineSetting(settingsRes.data.trade_deadline || null);
+      setStarterRequirements(normalized.starterSlots);
+      setActiveRosterRequired(normalized.activeRosterSize);
+      setMaxPositionLimits(normalized.maxLimits);
+      setAllowPartialLineup(normalized.allowPartialLineup);
+      return true;
+    } catch {
+      if (resetOnFailure) {
+        setScoringRules([]);
+        setStarterRequirements(DEFAULT_STARTER_SLOTS);
+        setActiveRosterRequired(9);
+        setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
+        setAllowPartialLineup(false);
+      }
+      return false;
+    }
+  }, []);
   useEffect(() => {
     async function fetchUserLeague() {
       try {
@@ -395,37 +463,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
           } catch {
             setLeagueOwners([]);
           }
-
-          try {
-            const settingsRes = await apiClient.get(
-              `/leagues/${leagueId}/settings`
-            );
-            const slots = settingsRes.data.starting_slots || {};
-            setScoringRules(settingsRes.data.scoring_rules || []);
-            setWaiverDeadlineSetting(settingsRes.data.waiver_deadline || null);
-            setTradeDeadlineSetting(settingsRes.data.trade_deadline || null);
-            setStarterRequirements(normalizeStartingSlots(slots));
-            setActiveRosterRequired(
-              clampInt(slots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12)
-            );
-            setMaxPositionLimits({
-              QB: clampInt(slots.MAX_QB ?? 1, 1, 3),
-              RB: clampInt(slots.MAX_RB ?? 3, 1, 5),
-              WR: clampInt(slots.MAX_WR ?? 3, 1, 5),
-              TE: clampInt(slots.MAX_TE ?? 2, 1, 3),
-              K: clampInt(slots.MAX_K ?? 1, 0, 1),
-              DEF: 1,
-            });
-            setAllowPartialLineup(
-              Number(slots.ALLOW_PARTIAL_LINEUP ?? 0) === 1
-            );
-          } catch {
-            setScoringRules([]);
-            setStarterRequirements(DEFAULT_STARTER_SLOTS);
-            setActiveRosterRequired(9);
-            setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
-            setAllowPartialLineup(false);
-          }
+          await loadLeagueSettings(leagueId, { resetOnFailure: true });
         }
         setUserInfo({
           username: userRes.data.username,
@@ -475,7 +513,32 @@ export default function YourLockerRoom({ activeOwnerId }) {
       }
     }
     fetchUserLeague();
-  }, [viewedOwnerId]);
+  }, [loadLeagueSettings, viewedOwnerId]);
+
+  useEffect(() => {
+    if (!userInfo.leagueId) return undefined;
+
+    const refreshRules = () => {
+      if (document.visibilityState !== 'visible') return;
+      void loadLeagueSettings(userInfo.leagueId);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshRules();
+      }
+    };
+
+    window.addEventListener('focus', refreshRules);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const intervalId = window.setInterval(refreshRules, 30000);
+
+    return () => {
+      window.removeEventListener('focus', refreshRules);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [loadLeagueSettings, userInfo.leagueId]);
 
   useEffect(() => {
     async function loadTargetRoster() {
@@ -632,10 +695,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
       }
     }
 
-    const canonicalMinimums = buildCanonicalStarterMinimums(
-      maxPositionLimits,
-      activeRosterRequired
-    );
+    const canonicalMinimums = starterRequirements;
 
     const flexEligibleCount = counts.RB + counts.WR + counts.TE;
     const baseFlexUsage =
@@ -1481,6 +1541,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                     playerPerformance.nfl_team || selectedPlayer?.nfl_team || ''
                   }
                   headshotUrl={playerPerformance.headshot_url || ''}
+                  teamLogoUrl={playerPerformance.team_logo_url || ''}
                 />
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">

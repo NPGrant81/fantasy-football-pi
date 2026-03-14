@@ -17,7 +17,7 @@ describe('Layout (Main App Container)', () => {
       </Layout>
     );
 
-    expect(screen.getByText(/FANTASY/i)).toBeInTheDocument();
+    expect(screen.getByText(/PPL Insight Hub/i)).toBeInTheDocument();
   });
 
   test('renders main content area with children', () => {
@@ -55,7 +55,7 @@ describe('Layout (Main App Container)', () => {
     );
 
     // The Sidebar mock receives these props but we can verify the Layout component renders
-    expect(screen.getByText(/FANTASY/i)).toBeInTheDocument();
+    expect(screen.getByText(/PPL Insight Hub/i)).toBeInTheDocument();
   });
 
   test('header has proper styling and structure', () => {

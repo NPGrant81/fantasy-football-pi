@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from .. import models_draft_value as dv_models
+from ..services.player_service import canonical_player_key, canonical_player_rank
 
 
 def _serialize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -395,6 +396,27 @@ def _fallback_draft_value_rows_from_players(
     return fallback_rows
 
 
+def _dedupe_ranking_rows(
+    rows: list[tuple[Any, models.Player]],
+) -> list[tuple[Any, models.Player]]:
+    selected: dict[tuple, tuple[Any, models.Player]] = {}
+
+    def _ranking_rank(draft_value: Any, player: models.Player) -> tuple[float, float, tuple[int, int, int]]:
+        return (
+            float(getattr(draft_value, "avg_auction_value", 0.0) or 0.0),
+            float(getattr(draft_value, "value_over_replacement", 0.0) or 0.0),
+            canonical_player_rank(player),
+        )
+
+    for draft_value, player in rows:
+        key = canonical_player_key(player)
+        current = selected.get(key)
+        if current is None or _ranking_rank(draft_value, player) > _ranking_rank(*current):
+            selected[key] = (draft_value, player)
+
+    return list(selected.values())
+
+
 def get_historical_rankings(
     db: Session,
     *,
@@ -423,6 +445,8 @@ def get_historical_rankings(
             season=season,
             normalized_position=normalized_position,
         )
+
+    query_rows = _dedupe_ranking_rows(query_rows)
 
     league_weights = _build_league_position_weights(db, league_id=league_id)
     owner_position_affinity = _build_owner_position_affinity(

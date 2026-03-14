@@ -117,7 +117,9 @@ describe('ManageKeeperRules page', () => {
     apiClient.post.mockResolvedValue({ data: {} });
 
     render(<ManageKeeperRules />);
-    await waitFor(() => screen.getByText(/owner5/i));
+    await waitFor(() => {
+      expect(screen.getAllByText(/owner5/i).length).toBeGreaterThan(0);
+    });
 
     fireEvent.click(screen.getByText(/Veto/i));
     await waitFor(() =>

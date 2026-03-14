@@ -4,6 +4,7 @@ from fastapi import HTTPException
 # use top-level aliases so services work under both package and script imports
 import models
 import core.security as security
+from backend.services import player_service
 
 # `uat` is a subpackage under backend; use the full path so imports work whether
 # the backend package is loaded as a module or run from a script.  The previous
@@ -82,11 +83,18 @@ def sync_initial_nfl_data(db: Session):
                 yield athlete
     
     def upsert_player(name, position, team_abbr, espn_id):
-        existing = db.query(models.Player).filter(models.Player.espn_id == espn_id).first()
+        existing = player_service.find_existing_player(
+            db,
+            espn_id=espn_id,
+            name=name,
+            position=position,
+            nfl_team=team_abbr,
+        )
         if existing:
             existing.name = name
             existing.position = position
             existing.nfl_team = team_abbr
+            existing.espn_id = espn_id
             db.flush()
             return existing, False
         player = models.Player(
@@ -99,11 +107,18 @@ def sync_initial_nfl_data(db: Session):
     
     def upsert_defense(team_abbr):
         espn_id = f"DEF_{team_abbr}"
-        existing = db.query(models.Player).filter(models.Player.espn_id == espn_id).first()
+        existing = player_service.find_existing_player(
+            db,
+            espn_id=espn_id,
+            name=f"{team_abbr} Defense",
+            position="DEF",
+            nfl_team=team_abbr,
+        )
         if existing:
             existing.name = f"{team_abbr} Defense"
             existing.position = "DEF"
             existing.nfl_team = team_abbr
+            existing.espn_id = espn_id
             db.flush()
             return False
         defense = models.Player(
@@ -131,6 +146,13 @@ def sync_initial_nfl_data(db: Session):
                 espn_id = athlete.get("id")
                 name = athlete.get("fullName") or athlete.get("displayName")
                 if not espn_id or not name:
+                    skipped += 1
+                    continue
+                if not player_service.is_valid_fantasy_player(
+                    name=name,
+                    position=position,
+                    nfl_team=team_abbr,
+                ):
                     skipped += 1
                     continue
                 _, created = upsert_player(name, position, team_abbr, str(espn_id))

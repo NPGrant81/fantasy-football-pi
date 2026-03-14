@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -12,10 +12,13 @@ import './App.css';
 
 // Import Components
 import Layout from './components/Layout';
+import BrandMark from './components/BrandMark';
 import LeagueSelector from './components/LeagueSelector';
 import LeagueAdvisor from './components/LeagueAdvisor';
 import { LoadingState } from '@components/common/AsyncState';
+import { BRAND_NAME } from './constants/branding';
 import { ThemeProvider } from './context/ThemeContext';
+import { emitVisitEvent } from './services/visitLogger';
 
 // Import Pages (Lazy Loaded)
 const YourLockerRoom = lazy(() => import('./pages/team-owner/YourLockerRoom'));
@@ -98,7 +101,7 @@ function resolveLayoutPageTitle(pathname) {
   if (pathname === '/keepers') return 'Manage Keepers';
   if (pathname === '/analytics') return 'League Analytics';
   if (pathname === '/playoffs') return 'Playoff Bracket';
-  return 'Fantasy Pi';
+  return BRAND_NAME;
 }
 
 function AuthenticatedShell({
@@ -111,8 +114,20 @@ function AuthenticatedShell({
   isCommissioner,
 }) {
   const location = useLocation();
+  const hasLoggedInitialRoute = useRef(false);
   const headerTitle = resolveLayoutPageTitle(location.pathname);
 
+  useEffect(() => {
+    document.title = headerTitle ? `${headerTitle} | ${BRAND_NAME}` : BRAND_NAME;
+  }, [headerTitle]);
+
+  useEffect(() => {
+    if (!hasLoggedInitialRoute.current) {
+      hasLoggedInitialRoute.current = true;
+      return;
+    }
+    emitVisitEvent(location.pathname, activeOwnerId ? Number(activeOwnerId) : null);
+  }, [location.pathname, activeOwnerId]);
   return (
     <Layout
       username={username}
@@ -135,7 +150,6 @@ function AuthenticatedShell({
             element={
               <DraftBoard
                 token={token}
-                activeOwnerId={activeOwnerId}
                 activeLeagueId={activeLeagueId}
               />
             }
@@ -283,6 +297,15 @@ function App() {
   const [leagueInput, setLeagueInput] = useState('1'); // Default to "The Big Show" (league ID 1)
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const initialPath =
+      typeof window !== 'undefined' && window.location?.pathname
+        ? window.location.pathname
+        : '/';
+    const storedUserId = localStorage.getItem('user_id');
+    emitVisitEvent(initialPath, storedUserId ? Number(storedUserId) : null);
+  }, []);
+
   // --- 1.2 LOGOUT (Stable reference for effects) ---
   const clearAuthState = useCallback(() => {
     setToken(null);
@@ -345,6 +368,12 @@ function App() {
       .catch(() => setLayoutAlert(''));
   }, [activeLeagueId, token]);
 
+  useEffect(() => {
+    if (!token) {
+      document.title = `${BRAND_NAME} Login`;
+    }
+  }, [token]);
+
   // --- 1.5 LOGIN HANDLER ---
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -387,14 +416,13 @@ function App() {
           className="bg-slate-800 p-8 rounded-lg shadow-2xl w-96 border border-slate-700"
         >
           <div className="flex flex-col items-center mb-6">
-            <img
-              src={import.meta.env.BASE_URL + 'src/assets/react.svg'}
-              alt="FantasyFootball-PI Logo"
-              className="w-16 h-16 mb-2"
+            <BrandMark
+              containerClassName="flex flex-col items-center"
+              imageClassName="w-16 h-16 mb-2"
+              textClassName="text-3xl font-black text-center text-yellow-500 tracking-tighter"
+              text={`${BRAND_NAME} Login`}
+              textTag="h2"
             />
-            <h2 className="text-3xl font-black text-center text-yellow-500 tracking-tighter">
-              FantasyFootball-PI Login
-            </h2>
           </div>
           {error && (
             <div className="mb-4 text-red-400 text-center text-sm font-bold">

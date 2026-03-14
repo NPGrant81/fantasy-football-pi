@@ -217,6 +217,44 @@ class Player(Base):
     bye_week = Column(Integer, nullable=True)
     
     draft_pick = relationship("DraftPick", back_populates="player", uselist=False)
+    seasons = relationship("PlayerSeason", back_populates="player")
+    aliases = relationship("PlayerAlias", back_populates="player")
+
+
+class PlayerSeason(Base):
+    __tablename__ = "player_seasons"
+    __table_args__ = (
+        UniqueConstraint("player_id", "season", name="uq_player_season"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    season = Column(Integer, nullable=False, index=True)
+    nfl_team = Column(String, nullable=True)
+    position = Column(String, nullable=True)
+    bye_week = Column(Integer, nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    source = Column(String(32), nullable=False, default="sync")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    player = relationship("Player", back_populates="seasons")
+
+
+class PlayerAlias(Base):
+    __tablename__ = "player_aliases"
+    __table_args__ = (
+        UniqueConstraint("player_id", "alias_name", "source", name="uq_player_alias_source"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    alias_name = Column(String, nullable=False, index=True)
+    source = Column(String(32), nullable=False, default="canonical")
+    is_primary = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    player = relationship("Player", back_populates="aliases")
 
 # --- 5. DRAFT PICK TABLE ---
 
@@ -588,7 +626,23 @@ class BugReport(Base):
 
     user = relationship("User", back_populates="bug_reports")
 
-# --- 10. PLAYER WEEKLY STATS ---
+
+# --- 10. SITE VISITS ---
+class SiteVisit(Base):
+    __tablename__ = "site_visits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    path = Column(String, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    session_id = Column(String, nullable=False, index=True)
+    user_agent = Column(String, nullable=True)
+    referrer = Column(String, nullable=True)
+    client_timestamp = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User")
+
+# --- 11. PLAYER WEEKLY STATS ---
 class PlayerWeeklyStat(Base):
     __tablename__ = "player_weekly_stats"
     __table_args__ = (
@@ -607,7 +661,7 @@ class PlayerWeeklyStat(Base):
     player = relationship("Player")
 
 
-# --- 11. MANAGER EFFICIENCY (Analytics) ---
+# --- 12. MANAGER EFFICIENCY (Analytics) ---
 class ManagerEfficiency(Base):
     __tablename__ = "manager_efficiency"
     __table_args__ = (
@@ -632,7 +686,7 @@ class ManagerEfficiency(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-# --- 11. TRADE PROPOSALS ---
+# --- 13. TRADE PROPOSALS ---
 class TradeProposal(Base):
     __tablename__ = "trade_proposals"
 
@@ -649,7 +703,7 @@ class TradeProposal(Base):
     created_at = Column(String, nullable=True)
 
 
-# --- 13. UNMATCHED PLAYERS (Dead Letter Queue) ---
+# --- 14. UNMATCHED PLAYERS (Dead Letter Queue) ---
 class UnmatchedPlayer(Base):
     __tablename__ = "unmatched_players"
     id = Column(Integer, primary_key=True, index=True)
@@ -660,7 +714,7 @@ class UnmatchedPlayer(Base):
     extra_data = Column(JSON, nullable=True)  # Any additional info (raw row, etc.)
     created_at = Column(String, nullable=True)
 
-# --- 14. MANUAL PLAYER MAPPINGS ---
+# --- 15. MANUAL PLAYER MAPPINGS ---
 class ManualPlayerMapping(Base):
     __tablename__ = "manual_player_mappings"
     id = Column(Integer, primary_key=True, index=True)

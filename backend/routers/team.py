@@ -220,6 +220,7 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
         "DEF": 1,
         "FLEX": 1,
     }
+
     allow_partial_lineup = int(raw_slots.get("ALLOW_PARTIAL_LINEUP", 0) or 0) == 1
 
     required_total = int(
