@@ -301,3 +301,8 @@ Output:
 
 - Console summary with mismatch count and warning count.
 - Optional JSON report with per-season details and mismatch messages for audit.
+
+## Workflow Runbook (#260)
+
+For full operator procedures (extract -> dry-run import -> apply import -> reconcile -> rerun/backfill),
+see `docs/data-migration/mfl-migration-runbook.md`.
