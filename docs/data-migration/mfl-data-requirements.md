@@ -12,7 +12,27 @@ Define a stable extraction contract from MFL into CSV so migration/import code c
 - League URL examples provided:
   - 2026 league: `https://www46.myfantasyleague.com/2026/home/11422#0`
   - 2025 league: `https://www46.myfantasyleague.com/2025/home/11422#0`
-- Working assumption: league id `11422` is consistent across years.
+
+## Confirmed Season To League Mapping (Owner-Provided)
+
+Confirmed from shared MFL URLs:
+
+- 2015 -> `43630`
+- 2016 -> `38909`
+- 2017 -> `38909`
+- 2018 -> `38909`
+- 2019 -> `38909`
+- 2020 -> `38909`
+- 2021 -> `38909`
+- 2022 -> `38909`
+- 2023 -> `11422`
+- 2024 -> `11422`
+- 2025 -> `11422`
+- 2026 -> `11422`
+
+Gap still open:
+
+- 2002-2014 league ids not yet located.
 
 ## Report Inventory
 
@@ -210,7 +230,7 @@ High-level mapping targets:
 
 These are the minimum answers needed before implementing #257:
 
-1. Confirm league id is `11422` for all historical seasons.
+1. Provide league ids for 2002-2014 seasons (or confirm inaccessible).
 2. Confirm first season year to extract (assumed 2001).
 3. Confirm whether all seasons are public or require authenticated session.
 4. Confirm if franchise ids remain stable across years or if owner identity must be name-based fallback.

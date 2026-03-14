@@ -12,6 +12,7 @@ from .database import SessionLocal, engine, Base
 from .scripts.seed import run_seeder
 from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_audit
 from .scripts.audit_invalid_players import run_invalid_player_audit
+from .scripts.extract_mfl_history import run_mfl_history_extract
 from .scripts.finalize_week import run_finalization
 from .core.security import get_password_hash
 
@@ -93,6 +94,57 @@ def audit_invalid_players(
     click.echo(f"- Invalid players with scoped refs: {summary['invalid_players_with_scoped_refs']}")
     click.echo(f"- Actions applied: {summary['actions_applied']}")
     click.echo(f"- Rows touched: {summary['rows_touched']}")
+
+
+@cli.command("extract-mfl-history")
+@click.option("--start-year", type=int, required=True, help="First season year to extract.")
+@click.option("--end-year", type=int, required=True, help="Last season year to extract.")
+@click.option(
+    "--report-types",
+    type=str,
+    default="league,players,draftResults,rosters,standings,schedule,transactions",
+    show_default=True,
+    help="Comma-separated MFL TYPE values.",
+)
+@click.option(
+    "--output-root",
+    type=click.Path(file_okay=False, dir_okay=True, writable=True),
+    default="exports/history",
+    show_default=True,
+    help="Output folder for CSV and raw JSON exports.",
+)
+@click.option("--timeout-seconds", type=int, default=20, show_default=True, help="HTTP timeout per request.")
+@click.option(
+    "--session-cookie",
+    type=str,
+    default=None,
+    help="Optional MFL auth cookie string for private league exports.",
+)
+def extract_mfl_history(
+    start_year: int,
+    end_year: int,
+    report_types: str,
+    output_root: str,
+    timeout_seconds: int,
+    session_cookie: str | None,
+):
+    """Extract MFL exports into normalized CSV files for migration."""
+    report_type_list = [part.strip() for part in report_types.split(",") if part.strip()]
+    summary = run_mfl_history_extract(
+        start_year=start_year,
+        end_year=end_year,
+        report_types=report_type_list,
+        output_root=output_root,
+        timeout_seconds=timeout_seconds,
+        session_cookie=session_cookie,
+    )
+
+    click.echo("MFL extraction summary")
+    click.echo(f"- Seasons requested: {summary['requested_seasons'][0]}..{summary['requested_seasons'][-1]}")
+    click.echo(f"- Reports extracted: {summary['extracted_reports']}")
+    click.echo(f"- Seasons skipped (missing league id): {summary['skipped_missing_league_id']}")
+    click.echo(f"- Failed report pulls: {summary['failed_reports']}")
+    click.echo(f"- Output root: {summary['output_root']}")
 
 
 @cli.command("finalize-week")
