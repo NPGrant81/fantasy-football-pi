@@ -66,6 +66,7 @@
 
 ---
 
+
 ## ✅ COMPLETED STORIES
 
 ### Story 5.1: Free Agent Search
@@ -75,6 +76,21 @@
 - **Backend:** `GET /players/search` endpoint fully implemented
 - **Details:** Users can search for and view free agent players, filter by position, sort by points
 - **Verification:** All acceptance criteria met
+
+
+### 🧠 Player Metadata Normalization Learning (Issue #103)
+
+- **Issue:** `#103 - Player Metadata Cleanup & Standardization`
+- **Learning Captured:** Player identity must be independent from season/team state.
+- **Phase-1 Changes Implemented:**
+  - Added normalized tables: `player_seasons` and `player_aliases`
+  - Added Alembic migration: `backend/alembic/versions/20260312_01_player_identity_normalization.py`
+  - Added ingestion utility: `backend/services/player_identity_service.py`
+  - Updated sync pipelines to upsert season-dependent rows:
+    - `backend/scripts/import_espn_players.py`
+    - `backend/scripts/daily_sync.py`
+    - `backend/scripts/run_uat_sync.py`
+- **Operational Outcome:** Active-season updates now write to dependent player-season state without relying solely on mutable base-player columns.
 
 ### Story 2.1-2.3: Draft System
 

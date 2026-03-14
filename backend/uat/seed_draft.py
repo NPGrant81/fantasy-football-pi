@@ -2,24 +2,28 @@
 import random
 from sqlalchemy.orm import Session
 from backend import models
+from backend.services import player_service
 
 def get_safe_player(db: Session, pool, position, owner_id):
     # 1.1 VALIDATION: Use existing player if available
     if pool:
         return pool.pop(0)
     
-    # 1.2 FALLBACK: Create a placeholder so the draft never crashes
-    print(f"⚠️  Warning: Out of {position}s! Creating UAT Filler for Owner {owner_id}.")
-    filler = models.Player(
-        name=f"Generic {position}",
-        position=position,
-        nfl_team="UAT",
-        gsis_id=f"FILLER-{position}-{owner_id}-{random.randint(1000,9999)}",
-        projected_points=0.0
-    )
-    db.add(filler)
-    db.flush() 
-    return filler
+    fallback_positions = [position] if position in {'QB', 'RB', 'WR', 'TE', 'K', 'DEF'} else ['RB', 'WR', 'TE']
+    fallback_rows = []
+    for fallback_position in fallback_positions:
+        fallback_rows.extend(
+            db.query(models.Player)
+            .filter(models.Player.position == fallback_position)
+            .all()
+        )
+
+    valid_rows = [row for row in fallback_rows if player_service.is_valid_player_row(row)]
+    if valid_rows:
+        print(f"⚠️  Warning: Out of unique {position}s! Reusing existing player for Owner {owner_id}.")
+        return random.choice(valid_rows)
+
+    raise RuntimeError(f"Unable to seed draft because no valid {position} players are available")
 
 def seed_draft(db: Session, league_id: int | None = None):
     print("🎲 SEEDING DRAFT: Fast-Forwarding to Season Start...")

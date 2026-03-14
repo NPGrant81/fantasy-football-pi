@@ -29,6 +29,7 @@ Refer to the appropriate file for more information.
 - [Permissions](permissions.md)
 - [Pi Update Cheatsheet](PI_UPDATE_CHEATSHEET.md)
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
+- [Player Metadata Rules](player-metadata-rules.md)
 - [Pr Notes](PR_NOTES.md)
 - [Project Management](PROJECT_MANAGEMENT.md)
 - [Raspberry Pi Deployment](RASPBERRY_PI_DEPLOYMENT.md)

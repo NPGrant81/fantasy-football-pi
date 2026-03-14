@@ -207,6 +207,48 @@ def test_rankings_service_falls_back_to_player_projections_when_no_draft_values(
     assert all(row["rank"] >= 1 for row in rows)
 
 
+def test_rankings_service_dedupes_same_name_across_team_variants(db_session):
+    db_session.add_all(
+        [
+            models.Player(
+                id=9101,
+                name="Duplicate Alpha",
+                position="WR",
+                nfl_team="FA",
+                projected_points=180.0,
+            ),
+            models.Player(
+                id=9102,
+                name="Duplicate Alpha",
+                position="WR",
+                nfl_team="PIT",
+                projected_points=182.0,
+            ),
+            models.Player(
+                id=9103,
+                name="Unique Beta",
+                position="WR",
+                nfl_team="IND",
+                projected_points=170.0,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    rows = get_historical_rankings_service(
+        db_session,
+        season=2026,
+        limit=10,
+        league_id=None,
+        owner_id=None,
+        position="WR",
+    )
+
+    duplicate_rows = [row for row in rows if row["player_name"] == "Duplicate Alpha"]
+    assert len(duplicate_rows) == 1
+    assert duplicate_rows[0]["player_id"] == 9102
+
+
 def test_simulation_returns_backend_error_detail(db_session, monkeypatch):
     _, _, owner_a, _ = _create_users(db_session)
 

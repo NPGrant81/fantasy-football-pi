@@ -48,6 +48,18 @@ def read_csv_safe(path):
         print(f"⚠️ UTF-8 failed for {os.path.basename(path)}, switching to ISO-8859-1...")
         return pd.read_csv(path, encoding='ISO-8859-1')
 
+def load_canonical_owners():
+    path = get_file_path("users.csv")
+    if not path:
+        return pd.DataFrame(columns=['OwnerID', 'OwnerName'])
+
+    df = read_csv_safe(path)
+    if 'OwnerID' not in df.columns or 'OwnerName' not in df.columns:
+        return pd.DataFrame(columns=['OwnerID', 'OwnerName'])
+
+    # Preserve CSV order: first row per OwnerID is the canonical full name.
+    return df.drop_duplicates(subset=['OwnerID'], keep='first').copy()
+
 def load_lookups():
     pos_map = {}
     path = get_file_path("positions.csv")
@@ -76,6 +88,7 @@ def load_lookups():
 def run_ingest():
     db: Session = SessionLocal()
     pos_map, team_map = load_lookups()
+    canonical_owners = load_canonical_owners()
     
     default_hash = pwd_context.hash("password123") 
     
@@ -93,16 +106,9 @@ def run_ingest():
         # ==========================================
         # 1. USERS (OWNERS)
         # ==========================================
-        path = get_file_path("users.csv")
-        if path:
-            df = read_csv_safe(path)
-            # Safe logic to sort users (optional but keeps your old logic)
-            if 'OwnerName' in df.columns:
-                df['NameLen'] = df['OwnerName'].astype(str).str.len()
-                df = df.sort_values('NameLen', ascending=False).drop_duplicates(subset=['OwnerID'])
-            
+        if not canonical_owners.empty:
             count = 0
-            for _, row in df.iterrows():
+            for _, row in canonical_owners.iterrows():
                 uid = safe_int(row['OwnerID'])
                 if not uid: continue
                 
@@ -118,7 +124,10 @@ def run_ingest():
                         username=uname, 
                         email=f"{email_slug}@example.com",
                         hashed_password=default_hash,
-                        league_id=league_id  # <--- NEW: Link User to League
+                        league_id=league_id,
+                        is_superuser=(uid == 1),
+                        is_commissioner=(uid == 1),
+                        team_name=uname,
                     ))
                     count += 1
             
@@ -193,7 +202,8 @@ def run_ingest():
                     owner_id = oid,
                     year = year if year else 0,
                     amount = clean_money(row['WinningBid']),
-                    session_id=f"HISTORICAL_{year}" # Tagging historical data
+                    session_id=f"HISTORICAL_{year}", # Tagging historical data
+                    league_id = league_id
                 )
                 db.add(new_pick)
                 count += 1

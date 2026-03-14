@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -41,7 +41,7 @@ def create_bug_report(
         issue_type=payload.issue_type,
         page_url=payload.page_url,
         status="OPEN",
-        created_at=datetime.now(UTC).isoformat()
+        created_at=datetime.now(timezone.utc).isoformat()
     )
 
     db.add(report)
