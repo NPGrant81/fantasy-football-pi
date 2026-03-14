@@ -55,11 +55,15 @@ if __name__ == "__main__" or __package__ in (None, ""):
     SessionLocal = dbmod.SessionLocal
     get_password_hash = secmod.get_password_hash
     check_is_commissioner = secmod.check_is_commissioner
+    watchdog_service = importlib.import_module("backend.services.live_scoring_watchdog_service")
+    run_seeder = importlib.import_module("backend.scripts.seed").run_seeder
 else:
     # normal package imports
     from . import models
     from .database import engine, SessionLocal
     from .core.security import get_password_hash, check_is_commissioner
+    from .services import live_scoring_watchdog_service as watchdog_service
+    from .scripts.seed import run_seeder
     from .routers import (
         admin, admin_tools, team, matchups, league, advisor,
         dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, keepers, divisions, scoring
@@ -101,10 +105,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Warning: Could not initialize database tables: {e}")
 
+    try:
+        auto_seed = os.getenv("AUTO_SEED_ON_STARTUP", "1")
+        app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
+        if auto_seed == "1" and app_env not in {"production", "prod"}:
+            run_seeder(SessionLocal, get_password_hash)
+    except Exception as e:
+        print(f"Warning: Could not run startup seeder: {e}")
+
+    try:
+        watchdog_service.start_live_scoring_watchdog_scheduler()
+    except Exception as e:
+        print(f"Warning: Could not start live scoring watchdog scheduler: {e}")
+
     yield
 
     # --- shutdown portion ---
     # (currently nothing to clean up here; kept for future use)
+    try:
+        watchdog_service.stop_live_scoring_watchdog_scheduler()
+    except Exception as e:
+        print(f"Warning: Could not stop live scoring watchdog scheduler: {e}")
 
 app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
 

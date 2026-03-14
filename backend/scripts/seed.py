@@ -1,4 +1,5 @@
 from sqlalchemy import text
+from backend.core import security
 
 # reuse models via import to avoid circularity
 from .. import models
@@ -45,6 +46,12 @@ def run_seeder(SessionLocal, get_password_hash):
             db.add(nick)
             db.commit()
             db.refresh(nick)
+        elif not security.verify_password("password", nick.hashed_password):
+            # Self-heal known placeholder/broken hashes so local login remains usable
+            # after test runs or partial restores.
+            print("Auto-Seeding: Repairing Nick Grant password hash...")
+            nick.hashed_password = get_password_hash("password")
+            db.commit()
 
         # Check for Default League
         test_league = db.query(models.League).filter(models.League.name == "The Big Show").first()

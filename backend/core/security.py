@@ -70,12 +70,11 @@ def verify_password(plain_password, hashed_password):
         return False
 
 def get_password_hash(password):
-    # when running automated tests we don't want to invoke bcrypt
-    # initialization or worry about input length limits.  a simple
-    # flag allows the test harness to bypass real hashing entirely.
-    # either explicit testing flag or running under pytest
+    # In tests we still return a valid bcrypt hash (lower cost) so accidental
+    # persisted rows remain usable for auth instead of becoming permanent 401s.
     if os.getenv("TESTING") == "1" or os.getenv("PYTEST_CURRENT_TEST"):
-        return "test-hash"
+        bcrypt_module = _get_bcrypt_module()
+        return bcrypt_module.hashpw(password.encode("utf-8"), bcrypt_module.gensalt(rounds=4)).decode("utf-8")
     bcrypt_module = _get_bcrypt_module()
     return bcrypt_module.hashpw(password.encode("utf-8"), bcrypt_module.gensalt()).decode("utf-8")
 
