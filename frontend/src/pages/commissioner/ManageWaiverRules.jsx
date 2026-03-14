@@ -22,6 +22,7 @@ import {
 /* ignore-breakpoints */
 
 export default function ManageWaiverRules() {
+  const leagueId = localStorage.getItem('fantasyLeagueId');
   const [waiverDeadline, setWaiverDeadline] = useState('');
   const [rosterSize, setRosterSize] = useState('');
   const [startingBudget, setStartingBudget] = useState('');
@@ -36,10 +37,16 @@ export default function ManageWaiverRules() {
 
   // Fetch current waiver deadline on mount
   useEffect(() => {
+    if (!leagueId) {
+      setMessage('No active league selected.');
+      setClaims([]);
+      setBudgets([]);
+      return;
+    }
+
     async function fetchWaiverSettings() {
       try {
-        // Assume leagueId is 1 for demo; replace with real league context
-        const res = await apiClient.get('/leagues/1/settings');
+        const res = await apiClient.get(`/leagues/${leagueId}/settings`);
         setWaiverDeadline(res.data.waiver_deadline || '');
         setRosterSize(res.data.roster_size ? String(res.data.roster_size) : '');
         setStartingBudget(
@@ -53,16 +60,22 @@ export default function ManageWaiverRules() {
         setMessage('Failed to load waiver rules');
       }
     }
+
     fetchWaiverSettings();
     fetchClaims();
     fetchBudgets();
-  }, []);
+  }, [leagueId]);
 
   // fetch historical waiver claims (commissioner only)
   const fetchClaims = async () => {
+    if (!leagueId) {
+      setClaims([]);
+      return;
+    }
+
     setClaimsLoading(true);
     try {
-      const res = await apiClient.get('/waivers/claims');
+      const res = await apiClient.get(`/leagues/${leagueId}/waivers/claims`);
       setClaims(Array.isArray(res.data) ? res.data : []);
     } catch {
       // ignore failures for now
@@ -73,9 +86,13 @@ export default function ManageWaiverRules() {
 
   // fetch current budgets for league (commissioner view)
   const fetchBudgets = async () => {
+    if (!leagueId) {
+      setBudgets([]);
+      return;
+    }
     setBudgetsLoading(true);
     try {
-      const res = await apiClient.get('/leagues/1/waiver-budgets');
+      const res = await apiClient.get(`/leagues/${leagueId}/waiver-budgets`);
       setBudgets(Array.isArray(res.data) ? res.data : []);
     } catch {
       setBudgets([]);
@@ -87,11 +104,15 @@ export default function ManageWaiverRules() {
   // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!leagueId) {
+      setMessage('No active league selected.');
+      return;
+    }
     setLoading(true);
     setMessage('');
     try {
       // fetch existing settings to satisfy backend schema
-      const existingRes = await apiClient.get('/leagues/1/settings');
+      const existingRes = await apiClient.get(`/leagues/${leagueId}/settings`);
       const existing = existingRes.data || {};
       const payload = {
         ...existing,
@@ -104,8 +125,9 @@ export default function ManageWaiverRules() {
         waiver_tiebreaker: tieBreaker,
       };
 
-      await apiClient.put('/leagues/1/settings', payload);
+      await apiClient.put(`/leagues/${leagueId}/settings`, payload);
       setMessage('Waiver rules updated successfully.');
+      fetchBudgets();
     } catch {
       setMessage('Failed to update waiver rules.');
     } finally {

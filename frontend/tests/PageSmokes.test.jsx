@@ -376,6 +376,7 @@ describe('WaiverWire (Smoke Test)', () => {
 describe('ManageWaiverRules (Smoke Test)', () => {
   beforeEach(() => {
     localStorage.clear();
+    localStorage.setItem('fantasyLeagueId', '1');
     vi.resetAllMocks();
   });
 
@@ -392,7 +393,7 @@ describe('ManageWaiverRules (Smoke Test)', () => {
           },
         });
       }
-      if (url === '/waivers/claims') {
+      if (url === '/leagues/1/waivers/claims') {
         return Promise.resolve({ data: [] });
       }
       if (url === '/leagues/1/waiver-budgets') {
@@ -424,7 +425,7 @@ describe('ManageWaiverRules (Smoke Test)', () => {
           },
         });
       }
-      if (url === '/waivers/claims') {
+      if (url === '/leagues/1/waivers/claims') {
         return Promise.resolve({ data: [] });
       }
       if (url === '/leagues/1/waiver-budgets') {
@@ -478,7 +479,7 @@ describe('ManageWaiverRules (Smoke Test)', () => {
       if (url.startsWith('/leagues/1/settings')) {
         return Promise.resolve({ data: { waiver_deadline: 'x' } });
       }
-      if (url === '/waivers/claims') {
+      if (url === '/leagues/1/waivers/claims') {
         return Promise.resolve({
           data: [
             {
