@@ -203,9 +203,9 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
     or too few assigned players.
 
     A separate `ALLOW_PARTIAL_LINEUP` flag allows teams to submit with fewer
-    than the active roster size; this only suppresses the top-level "not enough
-    players" error.  All other slot-specific requirements still apply unless
-    explicitly overridden by the caller.
+    than the active roster size. When enabled, minimum-count errors (including
+    slot-specific shortages such as FLEX) are non-blocking, while over-capacity
+    checks ("too many ...") still apply.
     """
 
     # note: starting_slots JSON may contain configuration keys such as
@@ -230,9 +230,6 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
         )
         or 0
     )
-
-    # only these keys correspond to actual lineup positions
-    slot_positions = ("QB", "RB", "WR", "TE", "K", "DEF", "FLEX")
 
     def _to_int(value: Any, default: int = 0) -> int:
         try:
@@ -304,11 +301,10 @@ def validate_lineup_requirements(starters: List[models.DraftPick], settings: mod
         actual = actual_slot_counts.get(pos, 0)
         if actual < required:
             if pos == "FLEX":
-                if not allow_partial_lineup:
-                    errors.append(
-                        "not enough FLEX (needs extra RB/WR/TE starter)"
-                    )
-            elif not allow_partial_lineup:
+                errors.append(
+                    "not enough FLEX (needs extra RB/WR/TE starter)"
+                )
+            else:
                 errors.append(f"not enough {pos}")
         if actual > required:
             if pos == "FLEX":

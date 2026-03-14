@@ -12,14 +12,71 @@ import {
 
 /* ignore-breakpoints */
 
+const getPlayerCost = (player) => {
+  const amount = Number(player?.acquisition_cost ?? player?.draft_price ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
+};
+
+const normalizeKeeperPlayer = (player, options = {}) => {
+  const playerId = player?.player_id ?? player?.id;
+  const yearsKeptCount = Number(player?.years_kept_count ?? 0);
+  const cost = getPlayerCost(player);
+
+  return {
+    ...player,
+    player_id: playerId,
+    name: player?.name ?? 'Unknown Player',
+    position: player?.position ?? '',
+    nfl_team: player?.nfl_team ?? null,
+    acquisition_cost: cost,
+    draft_price: cost,
+    is_selected: Boolean(options.isSelected ?? player?.is_selected),
+    is_eligible: Boolean(options.isEligible ?? player?.is_eligible ?? true),
+    reason_ineligible: options.reasonIneligible ?? player?.reason_ineligible ?? null,
+    years_kept_count: Number.isFinite(yearsKeptCount) ? yearsKeptCount : 0,
+  };
+};
+
+const normalizeKeeperResponse = (data, ownerIdentity) => {
+  const selections = Array.isArray(data?.selections) ? data.selections : [];
+  const selectedIds = new Set(selections.map((selection) => selection.player_id));
+  const ineligibleIds = new Set(Array.isArray(data?.ineligible) ? data.ineligible : []);
+  const availablePlayers = Array.isArray(data?.available_players)
+    ? data.available_players.map((player) => {
+        const playerId = player?.player_id ?? player?.id;
+        const defaultReason = ineligibleIds.has(playerId)
+          ? 'Reached max keeper years'
+          : null;
+
+        return normalizeKeeperPlayer(player, {
+          isSelected: selectedIds.has(playerId),
+          isEligible: player?.is_eligible ?? !ineligibleIds.has(playerId),
+          reasonIneligible: player?.reason_ineligible ?? defaultReason,
+        });
+      })
+    : [];
+
+  return {
+    ...data,
+    owner_name:
+      data?.owner_name || ownerIdentity?.team_name || ownerIdentity?.username || 'My Team',
+    effective_budget: Number(data?.effective_budget ?? 0),
+    estimated_budget: Number(data?.estimated_budget ?? data?.effective_budget ?? 0),
+    max_allowed: Number(data?.max_allowed ?? 3),
+    selections,
+    recommended: Array.isArray(data?.recommended) ? data.recommended : [],
+    available_players: availablePlayers,
+  };
+};
+
 export default function Keepers() {
   const [keeperData, setKeeperData] = useState(null);
+  const [rosterFallback, setRosterFallback] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [ownerIdentity, setOwnerIdentity] = useState(null);
   const [ownerId, setOwnerId] = useState(
     localStorage.getItem('user_id') || null
   );
-  const [rosterFallback, setRosterFallback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [locking, setLocking] = useState(false);
@@ -48,31 +105,29 @@ export default function Keepers() {
   // fetch keeper info once owner identity is available
   useEffect(() => {
     async function load() {
+      if (!ownerIdentity && !ownerId) {
+        return;
+      }
+
       setLoading(true);
       setLoadError('');
       try {
         const res = await apiClient.get('/keepers/');
-        const normalizedKeeperData = {
-          ...res.data,
-          owner_name:
-            res.data?.owner_name ||
-            ownerIdentity?.team_name ||
-            ownerIdentity?.username ||
-            'My Team',
-          effective_budget: Number(res.data?.effective_budget ?? 0),
-          max_allowed: Number(res.data?.max_allowed ?? 3),
-          available_players: Array.isArray(res.data?.available_players)
-            ? res.data.available_players
-            : [],
-        };
+        const normalizedKeeperData = normalizeKeeperResponse(
+          res.data,
+          ownerIdentity
+        );
         setKeeperData(normalizedKeeperData);
-        if (res.data && Array.isArray(res.data.selections)) {
-          setSelected(new Set(res.data.selections.map((s) => s.player_id)));
+        if (normalizedKeeperData.selections.length > 0) {
+          setSelected(
+            new Set(normalizedKeeperData.selections.map((selection) => selection.player_id))
+          );
+        } else {
+          setSelected(new Set());
         }
 
         const hasAvailablePlayers =
-          Array.isArray(res.data?.available_players) &&
-          res.data.available_players.length > 0;
+          normalizedKeeperData.available_players.length > 0;
         if (!hasAvailablePlayers && ownerId) {
           try {
             const rres = await apiClient.get(`/team/${ownerId}?week=1`);
@@ -81,7 +136,13 @@ export default function Keepers() {
               : Array.isArray(rres.data?.roster)
                 ? rres.data.roster
                 : [];
-            setRosterFallback(fallbackPlayers);
+            setRosterFallback(
+              fallbackPlayers.map((player) =>
+                normalizeKeeperPlayer(player, {
+                  isSelected: selected.has(player?.player_id ?? player?.id),
+                })
+              )
+            );
           } catch (fallbackErr) {
             console.error('failed to load roster fallback', fallbackErr);
             setRosterFallback([]);
@@ -128,8 +189,11 @@ export default function Keepers() {
       await apiClient.post('/keepers/', payload);
       // refresh
       const res = await apiClient.get('/keepers/');
-      setKeeperData(res.data);
-      setSelected(new Set(res.data.selections.map((s) => s.player_id)));
+      const normalizedKeeperData = normalizeKeeperResponse(res.data, ownerIdentity);
+      setKeeperData(normalizedKeeperData);
+      setSelected(
+        new Set(normalizedKeeperData.selections.map((selection) => selection.player_id))
+      );
     } catch (e) {
       console.error('failed to submit keepers', e);
     }
@@ -141,8 +205,11 @@ export default function Keepers() {
     try {
       await apiClient.post('/keepers/lock');
       const res = await apiClient.get('/keepers/');
-      setKeeperData(res.data);
-      setSelected(new Set(res.data.selections.map((s) => s.player_id)));
+      const normalizedKeeperData = normalizeKeeperResponse(res.data, ownerIdentity);
+      setKeeperData(normalizedKeeperData);
+      setSelected(
+        new Set(normalizedKeeperData.selections.map((selection) => selection.player_id))
+      );
     } catch (e) {
       console.error('failed to lock keepers', e);
     }
@@ -173,23 +240,30 @@ export default function Keepers() {
   const displayedPlayers =
     keeperData.available_players && keeperData.available_players.length > 0
       ? keeperData.available_players
-      : rosterFallback.map((player) => ({
-          player_id: player.player_id,
-          name: player.name,
-          position: player.position || '',
-          nfl_team: player.nfl_team || null,
-          draft_price: Number(player.draft_price ?? 0),
-          is_selected: selected.has(player.player_id),
-          is_eligible: true,
-          reason_ineligible: null,
-          years_kept_count: 0,
-        }));
+      : rosterFallback;
+
+  const computedBaseBudget = keeperData.selections.reduce(
+    (sum, selection) => {
+      const player = displayedPlayers.find(
+        (candidate) => candidate.player_id === selection.player_id
+      );
+      return sum + getPlayerCost(player);
+    },
+    Number(keeperData.estimated_budget ?? keeperData.effective_budget ?? 0)
+  );
+
+  const estimatedBudget =
+    computedBaseBudget -
+    Array.from(selected).reduce((sum, pid) => {
+      const player = displayedPlayers.find((candidate) => candidate.player_id === pid);
+      return sum + getPlayerCost(player);
+    }, 0);
 
   return (
     <PageTemplate
       title={`Manage Keepers - ${keeperData.owner_name}`}
       subtitle="Review your roster, select eligible players to keep, and lock in your keepers."
-      metadata={`Effective Budget: $${keeperData.effective_budget ?? 0} | ${selectedCount} of ${maxAllowed} chosen`}
+      metadata={`Effective Budget: $${keeperData.effective_budget ?? 0} | Estimated Budget: $${estimatedBudget} | ${selectedCount} of ${maxAllowed} chosen`}
       actions={
         <Link
           to="/team"
@@ -219,10 +293,10 @@ export default function Keepers() {
         </div>
         <div className={cardSurface}>
           <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
-            Available Players
+            Estimated Budget
           </div>
           <div className="text-3xl font-bold text-slate-600 dark:text-slate-400">
-              {displayedPlayers.length}
+            ${estimatedBudget}
           </div>
         </div>
       </div>
@@ -236,7 +310,7 @@ export default function Keepers() {
           {Array.from({ length: maxAllowed }).map((_, idx) => {
             const selectedArray = Array.from(selected);
             const playerId = selectedArray[idx];
-            const player = keeperData.available_players?.find(
+            const player = displayedPlayers.find(
               (p) => p.player_id === playerId
             );
             return (
@@ -258,8 +332,11 @@ export default function Keepers() {
                       {player.position}
                     </span>
                     <span className="text-xs text-blue-600 dark:text-blue-400">
-                      ${player.draft_price}
+                      ${getPlayerCost(player)}
                     </span>
+                    {keeperData.recommended?.some(
+                      (recommendation) => recommendation.player_id === player.player_id
+                    ) && <span className="text-yellow-500 text-xs">★</span>}
                   </>
                 ) : (
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -304,12 +381,15 @@ export default function Keepers() {
                     {p.position}
                   </span>
                   <span className="text-xs text-slate-600 dark:text-slate-400 font-medium w-16 text-right">
-                    ${p.draft_price}
+                    ${getPlayerCost(p)}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    draft: ${getPlayerCost(p)}
                   </span>
                   {!p.is_eligible && (
                     <span
                       className="text-xs text-red-600 dark:text-red-400 font-medium"
-                      title={p.reason_ineligible}
+                      title={p.reason_ineligible || 'Reached max keeper years'}
                     >
                       ❌ {p.reason_ineligible?.split(';')[0]}
                     </span>
@@ -319,6 +399,9 @@ export default function Keepers() {
                       {p.years_kept_count} yr{p.years_kept_count > 1 ? 's' : ''}
                     </span>
                   )}
+                  {keeperData.recommended?.some(
+                    (recommendation) => recommendation.player_id === p.player_id
+                  ) && <span className="ml-1 text-xs text-yellow-500">★</span>}
                 </label>
               );
             })
@@ -336,10 +419,10 @@ export default function Keepers() {
           <strong className="text-slate-900 dark:text-white text-sm">💡 Recommended Keepers (Surplus Value)</strong>
           <ul className="list-disc list-inside text-slate-700 dark:text-slate-300 text-xs mt-2 space-y-1">
             {keeperData.recommended.slice(0, 5).map((r) => {
-              const player = keeperData.available_players?.find((p) => p.player_id === r.player_id);
+              const player = displayedPlayers.find((p) => p.player_id === r.player_id);
               return (
                 <li key={r.player_id}>
-                  {player?.name} ({player?.position}) - ${r.surplus.toFixed(1)} surplus
+                  {player?.name ?? `ID ${r.player_id}`} ({player?.position ?? 'N/A'}) - ${r.surplus.toFixed(1)} surplus
                 </li>
               );
             })}

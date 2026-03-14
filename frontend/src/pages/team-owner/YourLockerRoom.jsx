@@ -695,14 +695,16 @@ export default function YourLockerRoom({ activeOwnerId }) {
       }
     }
 
+    const canonicalMinimums = starterRequirements;
+
     const flexEligibleCount = counts.RB + counts.WR + counts.TE;
     const baseFlexUsage =
-      Math.min(counts.RB, Number(starterRequirements.RB ?? 0)) +
-      Math.min(counts.WR, Number(starterRequirements.WR ?? 0)) +
-      Math.min(counts.TE, Number(starterRequirements.TE ?? 0));
+      Math.min(counts.RB, Number(canonicalMinimums.RB ?? 0)) +
+      Math.min(counts.WR, Number(canonicalMinimums.WR ?? 0)) +
+      Math.min(counts.TE, Number(canonicalMinimums.TE ?? 0));
     const flexActual = Math.min(
       Math.max(flexEligibleCount - baseFlexUsage, 0),
-      Number(starterRequirements.FLEX ?? 0)
+      Number(canonicalMinimums.FLEX ?? 0)
     );
 
     const errors = [];
@@ -718,19 +720,20 @@ export default function YourLockerRoom({ activeOwnerId }) {
 
     const tierRows = Object.keys(MIN_ACTIVE_REQUIREMENTS)
       .filter((position) => {
-        const minimum = Number(starterRequirements[position] ?? 0);
+        const minimum = Number(canonicalMinimums[position] ?? 0);
         const maximum = Number(
           maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
         );
         return minimum > 0 || maximum > 0;
       })
       .map((position) => {
-        const minimum = Number(starterRequirements[position] ?? 0);
+        const minimum = Number(canonicalMinimums[position] ?? 0);
         const configuredMaximum = Number(
           maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
         );
         const maximum = Math.max(minimum, configuredMaximum);
-        const actual = position === 'FLEX' ? flexActual : Number(counts[position] || 0);
+        const actual =
+          position === 'FLEX' ? flexActual : Number(counts[position] || 0);
         const meetsMin = actual >= minimum;
         const meetsMax = actual <= maximum;
 
@@ -754,7 +757,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
         };
       });
 
-    const flexMinimum = Number(starterRequirements.FLEX ?? 0);
+    const flexMinimum = Number(canonicalMinimums.FLEX ?? 0);
     if (flexMinimum > 0 && flexActual < flexMinimum) {
       errors.push('not enough FLEX');
       if (!allowPartialLineup) {
