@@ -231,4 +231,10 @@ These guidelines are meant to keep the codebase consistent, maintainable, and ea
 - When modifying existing endpoints, preserve request/response schemas and existing URL patterns.
 - Copilot must not infer new API shapes based solely on frontend usage.
 
+### Git worktree hygiene
+- Copilot may use Git worktrees for parallel tasks when necessary.
+- Default to a maximum of 2 active worktrees (`main` + current issue branch) unless the user explicitly requests more.
+- After a PR merges, remove the corresponding worktree and run `git worktree prune`.
+- Before removing any worktree, verify it has no uncommitted changes and is no longer needed.
+
 These additional rules act as guardrails to ensure the agent’s output stays within the project’s expectations.
