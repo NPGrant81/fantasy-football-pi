@@ -35,15 +35,15 @@ git worktree prune
 
 ### Safety checks
 - Ensure no uncommitted changes before removal:
-```bash
-git -C ../ffpi-issue-73 status
-```
+  ```bash
+  git -C ../ffpi-issue-73 status
+  ```
 
 - If a branch is no longer needed after merge:
-```bash
-git branch -d fix/issue-73-site-visit-logging
-git fetch origin --prune
-```
+  ```bash
+  git branch -d fix/issue-73-site-visit-logging
+  git fetch origin --prune
+  ```
 
 ## Using Cloudflare Tunnel in VS Code
 
