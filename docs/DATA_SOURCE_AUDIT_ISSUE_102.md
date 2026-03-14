@@ -1,6 +1,6 @@
 # Issue #102 Data Source Audit
 
-- Data directory: C:\Users\nicho\Dev\fantasy-football-pi\ffpi-issue-102\backend\data
+- Data directory: ./backend/data
 - Dataset count: 7
 - Missing files: None
 

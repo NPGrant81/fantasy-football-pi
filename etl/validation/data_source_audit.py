@@ -36,6 +36,16 @@ class DatasetAudit:
 
 
 
+def _portable_path(path: Path, repo_root: Path) -> str:
+    resolved = path.resolve()
+    try:
+        relative = resolved.relative_to(repo_root.resolve())
+        return f"./{relative.as_posix()}"
+    except Exception:  # noqa: BLE001 - fallback for non-repo paths
+        return str(resolved)
+
+
+
 def _to_snake_case(value: str) -> str:
     cleaned = re.sub(r"[^0-9A-Za-z]+", "_", (value or "").strip())
     snake = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", cleaned)
@@ -137,6 +147,7 @@ def _row_count_with_invalid_year(rows: list[dict[str, str]], year_column: str | 
 
 
 def audit_sources(data_dir: Path) -> dict[str, Any]:
+    repo_root = Path(__file__).resolve().parents[2]
     data_dir = data_dir.resolve()
 
     datasets: dict[str, DatasetAudit] = {}
@@ -147,7 +158,7 @@ def audit_sources(data_dir: Path) -> dict[str, Any]:
         if not csv_path.exists():
             datasets[dataset_name] = DatasetAudit(
                 name=dataset_name,
-                file_path=str(csv_path),
+                file_path=_portable_path(csv_path, repo_root),
                 exists=False,
                 row_count=0,
                 raw_headers=[],
@@ -159,7 +170,7 @@ def audit_sources(data_dir: Path) -> dict[str, Any]:
         headers, rows = _read_csv_rows(csv_path)
         datasets[dataset_name] = DatasetAudit(
             name=dataset_name,
-            file_path=str(csv_path),
+            file_path=_portable_path(csv_path, repo_root),
             exists=True,
             row_count=len(rows),
             raw_headers=headers,
@@ -223,7 +234,7 @@ def audit_sources(data_dir: Path) -> dict[str, Any]:
 
     report = {
         "summary": {
-            "data_dir": str(data_dir),
+            "data_dir": _portable_path(data_dir, repo_root),
             "dataset_count": len(datasets),
             "missing_dataset_files": missing_files,
         },
