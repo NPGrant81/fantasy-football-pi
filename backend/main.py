@@ -40,7 +40,6 @@ if __name__ == "__main__" or __package__ in (None, ""):
     draft = importlib.import_module("backend.routers.draft")
     auth = importlib.import_module("backend.routers.auth")
     feedback = importlib.import_module("backend.routers.feedback")
-    ledger = importlib.import_module("backend.routers.ledger")
     trades = importlib.import_module("backend.routers.trades")
     platform_tools = importlib.import_module("backend.routers.platform_tools")
     etl = importlib.import_module("backend.routers.etl")
@@ -63,7 +62,7 @@ else:
     from .core.security import get_password_hash, check_is_commissioner
     from .routers import (
         admin, admin_tools, team, matchups, league, advisor,
-        dashboard, players, waivers, draft, auth, feedback, ledger, trades, platform_tools, etl, nfl, playoffs, analytics, keepers, divisions, scoring
+        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, keepers, divisions, scoring
     )
 
 load_dotenv()
@@ -289,7 +288,6 @@ app.include_router(draft.router)
 app.include_router(team.router)
 app.include_router(matchups.router)
 app.include_router(league.router)
-app.include_router(ledger.router)
 app.include_router(divisions.router)
 app.include_router(playoffs.router)  # new playoff endpoints
 app.include_router(advisor.router)
