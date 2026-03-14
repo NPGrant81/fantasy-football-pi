@@ -50,6 +50,11 @@ vi.mock('../src/api/client', () => ({
 
 import App from '../src/App';
 import apiClient from '../src/api/client';
+import { emitVisitEvent } from '../src/services/visitLogger';
+
+vi.mock('../src/services/visitLogger', () => ({
+  emitVisitEvent: vi.fn(),
+}));
 
 describe('App (basic)', () => {
   beforeEach(() => {
@@ -67,6 +72,7 @@ describe('App (basic)', () => {
     // Verify default league is set to "The Big Show" (ID 1)
     const leagueInput = screen.getByDisplayValue('1');
     expect(leagueInput).toBeInTheDocument();
+    expect(emitVisitEvent).toHaveBeenCalledWith('/', null);
   });
 
   test('uses token to fetch /auth/me and shows app when valid', async () => {

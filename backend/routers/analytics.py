@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 import sqlalchemy as sa
 from typing import List
 from datetime import datetime, timezone
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..database import get_db
 from .. import models
@@ -10,6 +11,50 @@ from .. import models
 from .team import organize_roster
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+
+
+class VisitEventIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    timestamp: datetime | None = None
+    path: str = Field(min_length=1, max_length=512)
+    userId: int | None = Field(default=None, ge=1)
+    sessionId: str = Field(min_length=8, max_length=128)
+    userAgent: str | None = Field(default=None, max_length=512)
+    referrer: str | None = Field(default=None, max_length=1024)
+
+    @field_validator("path")
+    @classmethod
+    def _normalize_path(cls, value: str) -> str:
+        path = (value or "").strip()
+        if not path.startswith("/"):
+            raise ValueError("path must start with '/'")
+        return path
+
+
+@router.post('/visit')
+def record_site_visit(payload: VisitEventIn, db: Session = Depends(get_db)):
+    user_id = payload.userId
+    if user_id is not None:
+        user_exists = db.query(models.User.id).filter(models.User.id == user_id).first()
+        if user_exists is None:
+            user_id = None
+
+    visit = models.SiteVisit(
+        path=payload.path,
+        user_id=user_id,
+        session_id=payload.sessionId,
+        user_agent=payload.userAgent,
+        referrer=payload.referrer,
+        client_timestamp=payload.timestamp,
+    )
+    db.add(visit)
+    db.commit()
+    db.refresh(visit)
+    return {
+        "id": visit.id,
+        "timestamp": visit.timestamp.isoformat() if visit.timestamp else None,
+    }
 
 
 def _safe_int(value) -> int | None:

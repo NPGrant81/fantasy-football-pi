@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -18,6 +18,7 @@ import LeagueAdvisor from './components/LeagueAdvisor';
 import { LoadingState } from '@components/common/AsyncState';
 import { BRAND_NAME } from './constants/branding';
 import { ThemeProvider } from './context/ThemeContext';
+import { emitVisitEvent } from './services/visitLogger';
 
 // Import Pages (Lazy Loaded)
 const YourLockerRoom = lazy(() => import('./pages/team-owner/YourLockerRoom'));
@@ -105,12 +106,20 @@ function AuthenticatedShell({
   activeOwnerId,
 }) {
   const location = useLocation();
+  const hasLoggedInitialRoute = useRef(false);
   const headerTitle = resolveLayoutPageTitle(location.pathname);
 
   useEffect(() => {
     document.title = headerTitle ? `${headerTitle} | ${BRAND_NAME}` : BRAND_NAME;
   }, [headerTitle]);
 
+  useEffect(() => {
+    if (!hasLoggedInitialRoute.current) {
+      hasLoggedInitialRoute.current = true;
+      return;
+    }
+    emitVisitEvent(location.pathname, activeOwnerId ? Number(activeOwnerId) : null);
+  }, [location.pathname, activeOwnerId]);
   return (
     <Layout
       username={username}
@@ -133,7 +142,6 @@ function AuthenticatedShell({
             element={
               <DraftBoard
                 token={token}
-                activeOwnerId={activeOwnerId}
                 activeLeagueId={activeLeagueId}
               />
             }
@@ -240,6 +248,15 @@ function App() {
   const [passInput, setPassInput] = useState('');
   const [leagueInput, setLeagueInput] = useState('1'); // Default to "The Big Show" (league ID 1)
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const initialPath =
+      typeof window !== 'undefined' && window.location?.pathname
+        ? window.location.pathname
+        : '/';
+    const storedUserId = localStorage.getItem('user_id');
+    emitVisitEvent(initialPath, storedUserId ? Number(storedUserId) : null);
+  }, []);
 
   // --- 1.2 LOGOUT (Stable reference for effects) ---
   const clearAuthState = useCallback(() => {
