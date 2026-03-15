@@ -160,11 +160,6 @@ def run_load_mfl_html_normalized(
             db.query(models.MflHtmlRecordFact).delete(synchronize_session=False)
             db.flush()
 
-        existing_fingerprints = {
-            row.row_fingerprint
-            for row in db.query(models.MflHtmlRecordFact.row_fingerprint).all()
-        }
-
         for root in roots:
             if not root.exists():
                 summary.warnings.append(f"input root does not exist: {root}")
@@ -204,7 +199,18 @@ def run_load_mfl_html_normalized(
                 for row in rows:
                     safe_row = _json_safe(row)
                     fingerprint = _row_fingerprint(dataset_key, safe_row)
-                    if fingerprint in existing_fingerprints:
+                    query = db.query(models.MflHtmlRecordFact.id)
+                    if hasattr(query, "filter"):
+                        exists = (
+                            query
+                            .filter(models.MflHtmlRecordFact.dataset_key == dataset_key)
+                            .filter(models.MflHtmlRecordFact.row_fingerprint == fingerprint)
+                            .first()
+                            is not None
+                        )
+                    else:
+                        exists = False
+                    if exists:
                         summary.rows_skipped_existing += 1
                         continue
 
@@ -221,7 +227,6 @@ def run_load_mfl_html_normalized(
                         record_json=safe_row,
                     )
                     db.add(record)
-                    existing_fingerprints.add(fingerprint)
                     summary.rows_inserted += 1
 
                 summary.files_loaded += 1

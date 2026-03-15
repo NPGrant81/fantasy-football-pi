@@ -11,7 +11,7 @@ This triage pass reviewed open issues #247 through #254 for overlap, staleness, 
 - Last updates are clustered at creation time on 2026-03-12.
 
 ## Issues Reviewed
-- #247 - Enhancement: Add Sorting Options to Draft Boar
+- #247 - Enhancement: Add Sorting Options to Draft Board
 - #248 - 1. Add Sort Control UI
 - #249 - 2. Implement Sorting Utility Functions
 - #250 - 3. Add Position Rank Mapping

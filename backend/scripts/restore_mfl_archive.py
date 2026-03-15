@@ -66,6 +66,33 @@ def _remove_destination(destination_root: Path) -> None:
         shutil.rmtree(destination_root)
 
 
+def _is_within_directory(base: Path, candidate: Path) -> bool:
+    try:
+        candidate.resolve().relative_to(base.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _safe_extract_archive(archive_file: zipfile.ZipFile, destination: Path) -> None:
+    for member in archive_file.infolist():
+        member_path = Path(member.filename)
+        if member_path.is_absolute() or ".." in member_path.parts:
+            raise ValueError(f"unsafe archive entry path: {member.filename}")
+
+        target_path = destination / member_path
+        if not _is_within_directory(destination, target_path):
+            raise ValueError(f"archive entry escapes destination: {member.filename}")
+
+        if member.is_dir():
+            target_path.mkdir(parents=True, exist_ok=True)
+            continue
+
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        with archive_file.open(member, "r") as source, target_path.open("wb") as dest:
+            shutil.copyfileobj(source, dest)
+
+
 def run_restore_mfl_archive(
     *,
     archive_path: str,
@@ -142,7 +169,7 @@ def run_restore_mfl_archive(
                 return summary.to_dict()
 
             destination.mkdir(parents=True, exist_ok=True)
-            archive_file.extractall(destination)
+            _safe_extract_archive(archive_file, destination)
 
         restored_files = sorted(path for path in destination.rglob("*") if path.is_file())
         summary.files_restored = len(restored_files)

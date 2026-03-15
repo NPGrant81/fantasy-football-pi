@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 import json
 import logging
 import os
@@ -109,18 +110,17 @@ def _append_watchdog_alert_log(entry: dict[str, Any]) -> None:
 def load_recent_watchdog_alerts(limit: int = 100) -> list[dict[str, Any]]:
     if limit <= 0 or not ALERT_LOG_PATH.exists():
         return []
+    rows: deque[dict[str, Any]] = deque(maxlen=limit)
     with ALERT_LOG_PATH.open("r", encoding="utf-8") as handle:
-        lines = handle.readlines()
-    rows: list[dict[str, Any]] = []
-    for line in lines[-limit:]:
-        raw = line.strip()
-        if not raw:
-            continue
-        try:
-            rows.append(json.loads(raw))
-        except json.JSONDecodeError:
-            continue
-    return rows
+        for line in handle:
+            raw = line.strip()
+            if not raw:
+                continue
+            try:
+                rows.append(json.loads(raw))
+            except json.JSONDecodeError:
+                continue
+    return list(rows)
 
 
 def run_watchdog_check(

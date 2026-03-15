@@ -22,7 +22,7 @@ This document maps each required MFL report/page to its preferred extraction met
 | Players master | Players | `api-export-json` `TYPE=players` | `html-report-page` `R=FULLFA` plus roster pages | `manual-csv` | Public | `exports/history/players/{season}.csv` | Preserve zero-padded player IDs. |
 | Draft results | Draft Results | `api-export-json` `TYPE=draftResults` | `html-options-page` `O=17` | `manual-csv` | Public | `exports/history/draftResults/{season}.csv` | Current API response shape may be sparse for some seasons. |
 | Rosters | Rosters | `api-export-json` `TYPE=rosters` | `html-options-page` `O=07` | `manual-csv` | Public | `exports/history/rosters/{season}.csv` | May need auth if league privacy differs by year. |
-| Standings | Standings | `api-export-json` `TYPE=standings` | `html-page` `/standings?L=...` | `manual-csv` | Public | `exports/history/standings/{season}.csv` | Home page also exposes partial standings. |
+| Standings | Standings | `api-export-json` `TYPE=standings` | `html-report-page` `/standings?L=...` | `manual-csv` | Public | `exports/history/standings/{season}.csv` | Home page also exposes partial standings. |
 | Schedule/results | Schedule | `api-export-json` `TYPE=schedule` | `html-options-page` `O=22`, `O=31`, `O=15` | `manual-csv` | Public | `exports/history/schedule/{season}.csv` | Split by matchup results vs schedule if needed. |
 | Transactions | Transactions | `api-export-json` `TYPE=transactions` | `html-options-page` `O=03` | `manual-csv` | Often public | `exports/history/transactions/{season}.csv` | Validate transaction completeness by year. |
 
