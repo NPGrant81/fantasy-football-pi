@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import xml.etree.ElementTree as ET
 
 import requests
 
@@ -31,8 +32,8 @@ DEFAULT_REPORT_TYPES = [
 
 # Owner-provided mappings from issue discovery.
 KNOWN_LEAGUE_BY_SEASON: dict[int, str] = {
-    2002: "51155",
-    2003: "52234",
+    2002: "29721",
+    2003: "39069",
     2004: "46417",
     2005: "20248",
     2006: "22804",
@@ -179,19 +180,95 @@ def _normalize_franchises(payload: dict[str, Any], season: int, league_id: str, 
 
 
 def _normalize_draft_results(payload: dict[str, Any], season: int, league_id: str, extracted_at: str) -> list[dict[str, Any]]:
+    def _coerce_pick(pick: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "franchise_id": _first_non_empty(pick, ["franchise", "franchise_id"]),
+            "player_mfl_id": _first_non_empty(pick, ["player", "player_id"]),
+            "pick_number": _first_non_empty(pick, ["pick", "pickNumber"]),
+            "round": _first_non_empty(pick, ["round"]),
+            "winning_bid": _first_non_empty(pick, ["cost", "amount", "bid"]),
+            "is_keeper_pick": str(_first_non_empty(pick, ["keeper"], "0")).lower() in {"1", "true", "yes"},
+            "raw_pick": json.dumps(pick, separators=(",", ":")),
+        }
+
+    def _extract_picks_from_payload_draft_unit(draft_unit: dict[str, Any]) -> list[dict[str, Any]]:
+        picks = _as_list(draft_unit.get("draftPick"))
+        return [pick for pick in picks if isinstance(pick, dict)]
+
+    def _extract_picks_from_auction_results_payload(auction_payload: dict[str, Any]) -> list[dict[str, Any]]:
+        auction_results = auction_payload.get("auctionResults") or {}
+        auction_unit = auction_results.get("auctionUnit") if isinstance(auction_results, dict) else {}
+        auctions = _as_list((auction_unit or {}).get("auction"))
+        picks: list[dict[str, Any]] = []
+        for auction in auctions:
+            if not isinstance(auction, dict):
+                continue
+            picks.append(
+                {
+                    "franchise": auction.get("franchise"),
+                    "player": auction.get("player"),
+                    "cost": auction.get("winningBid"),
+                    "timestamp": auction.get("lastBidTime") or auction.get("timeStarted"),
+                    "round": auction.get("round"),
+                    "pick": auction.get("pick"),
+                    "source": "auctionResults",
+                }
+            )
+        return picks
+
+    def _extract_picks_from_static_url(static_url: str) -> list[dict[str, Any]]:
+        try:
+            response = requests.get(static_url, timeout=20)
+            response.raise_for_status()
+            root = ET.fromstring(response.text)
+        except Exception:  # noqa: BLE001
+            return []
+
+        picks: list[dict[str, Any]] = []
+        for node in root.findall(".//draftPick"):
+            attrs = {key: value for key, value in node.attrib.items()}
+            # Preserve element text payload when present in legacy snapshots.
+            text_value = (node.text or "").strip()
+            if text_value and "comments" not in attrs:
+                attrs["comments"] = text_value
+            picks.append(attrs)
+        return picks
+
     rows: list[dict[str, Any]] = []
-    picks = _as_list((payload.get("draftResults") or {}).get("draftUnit"))
+    draft_results = payload.get("draftResults") or {}
+    draft_unit = draft_results.get("draftUnit") or {}
+
+    # `draftUnit` can be either a dict (common) or list in older payloads.
+    units = _as_list(draft_unit)
+    picks: list[dict[str, Any]] = []
+    for unit in units:
+        if isinstance(unit, dict):
+            picks.extend(_extract_picks_from_payload_draft_unit(unit))
+
+    # Some seasons only expose a static XML URL. Fall back when inline picks are absent.
+    if not picks and isinstance(draft_unit, dict):
+        static_url = str(draft_unit.get("static_url") or "").strip()
+        if static_url:
+            picks = _extract_picks_from_static_url(static_url)
+
+    # Some auction leagues expose player-linked rows via auctionResults instead.
+    auction_payload = payload.get("_auction_results_fallback")
+    if (not picks or all(not str((_first_non_empty(pick, ["player", "player_id"]) or "")).strip() for pick in picks)) and isinstance(auction_payload, dict):
+        auction_picks = _extract_picks_from_auction_results_payload(auction_payload)
+        if auction_picks:
+            picks = auction_picks
+
     for pick in picks:
+        normalized_pick = _coerce_pick(pick)
+        player_mfl_id = str(normalized_pick.get("player_mfl_id") or "").strip()
+        # Import path requires player ids, so skip order-only picks.
+        if not player_mfl_id:
+            continue
+
         rows.append(
             {
                 **_meta(season, league_id, "draftResults", extracted_at),
-                "franchise_id": _first_non_empty(pick, ["franchise", "franchise_id"]),
-                "player_mfl_id": _first_non_empty(pick, ["player", "player_id"]),
-                "pick_number": _first_non_empty(pick, ["pick", "pickNumber"]),
-                "round": _first_non_empty(pick, ["round"]),
-                "winning_bid": _first_non_empty(pick, ["cost", "amount", "bid"]),
-                "is_keeper_pick": str(_first_non_empty(pick, ["keeper"], "0")).lower() in {"1", "true", "yes"},
-                "raw_pick": json.dumps(pick, separators=(",", ":")),
+                **normalized_pick,
             }
         )
     return rows
@@ -291,7 +368,11 @@ def _normalize_transactions(payload: dict[str, Any], season: int, league_id: str
         for player in players:
             if isinstance(player, dict):
                 player_id = _first_non_empty(player, ["id", "player_id"])
-                franchise_id = _first_non_empty(player, ["franchise", "franchise_id"], _first_non_empty(tx, ["franchise", "franchise_id"]))
+                franchise_id = _first_non_empty(
+                    player,
+                    ["franchise", "franchise_id"],
+                    _first_non_empty(tx, ["franchise", "franchise_id"]),
+                )
             else:
                 player_id = player
                 franchise_id = _first_non_empty(tx, ["franchise", "franchise_id"])
@@ -335,9 +416,8 @@ def _fetch_json(
     params = {
         "TYPE": effective_type,
         "JSON": 1,
+        "L": league_id,
     }
-    # players can be global, but passing league id is harmless for consistency.
-    params["L"] = league_id
 
     headers: dict[str, str] = {}
     if session_cookie:
@@ -388,6 +468,21 @@ def run_mfl_history_extract(
                     session_cookie=session_cookie,
                 )
 
+                if report_type == "draftResults":
+                    try:
+                        auction_payload = _fetch_json(
+                            season=season,
+                            league_id=league_id,
+                            report_type="auctionResults",
+                            timeout_seconds=timeout_seconds,
+                            session_cookie=session_cookie,
+                        )
+                        if isinstance(auction_payload, dict) and "error" not in auction_payload:
+                            payload["_auction_results_fallback"] = auction_payload
+                    except Exception:  # noqa: BLE001
+                        # Not all seasons/leagues expose auction results.
+                        pass
+
                 raw_path = output_base / "raw" / report_type / f"{season}.json"
                 _write_json(raw_path, payload)
 
@@ -406,7 +501,7 @@ def run_mfl_history_extract(
                 _write_csv(csv_path, rows)
                 print(f"[ok] season={season} type={report_type} rows={len(rows)}")
                 extracted_reports += 1
-            except Exception as exc:  # noqa: BLE001 - extraction should continue per report
+            except Exception as exc:  # noqa: BLE001
                 failed_reports += 1
                 print(f"[error] season={season} type={report_type} {exc}")
                 if "football7.myfantasyleague.com" in str(exc):

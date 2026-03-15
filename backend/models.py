@@ -726,3 +726,76 @@ class ManualPlayerMapping(Base):
     team = Column(String, nullable=True)
     position = Column(String, nullable=True)
     notes = Column(String, nullable=True)
+
+
+# --- 16. NORMALIZED MFL HTML RECORD FACTS ---
+class MflHtmlRecordFact(Base):
+    __tablename__ = "mfl_html_record_facts"
+    __table_args__ = (
+        UniqueConstraint("dataset_key", "row_fingerprint", name="uq_mfl_html_record_fact_dataset_fingerprint"),
+        Index("ix_mfl_html_record_fact_dataset", "dataset_key"),
+        Index("ix_mfl_html_record_fact_season", "season"),
+        Index("ix_mfl_html_record_fact_target_league", "target_league_id"),
+        Index("ix_mfl_html_record_fact_league", "league_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_key = Column(String(80), nullable=False)
+    season = Column(Integer, nullable=True)
+    target_league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    league_id = Column(String(32), nullable=True)
+    source_endpoint = Column(String(80), nullable=True)
+    source_url = Column(String, nullable=True)
+    extracted_at_utc = Column(String, nullable=True)
+    normalization_version = Column(String(16), nullable=False, default="v1")
+    row_fingerprint = Column(String(64), nullable=False)
+    record_json = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class MflIngestionRun(Base):
+    __tablename__ = "mfl_ingestion_runs"
+    __table_args__ = (
+        Index("ix_mfl_ingestion_run_stage", "pipeline_stage"),
+        Index("ix_mfl_ingestion_run_target_league", "target_league_id"),
+        Index("ix_mfl_ingestion_run_status", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    pipeline_stage = Column(String(32), nullable=False)
+    source_system = Column(String(32), nullable=False, default="mfl")
+    target_league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    status = Column(String(16), nullable=False, default="running")
+    dry_run = Column(Boolean, nullable=False, default=False)
+    truncate_before_load = Column(Boolean, nullable=False, default=False)
+    input_roots = Column(JSON, nullable=False, default=list)
+    command = Column(String, nullable=True)
+    git_sha = Column(String(64), nullable=True)
+    summary_json = Column(JSON, nullable=True)
+    notes = Column(String, nullable=True)
+    started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class MflIngestionFile(Base):
+    __tablename__ = "mfl_ingestion_files"
+    __table_args__ = (
+        UniqueConstraint("run_id", "relative_path", name="uq_mfl_ingestion_file_run_path"),
+        Index("ix_mfl_ingestion_file_run", "run_id"),
+        Index("ix_mfl_ingestion_file_dataset", "dataset_key"),
+        Index("ix_mfl_ingestion_file_source_league", "source_league_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(Integer, ForeignKey("mfl_ingestion_runs.id"), nullable=False)
+    dataset_key = Column(String(80), nullable=False)
+    season = Column(Integer, nullable=True)
+    source_league_id = Column(String(32), nullable=True)
+    relative_path = Column(String, nullable=False)
+    content_type = Column(String(32), nullable=False, default="text/csv")
+    row_count = Column(Integer, nullable=True)
+    size_bytes = Column(Integer, nullable=True)
+    sha256 = Column(String(64), nullable=True)
+    retention_class = Column(String(32), nullable=True)
+    archived_path = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

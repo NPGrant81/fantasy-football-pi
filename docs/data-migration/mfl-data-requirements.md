@@ -15,10 +15,10 @@ Define a stable extraction contract from MFL into CSV so migration/import code c
 
 ## Confirmed Season To League Mapping (Owner-Provided)
 
-Confirmed from shared MFL URLs:
+Confirmed from current shared MFL home page URLs and validated against the 2026 league history block:
 
-- 2002 -> `51155`
-- 2003 -> `52234`
+- 2002 -> `29721`
+- 2003 -> `39069`
 - 2004 -> `46417`
 - 2005 -> `20248`
 - 2006 -> `22804`
@@ -49,13 +49,16 @@ Gap still open:
 
 Technical extraction risk:
 
-- 2002-2003 endpoints currently redirect to legacy host `football7.myfantasyleague.com`,
-  which is not resolving in current runtime checks. These seasons may require manual export/snapshot
-  ingestion if direct API extraction remains unavailable.
+- 2002 and 2003 use different public hosts than the newer seasons:
+  - 2002 home -> `https://www47.myfantasyleague.com/2002/home/29721`
+  - 2003 home -> `https://www44.myfantasyleague.com/2003/home/39069`
+- Public HTML report pages for history and stats are reachable on those hosts via `options?L=<league_id>&O=<code>`.
+- API export coverage for 2002-2003 still needs explicit rerun verification after correcting the league ids above.
+- Manual CSV fallback remains available if either API export or HTML scraping proves incomplete.
 
 ## Legacy Seasons Manual Fallback (2002-2003)
 
-When API extraction is blocked by legacy host resolution, use the manual CSV fallback path.
+When API extraction or HTML page scraping is blocked or incomplete, use the manual CSV fallback path.
 
 1. Scaffold templates:
   - `python -m backend.manage scaffold-mfl-manual-csv --start-year 2002 --end-year 2003`
@@ -71,6 +74,7 @@ When API extraction is blocked by legacy host resolution, use the manual CSV fal
 Notes:
 
 - Manual fallback currently focuses on draft-history minimum viable migration (`franchises`, `players`, `draftResults`).
+- History/stat pages such as League Champions, League Awards, and record reports should first be attempted through the HTML `options?O=` pages documented in `mfl-extraction-matrix.md`.
 - Keep required metadata fields populated (`season`, `league_id`, `source_system`, `source_endpoint`, `extracted_at_utc`).
 - Use `source_endpoint=manual_csv` for rows transcribed from manual exports/snapshots.
 
@@ -257,52 +261,3 @@ Required columns:
     - `transactions`: (`season`, `league_id`, `transaction_id`, `player_mfl_id`)
 
 ## Mapping To Existing App Concepts
-
-High-level mapping targets:
-
-- `franchise_id` -> app owner/user identity mapping table (season-aware alias support).
-- `player_mfl_id` -> canonical player identity map (with aliases/provider IDs).
-- `draft_results.winning_bid` -> `draft_picks.amount` historical rows.
-- `standings` -> analytics and future standings endpoints.
-- `transactions` -> acquisition/waiver trend analytics.
-
-## Open Questions Needed From League Owner
-
-These are the minimum answers needed before implementing #257:
-
-1. Confirm whether 2001 exists and provide league id if available.
-2. Confirm first season year to extract (currently mapped 2002+).
-3. Confirm whether all seasons are public or require authenticated session.
-4. Confirm if franchise ids remain stable across years or if owner identity must be name-based fallback.
-5. Confirm auction vs snake draft format by season (for `winning_bid` expectations).
-6. Confirm whether preseason/offseason transactions should be included.
-7. Confirm timezone preference for reporting timestamps (default UTC in CSV).
-
-## Immediate Implementation Plan
-
-1. Issue #257: implement extractor with per-season report pulls and CSV write.
-2. Issue #258: implement importer with dry-run and strict validation.
-3. Issue #259: reconciliation checks and mismatch report.
-4. Issue #260: operator runbook with rerun and backfill steps.
-
-## Reconciliation Command (#259)
-
-Command:
-
-- `python -m backend.manage reconcile-mfl-import --input-root exports/history --target-league-id <APP_LEAGUE_ID> --start-year 2025 --end-year 2026 --output-json reports/mfl-reconciliation.json`
-
-What it checks per season:
-
-- `draftResults` CSV valid row count vs imported `draft_picks` rows (`session_id=MFL_{season}`).
-- `franchises` CSV valid row count vs imported distinct draft-pick owners.
-- `players` CSV valid row count vs imported distinct draft-pick players.
-
-Output:
-
-- Console summary with mismatch count and warning count.
-- Optional JSON report with per-season details and mismatch messages for audit.
-
-## Workflow Runbook (#260)
-
-For full operator procedures (extract -> dry-run import -> apply import -> reconcile -> rerun/backfill),
-see `docs/data-migration/mfl-migration-runbook.md`.

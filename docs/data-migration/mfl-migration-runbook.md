@@ -25,6 +25,8 @@ Optional checks:
 - `python -m backend.manage extract-mfl-history --help`
 - `python -m backend.manage import-mfl-csv --help`
 - `python -m backend.manage reconcile-mfl-import --help`
+- Review `mfl-extraction-matrix.md` before adding a new report family.
+- Update `mfl-year-status-matrix.md` and `mfl-test-results-log.md` after each extraction pass.
 
 ## Standard Migration Flow (API-Available Seasons)
 
@@ -161,5 +163,14 @@ python -m backend.manage reconcile-mfl-import --input-root exports/history --tar
 - Extraction summary: `exports/history/_run_summary.json`.
 - Raw source payloads: `exports/history/raw/<report_type>/<season>.json`.
 - Reconciliation outputs under `reports/`.
+- HTML page snapshots or parsed extracts for `options?O=` reports when API export is not the source.
+
+## Documentation Discipline
+
+After any meaningful extraction test:
+
+1. Update `mfl-year-status-matrix.md` for the impacted season(s).
+2. Record exact commands, URLs, and artifacts in `mfl-test-results-log.md`.
+3. If a new page/report is introduced, add it to `mfl-extraction-matrix.md` with its primary method and fallback path.
 
 These artifacts support reproducibility and audit review for any season-level corrections.

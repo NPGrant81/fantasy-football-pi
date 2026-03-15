@@ -210,20 +210,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# 1. Create the .gitignore file so we don't track junk
-cat <<EOF > .gitignore
-__pycache__/
-venv/
-.env
-node_modules/
-.DS_Store
-dist/
-.vscode/
-EOF
-
-# 2. Create folder structure
-mkdir backend
-
 # --- ADDED FOR FANTASY FOOTBALL PI ---
 
 # Frontend / Node.js (CRITICAL)
@@ -253,3 +239,12 @@ postgres_data/
 
 # OAuth token cache (contains access/refresh tokens – never commit)
 oauth2.json
+
+# Generated MFL migration archives / manifests
+backend/exports/archive/
+backend/exports/manifests/
+backend/exports/tmp/
+
+# Generated MFL migration working outputs (raw/normalized/staged/restore)
+backend/exports/history_*/
+backend/exports/restore/
