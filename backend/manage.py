@@ -1,23 +1,32 @@
 """Utility script for ad-hoc backend tasks.
 
 Run `python -m backend.manage seed` to populate the database with the
-default admin user + sample league.  This replaces the previous startup
+default admin user + sample league. This replaces the previous startup
 handler, eliminating the need for every test to trigger the seeder.
 """
 
-import click
 from datetime import datetime, timezone
 
-from .database import SessionLocal, engine, Base
-from .scripts.seed import run_seeder
-from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_audit
-from .scripts.audit_invalid_players import run_invalid_player_audit
-from .scripts.extract_mfl_history import run_mfl_history_extract
-from .scripts.import_mfl_csv import run_import_mfl_csv
-from .scripts.reconcile_mfl_import import run_reconcile_mfl_import
-from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
-from .scripts.finalize_week import run_finalization
+import click
+
 from .core.security import get_password_hash
+from .database import Base, SessionLocal, engine
+from .scripts.audit_invalid_players import run_invalid_player_audit
+from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_audit
+from .scripts.archive_mfl_csv_exports import run_archive_mfl_csv_exports
+from .scripts.archive_mfl_json_exports import run_archive_mfl_json_exports
+from .scripts.archive_mfl_html_exports import run_archive_mfl_html_exports
+from .scripts.extract_mfl_history import run_mfl_history_extract
+from .scripts.extract_mfl_html_reports import run_extract_mfl_html_reports
+from .scripts.finalize_week import run_finalization
+from .scripts.import_mfl_csv import run_import_mfl_csv
+from .scripts.load_mfl_html_normalized import run_load_mfl_html_normalized
+from .scripts.normalize_mfl_html_records import run_normalize_mfl_html_records
+from .scripts.reconcile_mfl_import import run_reconcile_mfl_import
+from .scripts.restore_mfl_archive import run_restore_mfl_archive
+from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
+from .scripts.seed import run_seeder
+from .scripts.stage_mfl_html_for_import import run_stage_mfl_html_for_import
 
 
 @click.group()
@@ -27,17 +36,11 @@ def cli():
 
 @cli.command()
 def seed():
-    """Execute the auto-seeder using the session factory.
-
-    Before seeding we must ensure the schema exists – the original
-    startup handler created the tables for us, but running the seeder as a
-    standalone command means the database can be completely empty.
-    """
-    # create tables if missing (works with any SQLAlchemy dialect)
-    print("Creating database tables…")
+    """Execute the auto-seeder using the session factory."""
+    print("Creating database tables...")
     Base.metadata.create_all(bind=engine)
 
-    print("Running seeder…")
+    print("Running seeder...")
     run_seeder(SessionLocal, get_password_hash)
 
 
@@ -150,6 +153,413 @@ def extract_mfl_history(
     click.echo(f"- Output root: {summary['output_root']}")
 
 
+@cli.command("extract-mfl-html-reports")
+@click.option("--start-year", type=int, required=True, help="First season year to extract.")
+@click.option("--end-year", type=int, required=True, help="Last season year to extract.")
+@click.option(
+    "--report-keys",
+    type=str,
+    default="league_champions,league_awards,top_performers_player_stats,starter_points_by_position,points_allowed_by_position,draft_results_detailed",
+    show_default=True,
+    help="Comma-separated HTML report keys.",
+)
+@click.option(
+    "--output-root",
+    type=click.Path(file_okay=False, dir_okay=True, writable=True),
+    default="exports/history_html",
+    show_default=True,
+    help="Output folder for CSV and raw HTML report extracts.",
+)
+@click.option("--timeout-seconds", type=int, default=20, show_default=True, help="HTTP timeout per request.")
+@click.option(
+    "--session-cookie",
+    type=str,
+    default=None,
+    help="Optional MFL auth cookie string for private league reports.",
+)
+def extract_mfl_html_reports(
+    start_year: int,
+    end_year: int,
+    report_keys: str,
+    output_root: str,
+    timeout_seconds: int,
+    session_cookie: str | None,
+):
+    """Extract selected legacy MFL HTML report pages into CSV files."""
+    selected_keys = [part.strip() for part in report_keys.split(",") if part.strip()]
+    summary = run_extract_mfl_html_reports(
+        start_year=start_year,
+        end_year=end_year,
+        report_keys=selected_keys,
+        output_root=output_root,
+        timeout_seconds=timeout_seconds,
+        session_cookie=session_cookie,
+    )
+
+    click.echo("MFL HTML report extraction summary")
+    click.echo(f"- Seasons requested: {summary['requested_seasons'][0]}..{summary['requested_seasons'][-1]}")
+    click.echo(f"- Reports extracted: {summary['extracted_reports']}")
+    click.echo(f"- Seasons skipped (missing host): {summary['skipped_missing_host']}")
+    click.echo(f"- Seasons skipped (missing league id): {summary['skipped_missing_league_id']}")
+    click.echo(f"- Failed report pulls: {summary['failed_reports']}")
+    click.echo(f"- Output root: {summary['output_root']}")
+
+
+@cli.command("normalize-mfl-html-records")
+@click.option(
+    "--input-root",
+    type=click.Path(file_okay=False, dir_okay=True, exists=True),
+    required=True,
+    help="Root containing extracted HTML report CSVs.",
+)
+@click.option(
+    "--output-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    default=None,
+    help="Destination root for normalized CSV outputs (defaults to <input-root>_normalized).",
+)
+@click.option("--start-year", type=int, default=None, help="Optional minimum season year filter.")
+@click.option("--end-year", type=int, default=None, help="Optional maximum season year filter.")
+@click.option(
+    "--report-keys",
+    type=str,
+    default="league_champions,league_awards,franchise_records,player_records,matchup_records,all_time_series_records,season_records,career_records,record_streaks",
+    show_default=True,
+    help="Comma-separated HTML report keys to normalize.",
+)
+def normalize_mfl_html_records(
+    input_root: str,
+    output_root: str | None,
+    start_year: int | None,
+    end_year: int | None,
+    report_keys: str,
+):
+    """Normalize extracted MFL HTML record-family CSVs into stable schemas."""
+    if start_year is not None and end_year is not None and end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    selected_keys = [part.strip() for part in report_keys.split(",") if part.strip()]
+    summary = run_normalize_mfl_html_records(
+        input_root=input_root,
+        output_root=output_root,
+        start_year=start_year,
+        end_year=end_year,
+        report_keys=selected_keys,
+    )
+
+    click.echo("MFL HTML normalization summary")
+    click.echo(f"- Input root: {summary['input_root']}")
+    click.echo(f"- Output root: {summary['output_root']}")
+    click.echo(f"- Files processed: {summary['files_processed']}")
+    click.echo(f"- Files skipped: {summary['files_skipped']}")
+    for dataset, rows in summary["rows_written_by_dataset"].items():
+        click.echo(f"- {dataset}: {rows} rows")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("load-mfl-html-normalized")
+@click.option(
+    "--input-roots",
+    type=str,
+    required=True,
+    help="Comma-separated normalized roots (for example 2002_2003 + 2004_2026 outputs).",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Write rows to Postgres (default is dry-run).",
+)
+@click.option(
+    "--truncate-before-load",
+    is_flag=True,
+    default=False,
+    help="Delete existing mfl_html_record_facts rows before loading (apply mode only).",
+)
+@click.option(
+    "--target-league-id",
+    type=int,
+    default=None,
+    help="App league_id to associate with imported HTML fact rows.",
+)
+def load_mfl_html_normalized(
+    input_roots: str,
+    apply_changes: bool,
+    truncate_before_load: bool,
+    target_league_id: int | None,
+):
+    """Load normalized MFL HTML record datasets into Postgres."""
+    roots = [part.strip() for part in input_roots.split(",") if part.strip()]
+    if not roots:
+        raise click.UsageError("--input-roots must contain at least one path")
+
+    if truncate_before_load and not apply_changes:
+        raise click.UsageError("--truncate-before-load requires --apply")
+
+    summary = run_load_mfl_html_normalized(
+        input_roots=roots,
+        dry_run=not apply_changes,
+        truncate_before_load=truncate_before_load,
+        target_league_id=target_league_id,
+    )
+
+    click.echo("MFL HTML normalized load summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Run id: {summary['run_id']}")
+    click.echo(f"- Input roots: {', '.join(summary['input_roots'])}")
+    click.echo(f"- Target league id: {summary['target_league_id']}")
+    click.echo(f"- Files seen: {summary['files_seen']}")
+    click.echo(f"- Files loaded: {summary['files_loaded']}")
+    click.echo(f"- Rows seen: {summary['rows_seen']}")
+    click.echo(f"- Rows inserted: {summary['rows_inserted']}")
+    click.echo(f"- Rows skipped (existing): {summary['rows_skipped_existing']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("archive-mfl-html-exports")
+@click.option(
+    "--input-root",
+    type=click.Path(file_okay=False, dir_okay=True, exists=True),
+    required=True,
+    help="Export root containing raw HTML artifacts to archive.",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Create the archive and manifest on disk (default is dry-run).",
+)
+@click.option(
+    "--prune-html",
+    is_flag=True,
+    default=False,
+    help="Delete the original HTML files after they have been archived (apply mode only).",
+)
+@click.option(
+    "--overwrite-existing",
+    is_flag=True,
+    default=False,
+    help="Replace an existing archive/manifest for the same export root.",
+)
+def archive_mfl_html_exports(
+    input_root: str,
+    apply_changes: bool,
+    prune_html: bool,
+    overwrite_existing: bool,
+):
+    """Archive recursive HTML artifacts from an MFL export root."""
+    if prune_html and not apply_changes:
+        raise click.UsageError("--prune-html requires --apply")
+
+    summary = run_archive_mfl_html_exports(
+        input_root=input_root,
+        dry_run=not apply_changes,
+        prune_html=prune_html,
+        overwrite_existing=overwrite_existing,
+    )
+
+    click.echo("MFL HTML archive summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Run id: {summary['run_id']}")
+    click.echo(f"- Input root: {summary['input_root']}")
+    click.echo(f"- Archive path: {summary['archive_path']}")
+    click.echo(f"- Manifest path: {summary['manifest_path']}")
+    click.echo(f"- HTML files seen: {summary['html_files_seen']}")
+    click.echo(f"- HTML files archived: {summary['html_files_archived']}")
+    click.echo(f"- HTML files pruned: {summary['html_files_pruned']}")
+    click.echo(f"- Bytes seen: {summary['bytes_seen']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("archive-mfl-json-exports")
+@click.option(
+    "--input-root",
+    type=click.Path(file_okay=False, dir_okay=True, exists=True),
+    required=True,
+    help="Export root containing JSON artifacts to archive.",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Create the archive and manifest on disk (default is dry-run).",
+)
+@click.option(
+    "--prune-json",
+    is_flag=True,
+    default=False,
+    help="Delete the original JSON files after they have been archived (apply mode only).",
+)
+@click.option(
+    "--overwrite-existing",
+    is_flag=True,
+    default=False,
+    help="Replace an existing archive/manifest for the same export root.",
+)
+def archive_mfl_json_exports(
+    input_root: str,
+    apply_changes: bool,
+    prune_json: bool,
+    overwrite_existing: bool,
+):
+    """Archive recursive JSON artifacts from an MFL export root."""
+    if prune_json and not apply_changes:
+        raise click.UsageError("--prune-json requires --apply")
+
+    summary = run_archive_mfl_json_exports(
+        input_root=input_root,
+        dry_run=not apply_changes,
+        prune_json=prune_json,
+        overwrite_existing=overwrite_existing,
+    )
+
+    click.echo("MFL JSON archive summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Run id: {summary['run_id']}")
+    click.echo(f"- Input root: {summary['input_root']}")
+    click.echo(f"- Archive path: {summary['archive_path']}")
+    click.echo(f"- Manifest path: {summary['manifest_path']}")
+    click.echo(f"- JSON files seen: {summary['json_files_seen']}")
+    click.echo(f"- JSON files archived: {summary['json_files_archived']}")
+    click.echo(f"- JSON files pruned: {summary['json_files_pruned']}")
+    click.echo(f"- Bytes seen: {summary['bytes_seen']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("archive-mfl-csv-exports")
+@click.option(
+    "--input-root",
+    type=click.Path(file_okay=False, dir_okay=True, exists=True),
+    required=True,
+    help="Export root containing CSV artifacts to archive.",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Create the archive and manifest on disk (default is dry-run).",
+)
+@click.option(
+    "--prune-csv",
+    is_flag=True,
+    default=False,
+    help="Delete the original CSV files after they have been archived (apply mode only).",
+)
+@click.option(
+    "--overwrite-existing",
+    is_flag=True,
+    default=False,
+    help="Replace an existing archive/manifest for the same export root.",
+)
+def archive_mfl_csv_exports(
+    input_root: str,
+    apply_changes: bool,
+    prune_csv: bool,
+    overwrite_existing: bool,
+):
+    """Archive recursive CSV artifacts from an MFL export root."""
+    if prune_csv and not apply_changes:
+        raise click.UsageError("--prune-csv requires --apply")
+
+    summary = run_archive_mfl_csv_exports(
+        input_root=input_root,
+        dry_run=not apply_changes,
+        prune_csv=prune_csv,
+        overwrite_existing=overwrite_existing,
+    )
+
+    click.echo("MFL CSV archive summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Run id: {summary['run_id']}")
+    click.echo(f"- Input root: {summary['input_root']}")
+    click.echo(f"- Archive path: {summary['archive_path']}")
+    click.echo(f"- Manifest path: {summary['manifest_path']}")
+    click.echo(f"- CSV files seen: {summary['csv_files_seen']}")
+    click.echo(f"- CSV files archived: {summary['csv_files_archived']}")
+    click.echo(f"- CSV files pruned: {summary['csv_files_pruned']}")
+    click.echo(f"- Bytes seen: {summary['bytes_seen']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("restore-mfl-archive")
+@click.option(
+    "--archive-path",
+    type=click.Path(dir_okay=False, exists=True),
+    required=True,
+    help="Path to the archived zip file to restore.",
+)
+@click.option(
+    "--destination-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    required=True,
+    help="Destination folder to restore files into.",
+)
+@click.option(
+    "--manifest-path",
+    type=click.Path(dir_okay=False, exists=True),
+    default=None,
+    help="Optional archive manifest used for file list and checksum verification.",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Extract files to destination (default is dry-run).",
+)
+@click.option(
+    "--overwrite-existing",
+    is_flag=True,
+    default=False,
+    help="Replace an existing non-empty destination folder.",
+)
+@click.option(
+    "--skip-verify-manifest",
+    is_flag=True,
+    default=False,
+    help="Skip manifest file-list and checksum verification.",
+)
+def restore_mfl_archive(
+    archive_path: str,
+    destination_root: str,
+    manifest_path: str | None,
+    apply_changes: bool,
+    overwrite_existing: bool,
+    skip_verify_manifest: bool,
+):
+    """Restore a previously archived MFL export zip into a working folder."""
+    summary = run_restore_mfl_archive(
+        archive_path=archive_path,
+        destination_root=destination_root,
+        manifest_path=manifest_path,
+        dry_run=not apply_changes,
+        overwrite_existing=overwrite_existing,
+        verify_manifest=not skip_verify_manifest,
+    )
+
+    click.echo("MFL archive restore summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Run id: {summary['run_id']}")
+    click.echo(f"- Archive path: {summary['archive_path']}")
+    click.echo(f"- Destination root: {summary['destination_root']}")
+    click.echo(f"- Manifest path: {summary['manifest_path']}")
+    click.echo(f"- Verify manifest: {summary['verify_manifest']}")
+    click.echo(f"- Files listed: {summary['files_listed']}")
+    click.echo(f"- Files restored: {summary['files_restored']}")
+    click.echo(f"- Bytes restored: {summary['bytes_restored']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
 @cli.command("import-mfl-csv")
 @click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id receiving imported rows.")
@@ -228,6 +638,65 @@ def scaffold_mfl_manual_csv(
     click.echo(f"- Output root: {summary['output_root']}")
 
 
+@cli.command("stage-mfl-html-for-import")
+@click.option("--start-year", type=int, required=True, help="First season year to stage.")
+@click.option("--end-year", type=int, required=True, help="Last season year to stage.")
+@click.option(
+    "--api-root",
+    type=click.Path(file_okay=False, dir_okay=True, exists=True),
+    required=True,
+    help="Root containing canonical API extraction CSVs.",
+)
+@click.option(
+    "--html-root",
+    type=click.Path(file_okay=False, dir_okay=True, exists=True),
+    required=True,
+    help="Root containing HTML report extraction CSVs.",
+)
+@click.option(
+    "--output-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    required=True,
+    help="Destination root to stage importer-compatible CSVs plus HTML supplements.",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    default=False,
+    help="Overwrite destination files when they already exist.",
+)
+def stage_mfl_html_for_import(
+    start_year: int,
+    end_year: int,
+    api_root: str,
+    html_root: str,
+    output_root: str,
+    overwrite: bool,
+):
+    """Stage HTML + API extraction outputs into an importer-compatible root."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    summary = run_stage_mfl_html_for_import(
+        start_year=start_year,
+        end_year=end_year,
+        api_root=api_root,
+        html_root=html_root,
+        output_root=output_root,
+        overwrite=overwrite,
+    )
+
+    click.echo("MFL staging summary")
+    click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Required CSVs copied: {summary['copied_required_files']}")
+    click.echo(f"- Required CSVs scaffolded: {summary['scaffolded_required_files']}")
+    click.echo(f"- HTML report CSVs copied: {summary['copied_html_reports']}")
+    click.echo(f"- Draft manual templates created: {summary['draft_results_manual_templates']}")
+    click.echo(f"- Output root: {summary['output_root']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
 @cli.command("reconcile-mfl-import")
 @click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id to reconcile against imported rows.")
@@ -277,7 +746,6 @@ def finalize_week_command(league_id: int, week: int, season: int, season_year: i
 
     This command is designed to run via scheduler (for example Tuesday 4 AM cron).
     """
-
     result = run_finalization(
         league_id=league_id,
         week=week,

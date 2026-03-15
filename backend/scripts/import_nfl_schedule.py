@@ -18,8 +18,7 @@ root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if root not in sys.path:
     sys.path.insert(0, root)
 
-from backend.database import SessionLocal
-import models
+from backend.services.live_scoring_ingest_service import run_live_scoreboard_ingest
 
 
 def fetch_scoreboard(year: int, week: int | None = None) -> dict:
@@ -80,31 +79,12 @@ def normalize_event(evt: dict) -> dict:
 
 
 def upsert_games(year: int, week: int | None = None) -> None:
-    data = fetch_scoreboard(year, week)
-    events = data.get("events", [])
-    db = SessionLocal()
-    try:
-        for evt in events:
-            vals = normalize_event(evt)
-            if not vals.get("event_id"):
-                continue
-            game = (
-                db.query(models.NFLGame)
-                .filter(models.NFLGame.event_id == vals["event_id"])
-                .one_or_none()
-            )
-            if game:
-                for key, val in vals.items():
-                    setattr(game, key, val)
-            else:
-                db.add(models.NFLGame(**vals))
-        db.commit()
-        print(f"Upserted {len(events)} events")
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+    result = run_live_scoreboard_ingest(year=year, week=week)
+    print(
+        "Upserted schedule ingest "
+        f"fetched={result['fetched_events']} normalized={result['normalized_games']} "
+        f"inserted={result['inserted']} updated={result['updated']}"
+    )
 
 
 if __name__ == "__main__":

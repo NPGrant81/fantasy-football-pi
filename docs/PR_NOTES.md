@@ -195,6 +195,72 @@ Validation: targeted Mermaid tests pass and frontend build succeeds with Mermaid
 
 ## Bulk Close Comment Pack (Resolved Open Issues)
 
+## Issue Status Update Template Pack (New)
+
+Use these templates to keep GitHub issue status transitions consistent with project policy.
+
+### Template A: Start Work (`To Do` -> `In Progress`)
+
+```md
+Status update: moving this issue to **In Progress**.
+
+Scope started:
+- [short summary of implementation being started]
+
+Execution references:
+- Branch: `<branch-name>`
+- PR: `<pr-link-or-number>` (use `TBD` if PR not opened yet)
+
+Planned validation:
+- [test command / smoke checks you intend to run]
+
+Next update will include validation evidence and either:
+- transition to **Complete**, or
+- explicit carryover scope if work remains.
+```
+
+### Template B: Completion Update (`In Progress` -> `Complete`)
+
+```md
+Status update: moving this issue to **Complete**.
+
+What was delivered:
+- [change 1]
+- [change 2]
+
+Validation evidence:
+- [test command + result]
+- [smoke/manual verification + result]
+
+References:
+- PR: `<pr-link-or-number>`
+- Commits: `<short-sha list>`
+
+Close-out:
+- Added to `docs/ISSUE_STATUS.md` closure queue (if closure action is not immediate).
+- If any follow-up scope remains, it is tracked in: `<follow-up-issue-link-or-number>`.
+```
+
+### Template C: Carryover/Partial Completion (stays `In Progress`)
+
+```md
+Status update: issue remains **In Progress**.
+
+Completed this pass:
+- [completed item]
+
+Remaining scope:
+- [remaining item]
+
+References:
+- PR: `<pr-link-or-number>`
+- Validation run: [commands/results]
+
+Carryover tracking:
+- Follow-up issue: `<issue-link-or-number>`
+- Reason for not moving to Complete: [brief rationale]
+```
+
 ### Issue #19
 
 ```md

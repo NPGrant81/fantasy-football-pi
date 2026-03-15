@@ -38,6 +38,16 @@ This file records concrete break/fix learnings from CLI-driven check-ins so futu
 - Fix applied: Added a required pre-close PR check to verify no unresolved review threads remain.
 - Guardrail: Do not merge or close linked issues until review feedback is audited and either resolved in code/docs or explicitly deferred in PR comments.
 
+7. Stale PR branches and worktrees create avoidable cleanup churn
+- Symptom: Merged or inactive issue branches remained as local worktrees and branch refs, causing confusion about what was still active.
+- Fix applied: Pruned merged/stale worktrees and deleted local branches whose upstream refs were already removed.
+- Guardrail: Treat each new issue as a new branch/PR. Do not reopen old merged PRs for new scope; open a new PR and link prior PRs for history.
+
+8. Point-in-time status snapshots become stale quickly
+- Symptom: Local JSON status snapshots for issues/PRs (for example issue #199 and PR #223) remained in the repo root after closure/merge and looked like active in-flight work.
+- Fix applied: Archived stale snapshots under `docs/archive/status-snapshots/2026-03-14/` and refreshed docs status references against live GitHub state.
+- Guardrail: Store transient status snapshots in `docs/archive/status-snapshots/<date>/` immediately after capture and never treat them as canonical state after the same session.
+
 ## CLI Workflow Practices That Worked
 - Use targeted smoke calls after backend changes (API payload checks before UI assumptions).
 - Run narrow pytest modules first, then broader groups when stable.
@@ -60,3 +70,8 @@ Before merging a PR and closing related issue(s), run this checklist:
 3. Merge gate.
 - If any actionable thread is unresolved (`isResolved=false` and not outdated), do not merge yet.
 - Resolve in follow-up commit(s), then re-check before merging and closing issue(s).
+
+4. Branch/worktree lifecycle gate.
+- After PR merge, delete remote topic branch unless repository policy requires retention.
+- Remove matching local worktree and local branch once no longer needed.
+- If the same product area regresses later, create a new issue branch and new PR instead of reopening the merged PR.
