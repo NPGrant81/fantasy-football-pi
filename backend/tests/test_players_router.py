@@ -453,6 +453,172 @@ def test_players_endpoint_prefers_canonical_duplicate_with_external_id(client):
             cleanup.close()
 
 
+def test_players_endpoint_collapses_same_name_when_one_row_has_external_id(client):
+    suffix = uuid4().hex[:8]
+    player_name = f"AJ Brown Dedup {suffix}"
+    created_ids: list[int] = []
+
+    session = SessionLocal()
+    try:
+        players = [
+            models.Player(
+                name=player_name,
+                position="WR",
+                nfl_team="FA",
+                gsis_id=None,
+                espn_id=None,
+            ),
+            models.Player(
+                name=player_name,
+                position="WR",
+                nfl_team="PHI",
+                gsis_id=None,
+                espn_id=f"ESPN-{suffix}",
+            ),
+        ]
+
+        session.add_all(players)
+        session.commit()
+        created_ids = [row.id for row in players if row.id is not None]
+    finally:
+        session.close()
+
+    try:
+        response = client.get("/players/")
+        assert response.status_code == 200
+        data = response.json()
+
+        rows = [
+            row
+            for row in data
+            if row.get("name") == player_name and row.get("position") == "WR"
+        ]
+
+        assert len(rows) == 1
+        assert rows[0].get("nfl_team") == "PHI"
+        assert rows[0].get("espn_id") == f"ESPN-{suffix}"
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_players_endpoint_collapses_suffix_variants_for_same_player(client):
+    suffix = uuid4().hex[:8]
+    base_name = f"Chris Godwin Dedup {suffix}"
+    created_ids: list[int] = []
+
+    session = SessionLocal()
+    try:
+        players = [
+            models.Player(
+                name=base_name,
+                position="WR",
+                nfl_team="TB",
+                gsis_id=None,
+                espn_id=None,
+            ),
+            models.Player(
+                name=f"{base_name} Jr.",
+                position="WR",
+                nfl_team="TB",
+                gsis_id=None,
+                espn_id=f"ESPN-SFX-{suffix}",
+            ),
+        ]
+
+        session.add_all(players)
+        session.commit()
+        created_ids = [row.id for row in players if row.id is not None]
+    finally:
+        session.close()
+
+    try:
+        response = client.get("/players/")
+        assert response.status_code == 200
+        data = response.json()
+
+        rows = [
+            row
+            for row in data
+            if str(row.get("name", "")).startswith(base_name) and row.get("position") == "WR"
+        ]
+
+        assert len(rows) == 1
+        assert rows[0].get("espn_id") == f"ESPN-SFX-{suffix}"
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_players_endpoint_collapses_initial_variants_for_same_player(client):
+    suffix = uuid4().hex[:8]
+    created_ids: list[int] = []
+
+    session = SessionLocal()
+    try:
+        players = [
+            models.Player(
+                name=f"A.J. Brown Dedup {suffix}",
+                position="WR",
+                nfl_team="PHI",
+                gsis_id=None,
+                espn_id=f"ESPN-AJ-{suffix}",
+            ),
+            models.Player(
+                name=f"AJ Brown Dedup {suffix}",
+                position="WR",
+                nfl_team="FA",
+                gsis_id=None,
+                espn_id=None,
+            ),
+        ]
+
+        session.add_all(players)
+        session.commit()
+        created_ids = [row.id for row in players if row.id is not None]
+    finally:
+        session.close()
+
+    try:
+        response = client.get("/players/")
+        assert response.status_code == 200
+        data = response.json()
+
+        rows = [
+            row
+            for row in data
+            if str(row.get("name", "")).endswith(f"Brown Dedup {suffix}") and row.get("position") == "WR"
+        ]
+
+        assert len(rows) == 1
+        assert rows[0].get("espn_id") == f"ESPN-AJ-{suffix}"
+        assert rows[0].get("nfl_team") == "PHI"
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
 def test_players_endpoint_excludes_placeholder_players(client):
     suffix = uuid4().hex[:8]
     created_ids: list[int] = []

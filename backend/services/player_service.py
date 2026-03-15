@@ -1,4 +1,6 @@
 # backend/services/player_service.py
+import re
+
 from sqlalchemy.orm import Session
 from .. import models
 
@@ -16,6 +18,7 @@ TEAM_ALIASES = {
 
 PLACEHOLDER_NAME_PREFIXES = ("generic", "unknown", "placeholder", "test")
 PLACEHOLDER_TEAM_CODES = {"", "UAT", "TEST", "MOCK", "FAKE", "TBD", "N/A"}
+NAME_SUFFIX_TOKENS = {"jr", "sr", "ii", "iii", "iv", "v"}
 
 
 def _canonical_team(team: str | None) -> str:
@@ -25,6 +28,25 @@ def _canonical_team(team: str | None) -> str:
 
 def _normalized_name(name: str | None) -> str:
     return (name or "").strip().lower().replace(".", "")
+
+
+def _dedupe_normalized_name(name: str | None) -> str:
+    # Collapse punctuation and suffix variants (e.g. "Chris Godwin Jr.").
+    raw = (name or "").strip().lower()
+    normalized = re.sub(r"[^a-z0-9]+", " ", raw)
+    tokens = [token for token in normalized.split(" ") if token]
+    if tokens and tokens[-1] in NAME_SUFFIX_TOKENS:
+        tokens = tokens[:-1]
+
+    # Collapse leading initial tokens so "A.J. Brown" and "AJ Brown" align.
+    if len(tokens) >= 2:
+        idx = 0
+        while idx < len(tokens) and len(tokens[idx]) == 1:
+            idx += 1
+        if idx >= 2:
+            tokens = ["".join(tokens[:idx])] + tokens[idx:]
+
+    return " ".join(tokens)
 
 
 def is_placeholder_player_name(name: str | None) -> bool:
@@ -127,14 +149,11 @@ def find_existing_player(
 
 
 def _player_dedupe_key(player: models.Player):
-    if player.gsis_id:
-        return ("gsis", str(player.gsis_id).strip())
-    if player.espn_id:
-        return ("espn", str(player.espn_id).strip())
-    # Fall back to display identity so stale provider-specific duplicates collapse.
+    # Cross-platform presentation dedupe should collapse same player identities
+    # even when one row has provider IDs and another does not.
     return (
-        "fallback",
-        _normalized_name(player.name),
+        "identity",
+        _dedupe_normalized_name(player.name),
         (player.position or "").strip().upper(),
     )
 
