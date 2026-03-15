@@ -89,3 +89,69 @@ def test_stage_mfl_html_for_import_scaffolds_when_api_missing(tmp_path):
 
     manual_override = output_root / "manual_overrides" / "draftResults" / "2003.csv"
     assert manual_override.exists()
+
+
+def test_stage_mfl_html_for_import_merges_existing_manual_draft_overrides(tmp_path):
+    api_root = tmp_path / "api"
+    html_root = tmp_path / "html"
+    output_root = tmp_path / "staged"
+
+    _write_csv(
+        api_root / "franchises" / "2009.csv",
+        ["season", "league_id", "franchise_id", "franchise_name", "owner_name"],
+        [{"season": "2009", "league_id": "24809", "franchise_id": "0001", "franchise_name": "A", "owner_name": "Alpha"}],
+    )
+    _write_csv(
+        api_root / "players" / "2009.csv",
+        ["season", "league_id", "player_mfl_id", "player_name", "position", "nfl_team"],
+        [{"season": "2009", "league_id": "24809", "player_mfl_id": "1001", "player_name": "Player One", "position": "QB", "nfl_team": "BUF"}],
+    )
+    _write_csv(
+        api_root / "draftResults" / "2009.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id"],
+        [],
+    )
+    html_root.mkdir(parents=True, exist_ok=True)
+
+    first_summary = run_stage_mfl_html_for_import(
+        start_year=2009,
+        end_year=2009,
+        api_root=str(api_root),
+        html_root=str(html_root),
+        output_root=str(output_root),
+        overwrite=True,
+    )
+
+    assert first_summary["draft_results_manual_templates"] == 1
+    manual_override = output_root / "manual_overrides" / "draftResults" / "2009.csv"
+    assert manual_override.exists()
+
+    _write_csv(
+        manual_override,
+        ["season", "league_id", "franchise_id", "player_mfl_id"],
+        [{"season": "2009", "league_id": "24809", "franchise_id": "0001", "player_mfl_id": "1001"}],
+    )
+
+    second_summary = run_stage_mfl_html_for_import(
+        start_year=2009,
+        end_year=2009,
+        api_root=str(api_root),
+        html_root=str(html_root),
+        output_root=str(output_root),
+        overwrite=True,
+    )
+
+    assert second_summary["draft_results_manual_templates"] == 0
+    assert second_summary["manual_override_rows_merged"] == 1
+
+    with (output_root / "draftResults" / "2009.csv").open("r", encoding="utf-8", newline="") as handle:
+        staged_rows = list(csv.DictReader(handle))
+    assert staged_rows == [
+        {"season": "2009", "league_id": "24809", "franchise_id": "0001", "player_mfl_id": "1001"}
+    ]
+
+    with manual_override.open("r", encoding="utf-8", newline="") as handle:
+        manual_rows = list(csv.DictReader(handle))
+    assert manual_rows == [
+        {"season": "2009", "league_id": "24809", "franchise_id": "0001", "player_mfl_id": "1001"}
+    ]

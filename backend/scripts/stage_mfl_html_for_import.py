@@ -40,6 +40,7 @@ class StageSummary:
     scaffolded_required_files: int = 0
     copied_html_reports: int = 0
     draft_results_manual_templates: int = 0
+    manual_override_rows_merged: int = 0
     warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -52,6 +53,7 @@ class StageSummary:
             "scaffolded_required_files": self.scaffolded_required_files,
             "copied_html_reports": self.copied_html_reports,
             "draft_results_manual_templates": self.draft_results_manual_templates,
+            "manual_override_rows_merged": self.manual_override_rows_merged,
             "warnings": self.warnings,
         }
 
@@ -70,6 +72,30 @@ def _write_header_only_csv(path: Path, headers: list[str]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(headers)
+
+
+def _read_csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        return [dict(row) for row in reader]
+
+
+def _write_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) -> None:
+    _ensure_parent(path)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _draft_override_key(row: dict[str, str]) -> tuple[str, str, str, str, str]:
+    return (
+        str(row.get("season") or "").strip(),
+        str(row.get("league_id") or "").strip(),
+        str(row.get("franchise_id") or "").strip(),
+        str(row.get("round") or "").strip(),
+        str(row.get("pick_number") or "").strip(),
+    )
 
 
 def _stage_required_csvs(
@@ -158,7 +184,7 @@ def _ensure_draft_results_manual_fallback(
             continue
 
         manual_path = output_root / "manual_overrides" / "draftResults" / f"{season}.csv"
-        if manual_path.exists() and not overwrite:
+        if manual_path.exists():
             continue
 
         _write_header_only_csv(manual_path, REQUIRED_HEADERS["draftResults"])
@@ -166,6 +192,47 @@ def _ensure_draft_results_manual_fallback(
         summary.warnings.append(
             f"draftResults season={season} has no player_mfl_id rows; created manual override template at {manual_path}"
         )
+
+
+def _merge_manual_draft_overrides(
+    *,
+    output_root: Path,
+    seasons: list[int],
+    summary: StageSummary,
+) -> None:
+    required = REQUIRED_HEADERS["draftResults"]
+
+    for season in seasons:
+        draft_csv_path = output_root / "draftResults" / f"{season}.csv"
+        manual_path = output_root / "manual_overrides" / "draftResults" / f"{season}.csv"
+        if not draft_csv_path.exists() or not manual_path.exists():
+            continue
+
+        staged_rows = _read_csv_rows(draft_csv_path)
+        manual_rows = _read_csv_rows(manual_path)
+        valid_manual_rows: list[dict[str, str]] = []
+
+        for row in manual_rows:
+            missing = [column for column in required if not str(row.get(column) or "").strip()]
+            if missing:
+                # Header-only templates read back as zero rows, so only warn on actual partial rows.
+                if any(str(value or "").strip() for value in row.values()):
+                    summary.warnings.append(
+                        f"manual override draftResults season={season} has row missing columns {missing}; row skipped"
+                    )
+                continue
+            valid_manual_rows.append({column: str(row.get(column) or "").strip() for column in required})
+
+        if not valid_manual_rows:
+            continue
+
+        merged_by_key = {_draft_override_key(row): {column: str(row.get(column) or "").strip() for column in required} for row in staged_rows}
+        for row in valid_manual_rows:
+            merged_by_key[_draft_override_key(row)] = row
+
+        merged_rows = list(merged_by_key.values())
+        _write_csv_rows(draft_csv_path, required, merged_rows)
+        summary.manual_override_rows_merged += len(valid_manual_rows)
 
 
 def run_stage_mfl_html_for_import(
@@ -208,6 +275,11 @@ def run_stage_mfl_html_for_import(
         seasons=seasons,
         summary=summary,
         overwrite=overwrite,
+    )
+    _merge_manual_draft_overrides(
+        output_root=output_base,
+        seasons=seasons,
+        summary=summary,
     )
 
     output_base.mkdir(parents=True, exist_ok=True)
