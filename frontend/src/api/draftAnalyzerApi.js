@@ -1,5 +1,33 @@
 import { getJson, postJson } from '@api/fetching';
 
+function normalizeText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function buildFallbackPlayerKey(player) {
+  return [
+    normalizeText(player?.name),
+    normalizeText(player?.position),
+    normalizeText(player?.nfl_team),
+  ].join('|');
+}
+
+function dedupePlayersForUi(players) {
+  const list = Array.isArray(players) ? players : [];
+  const selected = new Map();
+
+  for (const player of list) {
+    const hasStableId = player?.id !== null && player?.id !== undefined;
+    const key = hasStableId ? `id:${player.id}` : `fallback:${buildFallbackPlayerKey(player)}`;
+    const current = selected.get(key);
+    if (!current || Number(player?.id || 0) > Number(current?.id || 0)) {
+      selected.set(key, player);
+    }
+  }
+
+  return Array.from(selected.values());
+}
+
 export function fetchCurrentUser() {
   return getJson('/auth/me', { retries: 0 });
 }
@@ -12,7 +40,7 @@ export function fetchLeagueOwners(leagueId) {
 }
 
 export function fetchAllPlayers() {
-  return getJson('/players/', { retries: 1 });
+  return getJson('/players/', { retries: 1 }).then(dedupePlayersForUi);
 }
 
 export function fetchLeagueSettings(leagueId) {

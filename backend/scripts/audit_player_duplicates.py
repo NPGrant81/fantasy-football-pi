@@ -65,6 +65,12 @@ def _find_duplicate_groups(players: list[models.Player]) -> list[DuplicateGroup]
 
 def _reference_counts(db: Session, player_id: int) -> dict[str, int]:
     checks = {
+        "player_seasons.player_id": lambda: db.query(func.count(models.PlayerSeason.id))
+        .filter(models.PlayerSeason.player_id == player_id)
+        .scalar(),
+        "player_aliases.player_id": lambda: db.query(func.count(models.PlayerAlias.id))
+        .filter(models.PlayerAlias.player_id == player_id)
+        .scalar(),
         "draft_picks.player_id": lambda: db.query(func.count(models.DraftPick.id))
         .filter(models.DraftPick.player_id == player_id)
         .scalar(),
@@ -116,6 +122,35 @@ def _reference_counts(db: Session, player_id: int) -> dict[str, int]:
 
 
 def _delete_conflicting_unique_rows(db: Session, keep_id: int, duplicate_id: int) -> dict[str, int]:
+    keep_season = aliased(models.PlayerSeason)
+    dup_season = aliased(models.PlayerSeason)
+
+    deleted_player_seasons = (
+        db.query(dup_season)
+        .filter(dup_season.player_id == duplicate_id)
+        .filter(
+            exists()
+            .where(keep_season.player_id == keep_id)
+            .where(keep_season.season == dup_season.season)
+        )
+        .delete(synchronize_session=False)
+    )
+
+    keep_alias = aliased(models.PlayerAlias)
+    dup_alias = aliased(models.PlayerAlias)
+
+    deleted_player_aliases = (
+        db.query(dup_alias)
+        .filter(dup_alias.player_id == duplicate_id)
+        .filter(
+            exists()
+            .where(keep_alias.player_id == keep_id)
+            .where(keep_alias.alias_name == dup_alias.alias_name)
+            .where(keep_alias.source == dup_alias.source)
+        )
+        .delete(synchronize_session=False)
+    )
+
     keep_weekly = aliased(models.PlayerWeeklyStat)
     dup_weekly = aliased(models.PlayerWeeklyStat)
 
@@ -147,6 +182,8 @@ def _delete_conflicting_unique_rows(db: Session, keep_id: int, duplicate_id: int
     )
 
     return {
+        "player_seasons": int(deleted_player_seasons or 0),
+        "player_aliases": int(deleted_player_aliases or 0),
         "player_weekly_stats": int(deleted_weekly or 0),
         "draft_values": int(deleted_draft_values or 0),
     }
@@ -156,6 +193,12 @@ def _merge_duplicate_player(db: Session, keep_id: int, duplicate_id: int) -> dic
     conflicts = _delete_conflicting_unique_rows(db, keep_id, duplicate_id)
 
     updates = {
+        "player_seasons.player_id": lambda: db.query(models.PlayerSeason)
+        .filter(models.PlayerSeason.player_id == duplicate_id)
+        .update({models.PlayerSeason.player_id: keep_id}, synchronize_session=False),
+        "player_aliases.player_id": lambda: db.query(models.PlayerAlias)
+        .filter(models.PlayerAlias.player_id == duplicate_id)
+        .update({models.PlayerAlias.player_id: keep_id}, synchronize_session=False),
         "draft_picks.player_id": lambda: db.query(models.DraftPick)
         .filter(models.DraftPick.player_id == duplicate_id)
         .update({models.DraftPick.player_id: keep_id}, synchronize_session=False),
@@ -202,14 +245,24 @@ def _merge_duplicate_player(db: Session, keep_id: int, duplicate_id: int) -> dic
         except SQLAlchemyError:
             updated[label] = -1
 
-    deleted_players = (
-        db.query(models.Player)
-        .filter(models.Player.id == duplicate_id)
-        .delete(synchronize_session=False)
-    )
+    deleted_players = 0
+    delete_blocked = 0
+    try:
+        with db.begin_nested():
+            deleted_players = (
+                db.query(models.Player)
+                .filter(models.Player.id == duplicate_id)
+                .delete(synchronize_session=False)
+            )
+    except SQLAlchemyError:
+        # Keep the run alive when an unexpected FK appears in a new table.
+        delete_blocked = 1
 
     updated = {key: int(value or 0) for key, value in updated.items()}
     updated["players.deleted"] = int(deleted_players or 0)
+    updated["players.delete_blocked"] = delete_blocked
+    updated["player_seasons.conflicts_deleted"] = conflicts["player_seasons"]
+    updated["player_aliases.conflicts_deleted"] = conflicts["player_aliases"]
     updated["player_weekly_stats.conflicts_deleted"] = conflicts["player_weekly_stats"]
     updated["draft_values.conflicts_deleted"] = conflicts["draft_values"]
     return updated
@@ -246,7 +299,8 @@ def run_audit(*, apply_changes: bool = False, fail_on_duplicates: bool = False, 
                 for dup_id in group.duplicate_ids:
                     actions = _merge_duplicate_player(db, group.keep_id, dup_id)
                     group_report["actions"].append({"duplicate_id": dup_id, "changes": actions})
-                    merged += 1
+                    if int(actions.get("players.deleted", 0)) > 0:
+                        merged += 1
                     moved += sum(actions.values())
 
             report_groups.append(group_report)
