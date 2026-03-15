@@ -211,6 +211,26 @@ hit breakpoints as you interact with the UI.
      - If any actionable thread remains unresolved (`isResolved=false` and not outdated), do not merge yet.
      - Either address it in follow-up commits or explicitly defer it with rationale in PR comments before merge.
 
+10. **Branch/worktree lifecycle policy (required after merge).**
+   - For merged or obsolete PRs, retire the branch/worktree set:
+     - delete remote topic branch (when policy allows)
+     - remove local worktree tied to that topic branch
+     - delete local topic branch reference
+   - For new work in the same area, create a new issue branch and open a new PR.
+   - Reopen an old PR only when it was closed by mistake and the work scope is unchanged.
+   - In follow-up PRs, include cross-links to previous PRs/issues for historical context.
+
+11. **Issue status transition policy (required while work is active).**
+   - Use these canonical status transitions for every issue touched by a PR:
+     - `To Do` -> `In Progress` when implementation starts (first code, test, or docs commit tied to the issue)
+     - `In Progress` -> `Complete` when acceptance criteria are met and validation evidence is posted
+   - Do not leave actively worked issues in `To Do`.
+   - Do not mark `Complete` if validation or close-out notes are still missing.
+   - Required updates when status changes:
+     - Update the GitHub issue status/labels/body checklist in the same session.
+     - Update `docs/ISSUE_STATUS.md` with implementation state and close-out note reference.
+     - Reflect the transition in the PR `Issue Hygiene` section (`Closed`, `Pending close`, `Net new`).
+
 ---
 
 By adhering to these standards, the frontend stops being a black box and

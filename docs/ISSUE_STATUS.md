@@ -5,7 +5,7 @@
 - [x] Issue #56: Create draft value database for fantasy football draft purposes
 - [x] Issue #57: Create APIs to pull in draft value information from ESPN, Yahoo, Draftsharks
 # GitHub Issues Status Report
-**Date:** February 18, 2026  
+**Date:** March 14, 2026  
 **Branch:** main
 
 ---
@@ -14,35 +14,35 @@
 
 - **Issue #131**: `Create Dedicated Draft Day Analyzer Page + Fix Advisor & Simulation Failures`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #131 Close-Out Notes`
 - **Issue #19**: `Story 5.3: Waiver Processing Logic Description`
   - **Implementation Status:** Resolved in current waiver system implementation
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
 - **Issue #20**: `Story 5.4: Waiver Result Notifications Description`
   - **Implementation Status:** Resolved in current waiver notification flow
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
 - **Issue #31**: `Waiver Wire Rules: Page Setup & Navigation`
   - **Implementation Status:** Resolved in commissioner waiver-rules page rollout
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
 - **Issue #32**: `Waiver Wire Rules: Configuration Form`
   - **Implementation Status:** Resolved in commissioner waiver-rules configuration UI
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
 - **Issue #33**: `Waiver Wire Rules: Transactions History & Audit`
   - **Implementation Status:** Resolved in waiver history/audit surfaces
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
 - **Issue #34**: `Waiver Wire Rules: Backend Integration`
   - **Implementation Status:** Resolved in waiver backend/router/service integration
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
 - **Issue #35**: `Waiver Wire Rules: Testing`
   - **Implementation Status:** Resolved for current waiver baseline and CI workflow
-  - **GitHub Status:** Pending manual close comment + close action
+  - **GitHub Status:** Closed (March 8, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Bulk Close Comment Pack (Resolved Open Issues)`
 - **Issue #186**: `Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
@@ -63,6 +63,24 @@
 - Post a close-out comment with verification summary, then close the GitHub issue.
 - If closure cannot be completed in the same session, keep an explicit `Pending` entry here to avoid duplicate net-new issue creation.
 - During sprint planning, treat `Pending` items as administrative closure tasks first, before creating new overlapping issues.
+
+### Issue Status Transition Standard (New)
+
+- Canonical flow for active work: `To Do` -> `In Progress` -> `Complete`.
+- Move an issue to `In Progress` as soon as implementation begins (code, tests, or docs changes linked to the issue).
+- Move an issue to `Complete` only after acceptance criteria and validation evidence are recorded.
+- Do not keep actively implemented items in `To Do`.
+- If work pauses or scope splits, keep the original issue at `In Progress` and link any carryover issue explicitly.
+
+#### Required evidence at each transition
+
+- `To Do` -> `In Progress`
+  - Working branch/PR reference added to issue comments or body.
+  - Initial implementation note posted (what started, expected scope).
+- `In Progress` -> `Complete`
+  - Validation summary posted (tests, smoke checks, or manual verification).
+  - PR/commit references posted.
+  - Issue moved to closure queue with close-out note link when applicable.
 
 ---
 
