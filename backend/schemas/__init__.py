@@ -21,6 +21,14 @@ from .scoring import (
     ScoringRuleProposalCreate,
 )
 
+# 4.1 LIVE SCORING CONTRACT
+from .live_scoring import (
+    ContractInspectionResult,
+    NormalizedGame,
+    NormalizedLiveScoringPayload,
+    NormalizedPlayerStat,
+)
+
 # 5. WAIVERS & TRADES (Uncomment these lines once those files have classes)
 # from .waiver import WaiverClaim, WaiverClaimCreate
 # from .trade import TradeOffer, TradeOfferCreate
