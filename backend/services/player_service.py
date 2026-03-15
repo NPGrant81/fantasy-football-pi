@@ -59,8 +59,6 @@ def is_valid_player_row(player: models.Player) -> bool:
         position=player.position,
         nfl_team=player.nfl_team,
     )
-
-
 def canonical_player_identity(name: str | None, position: str | None, nfl_team: str | None) -> tuple[str, str, str]:
     return (
         _normalized_name(name),
@@ -129,8 +127,11 @@ def find_existing_player(
 
 
 def _player_dedupe_key(player: models.Player):
-    # Use canonical display identity for API dedupe so stale provider-specific
-    # rows (same player, different external IDs across refreshes) collapse.
+    if player.gsis_id:
+        return ("gsis", str(player.gsis_id).strip())
+    if player.espn_id:
+        return ("espn", str(player.espn_id).strip())
+    # Fall back to display identity so stale provider-specific duplicates collapse.
     return (
         "fallback",
         _normalized_name(player.name),
