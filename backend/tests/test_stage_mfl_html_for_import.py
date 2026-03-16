@@ -155,3 +155,81 @@ def test_stage_mfl_html_for_import_merges_existing_manual_draft_overrides(tmp_pa
     assert manual_rows == [
         {"season": "2009", "league_id": "24809", "franchise_id": "0001", "player_mfl_id": "1001"}
     ]
+
+
+def test_stage_mfl_html_for_import_populates_manual_template_from_raw_draft_skeleton(tmp_path):
+    api_root = tmp_path / "api"
+    html_root = tmp_path / "html"
+    output_root = tmp_path / "staged"
+
+    _write_csv(
+        api_root / "franchises" / "2002.csv",
+        ["season", "league_id", "franchise_id", "franchise_name", "owner_name"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0001", "franchise_name": "A", "owner_name": "Alpha"}],
+    )
+    _write_csv(
+        api_root / "players" / "2002.csv",
+        ["season", "league_id", "player_mfl_id", "player_name", "position", "nfl_team"],
+        [{"season": "2002", "league_id": "29721", "player_mfl_id": "1001", "player_name": "Player One", "position": "QB", "nfl_team": "BUF"}],
+    )
+    _write_csv(
+        api_root / "league" / "2002.csv",
+        ["season", "league_id"],
+        [{"season": "2002", "league_id": "29721"}],
+    )
+    _write_csv(
+        api_root / "draftResults" / "2002.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id"],
+        [],
+    )
+
+    raw_payload = {
+        "draftResults": {
+            "draftUnit": {
+                "draftPick": [
+                    {"franchise": "0001", "round": "01", "pick": "01", "player": ""},
+                    {"franchise": "0002", "round": "01", "pick": "02", "player": ""},
+                ]
+            }
+        }
+    }
+    raw_path = api_root / "raw" / "draftResults" / "2002.json"
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_path.write_text(json.dumps(raw_payload), encoding="utf-8")
+    html_root.mkdir(parents=True, exist_ok=True)
+
+    summary = run_stage_mfl_html_for_import(
+        start_year=2002,
+        end_year=2002,
+        api_root=str(api_root),
+        html_root=str(html_root),
+        output_root=str(output_root),
+        overwrite=True,
+    )
+
+    assert summary["draft_results_manual_templates"] == 1
+    assert summary["manual_override_rows_merged"] == 0
+    assert any("2 skeleton rows" in warning for warning in summary["warnings"])
+
+    manual_override = output_root / "manual_overrides" / "draftResults" / "2002.csv"
+    with manual_override.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert rows == [
+        {
+            "season": "2002",
+            "league_id": "29721",
+            "franchise_id": "0001",
+            "player_mfl_id": "",
+            "round": "01",
+            "pick_number": "01",
+        },
+        {
+            "season": "2002",
+            "league_id": "29721",
+            "franchise_id": "0002",
+            "player_mfl_id": "",
+            "round": "01",
+            "pick_number": "02",
+        },
+    ]
