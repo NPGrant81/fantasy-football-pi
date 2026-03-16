@@ -22,6 +22,7 @@ from .scripts.finalize_week import run_finalization
 from .scripts.import_mfl_csv import run_import_mfl_csv
 from .scripts.load_mfl_html_normalized import run_load_mfl_html_normalized
 from .scripts.normalize_mfl_html_records import run_normalize_mfl_html_records
+from .scripts.prepare_mfl_draft_backfill_sheet import run_prepare_mfl_draft_backfill_sheet
 from .scripts.reconcile_mfl_import import run_reconcile_mfl_import
 from .scripts.restore_mfl_archive import run_restore_mfl_archive
 from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
@@ -693,6 +694,52 @@ def stage_mfl_html_for_import(
     click.echo(f"- HTML report CSVs copied: {summary['copied_html_reports']}")
     click.echo(f"- Draft manual templates created: {summary['draft_results_manual_templates']}")
     click.echo(f"- Draft manual override rows merged: {summary['manual_override_rows_merged']}")
+    click.echo(f"- Output root: {summary['output_root']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("prepare-mfl-draft-backfill-sheet")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing draft/manual CSVs.")
+@click.option("--start-year", type=int, required=True, help="First season year to prepare.")
+@click.option("--end-year", type=int, required=True, help="Last season year to prepare.")
+@click.option(
+    "--output-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    default=None,
+    help="Optional destination for fill-ready backfill sheets (default: <input-root>/manual_overrides/draft_backfill_sheets).",
+)
+@click.option(
+    "--include-filled",
+    is_flag=True,
+    default=False,
+    help="Include rows that already have player_mfl_id values.",
+)
+def prepare_mfl_draft_backfill_sheet(
+    input_root: str,
+    start_year: int,
+    end_year: int,
+    output_root: str | None,
+    include_filled: bool,
+):
+    """Generate fill-ready draft backfill sheets with snake/auction guidance."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    summary = run_prepare_mfl_draft_backfill_sheet(
+        input_root=input_root,
+        start_year=start_year,
+        end_year=end_year,
+        output_root=output_root,
+        include_filled=include_filled,
+    )
+
+    click.echo("MFL draft backfill sheet summary")
+    click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Sheets written: {summary['sheets_written']}")
+    click.echo(f"- Rows written: {summary['rows_written']}")
+    click.echo(f"- Rows skipped already filled: {summary['rows_skipped_already_filled']}")
+    click.echo(f"- Style counts: {summary['style_counts']}")
     click.echo(f"- Output root: {summary['output_root']}")
     if summary["warnings"]:
         click.echo(f"- Warnings: {len(summary['warnings'])}")
