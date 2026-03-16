@@ -85,6 +85,14 @@ def _read_csv_rows(path: Path) -> list[dict[str, str]]:
         return [dict(row) for row in reader]
 
 
+def _read_csv_rows_with_headers(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        headers = list(reader.fieldnames or [])
+        rows = [dict(row) for row in reader]
+    return headers, rows
+
+
 def _write_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) -> None:
     _ensure_parent(path)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -302,7 +310,6 @@ def _merge_manual_draft_overrides(
     summary: StageSummary,
 ) -> None:
     required = IMPORTER_REQUIRED_HEADERS["draftResults"]
-    output_headers = IMPORTER_REQUIRED_HEADERS["draftResults"]
 
     for season in seasons:
         draft_csv_path = output_root / "draftResults" / f"{season}.csv"
@@ -310,8 +317,13 @@ def _merge_manual_draft_overrides(
         if not draft_csv_path.exists() or not manual_path.exists():
             continue
 
-        staged_rows = _read_csv_rows(draft_csv_path)
+        staged_headers, staged_rows = _read_csv_rows_with_headers(draft_csv_path)
         manual_rows = _read_csv_rows(manual_path)
+        output_headers = list(staged_headers)
+        for column in REQUIRED_HEADERS["draftResults"]:
+            if column not in output_headers:
+                output_headers.append(column)
+
         valid_manual_rows: list[dict[str, str]] = []
 
         for row in manual_rows:

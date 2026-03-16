@@ -146,9 +146,11 @@ def test_stage_mfl_html_for_import_merges_existing_manual_draft_overrides(tmp_pa
 
     with (output_root / "draftResults" / "2009.csv").open("r", encoding="utf-8", newline="") as handle:
         staged_rows = list(csv.DictReader(handle))
-    assert staged_rows == [
-        {"season": "2009", "league_id": "24809", "franchise_id": "0001", "player_mfl_id": "1001"}
-    ]
+    assert len(staged_rows) == 1
+    assert staged_rows[0]["season"] == "2009"
+    assert staged_rows[0]["league_id"] == "24809"
+    assert staged_rows[0]["franchise_id"] == "0001"
+    assert staged_rows[0]["player_mfl_id"] == "1001"
 
     with manual_override.open("r", encoding="utf-8", newline="") as handle:
         manual_rows = list(csv.DictReader(handle))
@@ -233,3 +235,65 @@ def test_stage_mfl_html_for_import_populates_manual_template_from_raw_draft_skel
             "pick_number": "02",
         },
     ]
+
+
+def test_stage_mfl_html_for_import_merge_preserves_existing_draft_metadata_columns(tmp_path):
+    api_root = tmp_path / "api"
+    html_root = tmp_path / "html"
+    output_root = tmp_path / "staged"
+
+    _write_csv(
+        api_root / "franchises" / "2017.csv",
+        ["season", "league_id", "franchise_id", "franchise_name", "owner_name"],
+        [{"season": "2017", "league_id": "38909", "franchise_id": "0007", "franchise_name": "A", "owner_name": "Alpha"}],
+    )
+    _write_csv(
+        api_root / "players" / "2017.csv",
+        ["season", "league_id", "player_mfl_id", "player_name", "position", "nfl_team"],
+        [{"season": "2017", "league_id": "38909", "player_mfl_id": "12625", "player_name": "Player One", "position": "QB", "nfl_team": "BUF"}],
+    )
+    _write_csv(
+        api_root / "draftResults" / "2017.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "draft_source", "draft_style"],
+        [],
+    )
+    html_root.mkdir(parents=True, exist_ok=True)
+
+    run_stage_mfl_html_for_import(
+        start_year=2017,
+        end_year=2017,
+        api_root=str(api_root),
+        html_root=str(html_root),
+        output_root=str(output_root),
+        overwrite=True,
+    )
+
+    manual_override = output_root / "manual_overrides" / "draftResults" / "2017.csv"
+    _write_csv(
+        manual_override,
+        ["season", "league_id", "franchise_id", "player_mfl_id"],
+        [{"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "12625"}],
+    )
+
+    run_stage_mfl_html_for_import(
+        start_year=2017,
+        end_year=2017,
+        api_root=str(api_root),
+        html_root=str(html_root),
+        output_root=str(output_root),
+        overwrite=True,
+    )
+
+    with (output_root / "draftResults" / "2017.csv").open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+
+    assert "draft_source" in (reader.fieldnames or [])
+    assert "draft_style" in (reader.fieldnames or [])
+    assert len(rows) == 1
+    assert rows[0]["season"] == "2017"
+    assert rows[0]["league_id"] == "38909"
+    assert rows[0]["franchise_id"] == "0007"
+    assert rows[0]["player_mfl_id"] == "12625"
+    assert (rows[0].get("draft_source") or "").strip() == ""
+    assert (rows[0].get("draft_style") or "").strip() == ""

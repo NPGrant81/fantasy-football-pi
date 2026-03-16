@@ -20,6 +20,8 @@ def test_normalize_draft_results_filters_order_only_rows():
     assert rows[0]["player_mfl_id"] == "1002"
     assert rows[0]["round"] == "01"
     assert rows[0]["pick_number"] == "02"
+    assert rows[0]["draft_source"] == "draftResults"
+    assert rows[0]["draft_style"] == "snake"
 
 
 def test_normalize_draft_results_reads_static_url_when_inline_missing(monkeypatch):
@@ -59,6 +61,8 @@ def test_normalize_draft_results_reads_static_url_when_inline_missing(monkeypatc
     assert rows[0]["franchise_id"] == "0002"
     assert rows[0]["player_mfl_id"] == "1002"
     assert rows[0]["winning_bid"] == "15"
+    assert rows[0]["draft_source"] == "draftResults"
+    assert rows[0]["draft_style"] == "snake"
 
 
 def test_normalize_draft_results_uses_auction_results_fallback_when_players_missing():
@@ -94,3 +98,5 @@ def test_normalize_draft_results_uses_auction_results_fallback_when_players_miss
     assert rows[0]["franchise_id"] == "0007"
     assert rows[0]["player_mfl_id"] == "12625"
     assert rows[0]["winning_bid"] == "42"
+    assert rows[0]["draft_source"] == "auctionResults"
+    assert rows[0]["draft_style"] == "auction"

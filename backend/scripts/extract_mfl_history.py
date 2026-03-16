@@ -180,7 +180,28 @@ def _normalize_franchises(payload: dict[str, Any], season: int, league_id: str, 
 
 
 def _normalize_draft_results(payload: dict[str, Any], season: int, league_id: str, extracted_at: str) -> list[dict[str, Any]]:
+    def _infer_draft_style(*, pick: dict[str, Any], draft_unit: dict[str, Any], source: str) -> str:
+        if source == "auctionResults":
+            return "auction"
+
+        draft_type = str(_first_non_empty(draft_unit, ["draftType"], "") or "").strip().lower()
+        if "auction" in draft_type:
+            return "auction"
+
+        # Classic snake drafts expose explicit round/pick sequencing and/or round 1 order.
+        if str(_first_non_empty(pick, ["round"], "") or "").strip() or str(_first_non_empty(pick, ["pick", "pickNumber"], "") or "").strip():
+            return "snake"
+        if str(_first_non_empty(draft_unit, ["round1DraftOrder"], "") or "").strip():
+            return "snake"
+
+        # Bid-based fields indicate auction-like semantics when no explicit sequence exists.
+        if str(_first_non_empty(pick, ["cost", "amount", "bid", "winningBid"], "") or "").strip():
+            return "auction"
+
+        return "unknown"
+
     def _coerce_pick(pick: dict[str, Any]) -> dict[str, Any]:
+        source = str(_first_non_empty(pick, ["source"], "draftResults") or "draftResults")
         return {
             "franchise_id": _first_non_empty(pick, ["franchise", "franchise_id"]),
             "player_mfl_id": _first_non_empty(pick, ["player", "player_id"]),
@@ -188,6 +209,8 @@ def _normalize_draft_results(payload: dict[str, Any], season: int, league_id: st
             "round": _first_non_empty(pick, ["round"]),
             "winning_bid": _first_non_empty(pick, ["cost", "amount", "bid"]),
             "is_keeper_pick": str(_first_non_empty(pick, ["keeper"], "0")).lower() in {"1", "true", "yes"},
+            "draft_source": source,
+            "draft_style": _infer_draft_style(pick=pick, draft_unit=draft_unit if isinstance(draft_unit, dict) else {}, source=source),
             "raw_pick": json.dumps(pick, separators=(",", ":")),
         }
 
