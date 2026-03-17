@@ -26,6 +26,7 @@ from .scripts.normalize_mfl_html_records import run_normalize_mfl_html_records
 from .scripts.prepare_mfl_draft_backfill_sheet import run_prepare_mfl_draft_backfill_sheet
 from .scripts.reconcile_mfl_import import run_reconcile_mfl_import
 from .scripts.restore_mfl_archive import run_restore_mfl_archive
+from .scripts.resolve_mfl_draft_backfill_names import run_resolve_mfl_draft_backfill_names
 from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
 from .scripts.seed import run_seeder
 from .scripts.stage_mfl_html_for_import import run_stage_mfl_html_for_import
@@ -799,6 +800,56 @@ def apply_mfl_draft_backfill_sheet(
     click.echo(f"- Rows appended: {summary['rows_appended']}")
     click.echo(f"- Rows skipped missing player id: {summary['rows_skipped_missing_player_id']}")
     click.echo(f"- Rows skipped missing source url: {summary['rows_skipped_missing_source_url']}")
+    click.echo(f"- Sheet root: {summary['sheet_root']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("resolve-mfl-draft-backfill-names")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing player snapshots and backfill sheets.")
+@click.option("--start-year", type=int, required=True, help="First season year to resolve.")
+@click.option("--end-year", type=int, required=True, help="Last season year to resolve.")
+@click.option(
+    "--sheet-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    default=None,
+    help="Optional sheet folder (default: <input-root>/manual_overrides/draft_backfill_sheets).",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Write resolved player_mfl_id values back into sheet CSVs (default: report-only dry-run).",
+)
+def resolve_mfl_draft_backfill_names(
+    input_root: str,
+    start_year: int,
+    end_year: int,
+    sheet_root: str | None,
+    apply_changes: bool,
+):
+    """Resolve manual draft player names to season player_mfl_id values."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    summary = run_resolve_mfl_draft_backfill_names(
+        input_root=input_root,
+        start_year=start_year,
+        end_year=end_year,
+        sheet_root=sheet_root,
+        apply_changes=apply_changes,
+    )
+
+    click.echo("MFL draft backfill name resolve summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Rows seen: {summary['rows_seen']}")
+    click.echo(f"- Rows matched: {summary['rows_matched']}")
+    click.echo(f"- Rows already filled: {summary['rows_already_filled']}")
+    click.echo(f"- Rows skipped no manual name: {summary['rows_skipped_no_manual_name']}")
+    click.echo(f"- Rows unmatched: {summary['rows_unmatched']}")
+    click.echo(f"- Rows ambiguous: {summary['rows_ambiguous']}")
     click.echo(f"- Sheet root: {summary['sheet_root']}")
     if summary["warnings"]:
         click.echo(f"- Warnings: {len(summary['warnings'])}")
