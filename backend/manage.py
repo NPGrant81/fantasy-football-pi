@@ -16,6 +16,7 @@ from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_a
 from .scripts.archive_mfl_csv_exports import run_archive_mfl_csv_exports
 from .scripts.archive_mfl_json_exports import run_archive_mfl_json_exports
 from .scripts.archive_mfl_html_exports import run_archive_mfl_html_exports
+from .scripts.apply_mfl_draft_backfill_sheet import run_apply_mfl_draft_backfill_sheet
 from .scripts.extract_mfl_history import run_mfl_history_extract
 from .scripts.extract_mfl_html_reports import run_extract_mfl_html_reports
 from .scripts.finalize_week import run_finalization
@@ -741,6 +742,64 @@ def prepare_mfl_draft_backfill_sheet(
     click.echo(f"- Rows skipped already filled: {summary['rows_skipped_already_filled']}")
     click.echo(f"- Style counts: {summary['style_counts']}")
     click.echo(f"- Output root: {summary['output_root']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("apply-mfl-draft-backfill-sheet")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing manual override CSVs.")
+@click.option("--start-year", type=int, required=True, help="First season year to apply.")
+@click.option("--end-year", type=int, required=True, help="Last season year to apply.")
+@click.option(
+    "--sheet-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    default=None,
+    help="Optional folder containing completed backfill sheets (default: <input-root>/manual_overrides/draft_backfill_sheets).",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Write updates into manual override CSVs (default: report-only dry-run).",
+)
+@click.option(
+    "--require-source-url",
+    is_flag=True,
+    default=False,
+    help="Only apply rows that include manual_source_url evidence.",
+)
+def apply_mfl_draft_backfill_sheet(
+    input_root: str,
+    start_year: int,
+    end_year: int,
+    sheet_root: str | None,
+    apply_changes: bool,
+    require_source_url: bool,
+):
+    """Apply completed draft backfill sheets into manual override CSVs."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=input_root,
+        start_year=start_year,
+        end_year=end_year,
+        sheet_root=sheet_root,
+        apply_changes=apply_changes,
+        require_source_url=require_source_url,
+    )
+
+    click.echo("MFL backfill sheet apply summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Sheets missing: {summary['sheets_missing']}")
+    click.echo(f"- Candidate rows: {summary['candidate_rows']}")
+    click.echo(f"- Rows updated: {summary['rows_updated']}")
+    click.echo(f"- Rows appended: {summary['rows_appended']}")
+    click.echo(f"- Rows skipped missing player id: {summary['rows_skipped_missing_player_id']}")
+    click.echo(f"- Rows skipped missing source url: {summary['rows_skipped_missing_source_url']}")
+    click.echo(f"- Sheet root: {summary['sheet_root']}")
     if summary["warnings"]:
         click.echo(f"- Warnings: {len(summary['warnings'])}")
 
