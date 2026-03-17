@@ -98,3 +98,75 @@ def test_apply_backfill_sheet_can_require_source_url(tmp_path):
     assert summary["rows_skipped_missing_source_url"] == 1
     updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2002.csv")
     assert updated_rows[0]["player_mfl_id"] == ""
+
+
+def test_apply_backfill_sheet_blocks_known_2002_legacy_source(tmp_path):
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2002.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0010", "player_mfl_id": "", "round": "01", "pick_number": "01"}],
+    )
+    _write_csv(
+        sheet_root / "2002.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "player_mfl_id", "manual_source_url"],
+        [{
+            "season": "2002",
+            "league_id": "29721",
+            "franchise_id": "0010",
+            "round": "01",
+            "pick_number": "01",
+            "player_mfl_id": "0501",
+            "manual_source_url": "https://www47.myfantasyleague.com/2002/options?L=29721&O=17&&DISPLAY=LEAGUE&CMD=LIST",
+        }],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2002,
+        end_year=2002,
+        apply_changes=True,
+    )
+
+    assert summary["rows_skipped_blocked_source_policy"] == 1
+    updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2002.csv")
+    assert updated_rows[0]["player_mfl_id"] == ""
+
+
+def test_apply_backfill_sheet_can_disable_2002_source_policy(tmp_path):
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2002.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0010", "player_mfl_id": "", "round": "01", "pick_number": "01"}],
+    )
+    _write_csv(
+        sheet_root / "2002.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "player_mfl_id", "manual_source_url"],
+        [{
+            "season": "2002",
+            "league_id": "29721",
+            "franchise_id": "0010",
+            "round": "01",
+            "pick_number": "01",
+            "player_mfl_id": "0501",
+            "manual_source_url": "https://www47.myfantasyleague.com/2002/options?L=29721&O=17&&DISPLAY=LEAGUE&CMD=LIST",
+        }],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2002,
+        end_year=2002,
+        apply_changes=True,
+        enforce_2002_source_policy=False,
+    )
+
+    assert summary["rows_skipped_blocked_source_policy"] == 0
+    assert summary["rows_updated"] == 1
+    updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2002.csv")
+    assert updated_rows[0]["player_mfl_id"] == "0501"

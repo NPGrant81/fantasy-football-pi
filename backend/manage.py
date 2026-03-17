@@ -770,6 +770,11 @@ def prepare_mfl_draft_backfill_sheet(
     default=False,
     help="Only apply rows that include manual_source_url evidence.",
 )
+@click.option(
+    "--enforce-2002-source-policy/--no-enforce-2002-source-policy",
+    default=True,
+    help="Enforce policy that blocks known invalid 2002 draft sources and requires source URL evidence.",
+)
 def apply_mfl_draft_backfill_sheet(
     input_root: str,
     start_year: int,
@@ -777,6 +782,7 @@ def apply_mfl_draft_backfill_sheet(
     sheet_root: str | None,
     apply_changes: bool,
     require_source_url: bool,
+    enforce_2002_source_policy: bool,
 ):
     """Apply completed draft backfill sheets into manual override CSVs."""
     if end_year < start_year:
@@ -789,6 +795,7 @@ def apply_mfl_draft_backfill_sheet(
         sheet_root=sheet_root,
         apply_changes=apply_changes,
         require_source_url=require_source_url,
+        enforce_2002_source_policy=enforce_2002_source_policy,
     )
 
     click.echo("MFL backfill sheet apply summary")
@@ -800,6 +807,7 @@ def apply_mfl_draft_backfill_sheet(
     click.echo(f"- Rows appended: {summary['rows_appended']}")
     click.echo(f"- Rows skipped missing player id: {summary['rows_skipped_missing_player_id']}")
     click.echo(f"- Rows skipped missing source url: {summary['rows_skipped_missing_source_url']}")
+    click.echo(f"- Rows skipped blocked source policy: {summary['rows_skipped_blocked_source_policy']}")
     click.echo(f"- Sheet root: {summary['sheet_root']}")
     if summary["warnings"]:
         click.echo(f"- Warnings: {len(summary['warnings'])}")

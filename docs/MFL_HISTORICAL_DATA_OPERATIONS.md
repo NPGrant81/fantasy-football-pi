@@ -103,6 +103,31 @@ Review before apply:
 - rows seen vs rows inserted vs rows skipped existing
 - target league id, which should remain `60` for this migration path
 
+### 3b. Compliance Gate For Draft Backfill Sheets
+
+Before any `import-mfl-csv --apply` run that depends on manual draft overrides, validate the sheet-apply stage in dry-run mode:
+
+```powershell
+python3.13.exe -m backend.manage apply-mfl-draft-backfill-sheet \
+  --input-root backend/exports/history_staged_2003 \
+  --start-year 2003 \
+  --end-year 2003 \
+  --require-source-url
+```
+
+For any 2002 scope, keep the default 2002 source policy enabled. This policy requires `manual_source_url` and blocks known non-sourceable legacy feeds (`2002 O=17` and matching API draft endpoints).
+
+Apply mode for sheet sync should only be used after dry-run summary shows zero policy skips for rows you intend to carry forward:
+
+```powershell
+python3.13.exe -m backend.manage apply-mfl-draft-backfill-sheet \
+  --input-root backend/exports/history_staged_2003 \
+  --start-year 2003 \
+  --end-year 2003 \
+  --require-source-url \
+  --apply
+```
+
 ### 4. Apply The Database Load
 
 Apply only after dry-run looks correct:

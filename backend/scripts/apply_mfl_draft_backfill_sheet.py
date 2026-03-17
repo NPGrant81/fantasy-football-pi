@@ -20,6 +20,12 @@ MANUAL_HEADERS = [
     "is_keeper_pick",
 ]
 
+BLOCKED_2002_SOURCE_MARKERS = (
+    "myfantasyleague.com/2002/options",
+    "api.myfantasyleague.com/2002/export?type=draftresults",
+    "api.myfantasyleague.com/2002/export?type=auctionresults",
+)
+
 
 @dataclass
 class BackfillApplySummary:
@@ -34,6 +40,7 @@ class BackfillApplySummary:
     rows_appended: int = 0
     rows_skipped_missing_player_id: int = 0
     rows_skipped_missing_source_url: int = 0
+    rows_skipped_blocked_source_policy: int = 0
     warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -49,8 +56,18 @@ class BackfillApplySummary:
             "rows_appended": self.rows_appended,
             "rows_skipped_missing_player_id": self.rows_skipped_missing_player_id,
             "rows_skipped_missing_source_url": self.rows_skipped_missing_source_url,
+            "rows_skipped_blocked_source_policy": self.rows_skipped_blocked_source_policy,
             "warnings": self.warnings,
         }
+
+
+def _is_blocked_2002_source(source_url: str) -> bool:
+    normalized = source_url.strip().lower()
+    if not normalized:
+        return False
+    if not any(marker in normalized for marker in BLOCKED_2002_SOURCE_MARKERS):
+        return False
+    return ("o=17" in normalized) or ("type=draftresults" in normalized) or ("type=auctionresults" in normalized)
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:
@@ -99,6 +116,7 @@ def run_apply_mfl_draft_backfill_sheet(
     sheet_root: str | None = None,
     apply_changes: bool = False,
     require_source_url: bool = False,
+    enforce_2002_source_policy: bool = True,
 ) -> dict[str, Any]:
     seasons = list(range(start_year, end_year + 1))
     input_base = Path(input_root)
@@ -137,6 +155,20 @@ def run_apply_mfl_draft_backfill_sheet(
             if require_source_url and not source_url:
                 summary.rows_skipped_missing_source_url += 1
                 continue
+
+            if enforce_2002_source_policy and str(row.get("season") or "").strip() == "2002":
+                if not source_url:
+                    summary.rows_skipped_missing_source_url += 1
+                    summary.warnings.append(
+                        "season=2002 skipped because manual_source_url is required by 2002 source policy"
+                    )
+                    continue
+                if _is_blocked_2002_source(source_url):
+                    summary.rows_skipped_blocked_source_policy += 1
+                    summary.warnings.append(
+                        "season=2002 skipped because source URL matches known blocked legacy draft feed"
+                    )
+                    continue
 
             normalized = _normalize_manual_row(row)
             key = _row_key(normalized)
