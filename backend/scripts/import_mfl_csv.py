@@ -150,6 +150,11 @@ def _build_owner_map(
         for u in users
         if (u.username or "").strip()
     }
+    by_stub_franchise_id = {
+        username.rsplit("_", 1)[-1]: user_id
+        for username, user_id in by_username.items()
+        if username.startswith("hist_") and "_" in username
+    }
 
     owner_map: dict[tuple[int, str], int] = {}
     for row in franchise_rows:
@@ -166,6 +171,7 @@ def _build_owner_map(
             or by_username.get(franchise_name)
             or by_team_name.get(owner_name)
             or by_username.get(owner_name)
+            or by_stub_franchise_id.get(franchise_id)
         )
 
         if mapped_user_id:

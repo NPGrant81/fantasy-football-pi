@@ -620,23 +620,41 @@ def bootstrap_mfl_franchise_users(
         existing_in_league = db.query(models.User).filter(models.User.league_id == target_league_id).all()
         existing_team_lower = {(u.team_name or "").strip().lower() for u in existing_in_league}
         all_usernames_lower = {(u.username or "").strip().lower() for u in db.query(models.User.username).all()}
+        existing_stub_by_franchise_id = {
+            username.rsplit("_", 1)[-1]: user.id
+            for user in existing_in_league
+            if (username := (user.username or "").strip().lower()).startswith("hist_") and "_" in username
+        }
 
         to_create: list[dict] = []
         skipped: list[str] = []
         seen_names: set[str] = set()
+        updates: list[dict] = []
 
         for row in rows:
             franchise_name = (row.get("franchise_name") or "").strip()
+            franchise_id = (row.get("franchise_id") or "").strip()
+            season = (row.get("season") or "").strip()
+            if not franchise_id:
+                continue
             if not franchise_name:
                 continue
             fname_lower = franchise_name.lower()
+            existing_stub_id = existing_stub_by_franchise_id.get(franchise_id)
+            if existing_stub_id is not None:
+                updates.append({
+                    "user_id": existing_stub_id,
+                    "team_name": franchise_name,
+                    "franchise_id": franchise_id,
+                    "season": season,
+                })
+                skipped.append(franchise_name)
+                continue
             if fname_lower in existing_team_lower or fname_lower in seen_names:
                 skipped.append(franchise_name)
                 continue
             seen_names.add(fname_lower)
 
-            franchise_id = (row.get("franchise_id") or "").strip()
-            season = (row.get("season") or "").strip()
             base = f"hist_{season}_{franchise_id}".lower()
             username = base
             suffix = 2
@@ -657,11 +675,19 @@ def bootstrap_mfl_franchise_users(
         click.echo(f"- Target league: {target_league_id}")
         click.echo(f"- Rows in CSV: {len(rows)}")
         click.echo(f"- Users to create: {len(to_create)}")
+        click.echo(f"- Existing stubs to refresh: {len(updates)}")
         click.echo(f"- Already exist (skipped): {len(skipped)}")
         for entry in to_create:
             click.echo(f"  [{entry['season']}:{entry['franchise_id']}] {entry['team_name']} -> username={entry['username']}")
+        for entry in updates:
+            click.echo(f"  [{entry['season']}:{entry['franchise_id']}] refresh existing stub -> team_name={entry['team_name']}")
 
-        if apply_changes and to_create:
+        if apply_changes:
+            for entry in updates:
+                user = db.query(models.User).filter(models.User.id == entry["user_id"]).one_or_none()
+                if user is not None:
+                    user.team_name = entry["team_name"]
+
             for entry in to_create:
                 user = models.User(
                     username=entry["username"],
@@ -673,8 +699,12 @@ def bootstrap_mfl_franchise_users(
                     is_commissioner=False,
                 )
                 db.add(user)
-            db.commit()
-            click.echo(f"- Inserted {len(to_create)} stub users into league {target_league_id}.")
+            if updates or to_create:
+                db.commit()
+            if to_create:
+                click.echo(f"- Inserted {len(to_create)} stub users into league {target_league_id}.")
+            if updates:
+                click.echo(f"- Refreshed {len(updates)} existing stub users in league {target_league_id}.")
     finally:
         db.close()
 
