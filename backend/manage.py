@@ -30,6 +30,8 @@ from .scripts.resolve_mfl_draft_backfill_names import run_resolve_mfl_draft_back
 from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
 from .scripts.seed import run_seeder
 from .scripts.stage_mfl_html_for_import import run_stage_mfl_html_for_import
+import csv as _csv
+from . import models
 
 
 @click.group()
@@ -599,6 +601,84 @@ def import_mfl_csv(
     click.echo(f"- Skipped missing player map: {summary['skipped_missing_player_map']}")
 
 
+@cli.command("bootstrap-mfl-franchise-users")
+@click.option("--franchises-csv", type=click.Path(file_okay=True, dir_okay=False, exists=True), required=True, help="Path to a staged franchises CSV (e.g. exports/history_staged_2003/franchises/2003.csv).")
+@click.option("--target-league-id", type=int, required=True, help="App league_id to create stub users in.")
+@click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write users to DB (default dry-run).")
+def bootstrap_mfl_franchise_users(
+    franchises_csv: str,
+    target_league_id: int,
+    apply_changes: bool,
+):
+    """Create locked stub user accounts for historical MFL franchises not yet in the league."""
+    rows: list[dict] = []
+    with open(franchises_csv, newline="", encoding="utf-8") as fh:
+        rows = list(_csv.DictReader(fh))
+
+    db = SessionLocal()
+    try:
+        existing_in_league = db.query(models.User).filter(models.User.league_id == target_league_id).all()
+        existing_team_lower = {(u.team_name or "").strip().lower() for u in existing_in_league}
+        all_usernames_lower = {(u.username or "").strip().lower() for u in db.query(models.User.username).all()}
+
+        to_create: list[dict] = []
+        skipped: list[str] = []
+        seen_names: set[str] = set()
+
+        for row in rows:
+            franchise_name = (row.get("franchise_name") or "").strip()
+            if not franchise_name:
+                continue
+            fname_lower = franchise_name.lower()
+            if fname_lower in existing_team_lower or fname_lower in seen_names:
+                skipped.append(franchise_name)
+                continue
+            seen_names.add(fname_lower)
+
+            franchise_id = (row.get("franchise_id") or "").strip()
+            season = (row.get("season") or "").strip()
+            base = f"hist_{season}_{franchise_id}".lower()
+            username = base
+            suffix = 2
+            while username in all_usernames_lower:
+                username = f"{base}_{suffix}"
+                suffix += 1
+            all_usernames_lower.add(username)
+
+            to_create.append({
+                "username": username,
+                "team_name": franchise_name,
+                "franchise_id": franchise_id,
+                "season": season,
+            })
+
+        click.echo("Bootstrap MFL franchise users")
+        click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+        click.echo(f"- Target league: {target_league_id}")
+        click.echo(f"- Rows in CSV: {len(rows)}")
+        click.echo(f"- Users to create: {len(to_create)}")
+        click.echo(f"- Already exist (skipped): {len(skipped)}")
+        for entry in to_create:
+            click.echo(f"  [{entry['season']}:{entry['franchise_id']}] {entry['team_name']} -> username={entry['username']}")
+
+        if apply_changes and to_create:
+            for entry in to_create:
+                user = models.User(
+                    username=entry["username"],
+                    email=None,
+                    hashed_password=get_password_hash(f"locked_{entry['franchise_id']}_{target_league_id}"),
+                    league_id=target_league_id,
+                    team_name=entry["team_name"],
+                    is_superuser=False,
+                    is_commissioner=False,
+                )
+                db.add(user)
+            db.commit()
+            click.echo(f"- Inserted {len(to_create)} stub users into league {target_league_id}.")
+    finally:
+        db.close()
+
+
 @cli.command("scaffold-mfl-manual-csv")
 @click.option("--start-year", type=int, required=True, help="First season year to scaffold.")
 @click.option("--end-year", type=int, required=True, help="Last season year to scaffold.")
@@ -891,7 +971,7 @@ def reconcile_mfl_import(
     click.echo("MFL import reconciliation summary")
     click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
     click.echo(f"- Mismatch count: {summary['mismatch_count']}")
-    click.echo(f"- Warnings: {len(summary['warnings'])}")
+
     if output_json:
         click.echo(f"- JSON report: {output_json}")
 
