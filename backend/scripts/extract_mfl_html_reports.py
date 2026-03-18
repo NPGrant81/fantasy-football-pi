@@ -49,7 +49,34 @@ DEFAULT_REPORT_PAGES = [
 KNOWN_HOST_BY_SEASON: dict[int, str] = {
     2002: "https://www47.myfantasyleague.com",
     2003: "https://www44.myfantasyleague.com",
+    2004: "https://www43.myfantasyleague.com",
+    2005: "https://www44.myfantasyleague.com",
+    2006: "https://www45.myfantasyleague.com",
+    2007: "https://www44.myfantasyleague.com",
+    2008: "https://www42.myfantasyleague.com",
+    2009: "https://www49.myfantasyleague.com",
+    2010: "https://www49.myfantasyleague.com",
+    2011: "https://www48.myfantasyleague.com",
+    2012: "https://www49.myfantasyleague.com",
+    2013: "https://www49.myfantasyleague.com",
+    2014: "https://www48.myfantasyleague.com",
+    2015: "https://www47.myfantasyleague.com",
+    2016: "https://www47.myfantasyleague.com",
+    2017: "http://www47.myfantasyleague.com",
+    2018: "http://www47.myfantasyleague.com",
+    2019: "http://www47.myfantasyleague.com",
+    2020: "https://www47.myfantasyleague.com",
+    2021: "https://www47.myfantasyleague.com",
+    2022: "https://www46.myfantasyleague.com",
+    2023: "https://www46.myfantasyleague.com",
+    2024: "https://www46.myfantasyleague.com",
 }
+
+# Fallback host probes for options-page resolution when API host discovery is throttled.
+HOST_PROBE_CANDIDATES = [
+    "https://www46.myfantasyleague.com",
+    "https://www44.myfantasyleague.com",
+]
 
 
 @dataclass
@@ -110,22 +137,41 @@ def _fetch_report_html(*, url: str, timeout_seconds: int, session_cookie: str | 
     return response.text
 
 
-def _resolve_html_host(*, season: int, league_id: str, timeout_seconds: int) -> str | None:
+def _resolve_html_host(*, season: int, league_id: str, timeout_seconds: int, session_cookie: str | None = None) -> str | None:
     known_host = KNOWN_HOST_BY_SEASON.get(season)
     if known_host:
         return known_host
 
     url = f"{API_BASE}/{season}/export"
     params = {"TYPE": "league", "L": league_id, "JSON": 1}
+    headers = {"User-Agent": "fantasy-football-pi-mfl-html-extractor/0.1"}
+    if session_cookie:
+        headers["Cookie"] = session_cookie
+
     try:
-        response = requests.get(url, params=params, timeout=timeout_seconds)
+        response = requests.get(url, params=params, headers=headers, timeout=timeout_seconds)
         response.raise_for_status()
     except Exception:  # noqa: BLE001
-        return None
+        response = None
 
-    parsed = urlparse(response.url)
-    if parsed.scheme and parsed.netloc:
-        return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+    if response is not None:
+        parsed = urlparse(response.url)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+    # Fallback: probe options-page hosts directly, then trust the final redirect target.
+    for candidate in HOST_PROBE_CANDIDATES:
+        probe_url = f"{candidate}/{season}/options?L={league_id}&O=194"
+        try:
+            probe = requests.get(probe_url, headers=headers, timeout=timeout_seconds)
+            probe.raise_for_status()
+        except Exception:  # noqa: BLE001
+            continue
+
+        parsed = urlparse(probe.url)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
     return None
 
 
@@ -321,6 +367,7 @@ def run_extract_mfl_html_reports(
                 season=season,
                 league_id=league_id,
                 timeout_seconds=timeout_seconds,
+                session_cookie=session_cookie,
             )
         host = host_cache[host_key]
         if not host:
