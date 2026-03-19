@@ -47,8 +47,8 @@ The goal is to boot directly into a reachable headless Linux host without needin
 2. Connect Ethernet if available.
 3. Power on the device and wait 1-2 minutes for first boot.
 4. Determine the host to connect to:
-	- Preferred: `<hostname>.local`
-	- Fallback: DHCP-assigned IP from the router or DHCP lease table
+    - Preferred: `<hostname>.local`
+    - Fallback: DHCP-assigned IP from the router or DHCP lease table
 
 If `.local` name resolution is unreliable on the workstation, use the Pi IP address directly.
 
