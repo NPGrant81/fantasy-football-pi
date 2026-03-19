@@ -1,7 +1,7 @@
-### Issue #81 — Phase 1: Raspberry Pi OS Setup
+### Issue 5 — Raspberry Pi Deployment Setup (Phase 1: Raspberry Pi OS Setup)
 
 **GitHub Issue:** #81  
-**Milestone:** Milestone 1 - Core Application Foundation  
+**Milestone:** Milestone 2 — Raspberry Pi Deployment Setup  
 **Labels:** `devops`
 
 ---
