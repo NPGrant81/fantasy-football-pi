@@ -49,6 +49,8 @@ class League(Base):
     name = Column(String, unique=True, index=True)
     draft_status = Column(String, default="PRE_DRAFT") 
     created_at = Column(String, nullable=True)
+    # tracks the calendar year of the currently active/live season
+    current_season = Column(Integer, nullable=True, index=True)
 
     # Relationships
     users = relationship("User", back_populates="league")
@@ -62,6 +64,31 @@ class League(Base):
     scoring_templates = relationship("ScoringTemplate", back_populates="league")
     scoring_rule_changes = relationship("ScoringRuleChangeLog", back_populates="league")
     scoring_rule_proposals = relationship("ScoringRuleProposal", back_populates="league")
+    mfl_seasons = relationship("LeagueMflSeason", back_populates="league", order_by="LeagueMflSeason.season")
+
+# --- 2.1 LEAGUE MFL SEASON MAPPING ---
+class LeagueMflSeason(Base):
+    """Maps each app league to its MFL source league ID for a given season year.
+
+    MFL assigns a new numeric league ID every season, so this table is the
+    canonical resolver: (app_league_id, season) → mfl_source_league_id.
+    Used by the historical import pipeline and for future season rollover.
+    """
+    __tablename__ = "league_mfl_seasons"
+    __table_args__ = (
+        UniqueConstraint("league_id", "season", name="uq_league_mfl_season"),
+    )
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, index=True)
+    season = Column(Integer, nullable=False, index=True)
+    # The numeric ID MFL assigned to this league for this season year
+    mfl_league_id = Column(String, nullable=False)
+    mfl_franchise_count = Column(Integer, nullable=True)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    league = relationship("League", back_populates="mfl_seasons")
+
 
 # --- 3. LEAGUE SETTINGS ---
 class LeagueSettings(Base):
@@ -366,7 +393,20 @@ class NFLGame(Base):
 # --- 6. MATCHUP TABLE ---
 class Matchup(Base):
     __tablename__ = "matchups"
+    __table_args__ = (
+        # Partial unique index enforced at DB level — season must be set for dedup to fire.
+        # Prevents duplicate imports of historical data and live-season double-writes.
+        Index(
+            "uix_matchups_league_season_week_home_away",
+            "league_id", "season", "week", "home_team_id", "away_team_id",
+            unique=True,
+            postgresql_where="season IS NOT NULL",
+        ),
+    )
     id = Column(Integer, primary_key=True, index=True)
+    # Calendar year of the season this matchup belongs to (e.g. 2007, 2024).
+    # Nullable for backward compat; all new rows (historical import + live) must set this.
+    season = Column(Integer, index=True, nullable=True)
     week = Column(Integer, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
 
@@ -375,9 +415,11 @@ class Matchup(Base):
     home_score = Column(Float, default=0.0)
     away_score = Column(Float, default=0.0)
     is_completed = Column(Boolean, default=False)
-    
+
     # Game status: NOT_STARTED, IN_PROGRESS, FINAL
     game_status = Column(String, default='NOT_STARTED')
+    # True for playoff rounds; False for regular-season weeks
+    is_playoff = Column(Boolean, default=False, nullable=False)
     is_division_matchup = Column(Boolean, default=False)
     is_rivalry_week = Column(Boolean, default=False)
     rivalry_name = Column(String, nullable=True)
@@ -597,6 +639,9 @@ class TransactionHistory(Base):
     __tablename__ = "transaction_history"
     id = Column(Integer, primary_key=True, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    # Calendar year of the season this transaction belongs to (e.g. 2007, 2024).
+    # Nullable for backward compat; all new rows must set this.
+    season = Column(Integer, index=True, nullable=True)
     player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     old_owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     new_owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)

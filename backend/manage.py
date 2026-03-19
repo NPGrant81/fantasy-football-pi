@@ -30,6 +30,9 @@ from .scripts.resolve_mfl_draft_backfill_names import run_resolve_mfl_draft_back
 from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
 from .scripts.seed import run_seeder
 from .scripts.stage_mfl_html_for_import import run_stage_mfl_html_for_import
+from .scripts.validation.validate_mfl_import import run_validate_mfl_import, format_validation_output
+from .scripts.validation.validate_season_hierarchy import run_validate_season_hierarchy, format_season_hierarchy_output
+from .scripts.validation.validate_league_readiness import run_validate_league_readiness, format_league_readiness_output
 import csv as _csv
 from . import models
 
@@ -131,6 +134,62 @@ def audit_invalid_players(
     default=None,
     help="Optional MFL auth cookie string for private league exports.",
 )
+@click.option(
+    "--max-retries-per-request",
+    type=int,
+    default=6,
+    show_default=True,
+    help="Retry count per request for 429/5xx/network errors.",
+)
+@click.option(
+    "--min-interval-seconds",
+    type=float,
+    default=0.35,
+    show_default=True,
+    help="Minimum delay between requests to avoid burst throttling.",
+)
+@click.option(
+    "--base-backoff-seconds",
+    type=float,
+    default=3.0,
+    show_default=True,
+    help="Base exponential backoff delay for retries.",
+)
+@click.option(
+    "--max-backoff-seconds",
+    type=float,
+    default=90.0,
+    show_default=True,
+    help="Upper bound for computed retry delay.",
+)
+@click.option(
+    "--jitter-seconds",
+    type=float,
+    default=1.0,
+    show_default=True,
+    help="Random jitter added to retry delay.",
+)
+@click.option(
+    "--cooldown-after-burst-seconds",
+    type=float,
+    default=15.0,
+    show_default=True,
+    help="Extra cooldown applied after repeated 429 responses.",
+)
+@click.option(
+    "--burst-threshold",
+    type=int,
+    default=3,
+    show_default=True,
+    help="Consecutive 429 count that triggers burst cooldown.",
+)
+@click.option(
+    "--max-retry-after-seconds",
+    type=float,
+    default=300.0,
+    show_default=True,
+    help="Cap for server-provided Retry-After delay.",
+)
 def extract_mfl_history(
     start_year: int,
     end_year: int,
@@ -138,6 +197,14 @@ def extract_mfl_history(
     output_root: str,
     timeout_seconds: int,
     session_cookie: str | None,
+    max_retries_per_request: int,
+    min_interval_seconds: float,
+    base_backoff_seconds: float,
+    max_backoff_seconds: float,
+    jitter_seconds: float,
+    cooldown_after_burst_seconds: float,
+    burst_threshold: int,
+    max_retry_after_seconds: float,
 ):
     """Extract MFL exports into normalized CSV files for migration."""
     report_type_list = [part.strip() for part in report_types.split(",") if part.strip()]
@@ -148,6 +215,14 @@ def extract_mfl_history(
         output_root=output_root,
         timeout_seconds=timeout_seconds,
         session_cookie=session_cookie,
+        max_retries_per_request=max_retries_per_request,
+        min_interval_seconds=min_interval_seconds,
+        base_backoff_seconds=base_backoff_seconds,
+        max_backoff_seconds=max_backoff_seconds,
+        jitter_seconds=jitter_seconds,
+        cooldown_after_burst_seconds=cooldown_after_burst_seconds,
+        burst_threshold=burst_threshold,
+        max_retry_after_seconds=max_retry_after_seconds,
     )
 
     click.echo("MFL extraction summary")
@@ -155,6 +230,9 @@ def extract_mfl_history(
     click.echo(f"- Reports extracted: {summary['extracted_reports']}")
     click.echo(f"- Seasons skipped (missing league id): {summary['skipped_missing_league_id']}")
     click.echo(f"- Failed report pulls: {summary['failed_reports']}")
+    click.echo(f"- Retry attempts: {summary['retry_attempts']}")
+    click.echo(f"- Throttled retries: {summary['throttled_retries']}")
+    click.echo(f"- Unresolved failures: {summary['unresolved_failures']}")
     click.echo(f"- Output root: {summary['output_root']}")
 
 
@@ -597,6 +675,9 @@ def import_mfl_csv(
     click.echo(f"- Players matched: {summary['players_matched']}")
     click.echo(f"- Draft picks inserted: {summary['draft_picks_inserted']}")
     click.echo(f"- Draft picks skipped: {summary['draft_picks_skipped']}")
+    click.echo(f"- Matchups inserted: {summary['matchups_inserted']}")
+    click.echo(f"- Matchups skipped: {summary['matchups_skipped']}")
+    click.echo(f"- BYE matchups skipped: {summary['bye_matchups_skipped']}")
     click.echo(f"- Skipped missing owner map: {summary['skipped_missing_owner_map']}")
     click.echo(f"- Skipped missing player map: {summary['skipped_missing_player_map']}")
 
@@ -1033,6 +1114,50 @@ def finalize_week_command(league_id: int, week: int, season: int, season_year: i
         f"Finalized league={result['league_id']} week={result['week']} "
         f"matchups={result['matchups_finalized']}"
     )
+
+
+# ====== VALIDATION COMMAND GROUP ======
+@cli.group("validate")
+def validate_group():
+    """Validation and audit commands for MFL import completeness."""
+    pass
+
+
+@validate_group.command("mfl-import")
+@click.option("--league-id", type=int, required=True, help="League ID to validate.")
+@click.option("--json-output", type=click.Path(dir_okay=False), default=None, help="Optional JSON output file.")
+def validate_mfl_import_cmd(league_id: int, json_output: str | None):
+    """Validate MFL matched counts, FK integrity, and duplicate detection."""
+    summary = run_validate_mfl_import(league_id=league_id, json_output=json_output)
+    output = format_validation_output(summary)
+    click.echo(output)
+    
+    if summary["errors"]:
+        raise click.ClickException("Validation failed with errors")
+
+
+@validate_group.command("season-hierarchy")
+@click.option("--league-id", type=int, required=True, help="League ID to validate.")
+def validate_season_hierarchy_cmd(league_id: int):
+    """Validate season hierarchy completeness (all seasons mapped)."""
+    summary = run_validate_season_hierarchy(league_id=league_id)
+    output = format_season_hierarchy_output(summary)
+    click.echo(output)
+    
+    if summary["errors"]:
+        raise click.ClickException("Validation failed with errors")
+
+
+@validate_group.command("league-readiness")
+@click.option("--league-id", type=int, required=True, help="League ID to validate.")
+def validate_league_readiness_cmd(league_id: int):
+    """Validate league readiness for 2026 season operations."""
+    summary = run_validate_league_readiness(league_id=league_id)
+    output = format_league_readiness_output(summary)
+    click.echo(output)
+    
+    if summary["errors"]:
+        raise click.ClickException("Validation failed with errors")
 
 
 if __name__ == "__main__":
