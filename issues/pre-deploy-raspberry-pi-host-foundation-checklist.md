@@ -201,7 +201,7 @@ Exit criteria before moving to Cloudflare:
 - Host has baseline packages required for app deployment runbooks.
 - Firewall baseline is active without locking out SSH.
 - Intrusion-prevention service is active and monitoring SSH.
-- Notes include exact commands and verification outputs.
+- Notes include exact commands and summarized verification status.
 - Deferred app-coupled tasks are explicitly documented.
 
 ## Follow-on
