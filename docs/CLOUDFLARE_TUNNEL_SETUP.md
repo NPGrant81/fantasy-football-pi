@@ -107,9 +107,24 @@ Target paths on Pi:
 Commands:
 
 ```bash
+# Create config directory (owned by root:cloudflared with 0750 perms)
 sudo mkdir -p /etc/cloudflared
+sudo chown root:cloudflared /etc/cloudflared
+sudo chmod 750 /etc/cloudflared
+
+# Copy example config into place and edit as needed
 sudo cp /home/pi/fantasy-football-pi/deploy/cloudflared/config.ppl-insight-hub-prod1.example.yml /etc/cloudflared/config.yml
 sudo nano /etc/cloudflared/config.yml
+
+# Copy the tunnel credentials JSON into /etc/cloudflared
+# (adjust the source filename/path below to match your real credentials file)
+sudo cp /home/pi/fantasy-football-pi/deploy/cloudflared/ppl-insight-hub-prod1-credentials.json /etc/cloudflared/
+
+# Ensure credentials JSON is readable by the cloudflared user (via group)
+sudo chown root:cloudflared /etc/cloudflared/ppl-insight-hub-prod1-credentials.json
+sudo chmod 640 /etc/cloudflared/ppl-insight-hub-prod1-credentials.json
+
+# Verify final contents and permissions
 sudo ls -la /etc/cloudflared
 ```
 
