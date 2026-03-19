@@ -361,6 +361,47 @@ def _merge_manual_draft_overrides(
         summary.manual_override_rows_merged += len(valid_manual_rows)
 
 
+def _merge_manual_draft_overrides(
+    *,
+    output_root: Path,
+    seasons: list[int],
+    summary: StageSummary,
+) -> None:
+    required = REQUIRED_HEADERS["draftResults"]
+
+    for season in seasons:
+        draft_csv_path = output_root / "draftResults" / f"{season}.csv"
+        manual_path = output_root / "manual_overrides" / "draftResults" / f"{season}.csv"
+        if not draft_csv_path.exists() or not manual_path.exists():
+            continue
+
+        staged_rows = _read_csv_rows(draft_csv_path)
+        manual_rows = _read_csv_rows(manual_path)
+        valid_manual_rows: list[dict[str, str]] = []
+
+        for row in manual_rows:
+            missing = [column for column in required if not str(row.get(column) or "").strip()]
+            if missing:
+                # Header-only templates read back as zero rows, so only warn on actual partial rows.
+                if any(str(value or "").strip() for value in row.values()):
+                    summary.warnings.append(
+                        f"manual override draftResults season={season} has row missing columns {missing}; row skipped"
+                    )
+                continue
+            valid_manual_rows.append({column: str(row.get(column) or "").strip() for column in required})
+
+        if not valid_manual_rows:
+            continue
+
+        merged_by_key = {_draft_override_key(row): {column: str(row.get(column) or "").strip() for column in required} for row in staged_rows}
+        for row in valid_manual_rows:
+            merged_by_key[_draft_override_key(row)] = row
+
+        merged_rows = list(merged_by_key.values())
+        _write_csv_rows(draft_csv_path, required, merged_rows)
+        summary.manual_override_rows_merged += len(valid_manual_rows)
+
+
 def run_stage_mfl_html_for_import(
     *,
     start_year: int,
@@ -398,6 +439,11 @@ def run_stage_mfl_html_for_import(
     )
     _ensure_draft_results_manual_fallback(
         api_root=api_base,
+        output_root=output_base,
+        seasons=seasons,
+        summary=summary,
+    )
+    _merge_manual_draft_overrides(
         output_root=output_base,
         seasons=seasons,
         summary=summary,

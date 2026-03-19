@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # set up environment variable similar to test
 path = Path('temp.db')
-url = f"sqlite:///{path}".replace('\\', '/')
+url = f"sqlite:///{path.as_posix()}"
 print('setting DATABASE_URL to', url)
 os.environ['DATABASE_URL'] = url
 

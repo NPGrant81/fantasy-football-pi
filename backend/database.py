@@ -6,12 +6,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# FIX: Update this string to match your local setup!
-# Usually: postgresql://postgres:<password>@localhost/fantasy_pi
-# the Pi’s local installation uses password `football-pi` and a database
-# called `fantasy_football` (the connection string shown matches what you would
-# use in Azure Data Studio).
-DEFAULT_DB_URL = "postgresql://postgres:football-pi@localhost/fantasy_football"
+# Use an env-driven URL for runtime; fallback is a credential-free local DSN.
+# In production/staging, DATABASE_URL should always be explicitly provided.
+DEFAULT_DB_URL = "postgresql://localhost/fantasy_football"
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB_URL)
 

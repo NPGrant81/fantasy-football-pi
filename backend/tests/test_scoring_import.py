@@ -28,7 +28,7 @@ def test_sanitize_excel_date_and_per_unit():
 def test_insert_rules_creates_records(tmp_path, monkeypatch):
     # create a temporary sqlite file and engine/session for the importer
     db_file = tmp_path / "db.sqlite"
-    db_url = f"sqlite:///{db_file}".replace('\\', '/')
+    db_url = f"sqlite:///{db_file.as_posix()}"
 
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker

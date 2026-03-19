@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import subprocess
+import sys
 import os
 
 router = APIRouter()
@@ -21,7 +22,7 @@ def run_etl():
     """
     try:
         result = subprocess.run([
-            "python", "etl/test_etl_pipeline.py"
+            sys.executable, "etl/test_etl_pipeline.py"
         ], capture_output=True, text=True, timeout=600)
         if result.returncode == 0:
             return {"status": "success", "output": result.stdout}
