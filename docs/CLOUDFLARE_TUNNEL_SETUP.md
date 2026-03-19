@@ -15,7 +15,7 @@ For lower-level references, see:
 
 These are the minimum items that must be in place when the app is ready for real deployment.
 
-- `cloudflared` is installed on the Raspberry Pi and resolves at `/usr/bin/cloudflared`
+- `cloudflared` is installed on the Raspberry Pi and available on `PATH` (typically at `/usr/bin/cloudflared` or `/usr/local/bin/cloudflared`)
 - `command -v cloudflared` resolves successfully on the Raspberry Pi
 - `/etc/cloudflared/config.yml` exists and includes both `tunnel:` and `credentials-file:`
 - The named-tunnel credentials JSON exists at `/etc/cloudflared/<tunnel-uuid>.json`
