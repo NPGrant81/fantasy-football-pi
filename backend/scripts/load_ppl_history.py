@@ -7,19 +7,14 @@ import pandas as pd
 import psycopg2
 
 # --- Config ---
-DB_URL = "postgresql://postgres:football-pi@localhost/fantasy_football"
+DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fantasy_football")
 LEAGUE_ID = 60  # Post Pacific League
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 BCRYPT_PLACEHOLDER = "$2b$12$AT98P1yMsFB6voQYGgVxEO21tf6tZuXl79b/j615NkIKMhnx0LL3W"
 
 
 def connect():
-    return psycopg2.connect(
-        host="localhost",
-        dbname="fantasy_football",
-        user="postgres",
-        password="football-pi",
-    )
+    return psycopg2.connect(DB_URL)
 
 
 def clean_money(val):

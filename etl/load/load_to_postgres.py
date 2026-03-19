@@ -26,7 +26,7 @@ from etl.validation.dataframe_validation import validate_normalized_players_data
 from etl.validation.great_expectations_runner import run_normalized_players_expectations
 
 # Update this with your actual DB URL or use env var
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password123@localhost/fantasy_pi")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fantasy_pi")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
