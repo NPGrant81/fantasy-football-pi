@@ -102,7 +102,7 @@ Source template:
 
 Target paths on Pi:
 - `/etc/cloudflared/config.yml`
-- `/etc/cloudflared/<tunnel-credentials>.json`
+- `/etc/cloudflared/<tunnel-uuid>.json`
 
 Commands:
 
