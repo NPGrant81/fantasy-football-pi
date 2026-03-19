@@ -35,7 +35,7 @@ Use the advanced settings flow before writing the image:
 - Hostname: choose a stable host such as `fantasy-server`
 - Username: create a dedicated login user
 - Password: set a strong password
-- SSH: enable SSH with password authentication for first boot
+- SSH: enable SSH with password authentication for first boot only (later switch to SSH key-based auth and disable password logins in the Infrastructure Hardening phase)
 - Wi-Fi: only preconfigure if Ethernet is not available
 - Locale/timezone: set the expected deployment region
 
