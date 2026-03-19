@@ -26,6 +26,11 @@ REQUIRED_REPORT_TYPES: tuple[str, ...] = ("franchises", "players", "draftResults
 REQUIRED_HEADERS: dict[str, list[str]] = {
     "franchises": ["season", "league_id", "franchise_id", "franchise_name", "owner_name"],
     "players": ["season", "league_id", "player_mfl_id", "player_name", "position", "nfl_team"],
+    "draftResults": ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number"],
+}
+
+# Columns required by the downstream importer (subset of REQUIRED_HEADERS).
+IMPORTER_REQUIRED_HEADERS: dict[str, list[str]] = {
     "draftResults": ["season", "league_id", "franchise_id", "player_mfl_id"],
 }
 
@@ -80,6 +85,14 @@ def _read_csv_rows(path: Path) -> list[dict[str, str]]:
         return [dict(row) for row in reader]
 
 
+def _read_csv_rows_with_headers(path: Path) -> tuple[list[str], list[dict[str, str]]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        headers = list(reader.fieldnames or [])
+        rows = [dict(row) for row in reader]
+    return headers, rows
+
+
 def _write_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) -> None:
     _ensure_parent(path)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -88,14 +101,101 @@ def _write_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) 
         writer.writerows(rows)
 
 
+def _read_league_id_for_season(*, api_root: Path, season: int) -> str:
+    candidate_paths = [
+        api_root / "league" / f"{season}.csv",
+        api_root / "franchises" / f"{season}.csv",
+        api_root / "players" / f"{season}.csv",
+        api_root / "draftResults" / f"{season}.csv",
+    ]
+    for csv_path in candidate_paths:
+        if not csv_path.exists():
+            continue
+        rows = _read_csv_rows(csv_path)
+        if not rows:
+            continue
+        league_id = str(rows[0].get("league_id") or "").strip()
+        if league_id:
+            return league_id
+    return ""
+
+
 def _draft_override_key(row: dict[str, str]) -> tuple[str, str, str, str, str]:
-    return (
-        str(row.get("season") or "").strip(),
-        str(row.get("league_id") or "").strip(),
-        str(row.get("franchise_id") or "").strip(),
-        str(row.get("round") or "").strip(),
-        str(row.get("pick_number") or "").strip(),
+    """Deduplicate draft override rows by season+league+franchise+round+pick.
+
+    Prefer the mapped player id when present so repeated staging runs stay
+    stable even if staged rows do not include round/pick context.
+    For auction picks (no round/pick and no player id yet), fall back to
+    winning_bid as a discriminator to avoid collapsing multiple picks from
+    the same franchise to a single key.
+    """
+    season = str(row.get("season") or "").strip()
+    league_id = str(row.get("league_id") or "").strip()
+    franchise_id = str(row.get("franchise_id") or "").strip()
+
+    player_id = str(row.get("player_mfl_id") or "").strip()
+    if player_id:
+        return (season, league_id, franchise_id, player_id, "")
+
+    rnd = str(row.get("round") or "").strip()
+    pick = str(row.get("pick_number") or "").strip()
+    if rnd or pick:
+        return (season, league_id, franchise_id, rnd, pick)
+
+    # Auction rows: no round/pick, use winning_bid to distinguish picks.
+    winning_bid = str(row.get("winning_bid") or "").strip()
+    return (season, league_id, franchise_id, winning_bid, "")
+
+
+def _enrich_manual_draft_template_from_raw_json(
+    *,
+    api_root: Path,
+    template_path: Path,
+    season: int,
+) -> int:
+    """Pre-populate a manual override template with skeleton rows from raw API JSON.
+
+    When MFL returns draft picks with franchise/round/pick but empty player IDs,
+    this writes those skeleton rows into the template so the operator only needs
+    to fill in the ``player_mfl_id`` column.  Returns the number of rows written.
+    """
+    raw_path = api_root / "raw" / "draftResults" / f"{season}.json"
+    if not raw_path.exists():
+        return 0
+
+    try:
+        payload = json.loads(raw_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return 0
+
+    picks = (
+        payload.get("draftResults", {}).get("draftUnit", {}).get("draftPick", []) or []
     )
+    if isinstance(picks, dict):
+        picks = [picks]
+
+    league_id = _read_league_id_for_season(api_root=api_root, season=season)
+    skeleton_rows: list[dict[str, str]] = []
+    for pick in picks:
+        franchise_id = str(pick.get("franchise") or "").strip()
+        rnd = str(pick.get("round") or "").strip()
+        pick_number = str(pick.get("pick") or "").strip()
+        if not franchise_id:
+            continue
+        skeleton_rows.append({
+            "season": str(season),
+            "league_id": league_id,
+            "franchise_id": franchise_id,
+            "player_mfl_id": "",
+            "round": rnd,
+            "pick_number": pick_number,
+        })
+
+    if not skeleton_rows:
+        return 0
+
+    _write_csv_rows(template_path, REQUIRED_HEADERS["draftResults"], skeleton_rows)
+    return len(skeleton_rows)
 
 
 def _stage_required_csvs(
@@ -162,10 +262,10 @@ def _stage_html_reports(
 
 def _ensure_draft_results_manual_fallback(
     *,
+    api_root: Path,
     output_root: Path,
     seasons: list[int],
     summary: StageSummary,
-    overwrite: bool,
 ) -> None:
     for season in seasons:
         draft_csv_path = output_root / "draftResults" / f"{season}.csv"
@@ -184,13 +284,23 @@ def _ensure_draft_results_manual_fallback(
             continue
 
         manual_path = output_root / "manual_overrides" / "draftResults" / f"{season}.csv"
+        # Manual override files are intentionally preserved even when overwrite=True,
+        # because they contain operator-entered historical backfill data that must
+        # not be discarded on a re-run.
         if manual_path.exists():
             continue
 
-        _write_header_only_csv(manual_path, REQUIRED_HEADERS["draftResults"])
+        skeleton_count = _enrich_manual_draft_template_from_raw_json(
+            api_root=api_root,
+            template_path=manual_path,
+            season=season,
+        )
+        if skeleton_count == 0:
+            _write_header_only_csv(manual_path, REQUIRED_HEADERS["draftResults"])
         summary.draft_results_manual_templates += 1
+        label = f"{skeleton_count} skeleton rows" if skeleton_count else "header-only template"
         summary.warnings.append(
-            f"draftResults season={season} has no player_mfl_id rows; created manual override template at {manual_path}"
+            f"draftResults season={season} has no player_mfl_id rows; created manual override template ({label}) at {manual_path}"
         )
 
 
@@ -200,7 +310,7 @@ def _merge_manual_draft_overrides(
     seasons: list[int],
     summary: StageSummary,
 ) -> None:
-    required = REQUIRED_HEADERS["draftResults"]
+    required = IMPORTER_REQUIRED_HEADERS["draftResults"]
 
     for season in seasons:
         draft_csv_path = output_root / "draftResults" / f"{season}.csv"
@@ -208,8 +318,16 @@ def _merge_manual_draft_overrides(
         if not draft_csv_path.exists() or not manual_path.exists():
             continue
 
-        staged_rows = _read_csv_rows(draft_csv_path)
-        manual_rows = _read_csv_rows(manual_path)
+        staged_headers, staged_rows = _read_csv_rows_with_headers(draft_csv_path)
+        manual_headers, manual_rows = _read_csv_rows_with_headers(manual_path)
+        output_headers = list(staged_headers)
+        for column in manual_headers:
+            if column and column not in output_headers:
+                output_headers.append(column)
+        for column in REQUIRED_HEADERS["draftResults"]:
+            if column not in output_headers:
+                output_headers.append(column)
+
         valid_manual_rows: list[dict[str, str]] = []
 
         for row in manual_rows:
@@ -217,21 +335,29 @@ def _merge_manual_draft_overrides(
             if missing:
                 # Header-only templates read back as zero rows, so only warn on actual partial rows.
                 if any(str(value or "").strip() for value in row.values()):
+                    # Skeleton templates intentionally leave player ids blank until
+                    # operators provide the historical backfill values.
+                    if missing == ["player_mfl_id"]:
+                        continue
                     summary.warnings.append(
                         f"manual override draftResults season={season} has row missing columns {missing}; row skipped"
                     )
                 continue
-            valid_manual_rows.append({column: str(row.get(column) or "").strip() for column in required})
+            normalized_row = {column: str(row.get(column) or "").strip() for column in output_headers}
+            valid_manual_rows.append(normalized_row)
 
         if not valid_manual_rows:
             continue
 
-        merged_by_key = {_draft_override_key(row): {column: str(row.get(column) or "").strip() for column in required} for row in staged_rows}
+        merged_by_key = {
+            _draft_override_key(row): {column: str(row.get(column) or "").strip() for column in output_headers}
+            for row in staged_rows
+        }
         for row in valid_manual_rows:
             merged_by_key[_draft_override_key(row)] = row
 
         merged_rows = list(merged_by_key.values())
-        _write_csv_rows(draft_csv_path, required, merged_rows)
+        _write_csv_rows(draft_csv_path, output_headers, merged_rows)
         summary.manual_override_rows_merged += len(valid_manual_rows)
 
 
@@ -271,10 +397,10 @@ def run_stage_mfl_html_for_import(
         overwrite=overwrite,
     )
     _ensure_draft_results_manual_fallback(
+        api_root=api_base,
         output_root=output_base,
         seasons=seasons,
         summary=summary,
-        overwrite=overwrite,
     )
     _merge_manual_draft_overrides(
         output_root=output_base,

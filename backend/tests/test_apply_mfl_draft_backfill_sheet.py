@@ -1,0 +1,211 @@
+import csv
+
+from backend.scripts.apply_mfl_draft_backfill_sheet import run_apply_mfl_draft_backfill_sheet
+
+
+def _write_csv(path, headers, rows):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _read_csv(path):
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def test_apply_backfill_sheet_updates_manual_rows_in_apply_mode(tmp_path):
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2002.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0010", "player_mfl_id": "", "round": "01", "pick_number": "01"}],
+    )
+    _write_csv(
+        sheet_root / "2002.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "winning_bid", "player_mfl_id", "manual_source_url"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0010", "round": "01", "pick_number": "01", "winning_bid": "", "player_mfl_id": "0501", "manual_source_url": "https://example.test"}],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2002,
+        end_year=2002,
+        apply_changes=True,
+    )
+
+    assert summary["candidate_rows"] == 1
+    assert summary["rows_updated"] == 1
+    updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2002.csv")
+    assert updated_rows[0]["player_mfl_id"] == "0501"
+
+
+def test_apply_backfill_sheet_dry_run_does_not_write(tmp_path):
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2003.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number"],
+        [{"season": "2003", "league_id": "39069", "franchise_id": "0001", "player_mfl_id": "", "round": "", "pick_number": ""}],
+    )
+    _write_csv(
+        sheet_root / "2003.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "player_mfl_id", "manual_source_url"],
+        [{"season": "2003", "league_id": "39069", "franchise_id": "0001", "round": "", "pick_number": "", "player_mfl_id": "0999", "manual_source_url": ""}],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2003,
+        end_year=2003,
+        apply_changes=False,
+    )
+
+    assert summary["candidate_rows"] == 1
+    assert summary["rows_updated"] == 1
+    original_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2003.csv")
+    assert original_rows[0]["player_mfl_id"] == ""
+
+
+def test_apply_backfill_sheet_can_require_source_url(tmp_path):
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2002.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0010", "player_mfl_id": "", "round": "01", "pick_number": "01"}],
+    )
+    _write_csv(
+        sheet_root / "2002.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "player_mfl_id", "manual_source_url"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0010", "round": "01", "pick_number": "01", "player_mfl_id": "0501", "manual_source_url": ""}],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2002,
+        end_year=2002,
+        apply_changes=True,
+        require_source_url=True,
+    )
+
+    assert summary["rows_skipped_missing_source_url"] == 1
+    updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2002.csv")
+    assert updated_rows[0]["player_mfl_id"] == ""
+
+
+def test_apply_backfill_sheet_blocks_known_2002_legacy_source(tmp_path):
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2002.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0010", "player_mfl_id": "", "round": "01", "pick_number": "01"}],
+    )
+    _write_csv(
+        sheet_root / "2002.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "player_mfl_id", "manual_source_url"],
+        [{
+            "season": "2002",
+            "league_id": "29721",
+            "franchise_id": "0010",
+            "round": "01",
+            "pick_number": "01",
+            "player_mfl_id": "0501",
+            "manual_source_url": "https://www47.myfantasyleague.com/2002/options?L=29721&O=17&&DISPLAY=LEAGUE&CMD=LIST",
+        }],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2002,
+        end_year=2002,
+        apply_changes=True,
+    )
+
+    assert summary["rows_skipped_blocked_source_policy"] == 1
+    updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2002.csv")
+    assert updated_rows[0]["player_mfl_id"] == ""
+
+
+def test_apply_backfill_sheet_can_disable_2002_source_policy(tmp_path):
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2002.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number"],
+        [{"season": "2002", "league_id": "29721", "franchise_id": "0010", "player_mfl_id": "", "round": "01", "pick_number": "01"}],
+    )
+    _write_csv(
+        sheet_root / "2002.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "player_mfl_id", "manual_source_url"],
+        [{
+            "season": "2002",
+            "league_id": "29721",
+            "franchise_id": "0010",
+            "round": "01",
+            "pick_number": "01",
+            "player_mfl_id": "0501",
+            "manual_source_url": "https://www47.myfantasyleague.com/2002/options?L=29721&O=17&&DISPLAY=LEAGUE&CMD=LIST",
+        }],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2002,
+        end_year=2002,
+        apply_changes=True,
+        enforce_2002_source_policy=False,
+    )
+
+    assert summary["rows_skipped_blocked_source_policy"] == 0
+    assert summary["rows_updated"] == 1
+    updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2002.csv")
+    assert updated_rows[0]["player_mfl_id"] == "0501"
+
+
+def test_apply_backfill_sheet_auction_multi_row_no_key_collision(tmp_path):
+    """Multiple auction picks by the same franchise (no round/pick) are uniquely
+    identified by winning_bid and all survive the apply merge without colliding."""
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2017.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number", "winning_bid", "is_keeper_pick"],
+        [
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "", "round": "", "pick_number": "", "winning_bid": "42", "is_keeper_pick": ""},
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "", "round": "", "pick_number": "", "winning_bid": "55", "is_keeper_pick": ""},
+        ],
+    )
+    _write_csv(
+        sheet_root / "2017.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "winning_bid", "player_mfl_id", "manual_source_url"],
+        [
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "round": "", "pick_number": "", "winning_bid": "42", "player_mfl_id": "1001", "manual_source_url": "https://example.test"},
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "round": "", "pick_number": "", "winning_bid": "55", "player_mfl_id": "2002", "manual_source_url": "https://example.test"},
+        ],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2017,
+        end_year=2017,
+        apply_changes=True,
+        enforce_2002_source_policy=False,
+    )
+
+    assert summary["rows_updated"] == 2
+    assert summary["candidate_rows"] == 2
+
+    updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2017.csv")
+    player_ids = {row["player_mfl_id"] for row in updated_rows}
+    assert player_ids == {"1001", "2002"}, "Both auction picks must be preserved — no key collision"

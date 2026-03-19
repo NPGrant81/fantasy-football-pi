@@ -16,17 +16,25 @@ from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_a
 from .scripts.archive_mfl_csv_exports import run_archive_mfl_csv_exports
 from .scripts.archive_mfl_json_exports import run_archive_mfl_json_exports
 from .scripts.archive_mfl_html_exports import run_archive_mfl_html_exports
+from .scripts.apply_mfl_draft_backfill_sheet import run_apply_mfl_draft_backfill_sheet
 from .scripts.extract_mfl_history import run_mfl_history_extract
 from .scripts.extract_mfl_html_reports import run_extract_mfl_html_reports
 from .scripts.finalize_week import run_finalization
 from .scripts.import_mfl_csv import run_import_mfl_csv
 from .scripts.load_mfl_html_normalized import run_load_mfl_html_normalized
 from .scripts.normalize_mfl_html_records import run_normalize_mfl_html_records
+from .scripts.prepare_mfl_draft_backfill_sheet import run_prepare_mfl_draft_backfill_sheet
 from .scripts.reconcile_mfl_import import run_reconcile_mfl_import
 from .scripts.restore_mfl_archive import run_restore_mfl_archive
+from .scripts.resolve_mfl_draft_backfill_names import run_resolve_mfl_draft_backfill_names
 from .scripts.scaffold_mfl_manual_csv import run_scaffold_mfl_manual_csv
 from .scripts.seed import run_seeder
 from .scripts.stage_mfl_html_for_import import run_stage_mfl_html_for_import
+from .scripts.validation.validate_mfl_import import run_validate_mfl_import, format_validation_output
+from .scripts.validation.validate_season_hierarchy import run_validate_season_hierarchy, format_season_hierarchy_output
+from .scripts.validation.validate_league_readiness import run_validate_league_readiness, format_league_readiness_output
+import csv as _csv
+from . import models
 
 
 @click.group()
@@ -126,6 +134,62 @@ def audit_invalid_players(
     default=None,
     help="Optional MFL auth cookie string for private league exports.",
 )
+@click.option(
+    "--max-retries-per-request",
+    type=int,
+    default=6,
+    show_default=True,
+    help="Retry count per request for 429/5xx/network errors.",
+)
+@click.option(
+    "--min-interval-seconds",
+    type=float,
+    default=0.35,
+    show_default=True,
+    help="Minimum delay between requests to avoid burst throttling.",
+)
+@click.option(
+    "--base-backoff-seconds",
+    type=float,
+    default=3.0,
+    show_default=True,
+    help="Base exponential backoff delay for retries.",
+)
+@click.option(
+    "--max-backoff-seconds",
+    type=float,
+    default=90.0,
+    show_default=True,
+    help="Upper bound for computed retry delay.",
+)
+@click.option(
+    "--jitter-seconds",
+    type=float,
+    default=1.0,
+    show_default=True,
+    help="Random jitter added to retry delay.",
+)
+@click.option(
+    "--cooldown-after-burst-seconds",
+    type=float,
+    default=15.0,
+    show_default=True,
+    help="Extra cooldown applied after repeated 429 responses.",
+)
+@click.option(
+    "--burst-threshold",
+    type=int,
+    default=3,
+    show_default=True,
+    help="Consecutive 429 count that triggers burst cooldown.",
+)
+@click.option(
+    "--max-retry-after-seconds",
+    type=float,
+    default=300.0,
+    show_default=True,
+    help="Cap for server-provided Retry-After delay.",
+)
 def extract_mfl_history(
     start_year: int,
     end_year: int,
@@ -133,6 +197,14 @@ def extract_mfl_history(
     output_root: str,
     timeout_seconds: int,
     session_cookie: str | None,
+    max_retries_per_request: int,
+    min_interval_seconds: float,
+    base_backoff_seconds: float,
+    max_backoff_seconds: float,
+    jitter_seconds: float,
+    cooldown_after_burst_seconds: float,
+    burst_threshold: int,
+    max_retry_after_seconds: float,
 ):
     """Extract MFL exports into normalized CSV files for migration."""
     report_type_list = [part.strip() for part in report_types.split(",") if part.strip()]
@@ -143,6 +215,14 @@ def extract_mfl_history(
         output_root=output_root,
         timeout_seconds=timeout_seconds,
         session_cookie=session_cookie,
+        max_retries_per_request=max_retries_per_request,
+        min_interval_seconds=min_interval_seconds,
+        base_backoff_seconds=base_backoff_seconds,
+        max_backoff_seconds=max_backoff_seconds,
+        jitter_seconds=jitter_seconds,
+        cooldown_after_burst_seconds=cooldown_after_burst_seconds,
+        burst_threshold=burst_threshold,
+        max_retry_after_seconds=max_retry_after_seconds,
     )
 
     click.echo("MFL extraction summary")
@@ -150,6 +230,9 @@ def extract_mfl_history(
     click.echo(f"- Reports extracted: {summary['extracted_reports']}")
     click.echo(f"- Seasons skipped (missing league id): {summary['skipped_missing_league_id']}")
     click.echo(f"- Failed report pulls: {summary['failed_reports']}")
+    click.echo(f"- Retry attempts: {summary['retry_attempts']}")
+    click.echo(f"- Throttled retries: {summary['throttled_retries']}")
+    click.echo(f"- Unresolved failures: {summary['unresolved_failures']}")
     click.echo(f"- Output root: {summary['output_root']}")
 
 
@@ -592,8 +675,119 @@ def import_mfl_csv(
     click.echo(f"- Players matched: {summary['players_matched']}")
     click.echo(f"- Draft picks inserted: {summary['draft_picks_inserted']}")
     click.echo(f"- Draft picks skipped: {summary['draft_picks_skipped']}")
+    click.echo(f"- Matchups inserted: {summary['matchups_inserted']}")
+    click.echo(f"- Matchups skipped: {summary['matchups_skipped']}")
+    click.echo(f"- BYE matchups skipped: {summary['bye_matchups_skipped']}")
     click.echo(f"- Skipped missing owner map: {summary['skipped_missing_owner_map']}")
     click.echo(f"- Skipped missing player map: {summary['skipped_missing_player_map']}")
+
+
+@cli.command("bootstrap-mfl-franchise-users")
+@click.option("--franchises-csv", type=click.Path(file_okay=True, dir_okay=False, exists=True), required=True, help="Path to a staged franchises CSV (e.g. exports/history_staged_2003/franchises/2003.csv).")
+@click.option("--target-league-id", type=int, required=True, help="App league_id to create stub users in.")
+@click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write users to DB (default dry-run).")
+def bootstrap_mfl_franchise_users(
+    franchises_csv: str,
+    target_league_id: int,
+    apply_changes: bool,
+):
+    """Create locked stub user accounts for historical MFL franchises not yet in the league."""
+    rows: list[dict] = []
+    with open(franchises_csv, newline="", encoding="utf-8") as fh:
+        rows = list(_csv.DictReader(fh))
+
+    db = SessionLocal()
+    try:
+        existing_in_league = db.query(models.User).filter(models.User.league_id == target_league_id).all()
+        existing_team_lower = {(u.team_name or "").strip().lower() for u in existing_in_league}
+        all_usernames_lower = {(u.username or "").strip().lower() for u in db.query(models.User.username).all()}
+        existing_stub_by_franchise_id = {
+            username.rsplit("_", 1)[-1]: user.id
+            for user in existing_in_league
+            if (username := (user.username or "").strip().lower()).startswith("hist_") and "_" in username
+        }
+
+        to_create: list[dict] = []
+        skipped: list[str] = []
+        seen_names: set[str] = set()
+        updates: list[dict] = []
+
+        for row in rows:
+            franchise_name = (row.get("franchise_name") or "").strip()
+            franchise_id = (row.get("franchise_id") or "").strip()
+            season = (row.get("season") or "").strip()
+            if not franchise_id:
+                continue
+            if not franchise_name:
+                continue
+            fname_lower = franchise_name.lower()
+            existing_stub_id = existing_stub_by_franchise_id.get(franchise_id)
+            if existing_stub_id is not None:
+                updates.append({
+                    "user_id": existing_stub_id,
+                    "team_name": franchise_name,
+                    "franchise_id": franchise_id,
+                    "season": season,
+                })
+                skipped.append(franchise_name)
+                continue
+            if fname_lower in existing_team_lower or fname_lower in seen_names:
+                skipped.append(franchise_name)
+                continue
+            seen_names.add(fname_lower)
+
+            base = f"hist_{season}_{franchise_id}".lower()
+            username = base
+            suffix = 2
+            while username in all_usernames_lower:
+                username = f"{base}_{suffix}"
+                suffix += 1
+            all_usernames_lower.add(username)
+
+            to_create.append({
+                "username": username,
+                "team_name": franchise_name,
+                "franchise_id": franchise_id,
+                "season": season,
+            })
+
+        click.echo("Bootstrap MFL franchise users")
+        click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+        click.echo(f"- Target league: {target_league_id}")
+        click.echo(f"- Rows in CSV: {len(rows)}")
+        click.echo(f"- Users to create: {len(to_create)}")
+        click.echo(f"- Existing stubs to refresh: {len(updates)}")
+        click.echo(f"- Already exist (skipped): {len(skipped)}")
+        for entry in to_create:
+            click.echo(f"  [{entry['season']}:{entry['franchise_id']}] {entry['team_name']} -> username={entry['username']}")
+        for entry in updates:
+            click.echo(f"  [{entry['season']}:{entry['franchise_id']}] refresh existing stub -> team_name={entry['team_name']}")
+
+        if apply_changes:
+            for entry in updates:
+                user = db.query(models.User).filter(models.User.id == entry["user_id"]).one_or_none()
+                if user is not None:
+                    user.team_name = entry["team_name"]
+
+            for entry in to_create:
+                user = models.User(
+                    username=entry["username"],
+                    email=None,
+                    hashed_password=get_password_hash(f"locked_{entry['franchise_id']}_{target_league_id}"),
+                    league_id=target_league_id,
+                    team_name=entry["team_name"],
+                    is_superuser=False,
+                    is_commissioner=False,
+                )
+                db.add(user)
+            if updates or to_create:
+                db.commit()
+            if to_create:
+                click.echo(f"- Inserted {len(to_create)} stub users into league {target_league_id}.")
+            if updates:
+                click.echo(f"- Refreshed {len(updates)} existing stub users in league {target_league_id}.")
+    finally:
+        db.close()
 
 
 @cli.command("scaffold-mfl-manual-csv")
@@ -663,7 +857,11 @@ def scaffold_mfl_manual_csv(
     "--overwrite",
     is_flag=True,
     default=False,
-    help="Overwrite destination files when they already exist.",
+    help=(
+        "Overwrite destination files when they already exist. "
+        "Manual override files (manual_overrides/) are never overwritten "
+        "regardless of this flag, to preserve operator edits."
+    ),
 )
 def stage_mfl_html_for_import(
     start_year: int,
@@ -698,6 +896,168 @@ def stage_mfl_html_for_import(
         click.echo(f"- Warnings: {len(summary['warnings'])}")
 
 
+@cli.command("prepare-mfl-draft-backfill-sheet")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing draft/manual CSVs.")
+@click.option("--start-year", type=int, required=True, help="First season year to prepare.")
+@click.option("--end-year", type=int, required=True, help="Last season year to prepare.")
+@click.option(
+    "--output-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    default=None,
+    help="Optional destination for fill-ready backfill sheets (default: <input-root>/manual_overrides/draft_backfill_sheets).",
+)
+@click.option(
+    "--include-filled",
+    is_flag=True,
+    default=False,
+    help="Include rows that already have player_mfl_id values.",
+)
+def prepare_mfl_draft_backfill_sheet(
+    input_root: str,
+    start_year: int,
+    end_year: int,
+    output_root: str | None,
+    include_filled: bool,
+):
+    """Generate fill-ready draft backfill sheets with snake/auction guidance."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    summary = run_prepare_mfl_draft_backfill_sheet(
+        input_root=input_root,
+        start_year=start_year,
+        end_year=end_year,
+        output_root=output_root,
+        include_filled=include_filled,
+    )
+
+    click.echo("MFL draft backfill sheet summary")
+    click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Sheets written: {summary['sheets_written']}")
+    click.echo(f"- Rows written: {summary['rows_written']}")
+    click.echo(f"- Rows skipped already filled: {summary['rows_skipped_already_filled']}")
+    click.echo(f"- Style counts: {summary['style_counts']}")
+    click.echo(f"- Output root: {summary['output_root']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("apply-mfl-draft-backfill-sheet")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing manual override CSVs.")
+@click.option("--start-year", type=int, required=True, help="First season year to apply.")
+@click.option("--end-year", type=int, required=True, help="Last season year to apply.")
+@click.option(
+    "--sheet-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    default=None,
+    help="Optional folder containing completed backfill sheets (default: <input-root>/manual_overrides/draft_backfill_sheets).",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Write updates into manual override CSVs (default: report-only dry-run).",
+)
+@click.option(
+    "--require-source-url",
+    is_flag=True,
+    default=False,
+    help="Only apply rows that include manual_source_url evidence.",
+)
+@click.option(
+    "--enforce-2002-source-policy/--no-enforce-2002-source-policy",
+    default=True,
+    help="Enforce policy that blocks known invalid 2002 draft sources and requires source URL evidence.",
+)
+def apply_mfl_draft_backfill_sheet(
+    input_root: str,
+    start_year: int,
+    end_year: int,
+    sheet_root: str | None,
+    apply_changes: bool,
+    require_source_url: bool,
+    enforce_2002_source_policy: bool,
+):
+    """Apply completed draft backfill sheets into manual override CSVs."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=input_root,
+        start_year=start_year,
+        end_year=end_year,
+        sheet_root=sheet_root,
+        apply_changes=apply_changes,
+        require_source_url=require_source_url,
+        enforce_2002_source_policy=enforce_2002_source_policy,
+    )
+
+    click.echo("MFL backfill sheet apply summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Sheets missing: {summary['sheets_missing']}")
+    click.echo(f"- Candidate rows: {summary['candidate_rows']}")
+    click.echo(f"- Rows updated: {summary['rows_updated']}")
+    click.echo(f"- Rows appended: {summary['rows_appended']}")
+    click.echo(f"- Rows skipped missing player id: {summary['rows_skipped_missing_player_id']}")
+    click.echo(f"- Rows skipped missing source url: {summary['rows_skipped_missing_source_url']}")
+    click.echo(f"- Rows skipped blocked source policy: {summary['rows_skipped_blocked_source_policy']}")
+    click.echo(f"- Sheet root: {summary['sheet_root']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
+@cli.command("resolve-mfl-draft-backfill-names")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing player snapshots and backfill sheets.")
+@click.option("--start-year", type=int, required=True, help="First season year to resolve.")
+@click.option("--end-year", type=int, required=True, help="Last season year to resolve.")
+@click.option(
+    "--sheet-root",
+    type=click.Path(file_okay=False, dir_okay=True),
+    default=None,
+    help="Optional sheet folder (default: <input-root>/manual_overrides/draft_backfill_sheets).",
+)
+@click.option(
+    "--apply",
+    "apply_changes",
+    is_flag=True,
+    default=False,
+    help="Write resolved player_mfl_id values back into sheet CSVs (default: report-only dry-run).",
+)
+def resolve_mfl_draft_backfill_names(
+    input_root: str,
+    start_year: int,
+    end_year: int,
+    sheet_root: str | None,
+    apply_changes: bool,
+):
+    """Resolve manual draft player names to season player_mfl_id values."""
+    if end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
+
+    summary = run_resolve_mfl_draft_backfill_names(
+        input_root=input_root,
+        start_year=start_year,
+        end_year=end_year,
+        sheet_root=sheet_root,
+        apply_changes=apply_changes,
+    )
+
+    click.echo("MFL draft backfill name resolve summary")
+    click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
+    click.echo(f"- Rows seen: {summary['rows_seen']}")
+    click.echo(f"- Rows matched: {summary['rows_matched']}")
+    click.echo(f"- Rows already filled: {summary['rows_already_filled']}")
+    click.echo(f"- Rows skipped no manual name: {summary['rows_skipped_no_manual_name']}")
+    click.echo(f"- Rows unmatched: {summary['rows_unmatched']}")
+    click.echo(f"- Rows ambiguous: {summary['rows_ambiguous']}")
+    click.echo(f"- Sheet root: {summary['sheet_root']}")
+    if summary["warnings"]:
+        click.echo(f"- Warnings: {len(summary['warnings'])}")
+
+
 @cli.command("reconcile-mfl-import")
 @click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id to reconcile against imported rows.")
@@ -726,7 +1086,7 @@ def reconcile_mfl_import(
     click.echo("MFL import reconciliation summary")
     click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
     click.echo(f"- Mismatch count: {summary['mismatch_count']}")
-    click.echo(f"- Warnings: {len(summary['warnings'])}")
+
     if output_json:
         click.echo(f"- JSON report: {output_json}")
 
@@ -758,6 +1118,50 @@ def finalize_week_command(league_id: int, week: int, season: int, season_year: i
         f"Finalized league={result['league_id']} week={result['week']} "
         f"matchups={result['matchups_finalized']}"
     )
+
+
+# ====== VALIDATION COMMAND GROUP ======
+@cli.group("validate")
+def validate_group():
+    """Validation and audit commands for MFL import completeness."""
+    pass
+
+
+@validate_group.command("mfl-import")
+@click.option("--league-id", type=int, required=True, help="League ID to validate.")
+@click.option("--json-output", type=click.Path(dir_okay=False), default=None, help="Optional JSON output file.")
+def validate_mfl_import_cmd(league_id: int, json_output: str | None):
+    """Validate MFL matched counts, FK integrity, and duplicate detection."""
+    summary = run_validate_mfl_import(league_id=league_id, json_output=json_output)
+    output = format_validation_output(summary)
+    click.echo(output)
+    
+    if summary["errors"]:
+        raise click.ClickException("Validation failed with errors")
+
+
+@validate_group.command("season-hierarchy")
+@click.option("--league-id", type=int, required=True, help="League ID to validate.")
+def validate_season_hierarchy_cmd(league_id: int):
+    """Validate season hierarchy completeness (all seasons mapped)."""
+    summary = run_validate_season_hierarchy(league_id=league_id)
+    output = format_season_hierarchy_output(summary)
+    click.echo(output)
+    
+    if summary["errors"]:
+        raise click.ClickException("Validation failed with errors")
+
+
+@validate_group.command("league-readiness")
+@click.option("--league-id", type=int, required=True, help="League ID to validate.")
+def validate_league_readiness_cmd(league_id: int):
+    """Validate league readiness for 2026 season operations."""
+    summary = run_validate_league_readiness(league_id=league_id)
+    output = format_league_readiness_output(summary)
+    click.echo(output)
+    
+    if summary["errors"]:
+        raise click.ClickException("Validation failed with errors")
 
 
 if __name__ == "__main__":

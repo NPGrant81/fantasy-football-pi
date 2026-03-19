@@ -24,6 +24,8 @@ REQUIRED_COLUMNS: dict[str, list[str]] = {
     "franchises": ["season", "league_id", "franchise_id", "franchise_name", "owner_name"],
     "players": ["season", "league_id", "player_mfl_id", "player_name", "position", "nfl_team"],
     "draftResults": ["season", "league_id", "franchise_id", "player_mfl_id"],
+    "schedule": ["season", "league_id", "week", "home_franchise_id", "away_franchise_id"],
+    "transactions": ["season", "league_id", "franchise_id", "transaction_type", "player_mfl_id"],
 }
 
 
@@ -41,6 +43,11 @@ class ImportSummary:
     players_matched: int = 0
     draft_picks_inserted: int = 0
     draft_picks_skipped: int = 0
+    matchups_inserted: int = 0
+    matchups_skipped: int = 0
+    bye_matchups_skipped: int = 0
+    transactions_inserted: int = 0
+    transactions_skipped: int = 0
     skipped_missing_owner_map: int = 0
     skipped_missing_player_map: int = 0
     warnings: list[str] = field(default_factory=list)
@@ -59,6 +66,11 @@ class ImportSummary:
             "players_matched": self.players_matched,
             "draft_picks_inserted": self.draft_picks_inserted,
             "draft_picks_skipped": self.draft_picks_skipped,
+            "matchups_inserted": self.matchups_inserted,
+            "matchups_skipped": self.matchups_skipped,
+            "bye_matchups_skipped": self.bye_matchups_skipped,
+            "transactions_inserted": self.transactions_inserted,
+            "transactions_skipped": self.transactions_skipped,
             "skipped_missing_owner_map": self.skipped_missing_owner_map,
             "skipped_missing_player_map": self.skipped_missing_player_map,
             "warnings": self.warnings,
@@ -128,6 +140,18 @@ def _safe_amount(value: str | None) -> int:
         return 0
 
 
+def _safe_float(value: str | None) -> float | None:
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    if cleaned == "":
+        return None
+    try:
+        return float(cleaned)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _build_owner_map(
     db: Session,
     *,
@@ -150,6 +174,11 @@ def _build_owner_map(
         for u in users
         if (u.username or "").strip()
     }
+    by_stub_franchise_id = {
+        username.rsplit("_", 1)[-1]: user_id
+        for username, user_id in by_username.items()
+        if username.startswith("hist_") and "_" in username
+    }
 
     owner_map: dict[tuple[int, str], int] = {}
     for row in franchise_rows:
@@ -166,6 +195,7 @@ def _build_owner_map(
             or by_username.get(franchise_name)
             or by_team_name.get(owner_name)
             or by_username.get(owner_name)
+            or by_stub_franchise_id.get(franchise_id)
         )
 
         if mapped_user_id:
@@ -181,6 +211,52 @@ def _build_existing_player_index(db: Session) -> dict[tuple[str, str, str], mode
         if key[0] and key[1] and key[2]:
             index[key] = player
     return index
+
+
+def _build_franchise_division_map(
+    franchise_rows: list[dict[str, str]],
+) -> dict[tuple[int, str], str | None]:
+    division_map: dict[tuple[int, str], str | None] = {}
+    for row in franchise_rows:
+        season = _safe_int(row.get("season"))
+        franchise_id = (row.get("franchise_id") or "").strip()
+        if season is None or not franchise_id:
+            continue
+        division = (row.get("division") or "").strip() or None
+        division_map[(season, franchise_id)] = division
+    return division_map
+
+
+def _build_playoff_week_map(
+    schedule_rows: list[dict[str, str]],
+    franchise_rows: list[dict[str, str]],
+) -> dict[tuple[int, int], bool]:
+    franchise_counts: dict[int, int] = {}
+    for row in franchise_rows:
+        season = _safe_int(row.get("season"))
+        franchise_id = (row.get("franchise_id") or "").strip()
+        if season is None or not franchise_id:
+            continue
+        franchise_counts.setdefault(season, 0)
+        franchise_counts[season] += 1
+
+    rows_per_week: dict[tuple[int, int], int] = {}
+    for row in schedule_rows:
+        season = _safe_int(row.get("season"))
+        week = _safe_int(row.get("week"))
+        if season is None or week is None:
+            continue
+        key = (season, week)
+        rows_per_week[key] = rows_per_week.get(key, 0) + 1
+
+    playoff_week_map: dict[tuple[int, int], bool] = {}
+    for (season, week), row_count in rows_per_week.items():
+        franchise_count = franchise_counts.get(season, 0)
+        regular_season_matchups = franchise_count / 2 if franchise_count else 0
+        playoff_week_map[(season, week)] = bool(
+            regular_season_matchups and row_count < regular_season_matchups
+        )
+    return playoff_week_map
 
 
 def run_import_mfl_csv(
@@ -220,12 +296,26 @@ def run_import_mfl_csv(
             seasons=seasons,
             summary=summary,
         )
+        schedule_rows = _load_report_rows(
+            input_root=root,
+            report_type="schedule",
+            seasons=seasons,
+            summary=summary,
+        )
+        transaction_rows = _load_report_rows(
+            input_root=root,
+            report_type="transactions",
+            seasons=seasons,
+            summary=summary,
+        )
 
         owner_map = _build_owner_map(
             db,
             target_league_id=target_league_id,
             franchise_rows=franchise_rows,
         )
+        division_map = _build_franchise_division_map(franchise_rows)
+        playoff_week_map = _build_playoff_week_map(schedule_rows, franchise_rows)
 
         player_index = _build_existing_player_index(db)
         mfl_player_to_local: dict[tuple[int, str], int] = {}
@@ -319,6 +409,160 @@ def run_import_mfl_csv(
             )
             existing_pick_keys.add(key)
             summary.draft_picks_inserted += 1
+
+        existing_matchup_keys = {
+            (
+                int(row.league_id or 0),
+                int(row.season or 0),
+                int(row.week or 0),
+                int(row.home_team_id or 0),
+                int(row.away_team_id or 0),
+            )
+            for row in db.query(models.Matchup)
+            .filter(models.Matchup.league_id == target_league_id)
+            .all()
+            if row.season is not None and row.week is not None and row.home_team_id is not None and row.away_team_id is not None
+        }
+
+        for row in schedule_rows:
+            season = _safe_int(row.get("season"))
+            week = _safe_int(row.get("week"))
+            home_franchise_id = (row.get("home_franchise_id") or "").strip()
+            away_franchise_id = (row.get("away_franchise_id") or "").strip()
+            if season is None or week is None or not home_franchise_id or not away_franchise_id:
+                summary.matchups_skipped += 1
+                continue
+
+            if home_franchise_id.upper() == "BYE" or away_franchise_id.upper() == "BYE":
+                summary.matchups_skipped += 1
+                summary.bye_matchups_skipped += 1
+                continue
+
+            home_team_id = owner_map.get((season, home_franchise_id))
+            away_team_id = owner_map.get((season, away_franchise_id))
+            if home_team_id is None or away_team_id is None:
+                summary.skipped_missing_owner_map += 1
+                summary.matchups_skipped += 1
+                summary.warnings.append(
+                    f"missing owner map for matchup season={season} week={week} home={home_franchise_id} away={away_franchise_id}"
+                )
+                continue
+
+            key = (target_league_id, season, week, home_team_id, away_team_id)
+            if key in existing_matchup_keys:
+                summary.matchups_skipped += 1
+                continue
+
+            home_score = _safe_float(row.get("home_score"))
+            away_score = _safe_float(row.get("away_score"))
+            is_completed = home_score is not None and away_score is not None
+            home_division = division_map.get((season, home_franchise_id))
+            away_division = division_map.get((season, away_franchise_id))
+
+            db.add(
+                models.Matchup(
+                    league_id=target_league_id,
+                    season=season,
+                    week=week,
+                    home_team_id=home_team_id,
+                    away_team_id=away_team_id,
+                    home_score=home_score or 0.0,
+                    away_score=away_score or 0.0,
+                    is_completed=is_completed,
+                    game_status="FINAL" if is_completed else "NOT_STARTED",
+                    is_playoff=playoff_week_map.get((season, week), False),
+                    is_division_matchup=bool(home_division and away_division and home_division == away_division),
+                    is_rivalry_week=False,
+                )
+            )
+            existing_matchup_keys.add(key)
+            summary.matchups_inserted += 1
+
+        # ====== LOAD TRANSACTIONS ======
+        existing_transaction_keys = {
+            (
+                int(row.league_id or 0),
+                int(row.season or 0),
+                int(row.player_id or 0),
+                str(row.old_owner_id or ""),
+                str(row.new_owner_id or ""),
+                str(row.transaction_type or ""),
+            )
+            for row in db.query(models.TransactionHistory).filter(models.TransactionHistory.league_id == target_league_id).all()
+            if row.season is not None
+        }
+
+        for row in transaction_rows:
+            season = _safe_int(row.get("season"))
+            franchise_id = (row.get("franchise_id") or "").strip()
+            player_mfl_id = (row.get("player_mfl_id") or "").strip()
+            transaction_type = (row.get("transaction_type") or "").strip().lower()
+            if season is None or not franchise_id or not player_mfl_id or not transaction_type:
+                summary.transactions_skipped += 1
+                continue
+
+            owner_id = owner_map.get((season, franchise_id))
+            if owner_id is None:
+                summary.skipped_missing_owner_map += 1
+                summary.transactions_skipped += 1
+                continue
+
+            player_id = mfl_player_to_local.get((season, player_mfl_id))
+            if player_id is None:
+                summary.skipped_missing_player_map += 1
+                summary.transactions_skipped += 1
+                continue
+
+            # Determine old_owner_id and new_owner_id based on transaction type
+            # - waiver_add: new_owner_id = owner_id, old_owner_id = None
+            # - waiver_drop / drop: old_owner_id = owner_id, new_owner_id = None
+            # - trade: depends on transaction context (for now, both point to owner_id)
+            # - draft: owner_id is the new owner, old_owner_id = None
+            old_owner_id = None
+            new_owner_id = None
+
+            if transaction_type in ("waiver_add", "draft"):
+                new_owner_id = owner_id
+            elif transaction_type in ("waiver_drop", "drop"):
+                old_owner_id = owner_id
+            elif transaction_type == "trade":
+                # For trades, we only know one franchise_id; old_owner_id and new_owner_id would require more context
+                # For now, assume owner_id is the new owner (acquired the player)
+                new_owner_id = owner_id
+            else:
+                # unknown transaction type
+                summary.transactions_skipped += 1
+                summary.warnings.append(f"Unknown transaction_type: {transaction_type}")
+                continue
+
+            amount_str = (row.get("amount") or "").strip()
+            amount = _safe_amount(amount_str) if amount_str else 0
+
+            notes = f"Type: {transaction_type}"
+            if amount:
+                notes += f", Amount: ${amount}"
+            week = _safe_int(row.get("week"))
+            if week:
+                notes += f", Week: {week}"
+
+            key = (target_league_id, season, player_id, str(old_owner_id or ""), str(new_owner_id or ""), transaction_type)
+            if key in existing_transaction_keys:
+                summary.transactions_skipped += 1
+                continue
+
+            db.add(
+                models.TransactionHistory(
+                    league_id=target_league_id,
+                    season=season,
+                    player_id=player_id,
+                    old_owner_id=old_owner_id,
+                    new_owner_id=new_owner_id,
+                    transaction_type=transaction_type,
+                    notes=notes,
+                )
+            )
+            existing_transaction_keys.add(key)
+            summary.transactions_inserted += 1
 
         if dry_run:
             db.rollback()

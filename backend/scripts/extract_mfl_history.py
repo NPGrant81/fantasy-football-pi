@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import csv
 import json
+import random
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -67,6 +69,9 @@ class ExtractSummary:
     skipped_missing_league_id: int
     failed_reports: int
     output_root: str
+    retry_attempts: int
+    throttled_retries: int
+    unresolved_failures: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -75,7 +80,69 @@ class ExtractSummary:
             "skipped_missing_league_id": self.skipped_missing_league_id,
             "failed_reports": self.failed_reports,
             "output_root": self.output_root,
+            "retry_attempts": self.retry_attempts,
+            "throttled_retries": self.throttled_retries,
+            "unresolved_failures": self.unresolved_failures,
         }
+
+
+@dataclass
+class AdaptiveThrottle:
+    min_interval_seconds: float
+    base_backoff_seconds: float
+    max_backoff_seconds: float
+    jitter_seconds: float
+    max_retries_per_request: int
+    cooldown_after_burst_seconds: float
+    burst_threshold: int
+    max_retry_after_seconds: float
+
+    consecutive_429: int = 0
+    last_request_monotonic: float = 0.0
+    total_retries: int = 0
+    throttled_retries: int = 0
+
+    def wait_for_slot(self) -> None:
+        if self.min_interval_seconds <= 0:
+            self.last_request_monotonic = time.monotonic()
+            return
+
+        now = time.monotonic()
+        elapsed = now - self.last_request_monotonic if self.last_request_monotonic else self.min_interval_seconds
+        sleep_for = self.min_interval_seconds - elapsed
+        if sleep_for > 0:
+            time.sleep(sleep_for)
+        self.last_request_monotonic = time.monotonic()
+
+    def record_success(self) -> None:
+        self.consecutive_429 = 0
+
+    def backoff_seconds(self, *, attempt_index: int, retry_after_header: str | None) -> float:
+        retry_after_seconds: float | None = None
+        if retry_after_header:
+            try:
+                retry_after_seconds = float(retry_after_header)
+            except (TypeError, ValueError):
+                retry_after_seconds = None
+
+        if retry_after_seconds is not None:
+            delay = min(max(retry_after_seconds, 0.0), self.max_retry_after_seconds)
+        else:
+            exp_delay = self.base_backoff_seconds * (2 ** max(attempt_index - 1, 0))
+            delay = min(exp_delay, self.max_backoff_seconds)
+
+        if self.jitter_seconds > 0:
+            delay += random.uniform(0, self.jitter_seconds)
+
+        if self.consecutive_429 >= self.burst_threshold:
+            delay += self.cooldown_after_burst_seconds
+
+        return delay
+
+    def record_retry(self, *, was_throttle: bool) -> None:
+        self.total_retries += 1
+        if was_throttle:
+            self.throttled_retries += 1
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -180,7 +247,28 @@ def _normalize_franchises(payload: dict[str, Any], season: int, league_id: str, 
 
 
 def _normalize_draft_results(payload: dict[str, Any], season: int, league_id: str, extracted_at: str) -> list[dict[str, Any]]:
+    def _infer_draft_style(*, pick: dict[str, Any], draft_unit: dict[str, Any], source: str) -> str:
+        if source == "auctionResults":
+            return "auction"
+
+        draft_type = str(_first_non_empty(draft_unit, ["draftType"], "") or "").strip().lower()
+        if "auction" in draft_type:
+            return "auction"
+
+        # Classic snake drafts expose explicit round/pick sequencing and/or round 1 order.
+        if str(_first_non_empty(pick, ["round"], "") or "").strip() or str(_first_non_empty(pick, ["pick", "pickNumber"], "") or "").strip():
+            return "snake"
+        if str(_first_non_empty(draft_unit, ["round1DraftOrder"], "") or "").strip():
+            return "snake"
+
+        # Bid-based fields indicate auction-like semantics when no explicit sequence exists.
+        if str(_first_non_empty(pick, ["cost", "amount", "bid", "winningBid"], "") or "").strip():
+            return "auction"
+
+        return "unknown"
+
     def _coerce_pick(pick: dict[str, Any]) -> dict[str, Any]:
+        source = str(_first_non_empty(pick, ["source"], "draftResults") or "draftResults")
         return {
             "franchise_id": _first_non_empty(pick, ["franchise", "franchise_id"]),
             "player_mfl_id": _first_non_empty(pick, ["player", "player_id"]),
@@ -188,6 +276,8 @@ def _normalize_draft_results(payload: dict[str, Any], season: int, league_id: st
             "round": _first_non_empty(pick, ["round"]),
             "winning_bid": _first_non_empty(pick, ["cost", "amount", "bid"]),
             "is_keeper_pick": str(_first_non_empty(pick, ["keeper"], "0")).lower() in {"1", "true", "yes"},
+            "draft_source": source,
+            "draft_style": _infer_draft_style(pick=pick, draft_unit=draft_unit if isinstance(draft_unit, dict) else {}, source=source),
             "raw_pick": json.dumps(pick, separators=(",", ":")),
         }
 
@@ -301,18 +391,22 @@ def _normalize_rosters(payload: dict[str, Any], season: int, league_id: str, ext
 
 def _normalize_standings(payload: dict[str, Any], season: int, league_id: str, extracted_at: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    franchises = _as_list((payload.get("standings") or {}).get("franchise"))
+    standings_root = payload.get("standings") or payload.get("leagueStandings") or {}
+    franchises = _as_list((standings_root or {}).get("franchise"))
     for franchise in franchises:
+        wins = _first_non_empty(franchise, ["w", "wins", "h2hw"], 0)
+        losses = _first_non_empty(franchise, ["l", "losses", "h2hl"], 0)
+        ties = _first_non_empty(franchise, ["t", "ties", "h2ht"], 0)
         rows.append(
             {
                 **_meta(season, league_id, "standings", extracted_at),
                 "franchise_id": _first_non_empty(franchise, ["id", "franchise_id"]),
-                "wins": _first_non_empty(franchise, ["w", "wins"], 0),
-                "losses": _first_non_empty(franchise, ["l", "losses"], 0),
-                "ties": _first_non_empty(franchise, ["t", "ties"], 0),
-                "points_for": _first_non_empty(franchise, ["pf", "points_for"]),
-                "points_against": _first_non_empty(franchise, ["pa", "points_against"]),
-                "rank": _first_non_empty(franchise, ["rank"]),
+                "wins": wins,
+                "losses": losses,
+                "ties": ties,
+                "points_for": _first_non_empty(franchise, ["pf", "points_for", "totalpf"]),
+                "points_against": _first_non_empty(franchise, ["pa", "points_against", "totalpa"]),
+                "rank": _first_non_empty(franchise, ["rank", "h2hrank", "overallrank"]),
                 "raw_standing": json.dumps(franchise, separators=(",", ":")),
             }
         )
@@ -321,19 +415,50 @@ def _normalize_standings(payload: dict[str, Any], season: int, league_id: str, e
 
 def _normalize_schedule(payload: dict[str, Any], season: int, league_id: str, extracted_at: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    weeks = _as_list((payload.get("schedule") or {}).get("week"))
+    schedule_root = payload.get("schedule") or {}
+    weeks = _as_list((schedule_root or {}).get("week"))
+    if not weeks:
+        weeks = _as_list((schedule_root or {}).get("weeklySchedule"))
+
     for week_row in weeks:
         week = _first_non_empty(week_row, ["week", "id"])
         matchups = _as_list(week_row.get("matchup"))
         for matchup in matchups:
+            home_id = _first_non_empty(matchup, ["franchise1", "home"])
+            away_id = _first_non_empty(matchup, ["franchise2", "away"])
+            home_score = _first_non_empty(matchup, ["score1", "home_score"])
+            away_score = _first_non_empty(matchup, ["score2", "away_score"])
+
+            # Modern payload shape: matchup.franchise = [{id,isHome,score,...}, {id,isHome,score,...}]
+            if not home_id and not away_id:
+                sides = _as_list(matchup.get("franchise"))
+                if len(sides) >= 2:
+                    home_side = None
+                    away_side = None
+                    for side in sides:
+                        is_home = str(side.get("isHome") or "").strip()
+                        if is_home == "1":
+                            home_side = side
+                        elif is_home == "0":
+                            away_side = side
+                    if home_side is None:
+                        home_side = sides[0]
+                    if away_side is None:
+                        away_side = sides[1] if len(sides) > 1 else None
+
+                    home_id = _first_non_empty(home_side or {}, ["id", "franchise_id"])
+                    away_id = _first_non_empty(away_side or {}, ["id", "franchise_id"])
+                    home_score = _first_non_empty(home_side or {}, ["score", "points", "home_score"])
+                    away_score = _first_non_empty(away_side or {}, ["score", "points", "away_score"])
+
             rows.append(
                 {
                     **_meta(season, league_id, "schedule", extracted_at),
                     "week": week,
-                    "home_franchise_id": _first_non_empty(matchup, ["franchise1", "home"]),
-                    "away_franchise_id": _first_non_empty(matchup, ["franchise2", "away"]),
-                    "home_score": _first_non_empty(matchup, ["score1", "home_score"]),
-                    "away_score": _first_non_empty(matchup, ["score2", "away_score"]),
+                    "home_franchise_id": home_id,
+                    "away_franchise_id": away_id,
+                    "home_score": home_score,
+                    "away_score": away_score,
                     "raw_matchup": json.dumps(matchup, separators=(",", ":")),
                 }
             )
@@ -411,6 +536,8 @@ def _fetch_json(
     report_type: str,
     timeout_seconds: int,
     session_cookie: str | None,
+    session: requests.Session,
+    throttle: AdaptiveThrottle,
 ) -> dict[str, Any]:
     effective_type = "league" if report_type == "franchises" else report_type
     params = {
@@ -423,14 +550,64 @@ def _fetch_json(
     if session_cookie:
         headers["Cookie"] = session_cookie
 
-    response = requests.get(
-        f"{API_BASE}/{season}/export",
-        params=params,
-        headers=headers,
-        timeout=timeout_seconds,
-    )
-    response.raise_for_status()
-    return response.json()
+    last_exc: Exception | None = None
+    for attempt in range(1, throttle.max_retries_per_request + 2):
+        throttle.wait_for_slot()
+        try:
+            response = session.get(
+                f"{API_BASE}/{season}/export",
+                params=params,
+                headers=headers,
+                timeout=timeout_seconds,
+            )
+
+            if response.status_code == 429:
+                throttle.consecutive_429 += 1
+                if attempt > throttle.max_retries_per_request:
+                    response.raise_for_status()
+
+                delay = throttle.backoff_seconds(
+                    attempt_index=attempt,
+                    retry_after_header=response.headers.get("Retry-After"),
+                )
+                throttle.record_retry(was_throttle=True)
+                print(
+                    f"[retry] season={season} type={report_type} status=429 "
+                    f"attempt={attempt}/{throttle.max_retries_per_request} sleep={delay:.1f}s"
+                )
+                time.sleep(delay)
+                continue
+
+            if 500 <= response.status_code <= 599:
+                if attempt > throttle.max_retries_per_request:
+                    response.raise_for_status()
+                delay = min(throttle.base_backoff_seconds * attempt, throttle.max_backoff_seconds)
+                throttle.record_retry(was_throttle=False)
+                print(
+                    f"[retry] season={season} type={report_type} status={response.status_code} "
+                    f"attempt={attempt}/{throttle.max_retries_per_request} sleep={delay:.1f}s"
+                )
+                time.sleep(delay)
+                continue
+
+            response.raise_for_status()
+            throttle.record_success()
+            return response.json()
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_exc = exc
+            if attempt > throttle.max_retries_per_request:
+                break
+            delay = min(throttle.base_backoff_seconds * attempt, throttle.max_backoff_seconds)
+            throttle.record_retry(was_throttle=False)
+            print(
+                f"[retry] season={season} type={report_type} network_error={type(exc).__name__} "
+                f"attempt={attempt}/{throttle.max_retries_per_request} sleep={delay:.1f}s"
+            )
+            time.sleep(delay)
+
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError(f"request failed without response for season={season} type={report_type}")
 
 
 def run_mfl_history_extract(
@@ -441,6 +618,14 @@ def run_mfl_history_extract(
     output_root: str = "exports/history",
     timeout_seconds: int = 20,
     session_cookie: str | None = None,
+    max_retries_per_request: int = 6,
+    min_interval_seconds: float = 0.35,
+    base_backoff_seconds: float = 3.0,
+    max_backoff_seconds: float = 90.0,
+    jitter_seconds: float = 1.0,
+    cooldown_after_burst_seconds: float = 15.0,
+    burst_threshold: int = 3,
+    max_retry_after_seconds: float = 300.0,
 ) -> dict[str, Any]:
     output_base = Path(output_root)
     report_types = report_types or DEFAULT_REPORT_TYPES
@@ -449,6 +634,20 @@ def run_mfl_history_extract(
     extracted_reports = 0
     skipped_missing_league_id = 0
     failed_reports = 0
+    unresolved_failures: list[dict[str, Any]] = []
+
+    throttle = AdaptiveThrottle(
+        min_interval_seconds=min_interval_seconds,
+        base_backoff_seconds=base_backoff_seconds,
+        max_backoff_seconds=max_backoff_seconds,
+        jitter_seconds=jitter_seconds,
+        max_retries_per_request=max_retries_per_request,
+        cooldown_after_burst_seconds=cooldown_after_burst_seconds,
+        burst_threshold=burst_threshold,
+        max_retry_after_seconds=max_retry_after_seconds,
+    )
+
+    session = requests.Session()
 
     for season in seasons:
         league_id = KNOWN_LEAGUE_BY_SEASON.get(season)
@@ -466,6 +665,8 @@ def run_mfl_history_extract(
                     report_type=report_type,
                     timeout_seconds=timeout_seconds,
                     session_cookie=session_cookie,
+                    session=session,
+                    throttle=throttle,
                 )
 
                 if report_type == "draftResults":
@@ -476,6 +677,8 @@ def run_mfl_history_extract(
                             report_type="auctionResults",
                             timeout_seconds=timeout_seconds,
                             session_cookie=session_cookie,
+                            session=session,
+                            throttle=throttle,
                         )
                         if isinstance(auction_payload, dict) and "error" not in auction_payload:
                             payload["_auction_results_fallback"] = auction_payload
@@ -504,11 +707,22 @@ def run_mfl_history_extract(
             except Exception as exc:  # noqa: BLE001
                 failed_reports += 1
                 print(f"[error] season={season} type={report_type} {exc}")
+                unresolved_failures.append(
+                    {
+                        "season": season,
+                        "league_id": league_id,
+                        "report_type": report_type,
+                        "error": str(exc),
+                        "failed_at_utc": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
                 if "football7.myfantasyleague.com" in str(exc):
                     print(
                         "[hint] legacy host football7.myfantasyleague.com did not resolve; "
                         "capture this season via manual export/snapshot and import as CSV"
                     )
+
+    session.close()
 
     summary = ExtractSummary(
         requested_seasons=seasons,
@@ -516,8 +730,22 @@ def run_mfl_history_extract(
         skipped_missing_league_id=skipped_missing_league_id,
         failed_reports=failed_reports,
         output_root=str(output_base),
+        retry_attempts=throttle.total_retries,
+        throttled_retries=throttle.throttled_retries,
+        unresolved_failures=len(unresolved_failures),
     )
 
     summary_path = output_base / "_run_summary.json"
     _write_json(summary_path, summary.to_dict())
+
+    failed_reports_path = output_base / "_failed_reports.json"
+    _write_json(
+        failed_reports_path,
+        {
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "output_root": str(output_base),
+            "unresolved_failures": unresolved_failures,
+        },
+    )
+
     return summary.to_dict()
