@@ -21,12 +21,14 @@ Provide a reproducible systemd setup so `cloudflared` starts on boot, restarts o
 ## 1. Prerequisites
 ```bash
 cloudflared --version
+id cloudflared || echo "cloudflared user missing"
 sudo ls -la /etc/cloudflared
 sudo test -f /etc/cloudflared/config.yml && echo "config present"
 ```
 
 Expected:
 - `cloudflared` binary installed
+- `cloudflared` system user exists (or will be created by the installer)
 - `config.yml` present
 - tunnel credentials JSON present
 
@@ -35,6 +37,7 @@ Option A: one command (recommended)
 ```bash
 cd /opt/fantasy-football-pi
 sudo bash deploy/systemd/install_cloudflared_monitoring.sh
+id cloudflared
 ```
 
 Option B: manual copy
@@ -101,6 +104,12 @@ Common fixes:
 - wrong `ExecStart` binary path in unit
 - invalid `/etc/cloudflared/config.yml`
 - missing/incorrect tunnel credentials JSON
+- missing `credentials-file:` entry in `/etc/cloudflared/config.yml`
+- missing `cloudflared` service user/group
+
+Binary path note:
+- Some Pi installs place `cloudflared` in `/usr/local/bin`, others in `/usr/bin`.
+- The service template uses `Environment=PATH=/usr/local/bin:/usr/bin:/bin` plus `/usr/bin/env cloudflared` so either location works.
 
 ### Tunnel starts but traffic does not route
 Checks:
