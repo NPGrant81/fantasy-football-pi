@@ -129,3 +129,8 @@ def test_resolve_names_records_ambiguous_when_name_only_collides(tmp_path):
     assert summary["rows_ambiguous"] == 1
     rows = _read_csv(root / "manual_overrides" / "draft_backfill_sheets" / "2005.csv")
     assert rows[0]["player_mfl_id"] == ""
+
+    review_rows = _read_csv(root / "manual_overrides" / "draft_backfill_sheets" / "_backfill_name_resolve_review.csv")
+    assert len(review_rows) == 1
+    assert review_rows[0]["candidate_ids"] == "111 | 222"
+    assert review_rows[0]["candidate_names"] == "Smith, Steve | Smith, Steve"

@@ -76,13 +76,22 @@ def _style_hint(style: str) -> str:
 
 
 def _row_key(row: dict[str, str]) -> tuple[str, str, str, str, str]:
-    return (
-        str(row.get("season") or "").strip(),
-        str(row.get("league_id") or "").strip(),
-        str(row.get("franchise_id") or "").strip(),
-        str(row.get("round") or "").strip(),
-        str(row.get("pick_number") or "").strip(),
-    )
+    """Return a deduplication key for a draft pick row.
+
+    Snake-draft picks are keyed by round+pick.  Auction picks typically have no
+    round/pick; winning_bid is used as the next-best discriminator to prevent
+    multiple picks from the same franchise in the same season collapsing to one
+    key in the ``draft_by_key`` lookup.
+    """
+    season = str(row.get("season") or "").strip()
+    league_id = str(row.get("league_id") or "").strip()
+    franchise_id = str(row.get("franchise_id") or "").strip()
+    rnd = str(row.get("round") or "").strip()
+    pick = str(row.get("pick_number") or "").strip()
+    if rnd or pick:
+        return (season, league_id, franchise_id, rnd, pick)
+    winning_bid = str(row.get("winning_bid") or "").strip()
+    return (season, league_id, franchise_id, winning_bid, "")
 
 
 def run_prepare_mfl_draft_backfill_sheet(

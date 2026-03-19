@@ -857,7 +857,11 @@ def scaffold_mfl_manual_csv(
     "--overwrite",
     is_flag=True,
     default=False,
-    help="Overwrite destination files when they already exist.",
+    help=(
+        "Overwrite destination files when they already exist. "
+        "Manual override files (manual_overrides/) are never overwritten "
+        "regardless of this flag, to preserve operator edits."
+    ),
 )
 def stage_mfl_html_for_import(
     start_year: int,

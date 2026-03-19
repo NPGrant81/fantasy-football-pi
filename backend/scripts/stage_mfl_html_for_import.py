@@ -102,14 +102,22 @@ def _write_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) 
 
 
 def _read_league_id_for_season(*, api_root: Path, season: int) -> str:
-    league_csv_path = api_root / "league" / f"{season}.csv"
-    if not league_csv_path.exists():
-        return ""
-
-    rows = _read_csv_rows(league_csv_path)
-    if not rows:
-        return ""
-    return str(rows[0].get("league_id") or "").strip()
+    candidate_paths = [
+        api_root / "league" / f"{season}.csv",
+        api_root / "franchises" / f"{season}.csv",
+        api_root / "players" / f"{season}.csv",
+        api_root / "draftResults" / f"{season}.csv",
+    ]
+    for csv_path in candidate_paths:
+        if not csv_path.exists():
+            continue
+        rows = _read_csv_rows(csv_path)
+        if not rows:
+            continue
+        league_id = str(rows[0].get("league_id") or "").strip()
+        if league_id:
+            return league_id
+    return ""
 
 
 def _draft_override_key(row: dict[str, str]) -> tuple[str, str, str, str, str]:
@@ -117,35 +125,26 @@ def _draft_override_key(row: dict[str, str]) -> tuple[str, str, str, str, str]:
 
     Prefer the mapped player id when present so repeated staging runs stay
     stable even if staged rows do not include round/pick context.
+    For auction picks (no round/pick and no player id yet), fall back to
+    winning_bid as a discriminator to avoid collapsing multiple picks from
+    the same franchise to a single key.
     """
+    season = str(row.get("season") or "").strip()
+    league_id = str(row.get("league_id") or "").strip()
+    franchise_id = str(row.get("franchise_id") or "").strip()
+
     player_id = str(row.get("player_mfl_id") or "").strip()
     if player_id:
-        return (
-            str(row.get("season") or "").strip(),
-            str(row.get("league_id") or "").strip(),
-            str(row.get("franchise_id") or "").strip(),
-            player_id,
-            "",
-        )
+        return (season, league_id, franchise_id, player_id, "")
 
     rnd = str(row.get("round") or "").strip()
     pick = str(row.get("pick_number") or "").strip()
     if rnd or pick:
-        return (
-            str(row.get("season") or "").strip(),
-            str(row.get("league_id") or "").strip(),
-            str(row.get("franchise_id") or "").strip(),
-            rnd,
-            pick,
-        )
-    # No structural context and no player id: key by available identity fields.
-    return (
-        str(row.get("season") or "").strip(),
-        str(row.get("league_id") or "").strip(),
-        str(row.get("franchise_id") or "").strip(),
-        rnd,
-        "",
-    )
+        return (season, league_id, franchise_id, rnd, pick)
+
+    # Auction rows: no round/pick, use winning_bid to distinguish picks.
+    winning_bid = str(row.get("winning_bid") or "").strip()
+    return (season, league_id, franchise_id, winning_bid, "")
 
 
 def _enrich_manual_draft_template_from_raw_json(
@@ -267,7 +266,6 @@ def _ensure_draft_results_manual_fallback(
     output_root: Path,
     seasons: list[int],
     summary: StageSummary,
-    overwrite: bool,
 ) -> None:
     for season in seasons:
         draft_csv_path = output_root / "draftResults" / f"{season}.csv"
@@ -286,6 +284,9 @@ def _ensure_draft_results_manual_fallback(
             continue
 
         manual_path = output_root / "manual_overrides" / "draftResults" / f"{season}.csv"
+        # Manual override files are intentionally preserved even when overwrite=True,
+        # because they contain operator-entered historical backfill data that must
+        # not be discarded on a re-run.
         if manual_path.exists():
             continue
 
@@ -318,8 +319,11 @@ def _merge_manual_draft_overrides(
             continue
 
         staged_headers, staged_rows = _read_csv_rows_with_headers(draft_csv_path)
-        manual_rows = _read_csv_rows(manual_path)
+        manual_headers, manual_rows = _read_csv_rows_with_headers(manual_path)
         output_headers = list(staged_headers)
+        for column in manual_headers:
+            if column and column not in output_headers:
+                output_headers.append(column)
         for column in REQUIRED_HEADERS["draftResults"]:
             if column not in output_headers:
                 output_headers.append(column)
@@ -397,7 +401,6 @@ def run_stage_mfl_html_for_import(
         output_root=output_base,
         seasons=seasons,
         summary=summary,
-        overwrite=overwrite,
     )
     _merge_manual_draft_overrides(
         output_root=output_base,

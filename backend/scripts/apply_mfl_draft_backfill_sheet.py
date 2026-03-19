@@ -86,13 +86,22 @@ def _write_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) 
 
 
 def _row_key(row: dict[str, str]) -> tuple[str, str, str, str, str]:
-    return (
-        str(row.get("season") or "").strip(),
-        str(row.get("league_id") or "").strip(),
-        str(row.get("franchise_id") or "").strip(),
-        str(row.get("round") or "").strip(),
-        str(row.get("pick_number") or "").strip(),
-    )
+    """Return a deduplication key for a draft pick row.
+
+    Snake-draft picks are keyed by round+pick, which are always populated.
+    Auction picks typically have no round/pick; in that case winning_bid is
+    used as the next-best discriminator so that multiple auction picks by the
+    same franchise in the same season do not collapse to a single key.
+    """
+    season = str(row.get("season") or "").strip()
+    league_id = str(row.get("league_id") or "").strip()
+    franchise_id = str(row.get("franchise_id") or "").strip()
+    rnd = str(row.get("round") or "").strip()
+    pick = str(row.get("pick_number") or "").strip()
+    if rnd or pick:
+        return (season, league_id, franchise_id, rnd, pick)
+    winning_bid = str(row.get("winning_bid") or "").strip()
+    return (season, league_id, franchise_id, winning_bid, "")
 
 
 def _normalize_manual_row(sheet_row: dict[str, str]) -> dict[str, str]:
@@ -172,16 +181,6 @@ def run_apply_mfl_draft_backfill_sheet(
 
             normalized = _normalize_manual_row(row)
             key = _row_key(normalized)
-
-            # Fallback key when sheets omit round/pick context.
-            if not key[3] and not key[4]:
-                key = (
-                    normalized["season"],
-                    normalized["league_id"],
-                    normalized["franchise_id"],
-                    "",
-                    "",
-                )
 
             summary.candidate_rows += 1
             existing = manual_by_key.get(key)

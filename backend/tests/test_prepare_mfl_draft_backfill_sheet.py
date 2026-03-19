@@ -92,3 +92,52 @@ def test_prepare_backfill_sheet_classifies_auction_and_skips_filled_by_default(t
 
     assert rows[0]["draft_style"] == "auction"
     assert rows[0]["hint_strategy"].startswith("Use auction ledger")
+
+
+def test_prepare_backfill_sheet_auction_multi_row_no_key_collision(tmp_path):
+    """Multiple auction picks from the same franchise (no round/pick) are all
+    written to the output sheet — not collapsed to one row via key collision."""
+    root = tmp_path / "staged"
+
+    _write_csv(
+        root / "franchises" / "2017.csv",
+        ["season", "league_id", "franchise_id", "franchise_name", "owner_name"],
+        [{"season": "2017", "league_id": "38909", "franchise_id": "0007", "franchise_name": "Team A", "owner_name": "Alpha"}],
+    )
+    _write_csv(
+        root / "players" / "2017.csv",
+        ["season", "league_id", "player_mfl_id", "player_name", "position", "nfl_team"],
+        [],
+    )
+    # Two auction picks — same franchise, blank round/pick, distinct winning_bid.
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2017.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number", "winning_bid"],
+        [
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "", "round": "", "pick_number": "", "winning_bid": "42"},
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "", "round": "", "pick_number": "", "winning_bid": "55"},
+        ],
+    )
+    _write_csv(
+        root / "draftResults" / "2017.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "winning_bid", "draft_style"],
+        [
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "", "winning_bid": "42", "draft_style": "auction"},
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "", "winning_bid": "55", "draft_style": "auction"},
+        ],
+    )
+
+    summary = run_prepare_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2017,
+        end_year=2017,
+    )
+
+    assert summary["rows_written"] == 2, "Both auction picks must appear in the sheet — no key collision"
+    assert summary["style_counts"]["auction"] == 2
+
+    out_path = root / "manual_overrides" / "draft_backfill_sheets" / "2017.csv"
+    with out_path.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    bids = {row["winning_bid"] for row in rows}
+    assert bids == {"42", "55"}

@@ -170,3 +170,42 @@ def test_apply_backfill_sheet_can_disable_2002_source_policy(tmp_path):
     assert summary["rows_updated"] == 1
     updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2002.csv")
     assert updated_rows[0]["player_mfl_id"] == "0501"
+
+
+def test_apply_backfill_sheet_auction_multi_row_no_key_collision(tmp_path):
+    """Multiple auction picks by the same franchise (no round/pick) are uniquely
+    identified by winning_bid and all survive the apply merge without colliding."""
+    root = tmp_path / "staged"
+    sheet_root = root / "manual_overrides" / "draft_backfill_sheets"
+
+    _write_csv(
+        root / "manual_overrides" / "draftResults" / "2017.csv",
+        ["season", "league_id", "franchise_id", "player_mfl_id", "round", "pick_number", "winning_bid", "is_keeper_pick"],
+        [
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "", "round": "", "pick_number": "", "winning_bid": "42", "is_keeper_pick": ""},
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "player_mfl_id": "", "round": "", "pick_number": "", "winning_bid": "55", "is_keeper_pick": ""},
+        ],
+    )
+    _write_csv(
+        sheet_root / "2017.csv",
+        ["season", "league_id", "franchise_id", "round", "pick_number", "winning_bid", "player_mfl_id", "manual_source_url"],
+        [
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "round": "", "pick_number": "", "winning_bid": "42", "player_mfl_id": "1001", "manual_source_url": "https://example.test"},
+            {"season": "2017", "league_id": "38909", "franchise_id": "0007", "round": "", "pick_number": "", "winning_bid": "55", "player_mfl_id": "2002", "manual_source_url": "https://example.test"},
+        ],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=str(root),
+        start_year=2017,
+        end_year=2017,
+        apply_changes=True,
+        enforce_2002_source_policy=False,
+    )
+
+    assert summary["rows_updated"] == 2
+    assert summary["candidate_rows"] == 2
+
+    updated_rows = _read_csv(root / "manual_overrides" / "draftResults" / "2017.csv")
+    player_ids = {row["player_mfl_id"] for row in updated_rows}
+    assert player_ids == {"1001", "2002"}, "Both auction picks must be preserved — no key collision"

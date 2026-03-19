@@ -187,8 +187,9 @@ def run_resolve_mfl_draft_backfill_names(
             if not candidates:
                 candidates = by_name.get(_norm(parsed_name), [])
 
-            candidate_ids = ",".join(str(c.get("player_mfl_id") or "").strip() for c in candidates if str(c.get("player_mfl_id") or "").strip())
-            candidate_names = ",".join(str(c.get("player_name") or "").strip() for c in candidates)
+            candidate_ids = " | ".join(str(c.get("player_mfl_id") or "").strip() for c in candidates if str(c.get("player_mfl_id") or "").strip())
+            # Player names are usually "Lastname, Firstname", so avoid comma joins.
+            candidate_names = " | ".join(str(c.get("player_name") or "").strip() for c in candidates)
 
             status = ""
             if len(candidates) == 1:
