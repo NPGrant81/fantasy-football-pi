@@ -692,6 +692,7 @@ def stage_mfl_html_for_import(
     click.echo(f"- Required CSVs scaffolded: {summary['scaffolded_required_files']}")
     click.echo(f"- HTML report CSVs copied: {summary['copied_html_reports']}")
     click.echo(f"- Draft manual templates created: {summary['draft_results_manual_templates']}")
+    click.echo(f"- Draft manual override rows merged: {summary['manual_override_rows_merged']}")
     click.echo(f"- Output root: {summary['output_root']}")
     if summary["warnings"]:
         click.echo(f"- Warnings: {len(summary['warnings'])}")
