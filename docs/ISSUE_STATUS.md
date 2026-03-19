@@ -12,6 +12,11 @@
 
 ## Resolved Issue Closure Queue (New Standard)
 
+- **Issue #81**: `Phase 1: Raspberry Pi OS Setup`
+  - **Implementation Status:** Resolved in current branch via Raspberry Pi Phase 1 runbook updates
+  - **GitHub Status:** Pending close-out comment / closure
+  - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #81 Close-Out Notes`
+
 - **Issue #131**: `Create Dedicated Draft Day Analyzer Page + Fix Advisor & Simulation Failures`
   - **Implementation Status:** Resolved in `feature/scoring-integration-analytics`
   - **GitHub Status:** Closed (March 8, 2026) with close-out comment

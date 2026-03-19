@@ -47,6 +47,98 @@ assess impact and risk across all areas.
 
 ---
 
+## Issue #81 Close-Out Notes
+
+Issue: `#81` - Phase 1: Raspberry Pi OS Setup
+
+### Resolution summary
+
+- Added a Phase 1 section to the Raspberry Pi deployment runbook for fresh-host bring-up.
+- Documented Raspberry Pi Imager choices for a headless Raspberry Pi OS Lite (64-bit) install.
+- Added first-boot SSH onboarding guidance, including hostname and direct-IP fallback paths.
+- Added immediate post-boot validation commands and reboot verification steps.
+- Clarified the handoff boundary between base host setup and later deployment work such as Nginx, systemd, TLS, and Cloudflare.
+
+### Verification checklist for issue closure
+
+- [x] Fresh-image workflow is documented from Raspberry Pi Imager through first SSH login.
+- [x] Headless bring-up includes hostname and IP-based access fallback.
+- [x] Immediate host validation commands are documented.
+- [x] The runbook cleanly separates Phase 1 from later deployment phases.
+
+### Suggested GitHub Issue close comment
+
+```md
+Status update: moving this issue to **Complete**.
+
+What was delivered:
+- Added Phase 1 Raspberry Pi OS setup guidance to `docs/RASPBERRY_PI_DEPLOYMENT.md`.
+- Documented Raspberry Pi Imager settings for a headless Raspberry Pi OS Lite (64-bit) install.
+- Added first-boot SSH onboarding guidance with hostname and IP fallback.
+- Added immediate post-boot validation commands and clarified the transition into later deployment phases.
+
+Validation evidence:
+- Reviewed updated Phase 1 runbook content in `docs/RASPBERRY_PI_DEPLOYMENT.md`.
+- Markdown validation passed for the updated runbook and issue draft.
+
+References:
+- Repo docs: `docs/RASPBERRY_PI_DEPLOYMENT.md`
+- Local issue draft: `issues/milestone-2-raspberry-pi-setup.md`
+
+Close-out:
+- Follow-on host preparation remains tracked in `#290`.
+```
+
+---
+
+## Issue #290 Carryover Notes
+
+Issue: `#290` - Pre-Deploy Raspberry Pi Host Foundation Checklist (Packages, Hardening, Service Readiness)
+
+### Current status
+
+- Execution-complete for baseline host preparation on the Raspberry Pi.
+- Intentionally still open because remaining work is app-coupled and was deferred by scope.
+
+### Completed this pass
+
+- Captured exact package, firewall, and service enablement results in the local issue draft.
+- Prepared the parent issue update note in `issues/pre-deploy-raspberry-pi-host-foundation-parent-note.md`.
+- Marked the child checklist as complete for the baseline host foundation work.
+
+### Deferred follow-on before Cloudflare cutover
+
+- Final app Nginx site wiring on the Pi
+- Backend production env/secrets finalization
+- Backup timer activation against the final database target
+- Cloudflared production credential placement and service cutover
+
+### Suggested GitHub issue status comment
+
+```md
+Status update: issue remains **In Progress**.
+
+Completed this pass:
+- Baseline Raspberry Pi host foundation work is complete: required packages installed, UFW enabled with OpenSSH and Nginx rules, fail2ban enabled, and nginx/fail2ban verified active.
+- Execution notes and verification details are captured in the repo issue draft.
+- Parent update note for `#79` is prepared.
+
+Remaining scope:
+- Final app Nginx site + runtime wiring
+- Backend production env/secrets finalization
+- Backup timer activation against the final DB target
+- Cloudflared production credential placement and service cutover
+
+References:
+- Child issue draft: `issues/pre-deploy-raspberry-pi-host-foundation-checklist.md`
+- Parent note draft: `issues/pre-deploy-raspberry-pi-host-foundation-parent-note.md`
+
+Carryover tracking:
+- Cloudflare/public routing work remains in `#83`
+```
+
+---
+
 ## Issue #131 Close-Out Notes
 
 Issue: `#131` - Create Dedicated Draft Day Analyzer Page + Fix Advisor & Simulation Failures

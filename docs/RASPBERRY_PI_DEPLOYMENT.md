@@ -1,11 +1,100 @@
 # Raspberry Pi Deployment (Nginx + systemd)
 
 This is the recommended production-style setup for Raspberry Pi:
+- Raspberry Pi OS Lite (64-bit) provides the base host.
+- SSH is enabled during imaging so the Pi can be brought online headlessly.
 - Nginx serves frontend static files.
 - Nginx reverse proxies backend API routes to FastAPI on `127.0.0.1:8000`.
 - systemd keeps the FastAPI backend running.
 
 Quick reference: `docs/PI_UPDATE_CHEATSHEET.md`
+
+## Phase 1: Raspberry Pi OS Setup
+
+Use this section when preparing a fresh Raspberry Pi 5 before any app deploy work.
+
+### Hardware and prerequisites
+
+- Raspberry Pi 5
+- microSD card or NVMe boot media
+- Official Raspberry Pi 5 USB-C power supply
+- Ethernet connection preferred for initial server setup
+- Primary workstation with Raspberry Pi Imager installed
+
+### 1. Flash Raspberry Pi OS Lite
+
+On the primary workstation:
+
+1. Open Raspberry Pi Imager.
+2. Choose `Raspberry Pi OS (Other)`.
+3. Select `Raspberry Pi OS Lite (64-bit)`.
+4. Select the target storage device.
+
+Use the advanced settings flow before writing the image:
+
+- Hostname: choose a stable host such as `fantasy-server`
+- Username: create a dedicated login user
+- Password: set a strong password
+- SSH: enable SSH with password authentication for first boot
+- Wi-Fi: only preconfigure if Ethernet is not available
+- Locale/timezone: set the expected deployment region
+
+The goal is to boot directly into a reachable headless Linux host without needing a monitor or keyboard.
+
+### 2. First boot and network reachability
+
+1. Insert the flashed media into the Pi.
+2. Connect Ethernet if available.
+3. Power on the device and wait 1-2 minutes for first boot.
+4. Determine the host to connect to:
+	- Preferred: `<hostname>.local`
+	- Fallback: DHCP-assigned IP from the router or DHCP lease table
+
+If `.local` name resolution is unreliable on the workstation, use the Pi IP address directly.
+
+### 3. Verify SSH access
+
+From the workstation:
+
+```bash
+ssh <username>@<hostname>.local
+```
+
+If hostname resolution fails:
+
+```bash
+ssh <username>@<pi_ip_address>
+```
+
+Accept the host fingerprint on first connect. Successful login confirms that the image settings, user creation, and network path are all correct.
+
+### 4. Baseline host checks after login
+
+Run these commands immediately after first SSH access:
+
+```bash
+whoami
+hostnamectl
+ip addr show
+pwd
+sudo apt update
+sudo apt full-upgrade -y
+sudo reboot
+```
+
+Reconnect after the reboot and confirm the hostname, user, and network interface still look correct.
+
+### 5. Capture deployment inputs before app setup
+
+Confirm these decisions before moving into app deployment and external routing:
+
+- Domain and DNS provider
+- Final repo source on the Pi (`git clone` target and branch/ref strategy)
+- Backend runtime choice and env file location
+- Database location and backup target
+- Whether Cloudflare Tunnel will be used for public access
+
+These inputs affect later phases, but they should be known before wiring Nginx, systemd, TLS, or Cloudflare.
 
 ## 1. Install Base Packages (Pi)
 
@@ -148,3 +237,4 @@ If all changed files were docs-only, skip service restarts.
 - This app currently routes API calls directly by path (`/auth`, `/players`, `/draft`, etc.), not under `/api`.
 - The Nginx template in `deploy/nginx/fantasy-football-pi.conf.example` already matches this behavior.
 - `python -m backend.manage audit-player-duplicates --fail-on-duplicates` can be run on Pi before deploy cutover as a guard.
+- Phase 1 host bring-up intentionally stops before app-specific secrets, TLS, or Cloudflare production cutover.
