@@ -248,9 +248,10 @@
 
 ### Story 0.3: Database Scheduled Backups
 
-- **Status:** ⏳ IN PROGRESS / NOT REQUIRED YET
-- **Notes:** Basic database working; backup scripts planned
-- **Complexity:** Low - cron job + backup script
+- **Status:** ✅ COMPLETED
+- **Details:** Implemented microSD-targeted database backup automation with a bash backup script, systemd service/timer examples, retention pruning, and a restore runbook.
+- **Evidence:** `ops/backup/microsd_db_backup.sh`, `deploy/systemd/microsd-db-backup.service.example`, `deploy/systemd/microsd-db-backup.timer.example`, `docs/restore.md`
+- **Verification:** Backup automation artifacts are present and documented for deployment/restore workflows.
 
 ---
 
@@ -277,7 +278,7 @@
 - **✅ Fully Completed:** Includes Story `6.4` and Story `7.3`.
 - **🔄 Partially Completed:** Stories `6.1`, `6.2`, `6.3`.
 - **❌ Not Started:** Stories `1.2` and `7.2` remain explicitly not started.
-- **🏗️ Infrastructure:** 3 tasks (0.1 ✅, 0.2 ⏳, 0.3 ⏳)
+- **🏗️ Infrastructure:** 3 tasks (0.1 ✅, 0.2 ⏳, 0.3 ✅)
 
 ---
 
