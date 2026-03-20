@@ -250,9 +250,9 @@ This project uses **Agile Story numbering** to organize features and tasks with 
   - [#41](https://github.com/NPGrant81/fantasy-football-pi/issues/41) - Calculation Engine
   - [#42](https://github.com/NPGrant81/fantasy-football-pi/issues/42) - Data Migration & Import Tools
   - [#43](https://github.com/NPGrant81/fantasy-football-pi/issues/43) - Unit & Integration Testing
-- **Status:** ⏳ PLANNED
+- **Status:** ✅ COMPLETED
 - **Priority:** High
-- **Details:** Backend foundation for flexible scoring rules, templates, and audit trails
+- **Details:** Backend scoring infrastructure is implemented with schema, CRUD endpoints, CSV import flows, templates, audit trails, matchup recalculation, and integration hardening coverage for propagation, CSV round-trip parity, and rollback safety.
 
 ---
 
@@ -300,8 +300,8 @@ This project uses **Agile Story numbering** to organize features and tasks with 
 ### Sprint 2: Commissioner Tools (Story 8.x)
 
 3. **Story 8.3 (Backend)** - Scoring Rules System Infrastructure
-   - Effort: 3-5 days
-   - Impact: Foundation for advanced commissioner features
+  - Status: Complete
+  - Impact: Foundation for advanced commissioner features is now in place, including scoring templates/imports and integration coverage.
 4. **Story 8.2 (Frontend)** - Commissioner Scoring Rules Page
    - Effort: 2-3 days
    - Impact: Flexible league customization
