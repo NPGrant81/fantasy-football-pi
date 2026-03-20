@@ -7,6 +7,8 @@ This is the recommended production-style setup for Raspberry Pi:
 
 Quick reference: `docs/PI_UPDATE_CHEATSHEET.md`
 
+Docker parity setup reference: `docs/pi-setup/docker.md`
+
 ## 1. Install Base Packages (Pi)
 
 ```bash
