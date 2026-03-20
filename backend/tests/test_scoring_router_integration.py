@@ -567,3 +567,64 @@ Receptions,1-999,2 points each,8004
     recalc = recalc_response.json()
     scored_totals = sorted([float(recalc["home_score"]), float(recalc["away_score"])])
     assert scored_totals == pytest.approx([2.0, 10.0])
+
+
+def test_batch_upsert_rolls_back_all_changes_when_any_rule_update_fails(client, api_db):
+    league, commissioner = _seed_league_and_commissioner(api_db)
+
+    app.dependency_overrides[check_is_commissioner] = lambda: commissioner
+    app.dependency_overrides[get_current_user] = lambda: commissioner
+
+    response = client.post(
+        "/scoring/rules/batch-upsert",
+        json={
+            "season_year": 2026,
+            "replace_existing_for_season": False,
+            "rules": [
+                {
+                    "category": "receiving",
+                    "event_name": "receptions",
+                    "description": "Should rollback on failure",
+                    "range_min": 0,
+                    "range_max": 999,
+                    "point_value": 1.0,
+                    "calculation_type": "per_unit",
+                    "applicable_positions": ["WR"],
+                    "position_ids": [8004],
+                    "source": "custom",
+                    "is_active": True,
+                },
+                {
+                    "id": 999999,
+                    "category": "receiving",
+                    "event_name": "receiving_tds",
+                    "description": "Non-existent rule should fail",
+                    "range_min": 1,
+                    "range_max": 999,
+                    "point_value": 6.0,
+                    "calculation_type": "per_unit",
+                    "applicable_positions": ["WR"],
+                    "position_ids": [8004],
+                    "source": "custom",
+                    "is_active": True,
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+    rules = (
+        api_db.query(models.ScoringRule)
+        .filter(models.ScoringRule.league_id == league.id)
+        .all()
+    )
+    assert rules == []
+
+    history = (
+        api_db.query(models.ScoringRuleChangeLog)
+        .filter(models.ScoringRuleChangeLog.league_id == league.id)
+        .all()
+    )
+    assert history == []
