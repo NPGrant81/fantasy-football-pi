@@ -1,4 +1,6 @@
 import sys
+import csv
+import io
 from pathlib import Path
 
 import pytest
@@ -482,3 +484,86 @@ Receptions,1-999,2 points each,8004
     change_types = {row["change_type"] for row in history_response.json()}
     assert "imported" in change_types
     assert "deleted" in change_types
+
+
+def test_template_export_round_trip_preserves_scoring_parity(client, api_db):
+    league, commissioner = _seed_league_and_commissioner(api_db)
+    matchup = _seed_matchup_data(api_db, league.id)
+
+    app.dependency_overrides[check_is_commissioner] = lambda: commissioner
+    app.dependency_overrides[get_current_user] = lambda: commissioner
+
+    source_csv = """Event,Range_Yds,Point_Value,PostionID
+Receptions,1-999,2 points each,8004
+"""
+
+    first_import = client.post(
+        "/scoring/templates/import",
+        json={
+            "template_name": "Round Trip Source",
+            "season_year": 2031,
+            "source_platform": "espn_csv",
+            "csv_content": source_csv,
+        },
+    )
+    assert first_import.status_code == 200
+    source_template_id = int(first_import.json()["id"])
+
+    first_export = client.get(f"/scoring/templates/{source_template_id}/export")
+    assert first_export.status_code == 200
+    exported_csv = first_export.json()["csv"]
+
+    reimport = client.post(
+        "/scoring/templates/import",
+        json={
+            "template_name": "Round Trip Reimported",
+            "season_year": 2032,
+            "source_platform": "roundtrip_csv",
+            "csv_content": exported_csv,
+        },
+    )
+    assert reimport.status_code == 200
+    roundtrip_template_id = int(reimport.json()["id"])
+
+    second_export = client.get(f"/scoring/templates/{roundtrip_template_id}/export")
+    assert second_export.status_code == 200
+
+    source_rows = list(csv.DictReader(io.StringIO(exported_csv)))
+    roundtrip_rows = list(csv.DictReader(io.StringIO(second_export.json()["csv"])))
+    assert len(source_rows) == len(roundtrip_rows) == 1
+
+    comparable_columns = [
+        "category",
+        "event_name",
+        "description",
+        "range_min",
+        "range_max",
+        "point_value",
+        "calculation_type",
+        "applicable_positions",
+        "position_ids",
+    ]
+    assert {
+        key: source_rows[0][key] for key in comparable_columns
+    } == {
+        key: roundtrip_rows[0][key] for key in comparable_columns
+    }
+
+    apply_response = client.post(
+        f"/scoring/templates/{roundtrip_template_id}/apply",
+        json={
+            "season_year": 2026,
+            "deactivate_existing": True,
+        },
+    )
+    assert apply_response.status_code == 200
+
+    recalc_response = client.post(
+        f"/scoring/calculate/matchups/{matchup.id}/recalculate",
+        json={"season": 2026, "season_year": 2026},
+    )
+    assert recalc_response.status_code == 200
+
+    recalc = recalc_response.json()
+    scored_totals = sorted([float(recalc["home_score"]), float(recalc["away_score"])])
+    assert scored_totals == pytest.approx([2.0, 10.0])
