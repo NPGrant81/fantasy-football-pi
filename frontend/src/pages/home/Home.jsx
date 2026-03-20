@@ -22,7 +22,7 @@ import {
 
 export default function Home({ username }) {
   const [standings, setStandings] = useState([]);
-  const [sortField, setSortField] = useState('wins');
+  const [sortField, setSortField] = useState('record');
   const [sortAsc, setSortAsc] = useState(false);
   const [news, setNews] = useState([]);
   const [topFreeAgents, setTopFreeAgents] = useState([]);

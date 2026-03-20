@@ -140,3 +140,146 @@ def test_get_league_owners_ignores_legacy_null_league_matchups(client, api_db):
     assert owner_a_row["losses"] == 0
     assert owner_a_row["pf"] == 0.0
     assert owner_a_row["pa"] == 0.0
+
+
+def test_get_league_owners_default_order_applies_record_tiebreak_chain(client, api_db):
+    league = models.League(name="Standings Sort League")
+    api_db.add(league)
+    api_db.commit()
+    api_db.refresh(league)
+
+    alpha = models.User(username="alpha", email=None, hashed_password="h", league_id=league.id)
+    bravo = models.User(username="bravo", email=None, hashed_password="h", league_id=league.id)
+    api_db.add_all([alpha, bravo])
+    api_db.commit()
+    api_db.refresh(alpha)
+    api_db.refresh(bravo)
+
+    # Same wins/losses/ties for both owners. Alpha should rank above Bravo via PF.
+    api_db.add_all(
+        [
+            models.Matchup(
+                week=1,
+                home_team_id=alpha.id,
+                away_team_id=bravo.id,
+                home_score=110.0,
+                away_score=90.0,
+                is_completed=True,
+                league_id=league.id,
+            ),
+            models.Matchup(
+                week=2,
+                home_team_id=alpha.id,
+                away_team_id=bravo.id,
+                home_score=85.0,
+                away_score=100.0,
+                is_completed=True,
+                league_id=league.id,
+            ),
+            models.Matchup(
+                week=3,
+                home_team_id=alpha.id,
+                away_team_id=bravo.id,
+                home_score=95.0,
+                away_score=95.0,
+                is_completed=True,
+                league_id=league.id,
+            ),
+        ]
+    )
+    api_db.commit()
+
+    response = client.get(f"/leagues/owners?league_id={league.id}")
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload[0]["id"] == alpha.id
+    assert payload[1]["id"] == bravo.id
+    assert payload[0]["wins"] == payload[1]["wins"] == 1
+    assert payload[0]["losses"] == payload[1]["losses"] == 1
+    assert payload[0]["ties"] == payload[1]["ties"] == 1
+    assert payload[0]["pf"] > payload[1]["pf"]
+
+
+def test_get_league_owners_grouped_order_sorts_within_division(client, api_db):
+    league = models.League(name="Division Sort League")
+    api_db.add(league)
+    api_db.commit()
+    api_db.refresh(league)
+
+    east = models.Division(league_id=league.id, name="East", order_index=1)
+    west = models.Division(league_id=league.id, name="West", order_index=2)
+    api_db.add_all([east, west])
+    api_db.commit()
+    api_db.refresh(east)
+    api_db.refresh(west)
+
+    east_top = models.User(
+        username="east-top",
+        email=None,
+        hashed_password="h",
+        league_id=league.id,
+        division_id=east.id,
+    )
+    east_low = models.User(
+        username="east-low",
+        email=None,
+        hashed_password="h",
+        league_id=league.id,
+        division_id=east.id,
+    )
+    west_only = models.User(
+        username="west-only",
+        email=None,
+        hashed_password="h",
+        league_id=league.id,
+        division_id=west.id,
+    )
+    api_db.add_all([east_top, east_low, west_only])
+    api_db.commit()
+    api_db.refresh(east_top)
+    api_db.refresh(east_low)
+    api_db.refresh(west_only)
+
+    api_db.add_all(
+        [
+            models.Matchup(
+                week=1,
+                home_team_id=east_top.id,
+                away_team_id=east_low.id,
+                home_score=120.0,
+                away_score=100.0,
+                is_completed=True,
+                league_id=league.id,
+            ),
+            models.Matchup(
+                week=2,
+                home_team_id=east_low.id,
+                away_team_id=east_top.id,
+                home_score=98.0,
+                away_score=110.0,
+                is_completed=True,
+                league_id=league.id,
+            ),
+            models.Matchup(
+                week=3,
+                home_team_id=west_only.id,
+                away_team_id=east_low.id,
+                home_score=130.0,
+                away_score=90.0,
+                is_completed=True,
+                league_id=league.id,
+            ),
+        ]
+    )
+    api_db.commit()
+
+    response = client.get(f"/leagues/owners?league_id={league.id}&group_by_division=true")
+    assert response.status_code == 200
+    payload = response.json()
+
+    # Division grouping keeps East owners ahead of West owners, while sorting East internally.
+    assert payload[0]["division_id"] == east.id
+    assert payload[1]["division_id"] == east.id
+    assert payload[2]["division_id"] == west.id
+    assert payload[0]["id"] == east_top.id

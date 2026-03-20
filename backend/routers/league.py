@@ -431,13 +431,25 @@ def get_league_owners(league_id: int = Query(...),
             }
         )
 
+    # Shared standings ordering: better record first, then stronger points profile,
+    # then stable username ordering for deterministic output.
+    def standings_sort_key(owner_row: dict):
+        return (
+            -(owner_row.get("wins") or 0),
+            owner_row.get("losses") or 0,
+            -(owner_row.get("ties") or 0),
+            -(owner_row.get("pf") or 0),
+            owner_row.get("pa") or 0,
+            (owner_row.get("team_name") or owner_row.get("username") or "").lower(),
+        )
+
     # optionally group by division as secondary sort
     if group_by_division:
         owners_data.sort(
-            key=lambda o: (o.get("division_id") or 0, -o["wins"], -o["pf"])
+            key=lambda o: (o.get("division_id") or 0, *standings_sort_key(o))
         )
     else:
-        owners_data.sort(key=lambda o: (-o["wins"], -o["pf"]))
+        owners_data.sort(key=standings_sort_key)
     return owners_data
 
 # --- NEW: GET /leagues/{league_id} ---

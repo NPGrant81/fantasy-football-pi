@@ -363,7 +363,7 @@ describe('Home (League Dashboard)', () => {
     renderHome('alice');
     await waitFor(() => screen.getByText('Alpha'));
 
-    const recordHeader = screen.getByText('W-L-T');
+    const recordHeader = screen.getByText(/W-L-T/);
     // first click sorts ascending: fewer wins first
     await user.click(recordHeader);
     await waitFor(() => {
