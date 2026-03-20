@@ -147,23 +147,31 @@ def _get_enriched_history(session_id: str, db: Session):
     league_id, parsed_year = _parse_session_context(session_id)
     keepers = _get_keeper_carryover_rows(db, league_id=league_id, draft_year=parsed_year)
 
-    enriched = []
-    for p in picks:
-        enriched.append(
+    return _serialize_draft_events(picks=picks, keepers=keepers)
+
+
+def _serialize_draft_events(
+    *,
+    picks: list[models.DraftPick],
+    keepers: list[models.Keeper],
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for pick in picks:
+        events.append(
             {
-                "id": p.id,
-                "owner_id": p.owner_id,
-                "player_id": p.player_id,
-                "amount": p.amount,
-                "timestamp": p.timestamp,
-                "position": p.player.position if p.player else None,
-                "player_name": p.player.name if p.player else None,
+                "id": pick.id,
+                "owner_id": pick.owner_id,
+                "player_id": pick.player_id,
+                "amount": pick.amount,
+                "timestamp": pick.timestamp,
+                "position": pick.player.position if pick.player else None,
+                "player_name": pick.player.name if pick.player else None,
                 "is_keeper": False,
             }
         )
 
     for keeper in keepers:
-        enriched.append(
+        events.append(
             {
                 "id": f"keeper-{keeper.id}",
                 "owner_id": keeper.owner_id,
@@ -180,7 +188,7 @@ def _get_enriched_history(session_id: str, db: Session):
             }
         )
 
-    return enriched
+    return events
 
 # --- 2. SCHEMAS (Moved from main.py) ---
 class DraftPickCreate(BaseModel):
@@ -333,6 +341,67 @@ def get_draft_history(session_id: str, db: Session = Depends(get_db)):
 @router.get("/draft/history")
 def get_draft_history_alias(session_id: str, db: Session = Depends(get_db)):
     return _get_enriched_history(session_id=session_id, db=db)
+
+
+@router.get("/draft/seasons", response_model=list[int])
+def get_draft_seasons(
+    league_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.league_id:
+        raise HTTPException(status_code=400, detail="User must belong to a league")
+
+    target_league_id = int(league_id) if league_id is not None else int(current_user.league_id)
+    if target_league_id != int(current_user.league_id):
+        raise HTTPException(status_code=403, detail="Cross-league season queries are not allowed")
+
+    years = [
+        int(row[0])
+        for row in (
+            db.query(models.DraftPick.year)
+            .filter(
+                models.DraftPick.league_id == target_league_id,
+                models.DraftPick.year.isnot(None),
+            )
+            .distinct()
+            .order_by(models.DraftPick.year.desc())
+            .all()
+        )
+        if row[0] is not None
+    ]
+
+    settings = _get_league_settings(db, target_league_id)
+    if settings and settings.draft_year is not None and int(settings.draft_year) not in years:
+        years.append(int(settings.draft_year))
+
+    return sorted(set(years), reverse=True)
+
+
+@router.get("/draft/history/by-year")
+def get_draft_history_by_year(
+    year: int,
+    league_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.league_id:
+        raise HTTPException(status_code=400, detail="User must belong to a league")
+
+    target_league_id = int(league_id) if league_id is not None else int(current_user.league_id)
+    if target_league_id != int(current_user.league_id):
+        raise HTTPException(status_code=403, detail="Cross-league history queries are not allowed")
+
+    picks = (
+        db.query(models.DraftPick)
+        .filter(
+            models.DraftPick.league_id == target_league_id,
+            models.DraftPick.year == year,
+        )
+        .all()
+    )
+    keepers = _get_keeper_carryover_rows(db, league_id=target_league_id, draft_year=year)
+    return _serialize_draft_events(picks=picks, keepers=keepers)
 
 
 @router.get("/draft/rankings", response_model=List[HistoricalRankingResponse])
