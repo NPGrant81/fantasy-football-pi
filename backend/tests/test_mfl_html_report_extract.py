@@ -40,10 +40,11 @@ def test_extract_html_reports_writes_csv_and_raw_html(tmp_path, monkeypatch):
         footer = pd.DataFrame([["footer"]])
         return [header, data, footer]
 
-    def fake_resolve_html_host(*, season, league_id, timeout_seconds):
+    def fake_resolve_html_host(*, season, league_id, timeout_seconds, session_cookie):
         assert season == 2002
         assert league_id == "29721"
         assert timeout_seconds == 11
+        assert session_cookie == "MFL_AUTH=1"
         return "https://www47.myfantasyleague.com"
 
     monkeypatch.setattr(extract_mfl_html_reports, "_fetch_report_html", fake_fetch_report_html)

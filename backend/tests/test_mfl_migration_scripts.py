@@ -20,6 +20,9 @@ def _write_csv(path, rows):
 
 def test_run_mfl_history_extract_writes_raw_and_normalized_files(tmp_path, monkeypatch):
     class FakeResponse:
+        status_code = 200
+        headers = {}
+
         def raise_for_status(self):
             return None
 
@@ -40,11 +43,11 @@ def test_run_mfl_history_extract_writes_raw_and_normalized_files(tmp_path, monke
 
     calls = []
 
-    def fake_get(url, params, headers, timeout):
+    def fake_get(self, url, params, headers, timeout):
         calls.append({"url": url, "params": params, "headers": headers, "timeout": timeout})
         return FakeResponse()
 
-    monkeypatch.setattr(extract_mfl_history.requests, "get", fake_get)
+    monkeypatch.setattr(extract_mfl_history.requests.Session, "get", fake_get)
 
     summary = extract_mfl_history.run_mfl_history_extract(
         start_year=2023,

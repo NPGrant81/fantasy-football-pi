@@ -10,41 +10,31 @@ from backend.core import security
 
 @pytest.fixture(autouse=True)
 def _sync_players_id_sequence():
-    session = SessionLocal()
-    try:
-        session.execute(
-            text(
-                """
-                SELECT setval(
-                    pg_get_serial_sequence('players', 'id'),
-                    COALESCE((SELECT MAX(id) FROM players), 1),
-                    (SELECT MAX(id) IS NOT NULL FROM players)
+    def _sync_sequence() -> None:
+        session = SessionLocal()
+        try:
+            if session.bind.dialect.name != "postgresql":
+                return
+            session.execute(
+                text(
+                    """
+                    SELECT setval(
+                        pg_get_serial_sequence('players', 'id'),
+                        COALESCE((SELECT MAX(id) FROM players), 1),
+                        (SELECT MAX(id) IS NOT NULL FROM players)
+                    )
+                    """
                 )
-                """
             )
-        )
-        session.commit()
-    finally:
-        session.close()
+            session.commit()
+        finally:
+            session.close()
+
+    _sync_sequence()
 
     yield
 
-    session = SessionLocal()
-    try:
-        session.execute(
-            text(
-                """
-                SELECT setval(
-                    pg_get_serial_sequence('players', 'id'),
-                    COALESCE((SELECT MAX(id) FROM players), 1),
-                    (SELECT MAX(id) IS NOT NULL FROM players)
-                )
-                """
-            )
-        )
-        session.commit()
-    finally:
-        session.close()
+    _sync_sequence()
 
 
 def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):

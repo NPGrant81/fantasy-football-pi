@@ -28,9 +28,13 @@ def test_seeder_populates_admin(integration_client):
     """Manually invoke the seeder and verify default admin is inserted."""
     db = SessionLocal()
     try:
-        # reset seed-sensitive tables with CASCADE to account for new FKs
-        db.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE"))
-        db.commit()
+        # Reset seed-sensitive tables across supported test dialects.
+        if db.bind.dialect.name == "postgresql":
+            db.execute(text("TRUNCATE TABLE users RESTART IDENTITY CASCADE"))
+            db.commit()
+        else:
+            db.query(models.User).delete()
+            db.commit()
 
         run_seeder(db, get_password_hash)
         admin = db.query(models.User).filter(models.User.username == "Nick Grant").first()
