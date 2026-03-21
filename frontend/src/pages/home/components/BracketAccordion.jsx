@@ -21,6 +21,11 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
     return String(token).replaceAll('_', ' ');
   };
 
+  const formatMetaSource = (source) => {
+    if (!source) return 'Live data';
+    return String(source).replaceAll('_', ' ');
+  };
+
   const hasConsolation = Boolean(bracket?.seeding_policy?.playoff_consolation);
 
   useEffect(() => {
@@ -269,6 +274,31 @@ export default function BracketAccordion({ leagueId: propLeagueId }) {
         {loading && <LoadingState message="Loading..." className="mt-2" />}
         {!loading && bracket && (
           <div className="mt-4">
+            {bracket.meta ? (
+              <div className="mb-4 rounded border border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-bold uppercase tracking-wider text-amber-200">
+                    Bracket Source
+                  </span>
+                  <span className="rounded border border-amber-700/70 bg-amber-900/40 px-2 py-1 uppercase tracking-wide text-[10px] text-amber-100">
+                    {formatMetaSource(bracket.meta.source)}
+                  </span>
+                  {bracket.meta.is_partial ? (
+                    <span className="rounded border border-amber-600/70 bg-amber-900/20 px-2 py-1 uppercase tracking-wide text-[10px] text-amber-200">
+                      Partial Data
+                    </span>
+                  ) : null}
+                </div>
+                {Array.isArray(bracket.meta.warnings) && bracket.meta.warnings.length > 0 ? (
+                  <div className="mt-2 space-y-1 text-amber-100/90">
+                    {bracket.meta.warnings.map((warning) => (
+                      <div key={warning}>{warning}</div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {bracket.seeding_policy ? (
               <div className="mb-4 rounded border border-slate-700 bg-slate-900/40 p-3">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">

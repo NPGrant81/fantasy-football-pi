@@ -58,6 +58,22 @@ def make_league_with_users(db, num_users=4):
     return league, users
 
 
+def _add_completed_matchup(db, *, league_id, season, week, home_team_id, away_team_id, home_score, away_score):
+    db.add(
+        models.Matchup(
+            league_id=league_id,
+            season=season,
+            week=week,
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
+            home_score=home_score,
+            away_score=away_score,
+            is_completed=True,
+            is_playoff=False,
+        )
+    )
+
+
 def test_default_settings_and_update(client, api_db):
     db, _ = api_db
     league, _ = make_league_with_users(db)
@@ -250,3 +266,140 @@ def test_get_bracket_falls_back_to_historical_snapshot_when_matches_missing(clie
     assert body["championship"][0]["match_id"] == "hist_r1_m1"
     assert body["meta"]["source"] == "snapshot"
     assert body["meta"]["is_historical"] is True
+
+
+def test_generate_bracket_promotes_division_winners_to_top_seeds(client, api_db):
+    db, _ = api_db
+    league, users = make_league_with_users(db, num_users=6)
+
+    east = models.Division(league_id=league.id, season=2026, name="East", order_index=1)
+    west = models.Division(league_id=league.id, season=2026, name="West", order_index=2)
+    db.add_all([east, west])
+    db.commit()
+    db.refresh(east)
+    db.refresh(west)
+
+    users[0].division_id = east.id
+    users[1].division_id = east.id
+    users[2].division_id = east.id
+    users[3].division_id = west.id
+    users[4].division_id = west.id
+    users[5].division_id = west.id
+
+    league.settings = models.LeagueSettings(
+        league_id=league.id,
+        divisions_enabled=True,
+        division_count=2,
+        playoff_qualifiers=4,
+        playoff_consolation=True,
+    )
+    db.add(league.settings)
+
+    _add_completed_matchup(
+        db,
+        league_id=league.id,
+        season=2026,
+        week=1,
+        home_team_id=users[0].id,
+        away_team_id=users[1].id,
+        home_score=100,
+        away_score=80,
+    )
+    _add_completed_matchup(
+        db,
+        league_id=league.id,
+        season=2026,
+        week=2,
+        home_team_id=users[0].id,
+        away_team_id=users[2].id,
+        home_score=110,
+        away_score=70,
+    )
+    _add_completed_matchup(
+        db,
+        league_id=league.id,
+        season=2026,
+        week=3,
+        home_team_id=users[1].id,
+        away_team_id=users[2].id,
+        home_score=95,
+        away_score=60,
+    )
+    _add_completed_matchup(
+        db,
+        league_id=league.id,
+        season=2026,
+        week=1,
+        home_team_id=users[3].id,
+        away_team_id=users[4].id,
+        home_score=80,
+        away_score=60,
+    )
+    _add_completed_matchup(
+        db,
+        league_id=league.id,
+        season=2026,
+        week=2,
+        home_team_id=users[5].id,
+        away_team_id=users[3].id,
+        home_score=90,
+        away_score=70,
+    )
+    _add_completed_matchup(
+        db,
+        league_id=league.id,
+        season=2026,
+        week=3,
+        home_team_id=users[4].id,
+        away_team_id=users[5].id,
+        home_score=85,
+        away_score=80,
+    )
+    db.commit()
+
+    generate_res = client.post('/playoffs/generate', json={'league_id': league.id, 'season': 2026})
+    assert generate_res.status_code == 200
+
+    bracket_res = client.get(f'/playoffs/bracket?league_id={league.id}&season=2026')
+    assert bracket_res.status_code == 200
+    body = bracket_res.json()
+
+    championship = sorted(body['championship'], key=lambda match: match['match_id'])
+    assert championship[0]['team_1_id'] == users[0].id
+    assert championship[0]['team_1_seed'] == 1
+    assert championship[1]['team_1_id'] == users[5].id
+    assert championship[1]['team_1_seed'] == 2
+    assert body['seeding_policy']['division_winners_top_seeds'] is True
+    assert body['seeding_policy']['seed_source'] == 'division_winners_then_wildcards'
+    assert body['seeding_policy']['division_winner_count'] == 2
+
+
+def test_get_bracket_marks_historical_matches_fallback_when_snapshot_missing(client, api_db):
+    db, _ = api_db
+    league, users = make_league_with_users(db, num_users=4)
+    league.settings = models.LeagueSettings(league_id=league.id, playoff_qualifiers=4, playoff_consolation=False)
+    db.add(league.settings)
+    db.commit()
+
+    db.add(
+        models.PlayoffMatch(
+            league_id=league.id,
+            season=2024,
+            match_id='m1',
+            round=1,
+            team_1_id=users[0].id,
+            team_2_id=users[3].id,
+            team_1_seed=1,
+            team_2_seed=4,
+        )
+    )
+    db.commit()
+
+    res = client.get(f'/playoffs/bracket?league_id={league.id}&season=2024')
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body['meta']['source'] == 'matches_fallback'
+    assert body['meta']['is_historical'] is True
+    assert body['meta']['is_partial'] is True
+    assert body['meta']['warnings']
