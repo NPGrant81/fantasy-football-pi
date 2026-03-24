@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
 import apiClient from '@api/client';
+import { useActiveLeague } from '@context/LeagueContext';
 import PageTemplate from '@components/layout/PageTemplate';
 import {
   StandardTable,
@@ -26,7 +27,7 @@ const CURRENCY_OPTIONS = [
 ];
 
 export default function LedgerStatement() {
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  const leagueId = useActiveLeague();
   const [owners, setOwners] = useState([]);
   const [ownerId, setOwnerId] = useState('');
   const [currencyType, setCurrencyType] = useState('');

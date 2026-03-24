@@ -1,0 +1,92 @@
+[
+  {
+    "path": "docs/ARCHITECTURE.md",
+    "owner": "engineering",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/architecture/overview.md",
+    "owner": "engineering",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/PROJECT_MANAGEMENT.md",
+    "owner": "product",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/ISSUE_STATUS.md",
+    "owner": "product",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/FRONTEND_UI_STANDARDS.md",
+    "owner": "frontend",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/DATA_QUALITY_RUNBOOK.md",
+    "owner": "backend",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/DEPLOYMENT_WORKFLOWS.md",
+    "owner": "platform",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/RASPBERRY_PI_DEPLOYMENT.md",
+    "owner": "platform",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/CLOUDFLARE_TUNNEL_SETUP.md",
+    "owner": "platform",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/SECURITY_HARDENING.md",
+    "owner": "security",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/CI_CD_OBSERVABILITY.md",
+    "owner": "platform",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/API_PAGE_MATRIX.md",
+    "owner": "backend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/DOC_ISSUE_CORRELATION_MAP.md",
+    "owner": "product",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/dev-environment.md",
+    "owner": "engineering",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/TESTING_SESSION_SUMMARY.md",
+    "owner": "qa",
+    "cadence_days": 120,
+    "last_reviewed": "2026-03-21"
+  }
+]

@@ -81,30 +81,17 @@
 
 ### Story 6.1: League Standings
 
-- **Status:** 🔄 PARTIAL (60% complete)
-- **Completed:** Basic standings table with Rank, Team, Owner display
-- **Missing:**
-  - W-L-T (Wins-Losses-Ties) column
-  - PF (Points For) column
-  - PA (Points Against) column
-  - Sortable columns functionality
-  - Backend API enhancement needed
-- **Frontend:** [Home.jsx](frontend/src/pages/Home.jsx) - Basic table exists
-- **Backend:** `/leagues/owners` returns only id, username, team_name (missing stats)
-- **Next Steps:**
-  1. Enhance `/leagues/owners` endpoint to return W-L-T, PF, PA stats
-  2. Add sorting functionality to standings table
-  3. Add missing columns to UI
+- **Status:** ✅ COMPLETED
+- **Completed:** Standings completion follow-ups were delivered and closed.
+- **Close-Out Evidence:** GitHub issues `#21`, `#200`, and `#201` are closed.
+- **Notes:** Keep this story closed unless a net-new standings scope is opened.
 
 ### Story 6.3: Top Free Agents Module
 
-- **Status:** 🔄 PARTIAL
-- **Completed:** Free agent search and waiver wire display in [WaiverWire.jsx](frontend/src/pages/WaiverWire.jsx)
-- **Missing:**
-  - Top/Featured agents ranking algorithm
-  - ADP (Average Draft Position) or pickup rate ranking
-  - Dashboard widget for top pickups
-- **Next Steps:** Implement ranking algorithm, add to dashboard
+- **Status:** ✅ COMPLETED
+- **Completed:** Top free agents follow-up work is closed.
+- **Close-Out Evidence:** GitHub issues `#23` and `#203` are closed.
+- **Notes:** Re-open only if new ranking dimensions are requested.
 
 ---
 
@@ -126,9 +113,9 @@
 
 ### Story 7.2: Dark/Light Mode Toggle
 
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED (Baseline)
 - **Priority:** Low
-- **Notes:** UI enhancement - app currently dark-themed only
+- **Notes:** Story issue `#26` is closed. Ongoing theme polish is tracked separately in issue `#75`.
 - **Complexity:** Medium - theme system implementation
 
 ### Story 7.3: Bug Reporting Form
@@ -140,9 +127,9 @@
 
 ### Story 1.2: Historical Data Archiving
 
-- **Status:** ❌ NOT STARTED
+- **Status:** ✅ COMPLETED (Initial Scope)
 - **Priority:** Low
-- **Notes:** Data retention and archive strategy for historical seasons
+- **Notes:** Story issue `#6` is closed. Additional historical pipeline work continues under newer issues (for example `#286` and `#288`).
 - **Complexity:** Medium - migration and cleanup scripts
 
 ---
@@ -228,9 +215,9 @@
 ## SUMMARY
 
 - **Total Open Issues:** Dynamic; use `gh issue list --state open` for current count.
-- **✅ Fully Completed:** Includes Story `6.4` and Story `7.3`.
-- **🔄 Partially Completed:** Stories `6.1`, `6.2`, `6.3`.
-- **❌ Not Started:** Stories `1.2` and `7.2` remain explicitly not started.
+- **✅ Fully Completed:** Includes Stories `1.2`, `6.1`, `6.3`, `6.4`, `7.2`, and `7.3`.
+- **🔄 Partially Completed:** Story `6.2` dynamic structure follow-up only.
+- **📌 Active Follow-Ups:** Track open operational scope in GitHub issues rather than reopening closed story-description issues.
 - **🏗️ Infrastructure:** 3 tasks (0.1 ✅, 0.2 ⏳, 0.3 ⏳)
 
 ---
@@ -239,12 +226,14 @@
 
 ### P1 (High Priority)
 
-1. **Complete Story 6.1** - Enhance standings with W-L-T, PF, PA stats and sorting
-   - Effort: 1 day
-   - Impact: Core dashboard feature
-2. **Update Story 6.3** - Add top free agents ranking to dashboard
-   - Effort: 0.5 days
-   - Impact: Useful for team management
+1. **Complete Story 6.2 follow-up** - Dynamic commissioner-settings bracket structure
+  - Effort: 2-3 days
+  - Impact: Correct bracket behavior across league formats
+  - Tracking: GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154)
+2. **Theme polish follow-up** - Improve light/dark readability and contrast
+  - Effort: 0.5-1 day
+  - Impact: Better accessibility and visual consistency
+  - Tracking: GitHub issue [#75](https://github.com/NPGrant81/fantasy-football-pi/issues/75)
 
 ### P2 (Medium Priority)
 

@@ -3,6 +3,7 @@ import apiClient from '@api/client';
 import { useDraftTimer } from '@hooks/useDraftTimer';
 import { getOwnerStats, ROSTER_SIZE } from '@utils';
 import { FiBarChart2, FiX } from 'react-icons/fi';
+import { Link } from 'react-router-dom';
 import {
   AuctionBlock,
   SessionHeader,
@@ -24,6 +25,7 @@ import {
   modalOverlay,
   modalSurface,
   modalTitle,
+  buttonSecondary,
   tableCell,
   tableCellNumeric,
 } from '@utils/uiStandards';
@@ -54,11 +56,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     useState(false);
   const [draftPopupData, setDraftPopupData] = useState(null);
   const [historicalRankings, setHistoricalRankings] = useState([]);
-  const [archiveSeasonOptions, setArchiveSeasonOptions] = useState([]);
-  const [archiveYear, setArchiveYear] = useState('');
-  const [archiveHistory, setArchiveHistory] = useState([]);
-  const [archiveLoading, setArchiveLoading] = useState(false);
-  const [archiveError, setArchiveError] = useState('');
 
   const sessionId = useMemo(() => {
     if (activeLeagueId && draftYear) {
@@ -99,29 +96,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       .then((res) => setHistory(res.data))
       .catch(() => console.log('No history yet'));
   }, [sessionId]);
-
-  const fetchArchiveHistory = useCallback(
-    async (targetYear) => {
-      if (!targetYear || !activeLeagueId) {
-        setArchiveHistory([]);
-        return;
-      }
-      setArchiveLoading(true);
-      setArchiveError('');
-      try {
-        const response = await apiClient.get(
-          `/draft/history/by-year?league_id=${Number(activeLeagueId)}&year=${Number(targetYear)}`
-        );
-        setArchiveHistory(Array.isArray(response.data) ? response.data : []);
-      } catch (error) {
-        setArchiveHistory([]);
-        setArchiveError('Unable to load archive results for that season.');
-      } finally {
-        setArchiveLoading(false);
-      }
-    },
-    [activeLeagueId]
-  );
 
   // 1.2.1 THE DRAFT ACTION
   // We define this first, but we remove the 'reset' dependency.
@@ -263,43 +237,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           }
         })
         .catch(() => {});
-      apiClient
-        .get(`/draft/seasons?league_id=${Number(activeLeagueId)}`)
-        .then((res) => {
-          const seasons = Array.isArray(res.data)
-            ? res.data.filter((year) => Number.isInteger(Number(year))).map((year) => Number(year))
-            : [];
-          setArchiveSeasonOptions(seasons);
-          if (!seasons.length) {
-            setArchiveYear('');
-            setArchiveHistory([]);
-            return;
-          }
-          setArchiveYear((current) => {
-            if (current && seasons.includes(Number(current))) {
-              return String(current);
-            }
-            return String(seasons[0]);
-          });
-        })
-        .catch(() => {
-          setArchiveSeasonOptions([]);
-          setArchiveYear('');
-          setArchiveHistory([]);
-        });
       const interval = setInterval(fetchHistory, 3000);
       return () => clearInterval(interval);
     }
     return undefined;
   }, [token, activeLeagueId, fetchHistory]);
-
-  useEffect(() => {
-    if (!archiveYear) {
-      setArchiveHistory([]);
-      return;
-    }
-    fetchArchiveHistory(archiveYear);
-  }, [archiveYear, fetchArchiveHistory]);
 
   const handlePause = useCallback(() => {
     setIsPaused((p) => !p);
@@ -582,74 +524,24 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         </div>
       </div>
 
-      <section className="mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-200">
-            Historical Draft Archive
-          </h3>
-          <div className="flex items-center gap-2">
-            <label className="text-xs uppercase tracking-wide text-slate-400">
-              Season Selector
-            </label>
-            <select
-              value={archiveYear}
-              onChange={(event) => setArchiveYear(event.target.value)}
-              className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-white"
-              disabled={archiveSeasonOptions.length === 0}
-            >
-              {archiveSeasonOptions.length === 0 ? (
-                <option value="">No seasons available</option>
-              ) : (
-                archiveSeasonOptions.map((season) => (
-                  <option key={season} value={season}>
-                    {season}
-                  </option>
-                ))
-              )}
-            </select>
+      <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-black uppercase tracking-wider text-slate-200">
+              Historical Draft Archive Moved
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Historical draft-season exploration now lives under League History to keep this board focused on active draft operations.
+            </p>
           </div>
+          <Link
+            to="/league-history/historical-analytics"
+            className={`${buttonSecondary} whitespace-nowrap`}
+          >
+            Open League History
+          </Link>
         </div>
-
-        {archiveLoading ? (
-          <LoadingState message="Loading archive draft results..." />
-        ) : archiveError ? (
-          <EmptyState message={archiveError} />
-        ) : archiveYear && archiveHistory.length === 0 ? (
-          <EmptyState message={`No archived draft picks found for ${archiveYear}.`} />
-        ) : archiveHistory.length > 0 ? (
-          <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-800">
-            <StandardTable>
-              <StandardTableHead
-                headers={[
-                  { key: 'owner', label: 'Team / Owner' },
-                  { key: 'player', label: 'Player' },
-                  { key: 'amount', label: 'Amount', className: 'text-right' },
-                ]}
-              />
-              <tbody>
-                {[...archiveHistory]
-                  .sort(
-                    (a, b) =>
-                      new Date(a.timestamp || 0).getTime() -
-                      new Date(b.timestamp || 0).getTime()
-                  )
-                  .map((pick) => {
-                    const owner = owners.find((candidate) => candidate.id === pick.owner_id);
-                    return (
-                      <StandardTableRow key={pick.id || `${pick.player_id}-${pick.timestamp}`}>
-                        <td className={tableCell}>
-                          {owner?.team_name || owner?.username || `Owner ${pick.owner_id}`}
-                        </td>
-                        <td className={tableCell}>{pick.player_name || 'Unknown Player'}</td>
-                        <td className={tableCellNumeric}>${Number(pick.amount || 0)}</td>
-                      </StandardTableRow>
-                    );
-                  })}
-              </tbody>
-            </StandardTable>
-          </div>
-        ) : null}
-      </section>
+      </div>
 
       {/* ticker area */}
       <DraftHistoryFeed history={history} owners={owners} />

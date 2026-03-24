@@ -147,4 +147,15 @@ describe('YourLockerRoom — Start/Sit Sorter (issue #173)', () => {
       ).toBeInTheDocument();
     });
   });
+
+  test('Owner Management button is hidden for non-commissioners', async () => {
+    setupMocks();
+    render(<YourLockerRoom activeOwnerId={1} />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/QB One/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: /Owner Management/i })).toBeNull();
+  });
 });

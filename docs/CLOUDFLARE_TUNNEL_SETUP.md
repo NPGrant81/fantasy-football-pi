@@ -7,6 +7,9 @@ This guide configures your existing Cloudflare Tunnel:
 For full CLI-first workflow (install/login/create/config/DNS/systemd), see:
 `docs/cloudflare-tunnel-cli.md`
 
+For a copy/paste Pi execution checklist with required evidence outputs, see:
+`docs/cloudflare-pi-handoff-checklist.md`
+
 ## 1. Prerequisites
 
 - Nginx is running and serving app on origin port `80`.

@@ -16,6 +16,17 @@ This document provides repository‑specific guidelines that GitHub Copilot (and
   - Route handlers are thin; all domain logic goes into services or models.
   - Access the database exclusively through SQLAlchemy ORM, never hand‑write raw SQL.
   - Use Pydantic schemas from `backend/schemas/` for request/response validation.
+  - **Historical user exclusion (required for all member-list queries):** Historical
+    franchise users imported from MFL are stored as `User` rows with usernames matching
+    the pattern `hist_YYYY_XXXX` (e.g. `hist_2003_0002`). They must **never** appear in
+    current-season operational views (standings, waivers, trades, budgets, divisions).
+    Any backend query that returns a list of league members filtered by `league_id` MUST
+    also exclude historical users with:
+    ```python
+    ~models.User.username.like("hist_%")
+    ```
+    Do **not** rely on username exclusion lists alone — that pattern does not cover
+    historical users.
 
 ### Frontend structure (`frontend/`)
 - Entry point is `frontend/src/App.jsx` with routing defined there.

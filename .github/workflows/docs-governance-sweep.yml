@@ -1,0 +1,128 @@
+name: Docs Governance Sweep
+
+on:
+  schedule:
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  docs-governance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run docs governance checks (captured)
+        id: governance
+        continue-on-error: true
+        run: |
+          set +e
+
+          python -m scripts.repo_hygiene_check > repo_hygiene.log 2>&1
+          REPO_RC=$?
+
+          python -m scripts.docs_review_sweep --warn-days 14 > docs_review_sweep.log 2>&1
+          REVIEW_RC=$?
+
+          python -m scripts.refresh_docs_index > refresh_docs_index.log 2>&1
+          REFRESH_RC=$?
+
+          git diff --exit-code docs/INDEX.md > docs_index_diff.log 2>&1
+          INDEX_RC=$?
+
+          {
+            echo "== repo_hygiene_check (exit ${REPO_RC}) =="
+            cat repo_hygiene.log
+            echo
+            echo "== docs_review_sweep (exit ${REVIEW_RC}) =="
+            cat docs_review_sweep.log
+            echo
+            echo "== refresh_docs_index (exit ${REFRESH_RC}) =="
+            cat refresh_docs_index.log
+            echo
+            echo "== docs_index_diff (exit ${INDEX_RC}) =="
+            cat docs_index_diff.log
+          } > docs_governance_report.txt
+
+          if [ "$REPO_RC" -ne 0 ] || [ "$REVIEW_RC" -ne 0 ] || [ "$REFRESH_RC" -ne 0 ] || [ "$INDEX_RC" -ne 0 ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload governance report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-governance-report
+          path: docs_governance_report.txt
+
+      - name: Create or update governance issue on failure
+        if: ${{ steps.governance.outputs.failed == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const title = 'Docs Governance Sweep Failure';
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const reportRaw = fs.readFileSync('docs_governance_report.txt', 'utf8');
+            const maxLen = 50000;
+            const report = reportRaw.length > maxLen
+              ? reportRaw.slice(0, maxLen) + '\n\n...truncated...'
+              : reportRaw;
+
+            const body = [
+              'Automated docs governance sweep failed.',
+              '',
+              `- Workflow run: ${runUrl}`,
+              `- Branch: ${context.ref}`,
+              `- Commit: ${context.sha}`,
+              '',
+              '```text',
+              report,
+              '```',
+              '',
+              'Action: update stale docs and/or registry dates, then re-run the workflow.'
+            ].join('\n');
+
+            const query = `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`;
+            const search = await github.rest.search.issuesAndPullRequests({ q: query });
+            const existing = search.data.items.find(i => i.title === title);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Another failure detected: ${runUrl}`
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+            }
+
+      - name: Fail workflow if governance checks failed
+        if: ${{ steps.governance.outputs.failed == 'true' }}
+        run: |
+          echo "Docs governance sweep failed. See report artifact and issue details."
+          exit 1

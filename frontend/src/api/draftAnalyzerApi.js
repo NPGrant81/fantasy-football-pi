@@ -25,9 +25,16 @@ function normalizeNameForDedupe(value) {
 }
 
 function buildFallbackPlayerKey(player) {
+  const gsisId = normalizeText(player?.gsis_id);
+  if (gsisId) return `gsis:${gsisId}`;
+
+  const espnId = normalizeText(player?.espn_id);
+  if (espnId) return `espn:${espnId}`;
+
   return [
     normalizeNameForDedupe(player?.name),
     normalizeText(player?.position),
+    normalizeText(player?.nfl_team),
   ].join('|');
 }
 

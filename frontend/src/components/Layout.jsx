@@ -6,7 +6,14 @@ import BrandMark from './BrandMark';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
 
-export default function Layout({ children, username, leagueId, alert, pageTitle = '' }) {
+export default function Layout({
+  children,
+  username,
+  leagueId,
+  alert,
+  pageTitle = '',
+  onLogout,
+}) {
   // --- 1.1 UI STATE ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const hasAlert = Boolean(alert && String(alert).trim());
@@ -50,6 +57,7 @@ export default function Layout({ children, username, leagueId, alert, pageTitle 
         onClose={() => setIsSidebarOpen(false)}
         username={username}
         leagueId={leagueId}
+        onLogout={onLogout}
       />
 
       {/* 2.4 PAGE VIEWPORT */}

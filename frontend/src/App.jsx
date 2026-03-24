@@ -18,6 +18,7 @@ import LeagueAdvisor from './components/LeagueAdvisor';
 import { LoadingState } from '@components/common/AsyncState';
 import { BRAND_NAME } from './constants/branding';
 import { ThemeProvider } from './context/ThemeContext';
+import { LeagueContext } from './context/LeagueContext';
 import { emitVisitEvent } from './services/visitLogger';
 
 // Import Pages (Lazy Loaded)
@@ -63,6 +64,7 @@ const AnalyticsDashboard = lazy(
 );
 const Keepers = lazy(() => import('./pages/Keepers'));
 const PlayoffBracket = lazy(() => import('./pages/playoffs/PlayoffBracket'));
+const LeagueHistory = lazy(() => import('./pages/history/LeagueHistory'));
 
 function TeamRoute({ fallbackOwnerId }) {
   const { ownerId } = useParams();
@@ -101,6 +103,17 @@ function resolveLayoutPageTitle(pathname) {
   if (pathname === '/keepers') return 'Manage Keepers';
   if (pathname === '/analytics') return 'League Analytics';
   if (pathname === '/playoffs') return 'Playoff Bracket';
+  if (pathname === '/league-history') return 'League History';
+  if (pathname === '/league-history/historical-analytics') return 'League History · Historical Analytics';
+  if (pathname === '/league-history/champions') return 'League History · League Champions';
+  if (pathname === '/league-history/awards') return 'League History · Awards';
+  if (pathname === '/league-history/franchise-records') return 'League History · Franchise Records';
+  if (pathname === '/league-history/player-records') return 'League History · Player Records';
+  if (pathname === '/league-history/match-records') return 'League History · Match Records';
+  if (pathname === '/league-history/all-time-series-records') return 'League History · All-Time Series Records';
+  if (pathname === '/league-history/season-records') return 'League History · Season Records';
+  if (pathname === '/league-history/career-records') return 'League History · Career Records';
+  if (pathname === '/league-history/record-streaks') return 'League History · Record Streaks';
   return BRAND_NAME;
 }
 
@@ -269,6 +282,50 @@ function AuthenticatedShell({
           <Route path="/keepers" element={<Keepers />} />
           <Route path="/analytics" element={<AnalyticsDashboard />} />
           <Route path="/playoffs" element={<PlayoffBracket />} />
+          <Route
+            path="/league-history"
+            element={<Navigate to="/league-history/historical-analytics" replace />}
+          />
+          <Route
+            path="/league-history/historical-analytics"
+            element={<LeagueHistory sectionKey="historical-analytics" />}
+          />
+          <Route
+            path="/league-history/champions"
+            element={<LeagueHistory sectionKey="champions" />}
+          />
+          <Route
+            path="/league-history/awards"
+            element={<LeagueHistory sectionKey="awards" />}
+          />
+          <Route
+            path="/league-history/franchise-records"
+            element={<LeagueHistory sectionKey="franchise-records" />}
+          />
+          <Route
+            path="/league-history/player-records"
+            element={<LeagueHistory sectionKey="player-records" />}
+          />
+          <Route
+            path="/league-history/match-records"
+            element={<LeagueHistory sectionKey="match-records" />}
+          />
+          <Route
+            path="/league-history/all-time-series-records"
+            element={<LeagueHistory sectionKey="all-time-series-records" />}
+          />
+          <Route
+            path="/league-history/season-records"
+            element={<LeagueHistory sectionKey="season-records" />}
+          />
+          <Route
+            path="/league-history/career-records"
+            element={<LeagueHistory sectionKey="career-records" />}
+          />
+          <Route
+            path="/league-history/record-streaks"
+            element={<LeagueHistory sectionKey="record-streaks" />}
+          />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Suspense>
@@ -296,6 +353,8 @@ function App() {
   const [passInput, setPassInput] = useState('');
   const [leagueInput, setLeagueInput] = useState('1'); // Default to "The Big Show" (league ID 1)
   const [error, setError] = useState('');
+  const authCheckIdRef = useRef(0);
+  const isLoggingOutRef = useRef(false);
 
   useEffect(() => {
     const initialPath =
@@ -308,6 +367,7 @@ function App() {
 
   // --- 1.2 LOGOUT (Stable reference for effects) ---
   const clearAuthState = useCallback(() => {
+    isLoggingOutRef.current = true;
     setToken(null);
     setActiveOwnerId(null);
     setActiveLeagueId(null);
@@ -319,15 +379,24 @@ function App() {
     localStorage.removeItem('fantasyLeagueId');
   }, []);
 
-  const handleLogout = useCallback(() => {
-    apiClient.post('/auth/logout').catch(() => {});
-    clearAuthState();
+  const handleLogout = useCallback(async () => {
+    isLoggingOutRef.current = true;
+    authCheckIdRef.current += 1;
+    try {
+      await apiClient.post('/auth/logout', null, { timeout: 5000 });
+    } catch {
+      // Even if logout request fails, always clear local auth/session state.
+    } finally {
+      clearAuthState();
+    }
   }, [clearAuthState]);
 
   // --- 1.3 AUTH CHECK (The Guard) ---
   useEffect(() => {
     const storedToken = localStorage.getItem('fantasyToken');
-    if (!storedToken) return;
+    if (!storedToken || isLoggingOutRef.current) return;
+
+    const authCheckId = ++authCheckIdRef.current;
 
     let authPromise;
     try {
@@ -340,17 +409,46 @@ function App() {
 
     authPromise
       .then((res) => {
+        if (authCheckId !== authCheckIdRef.current || isLoggingOutRef.current) {
+          return;
+        }
         const payload = res?.data || {};
         setToken((current) => current || 'cookie-session');
+        const resolvedLeagueId =
+          payload.league_id === null || payload.league_id === undefined
+            ? null
+            : String(payload.league_id);
         setActiveOwnerId(payload.user_id);
-        setActiveLeagueId(payload.league_id || localStorage.getItem('fantasyLeagueId'));
+        setActiveLeagueId(resolvedLeagueId);
         setUsername(payload.username || '');
         setIsCommissioner(Boolean(payload.is_commissioner));
       })
       .catch(() => {
+        if (authCheckId !== authCheckIdRef.current || isLoggingOutRef.current) {
+          return;
+        }
         clearAuthState();
       });
   }, [clearAuthState]);
+
+  useEffect(() => {
+    if (!token) {
+      localStorage.removeItem('fantasyLeagueId');
+      return;
+    }
+    if (activeLeagueId === null || activeLeagueId === undefined || activeLeagueId === '') {
+      localStorage.removeItem('fantasyLeagueId');
+      return;
+    }
+    localStorage.setItem('fantasyLeagueId', String(activeLeagueId));
+  }, [activeLeagueId, token]);
+
+  useEffect(() => {
+    if (token || !isLoggingOutRef.current) return;
+    localStorage.removeItem('fantasyToken');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('fantasyLeagueId');
+  }, [token]);
 
   // Hydrate layout alert details from league settings when available.
   useEffect(() => {
@@ -390,14 +488,21 @@ function App() {
       });
 
       const { owner_id, league_id, is_commissioner } = response.data;
+      const resolvedLeagueId =
+        league_id === null || league_id === undefined ? null : String(league_id);
+      isLoggingOutRef.current = false;
 
       localStorage.setItem('fantasyToken', 'cookie-session');
       localStorage.setItem('user_id', owner_id);
-      localStorage.setItem('fantasyLeagueId', String(league_id || leagueInput));
+      if (resolvedLeagueId) {
+        localStorage.setItem('fantasyLeagueId', resolvedLeagueId);
+      } else {
+        localStorage.removeItem('fantasyLeagueId');
+      }
 
       setToken('cookie-session');
       setActiveOwnerId(owner_id);
-      setActiveLeagueId(String(league_id || leagueInput));
+      setActiveLeagueId(resolvedLeagueId);
       setIsCommissioner(Boolean(is_commissioner));
     } catch (err) {
       console.error('Login Error:', err);
@@ -493,19 +598,21 @@ function App() {
   }
 
   return (
-    <ThemeProvider>
-      <BrowserRouter>
-        <AuthenticatedShell
-          username={username}
-          activeLeagueId={activeLeagueId}
-          handleLogout={handleLogout}
-          layoutAlert={layoutAlert}
-          token={token}
-          activeOwnerId={activeOwnerId}
-          isCommissioner={isCommissioner}
-        />
-      </BrowserRouter>
-    </ThemeProvider>
+    <LeagueContext.Provider value={{ activeLeagueId }}>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AuthenticatedShell
+            username={username}
+            activeLeagueId={activeLeagueId}
+            handleLogout={handleLogout}
+            layoutAlert={layoutAlert}
+            token={token}
+            activeOwnerId={activeOwnerId}
+            isCommissioner={isCommissioner}
+          />
+        </BrowserRouter>
+      </ThemeProvider>
+    </LeagueContext.Provider>
   );
 }
 

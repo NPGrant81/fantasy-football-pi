@@ -65,6 +65,13 @@ Repo recommendation is preconfigured in `.vscode/extensions.json`.
 - Return to VS Code and verify extension commands are available.
 
 ### 3. Start app services locally
+Before starting backend services, set persistent local backend env once:
+
+```powershell
+Set-Location backend
+Copy-Item .env.example .env
+```
+
 Backend:
 ```bash
 cd backend

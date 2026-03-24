@@ -137,6 +137,33 @@ python3.13.exe -m pytest backend/tests
   2. Validate source-to-model mapping for `is_playoff`.
   3. Backfill missing weeks before downstream standings recomputation.
 
+### Owner Continuity Verification
+- Purpose:
+  - Ensure owner identity and ownership transitions remain consistent across seasons without requiring full manual yearly audits.
+- Automated Checks To Trust First:
+  - `test_transaction_history_referential_guardrail_detects_cross_league_owner`
+  - `test_ownership_chain_guardrail_detects_owner_transitions_out_of_order`
+  - Reconciliation check in `backend/scripts/reconcile_mfl_import.py`:
+    - `franchises_vs_distinct_owners`
+- Signal:
+  - Reconciliation mismatch between franchise rows and distinct imported owners.
+  - Cross-league owner references.
+  - Out-of-order owner transition chain for a player timeline.
+- Likely Causes:
+  - Source franchise mapping drift.
+  - Backfill rows imported out of order.
+  - Incorrect league scoping in transaction writes/imports.
+- First Actions:
+  1. Re-run owner-focused guardrail tests and capture failing IDs.
+  2. Run reconciliation for affected season range and inspect `franchises_vs_distinct_owners`.
+  3. Validate transition order by player and correct out-of-order rows before reimport.
+- Manual Review Policy:
+  - Full manual year-by-year owner audits are not required when guardrails and reconciliation checks pass.
+  - Perform targeted manual spot checks only when:
+    - any owner-continuity guardrail fails,
+    - reconciliation mismatches persist after rerun,
+    - offseason structural changes introduce unusual owner turnover.
+
 ### Volume Anomalies
 - Tests:
   - `test_volume_guardrail_detects_large_season_over_season_drop`

@@ -3,14 +3,25 @@ One-time script: loads historical draft data into Postgres scoped to Post Pacifi
 Safe to run multiple times (idempotent checks included).
 """
 import os, sys
+from pathlib import Path
 import pandas as pd
 import psycopg2
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from backend.db_config import load_backend_env_file, resolve_database_url
+
 # --- Config ---
-DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fantasy_football")
 LEAGUE_ID = 60  # Post Pacific League
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 BCRYPT_PLACEHOLDER = "$2b$12$AT98P1yMsFB6voQYGgVxEO21tf6tZuXl79b/j615NkIKMhnx0LL3W"
+
+
+load_backend_env_file()
+DB_URL = resolve_database_url(require_explicit=True, context="backend/scripts/load_ppl_history.py")
 
 
 def connect():

@@ -14,6 +14,7 @@ import {
 
 // Professional Imports
 import apiClient from '@api/client';
+import { useActiveLeague } from '@context/LeagueContext';
 import DraftBudgetsModal from './components/DraftBudgetsModal';
 import AdminActionCard from '@components/admin/AdminActionCard';
 import { LoadingState } from '@components/common/AsyncState';
@@ -29,7 +30,7 @@ export default function CommissionerDashboard() {
   const [showBudgets, setShowBudgets] = useState(false);
   const navigate = useNavigate();
 
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  const leagueId = useActiveLeague();
 
   // --- 1.3 DATA RETRIEVAL (The Engine) ---
   const loadData = useCallback(async () => {

@@ -31,8 +31,8 @@ def get_manager_summary(owner_id: int, db: Session = Depends(get_db)):
     else:
         trade_count = 0
     
-    # 3. Get league standing (placeholder)
-    standing = "4th" 
+    # 3. Get league standing (defer until standings pipeline is available)
+    standing = None
 
     return {
         "roster": roster,

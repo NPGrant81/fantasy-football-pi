@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
+from backend.core import security
 from backend.database import get_db
 from backend.main import app
 
@@ -43,7 +44,20 @@ def override_dependencies(api_db):
     app.dependency_overrides.clear()
 
 
+def _login(client, username: str, password: str):
+    response = client.post(
+        "/auth/token",
+        data={"username": username, "password": password},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 200
+    return response
+
+
 def test_get_league_owners_contract_and_league_scoped_stats(client, api_db):
+    original_verify_password = security.verify_password
+    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+
     league_one = models.League(name="L1")
     league_two = models.League(name="L2")
     api_db.add_all([league_one, league_two])
@@ -83,6 +97,7 @@ def test_get_league_owners_contract_and_league_scoped_stats(client, api_db):
     api_db.add_all([matchup_l1, matchup_l2])
     api_db.commit()
 
+    _login(client, "owner-a", "secret")
     response = client.get(f"/leagues/owners?league_id={league_one.id}")
 
     assert response.status_code == 200
@@ -104,8 +119,13 @@ def test_get_league_owners_contract_and_league_scoped_stats(client, api_db):
     assert owner_a_row["points_for"] == 111.5
     assert owner_a_row["points_against"] == 108.0
 
+    security.verify_password = original_verify_password
+
 
 def test_get_league_owners_ignores_legacy_null_league_matchups(client, api_db):
+    original_verify_password = security.verify_password
+    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+
     league = models.League(name="L3")
     api_db.add(league)
     api_db.commit()
@@ -131,6 +151,7 @@ def test_get_league_owners_ignores_legacy_null_league_matchups(client, api_db):
     )
     api_db.commit()
 
+    _login(client, "owner-null-a", "secret")
     response = client.get(f"/leagues/owners?league_id={league.id}")
     assert response.status_code == 200
     payload = response.json()
@@ -141,8 +162,13 @@ def test_get_league_owners_ignores_legacy_null_league_matchups(client, api_db):
     assert owner_a_row["pf"] == 0.0
     assert owner_a_row["pa"] == 0.0
 
+    security.verify_password = original_verify_password
+
 
 def test_get_league_owners_default_order_applies_record_tiebreak_chain(client, api_db):
+    original_verify_password = security.verify_password
+    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+
     league = models.League(name="Standings Sort League")
     api_db.add(league)
     api_db.commit()
@@ -189,6 +215,7 @@ def test_get_league_owners_default_order_applies_record_tiebreak_chain(client, a
     )
     api_db.commit()
 
+    _login(client, "alpha", "secret")
     response = client.get(f"/leagues/owners?league_id={league.id}")
     assert response.status_code == 200
     payload = response.json()
@@ -200,8 +227,13 @@ def test_get_league_owners_default_order_applies_record_tiebreak_chain(client, a
     assert payload[0]["ties"] == payload[1]["ties"] == 1
     assert payload[0]["pf"] > payload[1]["pf"]
 
+    security.verify_password = original_verify_password
+
 
 def test_get_league_owners_grouped_order_sorts_within_division(client, api_db):
+    original_verify_password = security.verify_password
+    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+
     league = models.League(name="Division Sort League")
     api_db.add(league)
     api_db.commit()
@@ -274,6 +306,7 @@ def test_get_league_owners_grouped_order_sorts_within_division(client, api_db):
     )
     api_db.commit()
 
+    _login(client, "east-top", "secret")
     response = client.get(f"/leagues/owners?league_id={league.id}&group_by_division=true")
     assert response.status_code == 200
     payload = response.json()
@@ -283,3 +316,33 @@ def test_get_league_owners_grouped_order_sorts_within_division(client, api_db):
     assert payload[1]["division_id"] == east.id
     assert payload[2]["division_id"] == west.id
     assert payload[0]["id"] == east_top.id
+
+    security.verify_password = original_verify_password
+
+
+def test_get_league_owners_returns_403_for_league_mapping_mismatch(client, api_db):
+    original_verify_password = security.verify_password
+    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+
+    league_one = models.League(name="Mismatch One")
+    league_two = models.League(name="Mismatch Two")
+    api_db.add_all([league_one, league_two])
+    api_db.commit()
+    api_db.refresh(league_one)
+    api_db.refresh(league_two)
+
+    user = models.User(username="mapped-user", email=None, hashed_password="h", league_id=league_one.id)
+    api_db.add(user)
+    api_db.commit()
+
+    _login(client, "mapped-user", "secret")
+    response = client.get(f"/leagues/owners?league_id={league_two.id}")
+
+    assert response.status_code == 403
+    detail = response.json().get("detail")
+    assert isinstance(detail, dict)
+    assert detail.get("error_code") == "LEAGUE_MAPPING_MISMATCH"
+    assert detail.get("user_league_id") == league_one.id
+    assert detail.get("requested_league_id") == league_two.id
+
+    security.verify_password = original_verify_password

@@ -8,6 +8,7 @@ import {
   FiUserPlus,
 } from 'react-icons/fi';
 import apiClient from '@api/client';
+import { useActiveLeague } from '@context/LeagueContext';
 import {
   StandardTable,
   StandardTableContainer,
@@ -31,7 +32,7 @@ import { ErrorState, LoadingState } from '@components/common/AsyncState';
 const OWNER_LIMIT_DEFAULT = 12;
 
 export default function ManageOwners() {
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  const leagueId = useActiveLeague();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

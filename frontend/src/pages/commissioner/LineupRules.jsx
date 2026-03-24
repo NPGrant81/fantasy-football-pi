@@ -49,7 +49,7 @@ const normalizeMinimumSlots = ({ maxes, activeRosterSize }) => {
 };
 
 export default function LineupRules() {
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  const leagueId = useActiveLeague();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

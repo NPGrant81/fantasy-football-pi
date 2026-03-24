@@ -15,18 +15,18 @@ from sqlalchemy.orm import sessionmaker
 # can be imported regardless of the current working directory.  previously we
 # used a try/except with bare imports; that pattern confused Pylance and
 # resulted in unresolved-import errors in the Problems panel.
-repo_root = Path(__file__).parent.parent
+repo_root = Path(__file__).resolve().parents[2]
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from backend.models import Player
 from backend.models_draft_value import DraftValue, PlayerIDMapping, PlatformProjection
-from backend.database import Base
+from backend.db_config import load_backend_env_file, resolve_database_url
 from etl.validation.dataframe_validation import validate_normalized_players_dataframe
 from etl.validation.great_expectations_runner import run_normalized_players_expectations
 
-# Update this with your actual DB URL or use env var
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fantasy_pi")
+load_backend_env_file()
+DATABASE_URL = resolve_database_url(require_explicit=True, context="etl/load/load_to_postgres.py")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 

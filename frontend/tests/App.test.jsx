@@ -58,6 +58,7 @@ vi.mock('../src/services/visitLogger', () => ({
 
 describe('App (basic)', () => {
   beforeEach(() => {
+    capturedLayoutProps = {};
     localStorage.clear();
     vi.resetAllMocks();
   });
@@ -80,7 +81,7 @@ describe('App (basic)', () => {
     localStorage.setItem('fantasyLeagueId', '1');
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me')
-        return Promise.resolve({ data: { user_id: 7, username: 'alice' } });
+        return Promise.resolve({ data: { user_id: 7, username: 'alice', league_id: 1 } });
       if (url === '/leagues/1/settings')
         return Promise.resolve({
           data: { waiver_deadline: 'Thu 4pm', trade_deadline: 'Sun 8pm' },
@@ -102,7 +103,7 @@ describe('App (basic)', () => {
     });
   });
 
-  test('login form submission saves league ID from input (not from server)', async () => {
+  test('login without server league_id does not persist arbitrary league from input', async () => {
     // Setup
     apiClient.post.mockResolvedValue({
       data: { access_token: 'new-token', owner_id: 42 },
@@ -138,12 +139,15 @@ describe('App (basic)', () => {
       )
     );
 
-    // Verify league ID from form input is saved (not from server response)
+    // Verify we do not force a league from client-side input when server omitted league_id.
     await waitFor(() => {
-      expect(localStorage.getItem('fantasyLeagueId')).toBe('5');
+      expect(localStorage.getItem('fantasyLeagueId')).toBeNull();
       // Verify fantasyToken is set so auth persists across refresh
       expect(localStorage.getItem('fantasyToken')).toBe('cookie-session');
     });
+
+    // With no active league, app should route to league selector flow.
+    expect(screen.getByText(/Select your league to enter/i)).toBeInTheDocument();
   });
 
   test('logout clears fantasyToken so auth check is not re-triggered', async () => {
@@ -152,7 +156,7 @@ describe('App (basic)', () => {
     localStorage.setItem('user_id', '7');
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me')
-        return Promise.resolve({ data: { user_id: 7, username: 'alice' } });
+        return Promise.resolve({ data: { user_id: 7, username: 'alice', league_id: 1 } });
       return Promise.resolve({ data: {} });
     });
     apiClient.post.mockResolvedValue({});
@@ -163,21 +167,64 @@ describe('App (basic)', () => {
 
     // Trigger logout via the captured Layout prop
     await act(async () => {
-      capturedLayoutProps.onLogout();
+      await capturedLayoutProps.onLogout();
     });
 
     await waitFor(() => {
       expect(localStorage.getItem('fantasyToken')).toBeNull();
       expect(localStorage.getItem('user_id')).toBeNull();
-      expect(localStorage.getItem('fantasyLeagueId')).toBeNull();
     });
     expect(screen.getByText(/PPL Insight Hub Login/i)).toBeInTheDocument();
+  });
+
+  test('token-present users without a mapped league can select one and enter the app', async () => {
+    localStorage.setItem('fantasyToken', 'cookie-session');
+    localStorage.setItem('user_id', '7');
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { user_id: 7, username: 'alice', league_id: null, is_commissioner: false },
+        });
+      }
+      if (url === '/leagues/') {
+        return Promise.resolve({ data: [{ id: 5, name: 'Dynasty Five' }] });
+      }
+      if (url === '/leagues/5/settings') {
+        return Promise.resolve({ data: {} });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    apiClient.post.mockImplementation((url, body, config) => {
+      if (url === '/leagues/join') {
+        expect(config).toEqual({ params: { league_id: 5 } });
+        return Promise.resolve({ data: { message: 'Welcome to Dynasty Five!' } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+    expect(screen.getByText(/Select your league to enter/i)).toBeInTheDocument();
+
+    await user.click(screen.getByText('Dynasty Five'));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith('/leagues/join', null, {
+        params: { league_id: 5 },
+      });
+      expect(localStorage.getItem('fantasyLeagueId')).toBe('5');
+      expect(screen.getByTestId('layout')).toBeInTheDocument();
+    });
   });
 
   test('visiting /playoffs renders playoff bracket', async () => {
     localStorage.setItem('fantasyToken', 'fake-token');
     localStorage.setItem('fantasyLeagueId', '1');
-    apiClient.get.mockResolvedValue({ data: { user_id: 1, username: 'bob' } });
+    apiClient.get.mockResolvedValue({ data: { user_id: 1, username: 'bob', league_id: 1 } });
     // pre-set url before render (router will pick it up)
     window.history.pushState({}, 'Playoffs', '/playoffs');
 

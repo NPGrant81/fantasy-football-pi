@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   fetchAllPlayers,
   fetchCurrentUser,
@@ -45,7 +46,6 @@ const DEFAULT_UI_STATE = {
   sortColumn: 'value',
   sortDirection: 'desc',
   searchQuery: '',
-  rankingSeasonOffset: 0,
 };
 
 const rowHeight = 40;
@@ -78,10 +78,6 @@ const loadUiState = () => {
         typeof parsed.searchQuery === 'string'
           ? parsed.searchQuery
           : DEFAULT_UI_STATE.searchQuery,
-      rankingSeasonOffset:
-        parsed.rankingSeasonOffset === -1 || parsed.rankingSeasonOffset === 0
-          ? parsed.rankingSeasonOffset
-          : DEFAULT_UI_STATE.rankingSeasonOffset,
     };
   } catch {
     return DEFAULT_UI_STATE;
@@ -138,9 +134,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const [sortColumn, setSortColumn] = useState(initialUi.sortColumn);
   const [sortDirection, setSortDirection] = useState(initialUi.sortDirection);
   const [searchQuery, setSearchQuery] = useState(initialUi.searchQuery);
-  const [rankingSeasonOffset, setRankingSeasonOffset] = useState(
-    initialUi.rankingSeasonOffset
-  );
 
   const [scrollTop, setScrollTop] = useState(0);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -179,7 +172,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       sortColumn,
       sortDirection,
       searchQuery,
-      rankingSeasonOffset,
     };
     localStorage.setItem(UI_STATE_KEY, JSON.stringify(payload));
   }, [
@@ -188,13 +180,9 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     sortColumn,
     sortDirection,
     searchQuery,
-    rankingSeasonOffset,
   ]);
 
-  const rankingSeason = useMemo(
-    () => Number(draftYear) + Number(rankingSeasonOffset || 0),
-    [draftYear, rankingSeasonOffset]
-  );
+  const rankingSeason = useMemo(() => Number(draftYear), [draftYear]);
 
   const fetchHistory = useCallback(async () => {
     if (!activeLeagueId || !draftYear) return;
@@ -668,12 +656,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     leaguePositionCaps,
   ]);
 
-  const availableHistoricalRankings = useMemo(() => {
-    return historicalRankings
-      .filter((entry) => !draftedPlayerIds.has(Number(entry.player_id)))
-      .slice(0, 24);
-  }, [historicalRankings, draftedPlayerIds]);
-
   const virtualMeta = useMemo(() => {
     const total = sortedPlayers.length;
     const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - 3);
@@ -905,22 +887,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             </button>
           ))}
 
-          <button
-            type="button"
-            className={rankingSeasonOffset === -1 ? buttonPrimary : buttonSecondary}
-            onClick={() => setRankingSeasonOffset(-1)}
-          >
-            Previous Year ({Number(draftYear) - 1})
-          </button>
-
-          <button
-            type="button"
-            className={rankingSeasonOffset === 0 ? buttonPrimary : buttonSecondary}
-            onClick={() => setRankingSeasonOffset(0)}
-          >
-            Current Year ({Number(draftYear)})
-          </button>
-
           <input
             value={searchQuery}
             onChange={handleSearchChange}
@@ -1066,51 +1032,16 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       <section className={`${cardSurface} space-y-3`}>
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-black uppercase tracking-wider text-slate-300">
-            Historical Rankings
+            Historical Content Moved
           </h2>
           <span className="text-xs text-slate-500">Season {rankingSeason}</span>
         </div>
-
-        {rankingsLoading ? (
-          <LoadingState message="Loading rankings..." className="text-xs" />
-        ) : rankingsError ? (
-          <div className="space-y-2">
-            <ErrorState message={rankingsError} className="text-xs" />
-            <button
-              type="button"
-              className={buttonSecondary}
-              onClick={() => {
-                setRankingsError('');
-                setRankingsRefreshNonce((prev) => prev + 1);
-              }}
-            >
-              Retry
-            </button>
-          </div>
-        ) : availableHistoricalRankings.length === 0 ? (
-          <EmptyState
-            message={`No rankings data available for season ${rankingSeason}.`}
-            className="text-xs"
-          />
-        ) : (
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {availableHistoricalRankings.slice(0, 18).map((entry) => (
-              <div
-                key={entry.player_id}
-                className="rounded-md border border-slate-800 bg-slate-950/60 p-2"
-              >
-                <div className="text-[11px] text-slate-500">#{entry.rank}</div>
-                <div className="truncate text-sm font-semibold text-slate-100">
-                  {entry.player_name}
-                </div>
-                <div className="text-xs text-slate-400">{entry.position || 'UNK'}</div>
-                <div className="text-xs font-bold text-emerald-300">
-                  ${parseNumber(entry.predicted_auction_value, 0).toFixed(0)}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <p className="text-xs text-slate-400">
+          Historical rankings and legacy-season deep dives now live under League History.
+        </p>
+        <Link to="/league-history/historical-analytics" className={buttonSecondary}>
+          Open League History
+        </Link>
       </section>
 
       <section className={`${cardSurface} space-y-3`}>

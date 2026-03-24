@@ -13,7 +13,10 @@ from ..services.validation_service import (
 )
 import secrets
 import string
+import logging
 from utils.email_sender import send_invite_email
+
+logger = logging.getLogger(__name__)
 
 # FIX 1: Changed prefix to "/leagues" (Plural) to match Frontend
 router = APIRouter(
@@ -326,11 +329,32 @@ def get_leagues(db: Session = Depends(get_db)):
 @router.get("/owners")
 def get_league_owners(league_id: int = Query(...),
                       group_by_division: bool = Query(False),
+                      current_user: models.User = Depends(get_current_user),
                       db: Session = Depends(get_db)):
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        logger.warning(
+            "League owner listing denied due to league mismatch (user_id=%s user_league_id=%s requested_league_id=%s)",
+            current_user.id,
+            current_user.league_id,
+            league_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Access denied: user is not mapped to the requested league.",
+                "error_code": "LEAGUE_MAPPING_MISMATCH",
+                "user_league_id": current_user.league_id,
+                "requested_league_id": league_id,
+            },
+        )
+
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
-    owners = db.query(models.User).filter(models.User.league_id == league_id).all()
+    owners = db.query(models.User).filter(
+        models.User.league_id == league_id,
+        ~models.User.username.like("hist_%"),
+    ).all()
 
     # Build a map from user id to division_id once to avoid per-matchup queries
     # inside calc_stats (which would otherwise cause an N+1 pattern).
@@ -609,7 +633,10 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
     )
 
     if has_faab_ledger:
-        users = db.query(models.User).filter(models.User.league_id == league_id).all()
+        users = db.query(models.User).filter(
+            models.User.league_id == league_id,
+            ~models.User.username.like("hist_%"),
+        ).all()
         legacy_records = (
             db.query(models.WaiverBudget)
             .filter(models.WaiverBudget.league_id == league_id)
@@ -947,7 +974,10 @@ def get_league_budgets(
     year: int = Query(...),
     db: Session = Depends(get_db)
 ):
-    owners = db.query(models.User).filter(models.User.league_id == league_id).all()
+    owners = db.query(models.User).filter(
+        models.User.league_id == league_id,
+        ~models.User.username.like("hist_%"),
+    ).all()
     has_draft_ledger = (
         db.query(models.EconomicLedger.id)
         .filter(
@@ -1322,6 +1352,209 @@ def create_owner(
         # In production, DO NOT return the password here. For now, it helps debugging.
         "debug_password": temp_password 
     }
+
+
+# --- HISTORICAL RECORDS ENDPOINTS ---
+
+class HistoricalRecordSchema(BaseModel):
+    record_json: Dict[str, Any]
+    season: Optional[int] = None
+
+
+class HistoricalRecordsResponse(BaseModel):
+    dataset_key: str
+    league_id: str
+    records: List[Dict[str, Any]]
+    count: int
+
+
+@router.get("/{league_id}/history/champions")
+def get_league_champions(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get all league champions through history."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_league_champions_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.season)).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_league_champions_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/awards")
+def get_league_awards(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get all league awards through history."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_league_awards_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.season)).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_league_awards_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/franchise")
+def get_franchise_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get franchise single-game scoring records."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_franchise_records_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_franchise_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/player")
+def get_player_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get top player single-week scoring records."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_player_records_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).limit(100).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_player_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/match")
+def get_matchup_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get highest-scoring matchups and greatest comebacks."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_matchup_records_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).limit(100).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_matchup_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/all-time-series")
+def get_all_time_series_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get head-to-head all-time series records between managers."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_all_time_series_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.record_json['series_season'].astext)).limit(100).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_all_time_series_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/season")
+def get_season_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get best season records (wins, points for/against)."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_season_records_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_season_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/career")
+def get_career_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get career aggregate records across league history."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_career_records_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.record_json['wins'].astext.cast(func.numeric))).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_career_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/streaks")
+def get_record_streaks(
+    league_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get notable win/loss streaks through history."""
+    mfl_league_id = str(league_id)
+    records = db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == "html_record_streaks_normalized",
+        models.MflHtmlRecordFact.league_id == mfl_league_id,
+    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).limit(100).all()
+    
+    data = [r.record_json for r in records]
+    return HistoricalRecordsResponse(
+        dataset_key="html_record_streaks_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
 
 
 @router.put("/owners/{owner_id}")

@@ -9,6 +9,7 @@
 # application and DB reachability, not only static content.
 
 tunnel: ppl-insight-hub-prod1
+credentials-file: /etc/cloudflared/<tunnel-uuid>.json
 
 ingress:
   - hostname: pplinsighthub.com

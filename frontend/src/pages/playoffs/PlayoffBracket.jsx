@@ -2,7 +2,9 @@ import React from 'react';
 import BracketAccordion from '../home/components/BracketAccordion';
 import apiClient from '@api/client';
 import PageTemplate from '@components/layout/PageTemplate';
+import { Link } from 'react-router-dom';
 import {
+  buttonSecondary,
   cardSurface,
 } from '@utils/uiStandards';
 
@@ -40,8 +42,16 @@ export default function PlayoffBracket({ username, leagueId, setSubHeader }) {
       title="Playoff Bracket"
       subtitle="View playoff seeding and matchup progression."
     >
+      <div className="mb-3 rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+        <p className="text-xs text-slate-300">
+          Historical bracket lookup has moved to League History.
+        </p>
+        <Link to="/league-history/season-records" className={`${buttonSecondary} mt-2 inline-flex`}>
+          Open Historical Brackets
+        </Link>
+      </div>
       <div className={cardSurface}>
-        <BracketAccordion leagueId={leagueId} />
+        <BracketAccordion leagueId={leagueId} showHistoricalToggle={false} />
       </div>
     </PageTemplate>
   );
