@@ -1,6 +1,16 @@
 """
 One-time script: loads historical draft data into Postgres scoped to Post Pacific League.
 Safe to run multiple times (idempotent checks included).
+
+STATUS: ALREADY RUN — DATA IS IN THE DATABASE.
+  This script was the original bootstrap loader.  All data it would insert
+  (owners, players, draft picks) is already present in the live Postgres DB.
+  It should NOT be run again unless you are rebuilding from scratch after a
+  deliberate full-reset.
+
+  The CSV files it reads (users.csv, players.csv, positions.csv,
+  draft_results.csv) are retained solely as disaster-recovery references.
+  Once their DB data is verified, they can be deleted.
 """
 import os, sys
 from pathlib import Path

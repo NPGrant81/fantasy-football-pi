@@ -4,7 +4,10 @@ import argparse
 from pathlib import Path
 
 from etl.load.load_to_postgres import load_historical_rankings_to_db
-from etl.transform.historical_rankings import build_rankings_from_history
+from etl.transform.historical_rankings import (
+    build_rankings_from_db,
+    build_rankings_from_history,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -12,14 +15,23 @@ def parse_args() -> argparse.Namespace:
         description="Build historical league-based draft rankings and optionally load into DraftValue table."
     )
     parser.add_argument(
+        "--from-db",
+        action="store_true",
+        help=(
+            "Load draft history from the database instead of CSV files. "
+            "Requires DATABASE_URL to be configured. "
+            "Use this mode once the CSV data files have been retired."
+        ),
+    )
+    parser.add_argument(
         "--draft-results",
         default="backend/data/draft_results.csv",
-        help="Path to historical draft results CSV.",
+        help="Path to historical draft results CSV (ignored when --from-db is set).",
     )
     parser.add_argument(
         "--players",
         default="backend/data/players.csv",
-        help="Path to players CSV.",
+        help="Path to players CSV (ignored when --from-db is set).",
     )
     parser.add_argument(
         "--season",
@@ -43,11 +55,24 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    result = build_rankings_from_history(
-        draft_results_path=args.draft_results,
-        players_path=args.players,
-        target_season=args.season,
-    )
+    if args.from_db:
+        import sys
+        from pathlib import Path as _Path
+
+        sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+        from backend.database import SessionLocal  # type: ignore[import]
+
+        db = SessionLocal()
+        try:
+            result = build_rankings_from_db(db, target_season=args.season)
+        finally:
+            db.close()
+    else:
+        result = build_rankings_from_history(
+            draft_results_path=args.draft_results,
+            players_path=args.players,
+            target_season=args.season,
+        )
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -61,3 +86,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

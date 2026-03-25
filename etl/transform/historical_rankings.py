@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 POSITION_LABELS = {
@@ -229,3 +233,64 @@ def build_rankings_from_history(
     features = build_historical_features(draft_results_df, players_df)
     rankings = score_historical_rankings(features, target_season=target_season)
     return HistoricalRankingResult(rankings=rankings, features=features)
+
+
+# Reverse mapping: position string stored in DB → legacy numeric PositionID
+# used by build_historical_features.
+_POSITION_IDS: dict[str, int] = {v: k for k, v in POSITION_LABELS.items()}
+_POSITION_IDS.update({"DST": 8006, "D/ST": 8006})
+
+
+def build_rankings_from_db(db: "Session", target_season: int) -> HistoricalRankingResult:
+    """Build historical rankings by querying the database instead of reading CSV files.
+
+    Produces the same result as ``build_rankings_from_history`` but sources
+    draft_picks and players directly from the live DB.  Use this function once
+    the CSV data files have been retired.
+    """
+    from sqlalchemy import text as sa_text
+
+    picks_rows = db.execute(
+        sa_text(
+            """
+            SELECT
+                dp.player_id   AS "PlayerID",
+                dp.year        AS "Year",
+                dp.amount      AS "WinningBid",
+                p.position     AS position_str
+            FROM draft_picks dp
+            JOIN players p ON p.id = dp.player_id
+            WHERE dp.year IS NOT NULL
+            """
+        )
+    ).fetchall()
+
+    draft_results_df = pd.DataFrame(
+        [dict(r._mapping) for r in picks_rows],
+        columns=["PlayerID", "Year", "WinningBid", "position_str"],
+    )
+    draft_results_df["PositionID"] = (
+        draft_results_df["position_str"]
+        .str.upper()
+        .map(_POSITION_IDS)
+        .fillna(0)
+        .astype(int)
+    )
+    draft_results_df = draft_results_df.drop(columns=["position_str"])
+
+    players_rows = db.execute(
+        sa_text("SELECT id AS Player_ID, name AS PlayerName, position FROM players")
+    ).fetchall()
+    players_df = pd.DataFrame(
+        [dict(r._mapping) for r in players_rows],
+        columns=["Player_ID", "PlayerName", "position"],
+    )
+    players_df["PositionID"] = (
+        players_df["position"].str.upper().map(_POSITION_IDS).fillna(0).astype(int)
+    )
+    players_df = players_df.drop(columns=["position"])
+
+    features = build_historical_features(draft_results_df, players_df)
+    rankings = score_historical_rankings(features, target_season=target_season)
+    return HistoricalRankingResult(rankings=rankings, features=features)
+

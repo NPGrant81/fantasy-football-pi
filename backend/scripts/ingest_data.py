@@ -1,24 +1,28 @@
+"""
+DEPRECATED — superseded by load_ppl_history.py and the MFL migration pipeline.
+
+⛔  DO NOT RUN AGAINST A POPULATED DATABASE.
+    This script calls drop_all() which DESTROYS ALL DATA.
+
+    It is kept for historical reference only.  It is intentionally disabled:
+    running it requires setting the environment variable
+        FFPI_HARD_RESET=1
+    as a safety gate.  If you think you need this script, use
+    load_ppl_history.py for re-seeding PPL data instead.
+"""
+import os
+import sys
+
 import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from backend.database import SessionLocal, engine
 # NEW: Added 'League' to the imports
 from models import Player, User, DraftPick, Budget, Base, League
-import os
 
 # --- SECURITY TOOL ---
 from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# ---------------------------------------------------------
-# ⚠️ HARD RESET: WIPE & REBUILD DATABASE
-# ---------------------------------------------------------
-print("⚠️  Wiping Database (Hard Reset)...")
-Base.metadata.drop_all(bind=engine) 
-
-print("✅  Rebuilding Tables...")
-Base.metadata.create_all(bind=engine) 
-# ---------------------------------------------------------
 
 def get_file_path(filename):
     path = os.path.join(os.path.dirname(__file__), filename)
@@ -86,6 +90,25 @@ def load_lookups():
     return pos_map, team_map
 
 def run_ingest():
+    if os.environ.get("FFPI_HARD_RESET") != "1":
+        print(
+            "ERROR: ingest_data.py is DEPRECATED and DESTROYS ALL DATA.\n"
+            "       Use load_ppl_history.py for re-seeding instead.\n"
+            "       If you truly intend a hard reset, set FFPI_HARD_RESET=1.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # ---------------------------------------------------------
+    # ⚠️ HARD RESET: WIPE & REBUILD DATABASE
+    # ---------------------------------------------------------
+    print("⚠️  Wiping Database (Hard Reset)...")
+    Base.metadata.drop_all(bind=engine)
+
+    print("✅  Rebuilding Tables...")
+    Base.metadata.create_all(bind=engine)
+    # ---------------------------------------------------------
+
     db: Session = SessionLocal()
     pos_map, team_map = load_lookups()
     canonical_owners = load_canonical_owners()
