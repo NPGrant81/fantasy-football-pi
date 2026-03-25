@@ -18,6 +18,7 @@ import DraftDynamicsPanel from '@components/draft/insights/DraftDynamicsPanel';
 import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
 import PageTemplate from '@components/layout/PageTemplate';
 import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
+import { StandardTable, StandardTableRow } from '@components/table/TablePrimitives';
 import {
   POSITION_CAPS,
   STRATEGY_MAX_SPEND_SHARE,
@@ -1245,7 +1246,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   Key Target Probabilities
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <StandardTable className="text-xs">
                     <thead>
                       <tr className="border-b border-slate-800 text-left text-[10px] uppercase tracking-wider text-slate-500">
                         <th className="px-3 py-2">Player</th>
@@ -1262,7 +1263,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                         const probColor = prob >= 50 ? 'text-emerald-300' : prob >= 25 ? 'text-yellow-300' : 'text-red-400';
                         const rivals = Array.isArray(row.rival_bidders) ? row.rival_bidders : [];
                         return (
-                          <tr key={row.player_id} className="hover:bg-slate-900/60 transition-colors">
+                          <StandardTableRow key={row.player_id} className="hover:bg-slate-900/60 transition-colors">
                             <td className="px-3 py-2 font-semibold text-slate-100 truncate max-w-[140px]">
                               {row.player_name}
                             </td>
@@ -1297,11 +1298,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                                 </div>
                               )}
                             </td>
-                          </tr>
+                          </StandardTableRow>
                         );
                       })}
                     </tbody>
-                  </table>
+                  </StandardTable>
                 </div>
               </div>
             )}
