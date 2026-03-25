@@ -285,12 +285,13 @@ def get_matchup_detail(
         raise HTTPException(status_code=404, detail="Matchup not found")
     if game.league_id != current_user.league_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    return fetch_matchup_detail_data(matchup_id, db)
+    return fetch_matchup_detail_data(matchup_id, db, game=game)
 
 
-def fetch_matchup_detail_data(matchup_id: int, db: Session) -> MatchupSchema:
+def fetch_matchup_detail_data(matchup_id: int, db: Session, *, game: Optional[models.Matchup] = None) -> MatchupSchema:
     """Internal helper: fetch matchup detail without auth checks."""
-    game = db.query(models.Matchup).filter(models.Matchup.id == matchup_id).first()
+    if game is None:
+        game = db.query(models.Matchup).filter(models.Matchup.id == matchup_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Matchup not found")
 
