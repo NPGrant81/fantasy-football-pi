@@ -66,13 +66,7 @@ jobs:
           fi
 
           echo "▶ Starting NFL reality sync ($(date -u '+%Y-%m-%d %H:%M UTC'))"
-          python3 -c "
-import sys, os
-sys.path.insert(0, os.getcwd())
-from scripts.daily_sync import sync_nfl_reality
-sync_nfl_reality()
-print('✅ Roster sync complete')
-"
+          python3 -c "import sys, os; sys.path.insert(0, os.getcwd()); from scripts.daily_sync import sync_nfl_reality; sync_nfl_reality(); print('Roster sync complete')"
           REMOTE_SCRIPT
 
       - name: Report sync summary
