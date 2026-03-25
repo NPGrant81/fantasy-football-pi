@@ -48,10 +48,10 @@ def seed_data():
         db.refresh(league)
 
         # 2.2 CREATE SUPERUSER (Using Core Security)
-        print("👑 Creating Commissioner: Nick Grant...")
+        print("👑 Creating Commissioner: Admin...")
         hashed_pw = security.get_password_hash("password")
         admin = models.User(
-            username="Nick_Grant",
+            username="Admin",
             email="nick@league.com",
             hashed_password=hashed_pw,
             is_superuser=True,

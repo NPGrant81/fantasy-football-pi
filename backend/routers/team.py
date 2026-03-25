@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner
+from ..services.player_service import normalize_display_name as _normalize_player_name
 import random
 import os
 import shutil
@@ -117,7 +118,7 @@ def organize_roster(picks, db: Session, locked_player_ids: Optional[Set[int]] = 
         final_list.append(RosterPlayer(
             id=p["data"].id,
             player_id=p["data"].id,
-            name=p["data"].name,
+            name=_normalize_player_name(p["data"].name),
             position=p["pos"],
             nfl_team=p["data"].nfl_team,
             bye_week=p["data"].bye_week,

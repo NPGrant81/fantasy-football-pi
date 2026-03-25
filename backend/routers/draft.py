@@ -1,17 +1,19 @@
-from pathlib import Path
 from typing import Any, List
 from datetime import datetime, timezone
 import logging
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from sqlalchemy import or_
+import pandas as pd
+from sqlalchemy import func, distinct, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
 # Internal Imports
 from ..database import get_db
 import models
+import models_draft_value
 from ..schemas.draft import HistoricalRankingResponse
 from ..services.ledger_service import owner_draft_budget_total, owner_has_incoming_credits
+from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.draft_rankings_service import get_historical_rankings as get_historical_rankings_service
 from ..core.security import get_current_user
 from ..services.validation_service import (
@@ -21,6 +23,7 @@ from ..services.validation_service import (
 from etl.transform.monte_carlo_simulation import (
     SimulationConfig,
     key_target_probabilities,
+    run_monte_carlo_draft_simulation,
     run_monte_carlo_from_paths,
     summarize_team_distribution,
 )
@@ -165,7 +168,7 @@ def _serialize_draft_events(
                 "amount": pick.amount,
                 "timestamp": pick.timestamp,
                 "position": pick.player.position if pick.player else None,
-                "player_name": pick.player.name if pick.player else None,
+                "player_name": _normalize_player_name(pick.player.name) if pick.player else None,
                 "is_keeper": False,
             }
         )
@@ -183,7 +186,7 @@ def _serialize_draft_events(
                     else None
                 ),
                 "position": keeper.player.position if keeper.player else None,
-                "player_name": keeper.player.name if keeper.player else None,
+                "player_name": _normalize_player_name(keeper.player.name) if keeper.player else None,
                 "is_keeper": True,
             }
         )
@@ -422,7 +425,7 @@ def get_historical_rankings(
         raise HTTPException(status_code=403, detail="Cross-league ranking requests are not allowed")
 
     if owner_id is not None:
-        if not current_user.is_commissioner and int(owner_id) != int(current_user.id):
+        if not current_user.is_superuser and not current_user.is_commissioner and int(owner_id) != int(current_user.id):
             raise HTTPException(
                 status_code=403,
                 detail="Owners can only request rankings for themselves",
@@ -468,7 +471,7 @@ def predict_model_recommendations(
     if not target_owner:
         raise HTTPException(status_code=404, detail="Owner not found in league")
 
-    if not current_user.is_commissioner and int(payload.owner_id) != int(current_user.id):
+    if not current_user.is_superuser and not current_user.is_commissioner and int(payload.owner_id) != int(current_user.id):
         raise HTTPException(
             status_code=403,
             detail="Owners can only request model recommendations for themselves",
@@ -563,7 +566,7 @@ def run_draft_simulation(
         raise HTTPException(status_code=400, detail="User must belong to a league")
 
     perspective_owner_id = int(payload.perspective_owner_id or current_user.id)
-    if not current_user.is_commissioner and perspective_owner_id != current_user.id:
+    if not current_user.is_superuser and not current_user.is_commissioner and perspective_owner_id != current_user.id:
         raise HTTPException(
             status_code=403,
             detail="Owners can only run perspective simulations for themselves",
@@ -580,40 +583,119 @@ def run_draft_simulation(
     if not perspective_owner:
         raise HTTPException(status_code=404, detail="Perspective owner not found in league")
 
-    repo_root = Path(__file__).resolve().parents[2]
-    data_root = repo_root / "backend" / "data"
+    # --- Build simulation DataFrames from DB (no CSV files) ---
 
-    draft_results_path = data_root / "draft_results.csv"
-    players_path = data_root / "players.csv"
-    historical_rankings_path = data_root / "historical_rankings.csv"
-    draft_budget_path = data_root / "draft_budget.csv"
+    # 1. Active players
+    active_pid_subq = (
+        db.query(distinct(models.PlayerSeason.player_id))
+        .filter(models.PlayerSeason.is_active == True)
+        .subquery()
+    )
+    player_rows = (
+        db.query(models.Player)
+        .filter(
+            models.Player.id.in_(active_pid_subq),
+            models.Player.position.in_({"QB", "RB", "WR", "TE", "K", "DEF"}),
+        )
+        .all()
+    )
+    players_df = pd.DataFrame(
+        [{"Player_ID": p.id, "PlayerName": p.name, "PositionID": p.position or ""} for p in player_rows]
+    )
 
-    if not draft_results_path.exists() or not players_path.exists() or not historical_rankings_path.exists():
+    # 2. Bid statistics aggregated from draft_picks (all-time, league-scoped)
+    bid_agg = (
+        db.query(
+            models.DraftPick.player_id,
+            func.count(models.DraftPick.id).label("appearances"),
+            func.avg(models.DraftPick.amount).label("avg_bid"),
+        )
+        .filter(models.DraftPick.league_id == current_user.league_id)
+        .group_by(models.DraftPick.player_id)
+        .all()
+    )
+    bid_stats_map: dict[int, dict] = {
+        row.player_id: {
+            "appearances": int(row.appearances or 0),
+            "avg_bid": float(row.avg_bid or 0.0),
+        }
+        for row in bid_agg
+    }
+
+    # 3. Historical rankings from draft_values joined to players
+    draft_year = datetime.now().year
+    dv_rows = (
+        db.query(models_draft_value.DraftValue, models.Player)
+        .join(models.Player, models.Player.id == models_draft_value.DraftValue.player_id)
+        .filter(models_draft_value.DraftValue.season == draft_year)
+        .all()
+    )
+    historical_rankings_rows = []
+    for dv, player in dv_rows:
+        bs = bid_stats_map.get(dv.player_id, {})
+        historical_rankings_rows.append({
+            "player_id": dv.player_id,
+            "player_name": player.name,
+            "position": player.position or "",
+            "predicted_auction_value": float(dv.avg_auction_value or 1.0),
+            "model_score": float(dv.model_score or 0.0),
+            "appearances": bs.get("appearances", 0),
+            "avg_bid": bs.get("avg_bid", 0.0),
+        })
+    # Include any players with bid history but no draft_values row this season
+    for player_id, bs in bid_stats_map.items():
+        if not any(r["player_id"] == player_id for r in historical_rankings_rows):
+            player = db.query(models.Player).filter(models.Player.id == player_id).first()
+            if player:
+                historical_rankings_rows.append({
+                    "player_id": player_id,
+                    "player_name": player.name,
+                    "position": player.position or "",
+                    "predicted_auction_value": bs["avg_bid"] or 1.0,
+                    "model_score": 0.0,
+                    "appearances": bs["appearances"],
+                    "avg_bid": bs["avg_bid"],
+                })
+    historical_rankings_df = pd.DataFrame(
+        historical_rankings_rows
+        if historical_rankings_rows
+        else [{"player_id": 0, "predicted_auction_value": 1.0, "model_score": 0.0}]
+    )
+
+    # 4. Draft results from draft_picks (league-scoped), joined to player for PositionID
+    draft_picks_db = (
+        db.query(models.DraftPick, models.Player)
+        .join(models.Player, models.Player.id == models.DraftPick.player_id, isouter=True)
+        .filter(models.DraftPick.league_id == current_user.league_id)
+        .all()
+    )
+    draft_results_df = pd.DataFrame(
+        [
+            {
+                "OwnerID": pick.owner_id,
+                "PlayerID": pick.player_id,
+                "PositionID": (player.position if player else "") or "",
+                "WinningBid": float(pick.amount or 0),
+                "Year": int(pick.year or draft_year),
+            }
+            for pick, player in draft_picks_db
+        ]
+    )
+    if draft_results_df.empty:
         raise HTTPException(
             status_code=400,
-            detail="Required simulation data files are missing in backend/data",
+            detail="No draft history found for this league. Complete at least one draft before running a simulation.",
         )
 
-    yearly_results_path: str | None = None
-    if payload.yearly_results_path:
-        raw_path = Path(payload.yearly_results_path)
-
-        if raw_path.is_absolute():
-            raise HTTPException(
-                status_code=400,
-                detail="Absolute paths are not allowed for yearly_results_path",
-            )
-
-        data_root_resolved = data_root.resolve()
-        candidate = (data_root_resolved / raw_path).resolve()
-
-        if not candidate.is_relative_to(data_root_resolved):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid yearly_results_path; must be within backend/data",
-            )
-
-        yearly_results_path = str(candidate)
+    # 5. Draft budgets (league-scoped)
+    budget_rows = (
+        db.query(models.DraftBudget)
+        .filter(models.DraftBudget.league_id == current_user.league_id)
+        .all()
+    )
+    budget_df = pd.DataFrame(
+        [{"OwnerID": b.owner_id, "DraftBudget": float(b.total_budget or 200)} for b in budget_rows]
+    )
 
     safe_iterations = max(50, min(int(payload.iterations), 10000))
     safe_teams_count = max(2, min(int(payload.teams_count), 20))
@@ -636,12 +718,11 @@ def run_draft_simulation(
     )
 
     try:
-        result = run_monte_carlo_from_paths(
-            draft_results_path=str(draft_results_path),
-            players_path=str(players_path),
-            historical_rankings_path=str(historical_rankings_path),
-            draft_budget_path=str(draft_budget_path) if draft_budget_path.exists() else None,
-            yearly_results_path=yearly_results_path,
+        result = run_monte_carlo_draft_simulation(
+            draft_results_df=draft_results_df,
+            players_df=players_df,
+            historical_rankings_df=historical_rankings_df,
+            budget_df=budget_df,
             config=simulation_config,
         )
     except Exception as exc:
@@ -663,8 +744,12 @@ def run_draft_simulation(
 
     key_target_rows: list[dict[str, Any]] = []
     if not result.draft_picks.empty:
+        pos_col = "position" if "position" in result.draft_picks.columns else None
         top_targets = (
-            result.draft_picks[["player_id", "player_name", "predicted_auction_value"]]
+            result.draft_picks[
+                ["player_id", "player_name", "predicted_auction_value"]
+                + ([pos_col] if pos_col else [])
+            ]
             .drop_duplicates(subset=["player_id"])
             .sort_values("predicted_auction_value", ascending=False)
             .head(safe_target_key_players)
@@ -675,18 +760,67 @@ def run_draft_simulation(
             target_player_ids=top_targets["player_id"].tolist(),
             iterations=safe_iterations,
         )
+        merge_cols = ["player_id", "player_name", "predicted_auction_value"]
+        if pos_col:
+            merge_cols.append(pos_col)
         probability_df = probability_df.merge(
-            top_targets[["player_id", "player_name"]],
+            top_targets[merge_cols],
             on="player_id",
             how="left",
         ).sort_values("probability", ascending=False)
+
+        # avg_bid sourced from live draft_picks aggregates (already computed above)
+        avg_bid_lookup: dict[int, float] = {
+            pid: bs["avg_bid"] for pid, bs in bid_stats_map.items()
+        }
+
+        # Derive rival bidders per target player across simulation iterations
+        # A rival is any non-focal owner who won the player in at least one iteration
+        rival_lookup: dict[int, list[dict[str, Any]]] = {}
+        try:
+            picks_df = result.draft_picks.copy()
+            target_ids = set(top_targets["player_id"].tolist())
+            target_picks = picks_df[
+                (picks_df["player_id"].isin(target_ids)) &
+                (picks_df["owner_id"] != perspective_owner_id)
+            ]
+            if not target_picks.empty:
+                rival_counts = (
+                    target_picks.groupby(["player_id", "owner_id"])
+                    .size()
+                    .reset_index(name="win_count")
+                    .sort_values(["player_id", "win_count"], ascending=[True, False])
+                )
+                # Map owner_id -> name from league users
+                owner_name_map = {
+                    u.id: (u.team_name or u.username or f"Owner {u.id}")
+                    for u in db.query(models.User).filter(
+                        models.User.league_id == current_user.league_id,
+                        models.User.is_superuser == False,
+                    ).all()
+                }
+                for pid, group in rival_counts.groupby("player_id"):
+                    rival_lookup[int(pid)] = [
+                        {
+                            "owner_id": int(row.owner_id),
+                            "owner_name": owner_name_map.get(int(row.owner_id), f"Owner {int(row.owner_id)}"),
+                            "win_count": int(row.win_count),
+                        }
+                        for row in group.head(3).itertuples(index=False)
+                    ]
+        except Exception:
+            pass
 
         key_target_rows = [
             {
                 "player_id": int(row.player_id),
                 "player_name": row.player_name,
+                "position": str(getattr(row, pos_col, "") or "") if pos_col else "",
                 "probability": float(row.probability),
                 "hit_count": int(row.hit_count),
+                "avg_bid": avg_bid_lookup.get(int(row.player_id), 0.0),
+                "predicted_auction_value": float(getattr(row, "predicted_auction_value", 0) or 0),
+                "rival_bidders": rival_lookup.get(int(row.player_id), []),
             }
             for row in probability_df.itertuples(index=False)
         ]
@@ -861,7 +995,7 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
         "player_id": pick.player_id,
         "owner_id": pick.owner_id,
         "amount": pick.amount,
-        "player_name": player.name # useful for the ticker
+        "player_name": _normalize_player_name(player.name) # useful for the ticker
     })
 
     return new_pick

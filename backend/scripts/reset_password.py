@@ -7,7 +7,7 @@ from core.security import get_password_hash
 db = SessionLocal()
 
 # 2. Find the user
-username = "Nick Grant"
+username = "Admin"
 user = db.query(models.User).filter(models.User.username == username).first()
 
 if user:

@@ -13,6 +13,8 @@ export default function Layout({
   alert,
   pageTitle = '',
   onLogout,
+  isSuperuser,
+  onLeagueSwitch,
 }) {
   // --- 1.1 UI STATE ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -58,6 +60,8 @@ export default function Layout({
         username={username}
         leagueId={leagueId}
         onLogout={onLogout}
+        isSuperuser={isSuperuser}
+        onLeagueSwitch={onLeagueSwitch}
       />
 
       {/* 2.4 PAGE VIEWPORT */}

@@ -9,6 +9,7 @@ from ..database import get_db
 from .. import models
 # import organizer helper from team router for roster-strength computation
 from .team import organize_roster
+from ..services.player_service import normalize_display_name as _normalize_player_name
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -343,7 +344,7 @@ def get_draft_value_data(
         rows.append(
             {
                 "player_id": player.id,
-                "player_name": player.name,
+                "player_name": _normalize_player_name(player.name),
                 "position": player.position,
                 "adp": round(adp, 2),
                 "projected_points": round(projected_points, 2),
@@ -461,7 +462,7 @@ def get_player_heatmap_data(
         rows.append(
             {
                 "player_id": int(player.id),
-                "player_name": player.name,
+                "player_name": _normalize_player_name(player.name),
                 "position": player.position,
                 "total_points": round(totals_by_player.get(int(player.id), 0.0), 2),
                 "points_by_week": [round(per_week.get(week_no, 0.0), 2) for week_no in weeks_used],

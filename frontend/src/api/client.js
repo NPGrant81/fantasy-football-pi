@@ -47,26 +47,13 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// --- 2.2 RESPONSE INTERCEPTOR (The Auto-Logout) ---
+// --- 2.2 RESPONSE INTERCEPTOR ---
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 2.2.1 If the server says "Unauthorized" (401), redirect to login only
-    // for protected app requests (not auth bootstrap/login endpoints).
-    if (error.response && error.response.status === 401) {
-      const requestUrl = String(error.config?.url || '');
-      const isAuthBootstrap = requestUrl.includes('/auth/me');
-      const isAuthLogin = requestUrl.includes('/auth/token');
-      const isAuthRoute = isAuthBootstrap || isAuthLogin;
-
-      if (
-        !isAuthRoute &&
-        typeof window !== 'undefined' &&
-        window.location.pathname !== '/'
-      ) {
-        window.location.assign('/');
-      }
-    }
+    // 2.2.1 401 errors are handled at the component / App level.
+    // Do NOT perform a full-page redirect here — that causes a black screen
+    // when navigating between pages that fire requests before auth resolves.
     return Promise.reject(error);
   }
 );

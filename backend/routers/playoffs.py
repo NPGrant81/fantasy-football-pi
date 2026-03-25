@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from ..database import get_db
 from .. import models
-from ..routers.league import get_league_owners
+from ..routers.league import fetch_league_owners_data
 from ..services.validation_service import (
     validate_playoff_settings_boundary,
     validate_playoff_settings_dynamic_rules,
@@ -411,7 +411,7 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
     settings = _load_settings(db, league.id)
     # build team list from owners using the league endpoint which already
     # computes and sorts by wins/pf etc.
-    owners_data = get_league_owners(league_id=league.id, db=db)
+    owners_data = fetch_league_owners_data(league_id=league.id, db=db)
     effective_qualifiers = _effective_playoff_qualifiers(
         settings.playoff_qualifiers,
         len(owners_data),
@@ -624,7 +624,7 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
     # convert to JSON structure
     champ: List[Dict[str, Any]] = []
     stored_consolation: List[Dict[str, Any]] = []
-    owners_data = get_league_owners(league_id=league_id, db=db)
+    owners_data = fetch_league_owners_data(league_id=league_id, db=db)
     owner_by_id = {int(o["id"]): o for o in owners_data}
     settings = _load_settings(db, league_id)
     effective_qualifiers = _effective_playoff_qualifiers(

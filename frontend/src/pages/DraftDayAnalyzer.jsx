@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   fetchAllPlayers,
   fetchCurrentUser,
@@ -37,7 +36,7 @@ import {
 import { FiX } from 'react-icons/fi';
 
 const POSITION_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
-const SORTABLE_COLUMNS = ['name', 'team', 'position', 'value', 'confidence'];
+const SORTABLE_COLUMNS = ['name', 'team', 'position', 'value', 'price_min', 'price_avg', 'price_max', 'confidence'];
 const UI_STATE_KEY = 'draftDayAnalyzer.uiState.v1';
 
 const DEFAULT_UI_STATE = {
@@ -183,6 +182,12 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   ]);
 
   const rankingSeason = useMemo(() => Number(draftYear), [draftYear]);
+  // Offset from the current calendar year (0 = this season, >0 = historical).
+  // Used to differentiate "Pending data update" (current year) from "No data" (past years).
+  const rankingSeasonOffset = useMemo(
+    () => Math.max(0, new Date().getFullYear() - rankingSeason),
+    [rankingSeason]
+  );
 
   const fetchHistory = useCallback(async () => {
     if (!activeLeagueId || !draftYear) return;
@@ -343,10 +348,21 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           name: player.name || 'Unknown',
           team: player.nfl_team || '-',
           position: normalizePos(player.position),
+          // value = avg price from external sources when available, else model prediction
           value:
-            ranking?.predicted_auction_value == null
-              ? null
-              : parseNumber(ranking.predicted_auction_value, 0),
+            ranking?.price_avg != null
+              ? parseNumber(ranking.price_avg, 0)
+              : ranking?.predicted_auction_value != null
+                ? parseNumber(ranking.predicted_auction_value, 0)
+                : null,
+          price_min:
+            ranking?.price_min != null ? parseNumber(ranking.price_min, 0) : null,
+          price_avg:
+            ranking?.price_avg != null ? parseNumber(ranking.price_avg, 0) : null,
+          price_max:
+            ranking?.price_max != null ? parseNumber(ranking.price_max, 0) : null,
+          source_count: ranking?.source_count ?? 0,
+          sources: ranking?.sources ?? [],
           confidence:
             ranking?.confidence_score == null
               ? null
@@ -715,13 +731,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     triggerModelInsights();
   }, [triggerModelInsights]);
 
-  const openDrawer = useCallback((title, payload) => {
-    setDrawerTitle(title);
-    setDrawerContent(payload);
-    setDrawerError('');
-    setDrawerOpen(true);
-  }, []);
-
   const runSimulation = useCallback(async () => {
     const focalOwnerId = Number(
       simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
@@ -744,7 +753,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       };
       const data = await runDraftSimulation(payload);
       setSimulationResult(data || null);
-      openDrawer('Simulation Result', data || null);
     } catch (error) {
       const detail = normalizeApiError(error, 'Simulation failed. Please try again.');
       setSimulationError(detail);
@@ -758,7 +766,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     simulationIterations,
     draftYear,
     owners.length,
-    openDrawer,
   ]);
 
   const openPlayerInfo = useCallback(
@@ -893,12 +900,23 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             placeholder="Search players"
             className="ml-auto w-full max-w-sm rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
           />
+
+          <button
+            type="button"
+            onClick={() => setRankingsRefreshNonce((n) => n + 1)}
+            className={buttonSecondary}
+            title="Refresh player rankings"
+          >
+            &#8635;
+          </button>
         </div>
+
+        {rankingsError ? <ErrorState message={rankingsError} className="text-xs" /> : null}
 
         <div className="rounded-lg border border-slate-800 bg-slate-950/70">
           <div className="grid grid-cols-12 border-b border-slate-800 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">
             <button
-              className="col-span-4 text-left"
+              className="col-span-3 text-left"
               onClick={() => toggleSort('name')}
               type="button"
             >
@@ -912,25 +930,32 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               Team
             </button>
             <button
-              className="col-span-2 text-left"
+              className="col-span-1 text-left"
               onClick={() => toggleSort('position')}
               type="button"
             >
-              Position
+              Pos
             </button>
             <button
               className="col-span-2 text-right"
-              onClick={() => toggleSort('value')}
+              onClick={() => toggleSort('price_min')}
               type="button"
             >
-              Value
+              MIN $
             </button>
             <button
               className="col-span-2 text-right"
-              onClick={() => toggleSort('confidence')}
+              onClick={() => toggleSort('price_avg')}
               type="button"
             >
-              Confidence
+              Avg $
+            </button>
+            <button
+              className="col-span-2 text-right"
+              onClick={() => toggleSort('price_max')}
+              type="button"
+            >
+              MAX $
             </button>
           </div>
 
@@ -968,20 +993,21 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   }`}
                   style={{ height: `${rowHeight}px` }}
                 >
-                  <span className="col-span-4 truncate">{player.name}</span>
+                  <span className="col-span-3 truncate">{player.name}</span>
                   <span className="col-span-2 truncate text-slate-400">{player.team}</span>
-                  <span className="col-span-2 font-bold">{player.position}</span>
+                  <span className="col-span-1 font-bold">{player.position}</span>
+                  <span className="col-span-2 text-right text-slate-400">
+                    {player.price_min == null ? '—' : `$${player.price_min.toFixed(0)}`}
+                  </span>
                   <span className="col-span-2 text-right text-emerald-300">
-                    {player.value == null
+                    {player.price_avg == null
                       ? rankingSeasonOffset === 0
                         ? 'Pending data update'
                         : 'No data'
-                      : player.value.toFixed(1)}
+                      : `$${player.price_avg.toFixed(0)}`}
                   </span>
-                  <span className="col-span-2 text-right text-indigo-300">
-                    {player.confidence == null
-                      ? '--'
-                      : `${player.confidence.toFixed(1)}%`}
+                  <span className="col-span-2 text-right text-cyan-300">
+                    {player.price_max == null ? '—' : `$${player.price_max.toFixed(0)}`}
                   </span>
                 </button>
               );
@@ -1031,25 +1057,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
       <section className={`${cardSurface} space-y-3`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-black uppercase tracking-wider text-slate-300">
-            Historical Content Moved
-          </h2>
-          <span className="text-xs text-slate-500">Season {rankingSeason}</span>
-        </div>
-        <p className="text-xs text-slate-400">
-          Historical rankings and legacy-season deep dives now live under League History.
-        </p>
-        <Link to="/league-history/historical-analytics" className={buttonSecondary}>
-          Open League History
-        </Link>
-      </section>
-
-      <section className={`${cardSurface} space-y-3`}>
-        <div className="flex items-center justify-between">
           <h2 className="text-sm font-black uppercase tracking-wider text-indigo-300">
             Draft Day Advisor
           </h2>
-          <span className="text-xs text-slate-500">Alerts & Actions</span>
+          <span className="text-xs text-slate-500">Alerts &amp; Simulation</span>
         </div>
 
         {advisorError ? <ErrorState message={advisorError} className="text-xs" /> : null}
@@ -1100,60 +1111,200 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         ) : (
           <EmptyState message="No active alerts." className="text-xs" />
         )}
-      </section>
 
-      <section className={`${cardSurface} space-y-3`}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-black uppercase tracking-wider text-cyan-300">
-            Perspective Simulation
-          </h2>
-          <span className="text-xs text-slate-500">Live API run</span>
-        </div>
+        <div className="border-t border-slate-800 pt-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cyan-400">Perspective Simulation</p>
+          <div className="grid gap-2 md:grid-cols-3">
+            <label className="text-xs text-slate-400">
+              Owner Perspective
+              <select
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+                value={simulationPerspectiveOwnerId}
+                onChange={(e) => setSimulationPerspectiveOwnerId(e.target.value)}
+              >
+                {availablePerspectiveOwners.map((owner) => (
+                  <option key={owner.id} value={owner.id}>
+                    {owner.team_name || owner.username || `Owner ${owner.id}`}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <div className="grid gap-2 md:grid-cols-3">
-          <label className="text-xs text-slate-400">
-            Owner Perspective
-            <select
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-              value={simulationPerspectiveOwnerId}
-              onChange={(e) => setSimulationPerspectiveOwnerId(e.target.value)}
-            >
-              {availablePerspectiveOwners.map((owner) => (
-                <option key={owner.id} value={owner.id}>
-                  {owner.team_name || owner.username || `Owner ${owner.id}`}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label className="text-xs text-slate-400">
+              Iterations
+              <input
+                type="number"
+                min="50"
+                max="10000"
+                value={simulationIterations}
+                onChange={(e) => setSimulationIterations(e.target.value)}
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+              />
+            </label>
 
-          <label className="text-xs text-slate-400">
-            Iterations
-            <input
-              type="number"
-              min="50"
-              max="10000"
-              value={simulationIterations}
-              onChange={(e) => setSimulationIterations(e.target.value)}
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
-            />
-          </label>
-
-          <div className="flex items-end">
-            <button
-              type="button"
-              className="w-full rounded border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-black uppercase tracking-wide text-cyan-200"
-              onClick={runSimulation}
-              disabled={simulationLoading}
-            >
-              {simulationLoading ? 'Running...' : 'Run Simulation'}
-            </button>
+            <div className="flex items-end">
+              <button
+                type="button"
+                className="w-full rounded border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-black uppercase tracking-wide text-cyan-200"
+                onClick={runSimulation}
+                disabled={simulationLoading}
+              >
+                {simulationLoading ? 'Running...' : 'Run Simulation'}
+              </button>
+            </div>
           </div>
         </div>
 
         {simulationError ? <ErrorState message={simulationError} className="text-xs" /> : null}
+
         {simulationResult ? (
-          <div className="text-xs text-slate-300">
-            Simulation completed. Opened in drawer for deep-dive details.
+          <div className="space-y-4 pt-2">
+
+            {/* ── TOP ROW: Summary metrics + Points distribution ── */}
+            <div className="grid gap-4 md:grid-cols-2">
+
+              {/* Focal Owner Summary */}
+              {simulationResult.focal_owner_summary && (() => {
+                const s = simulationResult.focal_owner_summary;
+                const metrics = [
+                  { label: 'Iterations', value: s.iterations, color: 'text-slate-200' },
+                  { label: 'Exp. Points', value: s.expected_total_points != null ? s.expected_total_points.toFixed(1) : '—', color: 'text-emerald-300' },
+                  { label: 'Pts Std Dev', value: s.points_stddev != null ? `±${s.points_stddev.toFixed(1)}` : '—', color: 'text-slate-400' },
+                  { label: 'Exp. Spend', value: s.expected_total_spend != null ? `$${s.expected_total_spend.toFixed(0)}` : '—', color: 'text-amber-300' },
+                  { label: 'Exp. Value Cap.', value: s.expected_value_captured != null ? s.expected_value_captured.toFixed(1) : '—', color: 'text-cyan-300' },
+                ];
+                const spend = [
+                  { pos: 'QB', val: s.expected_spend_qb },
+                  { pos: 'RB', val: s.expected_spend_rb },
+                  { pos: 'WR', val: s.expected_spend_wr },
+                  { pos: 'TE', val: s.expected_spend_te },
+                  { pos: 'DEF', val: s.expected_spend_def },
+                  { pos: 'K', val: s.expected_spend_k },
+                ];
+                return (
+                  <div className="rounded-lg border border-slate-700 bg-slate-950/60 overflow-hidden">
+                    <div className="bg-slate-900 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-700">
+                      Focal Owner Summary
+                    </div>
+                    <div className="grid grid-cols-5 divide-x divide-slate-800 border-b border-slate-800">
+                      {metrics.map(({ label, value, color }) => (
+                        <div key={label} className="flex flex-col items-center py-2 px-1 gap-0.5">
+                          <span className={`text-sm font-black ${color}`}>{value}</span>
+                          <span className="text-[9px] uppercase text-slate-500 text-center leading-tight">{label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-6 divide-x divide-slate-800">
+                      {spend.map(({ pos, val }) => (
+                        <div key={pos} className="flex flex-col items-center py-2 px-1 gap-0.5">
+                          <span className="text-xs font-bold text-indigo-300">
+                            {val != null ? `$${val.toFixed(0)}` : '—'}
+                          </span>
+                          <span className="text-[9px] uppercase text-slate-500">{pos}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Points Distribution */}
+              {simulationResult.focal_points_distribution && (() => {
+                const d = simulationResult.focal_points_distribution;
+                const rows = [
+                  { label: 'P10 (Floor)', val: d.points_p10, color: 'text-red-400' },
+                  { label: 'P25', val: d.points_p25, color: 'text-orange-300' },
+                  { label: 'P50 (Median)', val: d.points_p50, color: 'text-yellow-300' },
+                  { label: 'P75', val: d.points_p75, color: 'text-lime-300' },
+                  { label: 'P90 (Ceiling)', val: d.points_p90, color: 'text-emerald-300' },
+                ];
+                return (
+                  <div className="rounded-lg border border-slate-700 bg-slate-950/60 overflow-hidden">
+                    <div className="bg-slate-900 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-700">
+                      Points Distribution
+                    </div>
+                    <div className="divide-y divide-slate-800/60">
+                      {rows.map(({ label, val, color }) => (
+                        <div key={label} className="flex items-center justify-between px-4 py-1.5">
+                          <span className="text-xs text-slate-400">{label}</span>
+                          <span className={`text-sm font-black tabular-nums ${color}`}>
+                            {val != null ? Number(val).toFixed(1) : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ── KEY TARGETS TABLE ── */}
+            {Array.isArray(simulationResult.key_target_probabilities) && simulationResult.key_target_probabilities.length > 0 && (
+              <div className="rounded-lg border border-slate-700 bg-slate-950/60 overflow-hidden">
+                <div className="bg-slate-900 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-700">
+                  Key Target Probabilities
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-left text-[10px] uppercase tracking-wider text-slate-500">
+                        <th className="px-3 py-2">Player</th>
+                        <th className="px-3 py-2 text-center w-12">Pos</th>
+                        <th className="px-3 py-2 text-right w-20">Exp. Value</th>
+                        <th className="px-3 py-2 text-right w-20">Avg Bid</th>
+                        <th className="px-3 py-2 text-right w-16">% Win</th>
+                        <th className="px-3 py-2 text-left">Top Rival Bidders</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {simulationResult.key_target_probabilities.map((row) => {
+                        const prob = row.probability * 100;
+                        const probColor = prob >= 50 ? 'text-emerald-300' : prob >= 25 ? 'text-yellow-300' : 'text-red-400';
+                        const rivals = Array.isArray(row.rival_bidders) ? row.rival_bidders : [];
+                        return (
+                          <tr key={row.player_id} className="hover:bg-slate-900/60 transition-colors">
+                            <td className="px-3 py-2 font-semibold text-slate-100 truncate max-w-[140px]">
+                              {row.player_name}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 text-cyan-300 uppercase">
+                                {row.position || '—'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right font-bold text-emerald-300 tabular-nums">
+                              {row.predicted_auction_value > 0 ? `$${Number(row.predicted_auction_value).toFixed(0)}` : '—'}
+                            </td>
+                            <td className="px-3 py-2 text-right text-amber-300 tabular-nums">
+                              {row.avg_bid > 0 ? `$${Number(row.avg_bid).toFixed(0)}` : '—'}
+                            </td>
+                            <td className={`px-3 py-2 text-right font-black tabular-nums ${probColor}`}>
+                              {prob.toFixed(0)}%
+                            </td>
+                            <td className="px-3 py-2">
+                              {rivals.length === 0 ? (
+                                <span className="text-slate-600">—</span>
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {rivals.map((rival) => (
+                                    <span
+                                      key={rival.owner_id}
+                                      title={`Won in ${rival.win_count} sim iteration(s)`}
+                                      className="rounded-full bg-slate-800 border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300"
+                                    >
+                                      {rival.owner_name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
       </section>

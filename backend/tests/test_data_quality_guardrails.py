@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import backend.models as models
-from backend.routers.league import get_league_owners
+from backend.routers.league import fetch_league_owners_data as get_league_owners
 from backend.scripts import extract_mfl_history, load_mfl_html_normalized
 
 

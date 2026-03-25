@@ -37,7 +37,7 @@ def test_seeder_populates_admin(integration_client):
             db.commit()
 
         run_seeder(db, get_password_hash)
-        admin = db.query(models.User).filter(models.User.username == "Nick Grant").first()
+        admin = db.query(models.User).filter(models.User.username == "Admin").first()
         assert admin is not None
         assert admin.is_commissioner
     finally:

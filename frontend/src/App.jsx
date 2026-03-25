@@ -125,6 +125,8 @@ function AuthenticatedShell({
   token,
   activeOwnerId,
   isCommissioner,
+  isSuperuser,
+  onLeagueSwitch,
 }) {
   const location = useLocation();
   const hasLoggedInitialRoute = useRef(false);
@@ -148,6 +150,8 @@ function AuthenticatedShell({
       alert={layoutAlert}
       onLogout={handleLogout}
       pageTitle={headerTitle}
+      isSuperuser={isSuperuser}
+      onLeagueSwitch={onLeagueSwitch}
     >
       <Suspense
         fallback={
@@ -347,6 +351,7 @@ function App() {
   );
   const [username, setUsername] = useState('');
   const [isCommissioner, setIsCommissioner] = useState(false);
+  const [isSuperuser, setIsSuperuser] = useState(false);
   const [layoutAlert, setLayoutAlert] = useState('');
 
   const [userInput, setUserInput] = useState('');
@@ -373,10 +378,16 @@ function App() {
     setActiveLeagueId(null);
     setUsername('');
     setIsCommissioner(false);
+    setIsSuperuser(false);
     setLayoutAlert('');
     localStorage.removeItem('fantasyToken');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
+  }, []);
+
+  const handleLeagueSwitch = useCallback(() => {
+    localStorage.removeItem('fantasyLeagueId');
+    setActiveLeagueId(null);
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -419,9 +430,14 @@ function App() {
             ? null
             : String(payload.league_id);
         setActiveOwnerId(payload.user_id);
-        setActiveLeagueId(resolvedLeagueId);
+        // Prefer the league already stored in localStorage (selected at login)
+        // over the user record's default league_id from the server, so switching
+        // leagues persists across page refreshes.
+        const storedLeagueId = localStorage.getItem('fantasyLeagueId');
+        setActiveLeagueId(storedLeagueId || resolvedLeagueId);
         setUsername(payload.username || '');
         setIsCommissioner(Boolean(payload.is_commissioner));
+        setIsSuperuser(Boolean(payload.is_superuser));
       })
       .catch(() => {
         if (authCheckId !== authCheckIdRef.current || isLoggingOutRef.current) {
@@ -487,7 +503,7 @@ function App() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
 
-      const { owner_id, league_id, is_commissioner } = response.data;
+      const { owner_id, league_id, is_commissioner, is_superuser } = response.data;
       const resolvedLeagueId =
         league_id === null || league_id === undefined ? null : String(league_id);
       isLoggingOutRef.current = false;
@@ -504,6 +520,7 @@ function App() {
       setActiveOwnerId(owner_id);
       setActiveLeagueId(resolvedLeagueId);
       setIsCommissioner(Boolean(is_commissioner));
+      setIsSuperuser(Boolean(is_superuser));
     } catch (err) {
       console.error('Login Error:', err);
       setError('Login Failed. Check credentials.');
@@ -609,6 +626,8 @@ function App() {
             token={token}
             activeOwnerId={activeOwnerId}
             isCommissioner={isCommissioner}
+            isSuperuser={isSuperuser}
+            onLeagueSwitch={handleLeagueSwitch}
           />
         </BrowserRouter>
       </ThemeProvider>

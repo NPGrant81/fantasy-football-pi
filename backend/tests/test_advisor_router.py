@@ -59,10 +59,10 @@ def make_user(db, league_id, username="bob", team_name="TeamX"):
 def test_status_reflects_env(monkeypatch):
     # no API key -> disabled
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    assert get_advisor_status() == {"enabled": False}
+    assert get_advisor_status()["enabled"] is False
     # set key -> enabled
     monkeypatch.setenv("GEMINI_API_KEY", "fake")
-    assert get_advisor_status() == {"enabled": True}
+    assert get_advisor_status()["enabled"] is True
 
 
 def test_ask_returns_offline_when_no_key(monkeypatch, db_session):

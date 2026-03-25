@@ -3,7 +3,6 @@ import apiClient from '@api/client';
 import { useDraftTimer } from '@hooks/useDraftTimer';
 import { getOwnerStats, ROSTER_SIZE } from '@utils';
 import { FiBarChart2, FiX } from 'react-icons/fi';
-import { Link } from 'react-router-dom';
 import {
   AuctionBlock,
   SessionHeader,
@@ -25,7 +24,6 @@ import {
   modalOverlay,
   modalSurface,
   modalTitle,
-  buttonSecondary,
   tableCell,
   tableCellNumeric,
 } from '@utils/uiStandards';
@@ -521,25 +519,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             winnerOpenSlotsAllowed={winnerOpenSlotsAllowed}
             winnerRosterSlotsConfigured={winnerRosterSlotsConfigured}
           />
-        </div>
-      </div>
-
-      <div className="mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-black uppercase tracking-wider text-slate-200">
-              Historical Draft Archive Moved
-            </h3>
-            <p className="mt-1 text-xs text-slate-400">
-              Historical draft-season exploration now lives under League History to keep this board focused on active draft operations.
-            </p>
-          </div>
-          <Link
-            to="/league-history/historical-analytics"
-            className={`${buttonSecondary} whitespace-nowrap`}
-          >
-            Open League History
-          </Link>
         </div>
       </div>
 

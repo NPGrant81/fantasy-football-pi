@@ -65,6 +65,7 @@ export default function ManageWaiverRules() {
     fetchWaiverSettings();
     fetchClaims();
     fetchBudgets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId]);
 
   // fetch historical waiver claims (commissioner only)

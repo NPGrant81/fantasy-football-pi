@@ -7,6 +7,7 @@ from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner # Use our new auth system
 from ..services.ledger_service import owner_balance, owner_draft_budget_total, owner_has_incoming_credits, record_ledger_entry
+from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.validation_service import (
     validate_league_settings_boundary,
     validate_league_settings_dynamic_rules,
@@ -326,34 +327,20 @@ def get_leagues(db: Session = Depends(get_db)):
 
 # --- NEW: GET /league/owners?league_id= ---
 # This is a GET endpoint to match the frontend call, but is defined here for convenience.
-@router.get("/owners")
-def get_league_owners(league_id: int = Query(...),
-                      group_by_division: bool = Query(False),
-                      current_user: models.User = Depends(get_current_user),
-                      db: Session = Depends(get_db)):
-    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
-        logger.warning(
-            "League owner listing denied due to league mismatch (user_id=%s user_league_id=%s requested_league_id=%s)",
-            current_user.id,
-            current_user.league_id,
-            league_id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "message": "Access denied: user is not mapped to the requested league.",
-                "error_code": "LEAGUE_MAPPING_MISMATCH",
-                "user_league_id": current_user.league_id,
-                "requested_league_id": league_id,
-            },
-        )
 
+
+def fetch_league_owners_data(league_id: int, db: Session, group_by_division: bool = False) -> List[Dict[str, Any]]:
+    """
+    Internal helper: fetch league owner stats without auth checks.
+    Used by the /leagues/owners endpoint (after auth) and by playoffs.py directly.
+    """
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
     owners = db.query(models.User).filter(
         models.User.league_id == league_id,
         ~models.User.username.like("hist_%"),
+        models.User.is_superuser == False,  # Exclude god-mode admin from standings
     ).all()
 
     # Build a map from user id to division_id once to avoid per-matchup queries
@@ -476,6 +463,30 @@ def get_league_owners(league_id: int = Query(...),
         owners_data.sort(key=standings_sort_key)
     return owners_data
 
+
+@router.get("/owners")
+def get_league_owners(league_id: int = Query(...),
+                      group_by_division: bool = Query(False),
+                      current_user: models.User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        logger.warning(
+            "League owner listing denied due to league mismatch (user_id=%s user_league_id=%s requested_league_id=%s)",
+            current_user.id,
+            current_user.league_id,
+            league_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Access denied: user is not mapped to the requested league.",
+                "error_code": "LEAGUE_MAPPING_MISMATCH",
+                "user_league_id": current_user.league_id,
+                "requested_league_id": league_id,
+            },
+        )
+    return fetch_league_owners_data(league_id=league_id, db=db, group_by_division=group_by_division)
+
 # --- NEW: GET /leagues/{league_id} ---
 @router.get("/{league_id}", response_model=LeagueSummary)
 def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
@@ -506,11 +517,13 @@ def get_league_news(
     session_key = f"LEAGUE_{league_id}"
     picks = (
         db.query(models.DraftPick)
+        .join(models.User, models.DraftPick.owner_id == models.User.id)
         .filter(
             or_(
                 models.DraftPick.league_id == league_id,
                 models.DraftPick.session_id == session_key,
-            )
+            ),
+            ~models.User.username.like("hist_%"),
         )
         .order_by(desc(models.DraftPick.id))
         .limit(limit)
@@ -520,7 +533,10 @@ def get_league_news(
     items: List[LeagueNewsItem] = []
     for pick in picks:
         owner_name = pick.owner.username if pick.owner else "Unknown Owner"
-        player_name = pick.player.name if pick.player else "Unknown Player"
+        # Defense-in-depth: skip historical MFL-import users (primary guard is the join filter above)
+        if owner_name.startswith("hist_"):
+            continue
+        player_name = _normalize_player_name(pick.player.name) if pick.player else "Unknown Player"
         timestamp = pick.timestamp or "Just now"
         items.append(
             LeagueNewsItem(

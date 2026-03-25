@@ -190,6 +190,13 @@ def test_rankings_service_falls_back_to_player_projections_when_no_draft_values(
         ]
     )
     db_session.commit()
+    # Required: PlayerSeason records for the fallback query's has_active_season filter
+    db_session.add_all([
+        models.PlayerSeason(player_id=9001, season=2026, is_active=True),
+        models.PlayerSeason(player_id=9002, season=2026, is_active=True),
+        models.PlayerSeason(player_id=9003, season=2026, is_active=True),
+    ])
+    db_session.commit()
 
     rows = get_historical_rankings_service(
         db_session,
@@ -234,6 +241,13 @@ def test_rankings_service_dedupes_same_name_across_team_variants(db_session):
         ]
     )
     db_session.commit()
+    # Required: PlayerSeason records for the fallback query's has_active_season filter
+    db_session.add_all([
+        models.PlayerSeason(player_id=9101, season=2026, is_active=True),
+        models.PlayerSeason(player_id=9102, season=2026, is_active=True),
+        models.PlayerSeason(player_id=9103, season=2026, is_active=True),
+    ])
+    db_session.commit()
 
     rows = get_historical_rankings_service(
         db_session,
@@ -250,12 +264,26 @@ def test_rankings_service_dedupes_same_name_across_team_variants(db_session):
 
 
 def test_simulation_returns_backend_error_detail(db_session, monkeypatch):
-    _, _, owner_a, _ = _create_users(db_session)
+    league, _, owner_a, _ = _create_users(db_session)
+
+    # Seed a player and draft pick so the endpoint doesn't raise 400 "no draft history"
+    player = models.Player(id=8001, name="Sim Player", position="QB", nfl_team="AAA")
+    db_session.add(player)
+    db_session.commit()
+    db_session.add(models.DraftPick(
+        owner_id=owner_a.id,
+        player_id=player.id,
+        league_id=league.id,
+        amount=30.0,
+        year=2026,
+        current_status="STARTER",
+    ))
+    db_session.commit()
 
     def _raise_simulation_error(**kwargs):
         raise RuntimeError("sim engine unavailable")
 
-    monkeypatch.setattr(draft_router, "run_monte_carlo_from_paths", _raise_simulation_error)
+    monkeypatch.setattr(draft_router, "run_monte_carlo_draft_simulation", _raise_simulation_error)
     monkeypatch.setattr(Path, "exists", lambda self: True)
 
     payload = draft_router.DraftSimulationRequest(

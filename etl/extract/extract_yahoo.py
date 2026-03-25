@@ -1,7 +1,8 @@
 # Extract Yahoo Fantasy Football Draft Data
 
 """
-This script connects to the Yahoo Fantasy API, fetches draft value and projection data, and saves the raw results for further processing.
+This script connects to the Yahoo Fantasy API, fetches draft value and
+projection data, and saves the raw results for further processing.
 """
 
 import pandas as pd
@@ -10,10 +11,53 @@ from etl.transform.normalize import normalize_player_name, standardize_adp, extr
 
 import os
 
+
+def _build_yahoo_oauth() -> OAuth2:
+    """
+    Build a Yahoo OAuth2 session.
+
+    Priority:
+    1. Environment variables — YAHOO_CLIENT_ID, YAHOO_CLIENT_SECRET,
+       YAHOO_ACCESS_TOKEN, YAHOO_REFRESH_TOKEN.  Set these in backend/.env.
+    2. Fallback — oauth2.json file at the project root (legacy path).
+
+    Using env vars is preferred for remote/Pi deployments because it avoids
+    storing token files on disk and works cleanly in CI/CD.
+    """
+    import json
+    import tempfile
+
+    client_id = os.environ.get("YAHOO_CLIENT_ID")
+    client_secret = os.environ.get("YAHOO_CLIENT_SECRET")
+    access_token = os.environ.get("YAHOO_ACCESS_TOKEN")
+    refresh_token = os.environ.get("YAHOO_REFRESH_TOKEN")
+
+    if client_id and client_secret and access_token and refresh_token:
+        creds = {
+            "consumer_key": client_id,
+            "consumer_secret": client_secret,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "guid": None,
+        }
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, prefix="yahoo_oauth_"
+        )
+        json.dump(creds, tmp)
+        tmp.flush()
+        tmp.close()
+        return OAuth2(None, None, from_file=tmp.name)
+
+    # Fallback: oauth2.json at project root
+    oauth_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "oauth2.json"
+    )
+    return OAuth2(None, None, from_file=oauth_path)
+
+
 def fetch_yahoo_top_players(max_players=100):
-    # Always resolve oauth2.json relative to project root
-    oauth_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'oauth2.json')
-    oauth = OAuth2(None, None, from_file=oauth_path)
+    oauth = _build_yahoo_oauth()
     top_players = []
     draft_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
     for start in range(0, max_players, 25):
@@ -90,6 +134,7 @@ def fetch_yahoo_top_players(max_players=100):
             print(f"Failed to fetch data: {response.status_code}")
     return top_players
 
+
 def transform_yahoo_players(players, league_size=12):
     """
     Normalize Yahoo player data for downstream processing.
@@ -111,6 +156,7 @@ def transform_yahoo_players(players, league_size=12):
             'raw_position_rank': p.get('PositionRank', None),
         })
     return normalized
+
 
 if __name__ == "__main__":
     players = fetch_yahoo_top_players()

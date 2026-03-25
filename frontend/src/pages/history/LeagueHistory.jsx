@@ -12,7 +12,7 @@ import {
 } from '@components/table/TablePrimitives';
 import { tableCell, tableCellNumeric } from '@utils/uiStandards';
 import BracketAccordion from '../home/components/BracketAccordion';
-import { FiAward, FiTrendingUp, FiUsers, FiBarChart3 } from 'react-icons/fi';
+import { FiAward, FiTrendingUp, FiBarChart2 } from 'react-icons/fi';
 
 const HISTORY_SECTIONS = [
   { key: 'historical-analytics', label: 'Historical Analytics' },
@@ -123,59 +123,59 @@ export default function LeagueHistory({ sectionKey }) {
   }, [leagueId]);
 
   // Load draft archive when section changes
-  useEffect(() => {
-    if (!leagueId || !archiveYear || sectionKey !== 'historical-analytics') {
-      return;
+  const loadArchive = async (id, year) => {
+    setArchiveLoading(true);
+    try {
+      const response = await apiClient.get(
+        `/draft/history/by-year?league_id=${Number(id)}&year=${Number(year)}`
+      );
+      setArchiveHistory(Array.isArray(response.data) ? response.data : []);
+      setArchiveError('');
+    } catch {
+      setArchiveHistory([]);
+      setArchiveError('Unable to load archive results for that season.');
+    } finally {
+      setArchiveLoading(false);
     }
-    
-    apiClient
-      .get(`/draft/history/by-year?league_id=${Number(leagueId)}&year=${Number(archiveYear)}`)
-      .then((response) => {
-        setArchiveHistory(Array.isArray(response.data) ? response.data : []);
-        setArchiveError('');
-        setArchiveLoading(false);
-      })
-      .catch(() => {
-        setArchiveHistory([]);
-        setArchiveError('Unable to load archive results for that season.');
-        setArchiveLoading(false);
-      });
+  };
+
+  useEffect(() => {
+    if (!leagueId || !archiveYear || sectionKey !== 'historical-analytics') return;
+    loadArchive(leagueId, archiveYear);
   }, [leagueId, archiveYear, sectionKey]);
 
+  const RECORDS_ENDPOINT_MAP = {
+    champions: 'champions',
+    awards: 'awards',
+    'franchise-records': 'records/franchise',
+    'player-records': 'records/player',
+    'match-records': 'records/match',
+    'all-time-series-records': 'records/all-time-series',
+    'career-records': 'records/career',
+    'record-streaks': 'records/streaks',
+  };
+
   // Load historical records based on section key
+  const loadRecords = async (id, key) => {
+    const endpoint = RECORDS_ENDPOINT_MAP[key];
+    if (!endpoint) return;
+    setRecordsLoading(true);
+    try {
+      const response = await apiClient.get(`/leagues/${Number(id)}/history/${endpoint}`);
+      setRecords(response.data?.records || []);
+      setRecordsError('');
+    } catch {
+      setRecords([]);
+      setRecordsError(`Unable to load ${SECTION_TEXT[key].title.toLowerCase()}.`);
+    } finally {
+      setRecordsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (!leagueId || sectionKey === 'historical-analytics' || sectionKey === 'season-records') {
-      return;
-    }
-
-    const endpointMap = {
-      champions: 'champions',
-      awards: 'awards',
-      'franchise-records': 'records/franchise',
-      'player-records': 'records/player',
-      'match-records': 'records/match',
-      'all-time-series-records': 'records/all-time-series',
-      'career-records': 'records/career',
-      'record-streaks': 'records/streaks',
-    };
-
-    const endpoint = endpointMap[sectionKey];
-    if (!endpoint) {
-      return;
-    }
-
-    apiClient
-      .get(`/leagues/${Number(leagueId)}/history/${endpoint}`)
-      .then((response) => {
-        setRecords(response.data?.records || []);
-        setRecordsError('');
-        setRecordsLoading(false);
-      })
-      .catch(() => {
-        setRecords([]);
-        setRecordsError(`Unable to load ${SECTION_TEXT[sectionKey].title.toLowerCase()}.`);
-        setRecordsLoading(false);
-      });
+    if (!leagueId || sectionKey === 'historical-analytics' || sectionKey === 'season-records') return;
+    loadRecords(leagueId, sectionKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, sectionKey]);
 
   const active = SECTION_TEXT[sectionKey] || SECTION_TEXT['historical-analytics'];
@@ -212,7 +212,7 @@ export default function LeagueHistory({ sectionKey }) {
           <div className="mt-4 rounded-lg border border-slate-300 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-slate-200">
-                <FiBarChart3 className="inline mr-2" />
+                <FiBarChart2 className="inline mr-2" />
                 Historical Draft Archive
               </h3>
               <div className="flex items-center gap-2">

@@ -73,14 +73,14 @@ jobs:
             sleep 3
           done
 
-          # C. Attempt Login for Nick Grant
+          # C. Attempt Login for Admin
           # We expect a 200 OK and a JWT token in the response
           RESPONSE=$(curl -s -X POST "http://127.0.0.1:8000/auth/token" \
             -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "username=Nick Grant&password=password")
+            -d "username=Admin&password=password")
 
           if echo "$RESPONSE" | grep -q "access_token"; then
-            echo "✅ Smoke Test Passed: Token issued for Nick Grant"
+            echo "✅ Smoke Test Passed: Token issued for Admin"
           else
             echo "❌ Smoke Test Failed: Could not authenticate"
             echo "Debug Response: $RESPONSE"

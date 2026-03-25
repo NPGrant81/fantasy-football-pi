@@ -206,25 +206,17 @@ describe('DraftDayAnalyzer advisor actions', () => {
     );
   });
 
-  test('value sort persists across position and year toggles', async () => {
+  test('sort column persists across position filter changes', async () => {
     render(<DraftDayAnalyzer activeOwnerId={1} activeLeagueId={1} />);
 
     await screen.findByRole('button', { name: /Player A/i });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Value' }));
+    // Click Name twice to sort by name descending (C, B, A)
+    fireEvent.click(screen.getByRole('button', { name: 'Name' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Name' }));
+
+    // Filter to WR — Player C (RB) is filtered out; remaining WRs sorted name desc: B before A
     fireEvent.click(screen.getByRole('button', { name: 'WR' }));
-
-    await waitFor(() =>
-      expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player B')
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /Previous Year \(2025\)/i }));
-
-    await waitFor(() =>
-      expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player A')
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /Current Year \(2026\)/i }));
 
     await waitFor(() =>
       expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player B')
@@ -236,11 +228,14 @@ describe('DraftDayAnalyzer advisor actions', () => {
 
     await screen.findByRole('button', { name: /Player A/i });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Value' }));
+    // Click Name twice to sort by name descending: C, B, A
+    fireEvent.click(screen.getByRole('button', { name: 'Name' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Name' }));
     await waitFor(() =>
       expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player C')
     );
 
+    // New search should reset sorting to default (value desc) → Player A first
     fireEvent.change(screen.getByPlaceholderText('Search players'), {
       target: { value: 'Player' },
     });

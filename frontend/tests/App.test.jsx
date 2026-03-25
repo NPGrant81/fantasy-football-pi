@@ -210,7 +210,7 @@ describe('App (basic)', () => {
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
     expect(screen.getByText(/Select your league to enter/i)).toBeInTheDocument();
 
-    await user.click(screen.getByText('Dynasty Five'));
+    await user.click(await screen.findByText('Dynasty Five'));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith('/leagues/join', null, {

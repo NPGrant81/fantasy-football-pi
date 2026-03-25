@@ -15,6 +15,9 @@ class FakeQuery:
         self._data = data
         self._is_single = is_single
 
+    def join(self, *args, **kwargs):
+        return self
+
     def filter(self, *args, **kwargs):
         return self
 
@@ -98,3 +101,37 @@ def test_get_league_news_raises_for_missing_league():
         get_league_news(1, db=db)
 
     assert exc.value.status_code == 404
+
+
+def test_get_league_news_excludes_hist_users():
+    """Historical MFL-import users (hist_YYYY_XXXX) must never bleed into League News."""
+    league = SimpleNamespace(id=1)
+    real_owner = SimpleNamespace(username="alice")
+    hist_owner = SimpleNamespace(username="hist_2003_0006")
+    player = SimpleNamespace(name="Patrick Mahomes")
+
+    real_pick = SimpleNamespace(
+        owner=real_owner,
+        player=player,
+        amount=22,
+        timestamp="2026-02-18T12:00:00Z",
+        league_id=1,
+        session_id="LEAGUE_1",
+    )
+    hist_pick = SimpleNamespace(
+        owner=hist_owner,
+        player=player,
+        amount=1,
+        timestamp="2003-08-01T00:00:00Z",
+        league_id=1,
+        session_id="LEAGUE_1",
+    )
+
+    # FakeDB returns both picks; real filtering is done at the ORM level.
+    # Here we verify the function-level logic does not surface hist_ entries
+    # when the FakeQuery would pass them through (documents the contract).
+    db = FakeDB(league=league, picks=[real_pick, hist_pick])
+    items = get_league_news(1, db=db)
+
+    hist_titles = [i.title for i in items if "hist_" in i.title]
+    assert hist_titles == [], f"Historical users leaked into news: {hist_titles}"

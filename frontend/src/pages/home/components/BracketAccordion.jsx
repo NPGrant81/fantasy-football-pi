@@ -12,7 +12,8 @@ export default function BracketAccordion({
   const [open, setOpen] = useState(false);
   const [bracket, setBracket] = useState(null);
   const [loading, setLoading] = useState(false);
-  const leagueId = propLeagueId || useActiveLeague();
+  const contextLeagueId = useActiveLeague();
+  const leagueId = propLeagueId || contextLeagueId;
   const currentSeason = new Date().getFullYear();
   const [season, setSeason] = useState(currentSeason);
   const [seasons, setSeasons] = useState([]);

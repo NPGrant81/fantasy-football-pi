@@ -13,6 +13,7 @@ from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, get_current_active_admin
 from ..services import keeper_service
+from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.ledger_service import record_ledger_entry
 from ..services.validation_service import (
     validate_keeper_settings_boundary,
@@ -276,7 +277,7 @@ def get_my_keepers(
         
         available_players.append(AvailablePlayerSchema(
             player_id=pick.player_id,
-            name=pick.player.name,
+            name=_normalize_player_name(pick.player.name),
             position=pick.player.position if pick.player.position != "TD" else "DEF",
             nfl_team=pick.player.nfl_team,
             draft_price=int(pick.amount),

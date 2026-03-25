@@ -5,12 +5,13 @@ export const LeagueContext = createContext({
 });
 
 export function useActiveLeague() {
-  const context = useContext(LeagueContext);
-  if (!context) {
-    // Fallback to localStorage when context is not available
-    // This should rarely happen in production but serves as safety net
-    const leagueId = localStorage.getItem('fantasyLeagueId');
-    return leagueId ? String(leagueId) : null;
+  const { activeLeagueId } = useContext(LeagueContext);
+  if (activeLeagueId !== null && activeLeagueId !== undefined) {
+    return String(activeLeagueId);
   }
-  return context.activeLeagueId;
+  // Fallback to localStorage when context has no active league.
+  // App.jsx clears localStorage when activeLeagueId becomes null,
+  // so this returns null in production when no league is selected.
+  const stored = localStorage.getItem('fantasyLeagueId');
+  return stored ? String(stored) : null;
 }

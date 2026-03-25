@@ -1,0 +1,102 @@
+name: "Sync NFL Rosters"
+
+on:
+  schedule:
+    # Tuesdays 06:00 UTC (off-peak, after Monday Night Football resolves)
+    - cron: "0 6 * * 2"
+    # Fridays 06:00 UTC (catch mid-week cuts, injury designations, trades)
+    - cron: "0 6 * * 5"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual trigger (optional)"
+        required: false
+        default: "Manual roster refresh"
+
+permissions:
+  contents: read
+
+jobs:
+  sync-rosters:
+    name: "Sync Active NFL Rosters"
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+
+    steps:
+      - name: Configure SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+
+      - name: Trust production host
+        env:
+          DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Run roster sync on Pi
+        env:
+          DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.PROD_DEPLOY_USER }}
+          DEPLOY_APP_DIR: ${{ secrets.PROD_DEPLOY_APP_DIR }}
+        run: |
+          set -euo pipefail
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR='$DEPLOY_APP_DIR' bash -s" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          cd "$APP_DIR/backend"
+
+          # Activate virtual environment if present alongside the app dir
+          if [ -f "../.venv/bin/activate" ]; then
+            # shellcheck disable=SC1091
+            source "../.venv/bin/activate"
+          elif [ -f ".venv/bin/activate" ]; then
+            # shellcheck disable=SC1091
+            source ".venv/bin/activate"
+          fi
+
+          # Load the production environment so DATABASE_URL etc. are set
+          if [ -f "/etc/fantasy-football-pi/backend.env" ]; then
+            set -a
+            # shellcheck disable=SC1091
+            source "/etc/fantasy-football-pi/backend.env"
+            set +a
+          fi
+
+          echo "▶ Starting NFL reality sync ($(date -u '+%Y-%m-%d %H:%M UTC'))"
+          python3 -c "
+import sys, os
+sys.path.insert(0, os.getcwd())
+from scripts.daily_sync import sync_nfl_reality
+sync_nfl_reality()
+print('✅ Roster sync complete')
+"
+          REMOTE_SCRIPT
+
+      - name: Report sync summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "## ✅ NFL Roster Sync Succeeded" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## ❌ NFL Roster Sync Failed" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered:** ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Time:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "- **Reason:** ${{ inputs.reason }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
+            curl -s -X POST "$SLACK_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\":\"⚠️ *NFL Roster Sync Failed* — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>\"}"
+          fi

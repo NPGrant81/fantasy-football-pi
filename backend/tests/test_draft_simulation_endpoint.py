@@ -77,7 +77,21 @@ def test_simulation_endpoint_rejects_non_commissioner_cross_owner_request(db_ses
 
 
 def test_simulation_endpoint_returns_focal_strategy_payload(db_session, monkeypatch):
-    _, commissioner, owner_a, _ = _create_league_and_users(db_session)
+    league, commissioner, owner_a, _ = _create_league_and_users(db_session)
+
+    # Seed a player and draft pick so the endpoint doesn't raise 400 "no draft history"
+    player = models.Player(id=101, name="Player One", position="RB", nfl_team="AAA")
+    db_session.add(player)
+    db_session.commit()
+    db_session.add(models.DraftPick(
+        owner_id=owner_a.id,
+        player_id=player.id,
+        league_id=league.id,
+        amount=45.0,
+        year=2026,
+        current_status="STARTER",
+    ))
+    db_session.commit()
 
     def _fake_run_monte_carlo_from_paths(**kwargs):
         picks = pd.DataFrame(
@@ -130,7 +144,7 @@ def test_simulation_endpoint_returns_focal_strategy_payload(db_session, monkeypa
             assumptions={"ok": True},
         )
 
-    monkeypatch.setattr(draft_router, "run_monte_carlo_from_paths", _fake_run_monte_carlo_from_paths)
+    monkeypatch.setattr(draft_router, "run_monte_carlo_draft_simulation", _fake_run_monte_carlo_from_paths)
 
     payload = draft_router.DraftSimulationRequest(
         perspective_owner_id=owner_a.id,

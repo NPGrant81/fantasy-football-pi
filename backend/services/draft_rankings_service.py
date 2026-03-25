@@ -1,14 +1,23 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import math
 from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from sqlalchemy import exists, and_
+
 from .. import models
 from .. import models_draft_value as dv_models
-from ..services.player_service import canonical_player_key, canonical_player_rank
+from ..services.player_service import (
+    canonical_player_key,
+    canonical_player_rank,
+    dedupe_players,
+    is_valid_player_row,
+    ALLOWED_POSITIONS,
+)
 
 
 def _serialize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -36,6 +45,11 @@ def _serialize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         late_start_consistency_factor = fields.Float(required=True)
         injury_split_factor = fields.Float(required=True)
         team_change_factor = fields.Float(required=True)
+        price_min = fields.Float(allow_none=True)
+        price_avg = fields.Float(allow_none=True)
+        price_max = fields.Float(allow_none=True)
+        source_count = fields.Integer(allow_none=True)
+        sources = fields.List(fields.String(), allow_none=True)
 
     schema = HistoricalRankingSchema(many=True)
     return schema.dump(rows)
@@ -328,11 +342,28 @@ def _fallback_draft_value_rows_from_players(
     season: int,
     normalized_position: str,
 ) -> list[tuple[Any, models.Player]]:
-    players_query = db.query(models.Player)
+    current_year = season
+
+    # Only include players with an active PlayerSeason record in current/prior year
+    has_active_season = exists().where(
+        and_(
+            models.PlayerSeason.player_id == models.Player.id,
+            models.PlayerSeason.is_active.is_(True),
+            models.PlayerSeason.season >= current_year - 1,
+        )
+    )
+
+    position_filter = ALLOWED_POSITIONS
+    players_query = db.query(models.Player).filter(
+        models.Player.position.in_(position_filter),
+        has_active_season,
+    )
     if normalized_position:
         players_query = players_query.filter(models.Player.position == normalized_position)
 
-    players = players_query.all()
+    raw_players = players_query.order_by(models.Player.name, models.Player.id.desc()).all()
+    # Apply name/team validity check and deduplicate identical player identities
+    players = dedupe_players([p for p in raw_players if is_valid_player_row(p)])
     if not players:
         return []
 
@@ -417,6 +448,73 @@ def _dedupe_ranking_rows(
     return list(selected.values())
 
 
+def _build_source_price_stats(
+    db: Session,
+    *,
+    season: int,
+) -> dict[int, dict[str, Any]]:
+    """
+    Aggregate PlatformProjection rows for *season* into per-player price stats:
+    min, avg, and max auction value across all sources that reported one.
+
+    Returns {player_id: {price_min, price_avg, price_max, source_count, sources}}.
+    Returns an empty dict if no projection rows exist for the season — callers
+    should treat a missing key as "no external price data yet".
+    """
+    price_rows = (
+        db.query(
+            dv_models.PlatformProjection.player_id,
+            func.min(dv_models.PlatformProjection.auction_value).label("price_min"),
+            func.avg(dv_models.PlatformProjection.auction_value).label("price_avg"),
+            func.max(dv_models.PlatformProjection.auction_value).label("price_max"),
+            func.count(dv_models.PlatformProjection.id).label("source_count"),
+        )
+        .filter(
+            dv_models.PlatformProjection.season == season,
+            dv_models.PlatformProjection.auction_value.isnot(None),
+            dv_models.PlatformProjection.auction_value > 0,
+        )
+        .group_by(dv_models.PlatformProjection.player_id)
+        .all()
+    )
+
+    if not price_rows:
+        return {}
+
+    source_rows = (
+        db.query(
+            dv_models.PlatformProjection.player_id,
+            dv_models.PlatformProjection.source,
+        )
+        .filter(
+            dv_models.PlatformProjection.season == season,
+            dv_models.PlatformProjection.auction_value.isnot(None),
+            dv_models.PlatformProjection.auction_value > 0,
+        )
+        .distinct()
+        .all()
+    )
+
+    sources_by_player: dict[int, list[str]] = defaultdict(list)
+    for pid, src in source_rows:
+        if pid is not None and src:
+            sources_by_player[int(pid)].append(src)
+
+    stats: dict[int, dict[str, Any]] = {}
+    for row in price_rows:
+        if row.player_id is None:
+            continue
+        pid = int(row.player_id)
+        stats[pid] = {
+            "price_min": float(row.price_min) if row.price_min is not None else None,
+            "price_avg": round(float(row.price_avg), 2) if row.price_avg is not None else None,
+            "price_max": float(row.price_max) if row.price_max is not None else None,
+            "source_count": int(row.source_count) if row.source_count is not None else 0,
+            "sources": sorted(sources_by_player.get(pid, [])),
+        }
+    return stats
+
+
 def get_historical_rankings(
     db: Session,
     *,
@@ -428,10 +526,22 @@ def get_historical_rankings(
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 200))
 
+    has_active_season = exists().where(
+        and_(
+            models.PlayerSeason.player_id == models.Player.id,
+            models.PlayerSeason.is_active.is_(True),
+            models.PlayerSeason.season >= season - 1,
+        )
+    )
+
     query = (
         db.query(dv_models.DraftValue, models.Player)
         .join(models.Player, models.Player.id == dv_models.DraftValue.player_id)
-        .filter(dv_models.DraftValue.season == season)
+        .filter(
+            dv_models.DraftValue.season == season,
+            models.Player.position.in_(ALLOWED_POSITIONS),
+            has_active_season,
+        )
     )
 
     normalized_position = (position or "").upper().strip()
@@ -462,6 +572,7 @@ def get_historical_rankings(
     keeper_scarcity = _build_keeper_scarcity_boost(db, league_id=league_id, season=season)
     availability = _build_availability_factor(db, season=season)
     consistency_factors = _build_consistency_factors(db, season=season)
+    source_price_stats = _build_source_price_stats(db, season=season)
 
     scored_payload: list[dict[str, Any]] = []
     for draft_value, player in query_rows:
@@ -479,6 +590,7 @@ def get_historical_rankings(
         late_start_consistency_factor = float(consistency.get("late_start_consistency_factor", 1.0))
         injury_split_factor = float(consistency.get("injury_split_factor", 1.0))
         team_change_factor = float(consistency.get("team_change_factor", 1.0))
+        price_stats = source_price_stats.get(int(player.id), {})
 
         final_score = (
             base_value * 0.55
@@ -514,6 +626,11 @@ def get_historical_rankings(
                 "late_start_consistency_factor": late_start_consistency_factor,
                 "injury_split_factor": injury_split_factor,
                 "team_change_factor": team_change_factor,
+                "price_min": price_stats.get("price_min"),
+                "price_avg": price_stats.get("price_avg"),
+                "price_max": price_stats.get("price_max"),
+                "source_count": price_stats.get("source_count", 0),
+                "sources": price_stats.get("sources", []),
             }
         )
 

@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => {
@@ -57,12 +58,7 @@ describe('PlayoffBracket page', () => {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
       if (url.startsWith('/playoffs/seasons')) {
-        // simulate normal array response
         return Promise.resolve({ data: [2026, 2025] });
-      }
-      if (url.startsWith('/playoffs/seasons-object')) {
-        // some buggy API shapes may wrap the list inside `seasons` key
-        return Promise.resolve({ data: { seasons: [2026, 2025] } });
       }
       if (url.startsWith('/playoffs/bracket')) {
         return Promise.resolve({ data: bracketData });
@@ -73,23 +69,21 @@ describe('PlayoffBracket page', () => {
 
     const setSubHeader = vi.fn();
     render(
-      <PlayoffBracket username="alice" leagueId={1} setSubHeader={setSubHeader} />
+      <MemoryRouter>
+        <PlayoffBracket username="alice" leagueId={1} setSubHeader={setSubHeader} />
+      </MemoryRouter>
     );
     expect(
       screen.getByRole('heading', { level: 1, name: /Playoff Bracket/i })
     ).toBeInTheDocument();
-    // subHeader prop should be invoked with user/league title (first call)
+    // subHeader prop should be invoked with user/league title
     expect(setSubHeader).toHaveBeenCalledWith(expect.stringContaining('alice'));
-    // league name is already part of the heading so we don't insist on it here
 
-    // season selector is now behind the historical toggle
-    const historicalButton = screen.getByRole('button', { name: /See Historical/i });
-    historicalButton.click();
-    expect(await screen.findByText(/Season:/i)).toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toHaveTextContent('2026');
+    // historical bracket lookup migration notice should be visible
+    expect(screen.getByText(/Historical bracket lookup has moved/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Open Historical Brackets/i })).toBeInTheDocument();
 
-    // expand accordion by clicking the second element that matches the
-    // text (the first is the page heading, the second is the summary)
+    // expand accordion to load bracket
     const matches = screen.getAllByText(/Playoff Bracket/i);
     expect(matches.length).toBeGreaterThan(1);
     matches[1].click();
@@ -100,30 +94,32 @@ describe('PlayoffBracket page', () => {
     expect(screen.getByText(/Wildcard Round/i)).toBeInTheDocument();
   });
 
-  test('handles seasons endpoint wrapped in object', async () => {
-    // bracket same as before
-    const bracketData2 = { championship: [], consolation: [] };
+  test('renders league name in sub-header once loaded', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
       if (url.startsWith('/playoffs/seasons')) {
-        // respond with wrapped object instead of plain array
-        return Promise.resolve({ data: { seasons: [2024] } });
+        return Promise.resolve({ data: [2026] });
       }
       if (url.startsWith('/playoffs/bracket')) {
-        return Promise.resolve({ data: bracketData2 });
+        return Promise.resolve({ data: { championship: [], consolation: [] } });
       }
-      return Promise.reject(new Error('Unknown URL'));
+      return Promise.resolve({ data: {} });
     });
     apiClient.post.mockResolvedValue({ data: { ok: true } });
 
+    const setSubHeader = vi.fn();
     render(
-      <PlayoffBracket username="alice" leagueId={1} setSubHeader={() => {}} />
+      <MemoryRouter>
+        <PlayoffBracket username="alice" leagueId={1} setSubHeader={setSubHeader} />
+      </MemoryRouter>
     );
-    screen.getByRole('button', { name: /See Historical/i }).click();
-    // make sure selector shows the one season
-    expect(await screen.findByDisplayValue('2024')).toBeInTheDocument();
+
+    // once league name loads, setSubHeader should include it
+    await waitFor(() =>
+      expect(setSubHeader).toHaveBeenCalledWith(expect.stringContaining('The Big Show'))
+    );
   });
 
   test('hides toilet bowl view when consolation is disabled', async () => {
@@ -163,7 +159,9 @@ describe('PlayoffBracket page', () => {
     apiClient.post.mockResolvedValue({ data: { ok: true } });
 
     render(
-      <PlayoffBracket username="alice" leagueId={1} setSubHeader={() => {}} />
+      <MemoryRouter>
+        <PlayoffBracket username="alice" leagueId={1} setSubHeader={() => {}} />
+      </MemoryRouter>
     );
 
     const matches = screen.getAllByText(/Playoff Bracket/i);

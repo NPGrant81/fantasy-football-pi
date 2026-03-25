@@ -200,6 +200,14 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_2_seed INTEGER",
         "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_1_is_division_winner BOOLEAN DEFAULT FALSE",
         "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_2_is_division_winner BOOLEAN DEFAULT FALSE",
+        # draft_values extended stats — computed from draft_picks (no CSV import)
+        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS avg_bid FLOAT",
+        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS median_bid FLOAT",
+        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS recent_3yr_avg FLOAT",
+        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS trend_slope FLOAT",
+        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS appearances INTEGER",
+        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS model_score FLOAT",
+        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS rank INTEGER",
     ]
 
     with engine.connect() as connection:

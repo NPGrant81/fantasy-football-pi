@@ -158,6 +158,7 @@ export default function Keepers() {
     }
 
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerId, ownerIdentity]);
 
   const togglePlayer = (playerId, isEligible) => {

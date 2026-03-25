@@ -18,6 +18,7 @@ import {
   FiRepeat,
   FiAlertTriangle,
   FiClock,
+  FiRefreshCw,
 } from 'react-icons/fi';
 
 // 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
@@ -58,7 +59,7 @@ const MenuBlock = ({ to, title, desc, icon, onClick, end = true }) => {
   );
 };
 
-export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout }) {
+export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout, isSuperuser, onLeagueSwitch }) {
   const [leagueName, setLeagueName] = useState('');
   const [isCommissioner, setIsCommissioner] = useState(false);
 
@@ -260,15 +261,28 @@ export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout 
               <p className="text-sm font-bold text-slate-900 dark:text-white">
                 {username}
               </p>
-              <button
-                onClick={() => {
-                  if (typeof onLogout === 'function') onLogout();
-                  if (typeof onClose === 'function') onClose();
-                }}
-                className="text-xs text-red-500 hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
-              >
-                Log Out
-              </button>
+              <div className="flex items-center gap-3 mt-0.5">
+                <button
+                  onClick={() => {
+                    if (typeof onLogout === 'function') onLogout();
+                    if (typeof onClose === 'function') onClose();
+                  }}
+                  className="text-xs text-red-500 hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  Log Out
+                </button>
+                {isSuperuser && (
+                  <button
+                    onClick={() => {
+                      if (typeof onLeagueSwitch === 'function') onLeagueSwitch();
+                      if (typeof onClose === 'function') onClose();
+                    }}
+                    className="flex items-center gap-1 text-xs text-yellow-500 hover:text-yellow-400"
+                  >
+                    <FiRefreshCw size={10} /> Switch League
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

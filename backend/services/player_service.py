@@ -81,6 +81,25 @@ def is_valid_player_row(player: models.Player) -> bool:
         position=player.position,
         nfl_team=player.nfl_team,
     )
+
+
+def normalize_display_name(name: str | None) -> str:
+    """Normalize a player name for UI display.
+
+    - Converts MFL-import "Last, First" format to "First Last"
+    - Title-cases names that are entirely lowercase
+    """
+    if not name:
+        return ""
+    result = name.strip()
+    # Reorder "Last, First" → "First Last"
+    if "," in result:
+        parts = result.split(",", 1)
+        result = f"{parts[1].strip()} {parts[0].strip()}"
+    # Title-case names stored in all-lowercase
+    if result == result.lower():
+        result = result.title()
+    return result
 def canonical_player_identity(name: str | None, position: str | None, nfl_team: str | None) -> tuple[str, str, str]:
     return (
         _normalized_name(name),
@@ -355,7 +374,7 @@ def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
         payload.append(
             {
                 "id": player.id,
-                "name": player.name,
+                "name": normalize_display_name(player.name),
                 "position": player.position,
                 "nfl_team": player.nfl_team,
                 "projected_points": float(player.projected_points or 0.0),
