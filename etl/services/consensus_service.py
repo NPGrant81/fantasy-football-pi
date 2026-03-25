@@ -16,6 +16,7 @@ This is the glue step between ETL ingestion and the Draft Day Analyzer:
 """
 from __future__ import annotations
 
+import statistics
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
@@ -131,8 +132,7 @@ def build_and_store_consensus_draft_values(
 
         avg_auction = sum(auction_values) / len(auction_values) if auction_values else 0.0
 
-        sorted_adp = sorted(adp_values)
-        median_adp = sorted_adp[len(sorted_adp) // 2] if sorted_adp else None
+        median_adp = statistics.median(adp_values) if adp_values else None
 
         aggregated[player_id] = {
             "avg_auction_value": round(avg_auction, 2),
@@ -167,7 +167,7 @@ def build_and_store_consensus_draft_values(
     # ── Step 5: upsert into DraftValue ────────────────────────────────────
     now_iso = datetime.now(timezone.utc).isoformat()
     updated = 0
-    skipped = 0
+    skipped = len(by_player) - len(aggregated)
 
     for player_id, data in aggregated.items():
         avg_auction = data["avg_auction_value"]

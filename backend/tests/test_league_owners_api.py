@@ -54,9 +54,8 @@ def _login(client, username: str, password: str):
     return response
 
 
-def test_get_league_owners_contract_and_league_scoped_stats(client, api_db):
-    original_verify_password = security.verify_password
-    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+def test_get_league_owners_contract_and_league_scoped_stats(client, api_db, monkeypatch):
+    monkeypatch.setattr(security, 'verify_password', lambda plain, hashed: plain == "secret" and hashed == "h")
 
     league_one = models.League(name="L1")
     league_two = models.League(name="L2")
@@ -119,12 +118,9 @@ def test_get_league_owners_contract_and_league_scoped_stats(client, api_db):
     assert owner_a_row["points_for"] == 111.5
     assert owner_a_row["points_against"] == 108.0
 
-    security.verify_password = original_verify_password
 
-
-def test_get_league_owners_ignores_legacy_null_league_matchups(client, api_db):
-    original_verify_password = security.verify_password
-    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+def test_get_league_owners_ignores_legacy_null_league_matchups(client, api_db, monkeypatch):
+    monkeypatch.setattr(security, 'verify_password', lambda plain, hashed: plain == "secret" and hashed == "h")
 
     league = models.League(name="L3")
     api_db.add(league)
@@ -162,12 +158,9 @@ def test_get_league_owners_ignores_legacy_null_league_matchups(client, api_db):
     assert owner_a_row["pf"] == 0.0
     assert owner_a_row["pa"] == 0.0
 
-    security.verify_password = original_verify_password
 
-
-def test_get_league_owners_default_order_applies_record_tiebreak_chain(client, api_db):
-    original_verify_password = security.verify_password
-    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+def test_get_league_owners_default_order_applies_record_tiebreak_chain(client, api_db, monkeypatch):
+    monkeypatch.setattr(security, 'verify_password', lambda plain, hashed: plain == "secret" and hashed == "h")
 
     league = models.League(name="Standings Sort League")
     api_db.add(league)
@@ -227,12 +220,9 @@ def test_get_league_owners_default_order_applies_record_tiebreak_chain(client, a
     assert payload[0]["ties"] == payload[1]["ties"] == 1
     assert payload[0]["pf"] > payload[1]["pf"]
 
-    security.verify_password = original_verify_password
 
-
-def test_get_league_owners_grouped_order_sorts_within_division(client, api_db):
-    original_verify_password = security.verify_password
-    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+def test_get_league_owners_grouped_order_sorts_within_division(client, api_db, monkeypatch):
+    monkeypatch.setattr(security, 'verify_password', lambda plain, hashed: plain == "secret" and hashed == "h")
 
     league = models.League(name="Division Sort League")
     api_db.add(league)
@@ -317,12 +307,9 @@ def test_get_league_owners_grouped_order_sorts_within_division(client, api_db):
     assert payload[2]["division_id"] == west.id
     assert payload[0]["id"] == east_top.id
 
-    security.verify_password = original_verify_password
 
-
-def test_get_league_owners_returns_403_for_league_mapping_mismatch(client, api_db):
-    original_verify_password = security.verify_password
-    security.verify_password = lambda plain, hashed: plain == "secret" and hashed == "h"
+def test_get_league_owners_returns_403_for_league_mapping_mismatch(client, api_db, monkeypatch):
+    monkeypatch.setattr(security, 'verify_password', lambda plain, hashed: plain == "secret" and hashed == "h")
 
     league_one = models.League(name="Mismatch One")
     league_two = models.League(name="Mismatch Two")
@@ -344,5 +331,3 @@ def test_get_league_owners_returns_403_for_league_mapping_mismatch(client, api_d
     assert detail.get("error_code") == "LEAGUE_MAPPING_MISMATCH"
     assert detail.get("user_league_id") == league_one.id
     assert detail.get("requested_league_id") == league_two.id
-
-    security.verify_password = original_verify_password

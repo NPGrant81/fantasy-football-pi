@@ -153,7 +153,7 @@ def get_player_season_details(
 
     return {
         "player_id": player.id,
-        "player_name": player.name,
+        "player_name": player_service.normalize_display_name(player.name),
         "position": player.position,
         "nfl_team": player.nfl_team,
         "espn_id": player.espn_id,
@@ -185,7 +185,7 @@ def get_all_players(db: Session = Depends(get_db)):
     has_active_season = exists().where(
         and_(
             models.PlayerSeason.player_id == models.Player.id,
-            models.PlayerSeason.is_active == True,
+            models.PlayerSeason.is_active.is_(True),
             models.PlayerSeason.season >= current_year - 1,
         )
     )

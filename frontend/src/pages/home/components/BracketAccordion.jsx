@@ -298,8 +298,8 @@ export default function BracketAccordion({
                 </div>
                 {Array.isArray(bracket.meta.warnings) && bracket.meta.warnings.length > 0 ? (
                   <div className="mt-2 space-y-1 text-amber-100/90">
-                    {bracket.meta.warnings.map((warning) => (
-                      <div key={warning}>{warning}</div>
+                    {bracket.meta.warnings.map((warning, idx) => (
+                      <div key={`${idx}-${warning}`}>{warning}</div>
                     ))}
                   </div>
                 ) : null}
