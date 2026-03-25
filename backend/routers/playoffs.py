@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from ..database import get_db
 from .. import models
 from ..routers.league import fetch_league_owners_data
+from ..services.standings_service import owner_standings_sort_key
 from ..services.validation_service import (
     validate_playoff_settings_boundary,
     validate_playoff_settings_dynamic_rules,
@@ -53,18 +54,6 @@ class BracketSchema(BaseModel):
     consolation: Optional[List[MatchSchema]] = []
 
 
-def _owner_standings_sort_key(owner_row: Dict[str, Any]) -> tuple:
-    return (
-        -(owner_row.get("wins") or 0),
-        owner_row.get("losses") or 0,
-        -(owner_row.get("ties") or 0),
-        -(owner_row.get("pf") or 0),
-        owner_row.get("pa") or 0,
-        (owner_row.get("team_name") or owner_row.get("username") or "").lower(),
-        owner_row.get("id") or 0,
-    )
-
-
 def _should_use_division_seeding(settings: models.LeagueSettings, owners_data: List[Dict[str, Any]]) -> bool:
     return bool(
         getattr(settings, "divisions_enabled", False)
@@ -82,11 +71,11 @@ def _ranked_division_winner_rows(owners_data: List[Dict[str, Any]]) -> List[Dict
 
     winners: List[Dict[str, Any]] = []
     for rows in grouped.values():
-        ranked = sorted(rows, key=_owner_standings_sort_key)
+        ranked = sorted(rows, key=owner_standings_sort_key)
         if ranked:
             winners.append(ranked[0])
 
-    winners.sort(key=_owner_standings_sort_key)
+    winners.sort(key=owner_standings_sort_key)
     return winners
 
 
@@ -95,7 +84,7 @@ def _build_playoff_context(
     settings: models.LeagueSettings,
     qualifiers: int,
 ) -> Dict[str, Any]:
-    ordered_owners = sorted(owners_data, key=_owner_standings_sort_key)
+    ordered_owners = sorted(owners_data, key=owner_standings_sort_key)
     uses_division_seeding = _should_use_division_seeding(settings, ordered_owners)
 
     division_winner_rows = _ranked_division_winner_rows(ordered_owners) if uses_division_seeding else []

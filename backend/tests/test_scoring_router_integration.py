@@ -159,7 +159,7 @@ def test_import_apply_replacement_deactivates_stale_rules_and_logs_history(clien
     app.dependency_overrides[check_is_commissioner] = lambda: commissioner
     app.dependency_overrides[get_current_user] = lambda: commissioner
 
-    csv_content = """Event,Range_Yds,Point_Value,PostionID
+    csv_content = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,1 points each,8004
 """
 
@@ -197,7 +197,7 @@ def test_imported_rules_drive_matchup_recalculation_scores(client, api_db):
     app.dependency_overrides[check_is_commissioner] = lambda: commissioner
     app.dependency_overrides[get_current_user] = lambda: commissioner
 
-    csv_content = """Event,Range_Yds,Point_Value,PostionID
+    csv_content = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,1 points each,8004
 """
 
@@ -254,7 +254,7 @@ def test_template_lifecycle_import_export_apply_and_recalc(client, api_db):
     api_db.commit()
     api_db.refresh(stale_rule)
 
-    csv_content = """Event,Range_Yds,Point_Value,PostionID
+    csv_content = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,2 points each,8004
 """
 
@@ -434,7 +434,7 @@ def test_import_replacement_propagates_without_stale_rule_leakage(client, api_db
     assert baseline_scores == pytest.approx([1.0, 5.0])
 
     # Replace season rules from import; old active rule should be deactivated.
-    replacement_csv = """Event,Range_Yds,Point_Value,PostionID
+    replacement_csv = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,2 points each,8004
 """
     replace_response = client.post(
@@ -493,7 +493,7 @@ def test_template_export_round_trip_preserves_scoring_parity(client, api_db):
     app.dependency_overrides[check_is_commissioner] = lambda: commissioner
     app.dependency_overrides[get_current_user] = lambda: commissioner
 
-    source_csv = """Event,Range_Yds,Point_Value,PostionID
+    source_csv = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,2 points each,8004
 """
 

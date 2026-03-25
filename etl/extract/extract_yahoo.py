@@ -47,7 +47,15 @@ def _build_yahoo_oauth() -> OAuth2:
         json.dump(creds, tmp)
         tmp.flush()
         tmp.close()
-        return OAuth2(None, None, from_file=tmp.name)
+        tmp_path = tmp.name
+        try:
+            oauth = OAuth2(None, None, from_file=tmp_path)
+        finally:
+            try:
+                os.remove(tmp_path)
+            except FileNotFoundError:
+                pass
+        return oauth
 
     # Fallback: oauth2.json at project root
     oauth_path = os.path.join(

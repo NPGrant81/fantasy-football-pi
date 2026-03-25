@@ -182,8 +182,8 @@ def refresh_draft_values(
     into ``platform_projections``, then aggregate into ``draft_values`` so the
     Draft Day Analyzer has live consensus rankings.
 
-    Runs in a background task.  Poll ``GET /admin/tools/refresh-draft-values/status``
-    (not yet implemented) or check server logs for completion.
+    Runs in a background task. Check server logs or your monitoring tools
+    for completion.
 
     Request body:
     ```json
