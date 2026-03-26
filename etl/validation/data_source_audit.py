@@ -16,12 +16,10 @@ from typing import Any
 
 DATASET_FILES = {
     "draft_results": "draft_results.csv",
-    "yearly_results": "historical_rankings.csv",
     "player_id": "players.csv",
     "position_id": "positions.csv",
     "budget": "draft_budget.csv",
     "owner_registry": "teams.csv",
-    "draft_strategy": "draft_strategy.csv",
 }
 
 
