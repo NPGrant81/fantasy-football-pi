@@ -78,7 +78,7 @@ pydantic==2.12.5
 pydantic_core==2.41.5
 pyflakes==3.4.0
 pyparsing==3.3.2
-pytest==8.1.2
+pytest==8.2.2
 pytest-asyncio==0.24.0
 pytest-cov==5.0.0
 python-dateutil==2.9.0.post0
