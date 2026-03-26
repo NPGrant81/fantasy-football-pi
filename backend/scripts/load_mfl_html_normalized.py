@@ -160,6 +160,8 @@ def run_load_mfl_html_normalized(
             db.query(models.MflHtmlRecordFact).delete(synchronize_session=False)
             db.flush()
 
+        seen_fingerprints: set[tuple[str, str]] = set()
+
         for root in roots:
             if not root.exists():
                 summary.warnings.append(f"input root does not exist: {root}")
@@ -213,6 +215,12 @@ def run_load_mfl_html_normalized(
                     if exists:
                         summary.rows_skipped_existing += 1
                         continue
+
+                    fp_key = (dataset_key, fingerprint)
+                    if fp_key in seen_fingerprints:
+                        summary.rows_skipped_existing += 1
+                        continue
+                    seen_fingerprints.add(fp_key)
 
                     record = models.MflHtmlRecordFact(
                         dataset_key=dataset_key,
