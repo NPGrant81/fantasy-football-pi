@@ -170,6 +170,31 @@ def get_current_year() -> int:
     return datetime.now(timezone.utc).year
 
 
+def get_active_roster_season(db: Session, league_id: int) -> int:
+    """Return the season year to use for roster queries.
+
+    Uses League.current_season if picks already exist for that year;
+    otherwise falls back to the most recent year that has picks (off-season
+    case where the new draft hasn't happened yet).
+    """
+    league = db.query(models.League).filter(models.League.id == league_id).first()
+    candidate = (league.current_season if league and league.current_season else get_current_year())
+
+    has_picks = db.query(models.DraftPick.id).filter(
+        models.DraftPick.league_id == league_id,
+        models.DraftPick.year == candidate,
+    ).first()
+    if has_picks:
+        return candidate
+
+    # Fall back to the most recently completed season with data.
+    from sqlalchemy import func
+    latest = db.query(func.max(models.DraftPick.year)).filter(
+        models.DraftPick.league_id == league_id,
+    ).scalar()
+    return latest if latest is not None else candidate
+
+
 def _build_canonical_starter_slots(max_limits: Dict[str, int], required_total: int) -> Dict[str, int]:
     slots: Dict[str, int] = {
         "QB": 1 if max_limits["QB"] > 0 else 0,
@@ -328,12 +353,12 @@ def get_my_roster(
     """Get the logged-in user's team, nicely sorted."""
     
     # 1. Get Picks
+    season = get_active_roster_season(db, current_user.league_id)
     picks = db.query(models.DraftPick).filter(
         models.DraftPick.owner_id == current_user.id,
-        models.DraftPick.league_id == current_user.league_id
+        models.DraftPick.league_id == current_user.league_id,
+        models.DraftPick.year == season,
     ).all()
-
-    season = get_current_year()
     locked_ids = get_locked_player_ids(db, [pick.player_id for pick in picks], season, week)
 
     sorted_players = organize_roster(picks, db, locked_player_ids=locked_ids)
@@ -367,12 +392,13 @@ def get_any_team(
         if not owner:
             raise HTTPException(status_code=404, detail="Owner not found")
 
+        season = get_active_roster_season(db, owner.league_id)
         picks = db.query(models.DraftPick).filter(
             models.DraftPick.owner_id == owner.id,
-            models.DraftPick.league_id == owner.league_id
+            models.DraftPick.league_id == owner.league_id,
+            models.DraftPick.year == season,
         ).all()
 
-        season = get_current_year()
         locked_ids = get_locked_player_ids(db, [pick.player_id for pick in picks], season, week)
         sorted_players = organize_roster(picks, db, locked_player_ids=locked_ids)
 
@@ -407,12 +433,13 @@ def update_lineup(
 ):
     assert_week_not_finalized(db, current_user.league_id, payload.week)
 
+    season = get_active_roster_season(db, current_user.league_id)
     picks = db.query(models.DraftPick).filter(
         models.DraftPick.owner_id == current_user.id,
         models.DraftPick.league_id == current_user.league_id,
+        models.DraftPick.year == season,
     ).all()
 
-    season = get_current_year()
     locked_ids = get_locked_player_ids(db, [pick.player_id for pick in picks], season, payload.week)
     starter_ids = set(payload.starter_player_ids)
 
@@ -483,9 +510,11 @@ def submit_lineup(
 ):
     assert_week_not_finalized(db, current_user.league_id, payload.week)
 
+    season = get_active_roster_season(db, current_user.league_id)
     picks = db.query(models.DraftPick).filter(
         models.DraftPick.owner_id == current_user.id,
         models.DraftPick.league_id == current_user.league_id,
+        models.DraftPick.year == season,
     ).all()
 
     settings = db.query(models.LeagueSettings).filter(
