@@ -28,6 +28,7 @@ from backend.db_config import load_backend_env_file, resolve_database_url
 LEAGUE_ID = 60  # Post Pacific League
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 BCRYPT_PLACEHOLDER = "$2b$12$AT98P1yMsFB6voQYGgVxEO21tf6tZuXl79b/j615NkIKMhnx0LL3W"
+CSV_BOOTSTRAP_ENV_FLAG = "FFPI_ALLOW_LEGACY_CSV_BOOTSTRAP"
 
 
 load_backend_env_file()
@@ -190,6 +191,13 @@ def step3_load_draft_picks(cur, data_dir):
 
 
 def main():
+    if os.getenv(CSV_BOOTSTRAP_ENV_FLAG, "0") != "1":
+        print(
+            "Refusing to run legacy CSV bootstrap. "
+            f"Set {CSV_BOOTSTRAP_ENV_FLAG}=1 to run intentionally."
+        )
+        sys.exit(1)
+
     conn = connect()
     cur = conn.cursor()
     try:
