@@ -181,23 +181,26 @@ def build_and_store_consensus_draft_values(
     updated = 0
     skipped = len(by_player) - len(aggregated)
 
+    existing_rows = (
+        session.query(DraftValue)
+        .filter(DraftValue.season == season)
+        .all()
+    )
+    existing_by_player: dict[int, DraftValue] = {
+        int(row.player_id): row for row in existing_rows if row.player_id is not None
+    }
+
     for player_id, data in aggregated.items():
         avg_auction = data["avg_auction_value"]
         pos = data["position"]
         replacement = replacement_by_pos.get(pos, 0.0)
         vor = round(max(0.0, avg_auction - replacement), 2)
 
-        existing = (
-            session.query(DraftValue)
-            .filter(
-                DraftValue.player_id == player_id,
-                DraftValue.season == season,
-            )
-            .first()
-        )
+        existing = existing_by_player.get(int(player_id))
         if existing is None:
             existing = DraftValue(player_id=player_id, season=season)
             session.add(existing)
+            existing_by_player[int(player_id)] = existing
 
         existing.avg_auction_value = avg_auction
         existing.median_adp = data["median_adp"]

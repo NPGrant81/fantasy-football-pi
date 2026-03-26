@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from fastapi import HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -14,6 +15,18 @@ router = APIRouter(
     prefix="/players",
     tags=["Players"]
 )
+
+
+class PlayerSearchResult(BaseModel):
+    id: int
+    name: str
+    position: Optional[str] = None
+    nfl_team: Optional[str] = None
+    adp: Optional[float] = None
+    projected_points: Optional[float] = None
+    gsis_id: Optional[str] = None
+    espn_id: Optional[str] = None
+    bye_week: Optional[int] = None
 
 
 def _build_headshot_url(espn_id: Optional[str]) -> Optional[str]:
@@ -40,7 +53,7 @@ def _build_team_logo_url(team_abbr: Optional[str]) -> Optional[str]:
     # Use the NFL club logo endpoint keyed by cleaned team abbreviation.
     return f"https://static.www.nfl.com/t_q-best/league/api/clubs/logos/{normalized}.png"
 
-@router.get("/search")
+@router.get("/search", response_model=list[PlayerSearchResult])
 def search_players(
     q: str = Query(..., min_length=2), 
     pos: str = Query("ALL"), 

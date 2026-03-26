@@ -7,11 +7,10 @@ from typing import Any
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from sqlalchemy import exists, and_
-
 from .. import models
 from .. import models_draft_value as dv_models
 from ..services.player_service import (
+    _active_player_or_unsynced_filter,
     canonical_player_key,
     canonical_player_rank,
     dedupe_players,
@@ -342,21 +341,10 @@ def _fallback_draft_value_rows_from_players(
     season: int,
     normalized_position: str,
 ) -> list[tuple[Any, models.Player]]:
-    current_year = season
-
-    # Only include players with an active PlayerSeason record in current/prior year
-    has_active_season = exists().where(
-        and_(
-            models.PlayerSeason.player_id == models.Player.id,
-            models.PlayerSeason.is_active.is_(True),
-            models.PlayerSeason.season >= current_year - 1,
-        )
-    )
-
     position_filter = ALLOWED_POSITIONS
     players_query = db.query(models.Player).filter(
         models.Player.position.in_(position_filter),
-        has_active_season,
+        _active_player_or_unsynced_filter(db),
     )
     if normalized_position:
         players_query = players_query.filter(models.Player.position == normalized_position)

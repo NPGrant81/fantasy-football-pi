@@ -1,9 +1,10 @@
 """
 One-time seed: import canonical scoring rules from CSV into the scoring_rules table.
 
-Safe to run multiple times — the script checks for existing rules keyed on
-(league_id, event_name, range_min, range_max, point_value) and skips any that
-already exist, so it will never produce duplicates.
+Safe to run multiple times — the script checks whether any scoring rules already
+exist for the given league_id and, if so, skips seeding entirely. This avoids
+creating duplicates but will not partially fill or repair previously seeded data;
+to re-import, delete existing rules for the league first.
 
 Usage:
     python seed_scoring_rules.py [league_id]

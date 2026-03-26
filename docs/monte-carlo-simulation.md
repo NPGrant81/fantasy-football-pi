@@ -24,7 +24,7 @@ The implementation lives in:
 
 ### Optional
 
-- PostgreSQL `draft_budget`
+- PostgreSQL `draft_budgets`
   - Owner budgets; fallback budget is used when missing.
 
 ## League Rules Encoded
