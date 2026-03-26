@@ -4,9 +4,9 @@ services:
     image: postgres:15
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: football-pi
-      POSTGRES_DB: fantasy_football
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-fantasy_football}
     ports:
       - "5432:5432"
     volumes:

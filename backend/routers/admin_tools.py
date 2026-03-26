@@ -1,6 +1,6 @@
 # backend/routers/admin_tools.py
 import os
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 # when running under the `backend` package we need the full path
 # because the top-level `scripts` package is not on sys.path by default.
@@ -158,7 +158,7 @@ def live_score_watchdog_alerts(
 
 class RefreshDraftValuesPayload(BaseModel):
     season: int
-    sources: list[str] = ["espn", "draftsharks"]
+    sources: list[str] = Field(default_factory=lambda: ["espn", "draftsharks"])
     # Optional ESPN authenticated path (espn_api.football library).
     # If omitted, the public REST API is used instead.
     espn_league_id: int | None = None

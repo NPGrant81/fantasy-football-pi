@@ -33,7 +33,7 @@ if IS_PRODUCTION and SECRET_KEY == "dev_secret_only_not_for_production":
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 ACCESS_TOKEN_COOKIE_NAME = os.environ.get("ACCESS_TOKEN_COOKIE_NAME", "ffpi_access_token")
-ALLOW_BEARER_AUTH = os.environ.get("ALLOW_BEARER_AUTH", "1") == "1"
+ALLOW_BEARER_AUTH = os.environ.get("ALLOW_BEARER_AUTH", "0") == "1"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # 1.1.3 IMPORTANT: Point this to your new auth router path
@@ -100,7 +100,7 @@ async def get_current_user(
     db: Session = Depends(get_db),
 ):
     cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
-    bearer_token = token
+    bearer_token = token if ALLOW_BEARER_AUTH else None
     auth_token = cookie_token or bearer_token
     if not auth_token:
         raise credentials_exception

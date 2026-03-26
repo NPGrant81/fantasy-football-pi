@@ -43,7 +43,7 @@ def scrape_draft_sharks_adp(url: str) -> pd.DataFrame:
     """
     print(f"Fetching data from: {url}...")
     try:
-        response = requests.get(url, headers=_HEADERS)
+        response = requests.get(url, headers=_HEADERS, timeout=30)
         response.raise_for_status()
         tables = pd.read_html(response.text)
         if not tables:
@@ -91,7 +91,7 @@ def scrape_draft_sharks_auction_values(
     """
     print(f"Fetching DraftSharks auction values from: {url}...")
     try:
-        response = requests.get(url, headers=_HEADERS)
+        response = requests.get(url, headers=_HEADERS, timeout=30)
         response.raise_for_status()
         tables = pd.read_html(response.text)
         if not tables:
