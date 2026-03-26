@@ -31,8 +31,21 @@ if ! getent passwd cloudflared >/dev/null 2>&1; then
 	useradd --system --gid cloudflared --home-dir /var/lib/cloudflared --create-home --shell /usr/sbin/nologin cloudflared
 fi
 
-install -d -m 0755 -o cloudflared -g cloudflared /etc/cloudflared
-install -d -m 0755 -o cloudflared -g cloudflared /var/log/cloudflared
+install -d -m 0750 -o root -g cloudflared /etc/cloudflared
+install -d -m 0750 -o cloudflared -g cloudflared /var/log/cloudflared
+
+# Tighten permissions for tunnel config/credentials when present.
+if [[ -f "/etc/cloudflared/config.yml" ]]; then
+	chown root:cloudflared /etc/cloudflared/config.yml
+	chmod 0640 /etc/cloudflared/config.yml
+fi
+
+shopt -s nullglob
+for cred_file in /etc/cloudflared/*.json; do
+	chown root:cloudflared "$cred_file"
+	chmod 0640 "$cred_file"
+done
+shopt -u nullglob
 
 install -m 0644 "${SCRIPT_DIR}/cloudflared.service.example" "${SYSTEMD_DIR}/cloudflared.service"
 install -m 0644 "${SCRIPT_DIR}/cloudflared-watchdog.service.example" "${SYSTEMD_DIR}/cloudflared-watchdog.service"

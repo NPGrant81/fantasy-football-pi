@@ -11,7 +11,7 @@ export function useActiveLeague() {
   // Fallback to localStorage when context has no active league.
   // App.jsx clears localStorage when activeLeagueId becomes null,
   // so this returns null in production when no league is selected.
-  if (typeof window === 'undefined') return null;
-  const stored = localStorage.getItem('fantasyLeagueId');
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  const stored = window.localStorage.getItem('fantasyLeagueId');
   return stored ? String(stored) : null;
 }
