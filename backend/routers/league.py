@@ -1376,6 +1376,46 @@ class HistoricalRecordsResponse(BaseModel):
     count: int
 
 
+def _historical_records_query(db: Session, *, dataset_key: str, league_id: int):
+    league_id_str = str(league_id)
+    return db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == dataset_key,
+        or_(
+            models.MflHtmlRecordFact.target_league_id == league_id,
+            models.MflHtmlRecordFact.league_id == league_id_str,
+        ),
+    )
+
+
+def _safe_record_int(record: Dict[str, Any], *keys: str) -> int:
+    for key in keys:
+        value = record.get(key)
+        if value is None:
+            continue
+        try:
+            return int(float(str(value).strip()))
+        except (TypeError, ValueError):
+            continue
+    return -1
+
+
+def _sorted_record_json(
+    records: List[models.MflHtmlRecordFact],
+    *,
+    sort_keys: List[str] | None = None,
+    limit: int | None = None,
+) -> List[Dict[str, Any]]:
+    data = [r.record_json for r in records]
+    if sort_keys:
+        data.sort(
+            key=lambda row: _safe_record_int(row, *sort_keys),
+            reverse=True,
+        )
+    if limit is not None:
+        return data[:limit]
+    return data
+
+
 @router.get("/{league_id}/history/champions")
 def get_league_champions(
     league_id: int,
@@ -1386,12 +1426,13 @@ def get_league_champions(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_league_champions_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.season)).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_league_champions_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"])
     return HistoricalRecordsResponse(
         dataset_key="html_league_champions_normalized",
         league_id=mfl_league_id,
@@ -1410,12 +1451,13 @@ def get_league_awards(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_league_awards_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.season)).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_league_awards_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"])
     return HistoricalRecordsResponse(
         dataset_key="html_league_awards_normalized",
         league_id=mfl_league_id,
@@ -1434,12 +1476,13 @@ def get_franchise_records(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_franchise_records_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_franchise_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"])
     return HistoricalRecordsResponse(
         dataset_key="html_franchise_records_normalized",
         league_id=mfl_league_id,
@@ -1458,12 +1501,13 @@ def get_player_records(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_player_records_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).limit(100).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_player_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"], limit=100)
     return HistoricalRecordsResponse(
         dataset_key="html_player_records_normalized",
         league_id=mfl_league_id,
@@ -1482,12 +1526,13 @@ def get_matchup_records(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_matchup_records_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).limit(100).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_matchup_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"], limit=100)
     return HistoricalRecordsResponse(
         dataset_key="html_matchup_records_normalized",
         league_id=mfl_league_id,
@@ -1506,12 +1551,13 @@ def get_all_time_series_records(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_all_time_series_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.record_json['series_season'].astext)).limit(100).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_all_time_series_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["series_season", "season"], limit=100)
     return HistoricalRecordsResponse(
         dataset_key="html_all_time_series_normalized",
         league_id=mfl_league_id,
@@ -1530,12 +1576,13 @@ def get_season_records(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_season_records_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_season_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"])
     return HistoricalRecordsResponse(
         dataset_key="html_season_records_normalized",
         league_id=mfl_league_id,
@@ -1554,12 +1601,13 @@ def get_career_records(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_career_records_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.record_json['wins'].astext.cast(func.numeric))).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_career_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["wins", "season"])
     return HistoricalRecordsResponse(
         dataset_key="html_career_records_normalized",
         league_id=mfl_league_id,
@@ -1578,12 +1626,13 @@ def get_record_streaks(
     if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     mfl_league_id = str(league_id)
-    records = db.query(models.MflHtmlRecordFact).filter(
-        models.MflHtmlRecordFact.dataset_key == "html_record_streaks_normalized",
-        models.MflHtmlRecordFact.league_id == mfl_league_id,
-    ).order_by(desc(models.MflHtmlRecordFact.record_json['record_year'].astext)).limit(100).all()
-    
-    data = [r.record_json for r in records]
+    records = _historical_records_query(
+        db,
+        dataset_key="html_record_streaks_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"], limit=100)
     return HistoricalRecordsResponse(
         dataset_key="html_record_streaks_normalized",
         league_id=mfl_league_id,
