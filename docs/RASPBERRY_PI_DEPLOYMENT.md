@@ -8,6 +8,7 @@ This is the recommended production-style setup for Raspberry Pi:
 - systemd keeps the FastAPI backend running.
 
 Quick reference: `docs/PI_UPDATE_CHEATSHEET.md`
+Docker parity setup reference: `docs/pi-setup/docker.md`
 
 ## Phase 1: Raspberry Pi OS Setup
 

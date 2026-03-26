@@ -56,6 +56,7 @@ systemctl enable --now cloudflared.service
 systemctl enable --now cloudflared-watchdog.timer
 
 printf "\nCloudflared monitoring units installed.\n"
+printf "Cloudflared service user/group ensured.\n"
 printf "Check status with:\n"
 printf "  systemctl status cloudflared --no-pager\n"
 printf "  systemctl status cloudflared-watchdog.timer --no-pager\n"

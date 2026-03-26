@@ -9,6 +9,7 @@ StartLimitBurst=10
 Type=simple
 User=cloudflared
 Group=cloudflared
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/bin/env cloudflared --config /etc/cloudflared/config.yml tunnel run
 Restart=on-failure
 RestartSec=5

@@ -22,6 +22,7 @@ or commit it yourself.
 - API inventory + full page matrix: [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md)
 - Responsive audit by platform (Windows/Raspberry Pi/Linux): [RESPONSIVE_AUDIT_ENVIRONMENT.md](docs/RESPONSIVE_AUDIT_ENVIRONMENT.md)
 - Raspberry Pi deployment runbook (Nginx + systemd): [RASPBERRY_PI_DEPLOYMENT.md](docs/RASPBERRY_PI_DEPLOYMENT.md)
+- Raspberry Pi Docker/Portainer setup runbook: [docker.md](docs/pi-setup/docker.md)
 - Cloudflare tunnel setup (`pplinsighthub.com`): [CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md)
 - Dev environment + VS Code tunnel workflow: [dev-environment.md](docs/dev-environment.md)
 

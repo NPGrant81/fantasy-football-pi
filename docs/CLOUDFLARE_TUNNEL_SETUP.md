@@ -1,91 +1,291 @@
 # Cloudflare Tunnel Setup (pplinsighthub.com)
 
-This guide configures your existing Cloudflare Tunnel:
+This guide covers production tunnel cutover after the local Raspberry Pi origin is already verified.
+
+Deployment target:
 - Domain: `pplinsighthub.com`
 - Tunnel name: `ppl-insight-hub-prod1`
+- Origin on Pi: `http://127.0.0.1:80`
 
-For full CLI-first workflow (install/login/create/config/DNS/systemd), see:
-`docs/cloudflare-tunnel-cli.md`
+For lower-level references, see:
+- `docs/cloudflare-tunnel-cli.md`
+- `docs/cloudflare-tunnel-systemd.md`
 
 For a copy/paste Pi execution checklist with required evidence outputs, see:
 `docs/cloudflare-pi-handoff-checklist.md`
 
 ## 1. Prerequisites
 
-- Nginx is running and serving app on origin port `80`.
-- Backend systemd service is running (FastAPI on `127.0.0.1:8000`).
-- You already created the tunnel in Cloudflare Zero Trust.
+These are the minimum items that must be in place when the app is ready for real deployment.
 
-## 2. Install Tunnel Service
+- `cloudflared` is installed on the Raspberry Pi and available on `PATH` (typically at `/usr/bin/cloudflared` or `/usr/local/bin/cloudflared`)
+- `command -v cloudflared` resolves successfully on the Raspberry Pi
+- `/etc/cloudflared/config.yml` exists and includes both `tunnel:` and `credentials-file:`
+- The named-tunnel credentials JSON exists at `/etc/cloudflared/<tunnel-uuid>.json`
+- The `cloudflared` system user/group exists on the Pi
+- Nginx is serving the intended local origin on `127.0.0.1:80`
+- Backend env production values are finalized, especially `ALLOWED_HOSTS` and `FRONTEND_ALLOWED_ORIGINS`
+- The Cloudflare tunnel routes for `pplinsighthub.com` and `www.pplinsighthub.com` point to the named tunnel
+- `cloudflared.service` and `cloudflared-watchdog.timer` are enabled and healthy
+- Reboot validation has passed on the Pi
 
-You already have this command:
+If any item above is missing, treat the setup as not deployment-ready yet.
 
-```powershell
-cloudflared.exe service install <YOUR_TUNNEL_TOKEN>
+## Setup-only test mode
+
+If the application is not ready to deploy yet, you can still validate the infrastructure path.
+
+What you can test safely:
+- `cloudflared` install and systemd startup on the Pi
+- Tunnel config and credentials loading
+- DNS routing for `pplinsighthub.com`
+- Public reachability to an Nginx-served placeholder or static page
+
+What you should not treat as complete yet:
+- backend/API reachability
+- authenticated routes
+- production `/health` semantics through FastAPI
+- final backup validation tied to the real database target
+
+Recommended temporary setup for infrastructure-only testing:
+- Make sure Nginx serves any simple HTTP response on `127.0.0.1:80`
+- Use a temporary tunnel healthcheck path of `/` instead of `/health` if the backend is not deployed yet
+- Verify public `200`/`304` on the root page only
+
+Once the app is actually deployed, switch back to the full production checks in this guide.
+
+## 1. Preconditions before cutover
+
+Do not start tunnel cutover until the pre-Cloudflare host-side checklist is complete.
+
+Required local-origin checks on the Pi:
+
+```bash
+curl -fsS http://127.0.0.1:8000/health
+curl -I http://127.0.0.1/
+curl -I http://127.0.0.1/auth/me
+sudo systemctl status fantasy-football-backend --no-pager
+sudo systemctl status nginx --no-pager
 ```
 
-Run it on the machine that will host the tunnel process.
+Expected:
+- FastAPI health responds locally.
+- Nginx serves the frontend locally.
+- `/auth/me` reaches the backend and may return `401` when unauthenticated.
 
-## 3. Set Public Hostname Route
+If you are running setup-only test mode, replace these preconditions with:
 
-In Cloudflare Zero Trust dashboard:
-- Go to **Networks -> Tunnels -> ppl-insight-hub-prod1**.
-- Add Public Hostname:
-  - Hostname: `pplinsighthub.com`
-  - Service Type: `HTTP`
-  - URL:
-    - If tunnel is running on the Pi: `http://localhost:80`
-    - If tunnel is running on Windows/other host: `http://<PI_LAN_IP>:80`
-- Optionally add `www.pplinsighthub.com` to same service.
+```bash
+curl -I http://127.0.0.1/
+sudo systemctl status nginx --no-pager
+```
 
-## 4. DNS
+Expected in setup-only mode:
+- Nginx responds locally on port `80`
+- You have a stable local origin for Cloudflare to reach
 
-In Cloudflare DNS, ensure CNAME routes are managed by tunnel:
-- `pplinsighthub.com` -> tunnel route (proxied)
-- `www` -> tunnel route (proxied)
+## 2. Install cloudflared on the Raspberry Pi
 
-For CLI-based DNS mapping (named tunnel auth required):
+```bash
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloudflare-main.gpg
+echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main' | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt update
+sudo apt install -y cloudflared
+cloudflared --version
+command -v cloudflared
+```
+
+Verification target:
+- `cloudflared` is installed and `command -v cloudflared` resolves successfully.
+
+## 3. Stage tunnel credentials and config on the Pi
+
+Source template:
+- `deploy/cloudflared/config.ppl-insight-hub-prod1.example.yml`
+
+Target paths on Pi:
+- `/etc/cloudflared/config.yml`
+- `/etc/cloudflared/<tunnel-uuid>.json`
+
+Commands:
+
+```bash
+# Create config directory (owned by root:cloudflared with 0750 perms)
+sudo mkdir -p /etc/cloudflared
+sudo chown root:cloudflared /etc/cloudflared
+sudo chmod 750 /etc/cloudflared
+
+# Copy example config into place and edit as needed
+sudo cp /home/pi/fantasy-football-pi/deploy/cloudflared/config.ppl-insight-hub-prod1.example.yml /etc/cloudflared/config.yml
+sudo nano /etc/cloudflared/config.yml
+
+# Copy the tunnel credentials JSON into /etc/cloudflared
+# (adjust the source filename/path below to match your real credentials file)
+sudo cp /home/pi/fantasy-football-pi/deploy/cloudflared/ppl-insight-hub-prod1-credentials.json /etc/cloudflared/
+
+# Ensure credentials JSON is readable by the cloudflared user (via group)
+sudo chown root:cloudflared /etc/cloudflared/ppl-insight-hub-prod1-credentials.json
+sudo chmod 640 /etc/cloudflared/ppl-insight-hub-prod1-credentials.json
+
+# Verify final contents and permissions
+sudo ls -la /etc/cloudflared
+```
+
+Required review points:
+- The `tunnel:` value matches the real tunnel name or UUID.
+- The `credentials-file:` path points to the real credentials JSON stored in `/etc/cloudflared/`.
+- The credentials JSON for that tunnel exists in `/etc/cloudflared/`.
+- The ingress service target remains `http://127.0.0.1:80` when cloudflared runs on the Pi.
+- `pplinsighthub.com` and `www.pplinsighthub.com` both point to the same local origin unless you intentionally split them.
+- If the app is not deployed yet, temporarily change the healthcheck path from `/health` to `/`.
+
+## 4. Install the cloudflared systemd service on the Pi
+
+Source files:
+- `deploy/systemd/cloudflared.service.example`
+- `deploy/systemd/cloudflared-watchdog.service.example`
+- `deploy/systemd/cloudflared-watchdog.timer.example`
+- `deploy/systemd/install_cloudflared_monitoring.sh`
+
+Recommended install:
+
+```bash
+cd /home/pi/fantasy-football-pi
+sudo bash deploy/systemd/install_cloudflared_monitoring.sh
+id cloudflared
+sudo systemctl status cloudflared --no-pager
+sudo systemctl status cloudflared-watchdog.timer --no-pager
+sudo journalctl -u cloudflared -n 100 --no-pager
+```
+
+Manual alternative:
+
+```bash
+sudo cp /home/pi/fantasy-football-pi/deploy/systemd/cloudflared.service.example /etc/systemd/system/cloudflared.service
+sudo cp /home/pi/fantasy-football-pi/deploy/systemd/cloudflared-watchdog.service.example /etc/systemd/system/cloudflared-watchdog.service
+sudo cp /home/pi/fantasy-football-pi/deploy/systemd/cloudflared-watchdog.timer.example /etc/systemd/system/cloudflared-watchdog.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now cloudflared.service
+sudo systemctl enable --now cloudflared-watchdog.timer
+```
+
+Verification target:
+- `cloudflared.service` is `enabled` and `active`.
+- `cloudflared-watchdog.timer` is `enabled` and `active`.
+- `id cloudflared` succeeds.
+- `journalctl` shows a successful tunnel start without config or credential errors.
+
+In setup-only mode, successful startup plus stable root-page reachability is enough. Do not require backend-specific checks.
+
+## 5. Configure Cloudflare tunnel routes and DNS
+
+If the named tunnel already exists, map the public hostnames to it.
+
+CLI route commands:
 
 ```bash
 cloudflared tunnel route dns ppl-insight-hub-prod1 pplinsighthub.com
 cloudflared tunnel route dns ppl-insight-hub-prod1 www.pplinsighthub.com
 ```
 
-## 5. Origin Nginx Notes
+Dashboard equivalent:
+- Zero Trust -> Networks -> Tunnels -> `ppl-insight-hub-prod1`
+- Add public hostname `pplinsighthub.com` -> service `http://127.0.0.1:80`
+- Add public hostname `www.pplinsighthub.com` -> service `http://127.0.0.1:80`
 
-When using Cloudflare Tunnel, origin TLS certs are optional because Cloudflare terminates TLS at the edge.
-- Keep origin on HTTP (`:80`) behind tunnel/private network.
-- Do not force HTTP->HTTPS redirect at origin unless your origin receives `X-Forwarded-Proto=https` correctly and you have validated no redirect loops.
+Verification target:
+- DNS routes are proxied through the named tunnel.
+- Tunnel public hostname entries match the ingress hostnames in `/etc/cloudflared/config.yml`.
 
-## 6. Verify
+## 6. Public cutover verification
 
-From public internet:
+From any internet-connected client:
 
 ```bash
 curl -I https://pplinsighthub.com
+curl -I https://www.pplinsighthub.com
 curl -I https://pplinsighthub.com/auth/me
+curl -I https://pplinsighthub.com/health
 ```
 
 Expected:
-- Frontend returns `200`/`304`.
-- API route returns `401` when unauthenticated (this confirms backend route reachability).
+- Frontend routes return `200` or `304`.
+- `/auth/me` returns `401` when unauthenticated, confirming backend reachability.
+- `/health` returns a successful response through the tunnel.
 
-## 7. Troubleshooting Quick Checks
+Setup-only mode verification:
 
-- Tunnel service status (Windows):
-```powershell
-Get-Service cloudflared
+```bash
+curl -I https://pplinsighthub.com
+curl -I https://www.pplinsighthub.com
 ```
-- If hostname loads but API fails:
-  - Check Nginx route proxy list includes `/auth`, `/players`, `/draft`, etc.
-  - Check backend service health:
-  ```bash
-  sudo systemctl status fantasy-football-backend --no-pager
-  ```
-- If DNS not resolving:
-  - Confirm tunnel public hostname exists in Zero Trust and proxied DNS record is present.
 
-## 8. Security Notes
+Expected in setup-only mode:
+- Public root page returns `200` or `304`
+- Tunnel service remains healthy
+- DNS resolves through Cloudflare to the Pi-hosted origin
 
-- Keep tunnel token secret. If it has been exposed, rotate in Cloudflare dashboard and reinstall service.
-- Restrict `ALLOWED_HOSTS` and `FRONTEND_ALLOWED_ORIGINS` in backend env for production.
+Do not use `/auth/me` or `/health` as required pass criteria until the backend is actually deployed.
+
+Pi-side verification:
+
+```bash
+sudo systemctl status cloudflared --no-pager
+sudo journalctl -u cloudflared -n 200 --no-pager
+cloudflared tunnel info ppl-insight-hub-prod1
+```
+
+## 7. Reboot and watchdog verification
+
+```bash
+sudo reboot
+```
+
+After reconnecting:
+
+```bash
+sudo systemctl is-enabled cloudflared
+sudo systemctl is-active cloudflared
+sudo systemctl is-enabled cloudflared-watchdog.timer
+sudo systemctl is-active cloudflared-watchdog.timer
+sudo systemctl list-timers --all | grep cloudflared-watchdog
+```
+
+Expected:
+- Both units remain `enabled` after reboot.
+- Both units are `active`.
+- The watchdog timer is scheduled.
+
+## 8. Rollback / abort path
+
+If public routing fails after cutover:
+
+1. Stop the tunnel service on the Pi:
+
+```bash
+sudo systemctl stop cloudflared
+```
+
+2. Remove or disable the public hostname routes in Cloudflare Zero Trust, or update them away from the broken origin.
+3. Re-run local origin checks on the Pi:
+
+```bash
+curl -fsS http://127.0.0.1:8000/health
+curl -I http://127.0.0.1/
+curl -I http://127.0.0.1/auth/me
+```
+
+4. Review tunnel logs before retrying:
+
+```bash
+sudo journalctl -u cloudflared -n 200 --no-pager
+```
+
+Do not change backend or Nginx origin wiring during rollback unless local-origin checks are also failing.
+
+## 9. Security notes
+
+- Keep the tunnel credentials JSON and any token material secret.
+- If credentials or token material are exposed, rotate them in Cloudflare before restarting the service.
+- Keep origin traffic on local/private HTTP behind the tunnel unless you deliberately implement and validate origin TLS.
+- Ensure backend `ALLOWED_HOSTS` and `FRONTEND_ALLOWED_ORIGINS` are already locked down before public cutover.

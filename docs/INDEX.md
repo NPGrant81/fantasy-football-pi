@@ -37,6 +37,7 @@ Refer to the appropriate file for more information.
 - [Model-Serving-And-Integration](model-serving-and-integration.md)
 - [Monte-Carlo-Simulation](monte-carlo-simulation.md)
 - [Permissions](permissions.md)
+- [Pi Setup Docker](pi-setup/docker.md)
 - [Pi Update Cheatsheet](PI_UPDATE_CHEATSHEET.md)
 - [Player-Metadata-Rules](player-metadata-rules.md)
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
