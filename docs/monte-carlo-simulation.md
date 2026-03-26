@@ -15,20 +15,17 @@ The implementation lives in:
 
 ### Required
 
-- `backend/data/draft_results.csv`
+- PostgreSQL `draft_picks`
   - Historical draft outcomes used for owner behavior features.
-- `backend/data/players.csv`
-  - Draftable player pool and positions.
-- `backend/data/historical_rankings.csv`
+- PostgreSQL `players` / `player_seasons`
+  - Draftable player pool and active positions.
+- PostgreSQL `draft_values`
   - Player value features and desirability scores.
 
 ### Optional
 
-- `backend/data/draft_budget.csv`
+- PostgreSQL `draft_budget`
   - Owner budgets; fallback budget is used when missing.
-- `yearly_results` CSV path (`--yearly-results`)
-  - Optional projected-points input source.
-  - If absent or unsupported schema, projected points are derived from historical ranking features.
 
 ## League Rules Encoded
 
@@ -140,17 +137,8 @@ python -m etl.build_monte_carlo_simulation \
   --target-owner-id 1 \
   --teams-count 12 \
   --roster-size 16 \
-  --draft-results backend/data/draft_results.csv \
-  --players backend/data/players.csv \
-  --historical-rankings backend/data/historical_rankings.csv \
-  --draft-budget backend/data/draft_budget.csv \
+  --league-id 1 \
   --output-dir backend/data/simulation
-```
-
-Optional yearly results input:
-
-```bash
-python -m etl.build_monte_carlo_simulation --yearly-results path/to/yearly_results.csv
 ```
 
 ## Configuration Options
@@ -180,7 +168,7 @@ python -m etl.build_monte_carlo_simulation --yearly-results path/to/yearly_resul
 
 - Historical owner behavior is modeled from available draft results only.
 - Position scarcity and value are only as strong as source ranking quality.
-- If `YearlyResults` is unavailable, projected points are proxy-derived.
+- If seasonal valuation rows are unavailable in `draft_values`, projected points are proxy-derived.
 - Current strategy toggles are OwnerID-centric but can be extended to multi-owner strategy scenarios.
 
 ## Definition of Done Mapping

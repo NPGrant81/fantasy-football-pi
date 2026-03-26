@@ -1,8 +1,8 @@
 # backend/routers/players.py
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from fastapi import HTTPException
-from datetime import datetime
-from sqlalchemy import func, exists, and_, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional
 from ..database import get_db
@@ -92,6 +92,18 @@ def get_top_free_agents(
     )
 
 
+@router.get("/quality-report")
+def get_player_quality_report(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "requested_by_user_id": int(current_user.id),
+        **player_service.get_player_quality_report(db),
+    }
+
+
 @router.get("/{player_id}/season-details")
 def get_player_season_details(
     player_id: int,
@@ -178,41 +190,7 @@ def get_player_season_details(
 @router.get("/")
 def get_all_players(db: Session = Depends(get_db)):
     """Return all relevant fantasy players (QB, RB, WR, TE, K, DEF) from active NFL rosters."""
-    allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
-    current_year = datetime.now().year
-
-    # Players with an active PlayerSeason record in the current or prior year
-    has_active_season = exists().where(
-        and_(
-            models.PlayerSeason.player_id == models.Player.id,
-            models.PlayerSeason.is_active.is_(True),
-            models.PlayerSeason.season >= current_year - 1,
-        )
-    )
-
-    # Players not yet synced to PlayerSeason — include only if on an active NFL team
-    has_no_season = ~exists().where(
-        models.PlayerSeason.player_id == models.Player.id
-    )
-    inactive_teams = {"FA", "", "UAT", "TEST", "MOCK", "FAKE", "TBD", "N/A"}
-
-    rows = (
-        db.query(models.Player)
-        .filter(
-            models.Player.position.in_(allowed_positions),
-            or_(
-                has_active_season,
-                and_(
-                    has_no_season,
-                    models.Player.nfl_team.isnot(None),
-                    ~models.Player.nfl_team.in_(inactive_teams),
-                ),
-            ),
-        )
-        .order_by(models.Player.name, models.Player.id.desc())
-        .all()
-    )
-    deduped = player_service.dedupe_players(rows)
+    deduped = player_service.get_all_relevant_players(db)
     return [
         {
             "id": p.id,

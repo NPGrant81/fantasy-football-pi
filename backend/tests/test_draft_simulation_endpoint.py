@@ -93,7 +93,7 @@ def test_simulation_endpoint_returns_focal_strategy_payload(db_session, monkeypa
     ))
     db_session.commit()
 
-    def _fake_run_monte_carlo_from_paths(**kwargs):
+    def _fake_run_monte_carlo_simulation(**kwargs):
         picks = pd.DataFrame(
             [
                 {
@@ -144,7 +144,7 @@ def test_simulation_endpoint_returns_focal_strategy_payload(db_session, monkeypa
             assumptions={"ok": True},
         )
 
-    monkeypatch.setattr(draft_router, "run_monte_carlo_draft_simulation", _fake_run_monte_carlo_from_paths)
+    monkeypatch.setattr(draft_router, "run_monte_carlo_draft_simulation", _fake_run_monte_carlo_simulation)
 
     payload = draft_router.DraftSimulationRequest(
         perspective_owner_id=owner_a.id,

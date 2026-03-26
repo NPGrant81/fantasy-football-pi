@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
@@ -32,7 +32,7 @@ class NormalizedPlayerStat(BaseModel):
 class NormalizedLiveScoringPayload(BaseModel):
     source: str = "espn_site_api_v2"
     schema_version: str = "2026-03-14"
-    generated_at_utc: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    generated_at_utc: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     games: list[NormalizedGame] = Field(default_factory=list)
     player_stats: list[NormalizedPlayerStat] = Field(default_factory=list)
 

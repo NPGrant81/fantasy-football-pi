@@ -15,7 +15,7 @@ Generated: 2026-03-08 21:49:04Z
 | `/draft/model/predict` | PostgreSQL: same as /draft/rankings (+ request draft_state payload) |
 | `/advisor/draft-day/query` | PostgreSQL: rankings-backed data from /draft/rankings service path |
 | `/players/{id}/season-details` | PostgreSQL: players, player_weekly_stats |
-| `/draft/simulation` | CSV files: backend/data/draft_results.csv, players.csv, historical_rankings.csv, draft_budget.csv |
+| `/draft/simulation` | PostgreSQL: draft_picks, players, draft_values, draft_budget |
 
 ## Dataset Health
 
@@ -30,7 +30,6 @@ Generated: 2026-03-08 21:49:04Z
 | `dataset:draft_picks` | PASS | count=186 |
 | `dataset_csv:draft_results.csv` | PASS | size=35559 |
 | `dataset_csv:players.csv` | PASS | size=41761 |
-| `dataset_csv:historical_rankings.csv` | PASS | size=47856 |
 | `dataset_csv:draft_budget.csv` | PASS | size=535 |
 
 ## API Check Matrix
@@ -47,4 +46,4 @@ Generated: 2026-03-08 21:49:04Z
 ## Findings
 
 - `WARN` on sparse historical datasets means endpoint may function but output quality may be reduced.
-- `/draft/simulation` health depends on CSV freshness/shape, not only PostgreSQL values.
+- `/draft/simulation` is now DB-backed and depends on draft history and scoring/ranking records in PostgreSQL.

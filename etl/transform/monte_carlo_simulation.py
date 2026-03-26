@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterable, TYPE_CHECKING
 import math
 import random
@@ -112,13 +111,6 @@ def _normalize_position(value: object) -> str:
     if text in {"QB", "RB", "WR", "TE", "DEF"}:
         return text
     return "UNK"
-
-
-def _read_csv_with_fallback(path: str | Path) -> pd.DataFrame:
-    try:
-        return pd.read_csv(path)
-    except UnicodeDecodeError:
-        return pd.read_csv(path, encoding="latin-1")
 
 
 def _prepare_owners(draft_results_df: pd.DataFrame, budget_df: pd.DataFrame, config: SimulationConfig) -> pd.DataFrame:
@@ -650,8 +642,8 @@ def run_monte_carlo_draft_simulation(
         "nomination_logic": "shuffled round-robin owner order each iteration",
         "tie_breaking": "random among top bids with equal value",
         "stopping_rules": "all teams filled to roster_size or player pool exhausted",
-        "yearly_results_handling": (
-            "uses yearly results points when available; otherwise derives projected points from historical rankings"
+        "projected_points_handling": (
+            "derives projected points from historical rankings when direct point inputs are unavailable"
         ),
     }
 
@@ -660,39 +652,6 @@ def run_monte_carlo_draft_simulation(
         team_metrics=team_metrics_df,
         owner_summary=owner_summary_df,
         assumptions=assumptions,
-    )
-
-
-def run_monte_carlo_from_paths(
-    *,
-    draft_results_path: str | Path,
-    players_path: str | Path,
-    historical_rankings_path: str | Path,
-    draft_budget_path: str | Path | None = None,
-    yearly_results_path: str | Path | None = None,
-    config: SimulationConfig | None = None,
-) -> MonteCarloSimulationResult:
-    draft_results_df = _read_csv_with_fallback(draft_results_path)
-    players_df = _read_csv_with_fallback(players_path)
-    historical_rankings_df = _read_csv_with_fallback(historical_rankings_path)
-
-    if draft_budget_path:
-        budget_df = _read_csv_with_fallback(draft_budget_path)
-    else:
-        budget_df = pd.DataFrame()
-
-    if yearly_results_path and Path(yearly_results_path).exists():
-        yearly_results_df = _read_csv_with_fallback(yearly_results_path)
-    else:
-        yearly_results_df = pd.DataFrame()
-
-    return run_monte_carlo_draft_simulation(
-        draft_results_df=draft_results_df,
-        players_df=players_df,
-        historical_rankings_df=historical_rankings_df,
-        budget_df=budget_df,
-        yearly_results_df=yearly_results_df,
-        config=config,
     )
 
 

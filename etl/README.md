@@ -32,13 +32,13 @@ To generate player rankings without external ADP dependencies, use historical le
 	- bid trend slope
 	- position scarcity and consistency boosts
 - Output:
-	- ranked CSV with predicted auction values and tiers
+	- ranked CSV export with predicted auction values and tiers
 	- optional load into `DraftValue` table for backend consumption
 
 Run:
 
 ```bash
-python -m etl.build_historical_rankings --season 2026 --output backend/data/historical_rankings.csv --load-db
+python -m etl.build_historical_rankings --season 2026 --output backend/exports/historical_rankings.csv --load-db
 ```
 
 ## Monte Carlo draft simulation

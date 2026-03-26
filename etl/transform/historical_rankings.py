@@ -305,7 +305,7 @@ def build_rankings_from_db(db: "Session", target_season: int) -> HistoricalRanki
         raise ValueError(
             "No historical draft picks found in the database. "
             "Run load_ppl_history.py (or the MFL import pipeline) to populate "
-            "the draft_picks table before running --from-db."
+            "the draft_picks table before running historical rankings."
         )
     rankings = score_historical_rankings(features, target_season=target_season)
     return HistoricalRankingResult(rankings=rankings, features=features)

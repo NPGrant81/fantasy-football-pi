@@ -74,13 +74,43 @@ def build_and_store_consensus_draft_values(
     """
     from backend.models_draft_value import DraftValue, PlatformProjection
 
-    projections = (
-        session.query(PlatformProjection)
+    sources_seen: set[str] = set()
+
+    # ── Step 1: stream minimal columns and group by player_id ─────────────
+    # Use batched iteration to avoid loading all ORM objects into memory.
+    projection_rows = (
+        session.query(
+            PlatformProjection.player_id,
+            PlatformProjection.source,
+            PlatformProjection.auction_value,
+            PlatformProjection.adp,
+        )
         .filter(PlatformProjection.season == season)
-        .all()
+        .yield_per(1000)
     )
 
-    if not projections:
+    by_player: dict[int, dict[str, list[float]]] = defaultdict(
+        lambda: {"auction_values": [], "adp_values": []}
+    )
+    saw_projection_rows = False
+    for row in projection_rows:
+        saw_projection_rows = True
+        if row.player_id is None:
+            continue
+
+        player_id = int(row.player_id)
+        if row.source:
+            sources_seen.add(row.source)
+
+        if row.auction_value is not None:
+            by_player[player_id]["auction_values"].append(float(row.auction_value))
+
+        if row.adp is not None:
+            adp = float(row.adp)
+            if adp > 0:
+                by_player[player_id]["adp_values"].append(adp)
+
+    if not saw_projection_rows:
         return {
             "season": season,
             "updated": 0,
@@ -88,16 +118,6 @@ def build_and_store_consensus_draft_values(
             "sources_seen": [],
             "message": f"No platform projections found for season {season}.",
         }
-
-    sources_seen: set[str] = set()
-
-    # ── Step 1: group by player_id ─────────────────────────────────────────
-    by_player: dict[int, list[PlatformProjection]] = defaultdict(list)
-    for proj in projections:
-        if proj.player_id:
-            by_player[int(proj.player_id)].append(proj)
-            if proj.source:
-                sources_seen.add(proj.source)
 
     # ── Step 2: resolve player positions (needed for VOR) ─────────────────
     from backend.models import Player
@@ -115,17 +135,9 @@ def build_and_store_consensus_draft_values(
 
     # ── Step 3: aggregate per player ──────────────────────────────────────
     aggregated: dict[int, dict[str, Any]] = {}
-    for player_id, rows in by_player.items():
-        auction_values = [
-            float(r.auction_value)
-            for r in rows
-            if r.auction_value is not None
-        ]
-        adp_values = [
-            float(r.adp)
-            for r in rows
-            if r.adp is not None and float(r.adp) > 0
-        ]
+    for player_id, values in by_player.items():
+        auction_values = values["auction_values"]
+        adp_values = values["adp_values"]
 
         if not auction_values and not adp_values:
             continue  # no usable signal → skip, let fallback handle it

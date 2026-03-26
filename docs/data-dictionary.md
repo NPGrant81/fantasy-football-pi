@@ -8,12 +8,11 @@ entities used by analytics, ML, and draft simulation pipelines.
 | Canonical Entity | Current Source File | Legacy Tab Name |
 |---|---|---|
 | DraftResult | `backend/data/draft_results.csv` | `DraftResult` |
-| YearlyResults | `backend/data/historical_rankings.csv` | `YearlyResults` |
+| YearlyResults | `draft_values` table (PostgreSQL) | `YearlyResults` |
 | PlayerID | `backend/data/players.csv` | `PlayerID` |
 | PositionID | `backend/data/positions.csv` | `PositionID` |
 | Budget | `backend/data/draft_budget.csv` | `2024DraftBudget` |
 | Owner Registry | `backend/data/teams.csv` | Owner/team mapping |
-| DraftStrategy | `backend/data/draft_strategy.csv` | `DraftStrategy` |
 
 ## Global Normalization Rules
 

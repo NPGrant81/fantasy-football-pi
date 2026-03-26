@@ -24,7 +24,6 @@ from etl.transform.monte_carlo_simulation import (
     SimulationConfig,
     key_target_probabilities,
     run_monte_carlo_draft_simulation,
-    run_monte_carlo_from_paths,
     summarize_team_distribution,
 )
 
@@ -216,7 +215,6 @@ class DraftSimulationRequest(BaseModel):
     teams_count: int = 12
     roster_size: int = 16
     target_key_players: int = 15
-    yearly_results_path: str | None = None
     strategy: FocalOwnerStrategyKnobs = FocalOwnerStrategyKnobs()
 
 
