@@ -11,8 +11,8 @@ DEFAULT_DB_URL = "postgresql://localhost/fantasy_football"
 
 def load_backend_env_file() -> None:
     backend_dir = Path(__file__).resolve().parent
-    load_dotenv(backend_dir / ".env")
-    load_dotenv()
+    # Load only backend/.env to avoid surprising CWD-based .env resolution.
+    load_dotenv(backend_dir / ".env", override=False)
 
 
 def is_credentialless_local_postgres(url: str) -> bool:

@@ -15,7 +15,7 @@ Generated: 2026-03-08 21:49:04Z
 | `/draft/model/predict` | PostgreSQL: same as /draft/rankings (+ request draft_state payload) |
 | `/advisor/draft-day/query` | PostgreSQL: rankings-backed data from /draft/rankings service path |
 | `/players/{id}/season-details` | PostgreSQL: players, player_weekly_stats |
-| `/draft/simulation` | PostgreSQL: draft_picks, players, draft_values, draft_budget |
+| `/draft/simulation` | PostgreSQL: draft_picks, players, draft_values, draft_budgets |
 
 ## Dataset Health
 

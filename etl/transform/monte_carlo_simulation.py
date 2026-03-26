@@ -668,7 +668,7 @@ def run_monte_carlo_from_db(
 ) -> MonteCarloSimulationResult:
     """Run Monte Carlo simulation using live database data instead of CSV files.
 
-    Queries ``draft_picks``, ``players``, ``draft_value`` (historical rankings),
+    Queries ``draft_picks``, ``players``, ``draft_values`` (historical rankings),
     and ``draft_budgets`` tables and passes the resulting DataFrames to the
     core simulation engine.  Use this function once the CSV data files have
     been retired.
@@ -683,26 +683,23 @@ def run_monte_carlo_from_db(
     config:
         Simulation configuration.  Defaults to ``SimulationConfig()``.
     """
-    from sqlalchemy import text as sa_text
+    from backend import models
+    from backend.models_draft_value import DraftValue
 
-    league_filter = "AND dp.league_id = :league_id" if league_id is not None else ""
-    picks_rows = db.execute(
-        sa_text(
-            f"""
-            SELECT
-                dp.player_id   AS "PlayerID",
-                dp.owner_id    AS "OwnerID",
-                dp.year        AS "Year",
-                dp.amount      AS "WinningBid",
-                p.position     AS position_str
-            FROM draft_picks dp
-            JOIN players p ON p.id = dp.player_id
-            WHERE dp.year IS NOT NULL
-            {league_filter}
-            """
-        ),
-        {"league_id": league_id} if league_id is not None else {},
-    ).fetchall()
+    picks_query = (
+        db.query(
+            models.DraftPick.player_id.label("PlayerID"),
+            models.DraftPick.owner_id.label("OwnerID"),
+            models.DraftPick.year.label("Year"),
+            models.DraftPick.amount.label("WinningBid"),
+            models.Player.position.label("position_str"),
+        )
+        .join(models.Player, models.Player.id == models.DraftPick.player_id)
+        .filter(models.DraftPick.year.isnot(None))
+    )
+    if league_id is not None:
+        picks_query = picks_query.filter(models.DraftPick.league_id == league_id)
+    picks_rows = picks_query.all()
 
     draft_results_df = pd.DataFrame(
         [dict(r._mapping) for r in picks_rows],
@@ -713,9 +710,14 @@ def run_monte_carlo_from_db(
     )
     draft_results_df = draft_results_df.drop(columns=["position_str"])
 
-    players_rows = db.execute(
-        sa_text("SELECT id AS Player_ID, name AS PlayerName, position FROM players")
-    ).fetchall()
+    players_rows = (
+        db.query(
+            models.Player.id.label("Player_ID"),
+            models.Player.name.label("PlayerName"),
+            models.Player.position.label("position"),
+        )
+        .all()
+    )
     players_df = pd.DataFrame(
         [dict(r._mapping) for r in players_rows],
         columns=["Player_ID", "PlayerName", "position"],
@@ -726,20 +728,17 @@ def run_monte_carlo_from_db(
     players_df = players_df.drop(columns=["position"])
 
     # Load historical rankings from DraftValue table (written by build_historical_rankings --load-db).
-    rankings_rows = db.execute(
-        sa_text(
-            """
-            SELECT
-                player_id,
-                avg_auction_value  AS predicted_auction_value,
-                median_adp         AS median_bid,
-                consensus_tier,
-                value_over_replacement
-            FROM draft_value
-            ORDER BY season DESC
-            """
+    rankings_rows = (
+        db.query(
+            DraftValue.player_id.label("player_id"),
+            DraftValue.avg_auction_value.label("predicted_auction_value"),
+            DraftValue.median_adp.label("median_bid"),
+            DraftValue.consensus_tier.label("consensus_tier"),
+            DraftValue.value_over_replacement.label("value_over_replacement"),
         )
-    ).fetchall()
+        .order_by(DraftValue.season.desc())
+        .all()
+    )
     historical_rankings_df = (
         pd.DataFrame([dict(r._mapping) for r in rankings_rows])
         if rankings_rows
@@ -747,14 +746,14 @@ def run_monte_carlo_from_db(
     )
 
     # Load per-season draft budgets.
-    budget_filter = "WHERE league_id = :league_id" if league_id is not None else ""
-    budget_rows = db.execute(
-        sa_text(
-            f"SELECT owner_id AS OwnerID, total_budget AS DraftBudget, year AS Year "
-            f"FROM draft_budgets {budget_filter}"
-        ),
-        {"league_id": league_id} if league_id is not None else {},
-    ).fetchall()
+    budget_query = db.query(
+        models.DraftBudget.owner_id.label("OwnerID"),
+        models.DraftBudget.total_budget.label("DraftBudget"),
+        models.DraftBudget.year.label("Year"),
+    )
+    if league_id is not None:
+        budget_query = budget_query.filter(models.DraftBudget.league_id == league_id)
+    budget_rows = budget_query.all()
     budget_df = (
         pd.DataFrame([dict(r._mapping) for r in budget_rows])
         if budget_rows

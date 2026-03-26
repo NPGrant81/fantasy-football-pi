@@ -10,6 +10,7 @@ from yahoo_oauth import OAuth2
 from etl.transform.normalize import normalize_player_name, standardize_adp, extract_position_rank
 
 import os
+import stat
 
 
 def _build_yahoo_oauth() -> OAuth2:
@@ -48,6 +49,11 @@ def _build_yahoo_oauth() -> OAuth2:
         tmp.flush()
         tmp.close()
         tmp_path = tmp.name
+        try:
+            # Restrict token file readability while it exists on disk.
+            os.chmod(tmp_path, stat.S_IRUSR | stat.S_IWUSR)
+        except OSError:
+            pass
         try:
             oauth = OAuth2(None, None, from_file=tmp_path)
         finally:
