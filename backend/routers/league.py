@@ -340,6 +340,7 @@ def fetch_league_owners_data(league_id: int, db: Session, group_by_division: boo
         raise HTTPException(status_code=404, detail="League not found")
     owners = db.query(models.User).filter(
         models.User.league_id == league_id,
+        models.User.is_superuser.is_(False),
         ~models.User.username.like("hist_%"),
     ).all()
 
@@ -639,6 +640,7 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
     if has_faab_ledger:
         users = db.query(models.User).filter(
             models.User.league_id == league_id,
+            models.User.is_superuser.is_(False),
             ~models.User.username.like("hist_%"),
         ).all()
         legacy_records = (
@@ -980,6 +982,7 @@ def get_league_budgets(
 ):
     owners = db.query(models.User).filter(
         models.User.league_id == league_id,
+        models.User.is_superuser.is_(False),
         ~models.User.username.like("hist_%"),
     ).all()
     has_draft_ledger = (
@@ -1319,6 +1322,7 @@ def create_owner(
         if owner_limit and owner_limit > 0:
             current_count = db.query(models.User).filter(
                 models.User.league_id == request.league_id,
+                models.User.is_superuser.is_(False),
                 models.User.username.not_in(["Free Agent", "Obsolete"]),
             ).count()
             if current_count >= owner_limit:
@@ -1636,6 +1640,7 @@ def finalize_draft(league_id: int, db: Session = Depends(get_db)):
     # 2. Get Owners in THIS league
     owners = db.query(models.User).filter(
         models.User.league_id == league_id,
+        models.User.is_superuser.is_(False),
         models.User.username.not_in(["Free Agent", "Obsolete"])
     ).all()
     
