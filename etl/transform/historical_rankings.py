@@ -65,6 +65,16 @@ def build_historical_features(draft_results_df: pd.DataFrame, players_df: pd.Dat
     normalized["position_id"] = pd.to_numeric(normalized["position_id"], errors="coerce")
     normalized["winning_bid"] = normalized["winning_bid"].apply(_parse_bid)
     normalized = normalized.dropna(subset=["player_id", "year"]).copy()
+    if normalized.empty:
+        return pd.DataFrame(
+            columns=[
+                "player_id", "player_name", "position", "appearances",
+                "seasons_active", "avg_bid", "median_bid", "max_bid", "min_bid",
+                "bid_std", "latest_year", "recent_3yr_avg", "recent_3yr_max",
+                "trend_slope", "position_id", "position_baseline_bid",
+                "consistency", "position_scarcity_boost",
+            ]
+        )
     normalized["player_id"] = normalized["player_id"].astype(int)
     normalized["year"] = normalized["year"].astype(int)
 
@@ -291,6 +301,12 @@ def build_rankings_from_db(db: "Session", target_season: int) -> HistoricalRanki
     players_df = players_df.drop(columns=["position"])
 
     features = build_historical_features(draft_results_df, players_df)
+    if features.empty:
+        raise ValueError(
+            "No historical draft picks found in the database. "
+            "Run load_ppl_history.py (or the MFL import pipeline) to populate "
+            "the draft_picks table before running --from-db."
+        )
     rankings = score_historical_rankings(features, target_season=target_season)
     return HistoricalRankingResult(rankings=rankings, features=features)
 

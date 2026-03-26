@@ -46,12 +46,27 @@ def seed(league_id: int = DEFAULT_LEAGUE_ID) -> None:
 
     db = SessionLocal()
     try:
+        # Build a set of owner IDs that actually exist in the users table so we
+        # can skip rows whose foreign key would be violated.
+        from sqlalchemy import text as sa_text
+
+        existing_user_ids = {
+            r[0]
+            for r in db.execute(sa_text("SELECT id FROM users")).fetchall()
+        }
+
         inserted = 0
         skipped = 0
+        missing_owners: set[int] = set()
         for row in rows:
             owner_id = int(float(row["OwnerID"]))
             year = int(float(row["Year"]))
             budget = int(_clean_money(row["DraftBudget"]))
+
+            if owner_id not in existing_user_ids:
+                missing_owners.add(owner_id)
+                skipped += 1
+                continue
 
             existing = (
                 db.query(models.DraftBudget)
@@ -79,9 +94,15 @@ def seed(league_id: int = DEFAULT_LEAGUE_ID) -> None:
         db.commit()
         print(
             f"Draft budgets seeded for league {league_id}: "
-            f"{inserted} inserted, {skipped} already present."
+            f"{inserted} inserted, {skipped} already present or skipped."
         )
-        if inserted > 0 or skipped == len(rows):
+        if missing_owners:
+            print(
+                f"\nWARNING: {len(missing_owners)} owner IDs from the CSV are not in the users table "
+                f"and were skipped: {sorted(missing_owners)}\n"
+                "Run load_ppl_history.py first to populate the users table, then re-run this script."
+            )
+        if inserted > 0:
             print(
                 "\nYou can now safely delete:\n"
                 "  backend/data/draft_budget.csv"
