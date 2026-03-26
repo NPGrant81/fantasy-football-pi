@@ -2,9 +2,9 @@
 One-time seed: load per-owner draft budgets from draft_budget.csv into the
 draft_budgets table (DraftBudget model).
 
-Safe to run multiple times — each (league_id, owner_id, year) combination is
-inserted with ON CONFLICT DO NOTHING semantics, so duplicates are silently
-skipped.
+Intended for one-time or single-process use — each (league_id, owner_id, year)
+combination is checked for existence before insert; if a matching row already
+exists it is skipped.
 
 Usage:
     python seed_draft_budgets.py [league_id]

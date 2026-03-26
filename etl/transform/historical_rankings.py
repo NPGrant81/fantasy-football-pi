@@ -258,22 +258,19 @@ def build_rankings_from_db(db: "Session", target_season: int) -> HistoricalRanki
     draft_picks and players directly from the live DB.  Use this function once
     the CSV data files have been retired.
     """
-    from sqlalchemy import text as sa_text
+    import backend.models as models
 
-    picks_rows = db.execute(
-        sa_text(
-            """
-            SELECT
-                dp.player_id   AS "PlayerID",
-                dp.year        AS "Year",
-                dp.amount      AS "WinningBid",
-                p.position     AS position_str
-            FROM draft_picks dp
-            JOIN players p ON p.id = dp.player_id
-            WHERE dp.year IS NOT NULL
-            """
+    picks_rows = (
+        db.query(
+            models.DraftPick.player_id.label("PlayerID"),
+            models.DraftPick.year.label("Year"),
+            models.DraftPick.amount.label("WinningBid"),
+            models.Player.position.label("position_str"),
         )
-    ).fetchall()
+        .join(models.Player, models.Player.id == models.DraftPick.player_id)
+        .filter(models.DraftPick.year.isnot(None))
+        .all()
+    )
 
     draft_results_df = pd.DataFrame(
         [dict(r._mapping) for r in picks_rows],
@@ -288,9 +285,14 @@ def build_rankings_from_db(db: "Session", target_season: int) -> HistoricalRanki
     )
     draft_results_df = draft_results_df.drop(columns=["position_str"])
 
-    players_rows = db.execute(
-        sa_text("SELECT id AS Player_ID, name AS PlayerName, position FROM players")
-    ).fetchall()
+    players_rows = (
+        db.query(
+            models.Player.id.label("Player_ID"),
+            models.Player.name.label("PlayerName"),
+            models.Player.position.label("position"),
+        )
+        .all()
+    )
     players_df = pd.DataFrame(
         [dict(r._mapping) for r in players_rows],
         columns=["Player_ID", "PlayerName", "position"],

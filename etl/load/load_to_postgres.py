@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, Table, create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 # ensure the repository root is on sys.path so that the ``backend`` package
@@ -119,28 +119,51 @@ def load_historical_rankings_to_db(rankings_df: pd.DataFrame, season: int):
         raise ValueError(f"Rankings DataFrame missing required columns: {sorted(missing)}")
 
     session = SessionLocal()
-    for _, row in rankings_df.iterrows():
-        player_id = int(row["player_id"])
-        existing = (
-            session.query(DraftValue)
-            .filter(
-                DraftValue.player_id == player_id,
-                DraftValue.season == season,
-            )
-            .first()
-        )
-        if not existing:
-            existing = DraftValue(player_id=player_id, season=season)
-            session.add(existing)
+    try:
+        # Reflect the live table to tolerate environments where the DB schema
+        # lags behind ORM-only columns (e.g., local sqlite test DBs).
+        draft_values = Table("draft_values", MetaData(), autoload_with=engine)
+        available_columns = set(draft_values.c.keys())
 
-        existing.avg_auction_value = float(row.get("predicted_auction_value") or 0)
-        existing.median_adp = float(row.get("median_bid") or 0)
-        existing.consensus_tier = str(row.get("consensus_tier") or "C")
-        existing.value_over_replacement = float(row.get("value_over_replacement") or 0)
-        existing.last_updated = pd.Timestamp.utcnow().isoformat()
+        for _, row in rankings_df.iterrows():
+            player_id = int(row["player_id"])
 
-    session.commit()
-    session.close()
+            values: dict[str, object] = {}
+            if "avg_auction_value" in available_columns:
+                values["avg_auction_value"] = float(row.get("predicted_auction_value") or 0)
+            if "median_adp" in available_columns:
+                values["median_adp"] = float(row.get("median_bid") or 0)
+            if "consensus_tier" in available_columns:
+                values["consensus_tier"] = str(row.get("consensus_tier") or "C")
+            if "value_over_replacement" in available_columns:
+                values["value_over_replacement"] = float(row.get("value_over_replacement") or 0)
+            if "last_updated" in available_columns:
+                values["last_updated"] = pd.Timestamp.utcnow().isoformat()
+
+            existing_id = session.execute(
+                select(draft_values.c.id).where(
+                    draft_values.c.player_id == player_id,
+                    draft_values.c.season == season,
+                )
+            ).scalar_one_or_none()
+
+            if existing_id is None:
+                insert_values = {
+                    "player_id": player_id,
+                    "season": season,
+                    **values,
+                }
+                session.execute(draft_values.insert().values(**insert_values))
+            elif values:
+                session.execute(
+                    draft_values.update()
+                    .where(draft_values.c.id == existing_id)
+                    .values(**values)
+                )
+
+        session.commit()
+    finally:
+        session.close()
 
 # Example usage for each source:
 if __name__ == "__main__":

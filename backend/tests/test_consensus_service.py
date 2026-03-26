@@ -46,7 +46,7 @@ class _FakeSession:
         self.committed = True
 
 
-def test_consensus_handles_adp_only_auction_only_and_skips_signaless_player():
+def test_consensus_handles_adp_only_auction_only_and_skips_signalless_player():
     projection_rows = [
         SimpleNamespace(player_id=1, source="espn", auction_value=40.0, adp=None),
         SimpleNamespace(player_id=2, source="yahoo", auction_value=None, adp=28.0),

@@ -168,6 +168,11 @@ def _prepare_players(
     yearly_results_df: pd.DataFrame,
     config: SimulationConfig,
 ) -> pd.DataFrame:
+    def _coerce_numeric_column(df: pd.DataFrame, column: str, default: float) -> pd.Series:
+        if column not in df.columns:
+            return pd.Series(default, index=df.index, dtype="float64")
+        return pd.to_numeric(df[column], errors="coerce").fillna(default)
+
     players = players_df.rename(
         columns={"Player_ID": "player_id", "PlayerName": "player_name", "PositionID": "position_id"}
     ).copy()
@@ -179,13 +184,15 @@ def _prepare_players(
     rankings = historical_rankings_df.copy()
     if rankings.empty:
         rankings = pd.DataFrame(columns=["player_id", "predicted_auction_value", "model_score", "position"])
-    rankings["player_id"] = pd.to_numeric(rankings.get("player_id"), errors="coerce")
+    rankings["player_id"] = _coerce_numeric_column(rankings, "player_id", default=float("nan"))
     rankings = rankings.dropna(subset=["player_id"]).copy()
     rankings["player_id"] = rankings["player_id"].astype(int)
-    rankings["predicted_auction_value"] = pd.to_numeric(
-        rankings.get("predicted_auction_value"), errors="coerce"
-    ).fillna(1.0)
-    rankings["model_score"] = pd.to_numeric(rankings.get("model_score"), errors="coerce").fillna(0.0)
+    rankings["predicted_auction_value"] = _coerce_numeric_column(
+        rankings, "predicted_auction_value", default=1.0
+    )
+    rankings["model_score"] = _coerce_numeric_column(rankings, "model_score", default=0.0)
+    if "position" not in rankings.columns:
+        rankings["position"] = "UNK"
     if "appearances" in rankings.columns:
         rankings["player_reliability_score"] = pd.to_numeric(
             rankings.get("appearances"), errors="coerce"
@@ -576,7 +583,10 @@ def run_monte_carlo_draft_simulation(
         all_picks.extend(picks)
         all_team_metrics.extend(metrics)
 
-    draft_picks_df = pd.DataFrame(all_picks)
+    draft_picks_df = pd.DataFrame(
+        all_picks,
+        columns=["iteration", "owner_id", "player_id", "player_name", "position", "winning_bid"],
+    )
     team_metrics_df = pd.DataFrame(all_team_metrics)
 
     if team_metrics_df.empty:
@@ -585,12 +595,16 @@ def run_monte_carlo_draft_simulation(
         target_owner_metrics = team_metrics_df[team_metrics_df["owner_id"] == cfg.target_owner_id].copy()
 
         top_targets = players.head(cfg.target_key_players)[["player_id", "player_name"]]
-        target_picks = draft_picks_df[draft_picks_df["owner_id"] == cfg.target_owner_id]
-        key_target_probability = top_targets.merge(
-            target_picks.groupby("player_id", as_index=False).agg(hit_count=("iteration", "nunique")),
-            on="player_id",
-            how="left",
-        )
+        if draft_picks_df.empty:
+            key_target_probability = top_targets.copy()
+            key_target_probability["hit_count"] = 0
+        else:
+            target_picks = draft_picks_df[draft_picks_df["owner_id"] == cfg.target_owner_id]
+            key_target_probability = top_targets.merge(
+                target_picks.groupby("player_id", as_index=False).agg(hit_count=("iteration", "nunique")),
+                on="player_id",
+                how="left",
+            )
         key_target_probability["hit_count"] = key_target_probability["hit_count"].fillna(0)
         key_target_probability["probability"] = key_target_probability["hit_count"] / max(cfg.iterations, 1)
 
@@ -685,6 +699,7 @@ def run_monte_carlo_from_db(
     """
     from backend import models
     from backend.models_draft_value import DraftValue
+    from sqlalchemy import func
 
     picks_query = (
         db.query(
@@ -728,6 +743,15 @@ def run_monte_carlo_from_db(
     players_df = players_df.drop(columns=["position"])
 
     # Load historical rankings from DraftValue table (written by build_historical_rankings --load-db).
+    latest_draft_value_season = (
+        db.query(
+            DraftValue.player_id.label("player_id"),
+            func.max(DraftValue.season).label("latest_season"),
+        )
+        .group_by(DraftValue.player_id)
+        .subquery()
+    )
+
     rankings_rows = (
         db.query(
             DraftValue.player_id.label("player_id"),
@@ -736,7 +760,12 @@ def run_monte_carlo_from_db(
             DraftValue.consensus_tier.label("consensus_tier"),
             DraftValue.value_over_replacement.label("value_over_replacement"),
         )
-        .order_by(DraftValue.season.desc())
+        .join(
+            latest_draft_value_season,
+            (DraftValue.player_id == latest_draft_value_season.c.player_id)
+            & (DraftValue.season == latest_draft_value_season.c.latest_season),
+        )
+        .order_by(DraftValue.player_id.asc())
         .all()
     )
     historical_rankings_df = (

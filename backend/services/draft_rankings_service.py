@@ -514,21 +514,13 @@ def get_historical_rankings(
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 200))
 
-    has_active_season = exists().where(
-        and_(
-            models.PlayerSeason.player_id == models.Player.id,
-            models.PlayerSeason.is_active.is_(True),
-            models.PlayerSeason.season >= season - 1,
-        )
-    )
-
     query = (
         db.query(dv_models.DraftValue, models.Player)
         .join(models.Player, models.Player.id == dv_models.DraftValue.player_id)
         .filter(
             dv_models.DraftValue.season == season,
             models.Player.position.in_(ALLOWED_POSITIONS),
-            has_active_season,
+            _active_player_or_unsynced_filter(db),
         )
     )
 

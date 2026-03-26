@@ -30,11 +30,7 @@ def get_advisor_status():
     api_key = os.environ.get("GEMINI_API_KEY")
     has_genai_sdk = bool(genai)
     enabled = bool(api_key) and has_genai_sdk
-    return {
-        "enabled": enabled,
-        "has_api_key": bool(api_key),
-        "has_genai_sdk": has_genai_sdk,
-    }
+    return {"enabled": enabled}
 
 
 class AdvisorRequest(BaseModel):

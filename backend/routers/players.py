@@ -200,7 +200,7 @@ def get_player_season_details(
     }
 
 # --- NEW: GET /players/ ---
-@router.get("/")
+@router.get("/", response_model=list[PlayerSearchResult])
 def get_all_players(db: Session = Depends(get_db)):
     """Return all relevant fantasy players (QB, RB, WR, TE, K, DEF) from active NFL rosters."""
     deduped = player_service.get_all_relevant_players(db)
