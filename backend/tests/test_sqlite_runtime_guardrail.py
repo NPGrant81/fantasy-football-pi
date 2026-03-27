@@ -17,8 +17,12 @@ def test_no_sqlite_url_literals_in_runtime_backend_code():
     }
 
     offenders = []
+    ignored_path_parts = {"venv", ".venv", "site-packages", "__pycache__"}
 
     for py_file in backend_root.rglob("*.py"):
+        normalized_parts = {part.lower() for part in py_file.parts}
+        if normalized_parts.intersection(ignored_path_parts):
+            continue
         if "tests" in py_file.parts:
             continue
         if py_file in allowlist:

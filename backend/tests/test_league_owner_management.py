@@ -15,7 +15,7 @@ from backend.routers.league import (
     create_owner,
     remove_league_member,
     update_owner,
-    get_league_owners,
+    fetch_league_owners_data as get_league_owners,
 )
 
 

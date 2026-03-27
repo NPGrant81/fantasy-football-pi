@@ -5,7 +5,8 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from ..database import get_db
 from .. import models
-from ..routers.league import get_league_owners
+from ..routers.league import fetch_league_owners_data
+from ..services.standings_service import owner_standings_sort_key
 from ..services.validation_service import (
     validate_playoff_settings_boundary,
     validate_playoff_settings_dynamic_rules,
@@ -51,6 +52,125 @@ class MatchSchema(BaseModel):
 class BracketSchema(BaseModel):
     championship: List[MatchSchema]
     consolation: Optional[List[MatchSchema]] = []
+
+
+def _should_use_division_seeding(settings: models.LeagueSettings, owners_data: List[Dict[str, Any]]) -> bool:
+    return bool(
+        getattr(settings, "divisions_enabled", False)
+        and any(bool(owner.get("division_id")) for owner in owners_data)
+    )
+
+
+def _ranked_division_winner_rows(owners_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    grouped: Dict[int, List[Dict[str, Any]]] = {}
+    for owner in owners_data:
+        division_id = owner.get("division_id")
+        if not division_id:
+            continue
+        grouped.setdefault(int(division_id), []).append(owner)
+
+    winners: List[Dict[str, Any]] = []
+    for rows in grouped.values():
+        ranked = sorted(rows, key=owner_standings_sort_key)
+        if ranked:
+            winners.append(ranked[0])
+
+    winners.sort(key=owner_standings_sort_key)
+    return winners
+
+
+def _build_playoff_context(
+    owners_data: List[Dict[str, Any]],
+    settings: models.LeagueSettings,
+    qualifiers: int,
+) -> Dict[str, Any]:
+    ordered_owners = sorted(owners_data, key=owner_standings_sort_key)
+    uses_division_seeding = _should_use_division_seeding(settings, ordered_owners)
+
+    division_winner_rows = _ranked_division_winner_rows(ordered_owners) if uses_division_seeding else []
+    selected_division_winner_rows = division_winner_rows[:qualifiers]
+    division_winner_ids = {int(row["id"]) for row in selected_division_winner_rows}
+
+    wildcard_slots = max(0, qualifiers - len(selected_division_winner_rows))
+    wildcard_rows = [row for row in ordered_owners if int(row["id"]) not in division_winner_ids][:wildcard_slots]
+    playoff_rows = selected_division_winner_rows + wildcard_rows
+
+    # If division winners do not fully populate the field, fall back to overall standings.
+    if len(playoff_rows) < qualifiers:
+        already_selected = {int(row["id"]) for row in playoff_rows}
+        needed = qualifiers - len(playoff_rows)
+        playoff_rows.extend(
+            row for row in ordered_owners if int(row["id"]) not in already_selected
+        )
+        playoff_rows = playoff_rows[:qualifiers]
+
+    playoff_team_ids = {int(row["id"]) for row in playoff_rows}
+    playoff_teams = [
+        {
+            "id": int(row["id"]),
+            "seed": index + 1,
+            "division_id": row.get("division_id"),
+            "division_name": row.get("division_name"),
+            "is_division_winner": int(row["id"]) in division_winner_ids,
+        }
+        for index, row in enumerate(playoff_rows)
+    ]
+
+    return {
+        "ordered_owners": ordered_owners,
+        "playoff_rows": playoff_rows,
+        "playoff_teams": playoff_teams,
+        "playoff_team_ids": playoff_team_ids,
+        "division_winner_ids": division_winner_ids,
+        "uses_division_seeding": uses_division_seeding,
+        "wildcard_count": len([row for row in playoff_rows if int(row["id"]) not in division_winner_ids]),
+    }
+
+
+def _build_seeding_policy_payload(
+    *,
+    settings: models.LeagueSettings,
+    playoff_context: Dict[str, Any],
+    championship_matches: List[Dict[str, Any]],
+    consolation_matches: List[Dict[str, Any]],
+    qualifiers: int,
+) -> Dict[str, Any]:
+    round_labels = _build_round_labels(championship_matches, consolation_matches, qualifiers)
+    return {
+        "divisions_enabled": bool(getattr(settings, "divisions_enabled", False)),
+        "division_count": getattr(settings, "division_count", None),
+        "division_winners_top_seeds": playoff_context["uses_division_seeding"],
+        "division_winner_count": len(playoff_context["division_winner_ids"]),
+        "wildcards_by_overall_record": playoff_context["wildcard_count"] > 0,
+        "seed_source": "division_winners_then_wildcards"
+        if playoff_context["uses_division_seeding"]
+        else "overall_record",
+        "tiebreak_chain": settings.playoff_tiebreakers,
+        "playoff_qualifiers": qualifiers,
+        "playoff_reseed": settings.playoff_reseed,
+        "playoff_consolation": bool(settings.playoff_consolation),
+        "playoff_week_count": len(round_labels.get("championship") or {}),
+        "round_labels": round_labels,
+    }
+
+
+def _build_meta_payload(
+    *,
+    league_id: int,
+    season: int,
+    current_year: int,
+    source: str,
+    warnings: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    warning_list = [warning for warning in (warnings or []) if warning]
+    return {
+        "league_id": league_id,
+        "season": season,
+        "is_historical": season != current_year,
+        "source": source,
+        "warnings": warning_list,
+        "is_partial": bool(warning_list),
+    }
 
 
 def _effective_playoff_qualifiers(configured: int, owner_count: int) -> int:
@@ -197,8 +317,8 @@ def _build_winner_summary(matches: List[Dict[str, Any]], owner_by_id: Dict[int, 
 
 
 def _build_consolation_payload(
-    owners_data: List[Dict[str, Any]],
-    playoff_qualifiers: int,
+    ordered_owners: List[Dict[str, Any]],
+    playoff_team_ids: set[int],
     playoff_consolation: bool,
     division_winners: set[int],
 ) -> List[Dict[str, Any]]:
@@ -206,8 +326,8 @@ def _build_consolation_payload(
     if not playoff_consolation:
         return []
 
-    all_teams = [{"id": o["id"], "seed": idx + 1} for idx, o in enumerate(owners_data)]
-    playoff_teams = all_teams[: playoff_qualifiers]
+    all_teams = [{"id": o["id"], "seed": idx + 1} for idx, o in enumerate(ordered_owners)]
+    playoff_teams = [team for team in all_teams if int(team["id"]) in playoff_team_ids]
     generated = playoff_logic.generate_consolation_bracket(all_teams, playoff_teams)
     payload: List[Dict[str, Any]] = []
 
@@ -280,21 +400,21 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
     settings = _load_settings(db, league.id)
     # build team list from owners using the league endpoint which already
     # computes and sorts by wins/pf etc.
-    owners_data = get_league_owners(league_id=league.id, db=db)
+    owners_data = fetch_league_owners_data(league_id=league.id, db=db)
     effective_qualifiers = _effective_playoff_qualifiers(
         settings.playoff_qualifiers,
         len(owners_data),
     )
-    division_winners = _division_winner_owner_ids(owners_data)
-    teams = [{"id": o["id"], "seed": idx + 1} for idx, o in enumerate(owners_data)]
+    playoff_context = _build_playoff_context(owners_data, settings, effective_qualifiers)
+    division_winners = playoff_context["division_winner_ids"]
 
     # create bracket structure using helper
     bracket = playoff_logic.build_initial_bracket(
-        teams, effective_qualifiers, settings.playoff_reseed
+        playoff_context["playoff_teams"], effective_qualifiers, settings.playoff_reseed
     )
     consolation = _build_consolation_payload(
-        owners_data,
-        effective_qualifiers,
+        playoff_context["ordered_owners"],
+        playoff_context["playoff_team_ids"],
         bool(settings.playoff_consolation),
         division_winners,
     )
@@ -394,25 +514,19 @@ def generate_bracket(req: GenerateRequest, db: Session = Depends(get_db)):
             .order_by(models.PlayoffMatch.round.asc(), models.PlayoffMatch.match_id.asc())
             .all()
         ],
-        "seeding_policy": {
-            "division_winners_top_seeds": any(bool(o.get("division_id")) for o in owners_data),
-            "wildcards_by_overall_record": True,
-            "tiebreak_chain": settings.playoff_tiebreakers,
-            "playoff_qualifiers": effective_qualifiers,
-            "playoff_reseed": settings.playoff_reseed,
-            "playoff_consolation": bool(settings.playoff_consolation),
-            "round_labels": _build_round_labels(
-                bracket.get("championship", []),
-                consolation,
-                effective_qualifiers,
-            ),
-        },
-        "meta": {
-            "league_id": req.league_id,
-            "season": req.season,
-            "is_historical": req.season != datetime.now(timezone.utc).year,
-            "source": "snapshot",
-        },
+        "seeding_policy": _build_seeding_policy_payload(
+            settings=settings,
+            playoff_context=playoff_context,
+            championship_matches=bracket.get("championship", []),
+            consolation_matches=consolation,
+            qualifiers=effective_qualifiers,
+        ),
+        "meta": _build_meta_payload(
+            league_id=req.league_id,
+            season=req.season,
+            current_year=datetime.now(timezone.utc).year,
+            source="snapshot",
+        ),
     }
     db.add(
         models.PlayoffSnapshot(
@@ -469,12 +583,12 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
     # Historical seasons should prefer season-specific snapshots when available.
     if season != current_year and snap and isinstance(snap.data, dict):
         snap_data = dict(snap.data)
-        snap_data["meta"] = {
-            "league_id": league_id,
-            "season": season,
-            "is_historical": True,
-            "source": "snapshot",
-        }
+        snap_data["meta"] = _build_meta_payload(
+            league_id=league_id,
+            season=season,
+            current_year=current_year,
+            source="snapshot",
+        )
         return snap_data
 
     matches = db.query(models.PlayoffMatch).filter(
@@ -484,14 +598,14 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
     if not matches:
         if snap and isinstance(snap.data, dict):
             snap_data = dict(snap.data)
-            snap_data.setdefault(
-                "meta",
-                {
-                    "league_id": league_id,
-                    "season": season,
-                    "is_historical": season != current_year,
-                    "source": "snapshot",
-                },
+            snap_data["meta"] = _build_meta_payload(
+                league_id=league_id,
+                season=season,
+                current_year=current_year,
+                source="snapshot_fallback",
+                warnings=[
+                    "Using saved bracket snapshot because live playoff match rows are unavailable for this season.",
+                ],
             )
             return snap_data
         raise HTTPException(status_code=404, detail="Bracket not found")
@@ -499,14 +613,15 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
     # convert to JSON structure
     champ: List[Dict[str, Any]] = []
     stored_consolation: List[Dict[str, Any]] = []
-    owners_data = get_league_owners(league_id=league_id, db=db)
+    owners_data = fetch_league_owners_data(league_id=league_id, db=db)
     owner_by_id = {int(o["id"]): o for o in owners_data}
     settings = _load_settings(db, league_id)
     effective_qualifiers = _effective_playoff_qualifiers(
         settings.playoff_qualifiers,
         len(owners_data),
     )
-    division_winners = _division_winner_owner_ids(owners_data)
+    playoff_context = _build_playoff_context(owners_data, settings, effective_qualifiers)
+    division_winners = playoff_context["division_winner_ids"]
     for m in matches:
         team_1 = owner_by_id.get(int(m.team_1_id)) if m.team_1_id else None
         team_2 = owner_by_id.get(int(m.team_2_id)) if m.team_2_id else None
@@ -536,8 +651,8 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
         consolation = stored_consolation
     else:
         consolation = _build_consolation_payload(
-            owners_data,
-            effective_qualifiers,
+            playoff_context["ordered_owners"],
+            playoff_context["playoff_team_ids"],
             bool(settings.playoff_consolation),
             division_winners,
         )
@@ -547,27 +662,32 @@ def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Sessi
             match["team_1_division_name"] = team_1.get("division_name") if team_1 else None
             match["team_2_division_name"] = team_2.get("division_name") if team_2 else None
 
-    uses_divisions = any(bool(o.get("division_id")) for o in owners_data)
+    warnings: List[str] = []
+    source = "matches"
+    if season != current_year and not snap:
+        source = "matches_fallback"
+        warnings.append(
+            "Historical season snapshot is unavailable; bracket rendered from playoff match rows and current league settings where season-specific settings were not captured."
+        )
     return {
         "championship": champ,
         "consolation": consolation,
         "champion": _build_winner_summary(champ, owner_by_id),
         "toilet_bowl_winner": _build_winner_summary(consolation, owner_by_id),
-        "seeding_policy": {
-            "division_winners_top_seeds": uses_divisions,
-            "wildcards_by_overall_record": True,
-            "tiebreak_chain": settings.playoff_tiebreakers,
-            "playoff_qualifiers": effective_qualifiers,
-            "playoff_reseed": settings.playoff_reseed,
-            "playoff_consolation": settings.playoff_consolation,
-            "round_labels": _build_round_labels(champ, consolation, effective_qualifiers),
-        },
-        "meta": {
-            "league_id": league_id,
-            "season": season,
-            "is_historical": season != current_year,
-            "source": "matches",
-        },
+        "seeding_policy": _build_seeding_policy_payload(
+            settings=settings,
+            playoff_context=playoff_context,
+            championship_matches=champ,
+            consolation_matches=consolation,
+            qualifiers=effective_qualifiers,
+        ),
+        "meta": _build_meta_payload(
+            league_id=league_id,
+            season=season,
+            current_year=current_year,
+            source=source,
+            warnings=warnings,
+        ),
     }
 
 

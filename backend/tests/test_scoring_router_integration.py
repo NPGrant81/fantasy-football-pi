@@ -1,4 +1,6 @@
 import sys
+import csv
+import io
 from pathlib import Path
 
 import pytest
@@ -157,7 +159,7 @@ def test_import_apply_replacement_deactivates_stale_rules_and_logs_history(clien
     app.dependency_overrides[check_is_commissioner] = lambda: commissioner
     app.dependency_overrides[get_current_user] = lambda: commissioner
 
-    csv_content = """Event,Range_Yds,Point_Value,PostionID
+    csv_content = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,1 points each,8004
 """
 
@@ -195,7 +197,7 @@ def test_imported_rules_drive_matchup_recalculation_scores(client, api_db):
     app.dependency_overrides[check_is_commissioner] = lambda: commissioner
     app.dependency_overrides[get_current_user] = lambda: commissioner
 
-    csv_content = """Event,Range_Yds,Point_Value,PostionID
+    csv_content = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,1 points each,8004
 """
 
@@ -252,7 +254,7 @@ def test_template_lifecycle_import_export_apply_and_recalc(client, api_db):
     api_db.commit()
     api_db.refresh(stale_rule)
 
-    csv_content = """Event,Range_Yds,Point_Value,PostionID
+    csv_content = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,2 points each,8004
 """
 
@@ -432,7 +434,7 @@ def test_import_replacement_propagates_without_stale_rule_leakage(client, api_db
     assert baseline_scores == pytest.approx([1.0, 5.0])
 
     # Replace season rules from import; old active rule should be deactivated.
-    replacement_csv = """Event,Range_Yds,Point_Value,PostionID
+    replacement_csv = """Event,Range_Yds,Point_Value,PositionID
 Receptions,1-999,2 points each,8004
 """
     replace_response = client.post(
@@ -482,3 +484,147 @@ Receptions,1-999,2 points each,8004
     change_types = {row["change_type"] for row in history_response.json()}
     assert "imported" in change_types
     assert "deleted" in change_types
+
+
+def test_template_export_round_trip_preserves_scoring_parity(client, api_db):
+    league, commissioner = _seed_league_and_commissioner(api_db)
+    matchup = _seed_matchup_data(api_db, league.id)
+
+    app.dependency_overrides[check_is_commissioner] = lambda: commissioner
+    app.dependency_overrides[get_current_user] = lambda: commissioner
+
+    source_csv = """Event,Range_Yds,Point_Value,PositionID
+Receptions,1-999,2 points each,8004
+"""
+
+    first_import = client.post(
+        "/scoring/templates/import",
+        json={
+            "template_name": "Round Trip Source",
+            "season_year": 2031,
+            "source_platform": "espn_csv",
+            "csv_content": source_csv,
+        },
+    )
+    assert first_import.status_code == 200
+    source_template_id = int(first_import.json()["id"])
+
+    first_export = client.get(f"/scoring/templates/{source_template_id}/export")
+    assert first_export.status_code == 200
+    exported_csv = first_export.json()["csv"]
+
+    reimport = client.post(
+        "/scoring/templates/import",
+        json={
+            "template_name": "Round Trip Reimported",
+            "season_year": 2032,
+            "source_platform": "roundtrip_csv",
+            "csv_content": exported_csv,
+        },
+    )
+    assert reimport.status_code == 200
+    roundtrip_template_id = int(reimport.json()["id"])
+
+    second_export = client.get(f"/scoring/templates/{roundtrip_template_id}/export")
+    assert second_export.status_code == 200
+
+    source_rows = list(csv.DictReader(io.StringIO(exported_csv)))
+    roundtrip_rows = list(csv.DictReader(io.StringIO(second_export.json()["csv"])))
+    assert len(source_rows) == len(roundtrip_rows) == 1
+
+    comparable_columns = [
+        "category",
+        "event_name",
+        "description",
+        "range_min",
+        "range_max",
+        "point_value",
+        "calculation_type",
+        "applicable_positions",
+        "position_ids",
+    ]
+    assert {
+        key: source_rows[0][key] for key in comparable_columns
+    } == {
+        key: roundtrip_rows[0][key] for key in comparable_columns
+    }
+
+    apply_response = client.post(
+        f"/scoring/templates/{roundtrip_template_id}/apply",
+        json={
+            "season_year": 2026,
+            "deactivate_existing": True,
+        },
+    )
+    assert apply_response.status_code == 200
+
+    recalc_response = client.post(
+        f"/scoring/calculate/matchups/{matchup.id}/recalculate",
+        json={"season": 2026, "season_year": 2026},
+    )
+    assert recalc_response.status_code == 200
+
+    recalc = recalc_response.json()
+    scored_totals = sorted([float(recalc["home_score"]), float(recalc["away_score"])])
+    assert scored_totals == pytest.approx([2.0, 10.0])
+
+
+def test_batch_upsert_rolls_back_all_changes_when_any_rule_update_fails(client, api_db):
+    league, commissioner = _seed_league_and_commissioner(api_db)
+
+    app.dependency_overrides[check_is_commissioner] = lambda: commissioner
+    app.dependency_overrides[get_current_user] = lambda: commissioner
+
+    response = client.post(
+        "/scoring/rules/batch-upsert",
+        json={
+            "season_year": 2026,
+            "replace_existing_for_season": False,
+            "rules": [
+                {
+                    "category": "receiving",
+                    "event_name": "receptions",
+                    "description": "Should rollback on failure",
+                    "range_min": 0,
+                    "range_max": 999,
+                    "point_value": 1.0,
+                    "calculation_type": "per_unit",
+                    "applicable_positions": ["WR"],
+                    "position_ids": [8004],
+                    "source": "custom",
+                    "is_active": True,
+                },
+                {
+                    "id": 999999,
+                    "category": "receiving",
+                    "event_name": "receiving_tds",
+                    "description": "Non-existent rule should fail",
+                    "range_min": 1,
+                    "range_max": 999,
+                    "point_value": 6.0,
+                    "calculation_type": "per_unit",
+                    "applicable_positions": ["WR"],
+                    "position_ids": [8004],
+                    "source": "custom",
+                    "is_active": True,
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+    rules = (
+        api_db.query(models.ScoringRule)
+        .filter(models.ScoringRule.league_id == league.id)
+        .all()
+    )
+    assert rules == []
+
+    history = (
+        api_db.query(models.ScoringRuleChangeLog)
+        .filter(models.ScoringRuleChangeLog.league_id == league.id)
+        .all()
+    )
+    assert history == []

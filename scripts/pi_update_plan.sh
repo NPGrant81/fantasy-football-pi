@@ -147,15 +147,15 @@ fi
 
 if [[ "${action_cloudflared_units}" -eq 1 ]]; then
   echo "${step}) Update cloudflared systemd units"
-  echo "   sudo cp deploy/systemd/cloudflared*.example /etc/systemd/system/"
-  echo "   sudo systemctl daemon-reload"
-  echo "   sudo systemctl restart cloudflared"
+  echo "   sudo bash deploy/systemd/install_cloudflared_monitoring.sh"
   ((step++))
 fi
 
 if [[ "${action_cloudflared_config}" -eq 1 ]]; then
   echo "${step}) Apply cloudflared config"
   echo "   sudo cp deploy/cloudflared/config.ppl-insight-hub-prod1.example.yml /etc/cloudflared/config.yml"
+  echo "   sudo sed -i 's#<tunnel-uuid>#YOUR_TUNNEL_UUID#g' /etc/cloudflared/config.yml"
+  echo "   sudo cloudflared tunnel --config /etc/cloudflared/config.yml ingress validate"
   echo "   sudo systemctl restart cloudflared"
   ((step++))
 fi
@@ -186,4 +186,5 @@ echo "   curl -fsS http://127.0.0.1:8000/health"
 echo "   sudo systemctl status fantasy-football-backend --no-pager"
 echo "   sudo systemctl status nginx --no-pager"
 echo "   sudo systemctl status cloudflared --no-pager"
+echo "   sudo systemctl status cloudflared-watchdog.timer --no-pager"
 echo "   sudo systemctl list-timers --all | grep microsd-db-backup"

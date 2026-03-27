@@ -1,6 +1,8 @@
 War Room Alpha: Technical Architecture
 This document outlines the high-level organization and logical patterns of the War Room Alpha backend.
 
+For the current containerized-vs-microservice architecture decision and high-level system diagram, see `docs/architecture/overview.md` (Issue #302).
+
 1. Directory Structure
    The project follows a Service-Oriented Architecture to separate web interfaces from core business logic.
 

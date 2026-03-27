@@ -1,6 +1,9 @@
 # backend/services/player_service.py
 import re
+from datetime import datetime
+from collections import defaultdict
 
+from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import Session
 from .. import models
 
@@ -32,7 +35,8 @@ def _normalized_name(name: str | None) -> str:
 
 def _dedupe_normalized_name(name: str | None) -> str:
     # Collapse punctuation and suffix variants (e.g. "Chris Godwin Jr.").
-    raw = (name or "").strip().lower()
+    display_name = normalize_display_name(name)
+    raw = (display_name or "").strip().lower()
     normalized = re.sub(r"[^a-z0-9]+", " ", raw)
     tokens = [token for token in normalized.split(" ") if token]
     if tokens and tokens[-1] in NAME_SUFFIX_TOKENS:
@@ -81,6 +85,25 @@ def is_valid_player_row(player: models.Player) -> bool:
         position=player.position,
         nfl_team=player.nfl_team,
     )
+
+
+def normalize_display_name(name: str | None) -> str:
+    """Normalize a player name for UI display.
+
+    - Converts MFL-import "Last, First" format to "First Last"
+    - Title-cases names that are entirely lowercase
+    """
+    if not name:
+        return ""
+    result = name.strip()
+    # Reorder "Last, First" → "First Last"
+    if "," in result:
+        parts = result.split(",", 1)
+        result = f"{parts[1].strip()} {parts[0].strip()}"
+    # Title-case names stored in all-lowercase
+    if result == result.lower():
+        result = result.title()
+    return result
 def canonical_player_identity(name: str | None, position: str | None, nfl_team: str | None) -> tuple[str, str, str]:
     return (
         _normalized_name(name),
@@ -189,13 +212,139 @@ def dedupe_players(players: list[models.Player]) -> list[models.Player]:
         key=lambda row: ((row.position or ""), (row.name or ""), int(row.id or 0)),
     )
 
+
+def _active_player_or_unsynced_filter(db: Session):
+    # Use data freshness from the table itself, not wall-clock year.
+    current_year = datetime.now().year
+    latest_synced_season = db.query(func.max(models.PlayerSeason.season)).scalar()
+    anchor_season = int(latest_synced_season or current_year)
+    min_recent_season = anchor_season - 1
+
+    has_active_recent_season = exists().where(
+        and_(
+            models.PlayerSeason.player_id == models.Player.id,
+            models.PlayerSeason.is_active.is_(True),
+            models.PlayerSeason.season >= min_recent_season,
+        )
+    )
+
+    has_no_season = ~exists().where(
+        models.PlayerSeason.player_id == models.Player.id
+    )
+
+    inactive_teams = PLACEHOLDER_TEAM_CODES | {"FA"}
+    has_unsynced_but_plausible_team = and_(
+        has_no_season,
+        models.Player.nfl_team.isnot(None),
+        ~models.Player.nfl_team.in_(inactive_teams),
+    )
+
+    return or_(has_active_recent_season, has_unsynced_but_plausible_team)
+
+
+def get_all_relevant_players(db: Session) -> list[models.Player]:
+    rows = (
+        db.query(models.Player)
+        .filter(
+            models.Player.position.in_(ALLOWED_POSITIONS),
+            _active_player_or_unsynced_filter(db),
+        )
+        .order_by(models.Player.name, models.Player.id.desc())
+        .all()
+    )
+    return dedupe_players(rows)
+
+
+def get_player_quality_report(db: Session) -> dict[str, object]:
+    current_year = datetime.now().year
+    latest_synced_season = db.query(func.max(models.PlayerSeason.season)).scalar()
+    anchor_season = int(latest_synced_season or current_year)
+    min_recent_season = anchor_season - 1
+
+    allowed_rows = (
+        db.query(models.Player)
+        .filter(models.Player.position.in_(ALLOWED_POSITIONS))
+        .all()
+    )
+    allowed_player_ids = {int(p.id) for p in allowed_rows if p.id is not None}
+
+    included_rows = (
+        db.query(models.Player)
+        .filter(
+            models.Player.position.in_(ALLOWED_POSITIONS),
+            _active_player_or_unsynced_filter(db),
+        )
+        .all()
+    )
+
+    valid_included_rows = [p for p in included_rows if is_valid_player_row(p)]
+    deduped_rows = dedupe_players(included_rows)
+
+    included_ids = {int(p.id) for p in included_rows if p.id is not None}
+
+    recent_season_rows = (
+        db.query(models.PlayerSeason.player_id, models.PlayerSeason.is_active)
+        .filter(models.PlayerSeason.season >= min_recent_season)
+        .all()
+    )
+
+    season_flags: dict[int, dict[str, bool]] = defaultdict(lambda: {"active": False, "inactive": False})
+    for player_id, is_active in recent_season_rows:
+        if player_id is None:
+            continue
+        pid = int(player_id)
+        if is_active:
+            season_flags[pid]["active"] = True
+        else:
+            season_flags[pid]["inactive"] = True
+
+    any_season_ids = {
+        int(row[0])
+        for row in db.query(models.PlayerSeason.player_id).distinct().all()
+        if row[0] is not None
+    }
+
+    active_recent_included_count = sum(
+        1 for pid in included_ids if season_flags[pid]["active"]
+    )
+    unsynced_included_count = sum(
+        1 for pid in included_ids if pid not in any_season_ids
+    )
+
+    inactive_excluded_count = sum(
+        1
+        for pid in allowed_player_ids
+        if season_flags[pid]["inactive"] and not season_flags[pid]["active"] and pid not in included_ids
+    )
+
+    placeholder_or_invalid_filtered_count = len(included_rows) - len(valid_included_rows)
+    duplicate_rows_collapsed_count = max(0, len(valid_included_rows) - len(deduped_rows))
+
+    return {
+        "season_window": {
+            "anchor_season": anchor_season,
+            "min_recent_season": min_recent_season,
+        },
+        "counts": {
+            "total_allowed_position_rows": len(allowed_rows),
+            "included_candidates": len(included_rows),
+            "active_recent_included": active_recent_included_count,
+            "unsynced_included": unsynced_included_count,
+            "inactive_excluded": inactive_excluded_count,
+            "placeholder_or_invalid_filtered": placeholder_or_invalid_filtered_count,
+            "duplicate_rows_collapsed": duplicate_rows_collapsed_count,
+            "final_deduped_players": len(deduped_rows),
+        },
+    }
+
 # 1.1.1 SERVICE: Search ALL players with position filtering
 def search_all_players(db: Session, query_str: str, pos: str = "ALL"):
     search_term = f"%{query_str.strip()}%"
     # Always filter to relevant positions
     query = db.query(models.Player).filter(
         models.Player.name.ilike(search_term),
-        models.Player.position.in_(ALLOWED_POSITIONS)
+        models.Player.position.in_(ALLOWED_POSITIONS),
+        _active_player_or_unsynced_filter(db),
     )
     
     if pos != "ALL":
@@ -355,7 +504,7 @@ def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
         payload.append(
             {
                 "id": player.id,
-                "name": player.name,
+                "name": normalize_display_name(player.name),
                 "position": player.position,
                 "nfl_team": player.nfl_team,
                 "projected_points": float(player.projected_points or 0.0),

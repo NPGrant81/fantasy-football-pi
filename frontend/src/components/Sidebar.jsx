@@ -17,17 +17,19 @@ import {
   FiAward,
   FiRepeat,
   FiAlertTriangle,
+  FiClock,
+  FiRefreshCw,
 } from 'react-icons/fi';
 
 // 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
-const MenuBlock = ({ to, title, desc, icon, onClick }) => {
+const MenuBlock = ({ to, title, desc, icon, onClick, end = true }) => {
   const Icon = icon;
 
   return (
     <NavLink
       to={to}
       onClick={onClick}
-      end
+      end={end}
       className={({ isActive }) =>
         `group relative mb-2 block w-full overflow-hidden rounded-xl border p-3 text-left shadow-sm transition-all ${
           isActive
@@ -57,7 +59,7 @@ const MenuBlock = ({ to, title, desc, icon, onClick }) => {
   );
 };
 
-export default function Sidebar({ isOpen, onClose, username, leagueId }) {
+export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout, isSuperuser, onLeagueSwitch }) {
   const [leagueName, setLeagueName] = useState('');
   const [isCommissioner, setIsCommissioner] = useState(false);
 
@@ -175,6 +177,15 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
           />
 
           <MenuBlock
+            to="/league-history"
+            title="League History"
+            desc="Legacy Analytics & Records"
+            icon={FiClock}
+            onClick={onClose}
+            end={false}
+          />
+
+          <MenuBlock
             to="/ledger"
             title="Ledger"
             desc="My bank statement"
@@ -250,9 +261,28 @@ export default function Sidebar({ isOpen, onClose, username, leagueId }) {
               <p className="text-sm font-bold text-slate-900 dark:text-white">
                 {username}
               </p>
-              <button className="text-xs text-red-500 hover:text-red-400 dark:text-red-400 dark:hover:text-red-300">
-                Log Out
-              </button>
+              <div className="flex items-center gap-3 mt-0.5">
+                <button
+                  onClick={() => {
+                    if (typeof onLogout === 'function') onLogout();
+                    if (typeof onClose === 'function') onClose();
+                  }}
+                  className="text-xs text-red-500 hover:text-red-400 dark:text-red-400 dark:hover:text-red-300"
+                >
+                  Log Out
+                </button>
+                {isSuperuser && (
+                  <button
+                    onClick={() => {
+                      if (typeof onLeagueSwitch === 'function') onLeagueSwitch();
+                      if (typeof onClose === 'function') onClose();
+                    }}
+                    className="flex items-center gap-1 text-xs text-yellow-500 hover:text-yellow-400"
+                  >
+                    <FiRefreshCw size={10} /> Switch League
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

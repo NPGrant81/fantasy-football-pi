@@ -22,6 +22,7 @@ or commit it yourself.
 - API inventory + full page matrix: [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md)
 - Responsive audit by platform (Windows/Raspberry Pi/Linux): [RESPONSIVE_AUDIT_ENVIRONMENT.md](docs/RESPONSIVE_AUDIT_ENVIRONMENT.md)
 - Raspberry Pi deployment runbook (Nginx + systemd): [RASPBERRY_PI_DEPLOYMENT.md](docs/RASPBERRY_PI_DEPLOYMENT.md)
+- Raspberry Pi Docker/Portainer setup runbook: [docker.md](docs/pi-setup/docker.md)
 - Cloudflare tunnel setup (`pplinsighthub.com`): [CLOUDFLARE_TUNNEL_SETUP.md](docs/CLOUDFLARE_TUNNEL_SETUP.md)
 - Dev environment + VS Code tunnel workflow: [dev-environment.md](docs/dev-environment.md)
 
@@ -96,6 +97,30 @@ npm test
 ```
 
 Backend testing & local run
+
+- Local backend DB config (one-time setup):
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Set-Location backend
+Copy-Item .env.example .env
+```
+
+This makes `DATABASE_URL` persistent for backend runtime/scripts so new shells do not require manual export each time.
+ETL loaders under `etl/` also read this same `backend/.env` file.
+
+Optional verification:
+
+```powershell
+Set-Location ..
+python3.13.exe -c "from sqlalchemy import create_engine, text; import os; from backend.database import SQLALCHEMY_DATABASE_URL as u; e=create_engine(u); c=e.connect(); print(c.execute(text('select 1')).scalar()); c.close()"
+```
 
 - Install backend dependencies and run tests:
 
@@ -302,6 +327,21 @@ From the repository root on Windows PowerShell:
 ```
 
 These hooks help prevent the CI errors you’ve seen when new items appear.
+
+### Timed docs governance sweep
+
+To enforce documentation review cadence (beyond formatting/link checks), run:
+
+```bash
+python -m scripts.docs_review_sweep --warn-days 14
+```
+
+This check reads `docs/governance/doc_review_registry.json` and fails when
+governed documents are overdue for review.
+
+A scheduled GitHub workflow also runs this sweep weekly:
+
+- `.github/workflows/docs-governance-sweep.yml` (Monday 13:00 UTC)
 
 - `frontend/cypress/` — Cypress e2e specs and support files
 - `.github/workflows/ci.yml` — updated to run backend tests, frontend tests with coverage, and Cypress E2E job

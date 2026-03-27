@@ -460,8 +460,18 @@ export default function YourLockerRoom({ activeOwnerId }) {
               `/leagues/owners?league_id=${leagueId}`
             );
             setLeagueOwners(Array.isArray(ownersRes.data) ? ownersRes.data : []);
-          } catch {
+          } catch (err) {
             setLeagueOwners([]);
+            const detail = err?.response?.data?.detail;
+            const mappingMismatch =
+              typeof detail === 'object' && detail?.error_code === 'LEAGUE_MAPPING_MISMATCH';
+            if (mappingMismatch) {
+              setToast({
+                message:
+                  'Your account is not mapped to the currently selected league. Switch leagues or contact a commissioner.',
+                type: 'error',
+              });
+            }
           }
           await loadLeagueSettings(leagueId, { resetOnFailure: true });
         }
@@ -1318,9 +1328,15 @@ export default function YourLockerRoom({ activeOwnerId }) {
         <div className="mt-5 flex flex-wrap items-center gap-3 text-slate-400">
           <p className="flex items-center gap-2">
             Current Standing:{' '}
-            <span className="bg-purple-600 text-white px-3 py-1 rounded-lg font-black italic">
-              #{summary.standing} Place
-            </span>
+            {summary?.standing !== null && summary?.standing !== undefined && summary?.standing !== '' ? (
+              <span className="bg-purple-600 text-white px-3 py-1 rounded-lg font-black italic">
+                #{summary.standing} Place
+              </span>
+            ) : (
+              <span className="bg-slate-700 text-slate-100 px-3 py-1 rounded-lg font-black italic">
+                Not Active Yet
+              </span>
+            )}
           </p>
           {focusedOwner?.division_name && (
             <p className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-cyan-300">

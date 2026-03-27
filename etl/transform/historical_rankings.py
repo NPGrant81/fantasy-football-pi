@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 POSITION_LABELS = {
@@ -61,6 +65,16 @@ def build_historical_features(draft_results_df: pd.DataFrame, players_df: pd.Dat
     normalized["position_id"] = pd.to_numeric(normalized["position_id"], errors="coerce")
     normalized["winning_bid"] = normalized["winning_bid"].apply(_parse_bid)
     normalized = normalized.dropna(subset=["player_id", "year"]).copy()
+    if normalized.empty:
+        return pd.DataFrame(
+            columns=[
+                "player_id", "player_name", "position", "appearances",
+                "seasons_active", "avg_bid", "median_bid", "max_bid", "min_bid",
+                "bid_std", "latest_year", "recent_3yr_avg", "recent_3yr_max",
+                "trend_slope", "position_id", "position_baseline_bid",
+                "consistency", "position_scarcity_boost",
+            ]
+        )
     normalized["player_id"] = normalized["player_id"].astype(int)
     normalized["year"] = normalized["year"].astype(int)
 
@@ -229,3 +243,72 @@ def build_rankings_from_history(
     features = build_historical_features(draft_results_df, players_df)
     rankings = score_historical_rankings(features, target_season=target_season)
     return HistoricalRankingResult(rankings=rankings, features=features)
+
+
+# Reverse mapping: position string stored in DB → legacy numeric PositionID
+# used by build_historical_features.
+_POSITION_IDS: dict[str, int] = {v: k for k, v in POSITION_LABELS.items()}
+_POSITION_IDS.update({"DST": 8006, "D/ST": 8006})
+
+
+def build_rankings_from_db(db: "Session", target_season: int) -> HistoricalRankingResult:
+    """Build historical rankings by querying the database instead of reading CSV files.
+
+    Produces the same result as ``build_rankings_from_history`` but sources
+    draft_picks and players directly from the live DB.  Use this function once
+    the CSV data files have been retired.
+    """
+    import backend.models as models
+
+    picks_rows = (
+        db.query(
+            models.DraftPick.player_id.label("PlayerID"),
+            models.DraftPick.year.label("Year"),
+            models.DraftPick.amount.label("WinningBid"),
+            models.Player.position.label("position_str"),
+        )
+        .join(models.Player, models.Player.id == models.DraftPick.player_id)
+        .filter(models.DraftPick.year.isnot(None))
+        .all()
+    )
+
+    draft_results_df = pd.DataFrame(
+        [dict(r._mapping) for r in picks_rows],
+        columns=["PlayerID", "Year", "WinningBid", "position_str"],
+    )
+    draft_results_df["PositionID"] = (
+        draft_results_df["position_str"]
+        .str.upper()
+        .map(_POSITION_IDS)
+        .fillna(0)
+        .astype(int)
+    )
+    draft_results_df = draft_results_df.drop(columns=["position_str"])
+
+    players_rows = (
+        db.query(
+            models.Player.id.label("Player_ID"),
+            models.Player.name.label("PlayerName"),
+            models.Player.position.label("position"),
+        )
+        .all()
+    )
+    players_df = pd.DataFrame(
+        [dict(r._mapping) for r in players_rows],
+        columns=["Player_ID", "PlayerName", "position"],
+    )
+    players_df["PositionID"] = (
+        players_df["position"].str.upper().map(_POSITION_IDS).fillna(0).astype(int)
+    )
+    players_df = players_df.drop(columns=["position"])
+
+    features = build_historical_features(draft_results_df, players_df)
+    if features.empty:
+        raise ValueError(
+            "No historical draft picks found in the database. "
+            "Run load_ppl_history.py (or the MFL import pipeline) to populate "
+            "the draft_picks table before running historical rankings."
+        )
+    rankings = score_historical_rankings(features, target_season=target_season)
+    return HistoricalRankingResult(rankings=rankings, features=features)
+

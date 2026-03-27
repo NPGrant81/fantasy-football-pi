@@ -31,26 +31,33 @@ def run_seeder(SessionLocal, get_password_hash):
         except Exception:
             db.rollback()
 
-        # Check for Admin User
-        nick = db.query(models.User).filter(models.User.username == "Nick Grant").first()
-        if not nick:
-            print("Auto-Seeding: Creating Nick Grant...")
-            nick = models.User(
-                username="Nick Grant",
-                email="nick@example.com",
+        # Check for dedicated Admin superuser (not a league owner)
+        admin = db.query(models.User).filter(models.User.username == "Admin").first()
+        if not admin:
+            print("Auto-Seeding: Creating Admin...")
+            admin = models.User(
+                username="Admin",
+                email="admin@postpacific.local",
                 hashed_password=get_password_hash("password"),
                 is_commissioner=True,
                 is_superuser=True,
-                team_name="War Room Alpha"
+                league_id=None,
+                team_name=None,
             )
-            db.add(nick)
+            db.add(admin)
             db.commit()
-            db.refresh(nick)
-        elif not security.verify_password("password", nick.hashed_password):
+            db.refresh(admin)
+        elif not security.verify_password("password", admin.hashed_password):
             # Self-heal known placeholder/broken hashes so local login remains usable
             # after test runs or partial restores.
-            print("Auto-Seeding: Repairing Nick Grant password hash...")
-            nick.hashed_password = get_password_hash("password")
+            print("Auto-Seeding: Repairing Admin password hash...")
+            admin.hashed_password = get_password_hash("password")
+            db.commit()
+
+        # Ensure Admin remains detached from league ownership views.
+        if admin.league_id is not None or admin.team_name is not None:
+            admin.league_id = None
+            admin.team_name = None
             db.commit()
 
         # Check for Default League
@@ -62,9 +69,7 @@ def run_seeder(SessionLocal, get_password_hash):
             db.commit()
             db.refresh(test_league)
 
-            # Link Nick to the new league
-            nick.league_id = test_league.id
-            db.commit()
+            # No automatic owner-linking in startup seeder.
 
         print("Auto-Seeding Complete.")
     finally:

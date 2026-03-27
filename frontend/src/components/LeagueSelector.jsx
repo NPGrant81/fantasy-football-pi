@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import apiClient from '@api/client';
 import { EmptyState, LoadingState } from '@components/common/AsyncState';
 
 export default function LeagueSelector({ onLeagueSelect, _token }) {
@@ -7,37 +7,50 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
   const [newLeagueName, setNewLeagueName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   // --- 1. FETCH LEAGUES (Runs immediately) ---
   useEffect(() => {
     // FIX A: Removed "if (!_token) return" so it loads even if you aren't logged in yet.
 
-    // FIX B: Changed url from '/league/' to '/leagues/' (Plural)
-    axios
-      .get('http://127.0.0.1:8000/leagues/')
+    apiClient
+      .get('/leagues/')
       .then((res) => {
-        setLeagues(res.data);
+        setLeagues(Array.isArray(res?.data) ? res.data : []);
         setLoading(false);
       })
       .catch((err) => {
         console.error('Could not fetch leagues:', err);
+        setError('Unable to load leagues right now.');
         setLoading(false);
       });
   }, []); // Dependency array is empty so it runs once on mount
+
+  const handleSelect = async (leagueId) => {
+    try {
+      setError('');
+      await apiClient.post('/leagues/join', null, {
+        params: { league_id: leagueId },
+      });
+      onLeagueSelect(String(leagueId));
+    } catch (err) {
+      console.error('Could not join league:', err);
+      setError('Unable to switch leagues. Please try again.');
+    }
+  };
 
   // --- 2. CREATE LEAGUE ---
   const handleCreate = () => {
     if (!newLeagueName) return;
 
-    // FIX C: Changed url to '/leagues/' (Plural)
-    axios
-      .post('http://127.0.0.1:8000/leagues/', { name: newLeagueName })
+    apiClient
+      .post('/leagues/', { name: newLeagueName })
       .then((res) => {
         setLeagues([...leagues, res.data]);
         setNewLeagueName('');
         setIsCreating(false);
       })
-      .catch(() => alert('Error creating league. Name might be taken.'));
+      .catch(() => setError('Error creating league. Name might be taken.'));
   };
 
   return (
@@ -49,6 +62,11 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
         <p className="text-slate-400 text-center mb-8">
           Select your league to enter
         </p>
+        {error ? (
+          <p className="mb-4 text-center text-sm font-semibold text-red-300">
+            {error}
+          </p>
+        ) : null}
 
         {/* LOADING STATE */}
         {loading ? (
@@ -59,7 +77,7 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
             {leagues.map((league) => (
               <button
                 key={league.id}
-                onClick={() => onLeagueSelect(league.id)}
+                onClick={() => handleSelect(league.id)}
                 className="w-full text-left px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 hover:border-yellow-500 transition-all flex justify-between group"
               >
                 <span className="font-bold">{league.name}</span>

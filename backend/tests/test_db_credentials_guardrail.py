@@ -18,12 +18,13 @@ def test_no_hardcoded_postgres_passwords_in_runtime_python_files():
     scan_roots = [repo_root / "backend", repo_root / "etl", repo_root / "scripts"]
 
     offenders = []
+    ignored_path_parts = {"tests", "__pycache__", ".venv", "venv", "site-packages", "node_modules"}
     for root in scan_roots:
         if not root.exists():
             continue
 
         for py_file in root.rglob("*.py"):
-            if any(part in {"tests", "__pycache__", ".venv", "node_modules"} for part in py_file.parts):
+            if any(part.lower() in ignored_path_parts for part in py_file.parts):
                 continue
 
             for line_number, line in enumerate(py_file.read_text(encoding="utf-8").splitlines(), start=1):

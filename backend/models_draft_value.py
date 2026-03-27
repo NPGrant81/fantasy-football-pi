@@ -44,4 +44,12 @@ class DraftValue(Base):
     consensus_tier = Column(String, nullable=True)
     value_over_replacement = Column(Float, nullable=True)
     last_updated = Column(String, nullable=True)
+    # Bid history statistics — computed from draft_picks, not imported from CSV
+    avg_bid = Column(Float, nullable=True)          # historical avg winning bid
+    median_bid = Column(Float, nullable=True)        # historical median winning bid
+    recent_3yr_avg = Column(Float, nullable=True)    # 3-year rolling avg bid
+    trend_slope = Column(Float, nullable=True)       # bid trend over years (positive = rising)
+    appearances = Column(Integer, nullable=True)     # total times drafted in league history
+    model_score = Column(Float, nullable=True)       # derived scoring model score
+    rank = Column(Integer, nullable=True)            # overall rank for the season
 

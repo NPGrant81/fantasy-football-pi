@@ -1,7 +1,7 @@
 # Issue #102 Data Source Audit
 
 - Data directory: ./backend/data
-- Dataset count: 7
+- Dataset count: 6
 - Missing files: None
 
 ## Dataset Inventory
@@ -14,7 +14,6 @@
 | position_id | true | 9 | PositionID, Position, PositionStatus |
 | budget | true | 24 | DraftBudget, Year, OwnerID |
 | owner_registry | true | 35 | Team, TeamID |
-| draft_strategy | true | 0 | StrategyID, OwnerID, Year, StrategyNotes |
 
 ## Identifier Audit
 

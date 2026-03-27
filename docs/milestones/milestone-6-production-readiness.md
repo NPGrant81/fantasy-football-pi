@@ -45,4 +45,4 @@ This milestone prepares the platform for real users and long‑term operation.
 Related infrastructure tasks in [PROJECT_MANAGEMENT.md](../PROJECT_MANAGEMENT.md):
 
 - Story 0.2: Cloudflare Tunnel Setup ⏳
-- Story 0.3: Database Scheduled Backups ⏳
+- Story 0.3: Database Scheduled Backups ✅

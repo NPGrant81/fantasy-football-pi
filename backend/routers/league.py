@@ -7,13 +7,18 @@ from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner # Use our new auth system
 from ..services.ledger_service import owner_balance, owner_draft_budget_total, owner_has_incoming_credits, record_ledger_entry
+from ..services.standings_service import owner_standings_sort_key
+from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.validation_service import (
     validate_league_settings_boundary,
     validate_league_settings_dynamic_rules,
 )
 import secrets
 import string
+import logging
 from utils.email_sender import send_invite_email
+
+logger = logging.getLogger(__name__)
 
 # FIX 1: Changed prefix to "/leagues" (Plural) to match Frontend
 router = APIRouter(
@@ -323,14 +328,21 @@ def get_leagues(db: Session = Depends(get_db)):
 
 # --- NEW: GET /league/owners?league_id= ---
 # This is a GET endpoint to match the frontend call, but is defined here for convenience.
-@router.get("/owners")
-def get_league_owners(league_id: int = Query(...),
-                      group_by_division: bool = Query(False),
-                      db: Session = Depends(get_db)):
+
+
+def fetch_league_owners_data(league_id: int, db: Session, group_by_division: bool = False) -> List[Dict[str, Any]]:
+    """
+    Internal helper: fetch league owner stats without auth checks.
+    Used by the /leagues/owners endpoint (after auth) and by playoffs.py directly.
+    """
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
-    owners = db.query(models.User).filter(models.User.league_id == league_id).all()
+    owners = db.query(models.User).filter(
+        models.User.league_id == league_id,
+        models.User.is_superuser.is_(False),
+        ~models.User.username.like("hist_%"),
+    ).all()
 
     # Build a map from user id to division_id once to avoid per-matchup queries
     # inside calc_stats (which would otherwise cause an N+1 pattern).
@@ -434,11 +446,35 @@ def get_league_owners(league_id: int = Query(...),
     # optionally group by division as secondary sort
     if group_by_division:
         owners_data.sort(
-            key=lambda o: (o.get("division_id") or 0, -o["wins"], -o["pf"])
+            key=lambda o: (o.get("division_id") or 0, *owner_standings_sort_key(o))
         )
     else:
-        owners_data.sort(key=lambda o: (-o["wins"], -o["pf"]))
+        owners_data.sort(key=owner_standings_sort_key)
     return owners_data
+
+
+@router.get("/owners")
+def get_league_owners(league_id: int = Query(...),
+                      group_by_division: bool = Query(False),
+                      current_user: models.User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        logger.warning(
+            "League owner listing denied due to league mismatch (user_id=%s user_league_id=%s requested_league_id=%s)",
+            current_user.id,
+            current_user.league_id,
+            league_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Access denied: user is not mapped to the requested league.",
+                "error_code": "LEAGUE_MAPPING_MISMATCH",
+                "user_league_id": current_user.league_id,
+                "requested_league_id": league_id,
+            },
+        )
+    return fetch_league_owners_data(league_id=league_id, db=db, group_by_division=group_by_division)
 
 # --- NEW: GET /leagues/{league_id} ---
 @router.get("/{league_id}", response_model=LeagueSummary)
@@ -470,11 +506,13 @@ def get_league_news(
     session_key = f"LEAGUE_{league_id}"
     picks = (
         db.query(models.DraftPick)
+        .join(models.User, models.DraftPick.owner_id == models.User.id)
         .filter(
             or_(
                 models.DraftPick.league_id == league_id,
                 models.DraftPick.session_id == session_key,
-            )
+            ),
+            ~models.User.username.like("hist_%"),
         )
         .order_by(desc(models.DraftPick.id))
         .limit(limit)
@@ -484,7 +522,10 @@ def get_league_news(
     items: List[LeagueNewsItem] = []
     for pick in picks:
         owner_name = pick.owner.username if pick.owner else "Unknown Owner"
-        player_name = pick.player.name if pick.player else "Unknown Player"
+        # Defense-in-depth: skip historical MFL-import users (primary guard is the join filter above)
+        if owner_name.startswith("hist_"):
+            continue
+        player_name = _normalize_player_name(pick.player.name) if pick.player else "Unknown Player"
         timestamp = pick.timestamp or "Just now"
         items.append(
             LeagueNewsItem(
@@ -597,7 +638,11 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
     )
 
     if has_faab_ledger:
-        users = db.query(models.User).filter(models.User.league_id == league_id).all()
+        users = db.query(models.User).filter(
+            models.User.league_id == league_id,
+            models.User.is_superuser.is_(False),
+            ~models.User.username.like("hist_%"),
+        ).all()
         legacy_records = (
             db.query(models.WaiverBudget)
             .filter(models.WaiverBudget.league_id == league_id)
@@ -935,7 +980,11 @@ def get_league_budgets(
     year: int = Query(...),
     db: Session = Depends(get_db)
 ):
-    owners = db.query(models.User).filter(models.User.league_id == league_id).all()
+    owners = db.query(models.User).filter(
+        models.User.league_id == league_id,
+        models.User.is_superuser.is_(False),
+        ~models.User.username.like("hist_%"),
+    ).all()
     has_draft_ledger = (
         db.query(models.EconomicLedger.id)
         .filter(
@@ -1273,6 +1322,7 @@ def create_owner(
         if owner_limit and owner_limit > 0:
             current_count = db.query(models.User).filter(
                 models.User.league_id == request.league_id,
+                models.User.is_superuser.is_(False),
                 models.User.username.not_in(["Free Agent", "Obsolete"]),
             ).count()
             if current_count >= owner_limit:
@@ -1310,6 +1360,285 @@ def create_owner(
         # In production, DO NOT return the password here. For now, it helps debugging.
         "debug_password": temp_password 
     }
+
+
+# --- HISTORICAL RECORDS ENDPOINTS ---
+
+class HistoricalRecordSchema(BaseModel):
+    record_json: Dict[str, Any]
+    season: Optional[int] = None
+
+
+class HistoricalRecordsResponse(BaseModel):
+    dataset_key: str
+    league_id: str
+    records: List[Dict[str, Any]]
+    count: int
+
+
+def _historical_records_query(db: Session, *, dataset_key: str, league_id: int):
+    league_id_str = str(league_id)
+    return db.query(models.MflHtmlRecordFact).filter(
+        models.MflHtmlRecordFact.dataset_key == dataset_key,
+        or_(
+            models.MflHtmlRecordFact.target_league_id == league_id,
+            models.MflHtmlRecordFact.league_id == league_id_str,
+        ),
+    )
+
+
+def _safe_record_int(record: Dict[str, Any], *keys: str) -> int:
+    for key in keys:
+        value = record.get(key)
+        if value is None:
+            continue
+        try:
+            return int(float(str(value).strip()))
+        except (TypeError, ValueError):
+            continue
+    return -1
+
+
+def _sorted_record_json(
+    records: List[models.MflHtmlRecordFact],
+    *,
+    sort_keys: List[str] | None = None,
+    limit: int | None = None,
+) -> List[Dict[str, Any]]:
+    data = [r.record_json for r in records]
+    if sort_keys:
+        data.sort(
+            key=lambda row: _safe_record_int(row, *sort_keys),
+            reverse=True,
+        )
+    if limit is not None:
+        return data[:limit]
+    return data
+
+
+@router.get("/{league_id}/history/champions")
+def get_league_champions(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get all league champions through history."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_league_champions_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"])
+    return HistoricalRecordsResponse(
+        dataset_key="html_league_champions_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/awards")
+def get_league_awards(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get all league awards through history."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_league_awards_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"])
+    return HistoricalRecordsResponse(
+        dataset_key="html_league_awards_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/franchise")
+def get_franchise_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get franchise single-game scoring records."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_franchise_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"])
+    return HistoricalRecordsResponse(
+        dataset_key="html_franchise_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/player")
+def get_player_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get top player single-week scoring records."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_player_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"], limit=100)
+    return HistoricalRecordsResponse(
+        dataset_key="html_player_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/match")
+def get_matchup_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get highest-scoring matchups and greatest comebacks."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_matchup_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"], limit=100)
+    return HistoricalRecordsResponse(
+        dataset_key="html_matchup_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/all-time-series")
+def get_all_time_series_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get head-to-head all-time series records between managers."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_all_time_series_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["series_season", "season"], limit=100)
+    return HistoricalRecordsResponse(
+        dataset_key="html_all_time_series_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/season")
+def get_season_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get best season records (wins, points for/against)."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_season_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"])
+    return HistoricalRecordsResponse(
+        dataset_key="html_season_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/career")
+def get_career_records(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get career aggregate records across league history."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_career_records_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["wins", "season"])
+    return HistoricalRecordsResponse(
+        dataset_key="html_career_records_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
+
+
+@router.get("/{league_id}/history/records/streaks")
+def get_record_streaks(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Get notable win/loss streaks through history."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    mfl_league_id = str(league_id)
+    records = _historical_records_query(
+        db,
+        dataset_key="html_record_streaks_normalized",
+        league_id=league_id,
+    ).all()
+
+    data = _sorted_record_json(records, sort_keys=["record_year", "season"], limit=100)
+    return HistoricalRecordsResponse(
+        dataset_key="html_record_streaks_normalized",
+        league_id=mfl_league_id,
+        records=data,
+        count=len(data),
+    )
 
 
 @router.put("/owners/{owner_id}")
@@ -1360,6 +1689,7 @@ def finalize_draft(league_id: int, db: Session = Depends(get_db)):
     # 2. Get Owners in THIS league
     owners = db.query(models.User).filter(
         models.User.league_id == league_id,
+        models.User.is_superuser.is_(False),
         models.User.username.not_in(["Free Agent", "Obsolete"])
     ).all()
     

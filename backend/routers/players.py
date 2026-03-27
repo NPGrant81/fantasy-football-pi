@@ -1,6 +1,8 @@
 # backend/routers/players.py
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from fastapi import HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -13,6 +15,18 @@ router = APIRouter(
     prefix="/players",
     tags=["Players"]
 )
+
+
+class PlayerSearchResult(BaseModel):
+    id: int
+    name: str
+    position: Optional[str] = None
+    nfl_team: Optional[str] = None
+    adp: Optional[float] = None
+    projected_points: Optional[float] = None
+    gsis_id: Optional[str] = None
+    espn_id: Optional[str] = None
+    bye_week: Optional[int] = None
 
 
 def _build_headshot_url(espn_id: Optional[str]) -> Optional[str]:
@@ -39,14 +53,28 @@ def _build_team_logo_url(team_abbr: Optional[str]) -> Optional[str]:
     # Use the NFL club logo endpoint keyed by cleaned team abbreviation.
     return f"https://static.www.nfl.com/t_q-best/league/api/clubs/logos/{normalized}.png"
 
-@router.get("/search")
+@router.get("/search", response_model=list[PlayerSearchResult])
 def search_players(
     q: str = Query(..., min_length=2), 
     pos: str = Query("ALL"), 
     db: Session = Depends(get_db)
 ):
     # 2.2.1 CALL the service for searching
-    return player_service.search_all_players(db, q, pos)
+    results = player_service.search_all_players(db, q, pos)
+    return [
+        {
+            "id": p.id,
+            "name": player_service.normalize_display_name(p.name),
+            "position": p.position,
+            "nfl_team": p.nfl_team,
+            "adp": p.adp,
+            "projected_points": p.projected_points,
+            "gsis_id": p.gsis_id,
+            "espn_id": p.espn_id,
+            "bye_week": p.bye_week,
+        }
+        for p in results
+    ]
 
 @router.get("/waiver-wire")
 def get_free_agents(
@@ -77,6 +105,18 @@ def get_top_free_agents(
     )
 
 
+@router.get("/quality-report")
+def get_player_quality_report(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "requested_by_user_id": int(current_user.id),
+        **player_service.get_player_quality_report(db),
+    }
+
+
 @router.get("/{player_id}/season-details")
 def get_player_season_details(
     player_id: int,
@@ -100,7 +140,7 @@ def get_player_season_details(
     if not season_rows:
         return {
             "player_id": player.id,
-            "player_name": player.name,
+            "player_name": player_service.normalize_display_name(player.name),
             "position": player.position,
             "nfl_team": player.nfl_team,
             "espn_id": player.espn_id,
@@ -138,7 +178,7 @@ def get_player_season_details(
 
     return {
         "player_id": player.id,
-        "player_name": player.name,
+        "player_name": player_service.normalize_display_name(player.name),
         "position": player.position,
         "nfl_team": player.nfl_team,
         "espn_id": player.espn_id,
@@ -160,11 +200,21 @@ def get_player_season_details(
     }
 
 # --- NEW: GET /players/ ---
-@router.get("/")
+@router.get("/", response_model=list[PlayerSearchResult])
 def get_all_players(db: Session = Depends(get_db)):
     """Return all relevant fantasy players (QB, RB, WR, TE, K, DEF) from active NFL rosters."""
-    allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
-    rows = db.query(models.Player).filter(
-        models.Player.position.in_(allowed_positions)
-    ).order_by(models.Player.position, models.Player.name, models.Player.id.desc()).all()
-    return player_service.dedupe_players(rows)
+    deduped = player_service.get_all_relevant_players(db)
+    return [
+        {
+            "id": p.id,
+            "name": player_service.normalize_display_name(p.name),
+            "position": p.position,
+            "nfl_team": p.nfl_team,
+            "adp": p.adp,
+            "projected_points": p.projected_points,
+            "gsis_id": p.gsis_id,
+            "espn_id": p.espn_id,
+            "bye_week": p.bye_week,
+        }
+        for p in deduped
+    ]

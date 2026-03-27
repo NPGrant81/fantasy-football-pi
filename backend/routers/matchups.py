@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from ..database import get_db
 from .. import models
 from ..services import scoring_service
+from ..services.player_service import normalize_display_name as _normalize_player_name
+from ..core.security import get_current_user
 
 router = APIRouter(
     prefix="/matchups",
@@ -110,10 +112,7 @@ def get_team_starters(
     )
     if league_id is not None:
         picks_q = picks_q.filter(
-            or_(
-                models.DraftPick.league_id == league_id,
-                models.DraftPick.league_id.is_(None),
-            )
+            (models.DraftPick.league_id == league_id) | (models.DraftPick.league_id.is_(None))
         )
     picks = picks_q.all()
 
@@ -149,7 +148,7 @@ def get_team_starters(
 
             roster.append(PlayerGameStats(
                 player_id=player.id,
-                name=player.name,
+                name=_normalize_player_name(player.name),
                 position=player.position,
                 nfl_team=player.nfl_team,
                 projected=projected_points,
@@ -178,8 +177,21 @@ def calculate_win_probabilities(home_projected: float, away_projected: float) ->
 
 # --- Endpoints ---
 @router.get("/week/{week_num}", response_model=List[MatchupSchema])
-def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
-    games = db.query(models.Matchup).filter(models.Matchup.week == week_num).all()
+def get_weekly_matchups(
+    week_num: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    season_year = _resolve_season_year(db, current_user.league_id)
+    games = (
+        db.query(models.Matchup)
+        .filter(
+            models.Matchup.week == week_num,
+            models.Matchup.league_id == current_user.league_id,
+            models.Matchup.season == season_year,
+        )
+        .all()
+    )
     label, date_str = get_week_info(week_num)
 
     results = []
@@ -263,11 +275,26 @@ def get_weekly_matchups(week_num: int, db: Session = Depends(get_db)):
     return results
 
 @router.get("/{matchup_id}", response_model=MatchupSchema)
-def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
+def get_matchup_detail(
+    matchup_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     game = db.query(models.Matchup).filter(models.Matchup.id == matchup_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Matchup not found")
-        
+    if game.league_id != current_user.league_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return fetch_matchup_detail_data(matchup_id, db, game=game)
+
+
+def fetch_matchup_detail_data(matchup_id: int, db: Session, *, game: Optional[models.Matchup] = None) -> MatchupSchema:
+    """Internal helper: fetch matchup detail without auth checks."""
+    if game is None:
+        game = db.query(models.Matchup).filter(models.Matchup.id == matchup_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Matchup not found")
+
     home = db.query(models.User).filter(models.User.id == game.home_team_id).first()
     away = db.query(models.User).filter(models.User.id == game.away_team_id).first()
     label, date_str = get_week_info(game.week)
@@ -316,7 +343,7 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
         home_projected=home_total_proj, # Use sum of players
         home_win_probability=home_win_probability,
         home_roster=home_roster,        # <--- Sending Roster
-        
+
         away_team=away.username,
         away_team_id=away.id,
         away_team_info=TeamInfo(
@@ -333,7 +360,7 @@ def get_matchup_detail(matchup_id: int, db: Session = Depends(get_db)):
         away_projected=away_total_proj, # Use sum of players
         away_win_probability=away_win_probability,
         away_roster=away_roster,        # <--- Sending Roster
-        
+
         is_completed=game.is_completed,
         game_status=game.game_status or "NOT_STARTED",
         label=label,

@@ -1,7 +1,31 @@
 # Dev Environment Guide
 
-Date: 2026-03-10
+Date: 2026-03-26 (Updated: Python 3.13 standardization, dependency upgrades)
 Related Issue: #206
+
+## System Requirements 📋
+
+| Component | Local | CI/Deployment | Notes |
+|-----------|-------|---|---|
+| Python | 3.13+ | 3.13+ | Updated to match local dev environment |
+| PostgreSQL | 15 | 15 | Via `docker-compose` or system package |
+| Node.js | 18+ LTS | (Frontend CI) | For frontend development only |
+| PowerShell | 7+ (pwsh) | N/A | Used for repo hygiene scripts |
+
+### Verify Your Setup
+
+```powershell
+# Check Python version (should be 3.13.x)
+python3.13.exe --version
+
+# Check Node version (should be 18.x or higher)
+node --version
+
+# Start services locally
+docker-compose up -d
+```
+
+---
 
 ## Git Worktrees (Parallel Dev Workflow)
 
@@ -65,6 +89,13 @@ Repo recommendation is preconfigured in `.vscode/extensions.json`.
 - Return to VS Code and verify extension commands are available.
 
 ### 3. Start app services locally
+Before starting backend services, set persistent local backend env once:
+
+```powershell
+Set-Location backend
+Copy-Item .env.example .env
+```
+
 Backend:
 ```bash
 cd backend

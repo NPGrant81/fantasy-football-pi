@@ -82,7 +82,10 @@ def _resolve_season(settings: models.LeagueSettings, explicit_season: int | None
 
 
 def _league_strength_inputs(db: Session, league_id: int) -> list[TeamStrengthInput]:
-    users = db.query(models.User).filter(models.User.league_id == league_id).all()
+    users = db.query(models.User).filter(
+        models.User.league_id == league_id,
+        ~models.User.username.like("hist_%"),
+    ).all()
     rows: list[TeamStrengthInput] = []
 
     for user in users:
@@ -154,7 +157,10 @@ def _get_divisions_for_season(db: Session, league_id: int, season: int) -> list[
 
 def _current_assignment(db: Session, league_id: int) -> dict[int, list[int]]:
     mapping: dict[int, list[int]] = {}
-    users = db.query(models.User).filter(models.User.league_id == league_id).all()
+    users = db.query(models.User).filter(
+        models.User.league_id == league_id,
+        ~models.User.username.like("hist_%"),
+    ).all()
     for user in users:
         if user.division_id is None:
             continue
@@ -213,7 +219,10 @@ def upsert_division_config(
     _ensure_admin_for_league(current_user, league_id)
     settings = _get_or_create_settings(db, league_id)
 
-    users = db.query(models.User).filter(models.User.league_id == league_id).all()
+    users = db.query(models.User).filter(
+        models.User.league_id == league_id,
+        ~models.User.username.like("hist_%"),
+    ).all()
     team_count = len(users)
 
     if not payload.enabled:
@@ -404,7 +413,10 @@ def finalize_assignment(
     )
 
     by_index = {idx: div for idx, div in enumerate(divisions)}
-    users = {u.id: u for u in db.query(models.User).filter(models.User.league_id == league_id).all()}
+    users = {u.id: u for u in db.query(models.User).filter(
+        models.User.league_id == league_id,
+        ~models.User.username.like("hist_%"),
+    ).all()}
     previous = _current_assignment(db, league_id)
 
     for row in preview.get("assignments", []):
@@ -465,7 +477,10 @@ def undo_last_assignment(
         raise HTTPException(status_code=404, detail="No finalized division assignment to undo")
 
     previous = (latest.config_json or {}).get("previous_assignments") or {}
-    users = {u.id: u for u in db.query(models.User).filter(models.User.league_id == league_id).all()}
+    users = {u.id: u for u in db.query(models.User).filter(
+        models.User.league_id == league_id,
+        ~models.User.username.like("hist_%"),
+    ).all()}
 
     # Clear current assignment first.
     for user in users.values():

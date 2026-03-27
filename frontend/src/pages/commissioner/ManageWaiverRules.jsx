@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { useActiveLeague } from '@context/LeagueContext';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
 import { EmptyState, LoadingState } from '@components/common/AsyncState';
@@ -22,7 +23,7 @@ import {
 /* ignore-breakpoints */
 
 export default function ManageWaiverRules() {
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  const leagueId = useActiveLeague();
   const [waiverDeadline, setWaiverDeadline] = useState('');
   const [rosterSize, setRosterSize] = useState('');
   const [startingBudget, setStartingBudget] = useState('');
@@ -64,6 +65,7 @@ export default function ManageWaiverRules() {
     fetchWaiverSettings();
     fetchClaims();
     fetchBudgets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId]);
 
   // fetch historical waiver claims (commissioner only)

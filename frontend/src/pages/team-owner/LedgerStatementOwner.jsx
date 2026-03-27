@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { useActiveLeague } from '@context/LeagueContext';
 import {
   StandardTable,
   StandardTableContainer,
@@ -23,7 +24,7 @@ const CURRENCY_OPTIONS = [
 ];
 
 export default function LedgerStatementOwner() {
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  const leagueId = useActiveLeague();
   const [currencyType, setCurrencyType] = useState('');
   const [seasonYear, setSeasonYear] = useState('');
   const [statementLoading, setStatementLoading] = useState(false);

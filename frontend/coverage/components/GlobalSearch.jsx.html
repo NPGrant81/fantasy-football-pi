@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">25% </span>
+                <span class="strong">29.41% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>4/16</span>
+                <span class='fraction'>5/17</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">26.66% </span>
+                <span class="strong">31.25% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>4/15</span>
+                <span class='fraction'>5/16</span>
             </div>
         
             
@@ -130,13 +130,22 @@
 <a name='L65'></a><a href='#L65'>65</a>
 <a name='L66'></a><a href='#L66'>66</a>
 <a name='L67'></a><a href='#L67'>67</a>
-<a name='L68'></a><a href='#L68'>68</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -167,6 +176,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -198,12 +212,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// frontend/src/components/GlobalSearch.jsx
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { FiSearch, FiUser, FiX } from 'react-icons/fi';
+import FloatingLayer from '@components/overlay/FloatingLayer';
 &nbsp;
 export default function GlobalSearch({ onPlayerSelect }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const searchAnchorRef = useRef(null);
 &nbsp;
   const handleSearch = <span class="fstat-no" title="function not covered" >async (v</span>al) =&gt; {
 <span class="cstat-no" title="statement not covered" >    setQuery(val);</span>
@@ -222,7 +238,7 @@ export default function GlobalSearch({ onPlayerSelect }) {
   };
 &nbsp;
   return (
-    &lt;div className="relative w-full sm:max-w-md group"&gt;
+    &lt;div ref={searchAnchorRef} className="relative w-full sm:max-w-md md:max-w-lg group"&gt;
       &lt;div className="flex items-center bg-slate-800 border border-slate-700 rounded-full px-4 py-2 focus-within:border-purple-500 transition-all"&gt;
         &lt;FiSearch className="text-slate-400 mr-2" /&gt;
         &lt;input
@@ -239,7 +255,12 @@ export default function GlobalSearch({ onPlayerSelect }) {
 &nbsp;
       {/* RESULTS DROPDOWN */}
       {results.length &gt; 0 &amp;&amp; (
-<span class="branch-1 cbranch-no" title="branch not covered" >        &lt;div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50"&gt;</span>
+<span class="branch-1 cbranch-no" title="branch not covered" >        &lt;FloatingLayer</span>
+          anchorRef={searchAnchorRef}
+          open={results.length &gt; 0}
+          offset={8}
+          className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
+        &gt;
           {results.map(<span class="fstat-no" title="function not covered" >(p</span>layer) =&gt; (
 <span class="cstat-no" title="statement not covered" >            &lt;div</span>
               key={player.id}
@@ -259,7 +280,7 @@ export default function GlobalSearch({ onPlayerSelect }) {
               &lt;/div&gt;
             &lt;/div&gt;
           ))}
-        &lt;/div&gt;
+        &lt;/FloatingLayer&gt;
       )}
     &lt;/div&gt;
   );
@@ -271,7 +292,7 @@ export default function GlobalSearch({ onPlayerSelect }) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-01T19:41:04.967Z
+                at 2026-03-25T11:26:52.950Z
             </div>
         <script src="../prettify.js"></script>
         <script>

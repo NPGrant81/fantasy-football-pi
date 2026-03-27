@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 import apiClient from '@api/client';
+import { useActiveLeague } from '@context/LeagueContext';
 import { ErrorState, LoadingState } from '@components/common/AsyncState';
 import PageTemplate from '@components/layout/PageTemplate';
 import {
@@ -49,7 +50,7 @@ const normalizeMinimumSlots = ({ maxes, activeRosterSize }) => {
 };
 
 export default function LineupRules() {
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  const leagueId = useActiveLeague();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -21,12 +22,15 @@ except ImportError:
 router = APIRouter(prefix="/advisor", tags=["AI"])
 _RANKING_CACHE: dict[tuple[int, int, int], tuple[float, list[dict]]] = {}
 _RANKING_CACHE_TTL_SECONDS = 15.0
+logger = logging.getLogger(__name__)
 
 
 @router.get("/status")
 def get_advisor_status():
     api_key = os.environ.get("GEMINI_API_KEY")
-    return {"enabled": bool(api_key)}
+    has_genai_sdk = bool(genai)
+    enabled = bool(api_key) and has_genai_sdk
+    return {"enabled": enabled}
 
 
 class AdvisorRequest(BaseModel):
@@ -401,6 +405,11 @@ def ask_gemini(request: AdvisorRequest, db: Session = Depends(get_db)):
     # 1. Check for API Key and genai availability (Lazy Load)
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key or not genai:
+        logger.warning(
+            "Advisor unavailable: missing Gemini configuration (has_api_key=%s, has_genai_sdk=%s)",
+            bool(api_key),
+            bool(genai),
+        )
         return {"response": "⚠️ The Commissioner is offline. (Missing GEMINI_API_KEY or genai package)"}
 
     # 2. FETCH CONTEXT (League-specific rules)

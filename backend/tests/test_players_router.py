@@ -1,4 +1,5 @@
 from uuid import uuid4
+from datetime import datetime
 
 import pytest
 from sqlalchemy import text
@@ -10,41 +11,31 @@ from backend.core import security
 
 @pytest.fixture(autouse=True)
 def _sync_players_id_sequence():
-    session = SessionLocal()
-    try:
-        session.execute(
-            text(
-                """
-                SELECT setval(
-                    pg_get_serial_sequence('players', 'id'),
-                    COALESCE((SELECT MAX(id) FROM players), 1),
-                    (SELECT MAX(id) IS NOT NULL FROM players)
+    def _sync_sequence() -> None:
+        session = SessionLocal()
+        try:
+            if session.bind.dialect.name != "postgresql":
+                return
+            session.execute(
+                text(
+                    """
+                    SELECT setval(
+                        pg_get_serial_sequence('players', 'id'),
+                        COALESCE((SELECT MAX(id) FROM players), 1),
+                        (SELECT MAX(id) IS NOT NULL FROM players)
+                    )
+                    """
                 )
-                """
             )
-        )
-        session.commit()
-    finally:
-        session.close()
+            session.commit()
+        finally:
+            session.close()
+
+    _sync_sequence()
 
     yield
 
-    session = SessionLocal()
-    try:
-        session.execute(
-            text(
-                """
-                SELECT setval(
-                    pg_get_serial_sequence('players', 'id'),
-                    COALESCE((SELECT MAX(id) FROM players), 1),
-                    (SELECT MAX(id) IS NOT NULL FROM players)
-                )
-                """
-            )
-        )
-        session.commit()
-    finally:
-        session.close()
+    _sync_sequence()
 
 
 def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
@@ -159,6 +150,149 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
             cleanup.close()
 
 
+def test_player_quality_report_requires_commissioner(client):
+    suffix = uuid4().hex[:8]
+    league_id = None
+    owner_username = None
+
+    session = SessionLocal()
+    try:
+        if session.bind.dialect.name == "postgresql":
+            session.execute(
+                text(
+                    """
+                    SELECT setval(
+                        pg_get_serial_sequence('users', 'id'),
+                        COALESCE((SELECT MAX(id) FROM users), 1),
+                        (SELECT MAX(id) IS NOT NULL FROM users)
+                    )
+                    """
+                )
+            )
+            session.commit()
+
+        league = models.League(name=f"Quality Report League {suffix}")
+        session.add(league)
+        session.commit()
+        session.refresh(league)
+        league_id = league.id
+
+        owner = models.User(
+            username=f"owner-quality-{suffix}",
+            email=None,
+            hashed_password="h",
+            league_id=league_id,
+            is_commissioner=False,
+        )
+        session.add(owner)
+        session.commit()
+        session.refresh(owner)
+        owner_username = owner.username
+    finally:
+        session.close()
+
+    try:
+        token = security.create_access_token({"sub": owner_username})
+        client.cookies.set("ffpi_access_token", token)
+        response = client.get("/players/quality-report")
+        assert response.status_code == 403
+    finally:
+        client.cookies.clear()
+        cleanup = SessionLocal()
+        try:
+            if league_id is not None:
+                cleanup.query(models.User).filter(
+                    models.User.league_id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.query(models.League).filter(
+                    models.League.id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_player_quality_report_returns_expected_shape_for_commissioner(client):
+    suffix = uuid4().hex[:8]
+    league_id = None
+    commish_username = None
+
+    session = SessionLocal()
+    try:
+        if session.bind.dialect.name == "postgresql":
+            session.execute(
+                text(
+                    """
+                    SELECT setval(
+                        pg_get_serial_sequence('users', 'id'),
+                        COALESCE((SELECT MAX(id) FROM users), 1),
+                        (SELECT MAX(id) IS NOT NULL FROM users)
+                    )
+                    """
+                )
+            )
+            session.commit()
+
+        league = models.League(name=f"Quality Report Commish League {suffix}")
+        session.add(league)
+        session.commit()
+        session.refresh(league)
+        league_id = league.id
+
+        commissioner = models.User(
+            username=f"commish-quality-{suffix}",
+            email=None,
+            hashed_password="h",
+            league_id=league_id,
+            is_commissioner=True,
+        )
+        session.add(commissioner)
+        session.commit()
+        session.refresh(commissioner)
+        commish_username = commissioner.username
+    finally:
+        session.close()
+
+    try:
+        token = security.create_access_token({"sub": commish_username})
+        client.cookies.set("ffpi_access_token", token)
+        response = client.get("/players/quality-report")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "generated_at" in data
+        assert "requested_by_user_id" in data
+        assert "season_window" in data
+        assert "counts" in data
+
+        counts = data["counts"]
+        for key in [
+            "total_allowed_position_rows",
+            "included_candidates",
+            "active_recent_included",
+            "unsynced_included",
+            "inactive_excluded",
+            "placeholder_or_invalid_filtered",
+            "duplicate_rows_collapsed",
+            "final_deduped_players",
+        ]:
+            assert key in counts
+    finally:
+        client.cookies.clear()
+        cleanup = SessionLocal()
+        try:
+            if league_id is not None:
+                cleanup.query(models.User).filter(
+                    models.User.league_id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.query(models.League).filter(
+                    models.League.id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
 def test_top_free_agents_momentum_promotes_recent_waiver_target(client):
     suffix = uuid4().hex[:8]
     created_player_ids: list[int] = []
@@ -245,6 +379,30 @@ def test_top_free_agents_momentum_promotes_recent_waiver_target(client):
         assert float(data[0].get("pickup_trend_score") or 0.0) > 0.0
     finally:
         client.cookies.clear()
+        cleanup = SessionLocal()
+        try:
+            if league_id is not None:
+                cleanup.query(models.User).filter(
+                    models.User.league_id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.query(models.League).filter(
+                    models.League.id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+        cleanup = SessionLocal()
+        try:
+            if league_id is not None:
+                cleanup.query(models.User).filter(
+                    models.User.league_id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.query(models.League).filter(
+                    models.League.id == league_id
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
         cleanup = SessionLocal()
         try:
             if created_txn_ids:
@@ -615,6 +773,237 @@ def test_players_endpoint_collapses_initial_variants_for_same_player(client):
                     models.Player.id.in_(created_ids)
                 ).delete(synchronize_session=False)
                 cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_players_endpoint_collapses_last_first_name_variants(client):
+    suffix = uuid4().hex[:8]
+    created_ids: list[int] = []
+
+    session = SessionLocal()
+    try:
+        players = [
+            models.Player(
+                name=f"Brown{suffix}, AJ",
+                position="WR",
+                nfl_team="PHI",
+                gsis_id=None,
+                espn_id=f"ESPN-COMMA-{suffix}",
+            ),
+            models.Player(
+                name=f"AJ Brown{suffix}",
+                position="WR",
+                nfl_team="PHI",
+                gsis_id=None,
+                espn_id=None,
+            ),
+        ]
+        session.add_all(players)
+        session.commit()
+        created_ids = [row.id for row in players if row.id is not None]
+    finally:
+        session.close()
+
+    try:
+        response = client.get("/players/")
+        assert response.status_code == 200
+        data = response.json()
+
+        rows = [
+            row
+            for row in data
+            if str(row.get("name", "")) == f"AJ Brown{suffix}" and row.get("position") == "WR"
+        ]
+
+        assert len(rows) == 1
+        assert rows[0].get("espn_id") == f"ESPN-COMMA-{suffix}"
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_players_search_excludes_players_with_inactive_recent_season(client):
+    suffix = uuid4().hex[:8]
+    created_player_ids: list[int] = []
+    created_season_ids: list[int] = []
+    season = datetime.now().year
+
+    session = SessionLocal()
+    try:
+        active_player = models.Player(
+            name=f"Search Active {suffix}",
+            position="WR",
+            nfl_team="BUF",
+        )
+        inactive_player = models.Player(
+            name=f"Search Inactive {suffix}",
+            position="WR",
+            nfl_team="BUF",
+        )
+        session.add_all([active_player, inactive_player])
+        session.commit()
+        session.refresh(active_player)
+        session.refresh(inactive_player)
+
+        active_season = models.PlayerSeason(
+            player_id=active_player.id,
+            season=season,
+            nfl_team="BUF",
+            position="WR",
+            is_active=True,
+            source="test",
+        )
+        inactive_season = models.PlayerSeason(
+            player_id=inactive_player.id,
+            season=season,
+            nfl_team="BUF",
+            position="WR",
+            is_active=False,
+            source="test",
+        )
+        session.add_all([active_season, inactive_season])
+        session.commit()
+
+        created_player_ids = [active_player.id, inactive_player.id]
+        created_season_ids = [active_season.id, inactive_season.id]
+    finally:
+        session.close()
+
+    try:
+        response = client.get(f"/players/search?q={suffix}&pos=ALL")
+        assert response.status_code == 200
+        rows = response.json()
+        names = {row.get("name") for row in rows}
+
+        assert f"Search Active {suffix}" in names
+        assert f"Search Inactive {suffix}" not in names
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_season_ids:
+                cleanup.query(models.PlayerSeason).filter(
+                    models.PlayerSeason.id.in_(created_season_ids)
+                ).delete(synchronize_session=False)
+            if created_player_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_player_ids)
+                ).delete(synchronize_session=False)
+            cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_players_list_and_search_stay_in_sync_for_active_and_dedupe(client):
+    suffix = uuid4().hex[:8]
+    created_player_ids: list[int] = []
+    created_season_ids: list[int] = []
+    season = datetime.now().year
+
+    session = SessionLocal()
+    try:
+        canonical = models.Player(
+            name=f"Brown{suffix}, AJ",
+            position="WR",
+            nfl_team="PHI",
+            espn_id=f"ESPN-PARITY-{suffix}",
+        )
+        duplicate_variant = models.Player(
+            name=f"AJ Brown{suffix}",
+            position="WR",
+            nfl_team="PHI",
+        )
+        inactive = models.Player(
+            name=f"Parity Inactive {suffix}",
+            position="WR",
+            nfl_team="PHI",
+        )
+
+        session.add_all([canonical, duplicate_variant, inactive])
+        session.commit()
+        session.refresh(canonical)
+        session.refresh(duplicate_variant)
+        session.refresh(inactive)
+
+        active_season = models.PlayerSeason(
+            player_id=canonical.id,
+            season=season,
+            nfl_team="PHI",
+            position="WR",
+            is_active=True,
+            source="test",
+        )
+        duplicate_season = models.PlayerSeason(
+            player_id=duplicate_variant.id,
+            season=season,
+            nfl_team="PHI",
+            position="WR",
+            is_active=True,
+            source="test",
+        )
+        inactive_season = models.PlayerSeason(
+            player_id=inactive.id,
+            season=season,
+            nfl_team="PHI",
+            position="WR",
+            is_active=False,
+            source="test",
+        )
+        session.add_all([active_season, duplicate_season, inactive_season])
+        session.commit()
+
+        created_player_ids = [canonical.id, duplicate_variant.id, inactive.id]
+        created_season_ids = [active_season.id, duplicate_season.id, inactive_season.id]
+    finally:
+        session.close()
+
+    try:
+        list_resp = client.get("/players/")
+        assert list_resp.status_code == 200
+        list_rows = list_resp.json()
+
+        search_resp = client.get(f"/players/search?q=Brown{suffix}&pos=ALL")
+        assert search_resp.status_code == 200
+        search_rows = search_resp.json()
+
+        list_matches = [
+            row
+            for row in list_rows
+            if str(row.get("name", "")) == f"AJ Brown{suffix}" and row.get("position") == "WR"
+        ]
+        search_matches = [
+            row
+            for row in search_rows
+            if str(row.get("name", "")) == f"AJ Brown{suffix}" and row.get("position") == "WR"
+        ]
+
+        assert len(list_matches) == 1
+        assert len(search_matches) == 1
+        assert list_matches[0].get("espn_id") == f"ESPN-PARITY-{suffix}"
+        assert search_matches[0].get("espn_id") == f"ESPN-PARITY-{suffix}"
+
+        inactive_name = f"Parity Inactive {suffix}"
+        assert all(row.get("name") != inactive_name for row in list_rows)
+        assert all(row.get("name") != inactive_name for row in search_rows)
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_season_ids:
+                cleanup.query(models.PlayerSeason).filter(
+                    models.PlayerSeason.id.in_(created_season_ids)
+                ).delete(synchronize_session=False)
+            if created_player_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_player_ids)
+                ).delete(synchronize_session=False)
+            cleanup.commit()
         finally:
             cleanup.close()
 

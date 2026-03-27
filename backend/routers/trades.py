@@ -10,6 +10,7 @@ from ..services.validation_service import (
     validate_trade_proposal_boundary,
     validate_trade_proposal_dynamic_rules,
 )
+from ..services.player_service import normalize_display_name as _normalize_player_name
 
 router = APIRouter(prefix="/trades", tags=["Trades"])
 
@@ -170,7 +171,10 @@ def get_pending_trades(
         .all()
     )
 
-    users = {u.id: u for u in db.query(models.User).filter(models.User.league_id == current_user.league_id).all()}
+    users = {u.id: u for u in db.query(models.User).filter(
+        models.User.league_id == current_user.league_id,
+        ~models.User.username.like("hist_%"),
+    ).all()}
     allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
     players = {p.id: p for p in db.query(models.Player).filter(models.Player.position.in_(allowed_positions)).all()}
 
@@ -186,8 +190,8 @@ def get_pending_trades(
                 "from_user": from_user.username if from_user else "Unknown",
                 "to_user": to_user.username if to_user else "Unknown",
                 "players": [
-                    {"name": f"Offer: {offered.name}" if offered else "Offer: Unknown"},
-                    {"name": f"Request: {requested.name}" if requested else "Request: Unknown"},
+                    {"name": f"Offer: {_normalize_player_name(offered.name)}" if offered else "Offer: Unknown"},
+                    {"name": f"Request: {_normalize_player_name(requested.name)}" if requested else "Request: Unknown"},
                 ],
                 "offered_dollars": float(trade.offered_dollars or 0),
                 "requested_dollars": float(trade.requested_dollars or 0),

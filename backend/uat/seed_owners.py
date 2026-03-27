@@ -16,7 +16,7 @@ def seed_owners(db: Session):
 
     # 1.2 DATA: Define the roster of 12 unique owners
     owner_list = [
-        {"username": "Nick Grant", "email": "nick@example.com", "commish": True, "team": "War Room Alpha"},
+        {"username": "Admin", "email": "nick@example.com", "commish": True, "team": "War Room Alpha"},
         {"username": "Draft Dodger", "email": "dodger@example.com", "commish": False, "team": "Empty Bench Mob"},
         {"username": "Stats Geek", "email": "geek@example.com", "commish": False, "team": "Regression To The Mean"},
         {"username": "Trade Junkie", "email": "junkie@example.com", "commish": False, "team": "Always Countering"},
@@ -36,8 +36,8 @@ def seed_owners(db: Session):
         if not exists:
             is_commish = data["commish"]
             is_superuser = data["commish"]
-            # Always ensure Nick Grant is commissioner and superuser
-            if data["username"] == "Nick Grant":
+            # Always ensure Admin is commissioner and superuser
+            if data["username"] == "Admin":
                 is_commish = True
                 is_superuser = True
             user = models.User(

@@ -8,18 +8,19 @@ import os
 from unittest.mock import Mock, patch
 
 
+# Ensure app/database imports use a deterministic test DB URL.
+os.environ["TESTING"] = "true"
+os.environ["DATABASE_URL"] = "sqlite:///./pytest_backend.db"
+
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_environment():
     """
     Setup test environment before running tests.
     This ensures that database connection attempts during module import don't fail.
     """
-    # Set a marker to indicate we're in test mode
+    # Keep explicit markers for test-only branches in runtime code.
     os.environ["TESTING"] = "true"
-    
-    # Mock the database URL to avoid connection attempts
-    # This will be used if any code tries to connect during import
-    os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
     
     yield
     

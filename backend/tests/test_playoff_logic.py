@@ -75,6 +75,22 @@ def test_build_initial_bracket_with_byes():
     assert champs[3]["winner_to"] == "r2_m2"
 
 
+def test_build_initial_bracket_future_safe_8_team_structure():
+    teams = [make_team(f"t{i}", i) for i in range(1, 9)]
+    bracket = playoff_logic.build_initial_bracket(teams, qualifiers=8)
+    champs = bracket["championship"]
+
+    assert len(champs) == 4
+    assert all(not match["is_bye"] for match in champs)
+    assert [(match["team_1"]["seed"], match["team_2"]["seed"]) for match in champs] == [
+        (1, 8),
+        (2, 7),
+        (3, 6),
+        (4, 5),
+    ]
+    assert [match["winner_to"] for match in champs] == ["r2_m1", "r2_m1", "r2_m2", "r2_m2"]
+
+
 def test_generate_round2_matches_basic():
     winners = [make_team("t3", 3), make_team("t5", 5)]
     byes = [make_team("t1", 1), make_team("t2", 2)]

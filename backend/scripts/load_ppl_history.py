@@ -1,16 +1,38 @@
 """
 One-time script: loads historical draft data into Postgres scoped to Post Pacific League.
 Safe to run multiple times (idempotent checks included).
+
+STATUS: ALREADY RUN — DATA IS IN THE DATABASE.
+  This script was the original bootstrap loader.  All data it would insert
+  (owners, players, draft picks) is already present in the live Postgres DB.
+  It should NOT be run again unless you are rebuilding from scratch after a
+  deliberate full-reset.
+
+  The CSV files it reads (users.csv, players.csv, positions.csv,
+  draft_results.csv) are retained solely as disaster-recovery references.
+  Once their DB data is verified, they can be deleted.
 """
 import os, sys
+from pathlib import Path
 import pandas as pd
 import psycopg2
 
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from backend.db_config import load_backend_env_file, resolve_database_url
+
 # --- Config ---
-DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/fantasy_football")
 LEAGUE_ID = 60  # Post Pacific League
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 BCRYPT_PLACEHOLDER = "$2b$12$AT98P1yMsFB6voQYGgVxEO21tf6tZuXl79b/j615NkIKMhnx0LL3W"
+CSV_BOOTSTRAP_ENV_FLAG = "FFPI_ALLOW_LEGACY_CSV_BOOTSTRAP"
+
+
+load_backend_env_file()
+DB_URL = resolve_database_url(require_explicit=True, context="backend/scripts/load_ppl_history.py")
 
 
 def connect():
@@ -169,6 +191,13 @@ def step3_load_draft_picks(cur, data_dir):
 
 
 def main():
+    if os.getenv(CSV_BOOTSTRAP_ENV_FLAG, "0") != "1":
+        print(
+            "Refusing to run legacy CSV bootstrap. "
+            f"Set {CSV_BOOTSTRAP_ENV_FLAG}=1 to run intentionally."
+        )
+        sys.exit(1)
+
     conn = connect()
     cur = conn.cursor()
     try:

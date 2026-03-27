@@ -4,22 +4,14 @@ import argparse
 from pathlib import Path
 
 from etl.load.load_to_postgres import load_historical_rankings_to_db
-from etl.transform.historical_rankings import build_rankings_from_history
+from etl.transform.historical_rankings import (
+    build_rankings_from_db,
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build historical league-based draft rankings and optionally load into DraftValue table."
-    )
-    parser.add_argument(
-        "--draft-results",
-        default="backend/data/draft_results.csv",
-        help="Path to historical draft results CSV.",
-    )
-    parser.add_argument(
-        "--players",
-        default="backend/data/players.csv",
-        help="Path to players CSV.",
+        description="Build historical league-based draft rankings from database data and optionally load into DraftValue table."
     )
     parser.add_argument(
         "--season",
@@ -29,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output",
-        default="backend/data/historical_rankings.csv",
+        default="backend/exports/historical_rankings.csv",
         help="Output CSV path for rankings.",
     )
     parser.add_argument(
@@ -43,11 +35,17 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    result = build_rankings_from_history(
-        draft_results_path=args.draft_results,
-        players_path=args.players,
-        target_season=args.season,
-    )
+    import sys
+    from pathlib import Path as _Path
+
+    sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+    from backend.database import SessionLocal  # type: ignore[import]
+
+    db = SessionLocal()
+    try:
+        result = build_rankings_from_db(db, target_season=args.season)
+    finally:
+        db.close()
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -61,3 +59,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

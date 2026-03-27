@@ -925,27 +925,52 @@ def batch_upsert_scoring_rules(
     touched_ids: set[int] = set()
     results: list[models.ScoringRule] = []
 
-    for item in request.rules:
-        data = item.model_dump(exclude={"id"})
-        if season_year is not None:
-            data["season_year"] = season_year
+    try:
+        for item in request.rules:
+            data = item.model_dump(exclude={"id"})
+            if season_year is not None:
+                data["season_year"] = season_year
 
-        if item.id:
-            rule = (
-                db.query(models.ScoringRule)
-                .filter(
-                    models.ScoringRule.id == item.id,
-                    models.ScoringRule.league_id == league_id,
+            if item.id:
+                rule = (
+                    db.query(models.ScoringRule)
+                    .filter(
+                        models.ScoringRule.id == item.id,
+                        models.ScoringRule.league_id == league_id,
+                    )
+                    .first()
                 )
-                .first()
-            )
-            if not rule:
-                raise HTTPException(status_code=404, detail=f"Rule {item.id} not found")
+                if not rule:
+                    raise HTTPException(status_code=404, detail=f"Rule {item.id} not found")
 
-            previous = _rule_to_dict(rule)
-            for key, value in data.items():
-                setattr(rule, key, value)
-            rule.updated_by_user_id = current_user.id
+                previous = _rule_to_dict(rule)
+                for key, value in data.items():
+                    setattr(rule, key, value)
+                rule.updated_by_user_id = current_user.id
+                touched_ids.add(rule.id)
+
+                _append_change_log(
+                    db,
+                    league_id=league_id,
+                    scoring_rule_id=rule.id,
+                    season_year=rule.season_year,
+                    change_type="updated",
+                    changed_by_user_id=current_user.id,
+                    rationale="Rule updated via batch-upsert",
+                    previous_value=previous,
+                    new_value=_rule_to_dict(rule),
+                )
+                results.append(rule)
+                continue
+
+            rule = models.ScoringRule(
+                **data,
+                league_id=league_id,
+                created_by_user_id=current_user.id,
+                updated_by_user_id=current_user.id,
+            )
+            db.add(rule)
+            db.flush()
             touched_ids.add(rule.id)
 
             _append_change_log(
@@ -953,69 +978,48 @@ def batch_upsert_scoring_rules(
                 league_id=league_id,
                 scoring_rule_id=rule.id,
                 season_year=rule.season_year,
-                change_type="updated",
+                change_type="created",
                 changed_by_user_id=current_user.id,
-                rationale="Rule updated via batch-upsert",
-                previous_value=previous,
+                rationale="Rule created via batch-upsert",
+                previous_value=None,
                 new_value=_rule_to_dict(rule),
             )
             results.append(rule)
-            continue
 
-        rule = models.ScoringRule(
-            **data,
-            league_id=league_id,
-            created_by_user_id=current_user.id,
-            updated_by_user_id=current_user.id,
-        )
-        db.add(rule)
-        db.flush()
-        touched_ids.add(rule.id)
-
-        _append_change_log(
-            db,
-            league_id=league_id,
-            scoring_rule_id=rule.id,
-            season_year=rule.season_year,
-            change_type="created",
-            changed_by_user_id=current_user.id,
-            rationale="Rule created via batch-upsert",
-            previous_value=None,
-            new_value=_rule_to_dict(rule),
-        )
-        results.append(rule)
-
-    if request.replace_existing_for_season:
-        query = db.query(models.ScoringRule).filter(
-            models.ScoringRule.league_id == league_id,
-            models.ScoringRule.is_active.is_(True),
-        )
-        if season_year is not None:
-            query = query.filter(models.ScoringRule.season_year == season_year)
-
-        stale_rules = [r for r in query.all() if r.id not in touched_ids]
-        now = datetime.now(timezone.utc)
-        for stale in stale_rules:
-            previous = _rule_to_dict(stale)
-            stale.is_active = False
-            stale.deactivated_at = now
-            stale.updated_by_user_id = current_user.id
-            _append_change_log(
-                db,
-                league_id=league_id,
-                scoring_rule_id=stale.id,
-                season_year=stale.season_year,
-                change_type="deleted",
-                changed_by_user_id=current_user.id,
-                rationale="Rule deactivated by batch-upsert replacement",
-                previous_value=previous,
-                new_value=_rule_to_dict(stale),
+        if request.replace_existing_for_season:
+            query = db.query(models.ScoringRule).filter(
+                models.ScoringRule.league_id == league_id,
+                models.ScoringRule.is_active.is_(True),
             )
+            if season_year is not None:
+                query = query.filter(models.ScoringRule.season_year == season_year)
 
-    db.commit()
-    for row in results:
-        db.refresh(row)
-    return results
+            stale_rules = [r for r in query.all() if r.id not in touched_ids]
+            now = datetime.now(timezone.utc)
+            for stale in stale_rules:
+                previous = _rule_to_dict(stale)
+                stale.is_active = False
+                stale.deactivated_at = now
+                stale.updated_by_user_id = current_user.id
+                _append_change_log(
+                    db,
+                    league_id=league_id,
+                    scoring_rule_id=stale.id,
+                    season_year=stale.season_year,
+                    change_type="deleted",
+                    changed_by_user_id=current_user.id,
+                    rationale="Rule deactivated by batch-upsert replacement",
+                    previous_value=previous,
+                    new_value=_rule_to_dict(stale),
+                )
+
+        db.commit()
+        for row in results:
+            db.refresh(row)
+        return results
+    except Exception:
+        db.rollback()
+        raise
 
 
 @router.get("/templates", response_model=list[ScoringTemplate])

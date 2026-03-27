@@ -242,7 +242,7 @@ describe('DraftBoard (Smoke Test)', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Draft Day Analyzer/i)).toBeInTheDocument();
-      expect(screen.getByText(/Historical Rankings/i)).toBeInTheDocument();
+      expect(screen.getByText(/Analyzer Insights/i)).toBeInTheDocument();
       expect(screen.getByText(/Perspective Simulation/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Run Simulation/i })).toBeInTheDocument();
     });

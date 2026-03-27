@@ -37,9 +37,7 @@ def test_audit_sources_detects_missing_refs_and_invalid_years_with_tmp_data(tmp_
         DATASET_FILES["player_id"]: "Player_ID,PlayerName,PositionID\nP1,Player One,QB\n",
         DATASET_FILES["position_id"]: "PositionID,Position,PositionStatus\nQB,Quarterback,active\n",
         DATASET_FILES["budget"]: "DraftBudget,Year,OwnerID\n100,2024,O1\n200,bad-year,O2\n",
-        DATASET_FILES["yearly_results"]: "season,rank,player_id\n2024,1,P1\n",
         DATASET_FILES["owner_registry"]: "Team,TeamID\nA,O1\n",
-        DATASET_FILES["draft_strategy"]: "StrategyID,OwnerID,Year,StrategyNotes\n",
     }
 
     for filename, content in files.items():

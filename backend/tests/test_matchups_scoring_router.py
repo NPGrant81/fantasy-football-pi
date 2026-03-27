@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import models
 from backend.routers.matchups import (
     calculate_win_probabilities,
-    get_matchup_detail,
+    fetch_matchup_detail_data as get_matchup_detail,
     get_team_starters,
 )
 

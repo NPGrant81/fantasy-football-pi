@@ -1,6 +1,7 @@
 // frontend/src/pages/Home.jsx
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
+import { useActiveLeague } from '@context/LeagueContext';
 import { Link } from 'react-router-dom';
 import PageTemplate from '@components/layout/PageTemplate';
 import { EmptyState } from '@components/common/AsyncState';
@@ -11,7 +12,7 @@ import {
   StandardTableStateRow,
 } from '@components/table/TablePrimitives';
 import FeedPill from '../../components/feeds/FeedPill';
-import { FiAward, FiActivity } from 'react-icons/fi';
+import { FiAward, FiActivity, FiClock } from 'react-icons/fi';
 import {
   cardSurface,
   tableCell,
@@ -22,14 +23,14 @@ import {
 
 export default function Home({ username }) {
   const [standings, setStandings] = useState([]);
-  const [sortField, setSortField] = useState('wins');
+  const [sortField, setSortField] = useState('record');
   const [sortAsc, setSortAsc] = useState(false);
   const [news, setNews] = useState([]);
   const [topFreeAgents, setTopFreeAgents] = useState([]);
   const [bidLoadingId, setBidLoadingId] = useState(null);
   const [bidMessage, setBidMessage] = useState('');
   const [leagueName, setLeagueName] = useState('');
-  const leagueId = localStorage.getItem('fantasyLeagueId');
+  const leagueId = useActiveLeague();
 
   const normalizeStandingRow = (row) => {
     const wins = Number(row?.wins ?? row?.overall_record?.wins ?? 0);
@@ -320,6 +321,22 @@ export default function Home({ username }) {
               />
             )}
           </div>
+        </div>
+
+        <div className={cardSurface}>
+          <div className="flex items-center gap-2 mb-3">
+            <FiClock className="text-cyan-500" size={20} />
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">League History</h2>
+          </div>
+          <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">
+            Historical reports, champions, awards, and record books are now grouped in a dedicated section.
+          </p>
+          <Link
+            to="/league-history/historical-analytics"
+            className="inline-flex items-center gap-2 rounded border border-cyan-500/50 bg-cyan-500/10 px-3 py-2 text-xs font-bold uppercase tracking-wide text-cyan-700 transition hover:bg-cyan-500/20 dark:text-cyan-300"
+          >
+            Open League History
+          </Link>
         </div>
       </div>
     </PageTemplate>

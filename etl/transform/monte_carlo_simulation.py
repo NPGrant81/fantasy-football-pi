@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TYPE_CHECKING
 import math
 import random
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 POSITION_LABELS = {
@@ -111,13 +113,6 @@ def _normalize_position(value: object) -> str:
     return "UNK"
 
 
-def _read_csv_with_fallback(path: str | Path) -> pd.DataFrame:
-    try:
-        return pd.read_csv(path)
-    except UnicodeDecodeError:
-        return pd.read_csv(path, encoding="latin-1")
-
-
 def _prepare_owners(draft_results_df: pd.DataFrame, budget_df: pd.DataFrame, config: SimulationConfig) -> pd.DataFrame:
     owner_spend = draft_results_df.groupby("owner_id", as_index=False).agg(
         historical_spend=("winning_bid", "mean"),
@@ -173,6 +168,11 @@ def _prepare_players(
     yearly_results_df: pd.DataFrame,
     config: SimulationConfig,
 ) -> pd.DataFrame:
+    def _coerce_numeric_column(df: pd.DataFrame, column: str, default: float) -> pd.Series:
+        if column not in df.columns:
+            return pd.Series(default, index=df.index, dtype="float64")
+        return pd.to_numeric(df[column], errors="coerce").fillna(default)
+
     players = players_df.rename(
         columns={"Player_ID": "player_id", "PlayerName": "player_name", "PositionID": "position_id"}
     ).copy()
@@ -184,13 +184,15 @@ def _prepare_players(
     rankings = historical_rankings_df.copy()
     if rankings.empty:
         rankings = pd.DataFrame(columns=["player_id", "predicted_auction_value", "model_score", "position"])
-    rankings["player_id"] = pd.to_numeric(rankings.get("player_id"), errors="coerce")
+    rankings["player_id"] = _coerce_numeric_column(rankings, "player_id", default=float("nan"))
     rankings = rankings.dropna(subset=["player_id"]).copy()
     rankings["player_id"] = rankings["player_id"].astype(int)
-    rankings["predicted_auction_value"] = pd.to_numeric(
-        rankings.get("predicted_auction_value"), errors="coerce"
-    ).fillna(1.0)
-    rankings["model_score"] = pd.to_numeric(rankings.get("model_score"), errors="coerce").fillna(0.0)
+    rankings["predicted_auction_value"] = _coerce_numeric_column(
+        rankings, "predicted_auction_value", default=1.0
+    )
+    rankings["model_score"] = _coerce_numeric_column(rankings, "model_score", default=0.0)
+    if "position" not in rankings.columns:
+        rankings["position"] = "UNK"
     if "appearances" in rankings.columns:
         rankings["player_reliability_score"] = pd.to_numeric(
             rankings.get("appearances"), errors="coerce"
@@ -581,7 +583,10 @@ def run_monte_carlo_draft_simulation(
         all_picks.extend(picks)
         all_team_metrics.extend(metrics)
 
-    draft_picks_df = pd.DataFrame(all_picks)
+    draft_picks_df = pd.DataFrame(
+        all_picks,
+        columns=["iteration", "owner_id", "player_id", "player_name", "position", "winning_bid"],
+    )
     team_metrics_df = pd.DataFrame(all_team_metrics)
 
     if team_metrics_df.empty:
@@ -590,12 +595,16 @@ def run_monte_carlo_draft_simulation(
         target_owner_metrics = team_metrics_df[team_metrics_df["owner_id"] == cfg.target_owner_id].copy()
 
         top_targets = players.head(cfg.target_key_players)[["player_id", "player_name"]]
-        target_picks = draft_picks_df[draft_picks_df["owner_id"] == cfg.target_owner_id]
-        key_target_probability = top_targets.merge(
-            target_picks.groupby("player_id", as_index=False).agg(hit_count=("iteration", "nunique")),
-            on="player_id",
-            how="left",
-        )
+        if draft_picks_df.empty:
+            key_target_probability = top_targets.copy()
+            key_target_probability["hit_count"] = 0
+        else:
+            target_picks = draft_picks_df[draft_picks_df["owner_id"] == cfg.target_owner_id]
+            key_target_probability = top_targets.merge(
+                target_picks.groupby("player_id", as_index=False).agg(hit_count=("iteration", "nunique")),
+                on="player_id",
+                how="left",
+            )
         key_target_probability["hit_count"] = key_target_probability["hit_count"].fillna(0)
         key_target_probability["probability"] = key_target_probability["hit_count"] / max(cfg.iterations, 1)
 
@@ -647,8 +656,8 @@ def run_monte_carlo_draft_simulation(
         "nomination_logic": "shuffled round-robin owner order each iteration",
         "tie_breaking": "random among top bids with equal value",
         "stopping_rules": "all teams filled to roster_size or player pool exhausted",
-        "yearly_results_handling": (
-            "uses yearly results points when available; otherwise derives projected points from historical rankings"
+        "projected_points_handling": (
+            "derives projected points from historical rankings when direct point inputs are unavailable"
         ),
     }
 
@@ -660,37 +669,135 @@ def run_monte_carlo_draft_simulation(
     )
 
 
-def run_monte_carlo_from_paths(
+# Reverse mapping: position string stored in DB → legacy numeric PositionID
+_POSITION_IDS: dict[str, int] = {v: k for k, v in POSITION_LABELS.items()}
+_POSITION_IDS.update({"DST": 8006, "D/ST": 8006})
+
+
+def run_monte_carlo_from_db(
+    db: "Session",
     *,
-    draft_results_path: str | Path,
-    players_path: str | Path,
-    historical_rankings_path: str | Path,
-    draft_budget_path: str | Path | None = None,
-    yearly_results_path: str | Path | None = None,
+    league_id: int | None = None,
     config: SimulationConfig | None = None,
 ) -> MonteCarloSimulationResult:
-    draft_results_df = _read_csv_with_fallback(draft_results_path)
-    players_df = _read_csv_with_fallback(players_path)
-    historical_rankings_df = _read_csv_with_fallback(historical_rankings_path)
+    """Run Monte Carlo simulation using live database data instead of CSV files.
 
-    if draft_budget_path:
-        budget_df = _read_csv_with_fallback(draft_budget_path)
-    else:
-        budget_df = pd.DataFrame()
+    Queries ``draft_picks``, ``players``, ``draft_values`` (historical rankings),
+    and ``draft_budgets`` tables and passes the resulting DataFrames to the
+    core simulation engine.  Use this function once the CSV data files have
+    been retired.
 
-    if yearly_results_path and Path(yearly_results_path).exists():
-        yearly_results_df = _read_csv_with_fallback(yearly_results_path)
-    else:
-        yearly_results_df = pd.DataFrame()
+    Parameters
+    ----------
+    db:
+        An active SQLAlchemy Session (caller is responsible for closing it).
+    league_id:
+        Optional league filter.  When supplied, only draft picks belonging to
+        that league are included.
+    config:
+        Simulation configuration.  Defaults to ``SimulationConfig()``.
+    """
+    from backend import models
+    from backend.models_draft_value import DraftValue
+    from sqlalchemy import func
+
+    picks_query = (
+        db.query(
+            models.DraftPick.player_id.label("PlayerID"),
+            models.DraftPick.owner_id.label("OwnerID"),
+            models.DraftPick.year.label("Year"),
+            models.DraftPick.amount.label("WinningBid"),
+            models.Player.position.label("position_str"),
+        )
+        .join(models.Player, models.Player.id == models.DraftPick.player_id)
+        .filter(models.DraftPick.year.isnot(None))
+    )
+    if league_id is not None:
+        picks_query = picks_query.filter(models.DraftPick.league_id == league_id)
+    picks_rows = picks_query.all()
+
+    draft_results_df = pd.DataFrame(
+        [dict(r._mapping) for r in picks_rows],
+        columns=["PlayerID", "OwnerID", "Year", "WinningBid", "position_str"],
+    )
+    draft_results_df["PositionID"] = (
+        draft_results_df["position_str"].str.upper().map(_POSITION_IDS).fillna(0).astype(int)
+    )
+    draft_results_df = draft_results_df.drop(columns=["position_str"])
+
+    players_rows = (
+        db.query(
+            models.Player.id.label("Player_ID"),
+            models.Player.name.label("PlayerName"),
+            models.Player.position.label("position"),
+        )
+        .all()
+    )
+    players_df = pd.DataFrame(
+        [dict(r._mapping) for r in players_rows],
+        columns=["Player_ID", "PlayerName", "position"],
+    )
+    players_df["PositionID"] = (
+        players_df["position"].str.upper().map(_POSITION_IDS).fillna(0).astype(int)
+    )
+    players_df = players_df.drop(columns=["position"])
+
+    # Load historical rankings from DraftValue table (written by build_historical_rankings --load-db).
+    latest_draft_value_season = (
+        db.query(
+            DraftValue.player_id.label("player_id"),
+            func.max(DraftValue.season).label("latest_season"),
+        )
+        .group_by(DraftValue.player_id)
+        .subquery()
+    )
+
+    rankings_rows = (
+        db.query(
+            DraftValue.player_id.label("player_id"),
+            DraftValue.avg_auction_value.label("predicted_auction_value"),
+            DraftValue.median_adp.label("median_bid"),
+            DraftValue.consensus_tier.label("consensus_tier"),
+            DraftValue.value_over_replacement.label("value_over_replacement"),
+        )
+        .join(
+            latest_draft_value_season,
+            (DraftValue.player_id == latest_draft_value_season.c.player_id)
+            & (DraftValue.season == latest_draft_value_season.c.latest_season),
+        )
+        .order_by(DraftValue.player_id.asc())
+        .all()
+    )
+    historical_rankings_df = (
+        pd.DataFrame([dict(r._mapping) for r in rankings_rows])
+        if rankings_rows
+        else pd.DataFrame()
+    )
+
+    # Load per-season draft budgets.
+    budget_query = db.query(
+        models.DraftBudget.owner_id.label("OwnerID"),
+        models.DraftBudget.total_budget.label("DraftBudget"),
+        models.DraftBudget.year.label("Year"),
+    )
+    if league_id is not None:
+        budget_query = budget_query.filter(models.DraftBudget.league_id == league_id)
+    budget_rows = budget_query.all()
+    budget_df = (
+        pd.DataFrame([dict(r._mapping) for r in budget_rows])
+        if budget_rows
+        else pd.DataFrame()
+    )
 
     return run_monte_carlo_draft_simulation(
         draft_results_df=draft_results_df,
         players_df=players_df,
         historical_rankings_df=historical_rankings_df,
         budget_df=budget_df,
-        yearly_results_df=yearly_results_df,
+        yearly_results_df=pd.DataFrame(),
         config=config,
     )
+
 
 
 def summarize_team_distribution(team_metrics_df: pd.DataFrame, owner_id: int) -> dict[str, float]:

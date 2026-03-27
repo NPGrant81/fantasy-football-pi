@@ -8,7 +8,8 @@ from typing import Optional
 from ..core.security import get_current_user, get_current_active_admin  # Point to the new home of your bouncers
 
 # 1.1.1 IMPORT the service logic we just built
-from ..services import waiver_service 
+from ..services import waiver_service
+from ..services.player_service import normalize_display_name as _normalize_player_name
 
 router = APIRouter(
     prefix="/waivers",
@@ -103,9 +104,9 @@ def list_waiver_claims(
             "user_id": c.user_id,
             "username": c.user.username if c.user else None,
             "player_id": c.player_id,
-            "player_name": c.target_player.name if c.target_player else None,
+            "player_name": _normalize_player_name(c.target_player.name) if c.target_player else None,
             "drop_player_id": c.drop_player_id,
-            "drop_player_name": c.drop_player.name if c.drop_player else None,
+            "drop_player_name": _normalize_player_name(c.drop_player.name) if c.drop_player else None,
             "bid_amount": c.bid_amount,
             "status": c.status,
         })
