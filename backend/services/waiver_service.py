@@ -9,6 +9,7 @@ from .validation_service import (
     validate_waiver_claim_boundary,
     validate_waiver_claim_dynamic_rules,
 )
+from .commissioner_deadline_service import enforce_commissioner_deadline
 
 
 def _validate_commissioner_waiver_rules(db: Session, user: models.User) -> int:
@@ -20,18 +21,10 @@ def _validate_commissioner_waiver_rules(db: Session, user: models.User) -> int:
 
     roster_limit = settings.roster_size if settings and settings.roster_size else 14
 
-    if settings and settings.waiver_deadline:
-        raw_deadline = settings.waiver_deadline.strip()
-        try:
-            parsed_deadline = datetime.fromisoformat(raw_deadline.replace("Z", "+00:00"))
-            now = datetime.now(parsed_deadline.tzinfo) if parsed_deadline.tzinfo else datetime.now()
-            if now > parsed_deadline:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Waiver claims are closed by commissioner rule (deadline: {settings.waiver_deadline}).",
-                )
-        except ValueError:
-            pass
+    enforce_commissioner_deadline(
+        deadline_value=settings.waiver_deadline if settings else None,
+        closed_message_prefix="Waiver claims are closed by commissioner rule",
+    )
 
     return roster_limit
 

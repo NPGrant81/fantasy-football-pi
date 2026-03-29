@@ -66,16 +66,94 @@
     "last_reviewed": "2026-03-21"
   },
   {
+    "path": "docs/API_INTEGRATION_PIPELINE.md",
+    "owner": "backend",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
     "path": "docs/API_PAGE_MATRIX.md",
     "owner": "backend",
     "cadence_days": 45,
     "last_reviewed": "2026-03-21"
   },
   {
+    "path": "docs/DRAFT_ANALYZER_API_AUDIT.md",
+    "owner": "backend",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/SCORING_EDGE_CASE_TEST_MATRIX.md",
+    "owner": "qa",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/CROSS_MODULE_EDGE_CASE_TEST_MATRIX.md",
+    "owner": "qa",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/LIVE_SCORING_RELIABILITY_RUNBOOK.md",
+    "owner": "platform",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/DATA_VALIDATION_STRATEGY.md",
+    "owner": "backend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/DB_MIGRATION_PHASE1.md",
+    "owner": "backend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/PLAYER_API_FILTERING.md",
+    "owner": "backend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
     "path": "docs/DOC_ISSUE_CORRELATION_MAP.md",
     "owner": "product",
     "cadence_days": 30,
     "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/PATTERN_LIBRARY.md",
+    "owner": "engineering",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/PATTERN_COMPLIANCE_MATRIX.md",
+    "owner": "engineering",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/PATTERN_STANDARDIZATION_PLAN.md",
+    "owner": "engineering",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/patterns/PATTERN_DECISION_LOG.md",
+    "owner": "engineering",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/patterns/README.md",
+    "owner": "engineering",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
   },
   {
     "path": "docs/dev-environment.md",
@@ -88,5 +166,347 @@
     "owner": "qa",
     "cadence_days": 120,
     "last_reviewed": "2026-03-21"
+  },
+  {
+    "path": "docs/INDEX.md",
+    "owner": "engineering",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/governance/README.md",
+    "owner": "engineering",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/DOCUMENTATION_UPDATE_PROCESS_PLAN.md",
+    "owner": "engineering",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/DEPENDENCY_MAINTENANCE.md",
+    "owner": "backend",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/BACKEND_CI_PIPELINE_OPTIMIZATION.md",
+    "owner": "backend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/FRONTEND_CI_PIPELINE_OPTIMIZATION.md",
+    "owner": "frontend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/UI_UX_AUTOMATION_PIPELINE.md",
+    "owner": "qa",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/MFL_HISTORICAL_DATA_OPERATIONS.md",
+    "owner": "data",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-migration/README.md",
+    "owner": "data",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-migration/mfl-migration-runbook.md",
+    "owner": "data",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-migration/mfl-year-status-matrix.md",
+    "owner": "data",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/cloudflare-pi-handoff-checklist.md",
+    "owner": "platform",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/cloudflare-tunnel-cli.md",
+    "owner": "platform",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/cloudflare-tunnel-monitoring.md",
+    "owner": "platform",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/cloudflare-tunnel-systemd.md",
+    "owner": "platform",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-dictionary.md",
+    "owner": "data",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data_source_audit_issue_102.md",
+    "owner": "data",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-migration/mfl-data-requirements.md",
+    "owner": "data",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-migration/mfl-extraction-matrix.md",
+    "owner": "data",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-migration/mfl-hardening-verification-gates.md",
+    "owner": "qa",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-migration/mfl-html-records-normalization-plan.md",
+    "owner": "data",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/data-migration/mfl-test-results-log.md",
+    "owner": "qa",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/player-metadata-rules.md",
+    "owner": "backend",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/restore.md",
+    "owner": "platform",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/pi-setup/docker.md",
+    "owner": "platform",
+    "cadence_days": 120,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/milestones/README.md",
+    "owner": "product",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/milestones/milestone-1-core-foundation.md",
+    "owner": "product",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/milestones/milestone-2-cross-platform-deployment.md",
+    "owner": "platform",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/milestones/milestone-3-security-hardening.md",
+    "owner": "security",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/milestones/milestone-4-data-validation.md",
+    "owner": "data",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/milestones/milestone-5-gameplay-logic.md",
+    "owner": "backend",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/milestones/milestone-6-production-readiness.md",
+    "owner": "platform",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/milestones/milestone-7-release-1.0.md",
+    "owner": "product",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/backlog_triage_2026-03-14.md",
+    "owner": "product",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/pr_notes.md",
+    "owner": "engineering",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/UI_REFERENCE.md",
+    "owner": "frontend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ux-insights-spec.md",
+    "owner": "frontend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/model-serving-and-integration.md",
+    "owner": "backend",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/monte-carlo-simulation.md",
+    "owner": "data",
+    "cadence_days": 45,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/permissions.md",
+    "owner": "product",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/DRAFT_DAY_ADVISOR_MODE.md",
+    "owner": "backend",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/RESPONSIVE_AUDIT_ENVIRONMENT.md",
+    "owner": "frontend",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/uat/UAT_DECK_IMAGE_COVERAGE.md",
+    "owner": "qa",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/uat/UAT_MASTER_DOCUMENT_INSTRUCTIONS.md",
+    "owner": "qa",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/diagrams/README.md",
+    "owner": "engineering",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/CLI_CHECKIN_LESSONS_LEARNED.md",
+    "owner": "engineering",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/PI_UPDATE_CHEATSHEET.md",
+    "owner": "platform",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/gaps/overview.md",
+    "owner": "product",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/diagrams/draft-flow.md",
+    "owner": "engineering",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/diagrams/ledger-model.md",
+    "owner": "engineering",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/diagrams/simulation-pipeline.md",
+    "owner": "engineering",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/diagrams/waiver-flow.md",
+    "owner": "engineering",
+    "cadence_days": 90,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/patterns/PATTERN_PROPOSAL_TEMPLATE.md",
+    "owner": "engineering",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/archive/commit-packages/2026-03-15-bundle-plan.md",
+    "owner": "engineering",
+    "cadence_days": 180,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-03-08.md",
+    "owner": "engineering",
+    "cadence_days": 180,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/archive/SESSION_COMPLETION_2026-03-21.md",
+    "owner": "engineering",
+    "cadence_days": 180,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/governance/DOC_CLASSIFICATION_GUARDRAILS.md",
+    "owner": "engineering",
+    "cadence_days": 60,
+    "last_reviewed": "2026-03-29"
   }
 ]

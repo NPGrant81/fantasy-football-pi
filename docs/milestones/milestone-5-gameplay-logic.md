@@ -4,6 +4,14 @@ This milestone implements the core fantasy‑football mechanics.
 
 ---
 
+## Status
+
+- status: `in-progress`
+- owner: `backend`
+- source of truth for active progress: `docs/milestones/README.md` and linked child issue files under `issues/`
+
+---
+
 ## Scope
 
 - Roster rules and constraints (size limits, position constraints)
@@ -21,6 +29,10 @@ This milestone implements the core fantasy‑football mechanics.
 - [ ] Scoring validated and reproducible
 - [ ] All gameplay rules enforced server‑side
 - [ ] UI supports roster management and matchup views
+
+Status hygiene note:
+
+- Keep checklist items unchecked until objective acceptance evidence is linked.
 
 ---
 
@@ -43,9 +55,9 @@ This milestone implements the core fantasy‑football mechanics.
 
 ## Notes
 
-Related completed stories in [PROJECT_MANAGEMENT.md](../PROJECT_MANAGEMENT.md):
+Related story families in [PROJECT_MANAGEMENT.md](../PROJECT_MANAGEMENT.md):
 
-- Story 2.x: Draft System ✅
-- Story 4.x: Scoring & Rules Management ✅
-- Story 5.x: Free Agents & Waivers ✅
-- Story 6.x: Matchups & Standings (partially complete)
+- Story 2.x: Draft system workstream
+- Story 4.x: Scoring and rules management workstream
+- Story 5.x: Free agents and waivers workstream
+- Story 6.x: Matchups and standings workstream

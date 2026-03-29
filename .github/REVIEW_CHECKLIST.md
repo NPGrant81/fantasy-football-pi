@@ -19,6 +19,10 @@ Manual review
 - Is naming clear and functions small and readable?
 - Edge cases & error handling included?
 - Any secrets or environment values accidentally added?
+- Pattern compliance:
+  - Does the PR reference an existing entry in `docs/PATTERN_LIBRARY.md` for cross-cutting behavior?
+  - If behavior introduces a new cross-cutting contract, is a pattern proposal included and decision path clear?
+  - If a pattern changed, were docs/governance updates included (`docs/INDEX.md`, correlation map, review registry)?
 
 Security & data
 - Input validation and escaping present where required
