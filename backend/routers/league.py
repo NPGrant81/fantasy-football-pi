@@ -3,6 +3,9 @@ from sqlalchemy import desc, or_, func, case
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+from datetime import datetime
+import re
+from urllib.parse import parse_qs, urlparse
 from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner # Use our new auth system
@@ -19,6 +22,9 @@ import logging
 from utils.email_sender import send_invite_email
 
 logger = logging.getLogger(__name__)
+
+MIN_VALID_SEASON_YEAR = 2000
+MAX_VALID_SEASON_YEAR = datetime.now().year + 2
 
 # FIX 1: Changed prefix to "/leagues" (Plural) to match Frontend
 router = APIRouter(
@@ -87,6 +93,10 @@ class BudgetUpdateRequest(BaseModel):
     year: int
     budgets: List[BudgetEntry]
 
+
+class DraftYearUpdateRequest(BaseModel):
+    year: int
+
 # --- Waiver-specific schemas ---
 class WaiverBudgetSchema(BaseModel):
     owner_id: int
@@ -118,6 +128,31 @@ class LedgerStatementSchema(BaseModel):
     balance: int
     entry_count: int
     entries: List[LedgerEntrySchema]
+
+
+def _validate_season_year(year: int, *, label: str = "year") -> int:
+    normalized = int(year)
+    if normalized < MIN_VALID_SEASON_YEAR or normalized > MAX_VALID_SEASON_YEAR:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{label} must be between {MIN_VALID_SEASON_YEAR} and {MAX_VALID_SEASON_YEAR}"
+            ),
+        )
+    return normalized
+
+
+def _require_commissioner_in_league(current_user: models.User, league_id: int) -> None:
+    if not current_user.is_commissioner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Commissioner privileges required.",
+        )
+    if current_user.league_id != league_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: commissioner can only manage their own league.",
+        )
 
 
 def canonicalize_lineup_slots(slots: Dict[str, int] | None) -> Dict[str, int]:
@@ -928,7 +963,7 @@ def update_league_settings(
     settings.waiver_tiebreaker = config.waiver_tiebreaker
     settings.trade_deadline = getattr(config, 'trade_deadline', None)
     if config.draft_year is not None:
-        settings.draft_year = config.draft_year
+        settings.draft_year = _validate_season_year(config.draft_year, label="draft_year")
     
     # 2. Update Rules (Nuclear Option: Delete old, add new)
     # This is the easiest way to handle edits/deletes without complex logic
@@ -956,13 +991,12 @@ def update_league_settings(
 @router.post("/{league_id}/draft-year")
 def set_league_draft_year(
     league_id: int,
-    payload: Dict[str, int],
+    payload: DraftYearUpdateRequest,
     current_user: models.User = Depends(check_is_commissioner),
     db: Session = Depends(get_db)
 ):
-    year = payload.get("year")
-    if not year:
-        raise HTTPException(status_code=400, detail="year is required")
+    _require_commissioner_in_league(current_user, league_id)
+    year = _validate_season_year(payload.year)
 
     settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league_id).first()
     if not settings:
@@ -978,8 +1012,16 @@ def set_league_draft_year(
 def get_league_budgets(
     league_id: int,
     year: int = Query(...),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.league_id != league_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: user is not in this league.",
+        )
+    year = _validate_season_year(year)
+
     owners = db.query(models.User).filter(
         models.User.league_id == league_id,
         models.User.is_superuser.is_(False),
@@ -1054,7 +1096,31 @@ def update_league_budgets(
     current_user: models.User = Depends(check_is_commissioner),
     db: Session = Depends(get_db)
 ):
-    year = payload.year
+    _require_commissioner_in_league(current_user, league_id)
+    year = _validate_season_year(payload.year)
+
+    if not payload.budgets:
+        raise HTTPException(status_code=400, detail="budgets must contain at least one entry")
+
+    owner_ids = [int(entry.owner_id) for entry in payload.budgets]
+    if len(owner_ids) != len(set(owner_ids)):
+        raise HTTPException(status_code=400, detail="duplicate owner_id values in budgets payload")
+
+    valid_owner_ids = {
+        row[0]
+        for row in db.query(models.User.id).filter(
+            models.User.league_id == league_id,
+            models.User.is_superuser.is_(False),
+            ~models.User.username.like("hist_%"),
+        )
+    }
+    invalid_owner_ids = [owner_id for owner_id in owner_ids if owner_id not in valid_owner_ids]
+    if invalid_owner_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=f"owner_id values are not in league {league_id}: {sorted(set(invalid_owner_ids))}",
+        )
+
     for entry in payload.budgets:
         current_total = 0
         has_credits = owner_has_incoming_credits(
@@ -1144,6 +1210,9 @@ def get_ledger_statement(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: user is not in this league.",
         )
+
+    if season_year is not None:
+        season_year = _validate_season_year(season_year, label="season_year")
 
     target_owner_id = owner_id if owner_id is not None else current_user.id
     if not current_user.is_commissioner and target_owner_id != current_user.id:
@@ -1376,6 +1445,32 @@ class HistoricalRecordsResponse(BaseModel):
     count: int
 
 
+class HistoryTeamOwnerMapRow(BaseModel):
+    id: int
+    season: int
+    team_name: str
+    team_name_key: str
+    owner_name: Optional[str] = None
+    owner_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class HistoryTeamOwnerMapUpsertItem(BaseModel):
+    season: int
+    team_name: str
+    owner_name: Optional[str] = None
+    owner_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class HistoryTeamOwnerMapUpsertRequest(BaseModel):
+    mappings: List[HistoryTeamOwnerMapUpsertItem]
+
+
+class HistoryQuestionRequest(BaseModel):
+    question: str
+
+
 def _historical_records_query(db: Session, *, dataset_key: str, league_id: int):
     league_id_str = str(league_id)
     return db.query(models.MflHtmlRecordFact).filter(
@@ -1399,6 +1494,213 @@ def _safe_record_int(record: Dict[str, Any], *keys: str) -> int:
     return -1
 
 
+def _safe_record_float(record: Dict[str, Any], *keys: str) -> float:
+    for key in keys:
+        value = record.get(key)
+        if value is None:
+            continue
+        try:
+            return float(str(value).strip())
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
+def _normalize_history_team_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+
+
+def _resolve_mapped_owner_name(
+    *,
+    year: int,
+    team_name: str,
+    map_by_season_key: Dict[tuple[int, str], str],
+    user_owner_by_team_key: Dict[str, str],
+) -> str:
+    team_key = _normalize_history_team_key(team_name)
+    if not team_key:
+        return "-"
+    mapped = map_by_season_key.get((year, team_key))
+    if mapped:
+        return mapped
+    return user_owner_by_team_key.get(team_key, "-")
+
+
+def _build_owner_mapping_indexes(
+    db: Session,
+    *,
+    league_id: int,
+) -> tuple[Dict[tuple[int, str], str], Dict[tuple[int, str], str], Dict[str, str]]:
+    mapping_rows = (
+        db.query(models.LeagueHistoryTeamOwnerMap)
+        .filter(models.LeagueHistoryTeamOwnerMap.league_id == league_id)
+        .all()
+    )
+    owner_by_season_key: Dict[tuple[int, str], str] = {}
+    team_by_season_key: Dict[tuple[int, str], str] = {}
+    for mapping in mapping_rows:
+        mapping_key = str(mapping.team_name_key or "").strip()
+        if not mapping_key:
+            continue
+        team_by_season_key[(int(mapping.season), mapping_key)] = str(mapping.team_name or "").strip() or mapping_key
+        owner_label = (
+            str(mapping.owner_name or "").strip()
+            or str(getattr(mapping.owner, "username", "") or "").strip()
+            or str(getattr(mapping.owner, "team_name", "") or "").strip()
+        )
+        if owner_label:
+            owner_by_season_key[(int(mapping.season), mapping_key)] = owner_label
+
+    user_owner_by_team_key: Dict[str, str] = {}
+    users = db.query(models.User).filter(models.User.league_id == league_id).all()
+    for user in users:
+        owner_label = str(user.username or user.team_name or f"Owner {user.id}").strip()
+        for candidate in (user.team_name, user.username):
+            key = _normalize_history_team_key(candidate)
+            if key and key not in user_owner_by_team_key:
+                user_owner_by_team_key[key] = owner_label
+
+    return owner_by_season_key, team_by_season_key, user_owner_by_team_key
+
+
+def _extract_mfl_options_token(source_url: Any) -> str:
+    raw = str(source_url or "").strip()
+    if not raw:
+        return ""
+    try:
+        parsed = urlparse(raw)
+        query = parse_qs(parsed.query)
+        report_code = str((query.get("O") or query.get("o") or [""])[0]).strip()
+        if report_code:
+            return _normalize_history_team_key(f"mfl_o_{report_code}")
+    except Exception:
+        return ""
+    return ""
+
+
+def _dedupe_and_enrich_all_time_series_records(
+    *,
+    rows: List[Dict[str, Any]],
+    owner_by_season_key: Dict[tuple[int, str], str],
+    team_by_season_key: Dict[tuple[int, str], str],
+    user_owner_by_team_key: Dict[str, str],
+    limit: int | None,
+) -> List[Dict[str, Any]]:
+    deduped: Dict[tuple[Any, ...], Dict[str, Any]] = {}
+    for row in rows:
+        season_year = _safe_record_int(row, "series_season", "record_year", "season")
+        opponent_team = str(row.get("opponent_franchise_raw") or row.get("opponent") or "Unknown").strip()
+        perspective_token = _extract_mfl_options_token(row.get("source_url") or row.get("source_href"))
+
+        perspective_owner = owner_by_season_key.get((season_year, perspective_token), "-") if perspective_token else "-"
+        perspective_team = team_by_season_key.get((season_year, perspective_token), "-") if perspective_token else "-"
+        if perspective_owner == "-" and perspective_team != "-":
+            perspective_owner = _resolve_mapped_owner_name(
+                year=season_year,
+                team_name=perspective_team,
+                map_by_season_key=owner_by_season_key,
+                user_owner_by_team_key=user_owner_by_team_key,
+            )
+
+        opponent_owner = _resolve_mapped_owner_name(
+            year=season_year,
+            team_name=opponent_team,
+            map_by_season_key=owner_by_season_key,
+            user_owner_by_team_key=user_owner_by_team_key,
+        )
+
+        record = dict(row)
+        record["perspective_owner_name"] = perspective_owner
+        record["perspective_team_name"] = perspective_team
+        record["opponent_owner_name"] = opponent_owner
+        record["opponent_team_name"] = opponent_team
+        record["perspective_source_key"] = perspective_token or "-"
+
+        key = (
+            season_year,
+            perspective_token or "-",
+            _normalize_history_team_key(opponent_team),
+            str(row.get("season_w_l_t_raw") or "-"),
+            str(row.get("total_w_l_t_raw") or "-"),
+        )
+        if key in deduped:
+            continue
+        deduped[key] = record
+
+    data = list(deduped.values())
+    data.sort(
+        key=lambda record: (
+            _safe_record_float(record, "total_pct"),
+            _safe_record_int(record, "series_season", "season"),
+        ),
+        reverse=True,
+    )
+    if limit is not None:
+        return data[:limit]
+    return data
+
+
+def _dedupe_and_enrich_match_records(
+    *,
+    rows: List[Dict[str, Any]],
+    map_by_season_key: Dict[tuple[int, str], str],
+    user_owner_by_team_key: Dict[str, str],
+    limit: int | None,
+) -> List[Dict[str, Any]]:
+    deduped: Dict[tuple[Any, ...], Dict[str, Any]] = {}
+    for row in rows:
+        year = _safe_record_int(row, "record_year", "season", "year")
+        week = _safe_record_int(row, "record_week", "week")
+        away_team = str(row.get("away_franchise_raw") or row.get("away_team") or "Unknown").strip()
+        home_team = str(row.get("home_franchise_raw") or row.get("home_team") or "Unknown").strip()
+        away_score = _safe_record_float(row, "away_points", "away_score")
+        home_score = _safe_record_float(row, "home_points", "home_score")
+        combined = _safe_record_float(row, "combined_score", "combined", "total_points")
+
+        key = (
+            year,
+            week,
+            _normalize_history_team_key(away_team),
+            _normalize_history_team_key(home_team),
+            round(away_score, 2),
+            round(home_score, 2),
+            round(combined, 2),
+        )
+        if key in deduped:
+            continue
+
+        record = dict(row)
+        if "combined_score" not in record or record.get("combined_score") in (None, ""):
+            record["combined_score"] = round(away_score + home_score, 2)
+
+        record["away_owner_name"] = _resolve_mapped_owner_name(
+            year=year,
+            team_name=away_team,
+            map_by_season_key=map_by_season_key,
+            user_owner_by_team_key=user_owner_by_team_key,
+        )
+        record["home_owner_name"] = _resolve_mapped_owner_name(
+            year=year,
+            team_name=home_team,
+            map_by_season_key=map_by_season_key,
+            user_owner_by_team_key=user_owner_by_team_key,
+        )
+        deduped[key] = record
+
+    data = list(deduped.values())
+    data.sort(
+        key=lambda record: (
+            _safe_record_float(record, "combined_score", "combined", "total_points"),
+            _safe_record_int(record, "record_year", "season", "year"),
+            _safe_record_int(record, "record_week", "week"),
+        ),
+        reverse=True,
+    )
+    if limit is not None:
+        return data[:limit]
+    return data
+
+
 def _sorted_record_json(
     records: List[models.MflHtmlRecordFact],
     *,
@@ -1414,6 +1716,213 @@ def _sorted_record_json(
     if limit is not None:
         return data[:limit]
     return data
+
+
+@router.get("/{league_id}/history/team-owner-map")
+def get_history_team_owner_map(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    rows = (
+        db.query(models.LeagueHistoryTeamOwnerMap)
+        .filter(models.LeagueHistoryTeamOwnerMap.league_id == league_id)
+        .order_by(
+            desc(models.LeagueHistoryTeamOwnerMap.season),
+            models.LeagueHistoryTeamOwnerMap.team_name.asc(),
+        )
+        .all()
+    )
+    return {
+        "league_id": league_id,
+        "count": len(rows),
+        "mappings": [
+            HistoryTeamOwnerMapRow(
+                id=row.id,
+                season=row.season,
+                team_name=row.team_name,
+                team_name_key=row.team_name_key,
+                owner_name=row.owner_name,
+                owner_id=row.owner_id,
+                notes=row.notes,
+            ).model_dump()
+            for row in rows
+        ],
+    }
+
+
+@router.put("/{league_id}/history/team-owner-map")
+def upsert_history_team_owner_map(
+    league_id: int,
+    payload: HistoryTeamOwnerMapUpsertRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _require_commissioner_in_league(current_user, league_id)
+
+    created = 0
+    updated = 0
+    for item in payload.mappings:
+        season = _validate_season_year(item.season, label="season")
+        team_name = str(item.team_name or "").strip()
+        if not team_name:
+            raise HTTPException(status_code=400, detail="team_name is required")
+        team_name_key = _normalize_history_team_key(team_name)
+        if not team_name_key:
+            raise HTTPException(status_code=400, detail="team_name is invalid")
+
+        owner_id = item.owner_id
+        if owner_id is not None:
+            owner = db.query(models.User).filter(models.User.id == int(owner_id)).first()
+            if not owner or int(owner.league_id or 0) != int(league_id):
+                raise HTTPException(status_code=400, detail=f"owner_id {owner_id} is not in this league")
+
+        existing = (
+            db.query(models.LeagueHistoryTeamOwnerMap)
+            .filter(
+                models.LeagueHistoryTeamOwnerMap.league_id == league_id,
+                models.LeagueHistoryTeamOwnerMap.season == season,
+                models.LeagueHistoryTeamOwnerMap.team_name_key == team_name_key,
+            )
+            .first()
+        )
+
+        owner_name = str(item.owner_name or "").strip() or None
+        notes = str(item.notes or "").strip() or None
+
+        if existing:
+            existing.team_name = team_name
+            existing.owner_name = owner_name
+            existing.owner_id = owner_id
+            existing.notes = notes
+            updated += 1
+        else:
+            db.add(
+                models.LeagueHistoryTeamOwnerMap(
+                    league_id=league_id,
+                    season=season,
+                    team_name=team_name,
+                    team_name_key=team_name_key,
+                    owner_name=owner_name,
+                    owner_id=owner_id,
+                    notes=notes,
+                )
+            )
+            created += 1
+
+    db.commit()
+    return {
+        "league_id": league_id,
+        "count": len(payload.mappings),
+        "created": created,
+        "updated": updated,
+    }
+
+
+@router.delete("/{league_id}/history/team-owner-map/{map_id}")
+def delete_history_team_owner_map_row(
+    league_id: int,
+    map_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Delete a single team-owner mapping row by ID."""
+    _require_commissioner_in_league(current_user, league_id)
+    row = (
+        db.query(models.LeagueHistoryTeamOwnerMap)
+        .filter(
+            models.LeagueHistoryTeamOwnerMap.id == map_id,
+            models.LeagueHistoryTeamOwnerMap.league_id == league_id,
+        )
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Mapping row not found")
+    db.delete(row)
+    db.commit()
+    return {"deleted": True, "id": map_id}
+
+
+@router.get("/{league_id}/history/unmapped-series-keys")
+def get_unmapped_series_keys(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Return source tokens from all-time series records that have no owner mapping for this league."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    records = _historical_records_query(
+        db,
+        dataset_key="html_all_time_series_normalized",
+        league_id=league_id,
+    ).all()
+    owner_by_season_key, team_by_season_key, user_owner_by_team_key = _build_owner_mapping_indexes(
+        db,
+        league_id=league_id,
+    )
+    deduped_rows = _dedupe_and_enrich_all_time_series_records(
+        rows=[r.record_json for r in records],
+        owner_by_season_key=owner_by_season_key,
+        team_by_season_key=team_by_season_key,
+        user_owner_by_team_key=user_owner_by_team_key,
+        limit=None,
+    )
+
+    token_stats: Dict[str, Dict[str, Any]] = {}
+    for row in deduped_rows:
+        token = str(row.get("perspective_source_key") or "").strip()
+        if not token or token == "-":
+            continue
+        season_year = _safe_record_int(row, "series_season", "record_year", "season")
+        stat = token_stats.setdefault(token, {"series_count": 0, "seasons": set()})
+        stat["series_count"] += 1
+        if season_year > 0:
+            stat["seasons"].add(season_year)
+
+    existing_keys: set[str] = {
+        str(r.team_name_key or "").strip()
+        for r in db.query(models.LeagueHistoryTeamOwnerMap)
+        .filter(models.LeagueHistoryTeamOwnerMap.league_id == league_id)
+        .all()
+    }
+
+    def _serialize_token(token: str, stats: Dict[str, Any]) -> Dict[str, Any]:
+        seasons = sorted(stats["seasons"], reverse=True)
+        return {
+            "source_token": token,
+            "record_count": stats["series_count"],
+            "series_count": stats["series_count"],
+            "season_count": len(seasons),
+            "seasons": seasons,
+        }
+
+    ordered_tokens = sorted(
+        token_stats.items(),
+        key=lambda item: (-item[1]["series_count"], item[0]),
+    )
+    unmapped = [
+        _serialize_token(token, stats)
+        for token, stats in ordered_tokens
+        if token not in existing_keys
+    ]
+    mapped = [
+        _serialize_token(token, stats)
+        for token, stats in ordered_tokens
+        if token in existing_keys
+    ]
+
+    return {
+        "league_id": league_id,
+        "unmapped": unmapped,
+        "mapped": mapped,
+        "unmapped_count": len(unmapped),
+        "mapped_count": len(mapped),
+    }
 
 
 @router.get("/{league_id}/history/champions")
@@ -1532,7 +2041,14 @@ def get_matchup_records(
         league_id=league_id,
     ).all()
 
-    data = _sorted_record_json(records, sort_keys=["record_year", "season"], limit=100)
+    owner_by_season_key, _, user_owner_by_team_key = _build_owner_mapping_indexes(db, league_id=league_id)
+
+    data = _dedupe_and_enrich_match_records(
+        rows=[r.record_json for r in records],
+        map_by_season_key=owner_by_season_key,
+        user_owner_by_team_key=user_owner_by_team_key,
+        limit=100,
+    )
     return HistoricalRecordsResponse(
         dataset_key="html_matchup_records_normalized",
         league_id=mfl_league_id,
@@ -1557,13 +2073,194 @@ def get_all_time_series_records(
         league_id=league_id,
     ).all()
 
-    data = _sorted_record_json(records, sort_keys=["series_season", "season"], limit=100)
+    owner_by_season_key, team_by_season_key, user_owner_by_team_key = _build_owner_mapping_indexes(
+        db,
+        league_id=league_id,
+    )
+    data = _dedupe_and_enrich_all_time_series_records(
+        rows=[r.record_json for r in records],
+        owner_by_season_key=owner_by_season_key,
+        team_by_season_key=team_by_season_key,
+        user_owner_by_team_key=user_owner_by_team_key,
+        limit=200,
+    )
     return HistoricalRecordsResponse(
         dataset_key="html_all_time_series_normalized",
         league_id=mfl_league_id,
         records=data,
         count=len(data),
     )
+
+
+@router.post("/{league_id}/history/ask")
+def ask_history_question(
+    league_id: int,
+    payload: HistoryQuestionRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Answer basic natural-language historical questions with deterministic query logic."""
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    return _answer_history_question(
+        db=db,
+        league_id=league_id,
+        question=payload.question,
+    )
+
+
+def _answer_history_question(*, db: Session, league_id: int, question: str) -> Dict[str, Any]:
+    question = str(question or "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question is required")
+
+    year_match = re.search(r"(20\d{2})", question)
+    year = int(year_match.group(1)) if year_match else None
+    normalized = question.lower()
+
+    if "most points" in normalized and "who" in normalized:
+        records = _historical_records_query(
+            db,
+            dataset_key="html_player_records_normalized",
+            league_id=league_id,
+        ).all()
+        rows = [r.record_json for r in records]
+        if year is not None:
+            rows = [row for row in rows if _safe_record_int(row, "record_year", "season") == year]
+        if not rows:
+            return {
+                "question": question,
+                "answer": f"No player record rows were found{f' for {year}' if year else ''}.",
+                "intent": "player-most-points",
+                "year": year,
+                "result": None,
+            }
+
+        top = max(rows, key=lambda row: _safe_record_float(row, "points", "record_value", "value"))
+        top_points = _safe_record_float(top, "points", "record_value", "value")
+        top_year = _safe_record_int(top, "record_year", "season")
+        return {
+            "question": question,
+            "answer": (
+                f"{top.get('player_name') or 'Unknown player'} had the most points"
+                f"{f' in {year}' if year else ''}: {top_points:.2f}"
+                f" (week {_safe_record_int(top, 'record_week', 'week')}, season {top_year})."
+            ),
+            "intent": "player-most-points",
+            "year": year,
+            "result": top,
+        }
+
+    if ("champion" in normalized or "who won" in normalized) and ("who" in normalized or "won" in normalized or "champion" in normalized):
+        records = _historical_records_query(
+            db,
+            dataset_key="html_league_champions_normalized",
+            league_id=league_id,
+        ).all()
+        rows = [r.record_json for r in records]
+        if year is not None:
+            rows = [row for row in rows if _safe_record_int(row, "record_year", "season") == year]
+        if not rows:
+            return {
+                "question": question,
+                "answer": f"No champion data found{f' for {year}' if year else ''}.",
+                "intent": "champion-lookup",
+                "year": year,
+                "result": None,
+            }
+        top = sorted(rows, key=lambda row: _safe_record_int(row, "record_year", "season"), reverse=True)[0]
+        champ_year = _safe_record_int(top, "record_year", "season")
+        champ_name = top.get("owner_name") or top.get("team_name") or top.get("franchise_name") or "Unknown"
+        return {
+            "question": question,
+            "answer": f"The {champ_year} champion was {champ_name}.",
+            "intent": "champion-lookup",
+            "year": year,
+            "result": top,
+        }
+
+    if "highest" in normalized and any(w in normalized for w in ("score", "scoring", "game", "matchup")):
+        records = _historical_records_query(
+            db,
+            dataset_key="html_matchup_records_normalized",
+            league_id=league_id,
+        ).all()
+        rows = [r.record_json for r in records]
+        if year is not None:
+            rows = [row for row in rows if _safe_record_int(row, "record_year", "season", "year") == year]
+        if not rows:
+            return {
+                "question": question,
+                "answer": f"No matchup record data found{f' for {year}' if year else ''}.",
+                "intent": "highest-scoring-matchup",
+                "year": year,
+                "result": None,
+            }
+        top = max(rows, key=lambda row: _safe_record_float(row, "combined_score", "combined", "total_points"))
+        combined = _safe_record_float(top, "combined_score", "combined", "total_points")
+        top_year = _safe_record_int(top, "record_year", "season", "year")
+        top_week = _safe_record_int(top, "record_week", "week")
+        home = top.get("home_team") or top.get("home_franchise") or "Home"
+        away = top.get("away_team") or top.get("away_franchise") or "Away"
+        return {
+            "question": question,
+            "answer": (
+                f"The highest-scoring matchup{f' in {year}' if year else ''} was"
+                f" {home} vs {away} with a combined {combined:.2f} points"
+                f" (week {top_week}, season {top_year})."
+            ),
+            "intent": "highest-scoring-matchup",
+            "year": year,
+            "result": top,
+        }
+
+    if any(phrase in normalized for phrase in ("most wins", "best record", "best win")):
+        records = _historical_records_query(
+            db,
+            dataset_key="html_season_records_normalized",
+            league_id=league_id,
+        ).all()
+        rows = [r.record_json for r in records]
+        if year is not None:
+            rows = [row for row in rows if _safe_record_int(row, "record_year", "season") == year]
+        if not rows:
+            return {
+                "question": question,
+                "answer": f"No season record data found{f' for {year}' if year else ''}.",
+                "intent": "season-most-wins",
+                "year": year,
+                "result": None,
+            }
+        top = max(rows, key=lambda row: _safe_record_int(row, "wins", "total_wins", "win_count"))
+        top_wins = _safe_record_int(top, "wins", "total_wins", "win_count")
+        top_year = _safe_record_int(top, "record_year", "season")
+        owner = top.get("owner_name") or top.get("team_name") or top.get("franchise_name") or "Unknown"
+        return {
+            "question": question,
+            "answer": (
+                f"{owner} had the most wins"
+                f"{f' in {year}' if year else ''}: {top_wins}"
+                f"{f' (season {top_year})' if top_year > 0 else ''}."
+            ),
+            "intent": "season-most-wins",
+            "year": year,
+            "result": top,
+        }
+
+    return {
+        "question": question,
+        "answer": (
+            "I can currently answer questions like: "
+            "'who had the most points in 2019?', "
+            "'who was the champion in 2021?', "
+            "'what was the highest scoring game in 2018?', "
+            "'who had the most wins in 2020?'"
+        ),
+        "intent": "unsupported",
+        "year": year,
+        "result": None,
+    }
 
 
 @router.get("/{league_id}/history/records/season")

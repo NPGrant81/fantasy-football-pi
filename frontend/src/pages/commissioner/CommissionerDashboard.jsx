@@ -10,6 +10,7 @@ import {
   FiRepeat,
   FiBookOpen,
   FiGrid,
+  FiClock,
 } from 'react-icons/fi';
 
 // Professional Imports
@@ -156,6 +157,16 @@ export default function CommissionerDashboard() {
           loading={false}
           actionLabel="Edit Divisions"
           tone="purple"
+        />
+        <AdminActionCard
+          icon={FiClock}
+          badge="HISTORY"
+          title="Historical Owner Mapping"
+          description="Map historical team names and source tokens to owners by season, then archive the workflow once coverage is complete."
+          onClick={() => navigate('/commissioner/history-owner-mapping')}
+          loading={false}
+          actionLabel="Open Mapping Utility"
+          tone="blue"
         />
         <AdminActionCard
           icon={FiRepeat}
