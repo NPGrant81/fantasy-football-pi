@@ -372,6 +372,7 @@ function App() {
   const [error, setError] = useState('');
   const authCheckIdRef = useRef(0);
   const isLoggingOutRef = useRef(false);
+  const pendingLogoutRequestRef = useRef(null);
 
   useEffect(() => {
     const initialPath =
@@ -410,9 +411,18 @@ function App() {
     clearAuthState();
     // Fire backend logout in the background to clear server-side cookies.
     // Failures are non-critical — local state is already cleared above.
-    apiClient.post('/auth/logout', null, { timeout: 5000 }).catch(() => {
-      // intentionally swallowed
-    });
+    const logoutRequest = apiClient
+      .post('/auth/logout', null, { timeout: 5000 })
+      .catch(() => {
+        // intentionally swallowed
+      })
+      .finally(() => {
+        if (pendingLogoutRequestRef.current === logoutRequest) {
+          pendingLogoutRequestRef.current = null;
+        }
+      });
+
+    pendingLogoutRequestRef.current = logoutRequest;
   }, [clearAuthState]);
 
   // --- 1.3 AUTH CHECK (The Guard) ---
@@ -505,6 +515,11 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Ensure an earlier logout response cannot clear fresh login cookies.
+    if (pendingLogoutRequestRef.current) {
+      await pendingLogoutRequestRef.current;
+    }
 
     const formData = new URLSearchParams();
     formData.append('username', userInput);

@@ -649,9 +649,14 @@ def create_league(league_data: LeagueCreate, db: Session = Depends(get_db)):
 @router.post("/join")
 def join_league(league_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Let a user join a specific league."""
-    # Only superusers may switch to an arbitrary league.  Regular users may
-    # only complete their initial assignment (when no league has been set yet).
-    if not current_user.is_superuser and current_user.league_id is not None:
+    # Only superusers may switch to an arbitrary league. Regular users may
+    # only complete their initial assignment (when no league has been set yet)
+    # or re-join the same league they already belong to.
+    if (
+        not current_user.is_superuser
+        and current_user.league_id is not None
+        and current_user.league_id != league_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only superusers may switch leagues",
