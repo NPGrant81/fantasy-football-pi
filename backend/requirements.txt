@@ -18,7 +18,7 @@ ecdsa==0.19.1
 email-validator==2.3.0
 et_xmlfile==2.0.0
 fastapi==0.129.0
-fastparquet==2025.12.0
+fastparquet==2026.3.0
 flake8==7.3.0
 fsspec==2026.1.0
 # Google Gemini now uses a unified SDK `google-genai`.
@@ -28,6 +28,9 @@ fsspec==2026.1.0
 google-genai==1.64.0
 
 # dependencies needed by ETL tests
+# NOTE: nfl_data_py==0.3.3 requires numpy<2.0, conflicts with Py3.13 which needs numpy>=2.0
+# Commented out for Py3.13 CI compatibility; use Py3.12 locally or skip nfl imports in tests
+# nfl_data_py==0.3.3
 # yahoo_oauth provides OAuth2 helper used in etl/extract/extract_yahoo.py
 # added to avoid import errors during CI collection
 yahoo_oauth==2.1.1
@@ -36,7 +39,6 @@ yahoo_oauth==2.1.1
 pre-commit==4.5.1
 
 google-api-core==2.29.0
-google-api-python-client==2.190.0
 google-auth==2.48.0
 google-auth-httplib2==0.3.0
 googleapis-common-protos==1.72.0
@@ -52,8 +54,7 @@ jinja2==3.1.6
 Mako==1.3.10
 MarkupSafe==3.0.3
 mccabe==0.7.0
-nfl_data_py==0.3.3
-numpy==1.26.4
+numpy==2.2.3
 openpyxl==3.1.5
 packaging==26.0
 pandas==2.2.3
