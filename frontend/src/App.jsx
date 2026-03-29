@@ -373,6 +373,8 @@ function App() {
   const [error, setError] = useState('');
   const authCheckIdRef = useRef(0);
   const isLoggingOutRef = useRef(false);
+  const pendingLogoutRequestRef = useRef(null);
+  const logoutAbortControllerRef = useRef(null);
 
   useEffect(() => {
     const initialPath =
@@ -411,9 +413,26 @@ function App() {
     clearAuthState();
     // Fire backend logout in the background to clear server-side cookies.
     // Failures are non-critical — local state is already cleared above.
-    apiClient.post('/auth/logout', null, { timeout: 5000 }).catch(() => {
-      // intentionally swallowed
-    });
+    // Deduplicate: if a logout is already in flight, reuse it; don't start a new one.
+    if (!pendingLogoutRequestRef.current) {
+      const controller = new AbortController();
+      logoutAbortControllerRef.current = controller;
+      const logoutRequest = apiClient
+        .post('/auth/logout', null, { timeout: 5000, signal: controller.signal })
+        .catch(() => {
+          // intentionally swallowed
+        })
+        .finally(() => {
+          if (pendingLogoutRequestRef.current === logoutRequest) {
+            pendingLogoutRequestRef.current = null;
+          }
+          if (logoutAbortControllerRef.current === controller) {
+            logoutAbortControllerRef.current = null;
+          }
+        });
+
+      pendingLogoutRequestRef.current = logoutRequest;
+    }
   }, [clearAuthState]);
 
   // --- 1.3 AUTH CHECK (The Guard) ---
@@ -506,6 +525,17 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Ensure any in-flight logout cannot complete after login and clear fresh cookies.
+    if (logoutAbortControllerRef.current) {
+      logoutAbortControllerRef.current.abort();
+      logoutAbortControllerRef.current = null;
+    }
+
+    // Ensure an earlier logout request has fully settled before token exchange.
+    if (pendingLogoutRequestRef.current) {
+      await pendingLogoutRequestRef.current;
+    }
 
     const formData = new URLSearchParams();
     formData.append('username', userInput);

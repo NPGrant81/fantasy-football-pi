@@ -225,6 +225,17 @@ def test_join_league_rejects_non_superuser_with_existing_league(db_session):
     assert exc.value.status_code == 403
 
 
+def test_join_league_allows_non_superuser_same_league_idempotent(db_session):
+    league = make_league(db_session)
+    user = make_user(db_session, league, "same-league-owner", "SameLeague")
+
+    response = join_league(league_id=league.id, current_user=user, db=db_session)
+    db_session.refresh(user)
+
+    assert user.league_id == league.id
+    assert "Welcome to" in response["message"]
+
+
 def test_join_league_allows_first_time_user_without_league(db_session):
     target_league = make_league(db_session)
     user = models.User(
