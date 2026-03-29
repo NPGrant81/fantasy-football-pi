@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from datetime import datetime, timezone
 
 import pytest
 from fastapi import HTTPException, status
@@ -391,3 +392,119 @@ def test_taxi_endpoints_and_validation(client, api_db):
     sub2 = client.post('/team/submit-lineup', json={'week':1})
     assert sub2.status_code == 400
     assert "taxi" not in str(sub2.json().get('detail', ''))
+
+
+def test_non_scoring_settings_update_propagates_to_lineup_submission(client, api_db):
+    db, _ = api_db
+    from backend.core import security
+    from backend.core.security import get_current_user
+
+    league = models.League(name='PropagationLeague')
+    db.add(league)
+    db.commit()
+    db.refresh(league)
+
+    commissioner = models.User(
+        username='prop-commish',
+        email='prop-commish@test.com',
+        hashed_password=security.get_password_hash('pw'),
+        league_id=league.id,
+        is_commissioner=True,
+    )
+    db.add(commissioner)
+    db.commit()
+    db.refresh(commissioner)
+
+    qb = models.Player(name='Prop QB', position='QB', nfl_team='AAA')
+    rb = models.Player(name='Prop RB', position='RB', nfl_team='BBB')
+    db.add_all([qb, rb])
+    db.commit()
+    db.refresh(qb)
+    db.refresh(rb)
+
+    current_year = datetime.now(timezone.utc).year
+    db.add_all(
+        [
+            models.DraftPick(
+                owner_id=commissioner.id,
+                player_id=qb.id,
+                league_id=league.id,
+                current_status='STARTER',
+                year=current_year,
+            ),
+            models.DraftPick(
+                owner_id=commissioner.id,
+                player_id=rb.id,
+                league_id=league.id,
+                current_status='BENCH',
+                year=current_year,
+            ),
+        ]
+    )
+    db.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: commissioner
+
+    baseline_payload = {
+        'roster_size': 14,
+        'salary_cap': 200,
+        'starting_slots': {
+            'QB': 1,
+            'RB': 2,
+            'WR': 2,
+            'TE': 1,
+            'K': 0,
+            'DEF': 1,
+            'FLEX': 0,
+            'ACTIVE_ROSTER_SIZE': 9,
+            'MAX_QB': 2,
+            'MAX_RB': 4,
+            'MAX_WR': 5,
+            'MAX_TE': 3,
+            'MAX_K': 0,
+            'MAX_DEF': 1,
+            'MAX_FLEX': 0,
+            'ALLOW_PARTIAL_LINEUP': 0,
+            'REQUIRE_WEEKLY_SUBMIT': 1,
+        },
+        'waiver_deadline': 'Wed 11PM',
+        'starting_waiver_budget': 100,
+        'waiver_system': 'FAAB',
+        'waiver_tiebreaker': 'standings',
+        'trade_deadline': 'Fri 5PM',
+        'draft_year': current_year,
+        'scoring_rules': [
+            {
+                'category': 'passing',
+                'event_name': 'passing_touchdown',
+                'description': 'Passing TD',
+                'point_value': 4,
+                'calculation_type': 'flat_bonus',
+                'applicable_positions': ['QB'],
+            }
+        ],
+    }
+
+    update_res = client.put(f'/leagues/{league.id}/settings', json=baseline_payload)
+    assert update_res.status_code == 200
+
+    blocked = client.post('/team/submit-lineup', json={'week': 1})
+    assert blocked.status_code == status.HTTP_400_BAD_REQUEST
+    assert any('not enough' in str(msg).lower() for msg in blocked.json().get('detail', []))
+
+    baseline_payload['starting_slots']['ALLOW_PARTIAL_LINEUP'] = 1
+    baseline_payload['waiver_deadline'] = 'Thu 10PM'
+    baseline_payload['trade_deadline'] = 'Sat 3PM'
+
+    update_partial_res = client.put(f'/leagues/{league.id}/settings', json=baseline_payload)
+    assert update_partial_res.status_code == 200
+
+    settings_res = client.get(f'/leagues/{league.id}/settings')
+    assert settings_res.status_code == 200
+    settings_body = settings_res.json()
+    assert int(settings_body.get('starting_slots', {}).get('ALLOW_PARTIAL_LINEUP', 0)) == 1
+    assert settings_body.get('waiver_deadline') == 'Thu 10PM'
+
+    allowed = client.post('/team/submit-lineup', json={'week': 1})
+    assert allowed.status_code == 200
+    assert allowed.json().get('message') == 'Roster submitted'
