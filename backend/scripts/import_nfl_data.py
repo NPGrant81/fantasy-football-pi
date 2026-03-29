@@ -5,10 +5,10 @@ try:
     # Support both module execution (python -m backend.scripts.import_nfl_data)
     # and direct script execution from backend/scripts.
     from backend.services import player_service
-    from backend.services.espn_roster_service import fetch_rosters_for_seasons
+    from backend.services.nfl_roster_provider_service import fetch_rosters_for_seasons
 except ModuleNotFoundError:
     from services import player_service
-    from services.espn_roster_service import fetch_rosters_for_seasons
+    from services.nfl_roster_provider_service import fetch_rosters_for_seasons
 
 # 1. Initialize DB
 models.Base.metadata.create_all(bind=engine)

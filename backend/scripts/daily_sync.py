@@ -16,10 +16,10 @@ except ModuleNotFoundError:
     from services import player_service
 try:
     from backend.services.player_identity_service import current_season, upsert_player_season
-    from backend.services.espn_roster_service import fetch_current_players
+    from backend.services.nfl_roster_provider_service import fetch_current_players
 except ModuleNotFoundError:
     from services.player_identity_service import current_season, upsert_player_season
-    from services.espn_roster_service import fetch_current_players
+    from services.nfl_roster_provider_service import fetch_current_players
 
 def sync_nfl_reality():
     db = SessionLocal()

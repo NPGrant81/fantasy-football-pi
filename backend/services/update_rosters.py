@@ -1,7 +1,7 @@
 import pandas as pd
 from ..database import SessionLocal
 from .. import models
-from .espn_roster_service import fetch_rosters_for_seasons
+from .nfl_roster_provider_service import fetch_rosters_for_seasons
 
 def run_update():
     # 1. Connect to Database

@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Any
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+import requests
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -23,7 +23,7 @@ ALLOWED_SCHEMES = {"http", "https"}
 
 # SSRF protection: blocked private networks
 BLOCKED_HOSTNAMES = {
-    "localhost", "127.0.0.1", "0.0.0.0",
+    "localhost", "127.0.0.1",
     "169.254.169.254",  # AWS metadata endpoint
 }
 
@@ -83,10 +83,32 @@ def parse_iso_datetime(value: str | None) -> datetime | None:
         return None
 
 
-def sentiment_from_text(*, title: str, summary: str | None = None, content: str | None = None) -> tuple[float, str, list[str]]:
+def sentiment_from_text(
+    *,
+    title: str,
+    summary: str | None = None,
+    content: str | None = None,
+) -> tuple[float, str, list[str]]:
     text = " ".join([title or "", summary or "", content or ""]).lower()
-    positive_terms = {"healthy", "active", "cleared", "boost", "upgraded", "surge", "breakout"}
-    negative_terms = {"out", "injury", "questionable", "doubtful", "limited", "suspended", "tear", "strain"}
+    positive_terms = {
+        "healthy",
+        "active",
+        "cleared",
+        "boost",
+        "upgraded",
+        "surge",
+        "breakout",
+    }
+    negative_terms = {
+        "out",
+        "injury",
+        "questionable",
+        "doubtful",
+        "limited",
+        "suspended",
+        "tear",
+        "strain",
+    }
 
     pos = sum(1 for term in positive_terms if term in text)
     neg = sum(1 for term in negative_terms if term in text)
@@ -106,25 +128,40 @@ def sentiment_from_text(*, title: str, summary: str | None = None, content: str 
     return round(float(score), 3), label, tags
 
 
-def _normalize_external_item(raw: dict[str, Any], *, source: str, league_id: int | None = None) -> dict[str, Any] | None:
+def _normalize_external_item(
+    raw: dict[str, Any],
+    *,
+    source: str,
+    league_id: int | None = None,
+) -> dict[str, Any] | None:
     title = str(raw.get("title") or "").strip()
     if not title:
         return None
 
-    source_item_id = str(raw.get("id") or raw.get("guid") or raw.get("url") or title).strip()
+    source_item_id = str(
+        raw.get("id") or raw.get("guid") or raw.get("url") or title
+    ).strip()
     summary = str(raw.get("summary") or raw.get("description") or "").strip() or None
     content = str(raw.get("content") or "").strip() or None
     url = str(raw.get("url") or raw.get("link") or "").strip() or None
 
     published_at = None
-    raw_published = raw.get("published_at") or raw.get("published") or raw.get("timestamp")
+    raw_published = (
+        raw.get("published_at")
+        or raw.get("published")
+        or raw.get("timestamp")
+    )
     if raw_published:
         published_at = parse_iso_datetime(str(raw_published))
 
     if published_at is None:
         published_at = datetime.now(timezone.utc)
 
-    score, label, tags = sentiment_from_text(title=title, summary=summary, content=content)
+    score, label, tags = sentiment_from_text(
+        title=title,
+        summary=summary,
+        content=content,
+    )
 
     return {
         "league_id": league_id,
@@ -151,38 +188,62 @@ def load_external_news_items(*, league_id: int | None = None) -> list[dict[str, 
     items: list[dict[str, Any]] = []
 
     for raw_url in [v.strip() for v in urls_raw.split(",") if v.strip()]:
-                # SSRF protection: validate URL before fetching
-                if not _validate_url(raw_url):
-                    continue
-
-        request = Request(raw_url, headers={"User-Agent": "ffpi-player-news/1.0"})
-        try:
-            with urlopen(request, timeout=timeout_seconds) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except Exception as exc:
-            LOGGER.warning("player_news.external_fetch_failed", extra={"url": raw_url, "error": str(exc)})
+        # SSRF protection: validate URL before fetching
+        if not _validate_url(raw_url):
             continue
 
-        raw_items = payload if isinstance(payload, list) else payload.get("items", []) if isinstance(payload, dict) else []
+        try:
+            response = requests.get(
+                raw_url,
+                headers={"User-Agent": "ffpi-player-news/1.0"},
+                timeout=timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            LOGGER.warning(
+                "player_news.external_fetch_failed",
+                extra={"url": raw_url, "error": str(exc)},
+            )
+            continue
+
+        raw_items = (
+            payload
+            if isinstance(payload, list)
+            else payload.get("items", []) if isinstance(payload, dict)
+            else []
+        )
         if not isinstance(raw_items, list):
             continue
 
         for raw_item in raw_items:
             if not isinstance(raw_item, dict):
                 continue
-            normalized = _normalize_external_item(raw_item, source="external", league_id=league_id)
+            normalized = _normalize_external_item(
+                raw_item,
+                source="external",
+                league_id=league_id,
+            )
             if normalized:
                 items.append(normalized)
 
     return items
 
 
-def collect_draft_activity_news(db: Session, *, league_id: int, limit: int = 200) -> list[dict[str, Any]]:
+def collect_draft_activity_news(
+    db: Session,
+    *,
+    league_id: int,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
     picks = (
         db.query(models.DraftPick)
         .join(models.User, models.DraftPick.owner_id == models.User.id)
         .join(models.Player, models.DraftPick.player_id == models.Player.id)
-        .filter(models.DraftPick.league_id == league_id, ~models.User.username.like("hist_%"))
+        .filter(
+            models.DraftPick.league_id == league_id,
+            ~models.User.username.like("hist_%"),
+        )
         .order_by(desc(models.DraftPick.id))
         .limit(limit)
         .all()
@@ -204,7 +265,10 @@ def collect_draft_activity_news(db: Session, *, league_id: int, limit: int = 200
                 "summary": None,
                 "content": None,
                 "url": None,
-                "published_at": parse_iso_datetime(pick.timestamp) or datetime.now(timezone.utc),
+                "published_at": (
+                    parse_iso_datetime(pick.timestamp)
+                    or datetime.now(timezone.utc)
+                ),
                 "sentiment_score": score,
                 "sentiment_label": label,
                 "sentiment_tags": tags,
@@ -215,7 +279,11 @@ def collect_draft_activity_news(db: Session, *, league_id: int, limit: int = 200
     return items
 
 
-def _candidate_players_for_league(db: Session, *, league_id: int | None) -> list[tuple[int, str, str]]:
+def _candidate_players_for_league(
+    db: Session,
+    *,
+    league_id: int | None,
+) -> list[tuple[int, str, str]]:
     player_rows = (
         db.query(models.Player.id, models.Player.name)
         .join(models.DraftPick, models.DraftPick.player_id == models.Player.id)
@@ -226,7 +294,10 @@ def _candidate_players_for_league(db: Session, *, league_id: int | None) -> list
         else db.query(models.Player.id, models.Player.name).all()
     )
 
-    aliases = db.query(models.PlayerAlias.player_id, models.PlayerAlias.alias_name).all()
+    aliases = db.query(
+        models.PlayerAlias.player_id,
+        models.PlayerAlias.alias_name,
+    ).all()
     alias_map: dict[int, list[str]] = {}
     for pid, alias in aliases:
         if not alias:
@@ -243,8 +314,13 @@ def _candidate_players_for_league(db: Session, *, league_id: int | None) -> list
     return candidates
 
 
-def _link_news_item_to_players(db: Session, item: models.PlayerNewsItem) -> int:
-    text_blob = " ".join([item.title or "", item.summary or "", item.content or ""]).lower()
+def _link_news_item_to_players(
+    db: Session,
+    item: models.PlayerNewsItem,
+) -> int:
+    text_blob = " ".join(
+        [item.title or "", item.summary or "", item.content or ""]
+    ).lower()
     if not text_blob.strip():
         return 0
 
@@ -302,7 +378,7 @@ def ingest_news_items(db: Session, *, items: list[dict[str, Any]]) -> IngestSumm
             .filter(
                 models.PlayerNewsItem.source == source,
                 models.PlayerNewsItem.source_item_id == source_item_id,
-                            models.PlayerNewsItem.league_id == raw.get("league_id"),
+                models.PlayerNewsItem.league_id == raw.get("league_id"),
             )
             .first()
         )

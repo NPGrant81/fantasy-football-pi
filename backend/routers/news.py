@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..core.dependencies import check_is_commissioner
+from ..core.security import check_is_commissioner
 from ..services.player_news_service import (
     get_global_news,
     get_team_news,
