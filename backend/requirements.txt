@@ -28,9 +28,7 @@ fsspec==2026.1.0
 google-genai==1.64.0
 
 # dependencies needed by ETL tests
-# NOTE: nfl_data_py==0.3.3 requires numpy<2.0, conflicts with Py3.13 which needs numpy>=2.0
-# Commented out for Py3.13 CI compatibility; use Py3.12 locally or skip nfl imports in tests
-# nfl_data_py==0.3.3
+# NFL roster imports now use direct ESPN endpoints via backend.services.espn_roster_service.
 # yahoo_oauth provides OAuth2 helper used in etl/extract/extract_yahoo.py
 # added to avoid import errors during CI collection
 yahoo_oauth==2.1.1
