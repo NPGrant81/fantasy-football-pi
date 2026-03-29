@@ -230,3 +230,219 @@ def test_history_by_year_isolated_from_new_season_writes():
     assert data_2026[0]['player_name'] == season_2026_name
     assert data_2026[0]['amount'] == 15
 
+
+def test_history_by_year_excludes_keeper_carryover_by_default():
+    suffix = uuid4().hex[:8]
+
+    session = _new_session()
+    try:
+        league = models.League(name=f"Archive Keeper League {suffix}")
+        session.add(league)
+        session.flush()
+
+        owner = models.User(username=f"keeper-owner-{suffix}", league_id=league.id)
+        session.add(owner)
+        session.flush()
+
+        keeper_player = models.Player(name=f"Keeper Player {suffix}", position='WR')
+        draft_player = models.Player(name=f"Draft Player {suffix}", position='RB')
+        session.add_all([keeper_player, draft_player])
+        session.flush()
+
+        # Prior-year locked keeper should only appear when include_keepers=true
+        session.add(
+            models.Keeper(
+                league_id=league.id,
+                owner_id=owner.id,
+                player_id=keeper_player.id,
+                season=2025,
+                keep_cost=55,
+                status='locked',
+                approved_by_commish=True,
+            )
+        )
+        session.add(
+            models.DraftPick(
+                owner_id=owner.id,
+                player_id=draft_player.id,
+                amount=12,
+                year=2026,
+                session_id=f"LEAGUE_{league.id}_YEAR_2026",
+                league_id=league.id,
+            )
+        )
+        session.commit()
+
+        owner_id = owner.id
+        league_id = league.id
+    finally:
+        session.close()
+
+    mock_user = models.User(
+        id=owner_id,
+        username=f"keeper-owner-{suffix}",
+        league_id=league_id,
+        is_commissioner=True,
+    )
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+
+    default_response = client.get(
+        '/draft/history/by-year',
+        params={'league_id': league_id, 'year': 2026},
+    )
+    include_response = client.get(
+        '/draft/history/by-year',
+        params={'league_id': league_id, 'year': 2026, 'include_keepers': True},
+    )
+
+    assert default_response.status_code == 200
+    assert include_response.status_code == 200
+
+    default_rows = default_response.json()
+    include_rows = include_response.json()
+
+    assert len(default_rows) == 1
+    assert default_rows[0]['player_name'] == f"Draft Player {suffix}"
+    assert default_rows[0]['is_keeper'] is False
+
+    assert len(include_rows) == 2
+    assert any(row.get('is_keeper') is True for row in include_rows)
+
+
+def test_history_by_year_respects_round_pick_ordering():
+    suffix = uuid4().hex[:8]
+
+    session = _new_session()
+    try:
+        league = models.League(name=f"Archive Order League {suffix}")
+        session.add(league)
+        session.flush()
+
+        owner = models.User(username=f"order-owner-{suffix}", league_id=league.id)
+        session.add(owner)
+        session.flush()
+
+        player_a = models.Player(name=f"Order A {suffix}", position='WR')
+        player_b = models.Player(name=f"Order B {suffix}", position='RB')
+        session.add_all([player_a, player_b])
+        session.flush()
+
+        # Intentionally insert out of order by id so ordering must come from round/pick.
+        session.add(
+            models.DraftPick(
+                owner_id=owner.id,
+                player_id=player_b.id,
+                amount=20,
+                year=2026,
+                round_num=2,
+                pick_num=5,
+                session_id=f"LEAGUE_{league.id}_YEAR_2026",
+                league_id=league.id,
+            )
+        )
+        session.add(
+            models.DraftPick(
+                owner_id=owner.id,
+                player_id=player_a.id,
+                amount=30,
+                year=2026,
+                round_num=1,
+                pick_num=1,
+                session_id=f"LEAGUE_{league.id}_YEAR_2026",
+                league_id=league.id,
+            )
+        )
+        session.commit()
+
+        owner_id = owner.id
+        league_id = league.id
+    finally:
+        session.close()
+
+    mock_user = models.User(
+        id=owner_id,
+        username=f"order-owner-{suffix}",
+        league_id=league_id,
+        is_commissioner=True,
+    )
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+
+    response = client.get(
+        '/draft/history/by-year',
+        params={'league_id': league_id, 'year': 2026},
+    )
+    assert response.status_code == 200
+
+    rows = response.json()
+    assert len(rows) == 2
+    assert rows[0]['player_name'] == f"Order A {suffix}"
+    assert rows[1]['player_name'] == f"Order B {suffix}"
+
+
+def test_history_by_year_excludes_rows_without_round_and_pick():
+    suffix = uuid4().hex[:8]
+
+    session = _new_session()
+    try:
+        league = models.League(name=f"Archive Draft Filter League {suffix}")
+        session.add(league)
+        session.flush()
+
+        owner = models.User(username=f"draft-filter-owner-{suffix}", league_id=league.id)
+        session.add(owner)
+        session.flush()
+
+        draft_player = models.Player(name=f"Drafted Properly {suffix}", position='QB')
+        waiver_like_player = models.Player(name=f"Waiver Like {suffix}", position='RB')
+        session.add_all([draft_player, waiver_like_player])
+        session.flush()
+
+        session.add(
+            models.DraftPick(
+                owner_id=owner.id,
+                player_id=draft_player.id,
+                amount=22,
+                year=2026,
+                round_num=1,
+                pick_num=3,
+                session_id=f"LEAGUE_{league.id}_YEAR_2026",
+                league_id=league.id,
+            )
+        )
+        session.add(
+            models.DraftPick(
+                owner_id=owner.id,
+                player_id=waiver_like_player.id,
+                amount=1,
+                year=2026,
+                round_num=None,
+                pick_num=None,
+                session_id="default",
+                league_id=league.id,
+            )
+        )
+        session.commit()
+
+        owner_id = owner.id
+        league_id = league.id
+    finally:
+        session.close()
+
+    mock_user = models.User(
+        id=owner_id,
+        username=f"draft-filter-owner-{suffix}",
+        league_id=league_id,
+        is_commissioner=True,
+    )
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+
+    response = client.get(
+        '/draft/history/by-year',
+        params={'league_id': league_id, 'year': 2026},
+    )
+    assert response.status_code == 200
+
+    rows = response.json()
+    assert len(rows) == 1
+    assert rows[0]['player_name'] == f"Drafted Properly {suffix}"
+
