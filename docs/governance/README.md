@@ -11,6 +11,26 @@ data quality, deployment and cloudflare runbooks, security hardening,
 CI observability, API page matrix, doc-issue mapping, dev environment notes,
 and testing session summary.
 
+## Steady-State Cadence
+
+### Weekly
+
+- Run `python -m scripts.docs_review_sweep --warn-days 14`
+- Triage due-soon and overdue docs
+- Update `last_reviewed` in `doc_review_registry.json` for completed reviews
+
+### Monthly
+
+- Run `python -m scripts.repo_hygiene_check`
+- Review owner/cadence outliers in `doc_review_registry.json`
+- Sample recent PRs for pattern-impact declaration compliance
+
+### Quarterly
+
+- Re-evaluate classification guardrails for taxonomy drift
+- Re-assess archive candidates and move stale historical docs as needed
+- Refresh long-term maintenance rows in pattern compliance tracking docs
+
 ## Registry Format
 
 Each item must include:
@@ -64,6 +84,12 @@ It fails when:
 - required governed docs are missing
 - docs index is not current
 - repository hygiene checks fail
+
+## Definition Of Healthy
+
+- Governance coverage remains complete for active scoped docs
+- No unclassified docs introduced
+- Docs sweep and hygiene checks pass consistently
 
 ## Updating After Review
 

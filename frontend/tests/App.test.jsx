@@ -177,6 +177,112 @@ describe('App (basic)', () => {
     expect(screen.getByText(/PPL Insight Hub Login/i)).toBeInTheDocument();
   });
 
+  test('logout deduplicates in-flight /auth/logout requests', async () => {
+    localStorage.setItem('fantasyToken', 'cookie-session');
+    localStorage.setItem('fantasyLeagueId', '1');
+    localStorage.setItem('user_id', '7');
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { user_id: 7, username: 'alice', league_id: 1 } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    let resolveLogout;
+    const logoutPromise = new Promise((resolve) => {
+      resolveLogout = resolve;
+    });
+
+    apiClient.post.mockImplementation((url) => {
+      if (url === '/auth/logout') {
+        return logoutPromise;
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<App />);
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+
+    await act(async () => {
+      capturedLayoutProps.onLogout();
+      capturedLayoutProps.onLogout();
+    });
+
+    const logoutCalls = apiClient.post.mock.calls.filter(([url]) => url === '/auth/logout');
+    expect(logoutCalls).toHaveLength(1);
+
+    await act(async () => {
+      resolveLogout({});
+      await logoutPromise;
+    });
+  });
+
+  test('login aborts pending logout before requesting /auth/token', async () => {
+    localStorage.setItem('fantasyToken', 'cookie-session');
+    localStorage.setItem('fantasyLeagueId', '1');
+    localStorage.setItem('user_id', '7');
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { user_id: 7, username: 'alice', league_id: 1 } });
+      }
+      if (url === '/leagues/1/settings') {
+        return Promise.resolve({ data: {} });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    let capturedLogoutSignal = null;
+    apiClient.post.mockImplementation((url, body, config) => {
+      if (url === '/auth/logout') {
+        capturedLogoutSignal = config?.signal || null;
+        return new Promise((resolve, reject) => {
+          capturedLogoutSignal?.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('aborted'));
+              resolve({});
+            },
+            { once: true }
+          );
+        });
+      }
+
+      if (url === '/auth/token') {
+        return Promise.resolve({
+          data: { owner_id: 7, league_id: 1, is_commissioner: false, is_superuser: false },
+        });
+      }
+
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+
+    await act(async () => {
+      capturedLayoutProps.onLogout();
+    });
+
+    await user.type(screen.getByPlaceholderText(/Enter username/i), 'alice');
+    await user.type(screen.getByPlaceholderText(/Enter password/i), 'pw');
+    await user.click(screen.getByRole('button', { name: /ENTER/i }));
+
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/auth/token',
+        expect.any(Object),
+        expect.any(Object)
+      )
+    );
+
+    expect(capturedLogoutSignal).not.toBeNull();
+    expect(capturedLogoutSignal.aborted).toBe(true);
+  });
+
   test('token-present users without a mapped league can select one and enter the app', async () => {
     localStorage.setItem('fantasyToken', 'cookie-session');
     localStorage.setItem('user_id', '7');

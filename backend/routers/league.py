@@ -49,6 +49,9 @@ class LeagueNewsItem(BaseModel):
     type: str
     title: str
     timestamp: str
+    sentiment_score: float = 0.0
+    sentiment_label: str = "neutral"
+    sentiment_tags: List[str] = []
 
 # --- Update the Request Schema ---
 class AddMemberRequest(BaseModel):
@@ -153,6 +156,55 @@ def _require_commissioner_in_league(current_user: models.User, league_id: int) -
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: commissioner can only manage their own league.",
         )
+
+
+def _normalize_news_timestamp(value: Any) -> str:
+    if value is None:
+        return "Just now"
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def _parse_since_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    try:
+        return datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid since timestamp. Use ISO-8601 format.") from exc
+
+
+def _news_sentiment(title: str) -> tuple[float, str, List[str]]:
+    text = (title or "").lower()
+    positive_terms = {"active", "healthy", "cleared", "boost", "upgraded", "surge", "breakout"}
+    negative_terms = {"out", "injury", "questionable", "doubtful", "limited", "suspended", "tear", "strain"}
+
+    pos = sum(1 for term in positive_terms if term in text)
+    neg = sum(1 for term in negative_terms if term in text)
+    if pos == 0 and neg == 0:
+        return 0.0, "neutral", []
+
+    score = (pos - neg) / max(1, (pos + neg))
+    if score > 0.2:
+        label = "positive"
+    elif score < -0.2:
+        label = "negative"
+    else:
+        label = "neutral"
+
+    tags: List[str] = []
+    if any(term in text for term in {"injury", "out", "questionable", "doubtful", "limited", "tear", "strain"}):
+        tags.append("injury")
+    if any(term in text for term in {"trade", "traded"}):
+        tags.append("trade")
+    if any(term in text for term in {"breakout", "surge", "boost", "upgraded"}):
+        tags.append("performance")
+
+    return round(float(score), 3), label, tags
 
 
 def canonicalize_lineup_slots(slots: Dict[str, int] | None) -> Dict[str, int]:
@@ -532,8 +584,19 @@ def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
 def get_league_news(
     league_id: int,
     limit: int = Query(20, ge=1, le=100),
+    owner_id: Optional[int] = Query(None, ge=1),
+    since: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
+    # Support direct function invocation in unit tests where FastAPI parameter
+    # defaults can remain Query() objects.
+    if not isinstance(limit, int):
+        limit = int(getattr(limit, "default", 20))
+    if not isinstance(owner_id, int):
+        owner_id = None
+    if since is not None and not isinstance(since, str):
+        since = None
+
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
@@ -550,25 +613,54 @@ def get_league_news(
             ~models.User.username.like("hist_%"),
         )
         .order_by(desc(models.DraftPick.id))
-        .limit(limit)
+        .limit(max(limit * 5, 100))
         .all()
     )
 
+    since_dt = _parse_since_timestamp(since)
+
+    roster_player_ids: set[int] | None = None
+    if owner_id is not None:
+        roster_player_ids = {
+            pick.player_id
+            for pick in picks
+            if pick.owner_id == owner_id and pick.player_id is not None
+        }
+
     items: List[LeagueNewsItem] = []
     for pick in picks:
+        if roster_player_ids is not None and pick.player_id not in roster_player_ids:
+            continue
+
         owner_name = pick.owner.username if pick.owner else "Unknown Owner"
         # Defense-in-depth: skip historical MFL-import users (primary guard is the join filter above)
         if owner_name.startswith("hist_"):
             continue
+
         player_name = _normalize_player_name(pick.player.name) if pick.player else "Unknown Player"
-        timestamp = pick.timestamp or "Just now"
+        timestamp = _normalize_news_timestamp(pick.timestamp)
+
+        if since_dt is not None and pick.timestamp is not None:
+            pick_dt = pick.timestamp if isinstance(pick.timestamp, datetime) else _parse_since_timestamp(str(pick.timestamp))
+            if pick_dt is not None and pick_dt < since_dt:
+                continue
+
+        title = f"{owner_name} drafted {player_name} for ${pick.amount}"
+        sentiment_score, sentiment_label, sentiment_tags = _news_sentiment(title)
+
         items.append(
             LeagueNewsItem(
                 type="info",
-                title=f"{owner_name} drafted {player_name} for ${pick.amount}",
+                title=title,
                 timestamp=timestamp,
+                sentiment_score=sentiment_score,
+                sentiment_label=sentiment_label,
+                sentiment_tags=sentiment_tags,
             )
         )
+
+        if len(items) >= limit:
+            break
 
     return items
 
@@ -664,6 +756,17 @@ def join_league(league_id: int, current_user: models.User = Depends(get_current_
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
+
+    previous_league_id = current_user.league_id
+    logger.info(
+        "league context transition",
+        extra={
+            "user_id": current_user.id,
+            "previous_league_id": previous_league_id,
+            "target_league_id": league_id,
+            "is_superuser": bool(current_user.is_superuser),
+        },
+    )
 
     current_user.league_id = league_id
     db.commit()

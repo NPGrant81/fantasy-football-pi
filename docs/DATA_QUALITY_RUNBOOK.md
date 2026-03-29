@@ -164,6 +164,18 @@ python3.13.exe -m pytest backend/tests
     - reconciliation mismatches persist after rerun,
     - offseason structural changes introduce unusual owner turnover.
 
+### Owner Continuity First-Response Checklist
+
+Run this checklist in order when owner continuity checks fail:
+
+1. Re-run owner continuity guardrail tests:
+  - `python3.13.exe -m pytest backend/tests/test_data_quality_guardrails.py -k "referential_guardrail or ownership_chain_guardrail"`
+2. Run reconciliation summary for impacted seasons:
+  - `python3.13.exe -m backend.manage reconcile-mfl-import --season-start <YYYY> --season-end <YYYY> --output json`
+3. Inspect `franchises_vs_distinct_owners` mismatches and collect affected owner/franchise IDs.
+4. Verify out-of-order ownership transitions by player timeline and correct source ordering before reimport.
+5. Re-run targeted guardrails and reconciliation to confirm closure before broader pipeline reruns.
+
 ### Volume Anomalies
 - Tests:
   - `test_volume_guardrail_detects_large_season_over_season_drop`
