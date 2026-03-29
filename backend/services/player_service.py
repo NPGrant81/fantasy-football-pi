@@ -209,10 +209,19 @@ def canonical_player_rank(player: models.Player) -> tuple[int, int]:
 
 
 def dedupe_players(players: list[models.Player]) -> list[models.Player]:
-    selected: dict[tuple, models.Player] = {}
+    # Defensive first pass: guarantee unique player IDs even if upstream query
+    # shape ever returns duplicate rows for the same primary key.
+    selected_by_id: dict[int, models.Player] = {}
     for player in players:
         if not is_valid_player_row(player):
             continue
+        player_id = int(player.id or 0)
+        current_by_id = selected_by_id.get(player_id)
+        if current_by_id is None or _player_rank(player) > _player_rank(current_by_id):
+            selected_by_id[player_id] = player
+
+    selected: dict[tuple, models.Player] = {}
+    for player in selected_by_id.values():
         key = _player_dedupe_key(player)
         current = selected.get(key)
         if current is None or _player_rank(player) > _player_rank(current):

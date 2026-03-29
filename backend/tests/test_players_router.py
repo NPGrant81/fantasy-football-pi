@@ -212,6 +212,60 @@ def test_player_quality_report_requires_commissioner(client):
             cleanup.close()
 
 
+def test_players_endpoint_dedupes_identity_variants(client):
+    suffix = uuid4().hex[:8]
+    created_ids: list[int] = []
+
+    session = SessionLocal()
+    try:
+        player_with_external = models.Player(
+            name=f"{suffix}. Example Jr.",
+            position="WR",
+            nfl_team="BUF",
+            espn_id=f"espn-{suffix}",
+            projected_points=3210.0,
+            adp=101.0,
+        )
+        player_without_external = models.Player(
+            name=f"{suffix} Example",
+            position="WR",
+            nfl_team="BAL",
+            projected_points=3200.0,
+            adp=102.0,
+        )
+        session.add_all([player_with_external, player_without_external])
+        session.commit()
+        created_ids = [
+            row.id
+            for row in (player_with_external, player_without_external)
+            if row.id is not None
+        ]
+    finally:
+        session.close()
+
+    try:
+        response = client.get("/players/")
+        assert response.status_code == 200
+        rows = response.json()
+        matching = [
+            row
+            for row in rows
+            if suffix.lower() in str(row.get("name", "")).lower()
+        ]
+        assert len(matching) == 1
+        assert matching[0].get("espn_id") == f"espn-{suffix}"
+    finally:
+        cleanup = SessionLocal()
+        try:
+            if created_ids:
+                cleanup.query(models.Player).filter(
+                    models.Player.id.in_(created_ids)
+                ).delete(synchronize_session=False)
+                cleanup.commit()
+        finally:
+            cleanup.close()
+
+
 def test_player_quality_report_returns_expected_shape_for_commissioner(client):
     suffix = uuid4().hex[:8]
     league_id = None
