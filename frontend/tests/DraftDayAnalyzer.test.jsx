@@ -41,9 +41,9 @@ const ownersPayload = [
 ];
 
 const playersPayload = [
-  { id: 101, name: 'Player A', nfl_team: 'BUF', position: 'WR' },
-  { id: 102, name: 'Player B', nfl_team: 'KC', position: 'WR' },
-  { id: 103, name: 'Player C', nfl_team: 'SF', position: 'RB' },
+  { id: 101, name: 'Player A', nfl_team: 'BUF', position: 'WR', espn_id: '101' },
+  { id: 102, name: 'Player B', nfl_team: 'KC', position: 'WR', espn_id: '102' },
+  { id: 103, name: 'Player C', nfl_team: 'SF', position: 'RB', espn_id: '103' },
 ];
 
 const duplicatePlayersPayload = [
@@ -72,6 +72,9 @@ const getVisiblePlayerRows = () =>
 
 const buildGetMock = () =>
   vi.fn((url, config = {}) => {
+    if (url === '/auth/me') {
+      return Promise.resolve({ data: { id: 1, is_commissioner: true } });
+    }
     if (url.startsWith('/leagues/owners')) {
       return Promise.resolve({ data: ownersPayload });
     }
@@ -102,7 +105,7 @@ const buildGetMock = () =>
     return Promise.resolve({ data: [] });
   });
 
-describe('DraftDayAnalyzer advisor actions', () => {
+describe.sequential('DraftDayAnalyzer advisor actions', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
@@ -254,7 +257,7 @@ describe('DraftDayAnalyzer advisor actions', () => {
 
   test('hides duplicate player identities in analyzer list', async () => {
     const baseGet = buildGetMock();
-    apiClient.get = vi.fn((url, config = {}) => {
+    apiClient.get.mockImplementation((url, config = {}) => {
       if (url === '/players/') {
         return Promise.resolve({ data: duplicatePlayersPayload });
       }
