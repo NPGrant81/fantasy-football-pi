@@ -84,6 +84,16 @@ class MonteCarloSimulationResult:
     assumptions: dict[str, object]
 
 
+@dataclass
+class MonteCarloDbInputs:
+    draft_results_df: pd.DataFrame
+    players_df: pd.DataFrame
+    historical_rankings_df: pd.DataFrame
+    budget_df: pd.DataFrame
+    bid_stats_map: dict[int, dict[str, float | int]]
+    ranking_season: int
+
+
 def _parse_money(value: object, fallback: float = 0.0) -> float:
     if value is None:
         return fallback
@@ -503,7 +513,7 @@ def _run_single_iteration(
                     "player_id": player_id,
                     "player_name": str(candidate_row["player_name"]),
                     "position": position,
-                    "price_paid": float(paid),
+                        "winning_bid": float(paid),
                     "predicted_auction_value": float(candidate_row["predicted_auction_value"]),
                     "projected_points": float(candidate_row["projected_points"]),
                 }
@@ -585,7 +595,18 @@ def run_monte_carlo_draft_simulation(
 
     draft_picks_df = pd.DataFrame(
         all_picks,
-        columns=["iteration", "owner_id", "player_id", "player_name", "position", "winning_bid"],
+        columns=[
+            "iteration",
+            "pick_no",
+            "nominated_by_owner_id",
+            "owner_id",
+            "player_id",
+            "player_name",
+            "position",
+            "winning_bid",
+            "predicted_auction_value",
+            "projected_points",
+        ],
     )
     team_metrics_df = pd.DataFrame(all_team_metrics)
 
@@ -697,84 +718,162 @@ def run_monte_carlo_from_db(
     config:
         Simulation configuration.  Defaults to ``SimulationConfig()``.
     """
+    inputs = build_monte_carlo_inputs_from_db(db, league_id=league_id)
+
+    return run_monte_carlo_draft_simulation(
+        draft_results_df=inputs.draft_results_df,
+        players_df=inputs.players_df,
+        historical_rankings_df=inputs.historical_rankings_df,
+        budget_df=inputs.budget_df,
+        yearly_results_df=pd.DataFrame(),
+        config=config,
+    )
+
+
+def build_monte_carlo_inputs_from_db(
+    db: "Session",
+    *,
+    league_id: int | None = None,
+    ranking_season: int | None = None,
+) -> MonteCarloDbInputs:
+    from sqlalchemy import distinct, func, select
+
     from backend import models
     from backend.models_draft_value import DraftValue
-    from sqlalchemy import func
+    from backend.services.player_service import get_all_relevant_players
+
+    active_pid_select = select(models.PlayerSeason.player_id).where(models.PlayerSeason.is_active.is_(True))
+    player_rows = (
+        db.query(models.Player)
+        .filter(
+            models.Player.id.in_(active_pid_select),
+            models.Player.position.in_({"QB", "RB", "WR", "TE", "K", "DEF"}),
+        )
+        .all()
+    )
+    if not player_rows:
+        player_rows = get_all_relevant_players(db)
+
+    players_df = pd.DataFrame(
+        [{"Player_ID": p.id, "PlayerName": p.name, "PositionID": p.position or ""} for p in player_rows]
+    )
+    if players_df.empty and league_id is not None:
+        fallback_player_rows = (
+            db.query(models.Player)
+            .join(models.DraftPick, models.DraftPick.player_id == models.Player.id)
+            .filter(models.DraftPick.league_id == league_id)
+            .distinct(models.Player.id)
+            .all()
+        )
+        players_df = pd.DataFrame(
+            [
+                {"Player_ID": p.id, "PlayerName": p.name, "PositionID": p.position or ""}
+                for p in fallback_player_rows
+            ]
+        )
+    if players_df.empty:
+        raise ValueError("No eligible player pool available for simulation. Sync players first.")
+
+    player_lookup = {int(row["Player_ID"]): row for row in players_df.to_dict("records")}
+
+    bid_query = db.query(
+        models.DraftPick.player_id,
+        func.count(models.DraftPick.id).label("appearances"),
+        func.avg(models.DraftPick.amount).label("avg_bid"),
+    )
+    if league_id is not None:
+        bid_query = bid_query.filter(models.DraftPick.league_id == league_id)
+    bid_agg = bid_query.group_by(models.DraftPick.player_id).all()
+    bid_stats_map: dict[int, dict[str, float | int]] = {
+        int(row.player_id): {
+            "appearances": int(row.appearances or 0),
+            "avg_bid": float(row.avg_bid or 0.0),
+        }
+        for row in bid_agg
+        if row.player_id is not None
+    }
+
+    resolved_ranking_season = int(
+        ranking_season
+        or db.query(func.max(DraftValue.season)).scalar()
+        or 0
+    )
+    rankings_query = (
+        db.query(DraftValue, models.Player)
+        .join(models.Player, models.Player.id == DraftValue.player_id)
+        .filter(DraftValue.season == resolved_ranking_season)
+    )
+    dv_rows = rankings_query.all()
+    historical_rankings_rows: list[dict[str, object]] = []
+    seen_player_ids: set[int] = set()
+    for dv, player in dv_rows:
+        seen_player_ids.add(int(dv.player_id))
+        bid_stats = bid_stats_map.get(int(dv.player_id), {})
+        historical_rankings_rows.append(
+            {
+                "player_id": int(dv.player_id),
+                "player_name": player.name,
+                "position": player.position or "",
+                "predicted_auction_value": float(dv.avg_auction_value or 1.0),
+                "model_score": float(dv.model_score or 0.0),
+                "appearances": int(bid_stats.get("appearances", 0)),
+                "avg_bid": float(bid_stats.get("avg_bid", 0.0)),
+            }
+        )
+
+    missing_bid_player_ids = [pid for pid in bid_stats_map if pid not in seen_player_ids]
+    if missing_bid_player_ids:
+        player_rows_by_id = (
+            db.query(models.Player)
+            .filter(models.Player.id.in_(missing_bid_player_ids))
+            .all()
+        )
+        for player in player_rows_by_id:
+            bid_stats = bid_stats_map.get(int(player.id), {})
+            historical_rankings_rows.append(
+                {
+                    "player_id": int(player.id),
+                    "player_name": player.name,
+                    "position": player.position or "",
+                    "predicted_auction_value": float(bid_stats.get("avg_bid", 0.0) or 1.0),
+                    "model_score": 0.0,
+                    "appearances": int(bid_stats.get("appearances", 0)),
+                    "avg_bid": float(bid_stats.get("avg_bid", 0.0)),
+                }
+            )
+
+    historical_rankings_df = pd.DataFrame(
+        historical_rankings_rows
+        if historical_rankings_rows
+        else [{"player_id": 0, "predicted_auction_value": 1.0, "model_score": 0.0}]
+    )
 
     picks_query = (
-        db.query(
-            models.DraftPick.player_id.label("PlayerID"),
-            models.DraftPick.owner_id.label("OwnerID"),
-            models.DraftPick.year.label("Year"),
-            models.DraftPick.amount.label("WinningBid"),
-            models.Player.position.label("position_str"),
-        )
-        .join(models.Player, models.Player.id == models.DraftPick.player_id)
-        .filter(models.DraftPick.year.isnot(None))
+        db.query(models.DraftPick, models.Player)
+        .join(models.Player, models.Player.id == models.DraftPick.player_id, isouter=True)
     )
     if league_id is not None:
         picks_query = picks_query.filter(models.DraftPick.league_id == league_id)
-    picks_rows = picks_query.all()
+    draft_picks_db = picks_query.all()
 
+    default_year = resolved_ranking_season or 0
     draft_results_df = pd.DataFrame(
-        [dict(r._mapping) for r in picks_rows],
-        columns=["PlayerID", "OwnerID", "Year", "WinningBid", "position_str"],
+        [
+            {
+                "OwnerID": pick.owner_id,
+                "PlayerID": pick.player_id,
+                "PositionID": (player.position if player else player_lookup.get(int(pick.player_id or 0), {}).get("PositionID") or "") or "",
+                "WinningBid": float(pick.amount or 0),
+                "Year": int(pick.year or default_year),
+            }
+            for pick, player in draft_picks_db
+        ]
     )
-    draft_results_df["PositionID"] = (
-        draft_results_df["position_str"].str.upper().map(_POSITION_IDS).fillna(0).astype(int)
-    )
-    draft_results_df = draft_results_df.drop(columns=["position_str"])
-
-    players_rows = (
-        db.query(
-            models.Player.id.label("Player_ID"),
-            models.Player.name.label("PlayerName"),
-            models.Player.position.label("position"),
+    if draft_results_df.empty:
+        raise ValueError(
+            "No draft history found for this league. Complete at least one draft before running a simulation."
         )
-        .all()
-    )
-    players_df = pd.DataFrame(
-        [dict(r._mapping) for r in players_rows],
-        columns=["Player_ID", "PlayerName", "position"],
-    )
-    players_df["PositionID"] = (
-        players_df["position"].str.upper().map(_POSITION_IDS).fillna(0).astype(int)
-    )
-    players_df = players_df.drop(columns=["position"])
 
-    # Load historical rankings from DraftValue table (written by build_historical_rankings --load-db).
-    latest_draft_value_season = (
-        db.query(
-            DraftValue.player_id.label("player_id"),
-            func.max(DraftValue.season).label("latest_season"),
-        )
-        .group_by(DraftValue.player_id)
-        .subquery()
-    )
-
-    rankings_rows = (
-        db.query(
-            DraftValue.player_id.label("player_id"),
-            DraftValue.avg_auction_value.label("predicted_auction_value"),
-            DraftValue.median_adp.label("median_bid"),
-            DraftValue.consensus_tier.label("consensus_tier"),
-            DraftValue.value_over_replacement.label("value_over_replacement"),
-        )
-        .join(
-            latest_draft_value_season,
-            (DraftValue.player_id == latest_draft_value_season.c.player_id)
-            & (DraftValue.season == latest_draft_value_season.c.latest_season),
-        )
-        .order_by(DraftValue.player_id.asc())
-        .all()
-    )
-    historical_rankings_df = (
-        pd.DataFrame([dict(r._mapping) for r in rankings_rows])
-        if rankings_rows
-        else pd.DataFrame()
-    )
-
-    # Load per-season draft budgets.
     budget_query = db.query(
         models.DraftBudget.owner_id.label("OwnerID"),
         models.DraftBudget.total_budget.label("DraftBudget"),
@@ -783,19 +882,20 @@ def run_monte_carlo_from_db(
     if league_id is not None:
         budget_query = budget_query.filter(models.DraftBudget.league_id == league_id)
     budget_rows = budget_query.all()
-    budget_df = (
-        pd.DataFrame([dict(r._mapping) for r in budget_rows])
-        if budget_rows
-        else pd.DataFrame()
-    )
+    budget_df = pd.DataFrame([dict(r._mapping) for r in budget_rows]) if budget_rows else pd.DataFrame()
+    if budget_df.empty and league_id is not None:
+        league_owners = db.query(models.User).filter(models.User.league_id == league_id).all()
+        budget_df = pd.DataFrame(
+            [{"OwnerID": owner.id, "DraftBudget": 200.0} for owner in league_owners]
+        )
 
-    return run_monte_carlo_draft_simulation(
+    return MonteCarloDbInputs(
         draft_results_df=draft_results_df,
         players_df=players_df,
         historical_rankings_df=historical_rankings_df,
         budget_df=budget_df,
-        yearly_results_df=pd.DataFrame(),
-        config=config,
+        bid_stats_map=bid_stats_map,
+        ranking_season=resolved_ranking_season,
     )
 
 

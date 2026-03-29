@@ -209,7 +209,7 @@
 
 - **Status:** ✅ COMPLETED (Initial Scope)
 - **Priority:** Low
-- **Notes:** Story issue `#6` is closed. Additional historical pipeline work continues under newer issues (for example `#286` and `#288`).
+- **Notes:** Story issue `#6` is closed. Additional historical pipeline work continues under newer issues (for example `#286`, `#288`, and `#341` for League 60 historical owner identity backfill).
 - **Complexity:** Medium - migration and cleanup scripts
 
 ---
@@ -264,7 +264,7 @@
 - **Total Open Issues:** Dynamic; use `gh issue list --state open` for current count.
 - **✅ Fully Completed:** Includes Stories `1.2`, `6.1`, `6.3`, `6.4`, `7.2`, and `7.3`.
 - **🔄 Partially Completed:** Story `6.2` dynamic structure follow-up only.
-- **📌 Active Follow-Ups:** Track open operational scope in GitHub issues rather than reopening closed story-description issues.
+- **📌 Active Follow-Ups:** Track open operational scope in GitHub issues rather than reopening closed story-description issues. Current example: `#341` covers League 60 historical owner identity enrichment and backfill.
 - **🏗️ Infrastructure:** 3 tasks (0.1 ✅, 0.2 ⏳, 0.3 ✅)
 
 ---

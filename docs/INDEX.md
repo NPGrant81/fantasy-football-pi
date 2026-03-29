@@ -38,6 +38,7 @@ Refer to the appropriate file for more information.
 - [Mfl Historical Data Operations](MFL_HISTORICAL_DATA_OPERATIONS.md)
 - [Model-Serving-And-Integration](model-serving-and-integration.md)
 - [Monte-Carlo-Simulation](monte-carlo-simulation.md)
+- [Pattern Standardization Plan](PATTERN_STANDARDIZATION_PLAN.md)
 - [Permissions](permissions.md)
 - [Pi Setup Docker](pi-setup/docker.md)
 - [Pi Update Cheatsheet](PI_UPDATE_CHEATSHEET.md)

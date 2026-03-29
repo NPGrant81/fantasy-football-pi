@@ -670,8 +670,6 @@ function App() {
             token={token}
             activeOwnerId={activeOwnerId}
             isCommissioner={isCommissioner}
-            isCommissioner={isCommissioner}
-            isCommissioner={isCommissioner}
             isSuperuser={isSuperuser}
             onLeagueSwitch={handleLeagueSwitch}
           />

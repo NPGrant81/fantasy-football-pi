@@ -262,6 +262,7 @@ describe('App (basic)', () => {
     const user = userEvent.setup();
 
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+    await waitFor(() => expect(screen.getByTestId('layout')).toBeInTheDocument());
 
     await act(async () => {
       capturedLayoutProps.onLogout();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiAlertTriangle,
@@ -48,6 +48,39 @@ const CSV_TEMPLATE = [
   '2019,mfl_o_171,Chester Clark,,league perspective token',
   '2019,Gridiron Brothers,Alex Grant,,legacy team name',
 ].join('\n');
+
+const OWNER_GAP_RETRY_DELAYS_MS = [0, 40, 120];
+
+function waitMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableOwnerGapError(error) {
+  const status = Number(error?.response?.status || 0);
+  // Retry on transient failures, but avoid retrying hard validation/auth failures.
+  return status === 0 || status === 429 || status >= 500;
+}
+
+async function fetchOwnerGapReportWithRetry(leagueId) {
+  const url = `/leagues/${Number(leagueId)}/history/owner-gap-report?detail_limit=250&season_limit=50`;
+  let lastError;
+
+  for (const delay of OWNER_GAP_RETRY_DELAYS_MS) {
+    if (delay > 0) {
+      await waitMs(delay + Math.floor(Math.random() * 20));
+    }
+    try {
+      return await apiClient.get(url);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableOwnerGapError(error)) {
+        break;
+      }
+    }
+  }
+
+  throw lastError;
+}
 
 function normalizeLookup(value) {
   return String(value || '')
@@ -259,6 +292,10 @@ export default function HistoryOwnerMappingUtility() {
   const [mappingRows, setMappingRows] = useState([]);
   const [unmappedSeriesKeys, setUnmappedSeriesKeys] = useState([]);
   const [mappedSeriesKeys, setMappedSeriesKeys] = useState([]);
+  const [ownerGapReport, setOwnerGapReport] = useState(null);
+  const [ownerGapLoadError, setOwnerGapLoadError] = useState('');
+  const [showTools, setShowTools] = useState(false);
+  const [showAllGapRows, setShowAllGapRows] = useState(false);
 
   const [mapEditId, setMapEditId] = useState(null);
   const [seasonInput, setSeasonInput] = useState('');
@@ -273,7 +310,7 @@ export default function HistoryOwnerMappingUtility() {
   const [timelineOwnerSearch, setTimelineOwnerSearch] = useState('');
   const [timelineOnlyMultiStint, setTimelineOnlyMultiStint] = useState(false);
 
-  const loadPageData = async () => {
+  const loadPageData = useCallback(async () => {
     if (!leagueId) {
       setError('No active league selected.');
       setLoading(false);
@@ -291,17 +328,27 @@ export default function HistoryOwnerMappingUtility() {
       setMappingRows(Array.isArray(mappingRes?.data?.mappings) ? mappingRes.data.mappings : []);
       setUnmappedSeriesKeys(Array.isArray(unmappedRes?.data?.unmapped) ? unmappedRes.data.unmapped : []);
       setMappedSeriesKeys(Array.isArray(unmappedRes?.data?.mapped) ? unmappedRes.data.mapped : []);
+      setOwnerGapLoadError('');
+      try {
+        const ownerGapRes = await fetchOwnerGapReportWithRetry(leagueId);
+        setOwnerGapReport(ownerGapRes?.data || null);
+      } catch (ownerGapErr) {
+        setOwnerGapReport(null);
+        setOwnerGapLoadError(ownerGapErr.response?.data?.detail || 'Owner gap report is temporarily unavailable.');
+        // Allow commissioners to continue working even if diagnostics endpoint is down.
+        setShowTools(true);
+      }
       setError('');
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load historical mapping utility.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [leagueId]);
 
   useEffect(() => {
     loadPageData();
-  }, [leagueId]);
+  }, [loadPageData]);
 
   const ownerOptions = useMemo(
     () => owners.map((owner) => ({ value: String(owner.id), label: normalizeOwnerLabel(owner) })),
@@ -335,6 +382,35 @@ export default function HistoryOwnerMappingUtility() {
       coverageCount: totalMappedSourceKeys + totalUnmapped,
     };
   }, [mappingRows, unmappedSeriesKeys]);
+
+  const ownerGapSummary = ownerGapReport?.summary || {
+    placeholder_mapping_count: 0,
+    unresolved_match_team_count: 0,
+    unresolved_series_team_count: 0,
+    unresolved_series_source_token_count: 0,
+    season_count: 0,
+  };
+
+  const gapIsClean =
+    ownerGapReport !== null &&
+    ownerGapSummary.placeholder_mapping_count === 0 &&
+    ownerGapSummary.unresolved_match_team_count === 0 &&
+    ownerGapSummary.unresolved_series_team_count === 0 &&
+    ownerGapSummary.unresolved_series_source_token_count === 0;
+
+  const ignoredMalformedMatchRows = Number(ownerGapReport?.metadata?.ignored_malformed_row_count?.match_records || 0);
+  const ignoredMalformedSeriesRows = Number(ownerGapReport?.metadata?.ignored_malformed_row_count?.series_records || 0);
+  const gapReportHasTruncation = Boolean(
+    ownerGapReport?.metadata?.truncated &&
+      Object.values(ownerGapReport.metadata.truncated).some((value) => Boolean(value))
+  );
+
+  const gapDetailRowCount =
+    (ownerGapReport?.placeholder_mappings?.length || 0) +
+    (ownerGapReport?.unresolved_match_teams?.length || 0) +
+    (ownerGapReport?.unresolved_series_teams?.length || 0) +
+    (ownerGapReport?.unresolved_series_source_tokens?.length || 0);
+  const gapRowLimit = showAllGapRows ? Number.MAX_SAFE_INTEGER : 6;
 
   const seasonCoverageRows = useMemo(() => {
     return seasonOptions.map((season) => {
@@ -706,6 +782,38 @@ export default function HistoryOwnerMappingUtility() {
     );
   };
 
+  const exportGapReportCsv = () => {
+    if (!ownerGapReport) return;
+    const seenKeys = new Set();
+    const rows = [];
+    (ownerGapReport.placeholder_mappings || []).forEach((row) => {
+      const key = `${row.season}||${row.team_name_key || row.team_name}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        rows.push({ season: row.season, team_name: row.team_name, owner_name: '', owner_id: '', notes: 'placeholder - needs real owner name' });
+      }
+    });
+    (ownerGapReport.unresolved_match_teams || []).forEach((row) => {
+      const key = `${row.season}||${row.team_name_key}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        rows.push({ season: row.season, team_name: row.team_name, owner_name: '', owner_id: '', notes: 'unresolved matchup team' });
+      }
+    });
+    (ownerGapReport.unresolved_series_teams || []).forEach((row) => {
+      const key = `${row.season}||${row.team_name_key}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        rows.push({ season: row.season, team_name: row.team_name, owner_name: '', owner_id: '', notes: 'unresolved series team' });
+      }
+    });
+    downloadTextFile(
+      `league-${Number(leagueId)}-owner-gaps.csv`,
+      serializeMappingsCsv(rows),
+      'text/csv;charset=utf-8'
+    );
+  };
+
   if (loading) {
     return (
       <div className={pageShell}>
@@ -748,6 +856,152 @@ export default function HistoryOwnerMappingUtility() {
         </div>
       )}
 
+      <section className={`${cardSurface} mb-4 p-5`}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">Owner Identity Gap Report</h2>
+            <p className={`${textMeta} mt-1`}>
+              Server-side diagnostics for unresolved historical owner identities. Click any row to jump to that season in the mapping tools below.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {ownerGapReport && !gapIsClean && (
+              <button type="button" className={buttonSecondary} onClick={exportGapReportCsv}>
+                <FiDownload />
+                Export Unresolved Rows
+              </button>
+            )}
+            <div className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <FiAlertTriangle />
+              {ownerGapSummary.season_count} seasons with tracked gaps
+            </div>
+          </div>
+        </div>
+
+        {ownerGapLoadError ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <p className="font-semibold">Owner gap diagnostics unavailable</p>
+            <p className="mt-1">{ownerGapLoadError}</p>
+            <button
+              type="button"
+              className={`${buttonSecondary} mt-3`}
+              onClick={loadPageData}
+            >
+              Retry Diagnostics Load
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/70 dark:bg-amber-950/30">
+            <p className={textCaption}>Placeholder mappings</p>
+            <p className="mt-1 text-2xl font-black text-amber-700 dark:text-amber-300">{ownerGapSummary.placeholder_mapping_count}</p>
+          </div>
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/70 dark:bg-rose-950/30">
+            <p className={textCaption}>Unresolved matchup teams</p>
+            <p className="mt-1 text-2xl font-black text-rose-700 dark:text-rose-300">{ownerGapSummary.unresolved_match_team_count}</p>
+          </div>
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/70 dark:bg-rose-950/30">
+            <p className={textCaption}>Unresolved series teams</p>
+            <p className="mt-1 text-2xl font-black text-rose-700 dark:text-rose-300">{ownerGapSummary.unresolved_series_team_count}</p>
+          </div>
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/70 dark:bg-rose-950/30">
+            <p className={textCaption}>Unresolved source tokens</p>
+            <p className="mt-1 text-2xl font-black text-rose-700 dark:text-rose-300">{ownerGapSummary.unresolved_series_source_token_count}</p>
+          </div>
+        </div>
+
+        {(ignoredMalformedMatchRows > 0 || ignoredMalformedSeriesRows > 0 || gapReportHasTruncation) && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <p className="font-semibold">Diagnostics quality notes</p>
+            <p className="mt-1">
+              {ignoredMalformedMatchRows > 0 || ignoredMalformedSeriesRows > 0
+                ? `Ignored malformed rows: matchup ${ignoredMalformedMatchRows}, series ${ignoredMalformedSeriesRows}.`
+                : null}
+              {gapReportHasTruncation ? ' Response is truncated by server limits; use CSV exports or rerun without limits for full detail.' : null}
+            </p>
+          </div>
+        )}
+
+        {ownerGapReport && (
+          <div className="mt-4 space-y-3">
+            {(ownerGapReport.placeholder_mappings || []).slice(0, gapRowLimit).map((row) => (
+              <button
+                key={`placeholder-${row.id}`}
+                type="button"
+                className="w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-left text-sm hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
+                onClick={() => { setSeasonFilter(String(row.season)); setShowTools(true); }}
+              >
+                <span className="font-semibold text-amber-800 dark:text-amber-200">Placeholder owner label:</span>{' '}
+                {row.season} / {row.team_name} {'→'} {row.owner_name}
+              </button>
+            ))}
+            {(ownerGapReport.unresolved_match_teams || []).slice(0, gapRowLimit).map((row) => (
+              <button
+                key={`match-gap-${row.season}-${row.team_name_key}-${row.side}`}
+                type="button"
+                className="w-full rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-left text-sm hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:hover:bg-rose-950/50"
+                onClick={() => { setSeasonFilter(String(row.season)); setShowTools(true); }}
+              >
+                <span className="font-semibold text-rose-800 dark:text-rose-200">Unresolved matchup owner:</span>{' '}
+                {row.season} / {row.team_name} ({row.side}, {row.occurrence_count} records)
+              </button>
+            ))}
+            {(ownerGapReport.unresolved_series_teams || []).slice(0, gapRowLimit).map((row) => (
+              <button
+                key={`series-gap-${row.season}-${row.team_name_key}-${row.role}`}
+                type="button"
+                className="w-full rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-left text-sm hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:hover:bg-rose-950/50"
+                onClick={() => { setSeasonFilter(String(row.season)); setShowTools(true); }}
+              >
+                <span className="font-semibold text-rose-800 dark:text-rose-200">Unresolved series owner:</span>{' '}
+                {row.season} / {row.team_name} ({row.role}, {row.occurrence_count} records)
+              </button>
+            ))}
+            {(ownerGapReport.unresolved_series_source_tokens || []).slice(0, gapRowLimit).map((row) => (
+              <button
+                key={`token-gap-${row.season}-${row.source_token}`}
+                type="button"
+                className="w-full rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-left text-sm hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:hover:bg-rose-950/50"
+                onClick={() => { setSeasonFilter(String(row.season)); setShowTools(true); }}
+              >
+                <span className="font-semibold text-rose-800 dark:text-rose-200">Unresolved perspective source token:</span>{' '}
+                {row.season} / {row.source_token} ({row.occurrence_count} records)
+              </button>
+            ))}
+            {gapIsClean ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200">
+                No unresolved historical owner gaps were detected from current matchup and series datasets.
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {ownerGapReport && !gapIsClean && (
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              className={buttonPrimary}
+              onClick={() => setShowTools((prev) => !prev)}
+            >
+              {showTools ? 'Hide Mapping Tools' : 'Open Mapping Tools'}
+            </button>
+            {gapDetailRowCount > 24 ? (
+              <button
+                type="button"
+                className={buttonSecondary}
+                onClick={() => setShowAllGapRows((prev) => !prev)}
+              >
+                {showAllGapRows ? 'Show Top Rows' : `Show All Rows (${gapDetailRowCount})`}
+              </button>
+            ) : null}
+            <span className={textMeta}>Click any row above to jump to a season, or open the full mapping tools to work on assignments directly.</span>
+          </div>
+        )}
+      </section>
+
+      {(showTools || gapIsClean) && (
+      <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className={`${cardSurface} p-4`}>
           <p className={textCaption}>Stored Rows</p>
@@ -1278,6 +1532,8 @@ export default function HistoryOwnerMappingUtility() {
           </StandardTableContainer>
         )}
       </section>
+      </>
+      )}
     </PageTemplate>
   );
 }
