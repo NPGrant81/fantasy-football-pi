@@ -319,6 +319,69 @@ class PlayerAlias(Base):
 
     player = relationship("Player", back_populates="aliases")
 
+
+class PlayerNewsItem(Base):
+    __tablename__ = "player_news_items"
+    __table_args__ = (
+        UniqueConstraint("source", "source_item_id", name="uq_player_news_source_item"),
+        Index("ix_player_news_league_published", "league_id", "published_at"),
+        Index("ix_player_news_published", "published_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True, index=True)
+    source = Column(String(64), nullable=False, default="internal")
+    source_item_id = Column(String(128), nullable=False)
+    title = Column(String, nullable=False)
+    summary = Column(String, nullable=True)
+    content = Column(String, nullable=True)
+    url = Column(String, nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    ingested_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    sentiment_score = Column(Float, default=0.0)
+    sentiment_label = Column(String(32), default="neutral")
+    sentiment_tags = Column(JSON, default=[])
+    meta_json = Column(JSON, nullable=True)
+
+    league = relationship("League")
+    links = relationship("PlayerNewsLink", back_populates="news_item", cascade="all,delete-orphan")
+
+
+class PlayerNewsLink(Base):
+    __tablename__ = "player_news_links"
+    __table_args__ = (
+        UniqueConstraint("news_item_id", "player_id", name="uq_player_news_player_link"),
+        Index("ix_player_news_link_player", "player_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    news_item_id = Column(Integer, ForeignKey("player_news_items.id"), nullable=False, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, index=True)
+    confidence = Column(Float, default=1.0)
+    match_reason = Column(String(64), nullable=True)
+
+    news_item = relationship("PlayerNewsItem", back_populates="links")
+    player = relationship("Player")
+
+
+class PlayerNewsSentimentTrend(Base):
+    __tablename__ = "player_news_sentiment_trends"
+    __table_args__ = (
+        UniqueConstraint("league_id", "player_id", "window_hours", name="uq_news_trend_window"),
+        Index("ix_news_trend_league_player", "league_id", "player_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, index=True)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False, index=True)
+    window_hours = Column(Integer, nullable=False)
+    average_score = Column(Float, default=0.0)
+    mention_count = Column(Integer, default=0)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    league = relationship("League")
+    player = relationship("Player")
+
 # --- 5. DRAFT PICK TABLE ---
 
 # --- 4.1 PLAYOFF SNAPSHOTS ---
