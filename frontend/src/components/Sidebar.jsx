@@ -59,9 +59,8 @@ const MenuBlock = ({ to, title, desc, icon, onClick, end = true }) => {
   );
 };
 
-export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout, isSuperuser, onLeagueSwitch }) {
+export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout, isCommissioner, isSuperuser, onLeagueSwitch }) {
   const [leagueName, setLeagueName] = useState('');
-  const [isCommissioner, setIsCommissioner] = useState(false);
 
   useEffect(() => {
     if (leagueId) {
@@ -70,10 +69,6 @@ export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout,
         .then((res) => setLeagueName(res.data.name))
         .catch(() => setLeagueName('League'));
     }
-    apiClient
-      .get('/auth/me')
-      .then((res) => setIsCommissioner(res.data.is_commissioner))
-      .catch(() => setIsCommissioner(false));
   }, [leagueId]);
   return (
     <>
