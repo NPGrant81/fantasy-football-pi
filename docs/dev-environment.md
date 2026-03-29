@@ -162,3 +162,33 @@ Suggested storage path: `docs/uat/`.
 - For persistent Raspberry Pi production tunnels, use:
   - `docs/cloudflare-tunnel-cli.md`
   - `docs/cloudflare-tunnel-systemd.md`
+
+---
+
+## NFL Roster Provider Configuration
+
+The backend roster sync/import pipeline now uses an environment-driven provider abstraction in `backend/services/nfl_roster_provider_service.py`.
+
+Set these in `backend/.env`:
+
+- `NFL_ROSTER_PROVIDER`
+  - Primary source. Supported values: `espn`, `nfldb`
+  - Default: `espn`
+
+- `NFL_ROSTER_PROVIDER_FALLBACK`
+  - Fallback source if primary returns no rows/errors.
+  - Default: `espn`
+
+- `NFLDB_ROSTER_URL_TEMPLATE`
+  - Required only when using `nfldb` as primary or fallback.
+  - Must include `{season}` token.
+  - Supports CSV URLs or JSON endpoints returning list rows.
+  - Example: `https://your-data-host/rosters/{season}.csv`
+
+Recommended defaults for local dev and CI:
+
+```env
+NFL_ROSTER_PROVIDER=espn
+NFL_ROSTER_PROVIDER_FALLBACK=espn
+NFLDB_ROSTER_URL_TEMPLATE=
+```
