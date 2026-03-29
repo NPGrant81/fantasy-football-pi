@@ -359,9 +359,10 @@ def _fallback_draft_value_rows_from_players(
     for player in players:
         pos = (player.position or "UNK").upper()
         projected = float(player.projected_points or 0.0)
-        if projected <= 0 and player.adp is not None:
+        if projected <= 0 and player.adp is not None and float(player.adp) > 0:
             projected = max(8.0, 300.0 - float(player.adp))
-        per_position_points.setdefault(pos, []).append(projected)
+        if projected > 0:
+            per_position_points.setdefault(pos, []).append(projected)
 
     replacement_by_position: dict[str, float] = {}
     for pos, points in per_position_points.items():
@@ -383,8 +384,11 @@ def _fallback_draft_value_rows_from_players(
     for player in players:
         pos = (player.position or "UNK").upper()
         projected = float(player.projected_points or 0.0)
-        if projected <= 0 and player.adp is not None:
+        if projected <= 0 and player.adp is not None and float(player.adp) > 0:
             projected = max(8.0, 300.0 - float(player.adp))
+        if projected <= 0:
+            # Skip stale identities that have no ADP/projected-points signal.
+            continue
 
         replacement = float(replacement_by_position.get(pos, 0.0))
         value_over_replacement = max(0.0, projected - replacement)
@@ -434,6 +438,47 @@ def _dedupe_ranking_rows(
             selected[key] = (draft_value, player)
 
     return list(selected.values())
+
+
+def _merge_missing_fallback_rows(
+    db: Session,
+    *,
+    season: int,
+    normalized_position: str,
+    base_rows: list[tuple[Any, models.Player]],
+) -> list[tuple[Any, models.Player]]:
+    """Ensure partial seasonal datasets still include all active player identities.
+
+    When a season has some DraftValue rows, we keep those authoritative values but
+    add fallback rows for identities that are missing entirely.
+    """
+    if not base_rows:
+        return _fallback_draft_value_rows_from_players(
+            db,
+            season=season,
+            normalized_position=normalized_position,
+        )
+
+    fallback_rows = _fallback_draft_value_rows_from_players(
+        db,
+        season=season,
+        normalized_position=normalized_position,
+    )
+    if not fallback_rows:
+        return base_rows
+
+    existing_keys = {
+        canonical_player_key(player)
+        for _, player in base_rows
+    }
+    merged_rows = list(base_rows)
+    for fallback_row in fallback_rows:
+        _, fallback_player = fallback_row
+        if canonical_player_key(fallback_player) in existing_keys:
+            continue
+        merged_rows.append(fallback_row)
+
+    return _dedupe_ranking_rows(merged_rows)
 
 
 def _build_source_price_stats(
@@ -528,15 +573,13 @@ def get_historical_rankings(
     if normalized_position:
         query = query.filter(models.Player.position == normalized_position)
 
-    query_rows = query.all()
-    if not query_rows:
-        query_rows = _fallback_draft_value_rows_from_players(
-            db,
-            season=season,
-            normalized_position=normalized_position,
-        )
-
-    query_rows = _dedupe_ranking_rows(query_rows)
+    query_rows = _dedupe_ranking_rows(query.all())
+    query_rows = _merge_missing_fallback_rows(
+        db,
+        season=season,
+        normalized_position=normalized_position,
+        base_rows=query_rows,
+    )
 
     league_weights = _build_league_position_weights(db, league_id=league_id)
     owner_position_affinity = _build_owner_position_affinity(

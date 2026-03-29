@@ -67,6 +67,42 @@ Outputs include:
 - Each stage can be run independently or as a full pipeline.
 - See individual scripts for usage instructions.
 
+## Pre-prod Source Gate (FantasyNerds)
+
+Before enabling any new source in production refresh jobs, run this read-only
+quality check:
+
+```bash
+python -m etl.fantasynerds_preprod_check --api-key "$FANTASYNERDS_API_KEY"
+```
+
+The command validates payload size and auction/min-max coverage, and exits with:
+
+- `0` when thresholds pass
+- `1` when source quality thresholds fail
+- `2` when key/network/response parsing fails
+
+## Pre-prod Source Gate (Yahoo)
+
+Run a read-only Yahoo auth and payload check:
+
+```bash
+python -m etl.yahoo_preprod_check
+```
+
+Expected auth env vars:
+
+- `YAHOO_CLIENT_ID`
+- `YAHOO_CLIENT_SECRET`
+- `YAHOO_ACCESS_TOKEN`
+- `YAHOO_REFRESH_TOKEN`
+
+## Scheduled Source Checks
+
+GitHub Actions workflow [`.github/workflows/source-prechecks.yml`](../.github/workflows/source-prechecks.yml)
+is configured to run source prechecks weekly (Monday 06:00 UTC) and can also
+be run manually via `workflow_dispatch`.
+
 ---
 
 For questions or manual mapping, see the main project documentation and the `manual_player_mappings` table schema.

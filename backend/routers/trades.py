@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -115,7 +115,7 @@ def propose_trade(
         requested_dollars=requested,
         note=(payload.note or "").strip() or None,
         status="PENDING",
-        created_at=datetime.utcnow().isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
     )
 
     db.add(proposal)

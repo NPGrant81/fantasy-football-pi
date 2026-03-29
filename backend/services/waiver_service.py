@@ -3,7 +3,7 @@ from .. import models
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import UTC, datetime
 from .ledger_service import owner_balance, record_ledger_entry
 from .validation_service import (
     validate_waiver_claim_boundary,
@@ -178,7 +178,7 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
         )
 
     if bid > 0:
-        now_year = datetime.utcnow().year
+        now_year = datetime.now(UTC).year
         season_year = now_year
         settings = (
             db.query(models.LeagueSettings)

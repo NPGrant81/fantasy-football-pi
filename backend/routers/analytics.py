@@ -13,6 +13,9 @@ from ..services.player_service import normalize_display_name as _normalize_playe
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
+MIN_VALID_SEASON_YEAR = 2000
+MAX_VALID_SEASON_YEAR = datetime.now().year + 2
+
 
 class VisitEventIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -77,15 +80,21 @@ def _sorted_owner_pair(first, second) -> tuple[int, int] | None:
 
 def _resolved_season(season: int | None) -> int:
     if season is None:
-        return datetime.now().year
+        season = datetime.now().year
 
     # Direct function calls in tests can pass FastAPI Query defaults.
     if not isinstance(season, (int, float, str)):
         season = getattr(season, "default", None)
         if season is None:
-            return datetime.now().year
+            season = datetime.now().year
 
-    return int(season)
+    normalized = int(season)
+    if normalized < MIN_VALID_SEASON_YEAR or normalized > MAX_VALID_SEASON_YEAR:
+        raise HTTPException(
+            status_code=400,
+            detail=f"season must be between {MIN_VALID_SEASON_YEAR} and {MAX_VALID_SEASON_YEAR}",
+        )
+    return normalized
 
 
 def _active_scoring_profile(db: Session, league_id: int, season: int) -> dict:

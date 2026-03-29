@@ -9,7 +9,7 @@ export default function BracketAccordion({
   showHistoricalToggle = true,
   historicalOnly = false,
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [bracket, setBracket] = useState(null);
   const [loading, setLoading] = useState(false);
   const contextLeagueId = useActiveLeague();
@@ -143,15 +143,18 @@ export default function BracketAccordion({
     const fetchBracket = async () => {
       setLoading(true);
       try {
-        if (!historicalMode && !historicalOnly) {
-          // Keep current-season bracket aligned with standings/settings.
+        const targetSeason = historicalMode ? season : currentSeason;
+
+        // Keep bracket data aligned with current settings when generation is available.
+        try {
           await apiClient.post('/playoffs/generate', {
             league_id: Number(leagueId),
-            season: currentSeason,
+            season: targetSeason,
           });
+        } catch {
+          // Historical seasons may not be generatable; continue with persisted bracket fetch.
         }
 
-        const targetSeason = historicalMode ? season : currentSeason;
         const res = await apiClient.get(
           `/playoffs/bracket?league_id=${leagueId}&season=${targetSeason}`
         );
@@ -239,6 +242,10 @@ export default function BracketAccordion({
     );
   };
 
+  const selectedSeason = historicalMode || historicalOnly ? season : currentSeason;
+  const championshipMatchCount = Array.isArray(bracket?.championship) ? bracket.championship.length : 0;
+  const consolationMatchCount = Array.isArray(bracket?.consolation) ? bracket.consolation.length : 0;
+
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -271,6 +278,7 @@ export default function BracketAccordion({
       </div>
 
       <details
+        open
         className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 shadow-xl"
         onToggle={(e) => setOpen(e.target.open)}
       >
@@ -369,11 +377,16 @@ export default function BracketAccordion({
                 view
               )}
             </div>
+            {(view === 'championship' ? championshipMatchCount === 0 : consolationMatchCount === 0) && (
+              <div className="mt-3 text-xs text-slate-400">
+                No {view} bracket matchups are stored for season {selectedSeason}.
+              </div>
+            )}
           </div>
         )}
 
         {!loading && !bracket && (
-          <div className="text-slate-500 mt-2 italic">No bracket data.</div>
+          <div className="text-slate-500 mt-2 italic">No bracket data for season {selectedSeason}.</div>
         )}
 
         {/* season picker above the summary */}

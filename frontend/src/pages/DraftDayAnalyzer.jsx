@@ -52,10 +52,31 @@ const rowHeight = 40;
 const containerHeight = 560;
 
 const PLACEHOLDER_NAME_PATTERNS = [/^generic\b/i, /^unknown\b/i, /^placeholder\b/i];
+const TEAM_ALIASES = { JAX: 'JAC', WSH: 'WAS', LA: 'LAR', STL: 'LAR', SD: 'LAC', OAK: 'LV' };
 
 const parseNumber = (value, fallback = 0) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+};
+
+const normalizeNameForIdentity = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const normalizeTeamCode = (value) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  return TEAM_ALIASES[normalized] || normalized;
+};
+
+const identityKeyForRecord = ({ name, position, team }) => {
+  const pos = normalizePos(position || '');
+  const canonicalTeam = normalizeTeamCode(team);
+  if (pos === 'DEF') return `DEF|${canonicalTeam || 'UNK'}`;
+  return `${normalizeNameForIdentity(name)}|${pos}`;
 };
 
 const loadUiState = () => {
@@ -316,6 +337,23 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     return map;
   }, [historicalRankings]);
 
+  const rankingByIdentity = useMemo(() => {
+    const map = new Map();
+    historicalRankings.forEach((entry) => {
+      const key = identityKeyForRecord({
+        name: entry.player_name,
+        position: entry.position,
+        team: entry.nfl_team || entry.team || '',
+      });
+      if (!key) return;
+      const current = map.get(key);
+      if (!current || parseNumber(entry.final_score, 0) > parseNumber(current.final_score, 0)) {
+        map.set(key, entry);
+      }
+    });
+    return map;
+  }, [historicalRankings]);
+
   const draftedPlayerIds = useMemo(
     () => new Set(history.map((pick) => Number(pick.player_id)).filter(Boolean)),
     [history]
@@ -335,33 +373,56 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   }, [owners, history]);
 
   const enrichedPlayers = useMemo(() => {
-    return players
+    const rows = players
       .filter((player) => !draftedPlayerIds.has(Number(player.id)))
       .filter((player) => {
         const name = String(player.name || '').trim();
         if (!name) return false;
         return !PLACEHOLDER_NAME_PATTERNS.some((pattern) => pattern.test(name));
       })
+      .filter((player) => {
+        const pos = normalizePos(player.position || '');
+        const hasExternalIdentity = Boolean(player.espn_id || player.gsis_id);
+        const activeTeam = normalizeTeamCode(player.nfl_team);
+        if (activeTeam === 'FA' || !activeTeam) return false;
+        // Keep team defenses even without a player headshot ID.
+        if (pos === 'DEF') return true;
+        // For skill players, hide stale rows that have no provider identity.
+        return hasExternalIdentity;
+      })
       .map((player) => {
-        const ranking = rankingByPlayerId.get(Number(player.id));
+        const identityKey = identityKeyForRecord({
+          name: player.name,
+          position: player.position,
+          team: player.nfl_team,
+        });
+        const ranking = rankingByPlayerId.get(Number(player.id)) || rankingByIdentity.get(identityKey);
+        const fallbackValue =
+          ranking?.predicted_auction_value != null
+            ? parseNumber(ranking.predicted_auction_value, 0)
+            : null;
         return {
           id: Number(player.id),
           name: player.name || 'Unknown',
-          team: player.nfl_team || '-',
+          team: normalizeTeamCode(player.nfl_team) || '-',
           position: normalizePos(player.position),
           // value = avg price from external sources when available, else model prediction
           value:
             ranking?.price_avg != null
               ? parseNumber(ranking.price_avg, 0)
-              : ranking?.predicted_auction_value != null
-                ? parseNumber(ranking.predicted_auction_value, 0)
+              : fallbackValue != null
+                ? fallbackValue
                 : null,
           price_min:
-            ranking?.price_min != null ? parseNumber(ranking.price_min, 0) : null,
+            ranking?.price_min != null
+              ? parseNumber(ranking.price_min, 0)
+              : fallbackValue,
           price_avg:
             ranking?.price_avg != null ? parseNumber(ranking.price_avg, 0) : null,
           price_max:
-            ranking?.price_max != null ? parseNumber(ranking.price_max, 0) : null,
+            ranking?.price_max != null
+              ? parseNumber(ranking.price_max, 0)
+              : fallbackValue,
           source_count: ranking?.source_count ?? 0,
           sources: ranking?.sources ?? [],
           confidence:
@@ -369,9 +430,30 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               ? null
               : parseNumber(ranking.confidence_score, 0),
           recommendation: ranking || null,
+          _identityKey: identityKey,
         };
       });
-  }, [players, draftedPlayerIds, rankingByPlayerId]);
+
+    const deduped = new Map();
+    rows.forEach((row) => {
+      const key = row._identityKey || `${row.id}`;
+      const current = deduped.get(key);
+      const currentScore = current ? parseNumber(current.value, 0) : -1;
+      const candidateScore = parseNumber(row.value, 0);
+      const currentHasRecommendation = Boolean(current?.recommendation);
+      const candidateHasRecommendation = Boolean(row.recommendation);
+
+      const shouldReplace =
+        !current ||
+        (candidateHasRecommendation && !currentHasRecommendation) ||
+        (candidateHasRecommendation === currentHasRecommendation && candidateScore > currentScore) ||
+        (candidateHasRecommendation === currentHasRecommendation && candidateScore === currentScore && row.id > current.id);
+
+      if (shouldReplace) deduped.set(key, row);
+    });
+
+    return Array.from(deduped.values()).map(({ _identityKey, ...row }) => row);
+  }, [players, draftedPlayerIds, rankingByPlayerId, rankingByIdentity]);
 
   const filteredPlayers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -1001,11 +1083,13 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                     {player.price_min == null ? '—' : `$${player.price_min.toFixed(0)}`}
                   </span>
                   <span className="col-span-2 text-right text-emerald-300">
-                    {player.price_avg == null
-                      ? rankingSeasonOffset === 0
-                        ? 'Pending data update'
-                        : 'No data'
-                      : `$${player.price_avg.toFixed(0)}`}
+                    {player.price_avg != null
+                      ? `$${player.price_avg.toFixed(0)}`
+                      : player.value != null
+                        ? `$${Number(player.value).toFixed(0)}`
+                        : rankingSeasonOffset === 0
+                          ? 'Pending data update'
+                          : 'No data'}
                   </span>
                   <span className="col-span-2 text-right text-cyan-300">
                     {player.price_max == null ? '—' : `$${player.price_max.toFixed(0)}`}
@@ -1394,13 +1478,27 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
                 <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-300">
                   <div className="mb-1 text-slate-500">Valuation Details</div>
-                  <div>Final Score: {Number(selectedPlayer.recommendation?.final_score || 0).toFixed(2)}</div>
                   <div>
-                    Predicted Auction Value: ${Number(selectedPlayer.recommendation?.predicted_auction_value || 0).toFixed(2)}
+                    Final Score: {Number(selectedInsightRecommendation?.final_score ?? selectedInsightRecommendation?.value_score ?? selectedPlayer.recommendation?.final_score ?? 0).toFixed(2)}
+                  </div>
+                  <div>
+                    Predicted Auction Value: ${Number(selectedInsightRecommendation?.predicted_auction_value ?? selectedInsightRecommendation?.predicted_value ?? selectedPlayer.recommendation?.predicted_auction_value ?? selectedPlayer.value ?? 0).toFixed(2)}
                   </div>
                   <div>
                     Value Over Replacement: {Number(selectedPlayer.recommendation?.value_over_replacement || 0).toFixed(2)}
                   </div>
+                </div>
+
+                <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-300">
+                  <div className="mb-1 text-slate-500">Player Insight Snapshot</div>
+                  <div>Recommended Bid: ${Number(selectedInsightRecommendation?.recommended_bid ?? selectedInsightRecommendation?.predicted_value ?? selectedPlayer.value ?? 0).toFixed(2)}</div>
+                  <div>Risk Score: {Number(selectedInsightRecommendation?.risk_score ?? 0).toFixed(1)}</div>
+                  <div>Tier: {selectedInsightRecommendation?.tier || selectedPlayer.recommendation?.consensus_tier || '--'}</div>
+                  {Array.isArray(selectedInsightRecommendation?.flags) && selectedInsightRecommendation.flags.length > 0 ? (
+                    <div className="mt-1 text-[11px] text-amber-300">
+                      Flags: {selectedInsightRecommendation.flags.join(', ')}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : (

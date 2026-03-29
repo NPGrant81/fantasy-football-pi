@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
@@ -76,7 +76,7 @@ def test_flags_for_waiver_and_trade_and_drop(db_session):
     u2 = make_user(db_session, league, "u2")
 
     # create rules with all policies enabled and a trade_deadline in the past
-    deadline = datetime.utcnow() - timedelta(days=1)
+    deadline = datetime.now(UTC) - timedelta(days=1)
     rules = make_rules(db_session, league, waiver_policy=True, trade_deadline=deadline, drafted_only=True)
 
     # log initial draft to u1

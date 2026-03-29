@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
@@ -59,7 +59,7 @@ def test_owner_at_time_and_acquisition(db_session):
     u2 = make_user(db_session, league, "u2")
 
     # draft: u1 gets player at t0 (we'll manually set the timestamp afterwards)
-    t0 = datetime.utcnow() - timedelta(days=10)
+    t0 = datetime.now(UTC) - timedelta(days=10)
     tx1 = log_transaction(
         db_session,
         league.id,
@@ -78,7 +78,7 @@ def test_owner_at_time_and_acquisition(db_session):
     db_session.commit()
 
     # trade: player moves to u2 at t1
-    t1 = datetime.utcnow() - timedelta(days=5)
+    t1 = datetime.now(UTC) - timedelta(days=5)
     tx2 = log_transaction(
         db_session,
         league.id,
@@ -98,7 +98,7 @@ def test_owner_at_time_and_acquisition(db_session):
 
     # verify owner at various times
     assert get_owner_at_time(db_session, player.id, t0 + timedelta(hours=1)) == u1.id
-    assert get_owner_at_time(db_session, player.id, datetime.utcnow()) == u2.id
+    assert get_owner_at_time(db_session, player.id, datetime.now(UTC)) == u2.id
 
     # acquisition methods
     assert get_acquisition_method(db_session, player.id, u1.id) == "DRAFT"
@@ -106,5 +106,5 @@ def test_owner_at_time_and_acquisition(db_session):
 
 
 def test_no_history_returns_none(db_session):
-    assert get_owner_at_time(db_session, 999, datetime.utcnow()) is None
+    assert get_owner_at_time(db_session, 999, datetime.now(UTC)) is None
     assert get_acquisition_method(db_session, 999, 1) is None

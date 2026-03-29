@@ -271,3 +271,222 @@ def test_live_score_watchdog_alerts_endpoint(client, api_db):
     assert body["limit"] == 7
     assert len(body["alerts"]) == 1
     assert body["alerts"][0]["limit_seen"] == 7
+
+
+def test_refresh_draft_values_enqueues_background_task(client, api_db, monkeypatch):
+    async def allow_commissioner():
+        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+
+    app.dependency_overrides[check_is_commissioner] = allow_commissioner
+
+    import backend.routers.admin_tools as admin_tools
+
+    calls = []
+
+    def fake_run(payload):
+        calls.append(payload)
+
+    monkeypatch.setattr(admin_tools, "_run_draft_values_refresh", fake_run)
+
+    response = client.post(
+        "/admin/tools/refresh-draft-values",
+        json={
+            "season": 2026,
+            "sources": ["fantasynerds"],
+            "fantasynerds_api_key": "k",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["season"] == 2026
+    assert body["sources"] == ["fantasynerds"]
+    assert len(calls) == 1
+
+
+def test_refresh_draft_values_fantasynerds_precheck_blocks_load(monkeypatch):
+    import pandas as pd
+    import backend.database as database
+    import backend.routers.admin_tools as admin_tools
+    import etl.extract.extract_fantasynerds as fantasynerds
+    import etl.load.load_to_postgres as loader
+    import etl.services.consensus_service as consensus
+
+    payload = admin_tools.RefreshDraftValuesPayload(
+        season=2026,
+        sources=["fantasynerds"],
+        fantasynerds_api_key="k",
+        enforce_fantasynerds_precheck=True,
+        fantasynerds_min_players=10,
+    )
+
+    loaded = []
+
+    class _DummySession:
+        def close(self):
+            return None
+
+    def fake_fetch(*args, **kwargs):
+        return pd.DataFrame([{"name": "A", "position": "QB", "team": "BUF"}])
+
+    def fake_transform(*args, **kwargs):
+        return pd.DataFrame(
+            [
+                {
+                    "normalized_name": "a",
+                    "position": "QB",
+                    "team": "BUF",
+                    "adp": 1.0,
+                    "auction_value": None,
+                    "auction_value_min": None,
+                    "auction_value_max": None,
+                }
+            ]
+        )
+
+    def fake_load(*args, **kwargs):
+        loaded.append(kwargs)
+
+    monkeypatch.setattr(fantasynerds, "fetch_fantasynerds_auction_values", fake_fetch)
+    monkeypatch.setattr(fantasynerds, "transform_fantasynerds_auction_values", fake_transform)
+    monkeypatch.setattr(loader, "load_normalized_source_to_db", fake_load)
+    monkeypatch.setattr(database, "SessionLocal", lambda: _DummySession())
+    monkeypatch.setattr(consensus, "build_and_store_consensus_draft_values", lambda db, season: {"updated": 0})
+
+    admin_tools._run_draft_values_refresh(payload)
+    assert loaded == []
+
+
+def test_refresh_draft_values_fantasynerds_precheck_passes_and_loads(monkeypatch):
+    import pandas as pd
+    import backend.database as database
+    import backend.routers.admin_tools as admin_tools
+    import etl.extract.extract_fantasynerds as fantasynerds
+    import etl.load.load_to_postgres as loader
+    import etl.services.consensus_service as consensus
+
+    payload = admin_tools.RefreshDraftValuesPayload(
+        season=2026,
+        sources=["fantasynerds"],
+        fantasynerds_api_key="k",
+        enforce_fantasynerds_precheck=True,
+        fantasynerds_min_players=1,
+        fantasynerds_min_auction_coverage=0.0,
+        fantasynerds_min_minmax_coverage=0.0,
+    )
+
+    loaded = []
+
+    class _DummySession:
+        def close(self):
+            return None
+
+    def fake_fetch(*args, **kwargs):
+        return pd.DataFrame([{"name": "A", "position": "QB", "team": "BUF"}])
+
+    def fake_transform(*args, **kwargs):
+        return pd.DataFrame(
+            [
+                {
+                    "normalized_name": "a",
+                    "position": "QB",
+                    "team": "BUF",
+                    "adp": 1.0,
+                    "auction_value": 12.0,
+                    "auction_value_min": 10.0,
+                    "auction_value_max": 14.0,
+                }
+            ]
+        )
+
+    def fake_load(norm_df, season, source):
+        loaded.append((len(norm_df), season, source))
+
+    monkeypatch.setattr(fantasynerds, "fetch_fantasynerds_auction_values", fake_fetch)
+    monkeypatch.setattr(fantasynerds, "transform_fantasynerds_auction_values", fake_transform)
+    monkeypatch.setattr(loader, "load_normalized_source_to_db", fake_load)
+    monkeypatch.setattr(database, "SessionLocal", lambda: _DummySession())
+    monkeypatch.setattr(consensus, "build_and_store_consensus_draft_values", lambda db, season: {"updated": 0})
+
+    admin_tools._run_draft_values_refresh(payload)
+    assert loaded == [(1, 2026, "FantasyNerds")]
+
+
+def test_refresh_draft_values_yahoo_precheck_blocks_load(monkeypatch):
+    import backend.database as database
+    import backend.routers.admin_tools as admin_tools
+    import etl.extract.extract_yahoo as yahoo
+    import etl.extract.extract_yahoo_precheck as yahoo_precheck
+    import etl.load.load_to_postgres as loader
+    import etl.services.consensus_service as consensus
+
+    payload = admin_tools.RefreshDraftValuesPayload(
+        season=2026,
+        sources=[],
+        include_yahoo=True,
+        enforce_yahoo_precheck=True,
+        yahoo_min_players=10,
+        yahoo_min_adp_coverage=1.0,
+    )
+
+    loaded = []
+
+    class _DummySession:
+        def close(self):
+            return None
+
+    monkeypatch.setattr(yahoo, "fetch_yahoo_top_players", lambda max_players=100: [{"Name": "A", "Position": "QB", "Team": "BUF", "ADP": 0}])
+    monkeypatch.setattr(
+        yahoo,
+        "transform_yahoo_players",
+        lambda players, league_size=12: [{"normalized_name": "a", "position": "QB", "team": "BUF", "adp": 0}],
+    )
+    monkeypatch.setattr(loader, "load_normalized_source_to_db", lambda *args, **kwargs: loaded.append(1))
+    monkeypatch.setattr(database, "SessionLocal", lambda: _DummySession())
+    monkeypatch.setattr(consensus, "build_and_store_consensus_draft_values", lambda db, season: {"updated": 0})
+
+    # Keep evaluator real to validate threshold behavior for adp=0 rows.
+    assert callable(yahoo_precheck.evaluate_yahoo_quality)
+
+    admin_tools._run_draft_values_refresh(payload)
+    assert loaded == []
+
+
+def test_refresh_draft_values_yahoo_precheck_passes_and_loads(monkeypatch):
+    import backend.database as database
+    import backend.routers.admin_tools as admin_tools
+    import etl.extract.extract_yahoo as yahoo
+    import etl.load.load_to_postgres as loader
+    import etl.services.consensus_service as consensus
+
+    payload = admin_tools.RefreshDraftValuesPayload(
+        season=2026,
+        sources=[],
+        include_yahoo=True,
+        enforce_yahoo_precheck=True,
+        yahoo_min_players=1,
+        yahoo_min_adp_coverage=0.0,
+    )
+
+    loaded = []
+
+    class _DummySession:
+        def close(self):
+            return None
+
+    monkeypatch.setattr(yahoo, "fetch_yahoo_top_players", lambda max_players=100: [{"Name": "A", "Position": "QB", "Team": "BUF", "ADP": 1}])
+    monkeypatch.setattr(
+        yahoo,
+        "transform_yahoo_players",
+        lambda players, league_size=12: [{"normalized_name": "a", "position": "QB", "team": "BUF", "adp": 1.0}],
+    )
+
+    def fake_load(norm_df, season, source):
+        loaded.append((len(norm_df), season, source))
+
+    monkeypatch.setattr(loader, "load_normalized_source_to_db", fake_load)
+    monkeypatch.setattr(database, "SessionLocal", lambda: _DummySession())
+    monkeypatch.setattr(consensus, "build_and_store_consensus_draft_values", lambda db, season: {"updated": 0})
+
+    admin_tools._run_draft_values_refresh(payload)
+    assert loaded == [(1, 2026, "Yahoo")]

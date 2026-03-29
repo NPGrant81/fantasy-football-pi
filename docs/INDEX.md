@@ -5,6 +5,8 @@ Refer to the appropriate file for more information.
 
 - [Api Integration Pipeline](API_INTEGRATION_PIPELINE.md)
 - [Api Page Matrix](API_PAGE_MATRIX.md)
+- [Api Page Matrix - Draft Value Source Matrix section](API_PAGE_MATRIX.md#draft-value-source-matrix-pull---store---page-impact)
+- [Api Page Matrix - Page to Data Fields Quick Debug Matrix](API_PAGE_MATRIX.md#2b-page---data-fields-used-quick-debug-matrix)
 - [Architecture](ARCHITECTURE.md)
 - [Backend Ci Pipeline Optimization](BACKEND_CI_PIPELINE_OPTIMIZATION.md)
 - [Backlog Triage 2026-03-14](BACKLOG_TRIAGE_2026-03-14.md)

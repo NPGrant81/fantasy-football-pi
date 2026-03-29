@@ -31,7 +31,7 @@ class _FakeSession:
         self.committed = False
 
     def query(self, *entities):
-        if len(entities) == 4 and getattr(entities[0], "class_", None) is PlatformProjection:
+        if len(entities) == 5 and getattr(entities[0], "class_", None) is PlatformProjection:
             return _QueryStub(self._projection_rows)
         if len(entities) == 2 and getattr(entities[0], "class_", None) is Player:
             return _QueryStub(self._player_rows)
@@ -48,9 +48,9 @@ class _FakeSession:
 
 def test_consensus_handles_adp_only_auction_only_and_skips_signalless_player():
     projection_rows = [
-        SimpleNamespace(player_id=1, source="espn", auction_value=40.0, adp=None),
-        SimpleNamespace(player_id=2, source="yahoo", auction_value=None, adp=28.0),
-        SimpleNamespace(player_id=3, source="draftsharks", auction_value=None, adp=None),
+        SimpleNamespace(player_id=1, source="espn", auction_value=40.0, adp=None, projected_points=None),
+        SimpleNamespace(player_id=2, source="yahoo", auction_value=None, adp=28.0, projected_points=None),
+        SimpleNamespace(player_id=3, source="draftsharks", auction_value=None, adp=None, projected_points=None),
     ]
     player_rows = [
         SimpleNamespace(id=1, position="QB"),
@@ -70,14 +70,14 @@ def test_consensus_handles_adp_only_auction_only_and_skips_signalless_player():
     added_by_player = {int(row.player_id): row for row in session.added}
     assert added_by_player[1].avg_auction_value == 40.0
     assert added_by_player[1].median_adp is None
-    assert added_by_player[2].avg_auction_value == 0.0
+    assert added_by_player[2].avg_auction_value > 0.0
     assert added_by_player[2].median_adp == 28.0
 
 
 def test_consensus_upserts_existing_without_duplicates_and_computes_vor_threshold():
     projection_rows = [
-        SimpleNamespace(player_id=10, source="espn", auction_value=50.0, adp=3.0),
-        SimpleNamespace(player_id=11, source="espn", auction_value=30.0, adp=12.0),
+        SimpleNamespace(player_id=10, source="espn", auction_value=50.0, adp=3.0, projected_points=None),
+        SimpleNamespace(player_id=11, source="espn", auction_value=30.0, adp=12.0, projected_points=None),
     ]
     player_rows = [
         SimpleNamespace(id=10, position="QB"),
@@ -104,3 +104,25 @@ def test_consensus_upserts_existing_without_duplicates_and_computes_vor_threshol
     assert existing.median_adp == 3.0
     # With QB values [50, 30], replacement is 30 (60th percentile index logic), so VOR is 20.
     assert existing.value_over_replacement == 20.0
+
+
+def test_consensus_uses_projected_points_when_auction_and_adp_missing():
+    projection_rows = [
+        SimpleNamespace(player_id=21, source="yahoo", auction_value=None, adp=None, projected_points=300.0),
+        SimpleNamespace(player_id=22, source="yahoo", auction_value=None, adp=None, projected_points=200.0),
+    ]
+    player_rows = [
+        SimpleNamespace(id=21, position="QB"),
+        SimpleNamespace(id=22, position="QB"),
+    ]
+
+    session = _FakeSession(projection_rows, player_rows, existing_rows=[])
+    summary = build_and_store_consensus_draft_values(session, season=2026)
+
+    assert summary["updated"] == 2
+    assert session.committed is True
+    assert len(session.added) == 2
+
+    added_by_player = {int(row.player_id): row for row in session.added}
+    assert added_by_player[21].avg_auction_value > added_by_player[22].avg_auction_value
+    assert added_by_player[21].avg_auction_value > 0

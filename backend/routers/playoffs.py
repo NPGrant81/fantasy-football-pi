@@ -18,6 +18,19 @@ router = APIRouter(
     tags=["Playoffs"]
 )
 
+MIN_VALID_SEASON_YEAR = 2000
+MAX_VALID_SEASON_YEAR = datetime.now(timezone.utc).year + 2
+
+
+def _validate_season_year(season: int, *, label: str = "season") -> int:
+    normalized = int(season)
+    if normalized < MIN_VALID_SEASON_YEAR or normalized > MAX_VALID_SEASON_YEAR:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} must be between {MIN_VALID_SEASON_YEAR} and {MAX_VALID_SEASON_YEAR}",
+        )
+    return normalized
+
 # --- Schemas ---
 class PlayoffSettingsSchema(BaseModel):
     playoff_qualifiers: int
@@ -569,6 +582,7 @@ def get_seasons(league_id: int = Query(...), db: Session = Depends(get_db)) -> L
 
 @router.get("/bracket")
 def get_bracket(league_id: int = Query(...), season: int = Query(...), db: Session = Depends(get_db)) -> Dict[str, Any]:
+    season = _validate_season_year(season)
     current_year = datetime.now(timezone.utc).year
     snap = (
         db.query(models.PlayoffSnapshot)
@@ -698,6 +712,7 @@ class SnapshotRequest(BaseModel):
 @router.post("/snapshot")
 def snapshot(req: SnapshotRequest, db: Session = Depends(get_db)):
     """Save the current bracket structure as a historical snapshot."""
+    req.season = _validate_season_year(req.season)
     bracket = get_bracket(req.league_id, req.season, db)
     snap = models.PlayoffSnapshot(
         league_id=req.league_id,
@@ -721,6 +736,7 @@ class MatchOverrideRequest(BaseModel):
 @router.post("/reseed")
 def reseed(req: ReSeedRequest, db: Session = Depends(get_db)):
     """Re-calculate round-two matchups after round-one is complete."""
+    req.season = _validate_season_year(req.season)
     settings = _load_settings(db, req.league_id)
     matches = db.query(models.PlayoffMatch).filter(
         models.PlayoffMatch.league_id == req.league_id,
@@ -765,6 +781,7 @@ def override_match(match_id: str,
                    season: int = Query(...),
                    db: Session = Depends(get_db)):
     """Commissioner manually sets winner and optionally scores."""
+    season = _validate_season_year(season)
     m = db.query(models.PlayoffMatch).filter(
         models.PlayoffMatch.league_id == league_id,
         models.PlayoffMatch.season == season,

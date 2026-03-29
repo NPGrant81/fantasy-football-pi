@@ -2,6 +2,7 @@ import sys
 import csv
 import io
 from pathlib import Path
+from datetime import datetime
 
 import pytest
 from sqlalchemy import create_engine
@@ -14,6 +15,10 @@ import models
 from backend.core.security import check_is_commissioner, get_current_user
 from backend.database import get_db
 from backend.main import app
+
+
+TEMPLATE_IMPORT_SEASON = datetime.now().year + 1
+TEMPLATE_REIMPORT_SEASON = datetime.now().year + 2
 
 
 @pytest.fixture
@@ -262,7 +267,7 @@ Receptions,1-999,2 points each,8004
         "/scoring/templates/import",
         json={
             "template_name": "PPR 2x",
-            "season_year": 2030,
+            "season_year": TEMPLATE_IMPORT_SEASON,
             "source_platform": "espn_csv",
             "csv_content": csv_content,
         },
@@ -501,7 +506,7 @@ Receptions,1-999,2 points each,8004
         "/scoring/templates/import",
         json={
             "template_name": "Round Trip Source",
-            "season_year": 2031,
+            "season_year": TEMPLATE_IMPORT_SEASON,
             "source_platform": "espn_csv",
             "csv_content": source_csv,
         },
@@ -517,7 +522,7 @@ Receptions,1-999,2 points each,8004
         "/scoring/templates/import",
         json={
             "template_name": "Round Trip Reimported",
-            "season_year": 2032,
+            "season_year": TEMPLATE_REIMPORT_SEASON,
             "source_platform": "roundtrip_csv",
             "csv_content": exported_csv,
         },

@@ -16,6 +16,22 @@ router = APIRouter(
     tags=["Players"]
 )
 
+MIN_VALID_SEASON_YEAR = 2000
+MAX_VALID_SEASON_YEAR = datetime.now(timezone.utc).year + 2
+DEFAULT_SEASON_YEAR = datetime.now(timezone.utc).year
+
+
+class PlayerSearchResult(BaseModel):
+    id: int
+    name: str
+    position: Optional[str] = None
+    nfl_team: Optional[str] = None
+    adp: Optional[float] = None
+    projected_points: Optional[float] = None
+    gsis_id: Optional[str] = None
+    espn_id: Optional[str] = None
+    bye_week: Optional[int] = None
+
 
 class PlayerSearchResult(BaseModel):
     id: int
@@ -120,9 +136,15 @@ def get_player_quality_report(
 @router.get("/{player_id}/season-details")
 def get_player_season_details(
     player_id: int,
-    season: int = Query(2026),
+    season: int = Query(DEFAULT_SEASON_YEAR),
     db: Session = Depends(get_db),
 ):
+    if season < MIN_VALID_SEASON_YEAR or season > MAX_VALID_SEASON_YEAR:
+        raise HTTPException(
+            status_code=400,
+            detail=f"season must be between {MIN_VALID_SEASON_YEAR} and {MAX_VALID_SEASON_YEAR}",
+        )
+
     player = db.query(models.Player).filter(models.Player.id == player_id).first()
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")

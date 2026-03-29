@@ -169,6 +169,21 @@ class RefreshDraftValuesPayload(BaseModel):
     # YAHOO_ACCESS_TOKEN / YAHOO_REFRESH_TOKEN env vars in backend/.env
     # (preferred), or from oauth2.json at the project root (legacy fallback).
     include_yahoo: bool = False
+    # Safety gate: if enabled and checks fail, Yahoo data is NOT loaded.
+    enforce_yahoo_precheck: bool = True
+    yahoo_min_players: int = 50
+    yahoo_min_adp_coverage: float = 0.80
+    # Optional FantasyNerds source.
+    # API key falls back to FANTASYNERDS_API_KEY env var if omitted.
+    fantasynerds_api_key: str | None = None
+    fantasynerds_teams: int = 12
+    fantasynerds_budget: int = 200
+    fantasynerds_format: str = "ppr"
+    # Safety gate: if enabled and checks fail, FantasyNerds data is NOT loaded.
+    enforce_fantasynerds_precheck: bool = True
+    fantasynerds_min_players: int = 150
+    fantasynerds_min_auction_coverage: float = 0.80
+    fantasynerds_min_minmax_coverage: float = 0.50
 
 
 @router.post("/refresh-draft-values")
@@ -189,11 +204,14 @@ def refresh_draft_values(
     ```json
     {
         "season": 2026,
-        "sources": ["espn", "draftsharks"],
+        "sources": ["espn", "draftsharks", "fantasynerds"],
         "espn_league_id": null,
         "espn_s2": null,
         "espn_swid": null,
-        "include_yahoo": false
+        "include_yahoo": false,
+        "enforce_yahoo_precheck": true,
+        "fantasynerds_api_key": null,
+        "enforce_fantasynerds_precheck": true
     }
     ```
 
@@ -285,6 +303,54 @@ def _run_draft_values_refresh(payload: RefreshDraftValuesPayload) -> None:
             results["draftsharks"] = f"error: {exc}"
             logger.exception("DraftSharks extraction failed: %s", exc)
 
+    # ── FantasyNerds (optional) ──────────────────────────────────────────
+    if "fantasynerds" in sources:
+        try:
+            from etl.extract.extract_fantasynerds import (
+                evaluate_fantasynerds_quality,
+                fetch_fantasynerds_auction_values,
+                transform_fantasynerds_auction_values,
+            )
+
+            api_key = payload.fantasynerds_api_key or os.getenv("FANTASYNERDS_API_KEY")
+            if not api_key:
+                raise ValueError("missing FantasyNerds API key")
+
+            raw = fetch_fantasynerds_auction_values(
+                api_key=api_key,
+                teams=payload.fantasynerds_teams,
+                budget=payload.fantasynerds_budget,
+                scoring_format=payload.fantasynerds_format,
+            )
+            norm_df = transform_fantasynerds_auction_values(raw)
+
+            if payload.enforce_fantasynerds_precheck:
+                report = evaluate_fantasynerds_quality(
+                    norm_df,
+                    min_players=payload.fantasynerds_min_players,
+                    min_auction_coverage=payload.fantasynerds_min_auction_coverage,
+                    min_minmax_coverage=payload.fantasynerds_min_minmax_coverage,
+                )
+                if not report.passed:
+                    results["fantasynerds"] = "blocked by precheck: " + "; ".join(report.errors)
+                    logger.error(
+                        "FantasyNerds precheck blocked load for season %d: %s",
+                        season,
+                        report.errors,
+                    )
+                    norm_df = None
+
+            if norm_df is not None and not norm_df.empty:
+                load_normalized_source_to_db(norm_df, season=season, source="FantasyNerds")
+                results["fantasynerds"] = f"loaded {len(norm_df)} players"
+                logger.info("FantasyNerds: loaded %d players for season %d", len(norm_df), season)
+            elif "fantasynerds" not in results:
+                results["fantasynerds"] = "no data returned"
+                logger.warning("FantasyNerds: extractor returned no data")
+        except Exception as exc:
+            results["fantasynerds"] = f"error: {exc}"
+            logger.exception("FantasyNerds extraction failed: %s", exc)
+
     # ── Yahoo (optional) ─────────────────────────────────────────────────
     if payload.include_yahoo:
         try:
@@ -293,11 +359,27 @@ def _run_draft_values_refresh(payload: RefreshDraftValuesPayload) -> None:
             if players:
                 import pandas as pd
                 norm_df = pd.DataFrame(transform_yahoo_players(players))
-                if not norm_df.empty:
+                if payload.enforce_yahoo_precheck:
+                    from etl.extract.extract_yahoo_precheck import evaluate_yahoo_quality
+
+                    report = evaluate_yahoo_quality(
+                        norm_df,
+                        min_players=payload.yahoo_min_players,
+                        min_adp_coverage=payload.yahoo_min_adp_coverage,
+                    )
+                    if not report.passed:
+                        results["yahoo"] = "blocked by precheck: " + "; ".join(report.errors)
+                        logger.error(
+                            "Yahoo precheck blocked load for season %d: %s",
+                            season,
+                            report.errors,
+                        )
+                        norm_df = None
+                if norm_df is not None and not norm_df.empty:
                     load_normalized_source_to_db(norm_df, season=season, source="Yahoo")
                     results["yahoo"] = f"loaded {len(norm_df)} players"
                     logger.info("Yahoo: loaded %d players for season %d", len(norm_df), season)
-                else:
+                elif "yahoo" not in results:
                     results["yahoo"] = "transform produced empty DataFrame"
             else:
                 results["yahoo"] = "no data returned"

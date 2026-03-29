@@ -1,7 +1,7 @@
 from typing import Any, List
 from datetime import datetime, timezone
 import logging
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 import pandas as pd
 from sqlalchemy import func, distinct, or_
 from sqlalchemy.orm import Session
@@ -13,7 +13,10 @@ import models
 import models_draft_value
 from ..schemas.draft import HistoricalRankingResponse
 from ..services.ledger_service import owner_draft_budget_total, owner_has_incoming_credits
-from ..services.player_service import normalize_display_name as _normalize_player_name
+from ..services.player_service import (
+    normalize_display_name as _normalize_player_name,
+    get_all_relevant_players,
+)
 from ..services.draft_rankings_service import get_historical_rankings as get_historical_rankings_service
 from ..core.security import get_current_user
 from ..services.validation_service import (
@@ -383,6 +386,7 @@ def get_draft_seasons(
 def get_draft_history_by_year(
     year: int,
     league_id: int | None = None,
+    include_keepers: bool = Query(False, description="Include prior-year keeper carryover rows"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -398,10 +402,16 @@ def get_draft_history_by_year(
         .filter(
             models.DraftPick.league_id == target_league_id,
             models.DraftPick.year == year,
+            models.DraftPick.session_id.like(f"LEAGUE_{target_league_id}_YEAR_{year}%"),
+        )
+        .order_by(
+            func.coalesce(models.DraftPick.round_num, 9999),
+            func.coalesce(models.DraftPick.pick_num, 9999),
+            models.DraftPick.id.asc(),
         )
         .all()
     )
-    keepers = _get_keeper_carryover_rows(db, league_id=target_league_id, draft_year=year)
+    keepers = _get_keeper_carryover_rows(db, league_id=target_league_id, draft_year=year) if include_keepers else []
     return _serialize_draft_events(picks=picks, keepers=keepers)
 
 
@@ -597,9 +607,31 @@ def run_draft_simulation(
         )
         .all()
     )
+    if not player_rows:
+        player_rows = get_all_relevant_players(db)
     players_df = pd.DataFrame(
         [{"Player_ID": p.id, "PlayerName": p.name, "PositionID": p.position or ""} for p in player_rows]
     )
+    if players_df.empty:
+        fallback_player_rows = (
+            db.query(models.Player)
+            .join(models.DraftPick, models.DraftPick.player_id == models.Player.id)
+            .filter(models.DraftPick.league_id == current_user.league_id)
+            .distinct(models.Player.id)
+            .all()
+        )
+        players_df = pd.DataFrame(
+            [
+                {"Player_ID": p.id, "PlayerName": p.name, "PositionID": p.position or ""}
+                for p in fallback_player_rows
+            ]
+        )
+
+    if players_df.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="No eligible player pool available for simulation. Sync players first.",
+        )
 
     # 2. Bid statistics aggregated from draft_picks (all-time, league-scoped)
     bid_agg = (
@@ -694,6 +726,15 @@ def run_draft_simulation(
     budget_df = pd.DataFrame(
         [{"OwnerID": b.owner_id, "DraftBudget": float(b.total_budget or 200)} for b in budget_rows]
     )
+    if budget_df.empty:
+        league_owners = (
+            db.query(models.User)
+            .filter(models.User.league_id == current_user.league_id)
+            .all()
+        )
+        budget_df = pd.DataFrame(
+            [{"OwnerID": owner.id, "DraftBudget": 200.0} for owner in league_owners]
+        )
 
     safe_iterations = max(50, min(int(payload.iterations), 10000))
     safe_teams_count = max(2, min(int(payload.teams_count), 20))
@@ -922,7 +963,7 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
     year_value = pick.year
     if year_value is None:
         settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == owner.league_id).first()
-        year_value = settings.draft_year if settings and settings.draft_year else datetime.utcnow().year
+        year_value = settings.draft_year if settings and settings.draft_year else datetime.now(timezone.utc).year
 
     settings = _get_league_settings(db, owner.league_id)
     roster_size = int(settings.roster_size) if settings and settings.roster_size else 14
@@ -980,7 +1021,7 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
         amount=pick.amount,
         session_id=pick.session_id,
         league_id=owner.league_id,
-        timestamp=datetime.utcnow().isoformat()
+        timestamp=datetime.now(timezone.utc).isoformat()
     )
     db.add(new_pick)
     db.commit()

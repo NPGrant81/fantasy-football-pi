@@ -74,6 +74,7 @@ def fetch_yahoo_top_players(max_players=100):
     oauth = _build_yahoo_oauth()
     top_players = []
     draft_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
+    rank_counter = 1
     for start in range(0, max_players, 25):
         url = f"https://fantasysports.yahooapis.com/fantasy/v2/game/nfl/players;sort=ADP;start={start}?format=json"
         response = oauth.session.get(url)
@@ -81,15 +82,10 @@ def fetch_yahoo_top_players(max_players=100):
             data = response.json()
             try:
                 players_data = data['fantasy_content']['game'][1]['players']
-                first_player_printed = False
                 for key in players_data:
                     if key == 'count':
                         continue
                     player_info = players_data[key]['player']
-                    if not first_player_printed:
-                        import json
-                        print("\nDEBUG: Raw player_info for first player:\n", json.dumps(player_info, indent=2)[:5000])
-                        first_player_printed = True
                     info_list = player_info[0] if isinstance(player_info[0], list) else []
                     if not isinstance(info_list, list):
                         info_list = []
@@ -125,6 +121,9 @@ def fetch_yahoo_top_players(max_players=100):
                             projected_points = entry['projected_points']
                     team_val = nfl_team.upper() if nfl_team else None
                     eligible_positions_str = ','.join(eligible_positions) if eligible_positions else None
+                    adp_value = adp
+                    if adp_value in (None, "", 0, "0"):
+                        adp_value = rank_counter
                     # Only include players with a draft-relevant position
                     if position and any(pos in draft_positions for pos in position.split(",")):
                         top_players.append({
@@ -133,11 +132,12 @@ def fetch_yahoo_top_players(max_players=100):
                             'Position': position,
                             'Team': team_val,
                             'ByeWeek': bye_week,
-                            'ADP': adp,
+                            'ADP': adp_value,
                             'AuctionValue': auction_value,
                             'ProjectedPoints': projected_points,
                             'EligiblePositions': eligible_positions_str
                         })
+                        rank_counter += 1
             except Exception as e:
                 print("Reached the end of the available player list or encountered an unexpected JSON structure.")
                 import json

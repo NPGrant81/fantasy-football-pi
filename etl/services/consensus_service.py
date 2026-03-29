@@ -84,13 +84,14 @@ def build_and_store_consensus_draft_values(
             PlatformProjection.source,
             PlatformProjection.auction_value,
             PlatformProjection.adp,
+            PlatformProjection.projected_points,
         )
         .filter(PlatformProjection.season == season)
         .yield_per(1000)
     )
 
     by_player: dict[int, dict[str, list[float]]] = defaultdict(
-        lambda: {"auction_values": [], "adp_values": []}
+        lambda: {"auction_values": [], "adp_values": [], "projected_points": []}
     )
     saw_projection_rows = False
     for row in projection_rows:
@@ -109,6 +110,11 @@ def build_and_store_consensus_draft_values(
             adp = float(row.adp)
             if adp > 0:
                 by_player[player_id]["adp_values"].append(adp)
+
+        if row.projected_points is not None:
+            projected = float(row.projected_points)
+            if projected > 0:
+                by_player[player_id]["projected_points"].append(projected)
 
     if not saw_projection_rows:
         return {
@@ -138,11 +144,25 @@ def build_and_store_consensus_draft_values(
     for player_id, values in by_player.items():
         auction_values = values["auction_values"]
         adp_values = values["adp_values"]
+        projected_points = values["projected_points"]
 
-        if not auction_values and not adp_values:
+        if not auction_values and not adp_values and not projected_points:
             continue  # no usable signal → skip, let fallback handle it
 
-        avg_auction = sum(auction_values) / len(auction_values) if auction_values else 0.0
+        if auction_values:
+            avg_auction = sum(auction_values) / len(auction_values)
+        elif projected_points:
+            # Convert projected points to an auction proxy so projected-only feeds
+            # can still contribute to consensus draft values.
+            avg_projected_points = sum(projected_points) / len(projected_points)
+            avg_auction = max(1.0, avg_projected_points * 0.11)
+        elif adp_values:
+            # ADP-only feeds should still produce player-specific auction signals
+            # rather than a flat default across all players.
+            median_adp_for_value = statistics.median(adp_values)
+            avg_auction = max(1.0, 60.0 / (1.0 + (median_adp_for_value / 12.0)))
+        else:
+            avg_auction = 0.0
 
         median_adp = statistics.median(adp_values) if adp_values else None
 

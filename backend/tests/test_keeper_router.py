@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import io
 
 import pytest
@@ -135,7 +135,7 @@ def test_admin_settings_and_actions():
     upd = KeeperSettingsUpdate(
         max_keepers=2,
         max_years_per_player=2,
-        deadline_date=datetime.utcnow() + timedelta(days=1),
+        deadline_date=datetime.now(UTC) + timedelta(days=1),
         waiver_policy=True,
         trade_deadline=None,
         drafted_only=True,
@@ -217,6 +217,48 @@ def test_commissioner_override_supersedes_owner_submission():
     resp = get_my_keepers(db=db_session, current_user=CU(owner))
     assert resp.selected_count == 1
     assert any(s.player_id == player.id for s in resp.selections)
+
+
+def test_keeper_rollover_locks_prior_pending_and_opens_new_slots():
+    db_session = setup_db()
+    league = make_league(db_session)
+    owner = make_user(db_session, league, "owner-rollover", budget=200)
+    p = make_player(db_session, "Season Bridge")
+
+    # Create a stale prior-season pending keeper that should auto-lock on rollover.
+    db_session.add(
+        models.Keeper(
+            league_id=league.id,
+            owner_id=owner.id,
+            player_id=p.id,
+            season=2026,
+            keep_cost=10,
+            status="pending",
+        )
+    )
+    settings = (
+        db_session.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == league.id)
+        .first()
+    )
+    settings.draft_year = 2027
+    db_session.commit()
+
+    resp = get_my_keepers(db=db_session, current_user=CU(owner))
+    assert resp.selected_count == 0
+
+    previous_season_keeper = (
+        db_session.query(models.Keeper)
+        .filter(
+            models.Keeper.owner_id == owner.id,
+            models.Keeper.player_id == p.id,
+            models.Keeper.season == 2026,
+        )
+        .first()
+    )
+    assert previous_season_keeper is not None
+    assert previous_season_keeper.status == "locked"
+    assert previous_season_keeper.locked_at is not None
 
 
 @pytest.mark.asyncio

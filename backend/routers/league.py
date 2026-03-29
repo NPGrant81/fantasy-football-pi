@@ -1515,6 +1515,7 @@ def _resolve_mapped_owner_name(
     year: int,
     team_name: str,
     map_by_season_key: Dict[tuple[int, str], str],
+    map_by_team_key: Dict[str, List[tuple[int, str]]],
     user_owner_by_team_key: Dict[str, str],
 ) -> str:
     team_key = _normalize_history_team_key(team_name)
@@ -1523,6 +1524,15 @@ def _resolve_mapped_owner_name(
     mapped = map_by_season_key.get((year, team_key))
     if mapped:
         return mapped
+    season_candidates = map_by_team_key.get(team_key, [])
+    if season_candidates:
+        # Prefer nearest mapped season; tie-break toward more recent seasons.
+        _, nearest_owner = min(
+            season_candidates,
+            key=lambda item: (abs(item[0] - year), -item[0]),
+        )
+        if nearest_owner:
+            return nearest_owner
     return user_owner_by_team_key.get(team_key, "-")
 
 
@@ -1530,7 +1540,12 @@ def _build_owner_mapping_indexes(
     db: Session,
     *,
     league_id: int,
-) -> tuple[Dict[tuple[int, str], str], Dict[tuple[int, str], str], Dict[str, str]]:
+) -> tuple[
+    Dict[tuple[int, str], str],
+    Dict[tuple[int, str], str],
+    Dict[str, List[tuple[int, str]]],
+    Dict[str, str],
+]:
     mapping_rows = (
         db.query(models.LeagueHistoryTeamOwnerMap)
         .filter(models.LeagueHistoryTeamOwnerMap.league_id == league_id)
@@ -1538,18 +1553,24 @@ def _build_owner_mapping_indexes(
     )
     owner_by_season_key: Dict[tuple[int, str], str] = {}
     team_by_season_key: Dict[tuple[int, str], str] = {}
+    owner_by_team_key: Dict[str, List[tuple[int, str]]] = {}
     for mapping in mapping_rows:
         mapping_key = str(mapping.team_name_key or "").strip()
         if not mapping_key:
             continue
-        team_by_season_key[(int(mapping.season), mapping_key)] = str(mapping.team_name or "").strip() or mapping_key
+        mapping_season = int(mapping.season)
+        team_by_season_key[(mapping_season, mapping_key)] = str(mapping.team_name or "").strip() or mapping_key
         owner_label = (
             str(mapping.owner_name or "").strip()
             or str(getattr(mapping.owner, "username", "") or "").strip()
             or str(getattr(mapping.owner, "team_name", "") or "").strip()
         )
         if owner_label:
-            owner_by_season_key[(int(mapping.season), mapping_key)] = owner_label
+            owner_by_season_key[(mapping_season, mapping_key)] = owner_label
+            owner_by_team_key.setdefault(mapping_key, []).append((mapping_season, owner_label))
+
+    for mapping_key, season_rows in owner_by_team_key.items():
+        owner_by_team_key[mapping_key] = sorted(season_rows, key=lambda item: item[0])
 
     user_owner_by_team_key: Dict[str, str] = {}
     users = db.query(models.User).filter(models.User.league_id == league_id).all()
@@ -1560,7 +1581,7 @@ def _build_owner_mapping_indexes(
             if key and key not in user_owner_by_team_key:
                 user_owner_by_team_key[key] = owner_label
 
-    return owner_by_season_key, team_by_season_key, user_owner_by_team_key
+    return owner_by_season_key, team_by_season_key, owner_by_team_key, user_owner_by_team_key
 
 
 def _extract_mfl_options_token(source_url: Any) -> str:
@@ -1583,6 +1604,7 @@ def _dedupe_and_enrich_all_time_series_records(
     rows: List[Dict[str, Any]],
     owner_by_season_key: Dict[tuple[int, str], str],
     team_by_season_key: Dict[tuple[int, str], str],
+    owner_by_team_key: Dict[str, List[tuple[int, str]]],
     user_owner_by_team_key: Dict[str, str],
     limit: int | None,
 ) -> List[Dict[str, Any]]:
@@ -1599,6 +1621,7 @@ def _dedupe_and_enrich_all_time_series_records(
                 year=season_year,
                 team_name=perspective_team,
                 map_by_season_key=owner_by_season_key,
+                map_by_team_key=owner_by_team_key,
                 user_owner_by_team_key=user_owner_by_team_key,
             )
 
@@ -1606,6 +1629,7 @@ def _dedupe_and_enrich_all_time_series_records(
             year=season_year,
             team_name=opponent_team,
             map_by_season_key=owner_by_season_key,
+            map_by_team_key=owner_by_team_key,
             user_owner_by_team_key=user_owner_by_team_key,
         )
 
@@ -1644,6 +1668,7 @@ def _dedupe_and_enrich_match_records(
     *,
     rows: List[Dict[str, Any]],
     map_by_season_key: Dict[tuple[int, str], str],
+    map_by_team_key: Dict[str, List[tuple[int, str]]],
     user_owner_by_team_key: Dict[str, str],
     limit: int | None,
 ) -> List[Dict[str, Any]]:
@@ -1677,12 +1702,14 @@ def _dedupe_and_enrich_match_records(
             year=year,
             team_name=away_team,
             map_by_season_key=map_by_season_key,
+            map_by_team_key=map_by_team_key,
             user_owner_by_team_key=user_owner_by_team_key,
         )
         record["home_owner_name"] = _resolve_mapped_owner_name(
             year=year,
             team_name=home_team,
             map_by_season_key=map_by_season_key,
+            map_by_team_key=map_by_team_key,
             user_owner_by_team_key=user_owner_by_team_key,
         )
         deduped[key] = record
@@ -1861,7 +1888,7 @@ def get_unmapped_series_keys(
         dataset_key="html_all_time_series_normalized",
         league_id=league_id,
     ).all()
-    owner_by_season_key, team_by_season_key, user_owner_by_team_key = _build_owner_mapping_indexes(
+    owner_by_season_key, team_by_season_key, owner_by_team_key, user_owner_by_team_key = _build_owner_mapping_indexes(
         db,
         league_id=league_id,
     )
@@ -1869,6 +1896,7 @@ def get_unmapped_series_keys(
         rows=[r.record_json for r in records],
         owner_by_season_key=owner_by_season_key,
         team_by_season_key=team_by_season_key,
+        owner_by_team_key=owner_by_team_key,
         user_owner_by_team_key=user_owner_by_team_key,
         limit=None,
     )
@@ -2041,11 +2069,12 @@ def get_matchup_records(
         league_id=league_id,
     ).all()
 
-    owner_by_season_key, _, user_owner_by_team_key = _build_owner_mapping_indexes(db, league_id=league_id)
+    owner_by_season_key, _, owner_by_team_key, user_owner_by_team_key = _build_owner_mapping_indexes(db, league_id=league_id)
 
     data = _dedupe_and_enrich_match_records(
         rows=[r.record_json for r in records],
         map_by_season_key=owner_by_season_key,
+        map_by_team_key=owner_by_team_key,
         user_owner_by_team_key=user_owner_by_team_key,
         limit=100,
     )
@@ -2073,7 +2102,7 @@ def get_all_time_series_records(
         league_id=league_id,
     ).all()
 
-    owner_by_season_key, team_by_season_key, user_owner_by_team_key = _build_owner_mapping_indexes(
+    owner_by_season_key, team_by_season_key, owner_by_team_key, user_owner_by_team_key = _build_owner_mapping_indexes(
         db,
         league_id=league_id,
     )
@@ -2081,6 +2110,7 @@ def get_all_time_series_records(
         rows=[r.record_json for r in records],
         owner_by_season_key=owner_by_season_key,
         team_by_season_key=team_by_season_key,
+        owner_by_team_key=owner_by_team_key,
         user_owner_by_team_key=user_owner_by_team_key,
         limit=200,
     )

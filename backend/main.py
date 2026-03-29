@@ -73,6 +73,26 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
+def _advisor_runtime_status() -> dict[str, bool | str]:
+    has_gemini_key = bool(os.getenv("GEMINI_API_KEY"))
+    has_google_key = bool(os.getenv("GOOGLE_API_KEY"))
+    has_api_key = has_gemini_key or has_google_key
+    has_genai_sdk = bool(getattr(advisor, "genai", None))
+
+    key_source = "none"
+    if has_google_key:
+        key_source = "GOOGLE_API_KEY"
+    elif has_gemini_key:
+        key_source = "GEMINI_API_KEY"
+
+    return {
+        "enabled": has_api_key and has_genai_sdk,
+        "has_api_key": has_api_key,
+        "has_genai_sdk": has_genai_sdk,
+        "key_source": key_source,
+    }
+
 from contextlib import asynccontextmanager
 
 
@@ -113,6 +133,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Warning: Could not run startup seeder: {e}")
 
+    advisor_status = _advisor_runtime_status()
+    logger.info(
+        "Advisor runtime status enabled=%s has_api_key=%s has_genai_sdk=%s key_source=%s",
+        advisor_status["enabled"],
+        advisor_status["has_api_key"],
+        advisor_status["has_genai_sdk"],
+        advisor_status["key_source"],
+    )
+
     try:
         watchdog_service.start_live_scoring_watchdog_scheduler()
     except Exception as e:
@@ -134,6 +163,7 @@ CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "ffpi_csrf_token")
 CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
 CSRF_EXEMPT_PATHS = {
     "/auth/token",
+    "/analytics/visit",
     "/openapi.json",
     "/docs",
     "/docs/oauth2-redirect",

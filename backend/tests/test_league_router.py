@@ -766,6 +766,45 @@ def test_all_time_series_records_enrich_owner_fields(db_session):
     assert row["opponent_owner_name"] == "Alex"
 
 
+def test_all_time_series_records_enrich_owner_fields_nearest_season_fallback(db_session):
+    league = make_league(db_session)
+    current_user = make_user(db_session, league, "history-reader-fallback", "Current Team")
+
+    db_session.add(
+        models.LeagueHistoryTeamOwnerMap(
+            league_id=league.id,
+            season=2025,
+            team_name="Gridiron Brothers",
+            team_name_key="gridiron brothers",
+            owner_name="Alex",
+        )
+    )
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_all_time_series_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="series-fallback-1",
+            record_json={
+                "series_season": 2024,
+                "source_url": "https://www46.myfantasyleague.com/2026/options?L=11422&O=171",
+                "opponent_franchise_raw": "Gridiron Brothers",
+                "season_w_l_t_raw": "2-1-0",
+                "total_w_l_t_raw": "14-21-0",
+                "total_pct": 0.4,
+            },
+        )
+    )
+    db_session.commit()
+
+    response = get_all_time_series_records(league_id=league.id, db=db_session, current_user=current_user)
+    assert response.count == 1
+    row = response.records[0]
+    assert row["opponent_owner_name"] == "Alex"
+
+
 def test_ask_history_question_answers_most_points_query(db_session):
     league = make_league(db_session)
     current_user = make_user(db_session, league, "history-reader-2", "Reader Team")
