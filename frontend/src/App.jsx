@@ -402,7 +402,7 @@ function App() {
     setActiveLeagueId(null);
   }, []);
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = useCallback(() => {
     isLoggingOutRef.current = true;
     authCheckIdRef.current += 1;
     // Clear local state immediately so the UI responds at once rather than
@@ -410,11 +410,9 @@ function App() {
     clearAuthState();
     // Fire backend logout in the background to clear server-side cookies.
     // Failures are non-critical — local state is already cleared above.
-    try {
-      await apiClient.post('/auth/logout', null, { timeout: 5000 });
-    } catch {
+    apiClient.post('/auth/logout', null, { timeout: 5000 }).catch(() => {
       // intentionally swallowed
-    }
+    });
   }, [clearAuthState]);
 
   // --- 1.3 AUTH CHECK (The Guard) ---

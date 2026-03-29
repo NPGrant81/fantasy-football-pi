@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
 from fastapi import HTTPException
-from backend.routers.league import get_league_budgets, get_league_settings, update_league_budgets, BudgetUpdateRequest, BudgetEntry, DraftYearUpdateRequest, set_league_draft_year, get_ledger_statement, LeagueConfigFull, ScoringRuleSchema, validate_lineup_rules, canonicalize_lineup_slots, get_matchup_records, get_history_team_owner_map, upsert_history_team_owner_map, HistoryTeamOwnerMapUpsertRequest, HistoryTeamOwnerMapUpsertItem, get_all_time_series_records, ask_history_question, HistoryQuestionRequest, delete_history_team_owner_map_row, get_unmapped_series_keys
+from backend.routers.league import get_league_budgets, get_league_settings, update_league_budgets, BudgetUpdateRequest, BudgetEntry, DraftYearUpdateRequest, set_league_draft_year, get_ledger_statement, LeagueConfigFull, ScoringRuleSchema, validate_lineup_rules, canonicalize_lineup_slots, get_matchup_records, get_history_team_owner_map, upsert_history_team_owner_map, HistoryTeamOwnerMapUpsertRequest, HistoryTeamOwnerMapUpsertItem, get_all_time_series_records, ask_history_question, HistoryQuestionRequest, delete_history_team_owner_map_row, get_unmapped_series_keys, join_league
 from backend.routers.draft import _get_owner_total_budget
 
 
@@ -212,6 +212,61 @@ def test_get_league_budgets_rejects_other_league_user(db_session):
         )
 
     assert exc.value.status_code == 403
+
+
+def test_join_league_rejects_non_superuser_with_existing_league(db_session):
+    source_league = make_league(db_session)
+    target_league = make_league(db_session)
+    user = make_user(db_session, source_league, "join-owner", "JoinTeam")
+
+    with pytest.raises(HTTPException) as exc:
+        join_league(league_id=target_league.id, current_user=user, db=db_session)
+
+    assert exc.value.status_code == 403
+
+
+def test_join_league_allows_first_time_user_without_league(db_session):
+    target_league = make_league(db_session)
+    user = models.User(
+        username="first-time-owner",
+        hashed_password="pw",
+        league_id=None,
+        team_name="FirstTime",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    response = join_league(league_id=target_league.id, current_user=user, db=db_session)
+    db_session.refresh(user)
+
+    assert user.league_id == target_league.id
+    assert "Welcome to" in response["message"]
+
+
+def test_join_league_allows_superuser_switch(db_session):
+    source_league = make_league(db_session)
+    target_league = make_league(db_session)
+    superuser = models.User(
+        username="super-join",
+        hashed_password="pw",
+        league_id=source_league.id,
+        team_name="Super",
+        is_superuser=True,
+    )
+    db_session.add(superuser)
+    db_session.commit()
+    db_session.refresh(superuser)
+
+    response = join_league(
+        league_id=target_league.id,
+        current_user=superuser,
+        db=db_session,
+    )
+    db_session.refresh(superuser)
+
+    assert superuser.league_id == target_league.id
+    assert "Welcome to" in response["message"]
 
 
 def test_update_league_budgets_rejects_owner_outside_league(db_session):
