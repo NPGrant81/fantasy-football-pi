@@ -170,6 +170,89 @@ def test_admin_settings_and_actions():
     assert post2.selected_count == 0
 
 
+def test_keeper_settings_propagate_to_owner_page_and_lock_enforcement():
+    db_session = setup_db()
+    league = make_league(db_session)
+    comm = make_user(db_session, league, "comm-prop", is_comm=True)
+    owner = make_user(db_session, league, "owner-prop", budget=200)
+    current_comm = CU(comm)
+
+    p1 = make_player(db_session, "K1")
+    p2 = make_player(db_session, "K2")
+
+    # Owner has draft picks available for keeper selection.
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner.id, player_id=p1.id, league_id=league.id, amount=10),
+            models.DraftPick(owner_id=owner.id, player_id=p2.id, league_id=league.id, amount=12),
+        ]
+    )
+    db_session.commit()
+
+    # Seed baseline keeper rules and verify owner page reflects them.
+    db_session.add(
+        models.KeeperRules(
+            league_id=league.id,
+            max_keepers=1,
+            max_years_per_player=2,
+            deadline_date=datetime.now(UTC) + timedelta(days=2),
+            waiver_policy=False,
+            drafted_only=False,
+            cost_type="auction",
+            cost_inflation=0,
+        )
+    )
+    db_session.commit()
+
+    owner_view_before = get_my_keepers(db=db_session, current_user=CU(owner))
+    assert owner_view_before.max_allowed == 1
+
+    # Commissioner overwrites non-scoring keeper settings.
+    update_keeper_settings(
+        update=KeeperSettingsUpdate(
+            max_keepers=2,
+            max_years_per_player=3,
+            deadline_date=datetime.now(UTC) + timedelta(days=1),
+            waiver_policy=True,
+            drafted_only=True,
+            cost_type="round",
+            cost_inflation=5,
+        ),
+        db=db_session,
+        current_user=current_comm,
+    )
+
+    owner_view_after = get_my_keepers(db=db_session, current_user=CU(owner))
+    assert owner_view_after.max_allowed == 2
+
+    # Save a keeper and ensure lock works before deadline.
+    req = type("R", (), {})()
+    req.players = [
+        KeeperSelectionSchema(
+            player_id=p1.id,
+            keep_cost=10,
+            years_kept_count=0,
+            status="pending",
+            approved_by_commish=False,
+        )
+    ]
+    save_my_keepers(request=req, db=db_session, current_user=CU(owner))
+    lock_my_keepers(db=db_session, current_user=db_session.get(models.User, owner.id))
+
+    # Commissioner overwrites deadline to the past; next lock attempt must fail.
+    update_keeper_settings(
+        update=KeeperSettingsUpdate(deadline_date=datetime.now(UTC) - timedelta(minutes=1)),
+        db=db_session,
+        current_user=current_comm,
+    )
+
+    remove_keeper(player_id=p1.id, db=db_session, current_user=CU(owner))
+    save_my_keepers(request=req, db=db_session, current_user=CU(owner))
+
+    with pytest.raises(HTTPException, match="Keeper window has closed"):
+        lock_my_keepers(db=db_session, current_user=db_session.get(models.User, owner.id))
+
+
 def test_update_keeper_settings_rejects_invalid_values():
     db_session = setup_db()
     league = make_league(db_session)
