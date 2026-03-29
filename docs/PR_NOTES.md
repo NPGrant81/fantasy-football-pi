@@ -1,5 +1,8 @@
 Pull request test branch: feature/tests-ci
 
+> Historical snapshot: This file records point-in-time PR and issue close-out notes.
+> For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
+
 This branch was created to trigger CI for backend and frontend tests.
 
 ---

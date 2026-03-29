@@ -10,6 +10,7 @@ from ..services.validation_service import (
     validate_trade_proposal_boundary,
     validate_trade_proposal_dynamic_rules,
 )
+from ..services.commissioner_deadline_service import enforce_commissioner_deadline
 from ..services.player_service import normalize_display_name as _normalize_player_name
 
 router = APIRouter(prefix="/trades", tags=["Trades"])
@@ -58,6 +59,16 @@ def propose_trade(
 
     if not current_user.league_id:
         raise HTTPException(status_code=400, detail="You must be in a league to propose a trade.")
+
+    settings = (
+        db.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == current_user.league_id)
+        .first()
+    )
+    enforce_commissioner_deadline(
+        deadline_value=settings.trade_deadline if settings else None,
+        closed_message_prefix="Trade proposals are closed by commissioner rule",
+    )
 
     # verify future dollar availability
     offered = payload.offered_dollars or 0

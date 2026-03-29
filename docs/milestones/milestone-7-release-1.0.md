@@ -4,6 +4,14 @@ This milestone packages the platform into a stable, documented, and supportable 
 
 ---
 
+## Status
+
+- status: `planned`
+- owner: `product + engineering`
+- source of truth for active progress: `docs/milestones/README.md` and linked child issue files under `issues/`
+
+---
+
 ## Scope
 
 - Final QA pass
@@ -21,6 +29,10 @@ This milestone packages the platform into a stable, documented, and supportable 
 - [ ] Release tagged and deployed to Raspberry Pi
 - [ ] Documentation published
 
+Status hygiene note:
+
+- Keep checklist items unchecked until dependency milestones are marked complete in milestone tracking.
+
 ---
 
 ## Child Issues
@@ -33,23 +45,9 @@ This milestone packages the platform into a stable, documented, and supportable 
 
 ## Dependencies
 
-- Milestone 1 — Core Application Foundation ✅ (partially)
+- Milestone 1 — Core Application Foundation
 - Milestone 2 — Cross‑Platform Compatibility & Deployment Pipeline
 - Milestone 3 — Security Hardening
 - Milestone 4 — Data‑Validation Architecture
 - Milestone 5 — Gameplay Logic & League Operations
 - Milestone 6 — Production Readiness & Monitoring
-
----
-
-## Milestone Dependency Chain
-
-```
-Milestone 1
-    ├── Milestone 2
-    │       └── Milestone 3
-    │               └── Milestone 5
-    │                       └── Milestone 6
-    ├── Milestone 4 ──────────────┘
-    └───────────────────────────────── Milestone 7
-```

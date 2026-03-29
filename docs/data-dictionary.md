@@ -1,18 +1,43 @@
 # Data Dictionary (Issue #102)
 
-This document defines the normalized schema baseline for core fantasy football
-entities used by analytics, ML, and draft simulation pipelines.
+This document defines two related schema views used by analytics, ML, and
+draft simulation pipelines:
+
+1. Legacy CSV ingestion contracts used for historical data import and
+  reconciliation workflows.
+2. Canonical ORM/PostgreSQL entities used by the running application.
+
+Both views are valid and intentionally different. Legacy names are preserved for
+historical source compatibility, while canonical names reflect current model
+structure.
 
 ## Source Mapping
 
-| Canonical Entity | Current Source File | Legacy Tab Name |
+| Legacy Contract Entity | Current Source File | Legacy Tab Name |
 |---|---|---|
 | DraftResult | `backend/data/draft_results.csv` | `DraftResult` |
-| YearlyResults | `draft_values` table (PostgreSQL) | `YearlyResults` |
+| YearlyResults | `draft_values` table (PostgreSQL projection target) | `YearlyResults` |
 | PlayerID | `backend/data/players.csv` | `PlayerID` |
 | PositionID | `backend/data/positions.csv` | `PositionID` |
 | Budget | `backend/data/draft_budget.csv` | `2024DraftBudget` |
 | Owner Registry | `backend/data/teams.csv` | Owner/team mapping |
+
+## Canonical ORM Mapping (Application Runtime)
+
+| Canonical Runtime Entity | Backing Table | Model Reference |
+|---|---|---|
+| Player | `players` | `backend/models.py::Player` |
+| DraftPick | `draft_picks` | `backend/models.py::DraftPick` |
+| DraftBudget | `draft_budgets` | `backend/models.py::DraftBudget` |
+| DraftValue | `draft_values` | `backend/models_draft_value.py::DraftValue` |
+
+Notes:
+
+- The CSV contracts in this document are historical import surfaces, not a
+  one-to-one mirror of current ORM field names.
+- Runtime queries should use canonical ORM/table names.
+- Import/reconciliation jobs may still reference legacy column labels
+  (`PlayerID`, `OwnerID`, `PositionID`, etc.) before normalization.
 
 ## Global Normalization Rules
 
@@ -85,7 +110,7 @@ entities used by analytics, ML, and draft simulation pipelines.
 | team | string | yes | Non-empty | Display name |
 | team_id | integer | yes | Unique | Team registry ID |
 
-## Relationship Model
+## Relationship Model (Normalized Contract View)
 
 - `DraftResult.player_id` -> `PlayerID.player_id`
 - `DraftResult.position_id` -> `PositionID.position_id`

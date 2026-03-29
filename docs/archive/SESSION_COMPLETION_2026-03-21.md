@@ -1,5 +1,8 @@
 # Session Completion Summary — March 21, 2026
 
+> Historical snapshot: this file captures a point-in-time execution summary.
+> For current project status, use `docs/ISSUE_STATUS.md` and live issue/PR tracking.
+
 ## Overview
 This session completed Phase 2 of the production-readiness pipeline, addressing backend robustness, frontend race conditions, and league-state consistency across the full auth/league lifecycle.
 

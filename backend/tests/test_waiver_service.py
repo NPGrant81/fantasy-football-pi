@@ -99,3 +99,24 @@ def test_process_claim_rejects_when_ledger_balance_insufficient(db_session):
 
     assert exc.value.status_code == 400
     assert "Insufficient FAAB balance" in exc.value.detail
+
+
+def test_process_claim_rejects_after_commissioner_waiver_deadline(db_session):
+    league = make_league(db_session)
+    user = make_user(db_session, league, "waiver-owner-deadline")
+    target = make_player(db_session, "Deadline Target")
+
+    db_session.add(
+        models.LeagueSettings(
+            league_id=league.id,
+            waiver_deadline="2000-01-01T00:00:00Z",
+            roster_size=14,
+        )
+    )
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        process_claim(db_session, user=user, player_id=target.id, bid=0)
+
+    assert exc.value.status_code == 400
+    assert "Waiver claims are closed by commissioner rule" in str(exc.value.detail)

@@ -34,10 +34,12 @@ Refer to the appropriate file for more information.
 - [Frontend Ui Standards](FRONTEND_UI_STANDARDS.md)
 - [Issue Status](ISSUE_STATUS.md)
 - [Live Scoring Reliability Runbook](LIVE_SCORING_RELIABILITY_RUNBOOK.md)
-- [Markdown Governance Sweep Report](MARKDOWN_GOVERNANCE_SWEEP_REPORT.md)
 - [Mfl Historical Data Operations](MFL_HISTORICAL_DATA_OPERATIONS.md)
 - [Model-Serving-And-Integration](model-serving-and-integration.md)
 - [Monte-Carlo-Simulation](monte-carlo-simulation.md)
+- [Pattern Library](PATTERN_LIBRARY.md)
+- [Pattern Compliance Matrix](PATTERN_COMPLIANCE_MATRIX.md)
+- [Pattern Standardization Plan](PATTERN_STANDARDIZATION_PLAN.md)
 - [Permissions](permissions.md)
 - [Pi Setup Docker](pi-setup/docker.md)
 - [Pi Update Cheatsheet](PI_UPDATE_CHEATSHEET.md)
@@ -50,7 +52,6 @@ Refer to the appropriate file for more information.
 - [Restore](restore.md)
 - [Scoring Edge Case Test Matrix](SCORING_EDGE_CASE_TEST_MATRIX.md)
 - [Security Hardening](SECURITY_HARDENING.md)
-- [Session Completion 2026-03-21](SESSION_COMPLETION_2026-03-21.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
 - [Ui Reference](UI_REFERENCE.md)
 - [Ui Ux Automation Pipeline](UI_UX_AUTOMATION_PIPELINE.md)
@@ -66,6 +67,11 @@ Refer to the appropriate file for more information.
 ### Commit-Packages
 
 - [2026-03-15-Bundle-Plan](archive/commit-packages/2026-03-15-bundle-plan.md)
+
+### Archive
+
+- [Markdown Governance Sweep Report 2026-03-08](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-03-08.md)
+- [Session Completion 2026-03-21](archive/SESSION_COMPLETION_2026-03-21.md)
 
 ### Data-Migration
 
@@ -86,8 +92,13 @@ Refer to the appropriate file for more information.
 - [Simulation-Pipeline](diagrams/simulation-pipeline.md)
 - [Waiver-Flow](diagrams/waiver-flow.md)
 
+### Gaps
+
+- [Overview](gaps/overview.md)
+
 ### Governance
 
+- [Doc Classification Guardrails](governance/DOC_CLASSIFICATION_GUARDRAILS.md)
 - [Readme](governance/README.md)
 
 ### Milestones
@@ -100,6 +111,12 @@ Refer to the appropriate file for more information.
 - [Milestone-6-Production-Readiness](milestones/milestone-6-production-readiness.md)
 - [Milestone-7-Release-1.0](milestones/milestone-7-release-1.0.md)
 - [Readme](milestones/README.md)
+
+### Patterns
+
+- [Readme](patterns/README.md)
+- [Pattern Decision Log](patterns/PATTERN_DECISION_LOG.md)
+- [Pattern Proposal Template](patterns/PATTERN_PROPOSAL_TEMPLATE.md)
 
 ### Uat
 

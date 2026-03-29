@@ -1,5 +1,8 @@
 # Markdown Governance Sweep Report
 
+> Historical snapshot: this report reflects governance status as of 2026-03-08.
+> Current governance status is tracked through `docs/governance/doc_review_registry.json` and `docs/PATTERN_COMPLIANCE_MATRIX.md`.
+
 Updated: 2026-03-08
 Tracker: #156
 

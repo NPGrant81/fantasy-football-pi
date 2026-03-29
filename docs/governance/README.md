@@ -5,11 +5,10 @@ This directory defines the timed review sweep for documentation currency.
 ## Files
 
 - `doc_review_registry.json`: review cadence registry for key documentation files.
+- `DOC_CLASSIFICATION_GUARDRAILS.md`: domain/type classification rules and drift-warning signals.
 
-Current registry scope includes architecture, roadmap/status, UI standards,
-data quality, deployment and cloudflare runbooks, security hardening,
-CI observability, API page matrix, doc-issue mapping, dev environment notes,
-and testing session summary.
+Current registry scope covers all markdown files under `docs/`, including
+active runbooks/specs and explicitly archived historical snapshots.
 
 ## Registry Format
 
@@ -61,7 +60,8 @@ named `Docs Governance Sweep Failure` with the latest report and run link.
 It fails when:
 
 - governed docs are overdue for review
-- required governed docs are missing
+- docs are missing from governance registry
+- docs cannot be classified by domain/type guardrails
 - docs index is not current
 - repository hygiene checks fail
 
