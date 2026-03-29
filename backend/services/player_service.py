@@ -174,10 +174,21 @@ def find_existing_player(
 def _player_dedupe_key(player: models.Player):
     # Cross-platform presentation dedupe should collapse same player identities
     # even when one row has provider IDs and another does not.
+    position = (player.position or "").strip().upper()
+    if position == "DEF":
+        # DEF rows are frequently duplicated across legacy naming conventions
+        # (e.g. "Washington Defense", "Washington Commanders").
+        # Canonicalize to team+position so one team defense survives.
+        return (
+            "team-defense",
+            position,
+            _canonical_team(player.nfl_team),
+        )
+
     return (
         "identity",
         _dedupe_normalized_name(player.name),
-        (player.position or "").strip().upper(),
+        position,
     )
 
 

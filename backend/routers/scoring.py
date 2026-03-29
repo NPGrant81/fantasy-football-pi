@@ -28,6 +28,21 @@ from ..services.scoring_service import (
 
 router = APIRouter(prefix="/scoring", tags=["scoring"])
 
+MIN_VALID_SEASON_YEAR = 2000
+MAX_VALID_SEASON_YEAR = datetime.now(timezone.utc).year + 2
+
+
+def _validate_optional_season_year(season_year: int | None, *, label: str = "season_year") -> int | None:
+    if season_year is None:
+        return None
+    normalized = int(season_year)
+    if normalized < MIN_VALID_SEASON_YEAR or normalized > MAX_VALID_SEASON_YEAR:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} must be between {MIN_VALID_SEASON_YEAR} and {MAX_VALID_SEASON_YEAR}",
+        )
+    return normalized
+
 
 class ScoringRuleUpdateRequest(BaseModel):
     category: str | None = None
@@ -419,6 +434,7 @@ def read_scoring_rules(
     current_user: models.User = Depends(get_current_user),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(season_year)
 
     query = db.query(models.ScoringRule).filter(models.ScoringRule.league_id == league_id)
     if season_year is not None:
@@ -436,7 +452,7 @@ def read_current_ruleset(
     current_user: models.User = Depends(get_current_user),
 ):
     league_id = _league_id_or_400(current_user)
-    effective_year = season_year
+    effective_year = _validate_optional_season_year(season_year)
 
     query = db.query(models.ScoringRule).filter(
         models.ScoringRule.league_id == league_id,
@@ -462,9 +478,10 @@ def calculate_scoring_player_preview(
     current_user: models.User = Depends(get_current_user),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(request.season_year)
 
     if request.stats:
-        rules = active_scoring_rules_for_league(db, league_id=league_id, season_year=request.season_year)
+        rules = active_scoring_rules_for_league(db, league_id=league_id, season_year=season_year)
         total, breakdown = calculate_points_for_stats(
             stats=request.stats,
             position=request.position or "ALL",
@@ -494,7 +511,7 @@ def calculate_scoring_player_preview(
         season=request.season,
         week=request.week,
         position=request.position,
-        season_year=request.season_year,
+        season_year=season_year,
     )
 
     return {
@@ -506,7 +523,7 @@ def calculate_scoring_player_preview(
         "points": points,
         "breakdown": [item.__dict__ for item in breakdown],
         "stats_used": stats_payload,
-        "rules_evaluated": len(active_scoring_rules_for_league(db, league_id=league_id, season_year=request.season_year)),
+        "rules_evaluated": len(active_scoring_rules_for_league(db, league_id=league_id, season_year=season_year)),
     }
 
 
@@ -517,7 +534,8 @@ def calculate_draft_analyzer_preview(
     current_user: models.User = Depends(get_current_user),
 ):
     league_id = _league_id_or_400(current_user)
-    rules = active_scoring_rules_for_league(db, league_id=league_id, season_year=request.season_year)
+    season_year = _validate_optional_season_year(request.season_year)
+    rules = active_scoring_rules_for_league(db, league_id=league_id, season_year=season_year)
 
     results: list[dict[str, Any]] = []
     for item in request.players:
@@ -540,7 +558,7 @@ def calculate_draft_analyzer_preview(
 
     return {
         "league_id": league_id,
-        "season_year": request.season_year,
+        "season_year": season_year,
         "rules_evaluated": len(rules),
         "players": results,
     }
@@ -552,12 +570,13 @@ def preview_scoring_import(
     current_user: models.User = Depends(check_is_commissioner),
 ):
     _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(request.season_year)
 
     try:
         preview = parse_csv_rows_to_preview(
             request.csv_content,
             source_platform=request.source_platform,
-            season_year=request.season_year,
+            season_year=season_year,
         )
     except ScoringImportError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -565,7 +584,7 @@ def preview_scoring_import(
     return {
         "row_count": len(preview),
         "source_platform": request.source_platform,
-        "season_year": request.season_year,
+        "season_year": season_year,
         "rules": preview,
     }
 
@@ -577,12 +596,13 @@ def apply_scoring_import(
     current_user: models.User = Depends(check_is_commissioner),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(request.season_year)
 
     try:
         parsed_rules = parse_csv_rows_to_rules(
             request.csv_content,
             source_platform=request.source_platform,
-            season_year=request.season_year,
+            season_year=season_year,
         )
     except ScoringImportError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -620,8 +640,8 @@ def apply_scoring_import(
             models.ScoringRule.league_id == league_id,
             models.ScoringRule.is_active.is_(True),
         )
-        if request.season_year is not None:
-            stale_query = stale_query.filter(models.ScoringRule.season_year == request.season_year)
+        if season_year is not None:
+            stale_query = stale_query.filter(models.ScoringRule.season_year == season_year)
 
         stale_rules = [row for row in stale_query.all() if row.id not in touched_rule_ids]
         for stale in stale_rules:
@@ -651,7 +671,7 @@ def apply_scoring_import(
 @router.post("/import/upload-points-override", response_model=PlayerPointsUploadSummary)
 async def upload_points_override(
     file: UploadFile = File(...),
-    season: int = Query(..., ge=2000, le=2100),
+    season: int = Query(..., ge=MIN_VALID_SEASON_YEAR, le=MAX_VALID_SEASON_YEAR),
     week: int = Query(..., ge=1, le=18),
     source: str = Query(default="manual_override"),
     replace_existing_for_source: bool = Query(default=True),
@@ -743,13 +763,14 @@ def recalculate_week_scores(
     current_user: models.User = Depends(check_is_commissioner),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(request.season_year)
 
     recalculated = recalculate_league_week_scores(
         db,
         league_id=league_id,
         week=week,
         season=request.season,
-        season_year=request.season_year,
+        season_year=season_year,
     )
     db.commit()
 
@@ -770,6 +791,7 @@ def recalculate_single_matchup_score(
     current_user: models.User = Depends(check_is_commissioner),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(request.season_year)
 
     matchup = (
         db.query(models.Matchup)
@@ -786,7 +808,7 @@ def recalculate_single_matchup_score(
         db,
         matchup=matchup,
         season=request.season,
-        season_year=request.season_year,
+        season_year=season_year,
     )
     db.commit()
     return result
@@ -800,6 +822,7 @@ def create_scoring_rule(
 ):
     league_id = _league_id_or_400(current_user)
     payload = rule.model_dump()
+    payload["season_year"] = _validate_optional_season_year(payload.get("season_year"))
 
     db_rule = models.ScoringRule(
         **payload,
@@ -849,6 +872,8 @@ def update_scoring_rule(
 
     previous = _rule_to_dict(rule)
     updates = request.model_dump(exclude_unset=True)
+    if "season_year" in updates:
+        updates["season_year"] = _validate_optional_season_year(updates.get("season_year"))
     for key, value in updates.items():
         setattr(rule, key, value)
 
@@ -921,7 +946,7 @@ def batch_upsert_scoring_rules(
     if not request.rules:
         raise HTTPException(status_code=400, detail="At least one rule is required")
 
-    season_year = request.season_year
+    season_year = _validate_optional_season_year(request.season_year)
     touched_ids: set[int] = set()
     results: list[models.ScoringRule] = []
 
@@ -1029,6 +1054,7 @@ def list_scoring_templates(
     current_user: models.User = Depends(get_current_user),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(season_year)
     query = db.query(models.ScoringTemplate).filter(models.ScoringTemplate.league_id == league_id)
     if season_year is not None:
         query = query.filter(models.ScoringTemplate.season_year == season_year)
@@ -1042,10 +1068,11 @@ def create_scoring_template(
     current_user: models.User = Depends(check_is_commissioner),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(request.season_year)
 
     template = models.ScoringTemplate(
         league_id=league_id,
-        season_year=request.season_year,
+        season_year=season_year,
         name=request.name,
         description=request.description,
         source_platform=request.source_platform,
@@ -1057,7 +1084,7 @@ def create_scoring_template(
 
     for idx, rule in enumerate(request.rules):
         payload = rule.model_dump()
-        payload.setdefault("season_year", request.season_year)
+        payload.setdefault("season_year", season_year)
         payload.setdefault("source", "template")
 
         row = models.ScoringRule(
@@ -1102,11 +1129,12 @@ def import_scoring_template_from_csv(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(check_is_commissioner),
 ):
+    season_year = _validate_optional_season_year(request.season_year)
     try:
         rules = parse_csv_rows_to_rules(
             request.csv_content,
             source_platform=request.source_platform,
-            season_year=request.season_year,
+            season_year=season_year,
         )
     except ScoringImportError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1115,7 +1143,7 @@ def import_scoring_template_from_csv(
         TemplateWithRulesCreateRequest(
             name=request.template_name,
             description=f"Imported from CSV via /scoring/templates/import",
-            season_year=request.season_year,
+            season_year=season_year,
             source_platform=request.source_platform,
             rules=rules,
         ),
@@ -1204,6 +1232,7 @@ def apply_template_to_active_ruleset(
     current_user: models.User = Depends(check_is_commissioner),
 ):
     league_id = _league_id_or_400(current_user)
+    request_season_year = _validate_optional_season_year(request.season_year)
 
     template = (
         db.query(models.ScoringTemplate)
@@ -1229,7 +1258,8 @@ def apply_template_to_active_ruleset(
     if not template_rules:
         raise HTTPException(status_code=400, detail="Template has no active rules")
 
-    effective_year = request.season_year if request.season_year is not None else template.season_year
+    effective_year = request_season_year if request_season_year is not None else template.season_year
+    effective_year = _validate_optional_season_year(effective_year, label="effective season_year")
 
     if request.deactivate_existing:
         existing_query = db.query(models.ScoringRule).filter(
@@ -1306,10 +1336,11 @@ def create_scoring_rule_proposal(
     current_user: models.User = Depends(check_is_commissioner),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(request.season_year)
 
     proposal = models.ScoringRuleProposal(
         league_id=league_id,
-        season_year=request.season_year,
+        season_year=season_year,
         title=request.title,
         description=request.description,
         proposed_change=request.proposed_change,
@@ -1332,6 +1363,7 @@ def list_scoring_rule_proposals(
     current_user: models.User = Depends(get_current_user),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(season_year)
 
     query = db.query(models.ScoringRuleProposal).filter(models.ScoringRuleProposal.league_id == league_id)
     if season_year is not None:
@@ -1453,6 +1485,7 @@ def get_scoring_rule_history(
     current_user: models.User = Depends(get_current_user),
 ):
     league_id = _league_id_or_400(current_user)
+    season_year = _validate_optional_season_year(season_year)
 
     query = db.query(models.ScoringRuleChangeLog).filter(models.ScoringRuleChangeLog.league_id == league_id)
     if season_year is not None:

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 import csv
 import io
 
@@ -108,17 +108,59 @@ VALID_ECON_ENTRY_TYPES = {
     "AWARD",
 }
 
+MIN_VALID_SEASON_YEAR = 2000
+MAX_VALID_SEASON_YEAR = datetime.now(UTC).year + 2
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _validate_season_year(season: int, *, label: str = "season") -> int:
+    normalized = int(season)
+    if normalized < MIN_VALID_SEASON_YEAR or normalized > MAX_VALID_SEASON_YEAR:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} must be between {MIN_VALID_SEASON_YEAR} and {MAX_VALID_SEASON_YEAR}",
+        )
+    return normalized
+
+
+def _rollover_prior_season_keepers(db: Session, league_id: int, current_season: int) -> None:
+    # When season advances, freeze any stale pending selections from prior seasons.
+    stale_pending = (
+        db.query(models.Keeper)
+        .filter(
+            models.Keeper.league_id == league_id,
+            models.Keeper.season < current_season,
+            models.Keeper.status == "pending",
+        )
+        .all()
+    )
+    if not stale_pending:
+        return
+
+    now = _utc_now()
+    for keeper in stale_pending:
+        keeper.status = "locked"
+        if keeper.locked_at is None:
+            keeper.locked_at = now
+    db.commit()
+
 
 def _current_keeper_season(db: Session, league_id: int) -> int:
+    if not league_id:
+        raise HTTPException(status_code=400, detail="User not in a league")
     settings = (
         db.query(models.LeagueSettings)
         .filter(models.LeagueSettings.league_id == league_id)
         .first()
     )
-    season = settings.draft_year if settings else None
-    if season is None:
-        raise HTTPException(status_code=400, detail="League season not configured")
-    return int(season)
+    # Default to current year when league draft year has not been configured yet.
+    season = settings.draft_year if settings and settings.draft_year is not None else _utc_now().year
+    normalized_season = _validate_season_year(int(season))
+    _rollover_prior_season_keepers(db, league_id, normalized_season)
+    return normalized_season
 
 
 def _resolve_owner_for_import(
@@ -204,11 +246,7 @@ def get_my_keepers(
     """Return keeper page data for the logged-in owner."""
     if not current_user.league_id:
         raise HTTPException(status_code=400, detail="User not in a league")
-    # determine season from league configuration
-    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == current_user.league_id).first()
-    season = settings.draft_year if settings else None
-    if season is None:
-        raise HTTPException(status_code=400, detail="League season not configured")
+    season = _current_keeper_season(db, current_user.league_id)
 
     # fetch existing selections
     keepers = (
@@ -312,10 +350,7 @@ def save_my_keepers(
     """Replace the owner's pending keeper selections. Does not lock."""
     if not current_user.league_id:
         raise HTTPException(status_code=400, detail="User not in a league")
-    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == current_user.league_id).first()
-    season = settings.draft_year if settings else None
-    if season is None:
-        raise HTTPException(status_code=400, detail="League season not configured")
+    season = _current_keeper_season(db, current_user.league_id)
 
     # commissioner overrides always win; owner saves cannot remove/replace them.
     override_player_ids = {
@@ -365,17 +400,20 @@ def lock_my_keepers(
     """Lock the current pending list for the owner."""
     if not current_user.league_id:
         raise HTTPException(status_code=400, detail="User not in a league")
-    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == current_user.league_id).first()
-    season = settings.draft_year if settings else None
-    if season is None:
-        raise HTTPException(status_code=400, detail="League season not configured")
+    season = _current_keeper_season(db, current_user.league_id)
 
     # check lock date
     rules = db.query(models.KeeperRules).filter(models.KeeperRules.league_id == current_user.league_id).first()
-    if rules and rules.deadline_date and rules.deadline_date < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Keeper window has closed")
+    if rules and rules.deadline_date:
+        now = _utc_now()
+        deadline = rules.deadline_date
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=UTC)
+        if deadline < now:
+            raise HTTPException(status_code=400, detail="Keeper window has closed")
 
     # update pending for this owner only
+    lock_time = _utc_now()
     count = (
         db.query(models.Keeper)
         .filter(
@@ -383,7 +421,7 @@ def lock_my_keepers(
             models.Keeper.season == season,
             models.Keeper.status == "pending",
         )
-        .update({"status": "locked", "locked_at": datetime.utcnow()}, synchronize_session="fetch")
+        .update({"status": "locked", "locked_at": lock_time}, synchronize_session="fetch")
     )
     # reload owner record from the DB to ensure it's attached to session
     owner = db.get(models.User, current_user.id)
@@ -410,8 +448,7 @@ def remove_keeper(
     current_user: models.User = Depends(get_current_user)
 ):
     """Remove a pending player from owner's list."""
-    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == current_user.league_id).first()
-    season = settings.draft_year if settings else None
+    season = _current_keeper_season(db, current_user.league_id)
     db.query(models.Keeper).filter(
         models.Keeper.owner_id == current_user.id,
         models.Keeper.season == season,
@@ -436,8 +473,7 @@ def list_all_keepers(
     """Return all owners' keeper lists to the commissioner."""
     if not current_user.is_commissioner:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
-    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == current_user.league_id).first()
-    season = settings.draft_year if settings else None
+    season = _current_keeper_season(db, current_user.league_id)
     all_keepers = db.query(models.Keeper).filter(models.Keeper.league_id == current_user.league_id, models.Keeper.season == season).all()
     result: dict[int, OwnerKeepersOut] = {}
     for k in all_keepers:
@@ -459,8 +495,7 @@ def veto_owner_list(
 ):
     if not current_user.is_commissioner:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
-    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == current_user.league_id).first()
-    season = settings.draft_year if settings else None
+    season = _current_keeper_season(db, current_user.league_id)
     count = keeper_service.veto_keepers(db, owner_id, current_user.league_id, season)
     return {"vetoed": count}
 
@@ -472,8 +507,7 @@ def reset_league_keepers(
 ):
     if not current_user.is_commissioner:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Commissioner required")
-    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == current_user.league_id).first()
-    season = settings.draft_year if settings else None
+    season = _current_keeper_season(db, current_user.league_id)
     count = keeper_service.reset_keepers(db, current_user.league_id, season, owner_id)
     return {"cleared": count}
 
@@ -498,7 +532,7 @@ def commissioner_override_keeper(
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found in this league")
 
-    season = int(request.season) if request.season is not None else _current_keeper_season(db, current_user.league_id)
+    season = _validate_season_year(int(request.season), label="request.season") if request.season is not None else _current_keeper_season(db, current_user.league_id)
     player = _resolve_player_for_import(
         db,
         player_name=request.player_name,
@@ -520,12 +554,14 @@ def commissioner_override_keeper(
     )
 
     if existing:
+        lock_time = _utc_now()
         existing.keep_cost = request.keep_cost
         existing.years_kept_count = max(0, int(request.years_kept_count or 0))
         existing.status = "commish_override"
         existing.approved_by_commish = True
-        existing.locked_at = datetime.utcnow()
+        existing.locked_at = lock_time
     else:
+        lock_time = _utc_now()
         db.add(
             models.Keeper(
                 league_id=current_user.league_id,
@@ -536,7 +572,7 @@ def commissioner_override_keeper(
                 years_kept_count=max(0, int(request.years_kept_count or 0)),
                 approved_by_commish=True,
                 status="commish_override",
-                locked_at=datetime.utcnow(),
+                locked_at=lock_time,
             )
         )
 
@@ -628,7 +664,7 @@ async def import_keeper_history_csv(
             skipped += 1
             errors.append(KeeperImportRowResult(row_number=idx, status="skipped", detail="invalid season"))
             continue
-        season = int(season_raw)
+        season = _validate_season_year(int(season_raw))
 
         owner = _resolve_owner_for_import(
             db,
@@ -757,7 +793,7 @@ async def import_economic_history_csv(
             skipped += 1
             errors.append(KeeperImportRowResult(row_number=idx, status="skipped", detail="invalid season"))
             continue
-        season = int(season_raw)
+        season = _validate_season_year(int(season_raw))
 
         if entry_type not in VALID_ECON_ENTRY_TYPES:
             skipped += 1

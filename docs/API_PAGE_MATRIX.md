@@ -43,6 +43,8 @@ Base URL (frontend client): `http://127.0.0.1:8000`
 | ESPN public NFL endpoints | `https://site.api.espn.com/apis/site/v2/sports/football/nfl/*`          | Player/stats ingestion scripts        | `backend/scripts/import_espn_players.py`, `backend/scripts/archive_weekly_stats.py` |
 | Yahoo Fantasy API         | `https://football.fantasysports.yahoo.com/f1/draftanalysis?type=salcap` | Draft value ingestion                 | `backend/scripts/import_yahoo_players.py`                                           |
 | Draftsharks ADP           | `https://www.draftsharks.com/adp/superflex/ppr/sleeper/12`              | Draft value ingestion                 | `backend/scripts/import_draftsharks_players.py`                                     |
+| FantasyNerds Auction API  | `https://api.fantasynerds.com/v1/nfl/auction/`                          | Auction values with min/max context   | `POST /admin/tools/refresh-draft-values` via `etl/extract/extract_fantasynerds.py` |
+| RubeSheets (optional)     | `https://rubesheets.com/Footballv2.aspx`                                | League-custom auction modeling option | Not enabled; documented fallback option only (WebForms scrape risk)                 |
 
 ## Draft Value API & Page Mapping
 
@@ -53,6 +55,22 @@ New endpoints and pages for draft value integration:
 | Draft Value | `GET /draft-value/players`, `GET /draft-value/{year}` | Draft analysis, player info, commissioner tools |
 
 Draft value data is sourced from ESPN, Yahoo, and Draftsharks APIs, normalized, and exposed via these endpoints for frontend consumption.
+
+## Draft Value Source Matrix (Pull -> Store -> Page Impact)
+
+| Source | Pull method | Auth | Precheck gate | Stored in | Primary page impact | Current status |
+| --- | --- | --- | --- | --- | --- | --- |
+| ESPN | Public endpoint or authenticated ESPN path | Optional cookies for auth mode | None (extractor-level failure handling) | `platform_projections` -> `draft_values` | Draft Day Analyzer, Draft Board value views | Enabled |
+| DraftSharks | HTML table scrape | None/public | None (extractor-level failure handling) | `platform_projections` -> `draft_values` | Draft Day Analyzer source comparisons | Enabled |
+| Yahoo | Yahoo Fantasy API pull | OAuth2 (`YAHOO_*` env vars) | Yahoo precheck (fail-closed when enabled) | `platform_projections` -> `draft_values` | Draft Day Analyzer and downstream consensus | Enabled (optional in refresh payload) |
+| FantasyNerds | JSON API pull | API key (`FANTASYNERDS_API_KEY`) | FantasyNerds precheck (fail-closed when enabled) | `platform_projections` -> `draft_values` | Draft Day Analyzer min/avg/max coverage improvement | Enabled |
+| RubeSheets | ASP.NET WebForms form-post scrape | Session/form state | Not implemented | N/A | Potential future custom scoring feed | Not enabled; documented as brittle option |
+
+Operational notes:
+
+- Weekly source prechecks run via `.github/workflows/source-prechecks.yml`.
+- `POST /admin/tools/refresh-draft-values` now supports fail-closed prechecks for Yahoo and FantasyNerds.
+- RubeSheets is intentionally not integrated into production flow at this time due to brittle form-post parsing and maintenance risk.
 
 ---
 
@@ -81,6 +99,24 @@ Notes:
 | `/bug-report` Bug Report                        | `PUT /auth/email`, `POST /feedback/bug`                                                                                                                                                                                                                                                                                                                                                    |
 | `/analytics` Analytics Dashboard                | Uses `/analytics/league/{id}/leaderboard`, `/analytics/league/{id}/weekly-stats` and `/analytics/league/{id}/rivalry` endpoints to power charts and tables (efficiency, weekly trends, rivalry graph)                                                                                                                                                                                                                                           |
 | `/playoffs` Playoff Bracket                     | `GET /playoffs/seasons`, `GET /playoffs/bracket` (via Home bracket accordion + playoffs page)                                                                                                                                                                                                                                                                                              |
+
+## 2b) Page -> Data Fields Used (Quick Debug Matrix)
+
+Use this table when validating why a page does or does not show values.
+
+| Page | Core fields displayed | Primary backing table(s) | If missing, likely cause |
+| --- | --- | --- | --- |
+| Draft Day Analyzer (`/draft-day-analyzer`) | `player`, `position`, `team`, `auction_value`, `price_min`, `price_avg`, `price_max`, `adp`, `projected_points`, `confidence/source_count` | `draft_values`, `platform_projections`, `players` | Source precheck blocked load, upstream source empty, or low cross-source overlap |
+| Draft Board (`/draft`) | `player`, `position`, `team`, value/price columns, active eligibility signals | `players`, `draft_values`, league context tables | Player filtered as inactive, no matching draft value row, or stale season context |
+| Player search / value lookups (`/players/search`, Draft UI typeahead usage) | `name`, `position`, `team`, `adp`, value summary fields when available | `players`, `draft_values` | Name/team mismatch during load mapping, or source rows missing ADP/value |
+| Commissioner draft tools (`/commissioner` + admin refresh actions) | refresh status, source load outcomes, season-level update effects | `platform_projections`, `draft_values` | Source auth failure, precheck threshold failure, or extractor parsing drift |
+
+Field lineage quick map:
+
+- `price_min/price_avg/price_max`: computed from positive `platform_projections.auction_value` rows for the season.
+- `adp`: ingested per source, normalized in ETL, then aggregated into `draft_values`.
+- `projected_points`: source-dependent; may be unavailable for some providers/modes.
+- `confidence/source_count`: derived from number and agreement of contributing source rows.
 
 ---
 

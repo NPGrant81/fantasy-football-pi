@@ -1,6 +1,6 @@
 import sys
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 import time
 import requests
 from sqlalchemy.orm import Session
@@ -102,7 +102,7 @@ def store_weekly_stat(db: Session, player, season, week, stats_map, source="espn
     if existing:
         existing.stats = stats_map
         existing.fantasy_points = fantasy_points
-        existing.created_at = datetime.utcnow().isoformat()
+        existing.created_at = datetime.now(UTC).isoformat()
         return False
 
     entry = models.PlayerWeeklyStat(
@@ -112,7 +112,7 @@ def store_weekly_stat(db: Session, player, season, week, stats_map, source="espn
         fantasy_points=fantasy_points,
         stats=stats_map,
         source=source,
-        created_at=datetime.utcnow().isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
     )
     db.add(entry)
     return True

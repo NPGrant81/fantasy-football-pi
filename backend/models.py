@@ -90,6 +90,42 @@ class LeagueMflSeason(Base):
     league = relationship("League", back_populates="mfl_seasons")
 
 
+class LeagueHistoryTeamOwnerMap(Base):
+    """Manual mapping of historical team labels to owner names by league and season."""
+
+    __tablename__ = "league_history_team_owner_map"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_id",
+            "season",
+            "team_name_key",
+            name="uq_league_history_team_owner_map_key",
+        ),
+        Index("ix_league_history_team_owner_map_league", "league_id"),
+        Index("ix_league_history_team_owner_map_season", "season"),
+        Index("ix_league_history_team_owner_map_team_key", "team_name_key"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    season = Column(Integer, nullable=False)
+    team_name = Column(String(160), nullable=False)
+    team_name_key = Column(String(160), nullable=False)
+    owner_name = Column(String(160), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    league = relationship("League")
+    owner = relationship("User")
+
+
 # --- 3. LEAGUE SETTINGS ---
 class LeagueSettings(Base):
     __tablename__ = "league_settings"

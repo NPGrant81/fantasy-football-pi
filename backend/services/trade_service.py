@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from .. import models
-from datetime import datetime
+from datetime import UTC, datetime
 from .ledger_service import record_ledger_entry
 
 
@@ -84,7 +84,7 @@ def execute_trade(db: Session, trade_id: int, approver_id: int) -> models.TradeP
     requested_pick.owner_id = from_user.id
 
     trade.status = "APPROVED"
-    trade.updated_at = datetime.utcnow().isoformat() if hasattr(trade, 'updated_at') else None
+    trade.updated_at = datetime.now(UTC).isoformat() if hasattr(trade, 'updated_at') else None
 
     # record transaction history
     from .transaction_service import log_transaction
@@ -114,7 +114,7 @@ def reject_trade(db: Session, trade_id: int, approver_id: int) -> models.TradePr
     if trade.status != "PENDING":
         raise ValueError("Trade not pending")
     trade.status = "REJECTED"
-    trade.updated_at = datetime.utcnow().isoformat() if hasattr(trade, 'updated_at') else None
+    trade.updated_at = datetime.now(UTC).isoformat() if hasattr(trade, 'updated_at') else None
     db.commit()
     db.refresh(trade)
     return trade

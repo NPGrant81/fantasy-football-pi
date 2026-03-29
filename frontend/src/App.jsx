@@ -52,6 +52,9 @@ const ManageScoringRules = lazy(
 const ManageDivisions = lazy(
   () => import('./pages/commissioner/ManageDivisions')
 );
+const HistoryOwnerMappingUtility = lazy(
+  () => import('./pages/commissioner/HistoryOwnerMappingUtility')
+);
 const KeeperRules = lazy(
   () => import('./pages/commissioner/ManageKeeperRules')
 );
@@ -95,6 +98,7 @@ function resolveLayoutPageTitle(pathname) {
   if (pathname === '/commissioner/manage-trades') return 'Manage Trades';
   if (pathname === '/commissioner/manage-scoring-rules') return 'Manage Scoring Rules';
   if (pathname === '/commissioner/manage-divisions') return 'Manage Divisions';
+  if (pathname === '/commissioner/history-owner-mapping') return 'Historical Owner Mapping';
   if (pathname === '/commissioner/keeper-rules') return 'Keeper Rules';
   if (pathname === '/commissioner/ledger-statement') return 'Ledger Statement';
   if (pathname === '/waivers') return 'Waiver Wire';
@@ -249,6 +253,14 @@ function AuthenticatedShell({
             element={
               <RequireCommissioner isCommissioner={isCommissioner}>
                 <ManageDivisions />
+              </RequireCommissioner>
+            }
+          />
+          <Route
+            path="/commissioner/history-owner-mapping"
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <HistoryOwnerMappingUtility />
               </RequireCommissioner>
             }
           />

@@ -33,7 +33,7 @@ export default function ChatInterface({ initialQuery = '' }) {
   const [messages, setMessages] = useState([
     {
       role: 'ai',
-      text: 'I am your Gemini GM Advisor. Ask me about sleepers, value picks, or roster strategy. I can also explain ValueScore, ConfidenceBand, RiskScore, Scarcity, and StrategyAlignment.',
+      text: 'I am your Gemini GM Advisor. Ask me about sleepers, value picks, roster strategy, or league history. I can also explain ValueScore, ConfidenceBand, RiskScore, Scarcity, and StrategyAlignment.',
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -113,6 +113,19 @@ export default function ChatInterface({ initialQuery = '' }) {
       .get('/advisor/status')
       .then((res) => setIsAvailable(Boolean(res.data?.enabled)))
       .catch(() => setIsAvailable(false));
+  }, []);
+
+  useEffect(() => {
+    const handleOpenAdvisor = (event) => {
+      const nextQuery = String(event?.detail?.query || '').trim();
+      setIsOpen(true);
+      if (nextQuery) {
+        setInput(nextQuery);
+      }
+    };
+
+    window.addEventListener('ffpi:open-advisor', handleOpenAdvisor);
+    return () => window.removeEventListener('ffpi:open-advisor', handleOpenAdvisor);
   }, []);
 
   const handleRetry = () => {
@@ -227,7 +240,7 @@ export default function ChatInterface({ initialQuery = '' }) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Search players or ask advice..."
+                placeholder="Ask strategy or league history..."
                 className={`flex-1 bg-transparent px-3 py-2 ${textColors.main} text-sm outline-none`}
               />
               <button

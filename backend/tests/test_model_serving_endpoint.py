@@ -263,6 +263,107 @@ def test_rankings_service_dedupes_same_name_across_team_variants(db_session):
     assert duplicate_rows[0]["player_id"] == 9102
 
 
+def test_rankings_service_merges_fallback_rows_when_season_is_partial(db_session):
+    db_session.add_all(
+        [
+            models.Player(
+                id=9201,
+                name="Partial Source WR",
+                position="WR",
+                nfl_team="AAA",
+                projected_points=210.0,
+            ),
+            models.Player(
+                id=9202,
+                name="Fallback TE Fill",
+                position="TE",
+                nfl_team="BBB",
+                projected_points=165.0,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    db_session.add_all([
+        models.PlayerSeason(player_id=9201, season=2026, is_active=True),
+        models.PlayerSeason(player_id=9202, season=2026, is_active=True),
+    ])
+    db_session.commit()
+
+    # Seed only one DraftValue row so the season is partial.
+    import models_draft_value as draft_value_models
+    db_session.add(
+        draft_value_models.DraftValue(
+            player_id=9201,
+            season=2026,
+            avg_auction_value=41.0,
+            value_over_replacement=11.0,
+            consensus_tier="A",
+        )
+    )
+    db_session.commit()
+
+    rows = get_historical_rankings_service(
+        db_session,
+        season=2026,
+        limit=50,
+        league_id=None,
+        owner_id=None,
+        position=None,
+    )
+
+    names = {row["player_name"] for row in rows}
+    assert "Partial Source WR" in names
+    assert "Fallback TE Fill" in names
+
+    fallback_row = next(row for row in rows if row["player_name"] == "Fallback TE Fill")
+    assert fallback_row["predicted_auction_value"] > 0
+    assert fallback_row["position"] == "TE"
+
+
+def test_rankings_service_skips_no_signal_players_in_fallback(db_session):
+    db_session.add_all(
+        [
+            models.Player(
+                id=9301,
+                name="Signal QB",
+                position="QB",
+                nfl_team="AAA",
+                adp=12.0,
+                projected_points=0.0,
+            ),
+            models.Player(
+                id=9302,
+                name="No Signal QB",
+                position="QB",
+                nfl_team="BBB",
+                adp=0.0,
+                projected_points=0.0,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    db_session.add_all([
+        models.PlayerSeason(player_id=9301, season=2026, is_active=True),
+        models.PlayerSeason(player_id=9302, season=2026, is_active=True),
+    ])
+    db_session.commit()
+
+    rows = get_historical_rankings_service(
+        db_session,
+        season=2026,
+        limit=50,
+        league_id=None,
+        owner_id=None,
+        position="QB",
+    )
+
+    names = {row["player_name"] for row in rows}
+    assert "Signal QB" in names
+    assert "No Signal QB" not in names
+
+
 def test_simulation_returns_backend_error_detail(db_session, monkeypatch):
     league, _, owner_a, _ = _create_users(db_session)
 

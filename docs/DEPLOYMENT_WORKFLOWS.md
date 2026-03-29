@@ -31,6 +31,14 @@ Optional notifications:
 - `SLACK_WEBHOOK_URL`
 - `TEAMS_WEBHOOK_URL`
 
+Weekly source precheck workflow (`.github/workflows/source-prechecks.yml`):
+
+- `FANTASYNERDS_API_KEY`
+- `YAHOO_CLIENT_ID`
+- `YAHOO_CLIENT_SECRET`
+- `YAHOO_ACCESS_TOKEN`
+- `YAHOO_REFRESH_TOKEN`
+
 ## Deploy action
 
 1. Open the desired workflow in GitHub Actions.

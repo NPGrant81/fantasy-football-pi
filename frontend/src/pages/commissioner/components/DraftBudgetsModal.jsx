@@ -13,6 +13,17 @@ import {
   modalTitle,
 } from '@utils/uiStandards';
 
+const MIN_SEASON_YEAR = 2000;
+const MAX_SEASON_YEAR = new Date().getFullYear() + 2;
+
+function clampSeasonYear(value, fallback = new Date().getFullYear()) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return Math.min(MAX_SEASON_YEAR, Math.max(MIN_SEASON_YEAR, fallback));
+  }
+  return Math.min(MAX_SEASON_YEAR, Math.max(MIN_SEASON_YEAR, parsed));
+}
+
 export default function DraftBudgetsModal({ open, onClose, leagueId }) {
   const closeTimeoutRef = useRef(null);
   const [draftYear, setDraftYear] = useState(new Date().getFullYear());
@@ -59,7 +70,7 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
     ])
       .then(([settingsRes, ownersRes]) => {
         if (!isMounted) return;
-        const year = settingsRes.data?.draft_year || new Date().getFullYear();
+        const year = clampSeasonYear(settingsRes.data?.draft_year, new Date().getFullYear());
         setDraftYear(year);
         setOwners(Array.isArray(ownersRes.data) ? ownersRes.data : []);
       })
@@ -128,9 +139,9 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
             type="number"
             className={inputBase}
             value={draftYear}
-            onChange={(e) =>
-              setDraftYear(parseInt(e.target.value) || new Date().getFullYear())
-            }
+            min={MIN_SEASON_YEAR}
+            max={MAX_SEASON_YEAR}
+            onChange={(e) => setDraftYear(clampSeasonYear(e.target.value, draftYear))}
           />
         </div>
         <div className="mt-4 space-y-2 max-h-72 overflow-y-auto">
@@ -199,11 +210,12 @@ export default function DraftBudgetsModal({ open, onClose, leagueId }) {
               setSaveSuccess(false);
               clearCloseTimer();
               try {
+                const normalizedYear = clampSeasonYear(draftYear, new Date().getFullYear());
                 await apiClient.post(`/leagues/${leagueId}/draft-year`, {
-                  year: draftYear,
+                  year: normalizedYear,
                 });
                 await apiClient.post(`/leagues/${leagueId}/budgets`, {
-                  year: draftYear,
+                  year: normalizedYear,
                   budgets: budgetRows.map((row) => ({
                     owner_id: row.owner_id,
                     total_budget: row.total_budget ?? 200,

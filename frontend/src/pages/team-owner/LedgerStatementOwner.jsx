@@ -23,6 +23,16 @@ const CURRENCY_OPTIONS = [
   { value: 'FAAB', label: 'FAAB' },
 ];
 
+const MIN_SEASON_YEAR = 2000;
+const MAX_SEASON_YEAR = new Date().getFullYear() + 2;
+
+function sanitizeSeasonYear(value) {
+  if (value === '') return '';
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return '';
+  return String(Math.min(MAX_SEASON_YEAR, Math.max(MIN_SEASON_YEAR, parsed)));
+}
+
 export default function LedgerStatementOwner() {
   const leagueId = useActiveLeague();
   const [currencyType, setCurrencyType] = useState('');
@@ -40,7 +50,8 @@ export default function LedgerStatementOwner() {
         const params = new URLSearchParams();
         params.append('limit', '200');
         if (currencyType) params.append('currency_type', currencyType);
-        if (seasonYear) params.append('season_year', seasonYear);
+        const normalizedSeasonYear = sanitizeSeasonYear(seasonYear);
+        if (normalizedSeasonYear) params.append('season_year', normalizedSeasonYear);
 
         const res = await apiClient.get(
           `/leagues/${leagueId}/ledger/statement?${params.toString()}`
@@ -90,7 +101,9 @@ export default function LedgerStatementOwner() {
             className={inputBase}
             placeholder="All years"
             value={seasonYear}
-            onChange={(e) => setSeasonYear(e.target.value)}
+            min={MIN_SEASON_YEAR}
+            max={MAX_SEASON_YEAR}
+            onChange={(e) => setSeasonYear(sanitizeSeasonYear(e.target.value))}
           />
         </div>
 

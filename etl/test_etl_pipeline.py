@@ -12,7 +12,7 @@ import pandas as pd
 import logging
 import json
 import traceback
-from datetime import datetime
+from datetime import UTC, datetime
 
 # yahoo_oauth is an optional third‑party dependency; if it's not installed the
 # Yahoo-related tests should be skipped rather than causing an import error.
@@ -35,7 +35,7 @@ from etl.slack_notifier import SlackNotifier
 class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(UTC).isoformat(),
             'level': record.levelname,
             'module': record.module,
             'message': record.getMessage(),

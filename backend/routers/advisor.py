@@ -8,6 +8,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models
+from .league import _answer_history_question
 from ..services.draft_rankings_service import get_historical_rankings
 
 # Optional import for testing environments
@@ -23,6 +24,23 @@ router = APIRouter(prefix="/advisor", tags=["AI"])
 _RANKING_CACHE: dict[tuple[int, int, int], tuple[float, list[dict]]] = {}
 _RANKING_CACHE_TTL_SECONDS = 15.0
 logger = logging.getLogger(__name__)
+
+
+def _looks_like_history_query(question: str) -> bool:
+    normalized = str(question or "").lower()
+    return any(
+        phrase in normalized
+        for phrase in (
+            "most points",
+            "most wins",
+            "highest scoring",
+            "highest-scoring",
+            "champion",
+            "who won",
+            "all-time",
+            "history",
+        )
+    )
 
 
 @router.get("/status")
@@ -402,6 +420,15 @@ def draft_day_query(request: DraftDayQueryRequest, db: Session = Depends(get_db)
 
 @router.post("/ask")
 def ask_gemini(request: AdvisorRequest, db: Session = Depends(get_db)):
+    if request.league_id and _looks_like_history_query(request.user_query):
+        history_result = _answer_history_question(
+            db=db,
+            league_id=int(request.league_id),
+            question=request.user_query,
+        )
+        if history_result.get("intent") != "unsupported":
+            return {"response": str(history_result.get("answer") or "No answer available.")}
+
     # 1. Check for API Key and genai availability (Lazy Load)
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key or not genai:

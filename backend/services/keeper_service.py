@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 from .. import models
 from .transaction_service import get_owner_at_time, get_acquisition_method, log_transaction
@@ -259,7 +259,7 @@ def lock_keepers_for_league(db: Session, league_id: int, season: int):
         )
         .all()
     )
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     owner_updates: dict[int, int] = {}  # owner_id -> total cost
     for k in keepers:
         k.status = "locked"

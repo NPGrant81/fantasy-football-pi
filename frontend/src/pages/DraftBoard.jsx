@@ -28,6 +28,18 @@ import {
   tableCellNumeric,
 } from '@utils/uiStandards';
 
+const normalizeTeamCode = (value) => String(value || '').trim().toUpperCase();
+
+const isActiveDraftPlayer = (player) => {
+  const team = normalizeTeamCode(player?.nfl_team);
+  if (!team || team === 'FA') return false;
+
+  const position = String(player?.position || player?.pos || '').toUpperCase();
+  if (position === 'DEF') return true;
+
+  return Boolean(player?.espn_id || player?.gsis_id);
+};
+
 export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   // --- 1.1 STATE MANAGEMENT ---
   const [showBestSidebar, setShowBestSidebar] = useState(false);
@@ -179,7 +191,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         );
         const draftedIds = new Set(history.map((h) => h.player_id));
         const filtered = res.data
-          .filter((p) => !draftedIds.has(p.id))
+          .filter((p) => !draftedIds.has(p.id) && isActiveDraftPlayer(p))
           .sort((a, b) => {
             const rankA = rankingByPlayerId.get(a.id)?.rank ?? 9999;
             const rankB = rankingByPlayerId.get(b.id)?.rank ?? 9999;
@@ -395,7 +407,9 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
   const bestAvailablePlayers = useMemo(() => {
     return players
-      .filter((player) => !undraftedPlayerIds.has(player.id))
+      .filter(
+        (player) => !undraftedPlayerIds.has(player.id) && isActiveDraftPlayer(player)
+      )
       .map((player) => ({
         ...player,
         pos: player.position,
