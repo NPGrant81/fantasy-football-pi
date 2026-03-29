@@ -33,6 +33,18 @@ class PlayerSearchResult(BaseModel):
     bye_week: Optional[int] = None
 
 
+class PlayerSearchResult(BaseModel):
+    id: int
+    name: str
+    position: Optional[str] = None
+    nfl_team: Optional[str] = None
+    adp: Optional[float] = None
+    projected_points: Optional[float] = None
+    gsis_id: Optional[str] = None
+    espn_id: Optional[str] = None
+    bye_week: Optional[int] = None
+
+
 def _build_headshot_url(espn_id: Optional[str]) -> Optional[str]:
     if not espn_id:
         return None
