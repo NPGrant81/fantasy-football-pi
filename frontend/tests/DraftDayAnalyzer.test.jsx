@@ -46,6 +46,13 @@ const playersPayload = [
   { id: 103, name: 'Player C', nfl_team: 'SF', position: 'RB' },
 ];
 
+const duplicatePlayersPayload = [
+  { id: 101, name: 'A.J. Player Jr.', nfl_team: 'BUF', position: 'WR', espn_id: '101' },
+  { id: 104, name: 'AJ Player', nfl_team: 'BAL', position: 'WR' },
+  { id: 102, name: 'Player B', nfl_team: 'KC', position: 'WR', espn_id: '102' },
+  { id: 103, name: 'Player C', nfl_team: 'SF', position: 'RB', espn_id: '103' },
+];
+
 const rankingsPayload = [
   { player_id: 101, rank: 1, player_name: 'Player A', position: 'WR', predicted_auction_value: 50, confidence_score: 80, consensus_tier: 'A' },
   { player_id: 102, rank: 2, player_name: 'Player B', position: 'WR', predicted_auction_value: 46, confidence_score: 78, consensus_tier: 'A' },
@@ -243,5 +250,26 @@ describe('DraftDayAnalyzer advisor actions', () => {
     await waitFor(() =>
       expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player A')
     );
+  });
+
+  test('hides duplicate player identities in analyzer list', async () => {
+    const baseGet = buildGetMock();
+    apiClient.get = vi.fn((url, config = {}) => {
+      if (url === '/players/') {
+        return Promise.resolve({ data: duplicatePlayersPayload });
+      }
+      return baseGet(url, config);
+    });
+
+    render(<DraftDayAnalyzer activeOwnerId={1} activeLeagueId={1} />);
+
+    await screen.findByRole('button', { name: /Player B/i });
+
+    await waitFor(() => {
+      const dedupedRows = screen.getAllByRole('button').filter((row) =>
+        /AJ Player|A\.J\. Player/i.test(row.textContent || '')
+      );
+      expect(dedupedRows).toHaveLength(1);
+    });
   });
 });

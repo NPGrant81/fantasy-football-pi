@@ -40,9 +40,32 @@ function buildFallbackPlayerKey(player) {
 
 function dedupePlayersForUi(players) {
   const list = Array.isArray(players) ? players : [];
-  const selected = new Map();
+  const byId = new Map();
 
   for (const player of list) {
+    const playerId = Number(player?.id || 0);
+    if (!playerId) continue;
+    const currentById = byId.get(playerId);
+    const playerHasExternal = Boolean(player?.gsis_id || player?.espn_id);
+    const currentHasExternal = Boolean(currentById?.gsis_id || currentById?.espn_id);
+    const playerIsActiveTeam = normalizeText(player?.nfl_team) !== 'fa';
+    const currentIsActiveTeam = normalizeText(currentById?.nfl_team) !== 'fa';
+
+    const shouldReplaceById =
+      !currentById ||
+      (playerHasExternal && !currentHasExternal) ||
+      (playerHasExternal === currentHasExternal && playerIsActiveTeam && !currentIsActiveTeam) ||
+      (playerHasExternal === currentHasExternal && playerIsActiveTeam === currentIsActiveTeam && Number(player?.id || 0) > Number(currentById?.id || 0));
+
+    if (shouldReplaceById) {
+      byId.set(playerId, player);
+    }
+  }
+
+  const canonicalList = Array.from(byId.values());
+  const selected = new Map();
+
+  for (const player of canonicalList) {
     const key = buildFallbackPlayerKey(player);
     const current = selected.get(key);
     const playerHasExternal = Boolean(player?.gsis_id || player?.espn_id);
