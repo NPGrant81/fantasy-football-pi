@@ -92,6 +92,10 @@ Refer to the appropriate file for more information.
 - [Simulation-Pipeline](diagrams/simulation-pipeline.md)
 - [Waiver-Flow](diagrams/waiver-flow.md)
 
+### Gaps
+
+- [Overview](gaps/overview.md)
+
 ### Governance
 
 - [Doc Classification Guardrails](governance/DOC_CLASSIFICATION_GUARDRAILS.md)

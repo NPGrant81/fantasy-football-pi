@@ -130,22 +130,22 @@ def check_docs_index() -> list[str]:
     linked_paths = re.findall(r"\(([^)#]+\.md)\)", index_text)
     linked_set = {path.strip().lstrip("./") for path in linked_paths}
 
-    doc_files = {
-        path.name
-        for path in DOCS_DIR.glob("*.md")
+    # Check all markdown files recursively under docs/, not just top-level
+    all_doc_files = {
+        path.relative_to(DOCS_DIR).as_posix()
+        for path in DOCS_DIR.rglob("*.md")
         if path.name.lower() != "index.md"
     }
-    linked_top_level = {
-        Path(rel).name
-        for rel in linked_set
-        if Path(rel).parent.as_posix() in {"", "."}
-    }
+    linked_normalized = {_normalize_rel_path(p).removeprefix("docs/") for p in linked_set}
 
+    # Validate linked paths exist
     for rel_path in sorted(linked_set):
         if not (DOCS_DIR / rel_path).exists():
             issues.append(f"docs index has dangling link: docs/{rel_path}")
 
-    for filename in sorted(doc_files - linked_top_level):
+    # Validate all docs files are in index
+    missing_from_index = sorted(all_doc_files - linked_normalized)
+    for filename in missing_from_index:
         issues.append(f"docs file missing from index: docs/{filename}")
 
     return issues

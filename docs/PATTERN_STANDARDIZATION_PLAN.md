@@ -15,14 +15,13 @@ pattern expectations and converge the repository to the defined standards in
 - `python -m scripts.repo_hygiene_check`: passed
 - `python -m scripts.docs_review_sweep --warn-days 14`: passed
 - Docs governance registry coverage:
-  - total markdown docs under `docs/` (excluding `INDEX.md`): 82
-  - governed docs in `docs/governance/doc_review_registry.json`: 19
-  - coverage: 23.2%
+  - all markdown docs under `docs/` are now governed and tracked in `docs/governance/doc_review_registry.json`
+  - coverage: 100%
 
 Interpretation:
-- Current standards checks are healthy for scoped, governed content.
-- Main gap is coverage breadth: many docs are not yet in active review cadence,
-  so drift can exist without being detected automatically.
+- Full markdown governance registry coverage achieved.
+- All docs are now subject to automated review cadence, classification validation, and drift detection.
+- Stale docs and missing index links will trigger immediate hygiene check failures.
 
 ## What counts as non-compliant content
 

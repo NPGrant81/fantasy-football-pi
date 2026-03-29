@@ -9,6 +9,11 @@ logger = logging.getLogger("fantasy")
 
 
 def parse_commissioner_deadline(deadline_value: str | None) -> datetime | None:
+    """Parse ISO deadline string, enforcing explicit timezone for deterministic behavior.
+
+    Requires timezone offset (e.g., "2026-04-01T18:00:00+00:00" or "2026-04-01T18:00:00Z").
+    Naive timestamps (without offset) are rejected to prevent host-local timezone ambiguity.
+    """
     if not deadline_value:
         return None
 
@@ -16,8 +21,19 @@ def parse_commissioner_deadline(deadline_value: str | None) -> datetime | None:
     if not raw_deadline:
         return None
 
+    # Normalize Z suffix to +00:00 for fromisoformat compatibility
+    normalized = raw_deadline.replace("Z", "+00:00")
+
     try:
-        return datetime.fromisoformat(raw_deadline.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalized)
+        # Reject naive datetimes (those without timezone info)
+        if parsed.tzinfo is None:
+            logger.warning(
+                "commissioner deadline rejected: naive timestamp detected",
+                extra={"deadline_value": deadline_value},
+            )
+            return None
+        return parsed
     except ValueError:
         return None
 
