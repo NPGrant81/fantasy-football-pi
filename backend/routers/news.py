@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..core.dependencies import check_is_commissioner
 from ..services.player_news_service import (
     get_global_news,
     get_team_news,
@@ -54,7 +55,9 @@ class SentimentTrendResponse(BaseModel):
 
 def _to_item_response(item: Any) -> NewsItemResponse:
     published = item.published_at.isoformat() if isinstance(item.published_at, datetime) else None
-    linked_player_ids = sorted({link.player_id for link in getattr(item, "links", []) if link.player_id is not None})
+    # Avoid N+1 queries: if links were eager-loaded they're in __dict__, else hydrate from empty list
+    links_collection = item.__dict__.get('links', getattr(item, 'links', []) if hasattr(item, 'links') else [])
+    linked_player_ids = sorted({link.player_id for link in links_collection if link.player_id is not None})
     return NewsItemResponse(
         id=item.id,
         league_id=item.league_id,
@@ -72,7 +75,12 @@ def _to_item_response(item: Any) -> NewsItemResponse:
 
 
 @router.post("/ingest")
-def ingest_news(payload: NewsIngestRequest, db: Session = Depends(get_db)) -> dict[str, int]:
+def ingest_news(
+    payload: NewsIngestRequest,
+    current_user = Depends(check_is_commissioner),
+    db: Session = Depends(get_db),
+) -> dict[str, int]:
+    """Ingest news for a league (commissioner only)."""
     summary = run_ingest_for_league(
         db,
         league_id=payload.league_id,
@@ -133,8 +141,10 @@ def team_news(
 @router.post("/sentiment/rebuild")
 def rebuild_news_sentiment(
     league_id: int = Query(..., ge=1),
+    current_user = Depends(check_is_commissioner),
     db: Session = Depends(get_db),
 ) -> dict[str, int]:
+    """Rebuild sentiment trends for a league (commissioner only)."""
     updated = rebuild_sentiment_trends(db, league_id=league_id)
     return {"updated": updated}
 

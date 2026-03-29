@@ -623,11 +623,19 @@ def get_league_news(
 
     roster_player_ids: set[int] | None = None
     if owner_id is not None:
-        roster_player_ids = {
-            pick.player_id
-            for pick in picks
-            if pick.owner_id == owner_id and pick.player_id is not None
-        }
+        # Build the owner's complete roster from ALL DraftPicks, not just limited news window,
+        # so we don't miss older rostered players outside the recent picks query.
+        owner_roster_rows = (
+            db.query(models.DraftPick.player_id)
+            .filter(
+                models.DraftPick.league_id == league_id,
+                models.DraftPick.owner_id == owner_id,
+                models.DraftPick.player_id.isnot(None),
+            )
+            .distinct()
+            .all()
+        )
+        roster_player_ids = {row[0] for row in owner_roster_rows}
 
     items: List[LeagueNewsItem] = []
     for pick in picks:

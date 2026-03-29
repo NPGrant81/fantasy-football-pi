@@ -323,7 +323,7 @@ class PlayerAlias(Base):
 class PlayerNewsItem(Base):
     __tablename__ = "player_news_items"
     __table_args__ = (
-        UniqueConstraint("source", "source_item_id", name="uq_player_news_source_item"),
+        UniqueConstraint("league_id", "source", "source_item_id", name="uq_player_news_league_source_item"),
         Index("ix_player_news_league_published", "league_id", "published_at"),
         Index("ix_player_news_published", "published_at"),
     )
@@ -340,7 +340,7 @@ class PlayerNewsItem(Base):
     ingested_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     sentiment_score = Column(Float, default=0.0)
     sentiment_label = Column(String(32), default="neutral")
-    sentiment_tags = Column(JSON, default=[])
+    sentiment_tags = Column(JSON, default=list)
     meta_json = Column(JSON, nullable=True)
 
     league = relationship("League")
