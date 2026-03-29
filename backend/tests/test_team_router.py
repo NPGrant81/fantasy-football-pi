@@ -504,6 +504,7 @@ def test_non_scoring_settings_update_propagates_to_lineup_submission(client, api
     settings_body = settings_res.json()
     assert int(settings_body.get('starting_slots', {}).get('ALLOW_PARTIAL_LINEUP', 0)) == 1
     assert settings_body.get('waiver_deadline') == 'Thu 10PM'
+    assert settings_body.get('trade_deadline') == 'Sat 3PM'
 
     allowed = client.post('/team/submit-lineup', json={'week': 1})
     assert allowed.status_code == 200
