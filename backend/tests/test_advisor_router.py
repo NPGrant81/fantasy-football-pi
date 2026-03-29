@@ -131,3 +131,30 @@ def test_ask_handles_empty_rules(monkeypatch, db_session):
     assert resp["response"] == "ok"
 
 
+def test_ask_history_query_uses_deterministic_history_answer(monkeypatch, db_session):
+    league = make_league(db_session)
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_league_champions_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="champ-history-1",
+            record_json={
+                "record_year": 2021,
+                "owner_name": "Champion Charlie",
+            },
+        )
+    )
+    db_session.commit()
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr("backend.routers.advisor.genai", None)
+
+    req = AdvisorRequest(user_query="Who was the champion in 2021?", league_id=league.id)
+    resp = ask_gemini(req, db=db_session)
+
+    assert "Champion Charlie" in resp["response"]
+
+
