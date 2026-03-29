@@ -25,6 +25,9 @@ describe('Sidebar (Navigation)', () => {
     onClose: vi.fn(),
     username: 'alice',
     leagueId: 1,
+    isCommissioner: false,
+    isSuperuser: false,
+    onLeagueSwitch: vi.fn(),
   };
 
   beforeEach(() => {
@@ -33,9 +36,6 @@ describe('Sidebar (Navigation)', () => {
       if (url === '/leagues/1') {
         return Promise.resolve({ data: { name: 'The Big Show' } });
       }
-      if (url === '/auth/me') {
-        return Promise.resolve({ data: { is_commissioner: false } });
-      }
       return Promise.reject(new Error('Unknown URL'));
     });
   });
@@ -43,7 +43,7 @@ describe('Sidebar (Navigation)', () => {
   const renderSidebar = async (props = {}) => {
     render(<Sidebar {...defaultProps} {...props} />);
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/auth/me');
+      expect(apiClient.get).toHaveBeenCalledWith('/leagues/1');
     });
   };
 
@@ -92,6 +92,21 @@ describe('Sidebar (Navigation)', () => {
 
     const teamLink = screen.getByText(/My Team/).closest('a');
     expect(teamLink).toHaveAttribute('href', '/team');
+  });
+
+  test('shows Commissioner link when isCommissioner is true', async () => {
+    await renderSidebar({ isCommissioner: true });
+    expect(screen.getByText('Commissioner')).toBeInTheDocument();
+  });
+
+  test('hides Commissioner link when isCommissioner is false', async () => {
+    await renderSidebar({ isCommissioner: false });
+    expect(screen.queryByText('Commissioner')).not.toBeInTheDocument();
+  });
+
+  test('does not call /auth/me in Sidebar', async () => {
+    await renderSidebar();
+    expect(apiClient.get).not.toHaveBeenCalledWith('/auth/me');
   });
 
   test('has settings section', async () => {

@@ -907,6 +907,7 @@ def get_league_settings(league_id: int, db: Session = Depends(get_db)):
         starting_waiver_budget=settings.starting_waiver_budget,
         waiver_system=settings.waiver_system,
         waiver_tiebreaker=settings.waiver_tiebreaker,
+        trade_deadline=settings.trade_deadline,
         draft_year=settings.draft_year,
         scoring_rules=[
             ScoringRuleSchema(

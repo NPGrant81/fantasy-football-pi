@@ -13,6 +13,7 @@ export default function Layout({
   alert,
   pageTitle = '',
   onLogout,
+  isCommissioner,
   isSuperuser,
   onLeagueSwitch,
 }) {
@@ -60,6 +61,7 @@ export default function Layout({
         username={username}
         leagueId={leagueId}
         onLogout={onLogout}
+        isCommissioner={isCommissioner}
         isSuperuser={isSuperuser}
         onLeagueSwitch={onLeagueSwitch}
       />

@@ -41,9 +41,16 @@ const ownersPayload = [
 ];
 
 const playersPayload = [
-  { id: 101, name: 'Player A', nfl_team: 'BUF', position: 'WR' },
-  { id: 102, name: 'Player B', nfl_team: 'KC', position: 'WR' },
-  { id: 103, name: 'Player C', nfl_team: 'SF', position: 'RB' },
+  { id: 101, name: 'Player A', nfl_team: 'BUF', position: 'WR', espn_id: '101' },
+  { id: 102, name: 'Player B', nfl_team: 'KC', position: 'WR', espn_id: '102' },
+  { id: 103, name: 'Player C', nfl_team: 'SF', position: 'RB', espn_id: '103' },
+];
+
+const duplicatePlayersPayload = [
+  { id: 101, name: 'A.J. Player Jr.', nfl_team: 'BUF', position: 'WR', espn_id: '101' },
+  { id: 104, name: 'AJ Player', nfl_team: 'BAL', position: 'WR' },
+  { id: 102, name: 'Player B', nfl_team: 'KC', position: 'WR', espn_id: '102' },
+  { id: 103, name: 'Player C', nfl_team: 'SF', position: 'RB', espn_id: '103' },
 ];
 
 const rankingsPayload = [
@@ -65,6 +72,9 @@ const getVisiblePlayerRows = () =>
 
 const buildGetMock = () =>
   vi.fn((url, config = {}) => {
+    if (url === '/auth/me') {
+      return Promise.resolve({ data: { id: 1, is_commissioner: true } });
+    }
     if (url.startsWith('/leagues/owners')) {
       return Promise.resolve({ data: ownersPayload });
     }
@@ -95,7 +105,7 @@ const buildGetMock = () =>
     return Promise.resolve({ data: [] });
   });
 
-describe('DraftDayAnalyzer advisor actions', () => {
+describe.sequential('DraftDayAnalyzer advisor actions', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     localStorage.clear();
@@ -243,5 +253,26 @@ describe('DraftDayAnalyzer advisor actions', () => {
     await waitFor(() =>
       expect(getVisiblePlayerRows()[0]).toHaveTextContent('Player A')
     );
+  });
+
+  test('hides duplicate player identities in analyzer list', async () => {
+    const baseGet = buildGetMock();
+    apiClient.get.mockImplementation((url, config = {}) => {
+      if (url === '/players/') {
+        return Promise.resolve({ data: duplicatePlayersPayload });
+      }
+      return baseGet(url, config);
+    });
+
+    render(<DraftDayAnalyzer activeOwnerId={1} activeLeagueId={1} />);
+
+    await screen.findByRole('button', { name: /Player B/i });
+
+    await waitFor(() => {
+      const dedupedRows = screen.getAllByRole('button').filter((row) =>
+        /AJ Player|A\.J\. Player/i.test(row.textContent || '')
+      );
+      expect(dedupedRows).toHaveLength(1);
+    });
   });
 });
