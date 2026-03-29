@@ -56,28 +56,28 @@ def test_top_free_agents_excludes_owned_and_sorts_by_projection(client):
             name=f"Owned Player {suffix}",
             position="WR",
             nfl_team="AAA",
-            projected_points=999999.0,
+            projected_points=9_000_000_003.0,
             adp=1.0,
         )
         top = models.Player(
             name=f"Top Player {suffix}",
             position="RB",
             nfl_team="BBB",
-            projected_points=999998.0,
+            projected_points=9_000_000_002.0,
             adp=12.0,
         )
         second = models.Player(
             name=f"Second Player {suffix}",
             position="WR",
             nfl_team="CCC",
-            projected_points=999997.0,
+            projected_points=9_000_000_001.0,
             adp=20.0,
         )
         third = models.Player(
             name=f"Third Player {suffix}",
             position="QB",
             nfl_team="DDD",
-            projected_points=999996.0,
+            projected_points=9_000_000_000.0,
             adp=30.0,
         )
         session.add_all([owned, top, second, third])
@@ -366,14 +366,14 @@ def test_top_free_agents_momentum_promotes_recent_waiver_target(client):
             name=f"Baseline Player {suffix}",
             position="WR",
             nfl_team="AAA",
-            projected_points=9100000.0,
+            projected_points=9_000_000_000_000.0,
             adp=60.0,
         )
         momentum = models.Player(
             name=f"Momentum Player {suffix}",
             position="WR",
             nfl_team="BBB",
-            projected_points=9099999.8,
+            projected_points=8_999_999_999_999.8,
             adp=60.0,
         )
         session.add_all([baseline, momentum])
@@ -433,30 +433,6 @@ def test_top_free_agents_momentum_promotes_recent_waiver_target(client):
         assert float(data[0].get("pickup_trend_score") or 0.0) > 0.0
     finally:
         client.cookies.clear()
-        cleanup = SessionLocal()
-        try:
-            if league_id is not None:
-                cleanup.query(models.User).filter(
-                    models.User.league_id == league_id
-                ).delete(synchronize_session=False)
-                cleanup.query(models.League).filter(
-                    models.League.id == league_id
-                ).delete(synchronize_session=False)
-                cleanup.commit()
-        finally:
-            cleanup.close()
-        cleanup = SessionLocal()
-        try:
-            if league_id is not None:
-                cleanup.query(models.User).filter(
-                    models.User.league_id == league_id
-                ).delete(synchronize_session=False)
-                cleanup.query(models.League).filter(
-                    models.League.id == league_id
-                ).delete(synchronize_session=False)
-                cleanup.commit()
-        finally:
-            cleanup.close()
         cleanup = SessionLocal()
         try:
             if created_txn_ids:
