@@ -59,6 +59,25 @@ def propose_trade(
     if not current_user.league_id:
         raise HTTPException(status_code=400, detail="You must be in a league to propose a trade.")
 
+    settings = (
+        db.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == current_user.league_id)
+        .first()
+    )
+    if settings and settings.trade_deadline:
+        raw_deadline = settings.trade_deadline.strip()
+        try:
+            parsed_deadline = datetime.fromisoformat(raw_deadline.replace("Z", "+00:00"))
+            now = datetime.now(parsed_deadline.tzinfo) if parsed_deadline.tzinfo else datetime.now()
+            if now > parsed_deadline:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Trade proposals are closed by commissioner rule (deadline: {settings.trade_deadline}).",
+                )
+        except ValueError:
+            # Legacy non-ISO deadline strings are tolerated and treated as advisory text only.
+            pass
+
     # verify future dollar availability
     offered = payload.offered_dollars or 0
     requested = payload.requested_dollars or 0
