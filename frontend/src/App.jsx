@@ -374,6 +374,7 @@ function App() {
   const authCheckIdRef = useRef(0);
   const isLoggingOutRef = useRef(false);
   const pendingLogoutRequestRef = useRef(null);
+  const logoutAbortControllerRef = useRef(null);
 
   useEffect(() => {
     const initialPath =
@@ -414,14 +415,19 @@ function App() {
     // Failures are non-critical — local state is already cleared above.
     // Deduplicate: if a logout is already in flight, reuse it; don't start a new one.
     if (!pendingLogoutRequestRef.current) {
+      const controller = new AbortController();
+      logoutAbortControllerRef.current = controller;
       const logoutRequest = apiClient
-        .post('/auth/logout', null, { timeout: 5000 })
+        .post('/auth/logout', null, { timeout: 5000, signal: controller.signal })
         .catch(() => {
           // intentionally swallowed
         })
         .finally(() => {
           if (pendingLogoutRequestRef.current === logoutRequest) {
             pendingLogoutRequestRef.current = null;
+          }
+          if (logoutAbortControllerRef.current === controller) {
+            logoutAbortControllerRef.current = null;
           }
         });
 
@@ -520,14 +526,15 @@ function App() {
     e.preventDefault();
     setError('');
 
-    // Ensure an earlier logout response cannot clear fresh login cookies.
-    // Cap the wait time so a slow/unreachable backend doesn't block login (logout is non-critical).
+    // Ensure any in-flight logout cannot complete after login and clear fresh cookies.
+    if (logoutAbortControllerRef.current) {
+      logoutAbortControllerRef.current.abort();
+      logoutAbortControllerRef.current = null;
+    }
+
+    // Ensure an earlier logout request has fully settled before token exchange.
     if (pendingLogoutRequestRef.current) {
-      const logoutPromise = pendingLogoutRequestRef.current;
-      await Promise.race([
-        logoutPromise,
-        new Promise((resolve) => setTimeout(resolve, 500)),
-      ]);
+      await pendingLogoutRequestRef.current;
     }
 
     const formData = new URLSearchParams();
