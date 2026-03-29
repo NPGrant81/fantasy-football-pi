@@ -4,6 +4,14 @@ This milestone introduces the multi‑library validation strategy to ensure data
 
 ---
 
+## Status
+
+- status: `planned`
+- owner: `data + backend`
+- source of truth for active progress: `docs/milestones/README.md` and linked child issue files under `issues/`
+
+---
+
 ## Scope
 
 - **Pydantic** for API request/response models
@@ -21,6 +29,10 @@ This milestone introduces the multi‑library validation strategy to ensure data
 - [ ] Validation failures logged consistently
 - [ ] Data quality checks integrated into CI
 - [ ] Documentation for when and how to use each library
+
+Status hygiene note:
+
+- Keep checklist items unchecked until evidence links exist in the mapped issue files.
 
 ---
 

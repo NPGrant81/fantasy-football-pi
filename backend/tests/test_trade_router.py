@@ -143,3 +143,43 @@ def test_trade_proposal_validation():
     payload.note = None
     with pytest.raises(HTTPException):
         propose_trade(payload, db=db, current_user=cu)
+
+
+def test_trade_proposal_respects_commissioner_trade_deadline():
+    db = setup_db()
+    league = make_league(db)
+    db.add(
+        models.LeagueSettings(
+            league_id=league.id,
+            trade_deadline="2000-01-01T00:00:00Z",
+            future_draft_cap=25,
+        )
+    )
+    db.commit()
+
+    owner1 = make_user(db, league, "deadline-owner-1", budget=20)
+    owner2 = make_user(db, league, "deadline-owner-2", budget=20)
+    p1 = make_player(db, "Deadline A")
+    p2 = make_player(db, "Deadline B")
+    make_pick(db, owner1, p1)
+    make_pick(db, owner2, p2)
+
+    class CU:
+        def __init__(self, user):
+            self.id = user.id
+            self.league_id = user.league_id
+            self.future_draft_budget = user.future_draft_budget
+
+    payload = type("P", (), {})()
+    payload.to_user_id = owner2.id
+    payload.offered_player_id = p1.id
+    payload.requested_player_id = p2.id
+    payload.offered_dollars = 0
+    payload.requested_dollars = 0
+    payload.note = "after deadline"
+
+    with pytest.raises(HTTPException) as exc:
+        propose_trade(payload, db=db, current_user=CU(owner1))
+
+    assert exc.value.status_code == 400
+    assert "Trade proposals are closed" in str(exc.value.detail)

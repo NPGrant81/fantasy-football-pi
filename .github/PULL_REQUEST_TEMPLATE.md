@@ -8,6 +8,15 @@
 
 Why this change is needed and the high-level approach.
 
+## Pattern impact (required for cross-cutting behavior changes)
+
+- Pattern referenced (if applicable):
+  - `docs/PATTERN_LIBRARY.md#...`
+- Pattern action: reuse / update existing / propose new
+- If proposing new pattern:
+  - proposal file: `docs/patterns/PATTERN_PROPOSAL_TEMPLATE.md` (copy into PR description or linked doc)
+  - expected migration scope:
+
 ## How to test locally
 
 Backend

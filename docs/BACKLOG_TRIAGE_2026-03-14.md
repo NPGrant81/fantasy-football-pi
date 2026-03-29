@@ -1,5 +1,8 @@
 # Backlog Triage - 2026-03-14
 
+> Historical snapshot: This document captures a point-in-time triage pass from 2026-03-14.
+> For current backlog status, use GitHub Issues and `docs/ISSUE_STATUS.md` as canonical sources.
+
 ## Scope
 This triage pass reviewed open issues #247 through #254 for overlap, staleness, and prioritization hygiene.
 

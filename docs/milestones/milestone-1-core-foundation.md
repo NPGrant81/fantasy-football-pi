@@ -4,6 +4,14 @@ This milestone establishes the minimum viable backend, frontend, and data model 
 
 ---
 
+## Status
+
+- status: `in-progress`
+- owner: `product + engineering`
+- source of truth for active progress: `docs/milestones/README.md` and linked child issue files under `issues/`
+
+---
+
 ## Scope
 
 - Backend scaffolding using Python (FastAPI)
@@ -21,6 +29,10 @@ This milestone establishes the minimum viable backend, frontend, and data model 
 - [ ] Database migrations function correctly
 - [ ] UI interacts with backend
 - [ ] Codebase avoids Windows‑specific assumptions
+
+Status hygiene note:
+
+- Keep checklist items unchecked until objective evidence is linked in the child issue docs.
 
 ---
 

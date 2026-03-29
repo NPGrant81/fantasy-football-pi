@@ -4,6 +4,14 @@ This milestone prepares the platform for real users and long‑term operation.
 
 ---
 
+## Status
+
+- status: `planned`
+- owner: `platform`
+- source of truth for active progress: `docs/milestones/README.md` and linked child issue files under `issues/`
+
+---
+
 ## Scope
 
 - Logging and observability
@@ -20,6 +28,10 @@ This milestone prepares the platform for real users and long‑term operation.
 - [ ] Backups automated and tested
 - [ ] Monitoring alerts configured
 - [ ] Documentation for incident response
+
+Status hygiene note:
+
+- Keep checklist items unchecked until production-readiness evidence is linked in child issue tracking.
 
 ---
 
@@ -44,5 +56,5 @@ This milestone prepares the platform for real users and long‑term operation.
 
 Related infrastructure tasks in [PROJECT_MANAGEMENT.md](../PROJECT_MANAGEMENT.md):
 
-- Story 0.2: Cloudflare Tunnel Setup ⏳
-- Story 0.3: Database Scheduled Backups ✅
+- Story 0.2: Cloudflare tunnel setup
+- Story 0.3: Database scheduled backups
