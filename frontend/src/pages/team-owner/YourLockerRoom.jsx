@@ -1326,18 +1326,14 @@ export default function YourLockerRoom({ activeOwnerId }) {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-3 text-slate-400">
-          <p className="flex items-center gap-2">
-            Current Standing:{' '}
-            {summary?.standing !== null && summary?.standing !== undefined && summary?.standing !== '' ? (
+          {summary?.standing !== null && summary?.standing !== undefined && summary?.standing !== '' && (
+            <p className="flex items-center gap-2">
+              Current Standing:{' '}
               <span className="bg-purple-600 text-white px-3 py-1 rounded-lg font-black italic">
                 #{summary.standing} Place
               </span>
-            ) : (
-              <span className="bg-slate-700 text-slate-100 px-3 py-1 rounded-lg font-black italic">
-                Not Active Yet
-              </span>
-            )}
-          </p>
+            </p>
+          )}
           {focusedOwner?.division_name && (
             <p className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-cyan-300">
               Division: {focusedOwner.division_name}

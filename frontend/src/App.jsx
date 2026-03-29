@@ -154,6 +154,7 @@ function AuthenticatedShell({
       alert={layoutAlert}
       onLogout={handleLogout}
       pageTitle={headerTitle}
+      isCommissioner={isCommissioner}
       isSuperuser={isSuperuser}
       onLeagueSwitch={onLeagueSwitch}
     >
@@ -637,6 +638,8 @@ function App() {
             layoutAlert={layoutAlert}
             token={token}
             activeOwnerId={activeOwnerId}
+            isCommissioner={isCommissioner}
+            isCommissioner={isCommissioner}
             isCommissioner={isCommissioner}
             isSuperuser={isSuperuser}
             onLeagueSwitch={handleLeagueSwitch}
