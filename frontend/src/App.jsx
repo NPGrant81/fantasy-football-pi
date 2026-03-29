@@ -405,12 +405,15 @@ function App() {
   const handleLogout = useCallback(async () => {
     isLoggingOutRef.current = true;
     authCheckIdRef.current += 1;
+    // Clear local state immediately so the UI responds at once rather than
+    // waiting up to 5 s for the backend call to resolve / time out.
+    clearAuthState();
+    // Fire backend logout in the background to clear server-side cookies.
+    // Failures are non-critical — local state is already cleared above.
     try {
       await apiClient.post('/auth/logout', null, { timeout: 5000 });
     } catch {
-      // Even if logout request fails, always clear local auth/session state.
-    } finally {
-      clearAuthState();
+      // intentionally swallowed
     }
   }, [clearAuthState]);
 
