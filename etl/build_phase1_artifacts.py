@@ -129,7 +129,10 @@ def _load_from_postgres_or_exports() -> dict[str, str]:
             ).to_csv(required["draft_results"], index=False)
             source_mode = "postgres"
         except Exception as exc:
-            print(f"Warning: Postgres extraction failed, falling back to CSV exports: {exc}", file=sys.stderr)
+            print(
+                f"Warning: Postgres extraction failed (error type: {type(exc).__name__}), falling back to CSV exports.",
+                file=sys.stderr,
+            )
             source_mode = "csv_exports"
 
     if source_mode != "postgres":

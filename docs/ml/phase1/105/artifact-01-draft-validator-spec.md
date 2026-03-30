@@ -21,11 +21,11 @@ Validate historical draft rows for key integrity before model features and post-
 2. Flag invalid/missing references for `PlayerID`, `OwnerID`, and `PositionID`.
 3. Flag invalid or null `Year`.
 4. Flag invalid or negative `WinningBid`.
-5. Identify duplicate `(Year, OwnerID, PlayerID)` tuples and emit correction-ledger rows.
+5. Identify duplicate `(Year, OwnerID, PlayerID)` tuples, emit all participating rows to the correction ledger, and deduplicate validated output by retaining one row per tuple with the highest `WinningBid`.
 6. Emit validated rows, correction ledger, and aggregate validation report.
 7. Pick-slot completeness checks by (`league_id`, `round_num`, `pick_num`) are out of current scope.
 
 ## Output Contract
-- Validated draft rows with normalized numeric keys.
+- Validated draft rows with normalized numeric keys, deduplicated on `(Year, OwnerID, PlayerID)` by retaining the highest `WinningBid` row per key.
 - Correction ledger rows for duplicate-key candidates.
-- Aggregated report with source row counts, error counts, duplicate-key counts, and error breakdown.
+- Aggregated report with source row counts, validated row counts, error counts, duplicate-key counts, and error breakdown.
