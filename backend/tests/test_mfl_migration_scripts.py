@@ -364,6 +364,29 @@ def test_import_mfl_csv_supports_db_source_mode(monkeypatch):
                     "winning_bid": "$18",
                 },
             },
+            {
+                "dataset_key": "html_schedule_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": league_id,
+                    "week": "1",
+                    "home_franchise_id": "A",
+                    "away_franchise_id": "B",
+                    "home_score": "101.5",
+                    "away_score": "98.0",
+                },
+            },
+            {
+                "dataset_key": "html_transactions_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": league_id,
+                    "week": "1",
+                    "franchise_id": "A",
+                    "player_mfl_id": "1002",
+                    "transaction_type": "waiver_add",
+                },
+            },
         ]
         for idx, payload in enumerate(facts, start=1):
             session.add(
@@ -397,3 +420,5 @@ def test_import_mfl_csv_supports_db_source_mode(monkeypatch):
     assert summary["players_inserted"] == 1
     assert summary["draft_picks_inserted"] == 2
     assert summary["draft_picks_skipped"] == 0
+    assert summary["matchups_inserted"] == 1
+    assert summary["transactions_inserted"] == 1

@@ -28,6 +28,14 @@ REQUIRED_COLUMNS: dict[str, list[str]] = {
     "transactions": ["season", "league_id", "franchise_id", "transaction_type", "player_mfl_id"],
 }
 
+DB_DATASET_KEYS: dict[str, set[str]] = {
+    "franchises": {"html_franchises_normalized"},
+    "players": {"html_players_normalized"},
+    "draftResults": {"html_draft_results_normalized"},
+    "schedule": {"html_schedule_normalized"},
+    "transactions": {"html_transactions_normalized"},
+}
+
 
 @dataclass
 class ImportSummary:
@@ -126,10 +134,13 @@ def _load_report_rows_from_db(
 ) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     required = REQUIRED_COLUMNS.get(report_type, [])
+    dataset_keys = DB_DATASET_KEYS.get(report_type, set())
     season_set = set(seasons)
     matched_seasons: set[int] = set()
 
     facts_query = db.query(models.MflHtmlRecordFact).filter(models.MflHtmlRecordFact.season.in_(seasons))
+    if dataset_keys:
+        facts_query = facts_query.filter(models.MflHtmlRecordFact.dataset_key.in_(dataset_keys))
     if source_league_id:
         facts_query = facts_query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
 
