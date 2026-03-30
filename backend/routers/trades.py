@@ -19,6 +19,7 @@ from ..services.trade_validation_service import (
     TradeValidationContext,
     validate_trade_request,
 )
+from ..services.trade_execution_service import execute_trade_v2_approval
 
 router = APIRouter(prefix="/trades", tags=["Trades"])
 
@@ -451,11 +452,15 @@ def approve_trade_v2(
     if trade.status != "PENDING":
         raise HTTPException(status_code=400, detail="Only pending trades can be approved.")
 
-    trade.status = "APPROVED"
-    trade.approved_at = datetime.now(UTC)
-    trade.commissioner_comments = (payload.commissioner_comments or "").strip() or None
-    db.commit()
-    db.refresh(trade)
+    try:
+        trade = execute_trade_v2_approval(
+            db,
+            trade_id=trade.id,
+            approver_id=current_user.id,
+            commissioner_comments=payload.commissioner_comments,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
         "message": "Trade approved",
