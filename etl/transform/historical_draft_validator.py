@@ -1,170 +1,198 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 
-REQUIRED_COLUMNS = ["league_id", "year", "owner_id", "player_id", "round_num", "pick_num"]
+def _to_int(value: Any) -> int | None:
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
-@dataclass
-class DraftValidationResult:
-    validated_draft_results: pd.DataFrame
-    validation_report: dict[str, Any]
-    correction_ledger: pd.DataFrame
-
-
-def _validate_columns(df: pd.DataFrame, required: list[str]) -> None:
-    missing = [column for column in required if column not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns: {missing}")
+def _to_amount(value: Any) -> float | None:
+    if value is None:
+        return None
+    text = re.sub(r"[^0-9.-]", "", str(value).strip())
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
 
 
 def validate_historical_draft_results(
-    draft_df: pd.DataFrame,
-    *,
-    players_df: pd.DataFrame | None = None,
-    owners_df: pd.DataFrame | None = None,
-) -> DraftValidationResult:
-    _validate_columns(draft_df, REQUIRED_COLUMNS)
-
-    working = draft_df.copy()
-    for column in ["league_id", "year", "owner_id", "player_id", "round_num", "pick_num"]:
-        working[column] = pd.to_numeric(working[column], errors="coerce")
-
-    ledger_rows: list[dict[str, Any]] = []
-
-    critical_null_mask = working[["league_id", "year", "owner_id", "player_id"]].isna().any(axis=1)
-    if critical_null_mask.any():
-        for row_index in working[critical_null_mask].index:
-            ledger_rows.append(
-                {
-                    "row_index": int(row_index),
-                    "field": "critical_keys",
-                    "old_value": "null",
-                    "new_value": "null",
-                    "action": "unresolved",
-                    "reason": "missing_critical_reference",
-                }
-            )
-
-    working["league_id"] = working["league_id"].fillna(-1).astype(int)
-    working["year"] = working["year"].fillna(-1).astype(int)
-    working["owner_id"] = working["owner_id"].fillna(-1).astype(int)
-    working["player_id"] = working["player_id"].fillna(-1).astype(int)
-    working["round_num"] = working["round_num"].fillna(0).astype(int)
-    working["pick_num"] = working["pick_num"].fillna(0).astype(int)
-
-    duplicate_key = ["league_id", "year", "round_num", "pick_num"]
-    duplicate_mask = working.duplicated(subset=duplicate_key, keep=False)
-    duplicate_rows = int(duplicate_mask.sum())
-    if duplicate_rows:
-        for row_index in working[duplicate_mask].index:
-            ledger_rows.append(
-                {
-                    "row_index": int(row_index),
-                    "field": "league_year_round_pick",
-                    "old_value": "duplicate",
-                    "new_value": "duplicate",
-                    "action": "flagged",
-                    "reason": "duplicate_pick_slot",
-                }
-            )
-
-    unresolved_owner_count = int((working["owner_id"] <= 0).sum())
-    unresolved_player_count = int((working["player_id"] <= 0).sum())
-
-    if players_df is not None and not players_df.empty and "id" in players_df.columns:
-        known_players = set(pd.to_numeric(players_df["id"], errors="coerce").dropna().astype(int).tolist())
-        unknown_player_rows = working[~working["player_id"].isin(known_players) & (working["player_id"] > 0)]
-        for row_index in unknown_player_rows.index:
-            ledger_rows.append(
-                {
-                    "row_index": int(row_index),
-                    "field": "player_id",
-                    "old_value": int(working.at[row_index, "player_id"]),
-                    "new_value": int(working.at[row_index, "player_id"]),
-                    "action": "flagged",
-                    "reason": "unknown_player_reference",
-                }
-            )
-
-    if owners_df is not None and not owners_df.empty and "id" in owners_df.columns:
-        known_owners = set(pd.to_numeric(owners_df["id"], errors="coerce").dropna().astype(int).tolist())
-        unknown_owner_rows = working[~working["owner_id"].isin(known_owners) & (working["owner_id"] > 0)]
-        for row_index in unknown_owner_rows.index:
-            ledger_rows.append(
-                {
-                    "row_index": int(row_index),
-                    "field": "owner_id",
-                    "old_value": int(working.at[row_index, "owner_id"]),
-                    "new_value": int(working.at[row_index, "owner_id"]),
-                    "action": "flagged",
-                    "reason": "unknown_owner_reference",
-                }
-            )
-
-    keeper_column = "is_keeper" if "is_keeper" in working.columns else None
-    if keeper_column is None:
-        working["is_keeper"] = False
-    else:
-        working["is_keeper"] = working[keeper_column].fillna(False).astype(bool)
-
-    year_counts = working.groupby("year").size().to_dict()
-    year_completeness = {str(int(year)): int(count) for year, count in year_counts.items() if int(year) > 0}
-
-    working["validation_status"] = "ok"
-    working.loc[critical_null_mask, "validation_status"] = "critical_unresolved"
-    working.loc[duplicate_mask, "validation_status"] = "duplicate_pick"
-    working.loc[(working["owner_id"] <= 0) | (working["player_id"] <= 0), "validation_status"] = "critical_unresolved"
-
-    report = {
-        "total_rows": int(working.shape[0]),
-        "critical_unresolved_reference_count": int((working["validation_status"] == "critical_unresolved").sum()),
-        "critical_unresolved_reference_by_type": {
-            "owner_id": unresolved_owner_count,
-            "player_id": unresolved_player_count,
-        },
-        "duplicate_pick_count": duplicate_rows,
-        "missing_pick_count": int(((working["round_num"] <= 0) | (working["pick_num"] <= 0)).sum()),
-        "year_completeness": year_completeness,
-        "keeper_labeling_summary": {
-            "keeper_rows": int(working["is_keeper"].sum()),
-            "non_keeper_rows": int((~working["is_keeper"]).sum()),
-            "confidence_notes": "Derived from source is_keeper where available; defaults to False when absent.",
-        },
+    draft_results_df: pd.DataFrame,
+    players_df: pd.DataFrame,
+    users_df: pd.DataFrame,
+    positions_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    player_ids = {
+        int(v)
+        for v in pd.to_numeric(players_df.get("Player_ID"), errors="coerce").dropna().astype(int).tolist()
+    }
+    owner_ids = {
+        int(v)
+        for v in pd.to_numeric(users_df.get("OwnerID"), errors="coerce").dropna().astype(int).tolist()
+    }
+    position_ids = {
+        int(v)
+        for v in pd.to_numeric(positions_df.get("PositionID"), errors="coerce").dropna().astype(int).tolist()
     }
 
-    correction_ledger = pd.DataFrame(
-        ledger_rows,
-        columns=["row_index", "field", "old_value", "new_value", "action", "reason"],
-    )
+    working = draft_results_df.copy().reset_index().rename(columns={"index": "source_row_number"})
+    working["player_id"] = working["PlayerID"].apply(_to_int)
+    working["owner_id"] = working["OwnerID"].apply(_to_int)
+    working["season_year"] = working["Year"].apply(_to_int)
+    working["position_id"] = working["PositionID"].apply(_to_int)
+    working["winning_bid"] = working["WinningBid"].apply(_to_amount)
 
-    return DraftValidationResult(
-        validated_draft_results=working,
-        validation_report=report,
-        correction_ledger=correction_ledger,
+    validation_errors: list[dict[str, Any]] = []
+    for _, row in working.iterrows():
+        row_no = int(row["source_row_number"])
+        if row["player_id"] is None or row["player_id"] not in player_ids:
+            validation_errors.append({
+                "source_row_number": row_no,
+                "issue_type": "invalid_player_id",
+                "detail": f"player_id={row['player_id']} missing from players dimension",
+            })
+        if row["owner_id"] is None or row["owner_id"] not in owner_ids:
+            validation_errors.append({
+                "source_row_number": row_no,
+                "issue_type": "invalid_owner_id",
+                "detail": f"owner_id={row['owner_id']} missing from users dimension",
+            })
+        if row["position_id"] is None or row["position_id"] not in position_ids:
+            validation_errors.append({
+                "source_row_number": row_no,
+                "issue_type": "invalid_position_id",
+                "detail": f"position_id={row['position_id']} missing from positions dimension",
+            })
+        if row["season_year"] is None:
+            validation_errors.append({
+                "source_row_number": row_no,
+                "issue_type": "invalid_season_year",
+                "detail": "year is null or non-numeric",
+            })
+        if row["winning_bid"] is None or row["winning_bid"] < 0:
+            validation_errors.append({
+                "source_row_number": row_no,
+                "issue_type": "invalid_winning_bid",
+                "detail": f"winning_bid={row['winning_bid']} is null/negative",
+            })
+
+    duplicate_keys = ["season_year", "owner_id", "player_id"]
+    duplicates = (
+        working.dropna(subset=duplicate_keys)
+        .groupby(duplicate_keys, as_index=False)
+        .size()
+        .query("size > 1")
     )
+    duplicate_key_set = {
+        (int(r.season_year), int(r.owner_id), int(r.player_id)) for r in duplicates.itertuples()
+    }
+
+    correction_ledger: list[dict[str, Any]] = []
+    for _, row in working.iterrows():
+        key = row["season_year"], row["owner_id"], row["player_id"]
+        if None not in key and (int(key[0]), int(key[1]), int(key[2])) in duplicate_key_set:
+            correction_ledger.append({
+                "source_row_number": int(row["source_row_number"]),
+                "action": "dedupe_candidate",
+                "reason": "duplicate season/owner/player tuple",
+                "season_year": _to_int(row["season_year"]),
+                "owner_id": _to_int(row["owner_id"]),
+                "player_id": _to_int(row["player_id"]),
+            })
+
+    valid_row_mask = working["source_row_number"].apply(
+        lambda row_no: not any(err["source_row_number"] == int(row_no) for err in validation_errors)
+    )
+    valid_df = working.loc[valid_row_mask].copy()
+
+    if not duplicates.empty:
+        valid_df = valid_df.sort_values(
+            by=["season_year", "owner_id", "player_id", "winning_bid", "source_row_number"],
+            ascending=[True, True, True, False, True],
+            kind="mergesort",
+        )
+        valid_df = valid_df.drop_duplicates(subset=duplicate_keys, keep="first")
+
+    validated_df = valid_df[
+        [
+            "player_id",
+            "owner_id",
+            "season_year",
+            "position_id",
+            "TeamID",
+            "winning_bid",
+        ]
+    ].rename(columns={"TeamID": "team_id"})
+    validated_df = validated_df.sort_values(
+        by=["season_year", "owner_id", "player_id"],
+        kind="mergesort",
+    ).reset_index(drop=True)
+
+    correction_df = pd.DataFrame(correction_ledger)
+    error_df = pd.DataFrame(validation_errors)
+
+    report = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "source_rows": int(len(working)),
+        "validated_rows": int(len(validated_df)),
+        "error_count": int(len(error_df)),
+        "duplicate_key_count": int(len(duplicates)),
+        "correction_ledger_rows": int(len(correction_df)),
+        "error_breakdown": {
+            str(k): int(v)
+            for k, v in error_df["issue_type"].value_counts().to_dict().items()
+        } if not error_df.empty else {},
+    }
+
+    return validated_df, correction_df, report
 
 
 def write_draft_validation_outputs(
-    result: DraftValidationResult,
-    validated_csv_path: str | Path,
-    report_json_path: str | Path,
-    correction_ledger_csv_path: str | Path,
-) -> None:
-    validated_csv_path = Path(validated_csv_path)
-    report_json_path = Path(report_json_path)
-    correction_ledger_csv_path = Path(correction_ledger_csv_path)
+    draft_results_csv: Path,
+    players_csv: Path,
+    users_csv: Path,
+    positions_csv: Path,
+    output_dir: Path,
+) -> dict[str, Any]:
+    draft_results_df = pd.read_csv(draft_results_csv)
+    players_df = pd.read_csv(players_csv)
+    users_df = pd.read_csv(users_csv)
+    positions_df = pd.read_csv(positions_csv)
 
-    validated_csv_path.parent.mkdir(parents=True, exist_ok=True)
-    report_json_path.parent.mkdir(parents=True, exist_ok=True)
-    correction_ledger_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    validated_df, correction_df, report = validate_historical_draft_results(
+        draft_results_df,
+        players_df,
+        users_df,
+        positions_df,
+    )
 
-    result.validated_draft_results.to_csv(validated_csv_path, index=False)
-    report_json_path.write_text(json.dumps(result.validation_report, indent=2), encoding="utf-8")
-    result.correction_ledger.to_csv(correction_ledger_csv_path, index=False)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    validated_path = output_dir / "validated_draft_results_v1.csv"
+    correction_path = output_dir / "draft_correction_ledger_v1.csv"
+    report_path = output_dir / "draft_validation_report_v1.json"
+
+    validated_df.to_csv(validated_path, index=False)
+    correction_df.to_csv(correction_path, index=False)
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+    return {
+        "csv": str(validated_path),
+        "correction_ledger": str(correction_path),
+        "report": str(report_path),
+        "rows": int(len(validated_df)),
+        "corrections": int(len(correction_df)),
+    }

@@ -1,131 +1,147 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
-from .normalize import normalize_player_name
-
-
-REQUIRED_COLUMNS = ["player_id", "player_name", "position"]
+import yaml
 
 
-@dataclass
-class CanonicalizationResult:
-    canonical_players: pd.DataFrame
-    run_report: dict[str, Any]
+def _normalize_name(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"[.]", "", text)
+    text = re.sub(r"\s+(jr|sr|ii|iii|iv)$", "", text, flags=re.IGNORECASE)
+    return text.strip()
 
 
-def _validate_columns(df: pd.DataFrame, required: list[str]) -> None:
-    missing = [column for column in required if column not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns: {missing}")
-
-
-def _normalize_position(value: object) -> str:
-    token = str(value or "").strip().upper()
-    if token in {"DST", "D/ST"}:
-        return "DEF"
-    return token
-
-
-def _stable_digest(df: pd.DataFrame) -> str:
-    serialized = df.sort_values(["player_id"]).to_json(orient="records", date_format="iso")
-    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+def _safe_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def canonicalize_player_metadata(
     players_df: pd.DataFrame,
+    positions_df: pd.DataFrame,
     alias_map: dict[str, str] | None = None,
-) -> CanonicalizationResult:
-    _validate_columns(players_df, REQUIRED_COLUMNS)
-
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     alias_map = alias_map or {}
-    normalized_alias = {normalize_player_name(key): value.strip() for key, value in alias_map.items() if str(key).strip()}
-
-    working = players_df.copy()
-    working["player_id"] = pd.to_numeric(working["player_id"], errors="coerce")
-    working = working.dropna(subset=["player_id"]).copy()
-    if working.empty:
-        empty = pd.DataFrame(columns=["player_id", "canonical_name", "normalized_name", "position", "nfl_team"])
-        return CanonicalizationResult(
-            canonical_players=empty,
-            run_report={
-                "input_rows": int(players_df.shape[0]),
-                "output_rows": 0,
-                "merge_count": 0,
-                "split_count": 0,
-                "unresolved_alias_count": 0,
-                "position_resolution_pct": 0.0,
-                "digest": _stable_digest(empty),
-            },
-        )
-
-    working["player_id"] = working["player_id"].astype(int)
-    working["raw_name"] = working["player_name"].astype(str).str.strip()
-    working["normalized_name"] = working["raw_name"].map(normalize_player_name)
-    working["canonical_name"] = working["normalized_name"].map(normalized_alias)
-    working["canonical_name"] = working["canonical_name"].fillna(working["raw_name"])
-    working["canonical_name"] = working["canonical_name"].astype(str).str.strip()
-    working["position"] = working["position"].map(_normalize_position)
-
-    if "nfl_team" not in working.columns:
-        working["nfl_team"] = ""
-    working["nfl_team"] = working["nfl_team"].fillna("").astype(str).str.upper().str.strip()
-
-    # Deterministic dedupe by player_id: keep row with best non-empty position/team payload.
-    working["completeness"] = (
-        (working["position"] != "").astype(int)
-        + (working["nfl_team"] != "").astype(int)
-        + (working["canonical_name"] != "").astype(int)
-    )
-    working = working.sort_values(
-        ["player_id", "completeness", "canonical_name", "normalized_name", "raw_name"],
-        ascending=[True, False, True, True, True],
-    )
-    canonical_players = working.drop_duplicates(subset=["player_id"], keep="first").copy()
-
-    merge_count = int(canonical_players.duplicated(subset=["canonical_name"], keep=False).sum())
-    split_count = int(canonical_players.groupby("normalized_name")["player_id"].nunique().gt(1).sum())
-    unresolved_alias_count = int(
-        canonical_players[
-            canonical_players["normalized_name"].isin(normalized_alias.keys())
-            & (canonical_players["canonical_name"] == canonical_players["raw_name"])
-        ].shape[0]
-    )
-
-    canonical_players = canonical_players[["player_id", "canonical_name", "normalized_name", "position", "nfl_team"]]
-    canonical_players = canonical_players.sort_values(["canonical_name", "player_id"]).reset_index(drop=True)
-
-    known_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
-    resolved_positions = int(canonical_players["position"].isin(known_positions).sum())
-    position_resolution_pct = round((resolved_positions / max(1, len(canonical_players))) * 100.0, 2)
-
-    report = {
-        "input_rows": int(players_df.shape[0]),
-        "output_rows": int(canonical_players.shape[0]),
-        "merge_count": merge_count,
-        "split_count": split_count,
-        "unresolved_alias_count": unresolved_alias_count,
-        "position_resolution_pct": position_resolution_pct,
-        "digest": _stable_digest(canonical_players),
+    pos_lookup = {
+        _safe_int(row.get("PositionID")): str(row.get("Position") or "").strip().upper()
+        for _, row in positions_df.iterrows()
+        if _safe_int(row.get("PositionID")) is not None
     }
 
-    return CanonicalizationResult(canonical_players=canonical_players, run_report=report)
+    rows: list[dict[str, Any]] = []
+    for _, row in players_df.iterrows():
+        player_id = _safe_int(row.get("Player_ID"))
+        raw_name = str(row.get("PlayerName") or "").strip()
+        raw_pos_id = _safe_int(row.get("PositionID"))
+        if player_id is None or not raw_name:
+            continue
+
+        alias_name = alias_map.get(raw_name, raw_name)
+        canonical_name = _normalize_name(alias_name)
+        canonical_name_key = canonical_name.lower()
+        canonical_position = pos_lookup.get(raw_pos_id, "UNKNOWN")
+
+        rows.append(
+            {
+                "player_id": player_id,
+                "source_name": raw_name,
+                "canonical_name": canonical_name,
+                "canonical_name_key": canonical_name_key,
+                "source_position_id": raw_pos_id,
+                "canonical_position": canonical_position,
+            }
+        )
+
+    canonical_df = pd.DataFrame(rows)
+    if canonical_df.empty:
+        report = {
+            "generated_at": datetime.now(UTC).isoformat(),
+            "total_rows": 0,
+            "unique_player_ids": 0,
+            "deduplicated_rows": 0,
+            "position_distribution": {},
+            "duplicate_name_keys": [],
+            "content_digest": "",
+        }
+        return canonical_df, report
+
+    canonical_df = canonical_df.sort_values(
+        by=["player_id", "canonical_name", "source_name", "canonical_position"],
+        kind="mergesort",
+    )
+    total_rows = int(len(canonical_df))
+
+    canonical_df = canonical_df.drop_duplicates(subset=["player_id"], keep="first")
+    canonical_df = canonical_df.sort_values(by=["player_id"], kind="mergesort").reset_index(drop=True)
+
+    digest_input = canonical_df[["player_id", "canonical_name", "canonical_position"]].to_dict("records")
+    digest_payload = json.dumps(digest_input, sort_keys=True, separators=(",", ":"))
+    content_digest = hashlib.sha256(digest_payload.encode("utf-8")).hexdigest()
+
+    duplicate_name_keys = (
+        canonical_df.groupby("canonical_name_key")["player_id"]
+        .nunique()
+        .reset_index(name="player_count")
+        .query("player_count > 1")
+        .sort_values(by=["player_count", "canonical_name_key"], ascending=[False, True])
+        .to_dict("records")
+    )
+
+    report = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "total_rows": total_rows,
+        "unique_player_ids": int(canonical_df["player_id"].nunique()),
+        "deduplicated_rows": int(total_rows - len(canonical_df)),
+        "position_distribution": {
+            str(k): int(v)
+            for k, v in canonical_df["canonical_position"].value_counts(dropna=False).to_dict().items()
+        },
+        "duplicate_name_keys": duplicate_name_keys,
+        "content_digest": content_digest,
+    }
+    return canonical_df, report
 
 
 def write_canonicalization_outputs(
-    result: CanonicalizationResult,
-    output_csv_path: str | Path,
-    report_json_path: str | Path,
-) -> None:
-    output_csv_path = Path(output_csv_path)
-    report_json_path = Path(report_json_path)
-    output_csv_path.parent.mkdir(parents=True, exist_ok=True)
-    report_json_path.parent.mkdir(parents=True, exist_ok=True)
-    result.canonical_players.to_csv(output_csv_path, index=False)
-    report_json_path.write_text(json.dumps(result.run_report, indent=2), encoding="utf-8")
+    players_csv: Path,
+    positions_csv: Path,
+    alias_map_path: Path,
+    output_dir: Path,
+) -> dict[str, Any]:
+    players_df = pd.read_csv(players_csv)
+    positions_df = pd.read_csv(positions_csv)
+
+    alias_map: dict[str, str] = {}
+    if alias_map_path.exists():
+        alias_payload = yaml.safe_load(alias_map_path.read_text(encoding="utf-8")) or {}
+        alias_map = {str(k): str(v) for k, v in (alias_payload.get("aliases") or {}).items()}
+
+    canonical_df, report = canonicalize_player_metadata(players_df, positions_df, alias_map=alias_map)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = output_dir / "canonical_players_v1.csv"
+    report_path = output_dir / "canonicalization_report_v1.json"
+
+    canonical_df.to_csv(csv_path, index=False)
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+    return {
+        "csv": str(csv_path),
+        "report": str(report_path),
+        "rows": int(len(canonical_df)),
+        "digest": report.get("content_digest", ""),
+    }
