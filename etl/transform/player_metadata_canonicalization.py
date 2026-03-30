@@ -30,6 +30,8 @@ def _normalize_position_token(value: Any) -> str:
         "D/ST": "DEF",
         "DST": "DEF",
         "DEFENSE": "DEF",
+        "PK": "K",
+        "KICKER": "K",
     }
     return normalized.get(token, token)
 
@@ -77,13 +79,18 @@ def canonicalize_player_metadata(
         player_id = _safe_int(row.get("Player_ID"))
         raw_name = str(row.get("PlayerName") or "").strip()
         raw_pos_id = _safe_int(row.get("PositionID"))
+        raw_pos_token = _normalize_position_token(row.get("Position"))
         if player_id is None or not raw_name:
             continue
 
         alias_name = alias_map.get(raw_name, raw_name)
         canonical_name = _normalize_name(alias_name)
         canonical_name_key = canonical_name.lower()
-        canonical_position = pos_lookup.get(raw_pos_id, "UNKNOWN")
+        canonical_position = pos_lookup.get(raw_pos_id)
+        if not canonical_position and raw_pos_token:
+            canonical_position = raw_pos_token
+        if not canonical_position:
+            canonical_position = "UNKNOWN"
 
         rows.append(
             {

@@ -13,4 +13,4 @@
 
 ## Governance
 - Ledger rows are append-only for a single run.
-- Every unresolved or flagged validation event must produce one ledger row.
+- Every unresolved or flagged duplicate-key validation event (for example `dedupe_candidate`) must produce one ledger row. Other validation errors are surfaced in the validation report.

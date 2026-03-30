@@ -58,14 +58,28 @@ def _load_from_postgres_or_exports() -> dict[str, str]:
             players_columns = {col["name"] for col in inspector.get_columns("players")}
             if {"Player_ID", "PlayerName"}.issubset(players_columns):
                 if "PositionID" in players_columns:
-                    players_query = 'SELECT "Player_ID", "PlayerName", "PositionID" FROM players'
+                    position_id_expr = '"PositionID"'
                 else:
-                    players_query = 'SELECT "Player_ID", "PlayerName", NULL as "PositionID" FROM players'
+                    position_id_expr = 'NULL as "PositionID"'
+                if "Position" in players_columns:
+                    position_expr = '"Position"'
+                elif "position" in players_columns:
+                    position_expr = 'position as "Position"'
+                else:
+                    position_expr = 'NULL as "Position"'
+                players_query = f'SELECT "Player_ID", "PlayerName", {position_id_expr}, {position_expr} FROM players'
             elif {"id", "name"}.issubset(players_columns):
                 if "position_id" in players_columns:
-                    players_query = 'SELECT id as "Player_ID", name as "PlayerName", position_id as "PositionID" FROM players'
+                    position_id_expr = 'position_id as "PositionID"'
                 else:
-                    players_query = 'SELECT id as "Player_ID", name as "PlayerName", NULL as "PositionID" FROM players'
+                    position_id_expr = 'NULL as "PositionID"'
+                if "position" in players_columns:
+                    position_expr = 'position as "Position"'
+                elif "Position" in players_columns:
+                    position_expr = '"Position"'
+                else:
+                    position_expr = 'NULL as "Position"'
+                players_query = f'SELECT id as "Player_ID", name as "PlayerName", {position_id_expr}, {position_expr} FROM players'
             else:
                 players_query = "SELECT * FROM players"
             pd.read_sql(players_query, engine).to_csv(required["players"], index=False)
@@ -89,8 +103,14 @@ def _load_from_postgres_or_exports() -> dict[str, str]:
                     engine,
                 ).to_csv(required["draft_budget"], index=False)
             else:
+                latest_year_df = pd.read_sql('SELECT MAX(year) as "Year" FROM draft_picks', engine)
+                latest_year = None
+                if not latest_year_df.empty and not latest_year_df["Year"].isna().all():
+                    latest_year = int(latest_year_df["Year"].iloc[0])
+                if latest_year is None:
+                    latest_year = datetime.now(UTC).year
                 pd.read_sql(
-                    'SELECT future_draft_budget as "DraftBudget", 2026 as "Year", id as "OwnerID" FROM users',
+                    f'SELECT future_draft_budget as "DraftBudget", {latest_year} as "Year", id as "OwnerID" FROM users',
                     engine,
                 ).to_csv(required["draft_budget"], index=False)
 

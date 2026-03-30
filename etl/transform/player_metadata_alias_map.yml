@@ -1,4 +1,5 @@
-# Canonical aliases for player display names. Keys and values should remain title-cased.
+# Canonical aliases for player display names. Keys/values are authored in title case for readability.
+# Aliases are applied to raw source names, then canonical names are normalized by the ETL pipeline.
 # This map is intentionally small for v1 and can be expanded from real QA findings.
 aliases:
   A.J. Green: AJ Green

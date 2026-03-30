@@ -392,7 +392,11 @@ def get_post_draft_outlook(
         )
     except ValueError as exc:
         detail = str(exc)
-        if "not found" in detail.lower():
+        not_found_errors = {
+            "League not found",
+            "Owner not found in this league",
+        }
+        if detail in not_found_errors:
             raise HTTPException(status_code=404, detail=detail) from exc
         raise HTTPException(status_code=400, detail=detail) from exc
 

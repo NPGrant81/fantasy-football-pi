@@ -2,9 +2,9 @@
 
 ## Gate Checks
 - Idempotency digest matches across consecutive runs.
-- Position resolution percentage meets minimum target (>= 99% for fantasy-active positions).
-- Merge/split counts are reported and non-negative.
-- Unresolved alias count is tracked and non-negative.
+- Output row totals are consistent (`total_rows`, `unique_player_ids`, `deduplicated_rows`).
+- Position distribution is emitted and reviewable from `position_distribution`.
+- Duplicate canonical-name keys are emitted and reviewable from `duplicate_name_keys`.
 
 ## Fallback Policy
 If critical fields are missing, fail closed with explicit error (`Missing required columns`).
@@ -12,6 +12,5 @@ If critical fields are missing, fail closed with explicit error (`Missing requir
 ## Evidence to Post
 - Run digest
 - Input/output row counts
-- Position resolution percentage
-- Merge/split summary
-- Unresolved alias count
+- Position distribution summary
+- Duplicate canonical-name-key summary

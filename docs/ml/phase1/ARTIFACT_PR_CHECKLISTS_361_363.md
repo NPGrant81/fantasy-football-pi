@@ -4,7 +4,7 @@
 - #361 in progress: initial transform module, alias map, and docs landed.
 - #362 in progress: initial timeline transform and reconciliation docs landed.
 - #363 in progress: initial draft validator transform and ledger schema docs landed.
-- Pending for all three: production ETL output files from real data runs and gate evidence posted back to issue #360.
+- Initial ETL output files from real data runs are committed under `etl/outputs/**` as provisional artifacts; gate evidence rollup back to issue #360 remains pending.
 
 ## Issue #361 (Implements #103)
 ### Deliverable file targets
