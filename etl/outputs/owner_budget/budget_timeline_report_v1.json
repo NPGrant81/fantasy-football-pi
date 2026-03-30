@@ -1,662 +1,512 @@
 {
-  "generated_at": "2026-03-30T02:42:17.620475+00:00",
-  "timeline_rows": 1050,
-  "owner_season_pairs": 84,
-  "overspent_owner_seasons": 24,
-  "budget_resolution_counts": {
-    "exact": 0,
-    "carry_forward": 0,
-    "carry_backward": 84,
-    "global_default": 0
-  },
+  "generated_at": "2026-03-30T02:37:15.369867+00:00",
+  "timeline_rows": 0,
+  "owner_season_pairs": 0,
+  "overspent_owner_seasons": 0,
   "exceptions": [
     {
       "season_year": 2018,
       "owner_id": 1,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 2,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 3,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2018,
-      "owner_id": 3,
-      "issue_type": "overspent_budget",
-      "detail": "spent=166.00 > budget=151.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 4,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 5,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 6,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 7,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 8,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2018,
-      "owner_id": 8,
-      "issue_type": "overspent_budget",
-      "detail": "spent=248.00 > budget=213.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 9,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 10,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 11,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2018,
       "owner_id": 13,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2018,
-      "owner_id": 13,
-      "issue_type": "overspent_budget",
-      "detail": "spent=244.00 > budget=0.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 1,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 2,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2019,
-      "owner_id": 2,
-      "issue_type": "overspent_budget",
-      "detail": "spent=223.00 > budget=181.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 3,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2019,
-      "owner_id": 3,
-      "issue_type": "overspent_budget",
-      "detail": "spent=156.00 > budget=151.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 4,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 5,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 6,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 7,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 8,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 9,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 10,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 11,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2019,
       "owner_id": 12,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2019,
-      "owner_id": 12,
-      "issue_type": "overspent_budget",
-      "detail": "spent=213.00 > budget=181.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 1,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 2,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 3,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2020,
-      "owner_id": 3,
-      "issue_type": "overspent_budget",
-      "detail": "spent=152.00 > budget=151.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 4,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 5,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 6,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2020,
-      "owner_id": 6,
-      "issue_type": "overspent_budget",
-      "detail": "spent=223.00 > budget=179.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 7,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 8,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2020,
-      "owner_id": 8,
-      "issue_type": "overspent_budget",
-      "detail": "spent=222.00 > budget=213.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 9,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2020,
-      "owner_id": 9,
-      "issue_type": "overspent_budget",
-      "detail": "spent=218.00 > budget=195.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 10,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2020,
-      "owner_id": 10,
-      "issue_type": "overspent_budget",
-      "detail": "spent=219.00 > budget=180.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 11,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2020,
       "owner_id": 12,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 1,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 2,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2021,
-      "owner_id": 2,
-      "issue_type": "overspent_budget",
-      "detail": "spent=213.00 > budget=181.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 3,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2021,
-      "owner_id": 3,
-      "issue_type": "overspent_budget",
-      "detail": "spent=159.00 > budget=151.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 4,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 5,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2021,
-      "owner_id": 5,
-      "issue_type": "overspent_budget",
-      "detail": "spent=208.00 > budget=192.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 6,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 7,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 8,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 9,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 10,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2021,
-      "owner_id": 10,
-      "issue_type": "overspent_budget",
-      "detail": "spent=214.00 > budget=180.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 11,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2021,
       "owner_id": 12,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 1,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 2,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2022,
-      "owner_id": 2,
-      "issue_type": "overspent_budget",
-      "detail": "spent=219.00 > budget=181.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 3,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2022,
-      "owner_id": 3,
-      "issue_type": "overspent_budget",
-      "detail": "spent=174.00 > budget=151.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 4,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 5,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 6,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2022,
-      "owner_id": 6,
-      "issue_type": "overspent_budget",
-      "detail": "spent=217.00 > budget=179.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 7,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 8,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 9,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2022,
-      "owner_id": 9,
-      "issue_type": "overspent_budget",
-      "detail": "spent=200.00 > budget=195.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 10,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2022,
-      "owner_id": 10,
-      "issue_type": "overspent_budget",
-      "detail": "spent=203.00 > budget=180.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 11,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2022,
       "owner_id": 12,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 1,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 2,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 3,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 4,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 5,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 6,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2023,
-      "owner_id": 6,
-      "issue_type": "overspent_budget",
-      "detail": "spent=189.00 > budget=179.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 7,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 8,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 9,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2023,
-      "owner_id": 9,
-      "issue_type": "overspent_budget",
-      "detail": "spent=218.00 > budget=195.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 10,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 11,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2023,
       "owner_id": 12,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2023,
-      "owner_id": 12,
-      "issue_type": "overspent_budget",
-      "detail": "spent=232.00 > budget=181.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 1,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 2,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 3,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 4,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 5,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 6,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 6,
-      "issue_type": "overspent_budget",
-      "detail": "spent=182.00 > budget=179.00"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 7,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 8,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 9,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 10,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 11,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     },
     {
       "season_year": 2024,
       "owner_id": 12,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
     }
   ]
 }
