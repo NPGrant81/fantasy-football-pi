@@ -10,6 +10,8 @@ from .. import models
 # import organizer helper from team router for roster-strength computation
 from .team import organize_roster
 from ..services.player_service import normalize_display_name as _normalize_player_name
+from ..services.season_outlook_service import build_post_draft_outlook
+from ..schemas.season_outlook import PostDraftOutlookResponse
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -370,6 +372,109 @@ def get_draft_value_data(
             season=resolved_season,
         ),
     }
+
+
+@router.get('/league/{league_id}/post-draft-outlook', response_model=PostDraftOutlookResponse)
+def get_post_draft_outlook(
+    league_id: int,
+    owner_id: int | None = Query(None, ge=1),
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    db: Session = Depends(get_db),
+):
+    resolved_season = _resolved_season(season)
+
+    try:
+        team_rows, owner_focus, diagnostics = build_post_draft_outlook(
+            db,
+            league_id=league_id,
+            season=resolved_season,
+            owner_id=owner_id,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        not_found_errors = {
+            "League not found",
+            "Owner not found in this league",
+        }
+        if detail in not_found_errors:
+            raise HTTPException(status_code=404, detail=detail) from exc
+        raise HTTPException(status_code=400, detail=detail) from exc
+
+    ranked_rows: list[dict] = []
+    focus_payload: dict | None = None
+    for idx, row in enumerate(team_rows, start=1):
+        serialized = {
+            "owner_id": row.owner_id,
+            "owner_name": row.owner_name,
+            "team_name": row.team_name,
+            "rank": idx,
+            "roster_size": row.roster_size,
+            "projected_points": row.projected_points,
+            "projected_points_vs_league_avg": row.projected_points_vs_league_avg,
+            "risk_score": row.risk_score,
+            "positional_balance_score": row.positional_balance_score,
+            "strength_score": row.strength_score,
+            "confidence_score": row.confidence_score,
+            "confidence_label": row.confidence_label,
+        }
+        ranked_rows.append(serialized)
+
+        if owner_focus is not None and owner_focus.owner_id == row.owner_id:
+            if diagnostics.degraded_mode:
+                summary = (
+                    f"Rank {idx}. Data quality is degraded ({', '.join(diagnostics.degradation_reasons)}); "
+                    "treat recommendations as conservative baseline guidance."
+                )
+            elif owner_focus.positional_gaps:
+                summary = (
+                    f"Rank {idx}. Focus next on {', '.join(owner_focus.positional_gaps)} "
+                    "to reduce structural roster risk."
+                )
+            else:
+                summary = f"Rank {idx}. Positional baseline is stable; prioritize upside and injury hedging."
+
+            focus_payload = {
+                "owner_id": owner_focus.owner_id,
+                "rank": idx,
+                "projected_points": owner_focus.projected_points,
+                "projected_points_vs_league_avg": owner_focus.projected_points_vs_league_avg,
+                "risk_score": owner_focus.risk_score,
+                "confidence_score": owner_focus.confidence_score,
+                "confidence_label": owner_focus.confidence_label,
+                "positional_gaps": owner_focus.positional_gaps,
+                "summary": summary,
+            }
+
+    payload = {
+        "season": resolved_season,
+        "team_rows": ranked_rows,
+        "owner_focus": focus_payload,
+        "meta": _analytics_meta(
+            db,
+            metric="post_draft_season_outlook",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+    }
+
+    payload["meta"]["degraded_mode"] = diagnostics.degraded_mode
+    payload["meta"]["degradation_reasons"] = diagnostics.degradation_reasons
+    payload["meta"]["data_quality"] = {
+        "total_draft_rows": diagnostics.total_draft_rows,
+        "included_rows": diagnostics.included_rows,
+        "skipped_rows": diagnostics.skipped_rows,
+        "duplicate_rows_skipped": diagnostics.duplicate_rows_skipped,
+        "invalid_projection_rows": diagnostics.invalid_projection_rows,
+        "unknown_position_rows": diagnostics.unknown_position_rows,
+        "projection_coverage": diagnostics.projection_coverage,
+    }
+    payload["meta"]["confidence_context"] = {
+        "method": "phase_b_baseline_v1",
+        "model_signal_available": False,
+        "simulation_signal_available": False,
+        "baseline_only": True,
+    }
+    return payload
 
 
 @router.get('/league/{league_id}/player-heatmap')

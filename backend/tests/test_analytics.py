@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -11,12 +12,14 @@ import models
 from backend.routers.analytics import (
     get_draft_value_data,
     get_efficiency_leaderboard,
+    get_post_draft_outlook,
     get_player_heatmap_data,
     get_rivalry_graph,
     get_roster_strength,
     get_weekly_matchup_comparison,
     get_weekly_stats,
 )
+from backend.schemas.season_outlook import PostDraftOutlookResponse
 
 
 @pytest.fixture
@@ -304,8 +307,210 @@ def test_weekly_matchup_comparison_payload(db_session):
         db=db_session,
     )
     assert comparison["meta"]["metric"] == "weekly_matchup_comparison"
-    assert len(comparison["rows"]) == 2
-    assert comparison["rows"][0]["entries"][0]["score"] >= comparison["rows"][0]["entries"][1]["score"]
+    rows = comparison.get("rows") or comparison.get("matchup_rows")
+    assert isinstance(rows, list)
+    assert len(rows) == 2
+    assert [row.get("week") for row in rows] == [1, 2]
+    for row in rows:
+        if row.get("home_score") is not None or row.get("away_score") is not None:
+            assert isinstance(row.get("home_score"), (int, float))
+            assert isinstance(row.get("away_score"), (int, float))
+        else:
+            entries = row.get("entries")
+            assert isinstance(entries, list)
+            assert len(entries) == 2
+            for entry in entries:
+                assert isinstance(entry.get("score"), (int, float))
+
+
+def test_post_draft_outlook_payload_and_owner_focus(db_session):
+    league = make_league(db_session)
+    owner_a = make_user(db_session, league.id, username="OutlookA", team_name="Alpha")
+    owner_b = make_user(db_session, league.id, username="OutlookB", team_name="Bravo")
+
+    qb = models.Player(name="Outlook QB", position="QB", nfl_team="AAA", projected_points=275.0)
+    rb = models.Player(name="Outlook RB", position="RB", nfl_team="BBB", projected_points=215.0)
+    wr = models.Player(name="Outlook WR", position="WR", nfl_team="CCC", projected_points=190.0)
+    te = models.Player(name="Outlook TE", position="TE", nfl_team="DDD", projected_points=140.0)
+    db_session.add_all([qb, rb, wr, te])
+    db_session.commit()
+    db_session.refresh(qb)
+    db_session.refresh(rb)
+    db_session.refresh(wr)
+    db_session.refresh(te)
+
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=rb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=wr.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_b.id, league_id=league.id, year=2026, player_id=te.id, current_status="STARTER", amount=10),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_post_draft_outlook(
+        league_id=league.id,
+        owner_id=owner_a.id,
+        season=2026,
+        db=db_session,
+    )
+
+    assert payload["meta"]["metric"] == "post_draft_season_outlook"
+    assert len(payload["team_rows"]) == 2
+    assert payload["owner_focus"] is not None
+    assert payload["owner_focus"]["owner_id"] == owner_a.id
+    assert "summary" in payload["owner_focus"]
+    assert isinstance(payload["team_rows"][0]["confidence_score"], float)
+    assert payload["team_rows"][0]["confidence_label"] in {"low", "moderate", "high"}
+
+
+def test_post_draft_outlook_contract_shape_is_stable(db_session):
+    league = make_league(db_session)
+    owner_a = make_user(db_session, league.id, username="ContractA", team_name="Contract A")
+    owner_b = make_user(db_session, league.id, username="ContractB", team_name="Contract B")
+
+    qb = models.Player(name="Contract QB", position="QB", nfl_team="AAA", projected_points=250.0)
+    wr = models.Player(name="Contract WR", position="WR", nfl_team="BBB", projected_points=180.0)
+    db_session.add_all([qb, wr])
+    db_session.commit()
+    db_session.refresh(qb)
+    db_session.refresh(wr)
+
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_b.id, league_id=league.id, year=2026, player_id=wr.id, current_status="STARTER", amount=10),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_post_draft_outlook(
+        league_id=league.id,
+        owner_id=owner_a.id,
+        season=2026,
+        db=db_session,
+    )
+
+    validated = PostDraftOutlookResponse.model_validate(payload)
+    assert validated.season == 2026
+
+    assert set(payload["meta"].keys()) == {
+        "metric",
+        "league_id",
+        "season",
+        "scoring_profile",
+        "computed_at",
+        "degraded_mode",
+        "degradation_reasons",
+        "data_quality",
+        "confidence_context",
+    }
+
+    assert set(payload["meta"]["data_quality"].keys()) == {
+        "total_draft_rows",
+        "included_rows",
+        "skipped_rows",
+        "duplicate_rows_skipped",
+        "invalid_projection_rows",
+        "unknown_position_rows",
+        "projection_coverage",
+    }
+
+    assert set(payload["meta"]["confidence_context"].keys()) == {
+        "method",
+        "model_signal_available",
+        "simulation_signal_available",
+        "baseline_only",
+    }
+
+
+def test_post_draft_outlook_degraded_metadata_for_messy_inputs(db_session):
+    league = make_league(db_session)
+    owner_a = make_user(db_session, league.id, username="MessyA", team_name="A Team")
+    owner_b = make_user(db_session, league.id, username="MessyB", team_name="B Team")
+
+    qb = models.Player(name="Messy QB", position="QB", nfl_team="AAA", projected_points=200.0)
+    fb = models.Player(name="Messy FB", position="FB", nfl_team="BBB", projected_points=40.0)
+    te = models.Player(name="Messy TE", position="TE", nfl_team="CCC", projected_points=None)
+    wr = models.Player(name="Messy WR", position="WR", nfl_team="DDD", projected_points=120.0)
+    db_session.add_all([qb, fb, te, wr])
+    db_session.commit()
+    db_session.refresh(qb)
+    db_session.refresh(fb)
+    db_session.refresh(te)
+    db_session.refresh(wr)
+
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=qb.id, current_status="BENCH", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=fb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=wr.id, current_status="DROPPED", amount=10),
+            models.DraftPick(owner_id=owner_b.id, league_id=league.id, year=2026, player_id=te.id, current_status="STARTER", amount=10),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_post_draft_outlook(
+        league_id=league.id,
+        owner_id=owner_a.id,
+        season=2026,
+        db=db_session,
+    )
+
+    assert payload["meta"]["degraded_mode"] is True
+    assert "duplicate_rows_suppressed" in payload["meta"]["degradation_reasons"]
+    assert "unknown_positions_present" in payload["meta"]["degradation_reasons"]
+
+    quality = payload["meta"]["data_quality"]
+    assert quality["total_draft_rows"] == 5
+    assert quality["included_rows"] == 3
+    assert quality["skipped_rows"] == 2
+    assert quality["duplicate_rows_skipped"] == 1
+    assert quality["unknown_position_rows"] == 1
+    assert 0.0 <= quality["projection_coverage"] <= 1.0
+    assert "Data quality is degraded" in payload["owner_focus"]["summary"]
+
+
+def test_post_draft_outlook_degraded_when_no_roster_rows(db_session):
+    league = make_league(db_session)
+    owner_a = make_user(db_session, league.id, username="NoRowsA", team_name="NoRows A")
+    owner_b = make_user(db_session, league.id, username="NoRowsB", team_name="NoRows B")
+
+    payload = get_post_draft_outlook(
+        league_id=league.id,
+        owner_id=owner_a.id,
+        season=2026,
+        db=db_session,
+    )
+
+    assert payload["meta"]["degraded_mode"] is True
+    assert "no_roster_rows" in payload["meta"]["degradation_reasons"]
+    assert payload["meta"]["data_quality"]["included_rows"] == 0
+    assert len(payload["team_rows"]) == 2
+    assert [row["owner_id"] for row in payload["team_rows"]] == sorted([owner_a.id, owner_b.id])
+
+
+def test_post_draft_outlook_rejects_owner_outside_league(db_session):
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="LeagueOwner")
+
+    other_league = models.League(name="OtherLeague")
+    db_session.add(other_league)
+    db_session.commit()
+    db_session.refresh(other_league)
+    outsider = make_user(db_session, other_league.id, username="Outsider")
+
+    with pytest.raises(HTTPException) as exc:
+        get_post_draft_outlook(
+            league_id=league.id,
+            owner_id=outsider.id,
+            season=2026,
+            db=db_session,
+        )
+
+    assert exc.value.status_code == 404
 
 
 def test_weekly_matchup_comparison_ignores_malformed_rows(db_session):

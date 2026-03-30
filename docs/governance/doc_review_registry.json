@@ -510,6 +510,66 @@
     "last_reviewed": "2026-03-29"
   },
   {
+    "path": "docs/ISSUE_112_EXECUTION_PLAN.md",
+    "owner": "product",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/EXECUTION_BOARD_360_SNAPSHOT.md",
+    "owner": "data",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/READY_103_112_FOR_PR364.md",
+    "owner": "data",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/phase1/ARTIFACT_PR_CHECKLISTS_361_363.md",
+    "owner": "qa",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/phase1/103/artifact-01-canonicalization-spec.md",
+    "owner": "data",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/phase1/103/artifact-01-quality-gates.md",
+    "owner": "qa",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/phase1/104/artifact-01-budget-timeline-spec.md",
+    "owner": "data",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/phase1/104/artifact-01-reconciliation-rules.md",
+    "owner": "data",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/phase1/105/artifact-01-correction-ledger-schema.md",
+    "owner": "data",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/ml/phase1/105/artifact-01-draft-validator-spec.md",
+    "owner": "data",
+    "cadence_days": 14,
+    "last_reviewed": "2026-03-29"
+  },
+  {
     "path": "docs/TRADE_QA_REGRESSION_2026-03-30.md",
     "owner": "qa",
     "cadence_days": 30,
