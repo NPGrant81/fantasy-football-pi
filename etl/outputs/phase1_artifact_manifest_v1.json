@@ -2,11 +2,11 @@
   "generated_at": "2026-03-30T02:42:17.736933+00:00",
   "source_mode": "postgres",
   "sources": {
-    "players": "etl/outputs/_source_snapshots/players.csv",
-    "positions": "etl/outputs/_source_snapshots/positions.csv",
-    "users": "etl/outputs/_source_snapshots/users.csv",
-    "draft_budget": "etl/outputs/_source_snapshots/draft_budget.csv",
-    "draft_results": "etl/outputs/_source_snapshots/draft_results.csv"
+    "players": null,
+    "positions": null,
+    "users": null,
+    "draft_budget": null,
+    "draft_results": null
   },
   "artifacts": {
     "361_player_metadata": {

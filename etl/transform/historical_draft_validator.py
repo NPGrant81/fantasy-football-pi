@@ -144,9 +144,8 @@ def validate_historical_draft_results(
                 "player_id": _to_int(row["player_id"]),
             })
 
-    valid_row_mask = working["source_row_number"].apply(
-        lambda row_no: not any(err["source_row_number"] == int(row_no) for err in validation_errors)
-    )
+    invalid_row_numbers = {int(err["source_row_number"]) for err in validation_errors}
+    valid_row_mask = ~working["source_row_number"].astype(int).isin(invalid_row_numbers)
     valid_df = working.loc[valid_row_mask].copy()
 
     if not duplicates.empty:
