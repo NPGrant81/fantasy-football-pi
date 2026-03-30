@@ -83,6 +83,10 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("engineering", "architecture")
     if rel.startswith("docs/gaps/"):
         return ("product", "gap-analysis")
+    if rel.startswith("docs/ml/"):
+        return ("data", "ml-artifact")
+    if rel.startswith("docs/issue_"):
+        return ("product", "tracking")
 
     name = Path(rel).name
     if any(token in name for token in ["api_", "draft_day_advisor", "player_api_filtering", "model-serving", "backend_ci_pipeline"]):
