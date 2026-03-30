@@ -847,6 +847,58 @@ class TradeProposal(Base):
     created_at = Column(String, nullable=True)
 
 
+# --- 13.5 TRADES (NEW WORKFLOW FOUNDATION) ---
+class Trade(Base):
+    __tablename__ = "trades"
+    __table_args__ = (
+        Index("ix_trades_league_status", "league_id", "status"),
+        Index("ix_trades_submitted_at", "submitted_at"),
+        Index("ix_trades_teams", "team_a_id", "team_b_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False, index=True)
+    team_a_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    team_b_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    status = Column(String(16), nullable=False, default="PENDING", index=True)
+    commissioner_comments = Column(String, nullable=True)
+    submitted_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejected_at = Column(DateTime(timezone=True), nullable=True)
+
+    league = relationship("League")
+    team_a = relationship("User", foreign_keys=[team_a_id])
+    team_b = relationship("User", foreign_keys=[team_b_id])
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
+    assets = relationship("TradeAsset", back_populates="trade", cascade="all, delete-orphan")
+
+
+class TradeAsset(Base):
+    __tablename__ = "trade_assets"
+    __table_args__ = (
+        Index("ix_trade_assets_trade_side", "trade_id", "asset_side"),
+        Index("ix_trade_assets_type", "asset_type"),
+        Index("ix_trade_assets_player", "player_id"),
+        Index("ix_trade_assets_draft_pick", "draft_pick_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    trade_id = Column(Integer, ForeignKey("trades.id"), nullable=False, index=True)
+    asset_side = Column(String(1), nullable=False)  # A or B
+    asset_type = Column(String(32), nullable=False)  # PLAYER, DRAFT_PICK, DRAFT_DOLLARS
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=True)
+    draft_pick_id = Column(Integer, ForeignKey("draft_picks.id"), nullable=True)
+    amount = Column(Numeric, nullable=True)
+    season_year = Column(Integer, nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    trade = relationship("Trade", back_populates="assets")
+    player = relationship("Player")
+    draft_pick = relationship("DraftPick")
+
+
 # --- 14. UNMATCHED PLAYERS (Dead Letter Queue) ---
 class UnmatchedPlayer(Base):
     __tablename__ = "unmatched_players"
