@@ -320,6 +320,56 @@ def submit_trade_v2(
     if not validation_report.valid:
         raise HTTPException(status_code=400, detail=validation_report.errors)
 
+    # Validate player ownership at submission time so unexecutable trades
+    # do not enter the pending queue.
+    player_ids_from_a = {
+        int(asset.player_id)
+        for asset in payload.assets_from_a
+        if (asset.asset_type or "").strip().upper() == "PLAYER" and asset.player_id is not None
+    }
+    player_ids_from_b = {
+        int(asset.player_id)
+        for asset in payload.assets_from_b
+        if (asset.asset_type or "").strip().upper() == "PLAYER" and asset.player_id is not None
+    }
+    involved_player_ids = player_ids_from_a | player_ids_from_b
+    if involved_player_ids:
+        ownership_rows = (
+            db.query(models.DraftPick.player_id, models.DraftPick.owner_id)
+            .filter(
+                models.DraftPick.league_id == league_id,
+                models.DraftPick.owner_id.in_([payload.team_a_id, payload.team_b_id]),
+                models.DraftPick.player_id.in_(involved_player_ids),
+            )
+            .all()
+        )
+        owned_player_ids_by_team: dict[int, set[int]] = {
+            int(payload.team_a_id): set(),
+            int(payload.team_b_id): set(),
+        }
+        for player_id, owner_id in ownership_rows:
+            if player_id is None:
+                continue
+            owner_id_int = int(owner_id)
+            if owner_id_int in owned_player_ids_by_team:
+                owned_player_ids_by_team[owner_id_int].add(int(player_id))
+
+        missing_for_a = player_ids_from_a - owned_player_ids_by_team[int(payload.team_a_id)]
+        missing_for_b = player_ids_from_b - owned_player_ids_by_team[int(payload.team_b_id)]
+        if missing_for_a or missing_for_b:
+            detail_parts: list[str] = []
+            if missing_for_a:
+                detail_parts.append(
+                    f"Team {payload.team_a_id} does not own player(s): "
+                    + ", ".join(str(pid) for pid in sorted(missing_for_a))
+                )
+            if missing_for_b:
+                detail_parts.append(
+                    f"Team {payload.team_b_id} does not own player(s): "
+                    + ", ".join(str(pid) for pid in sorted(missing_for_b))
+                )
+            raise HTTPException(status_code=400, detail="; ".join(detail_parts))
+
     trade = models.Trade(
         league_id=league_id,
         team_a_id=payload.team_a_id,

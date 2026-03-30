@@ -180,12 +180,6 @@ def _parse_since_timestamp(value: str | None) -> datetime | None:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid since timestamp. Use ISO-8601 format.") from exc
 
-
-# Note: Sentiment logic is centralized in backend.services.player_news_service.sentiment_from_text
-# to avoid duplication. For league news draft items (title-only), use that helper:
-from backend.services.player_news_service import sentiment_from_text as _sentiment_from_text
-
-
 def _news_sentiment(title: str) -> tuple[float, str, List[str]]:
     """Wrapper around centralized sentiment logic for league draft events."""
     return _sentiment_from_text(title=title)

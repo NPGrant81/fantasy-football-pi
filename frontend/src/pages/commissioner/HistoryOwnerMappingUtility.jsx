@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiAlertTriangle,
@@ -281,6 +281,7 @@ function downloadTextFile(filename, content, mimeType = 'text/plain;charset=utf-
 
 export default function HistoryOwnerMappingUtility() {
   const leagueId = useActiveLeague();
+  const loadRequestRef = useRef(0);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -311,7 +312,13 @@ export default function HistoryOwnerMappingUtility() {
   const [timelineOnlyMultiStint, setTimelineOnlyMultiStint] = useState(false);
 
   const loadPageData = useCallback(async () => {
+    const requestId = loadRequestRef.current + 1;
+    loadRequestRef.current = requestId;
+
+    const isCurrentRequest = () => loadRequestRef.current === requestId;
+
     if (!leagueId) {
+      if (!isCurrentRequest()) return;
       setError('No active league selected.');
       setLoading(false);
       return;
@@ -324,6 +331,8 @@ export default function HistoryOwnerMappingUtility() {
         apiClient.get(`/leagues/${Number(leagueId)}/history/unmapped-series-keys`),
       ]);
 
+      if (!isCurrentRequest()) return;
+
       setOwners(Array.isArray(ownersRes.data) ? ownersRes.data : []);
       setMappingRows(Array.isArray(mappingRes?.data?.mappings) ? mappingRes.data.mappings : []);
       setUnmappedSeriesKeys(Array.isArray(unmappedRes?.data?.unmapped) ? unmappedRes.data.unmapped : []);
@@ -331,17 +340,22 @@ export default function HistoryOwnerMappingUtility() {
       setOwnerGapLoadError('');
       try {
         const ownerGapRes = await fetchOwnerGapReportWithRetry(leagueId);
+        if (!isCurrentRequest()) return;
         setOwnerGapReport(ownerGapRes?.data || null);
       } catch (ownerGapErr) {
+        if (!isCurrentRequest()) return;
         setOwnerGapReport(null);
         setOwnerGapLoadError(ownerGapErr.response?.data?.detail || 'Owner gap report is temporarily unavailable.');
         // Allow commissioners to continue working even if diagnostics endpoint is down.
         setShowTools(true);
       }
+      if (!isCurrentRequest()) return;
       setError('');
     } catch (err) {
+      if (!isCurrentRequest()) return;
       setError(err.response?.data?.detail || 'Failed to load historical mapping utility.');
     } finally {
+      if (!isCurrentRequest()) return;
       setLoading(false);
     }
   }, [leagueId]);

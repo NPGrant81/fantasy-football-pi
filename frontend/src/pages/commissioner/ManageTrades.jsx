@@ -172,6 +172,7 @@ export default function ManageTrades() {
                     <td className={tableCell}>
                       <textarea
                         rows={2}
+                        aria-label={`Commissioner comments for trade ${trade.id}`}
                         className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-200"
                         placeholder="Optional commissioner comment"
                         value={actionComments[trade.id] || ''}

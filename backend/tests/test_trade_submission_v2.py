@@ -156,3 +156,31 @@ def test_submit_trade_v2_requires_current_user_on_trade_team():
         submit_trade_v2(league.id, payload, db=db, current_user=CU(outsider))
 
     assert exc.value.status_code == 403
+
+
+def test_submit_trade_v2_rejects_player_not_owned_by_offering_team():
+    db = setup_db()
+    league = make_league(db)
+    db.add(models.LeagueSettings(league_id=league.id, roster_size=16, trade_deadline=None))
+    db.commit()
+
+    team_a = make_user(db, league, "team-a-ownership", budget=30)
+    team_b = make_user(db, league, "team-b-ownership", budget=20)
+
+    player_a = make_player(db, "A Ownership Player", position="RB")
+    player_b = make_player(db, "B Ownership Player", position="WR")
+    make_pick(db, league.id, team_a.id, player_a.id)
+    make_pick(db, league.id, team_b.id, player_b.id)
+
+    payload = TradeSubmissionCreate(
+        team_a_id=team_a.id,
+        team_b_id=team_b.id,
+        assets_from_a=[TradeAssetCreate(asset_type="PLAYER", player_id=player_b.id)],
+        assets_from_b=[TradeAssetCreate(asset_type="PLAYER", player_id=player_a.id)],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        submit_trade_v2(league.id, payload, db=db, current_user=CU(team_a))
+
+    assert exc.value.status_code == 400
+    assert "does not own player" in str(exc.value.detail)
