@@ -46,6 +46,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     nfl = importlib.import_module("backend.routers.nfl")
     playoffs = importlib.import_module("backend.routers.playoffs")
     analytics = importlib.import_module("backend.routers.analytics")
+    news = importlib.import_module("backend.routers.news")
     keepers = importlib.import_module("backend.routers.keepers")
     divisions = importlib.import_module("backend.routers.divisions")
     scoring = importlib.import_module("backend.routers.scoring")
@@ -56,6 +57,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     get_password_hash = secmod.get_password_hash
     check_is_commissioner = secmod.check_is_commissioner
     watchdog_service = importlib.import_module("backend.services.live_scoring_watchdog_service")
+    player_news_scheduler_service = importlib.import_module("backend.services.player_news_scheduler_service")
     run_seeder = importlib.import_module("backend.scripts.seed").run_seeder
 else:
     # normal package imports
@@ -63,10 +65,11 @@ else:
     from .database import engine, SessionLocal
     from .core.security import get_password_hash, check_is_commissioner
     from .services import live_scoring_watchdog_service as watchdog_service
+    from .services import player_news_scheduler_service
     from .scripts.seed import run_seeder
     from .routers import (
         admin, admin_tools, team, matchups, league, advisor,
-        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, keepers, divisions, scoring
+        dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, news, keepers, divisions, scoring
     )
 
 load_dotenv()
@@ -147,6 +150,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Warning: Could not start live scoring watchdog scheduler: {e}")
 
+    try:
+        player_news_scheduler_service.start_player_news_ingest_scheduler()
+    except Exception as e:
+        print(f"Warning: Could not start player news ingest scheduler: {e}")
+
     yield
 
     # --- shutdown portion ---
@@ -155,6 +163,11 @@ async def lifespan(app: FastAPI):
         watchdog_service.stop_live_scoring_watchdog_scheduler()
     except Exception as e:
         print(f"Warning: Could not stop live scoring watchdog scheduler: {e}")
+
+    try:
+        player_news_scheduler_service.stop_player_news_ingest_scheduler()
+    except Exception as e:
+        print(f"Warning: Could not stop player news ingest scheduler: {e}")
 
 app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
 
@@ -331,6 +344,7 @@ app.include_router(
 )
 # analytics endpoints are public to league members (authorization can be added later)
 app.include_router(analytics.router)
+app.include_router(news.router)
 # ADMIN TOOLS: commissioner‑level maintenance helpers (schedule import, etc.)
 app.include_router(admin_tools.router)
 

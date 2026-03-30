@@ -37,7 +37,7 @@ describe('LeagueAdvisor (chat)', () => {
 
     // Type a message into the input
     const input = await screen.findByPlaceholderText(
-      /Search players or ask advice/i
+      /Ask strategy or league history|Search players or ask advice/i
     );
     fireEvent.change(input, { target: { value: 'Who should I draft?' } });
 

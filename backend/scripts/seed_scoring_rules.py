@@ -69,8 +69,8 @@ def seed(league_id: int = DEFAULT_LEAGUE_ID) -> None:
             print(
                 f"Scoring rules already seeded for league {league_id} "
                 f"({existing_count} rows present) — skipping.\n"
-                f"To re-import, delete existing rules first:\n"
-                f"  DELETE FROM scoring_rules WHERE league_id = {league_id};"
+                "To re-import, remove existing league scoring rules first "
+                "using your DB admin workflow."
             )
             return
 

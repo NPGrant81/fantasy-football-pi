@@ -56,6 +56,7 @@ def _dataset_checks(db: Session) -> list[CheckResult]:
         "player_weekly_stats_total": "SELECT COUNT(*) FROM player_weekly_stats",
         "scoring_rules": "SELECT COUNT(*) FROM scoring_rules",
         "draft_picks": "SELECT COUNT(*) FROM draft_picks",
+        "draft_budgets": "SELECT COUNT(*) FROM draft_budgets",
     }
 
     out: list[CheckResult] = []
@@ -69,14 +70,20 @@ def _dataset_checks(db: Session) -> list[CheckResult]:
         except Exception as exc:
             out.append(CheckResult(name=f"dataset:{label}", status="FAIL", details=str(exc)))
 
-    data_dir = Path(__file__).resolve().parents[1] / "backend" / "data"
-    csv_files = ["draft_results.csv", "players.csv", "historical_rankings.csv", "draft_budget.csv"]
-    for filename in csv_files:
-        path = data_dir / filename
+    exports_dir = Path(__file__).resolve().parents[1] / "backend" / "exports"
+    export_files = ["historical_rankings.csv"]
+    for filename in export_files:
+        path = exports_dir / filename
         if path.exists() and path.stat().st_size > 0:
-            out.append(CheckResult(name=f"dataset_csv:{filename}", status="PASS", details=f"size={path.stat().st_size}"))
+            out.append(CheckResult(name=f"optional_export:{filename}", status="PASS", details=f"size={path.stat().st_size}"))
         else:
-            out.append(CheckResult(name=f"dataset_csv:{filename}", status="FAIL", details="missing or empty"))
+            out.append(
+                CheckResult(
+                    name=f"optional_export:{filename}",
+                    status="WARN",
+                    details="missing or empty (not required for runtime APIs)",
+                )
+            )
 
     return out
 
@@ -196,7 +203,7 @@ def _endpoint_source_map() -> list[tuple[str, str]]:
         ),
         (
             "/draft/simulation",
-            "CSV files: backend/data/draft_results.csv, players.csv, historical_rankings.csv, draft_budget.csv",
+            "PostgreSQL: draft_picks, players, draft_values, draft_budgets, league users",
         ),
     ]
 
@@ -251,7 +258,7 @@ def build_report() -> tuple[str, list[CheckResult], list[CheckResult]]:
     lines.append("## Findings")
     lines.append("")
     lines.append("- `WARN` on sparse historical datasets means endpoint may function but output quality may be reduced.")
-    lines.append("- `/draft/simulation` health depends on CSV freshness/shape, not only PostgreSQL values.")
+    lines.append("- `/draft/simulation` now runs from PostgreSQL-backed league data; legacy exports are optional diagnostics only.")
 
     return "\n".join(lines) + "\n", dataset_results, api_results
 

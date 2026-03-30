@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import secrets
+import logging
 from datetime import datetime
 
 import pytest
@@ -11,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
 from fastapi import HTTPException
-from backend.routers.league import get_league_budgets, get_league_settings, update_league_budgets, BudgetUpdateRequest, BudgetEntry, DraftYearUpdateRequest, set_league_draft_year, get_ledger_statement, LeagueConfigFull, ScoringRuleSchema, validate_lineup_rules, canonicalize_lineup_slots, get_matchup_records, get_history_team_owner_map, upsert_history_team_owner_map, HistoryTeamOwnerMapUpsertRequest, HistoryTeamOwnerMapUpsertItem, get_all_time_series_records, ask_history_question, HistoryQuestionRequest, delete_history_team_owner_map_row, get_unmapped_series_keys, join_league
+from backend.routers.league import get_league_budgets, get_league_settings, update_league_budgets, BudgetUpdateRequest, BudgetEntry, DraftYearUpdateRequest, set_league_draft_year, get_ledger_statement, LeagueConfigFull, ScoringRuleSchema, validate_lineup_rules, canonicalize_lineup_slots, get_matchup_records, get_history_team_owner_map, upsert_history_team_owner_map, HistoryTeamOwnerMapUpsertRequest, HistoryTeamOwnerMapUpsertItem, get_all_time_series_records, ask_history_question, HistoryQuestionRequest, delete_history_team_owner_map_row, get_unmapped_series_keys, get_history_owner_gap_report, join_league
 from backend.routers.draft import _get_owner_total_budget
 
 
@@ -724,6 +725,50 @@ def test_get_matchup_records_dedupes_and_enriches_owner_names(db_session):
     assert first["away_owner_name"] == "history-user"
 
 
+def test_get_matchup_records_ignores_placeholder_owner_mapping_when_user_fallback_exists(db_session):
+    league = make_league(db_session)
+    current_user = make_user(db_session, league, "history-user", "Step Brothers")
+
+    make_user(db_session, league, "chester", "Tuamanji")
+
+    db_session.add(
+        models.LeagueHistoryTeamOwnerMap(
+            league_id=league.id,
+            season=2023,
+            team_name="Tuamanji",
+            team_name_key="tuamanji",
+            owner_name="Tuamanji",
+        )
+    )
+
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_matchup_records_normalized",
+            season=2023,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="match-placeholder-owner",
+            record_json={
+                "record_year": 2023,
+                "record_week": 13,
+                "away_franchise_raw": "Step Brothers",
+                "away_points": 445.4,
+                "home_franchise_raw": "Tuamanji",
+                "home_points": 606.8,
+                "combined_score": 1052.2,
+            },
+        )
+    )
+    db_session.commit()
+
+    response = get_matchup_records(league_id=league.id, db=db_session, current_user=current_user)
+
+    assert response.count == 1
+    first = response.records[0]
+    assert first["home_owner_name"] == "chester"
+
+
 def test_get_matchup_records_denies_other_league_access(db_session):
     league_a = make_league(db_session)
     league_b = make_league(db_session)
@@ -735,6 +780,47 @@ def test_get_matchup_records_denies_other_league_access(db_session):
         get_matchup_records(league_id=league_b.id, db=db_session, current_user=user_a)
 
     assert exc.value.status_code == 403
+
+
+def test_get_matchup_records_ignores_malformed_record_json_rows(db_session):
+    league = make_league(db_session)
+    current_user = make_user(db_session, league, "match-malformed", "Good Team")
+
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_matchup_records_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="match-malformed-1",
+            record_json="bad-match-payload",
+        )
+    )
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_matchup_records_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="match-valid-1",
+            record_json={
+                "record_year": 2024,
+                "record_week": 1,
+                "away_franchise_raw": "Good Team",
+                "away_points": 101.5,
+                "home_franchise_raw": "Other Team",
+                "home_points": 95.3,
+                "combined_score": 196.8,
+            },
+        )
+    )
+    db_session.commit()
+
+    response = get_matchup_records(league_id=league.id, db=db_session, current_user=current_user)
+    assert response.count == 1
+    assert response.records[0]["record_week"] == 1
 
 
 def test_upsert_and_list_history_team_owner_map(db_session):
@@ -970,6 +1056,255 @@ def test_get_unmapped_series_keys(db_session):
     assert result["unmapped"][0]["source_token"] == "mfl o 200"
     assert result["unmapped"][0]["record_count"] == 1
     assert result["mapped_count"] == 0
+
+
+def test_get_all_time_series_records_ignores_malformed_record_json_rows(db_session):
+    league = make_league(db_session)
+    current_user = make_user(db_session, league, "series-malformed", "Good Team")
+
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_all_time_series_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="series-malformed-1",
+            record_json=["bad", "series", "payload"],
+        )
+    )
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_all_time_series_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="series-valid-1",
+            record_json={
+                "series_season": 2024,
+                "source_url": "https://www46.myfantasyleague.com/2026/options?L=11422&O=200",
+                "opponent_franchise_raw": "Other Team",
+                "season_w_l_t_raw": "1-0-0",
+                "total_w_l_t_raw": "3-1-0",
+                "total_pct": 0.75,
+            },
+        )
+    )
+    db_session.commit()
+
+    response = get_all_time_series_records(league_id=league.id, db=db_session, current_user=current_user)
+    assert response.count == 1
+    assert response.records[0]["series_season"] == 2024
+
+
+def test_get_history_owner_gap_report_surfaces_placeholder_and_unresolved_rows(db_session):
+    league = make_league(db_session)
+    current_user = make_user(db_session, league, "gap-reader", "Current Team")
+    make_user(db_session, league, "chester", "Tuamanji")
+
+    db_session.add(
+        models.LeagueHistoryTeamOwnerMap(
+            league_id=league.id,
+            season=2023,
+            team_name="Tuamanji",
+            team_name_key="tuamanji",
+            owner_name="Tuamanji",
+        )
+    )
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_matchup_records_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="owner-gap-match-1",
+            record_json={
+                "record_year": 2023,
+                "record_week": 8,
+                "away_franchise_raw": "Ghost Team",
+                "away_points": 101.2,
+                "home_franchise_raw": "Tuamanji",
+                "home_points": 111.4,
+                "combined_score": 212.6,
+            },
+        )
+    )
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_all_time_series_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="owner-gap-series-1",
+            record_json={
+                "series_season": 2023,
+                "source_url": "https://www46.myfantasyleague.com/2026/options?L=11422&O=200",
+                "opponent_franchise_raw": "Ghost Team",
+                "season_w_l_t_raw": "1-2-0",
+                "total_w_l_t_raw": "4-8-0",
+                "total_pct": 0.333,
+            },
+        )
+    )
+    db_session.commit()
+
+    result = get_history_owner_gap_report(league_id=league.id, db=db_session, current_user=current_user)
+
+    assert result["summary"]["placeholder_mapping_count"] == 1
+    assert result["summary"]["unresolved_match_team_count"] == 1
+    assert result["summary"]["unresolved_series_team_count"] == 1
+    assert result["summary"]["unresolved_series_source_token_count"] == 1
+    assert result["placeholder_mappings"][0]["team_name"] == "Tuamanji"
+    assert result["unresolved_match_teams"][0]["team_name"] == "Ghost Team"
+    assert result["unresolved_series_teams"][0]["team_name"] == "Ghost Team"
+    assert result["unresolved_series_source_tokens"][0]["source_token"] == "mfl o 200"
+    assert result["seasons"][0]["season"] == 2023
+
+
+def test_get_history_owner_gap_report_denies_other_league_access(db_session):
+    league_a = make_league(db_session)
+    league_b = make_league(db_session)
+
+    user_a = make_user(db_session, league_a, "gap-owner-a", "Team A")
+    make_user(db_session, league_b, "gap-owner-b", "Team B")
+
+    with pytest.raises(HTTPException) as exc:
+        get_history_owner_gap_report(league_id=league_b.id, db=db_session, current_user=user_a)
+
+    assert exc.value.status_code == 403
+
+
+def test_get_history_owner_gap_report_returns_empty_summary_without_history_rows(db_session):
+    league = make_league(db_session)
+    current_user = make_user(db_session, league, "gap-empty", "Gap Empty Team")
+
+    result = get_history_owner_gap_report(league_id=league.id, db=db_session, current_user=current_user)
+
+    assert result["league_id"] == league.id
+    assert result["summary"] == {
+        "placeholder_mapping_count": 0,
+        "unresolved_match_team_count": 0,
+        "unresolved_series_team_count": 0,
+        "unresolved_series_source_token_count": 0,
+        "season_count": 0,
+    }
+    assert result["seasons"] == []
+    assert result["placeholder_mappings"] == []
+    assert result["unresolved_match_teams"] == []
+    assert result["unresolved_series_teams"] == []
+    assert result["unresolved_series_source_tokens"] == []
+
+
+def test_get_history_owner_gap_report_ignores_malformed_record_json_rows(db_session, caplog):
+    league = make_league(db_session)
+    current_user = make_user(db_session, league, "gap-malformed", "Gap Malformed Team")
+
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_matchup_records_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="owner-gap-malformed-match-1",
+            record_json="bad-match-payload",
+        )
+    )
+    db_session.add(
+        models.MflHtmlRecordFact(
+            dataset_key="html_all_time_series_normalized",
+            season=2026,
+            target_league_id=league.id,
+            league_id=str(league.id),
+            normalization_version="v1",
+            row_fingerprint="owner-gap-malformed-series-1",
+            record_json=["bad", "series", "payload"],
+        )
+    )
+    db_session.commit()
+
+    with caplog.at_level(logging.WARNING, logger="backend.routers.league"):
+        result = get_history_owner_gap_report(league_id=league.id, db=db_session, current_user=current_user)
+
+    assert result["summary"] == {
+        "placeholder_mapping_count": 0,
+        "unresolved_match_team_count": 0,
+        "unresolved_series_team_count": 0,
+        "unresolved_series_source_token_count": 0,
+        "season_count": 0,
+    }
+    assert result["seasons"] == []
+    assert result["metadata"]["ignored_malformed_row_count"] == {
+        "match_records": 1,
+        "series_records": 1,
+    }
+    assert any("history owner gap report ignored malformed rows" in record.message for record in caplog.records)
+
+
+def test_get_history_owner_gap_report_applies_detail_and_season_limits(db_session):
+    league = make_league(db_session)
+    current_user = make_user(db_session, league, "gap-limited", "Gap Limited Team")
+
+    db_session.add_all(
+        [
+            models.MflHtmlRecordFact(
+                dataset_key="html_matchup_records_normalized",
+                season=2026,
+                target_league_id=league.id,
+                league_id=str(league.id),
+                normalization_version="v1",
+                row_fingerprint="owner-gap-limit-match-1",
+                record_json={
+                    "record_year": 2023,
+                    "record_week": 1,
+                    "away_franchise_raw": "Ghost Team A",
+                    "away_points": 100.0,
+                    "home_franchise_raw": "Home Team A",
+                    "home_points": 90.0,
+                    "combined_score": 190.0,
+                },
+            ),
+            models.MflHtmlRecordFact(
+                dataset_key="html_matchup_records_normalized",
+                season=2026,
+                target_league_id=league.id,
+                league_id=str(league.id),
+                normalization_version="v1",
+                row_fingerprint="owner-gap-limit-match-2",
+                record_json={
+                    "record_year": 2024,
+                    "record_week": 2,
+                    "away_franchise_raw": "Ghost Team B",
+                    "away_points": 102.0,
+                    "home_franchise_raw": "Home Team B",
+                    "home_points": 92.0,
+                    "combined_score": 194.0,
+                },
+            ),
+        ]
+    )
+    db_session.commit()
+
+    result = get_history_owner_gap_report(
+        league_id=league.id,
+        detail_limit=1,
+        season_limit=1,
+        db=db_session,
+        current_user=current_user,
+    )
+
+    assert result["summary"]["unresolved_match_team_count"] >= 2
+    assert len(result["unresolved_match_teams"]) == 1
+    assert len(result["seasons"]) == 1
+    assert result["metadata"]["response_limits"] == {
+        "detail_limit": 1,
+        "season_limit": 1,
+    }
+    assert result["metadata"]["truncated"]["unresolved_match_teams"] is True
+    assert result["metadata"]["truncated"]["seasons"] is True
 
 
 def test_ask_history_question_champion(db_session):

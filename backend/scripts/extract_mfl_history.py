@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 import requests
 

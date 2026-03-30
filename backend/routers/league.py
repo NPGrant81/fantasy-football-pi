@@ -11,6 +11,8 @@ from .. import models
 from ..core.security import get_current_user, check_is_commissioner # Use our new auth system
 from ..services.ledger_service import owner_balance, owner_draft_budget_total, owner_has_incoming_credits, record_ledger_entry
 from ..services.standings_service import owner_standings_sort_key
+from ..services.history_owner_gap_service import build_history_owner_gap_report
+from ..services import league_history_enrichment_service as history_enrichment_service
 from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.validation_service import (
     validate_league_settings_boundary,
@@ -49,6 +51,9 @@ class LeagueNewsItem(BaseModel):
     type: str
     title: str
     timestamp: str
+    sentiment_score: float = 0.0
+    sentiment_label: str = "neutral"
+    sentiment_tags: List[str] = []
 
 # --- Update the Request Schema ---
 class AddMemberRequest(BaseModel):
@@ -153,6 +158,55 @@ def _require_commissioner_in_league(current_user: models.User, league_id: int) -
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: commissioner can only manage their own league.",
         )
+
+
+def _normalize_news_timestamp(value: Any) -> str:
+    if value is None:
+        return "Just now"
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def _parse_since_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    try:
+        return datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid since timestamp. Use ISO-8601 format.") from exc
+
+
+def _news_sentiment(title: str) -> tuple[float, str, List[str]]:
+    text = (title or "").lower()
+    positive_terms = {"active", "healthy", "cleared", "boost", "upgraded", "surge", "breakout"}
+    negative_terms = {"out", "injury", "questionable", "doubtful", "limited", "suspended", "tear", "strain"}
+
+    pos = sum(1 for term in positive_terms if term in text)
+    neg = sum(1 for term in negative_terms if term in text)
+    if pos == 0 and neg == 0:
+        return 0.0, "neutral", []
+
+    score = (pos - neg) / max(1, (pos + neg))
+    if score > 0.2:
+        label = "positive"
+    elif score < -0.2:
+        label = "negative"
+    else:
+        label = "neutral"
+
+    tags: List[str] = []
+    if any(term in text for term in {"injury", "out", "questionable", "doubtful", "limited", "tear", "strain"}):
+        tags.append("injury")
+    if any(term in text for term in {"trade", "traded"}):
+        tags.append("trade")
+    if any(term in text for term in {"breakout", "surge", "boost", "upgraded"}):
+        tags.append("performance")
+
+    return round(float(score), 3), label, tags
 
 
 def canonicalize_lineup_slots(slots: Dict[str, int] | None) -> Dict[str, int]:
@@ -532,8 +586,19 @@ def get_league_by_id(league_id: int, db: Session = Depends(get_db)):
 def get_league_news(
     league_id: int,
     limit: int = Query(20, ge=1, le=100),
+    owner_id: Optional[int] = Query(None, ge=1),
+    since: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
+    # Support direct function invocation in unit tests where FastAPI parameter
+    # defaults can remain Query() objects.
+    if not isinstance(limit, int):
+        limit = int(getattr(limit, "default", 20))
+    if not isinstance(owner_id, int):
+        owner_id = None
+    if since is not None and not isinstance(since, str):
+        since = None
+
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
@@ -550,25 +615,73 @@ def get_league_news(
             ~models.User.username.like("hist_%"),
         )
         .order_by(desc(models.DraftPick.id))
-        .limit(limit)
+        .limit(max(limit * 5, 100))
         .all()
     )
 
+    since_dt = _parse_since_timestamp(since)
+
+    roster_player_ids: set[int] | None = None
+    if owner_id is not None:
+        # Build the owner's complete roster from ALL DraftPicks, not just limited news window,
+        # so we don't miss older rostered players outside the recent picks query.
+        owner_roster_rows = (
+            db.query(models.DraftPick)
+            .filter(
+                models.DraftPick.league_id == league_id,
+                models.DraftPick.owner_id == owner_id,
+                models.DraftPick.player_id.isnot(None),
+            )
+            .all()
+        )
+        roster_player_ids = {
+            pick.player_id
+            for pick in owner_roster_rows
+            if getattr(pick, "player_id", None) is not None
+            and getattr(pick, "owner_id", None) == owner_id
+            and getattr(pick, "league_id", None) == league_id
+        }
+
     items: List[LeagueNewsItem] = []
     for pick in picks:
+        if roster_player_ids is not None and pick.player_id not in roster_player_ids:
+            continue
+
         owner_name = pick.owner.username if pick.owner else "Unknown Owner"
         # Defense-in-depth: skip historical MFL-import users (primary guard is the join filter above)
         if owner_name.startswith("hist_"):
             continue
+
         player_name = _normalize_player_name(pick.player.name) if pick.player else "Unknown Player"
-        timestamp = pick.timestamp or "Just now"
+        timestamp = _normalize_news_timestamp(pick.timestamp)
+
+        if since_dt is not None:
+            # Treat missing/unparseable timestamps as older-than-since so they are skipped.
+            if isinstance(pick.timestamp, datetime):
+                pick_dt = pick.timestamp
+            elif pick.timestamp is not None:
+                pick_dt = _parse_since_timestamp(str(pick.timestamp))
+            else:
+                pick_dt = None
+            if pick_dt is None or pick_dt < since_dt:
+                continue
+
+        title = f"{owner_name} drafted {player_name} for ${pick.amount}"
+        sentiment_score, sentiment_label, sentiment_tags = _news_sentiment(title)
+
         items.append(
             LeagueNewsItem(
                 type="info",
-                title=f"{owner_name} drafted {player_name} for ${pick.amount}",
+                title=title,
                 timestamp=timestamp,
+                sentiment_score=sentiment_score,
+                sentiment_label=sentiment_label,
+                sentiment_tags=sentiment_tags,
             )
         )
+
+        if len(items) >= limit:
+            break
 
     return items
 
@@ -664,6 +777,17 @@ def join_league(league_id: int, current_user: models.User = Depends(get_current_
     league = db.query(models.League).filter(models.League.id == league_id).first()
     if not league:
         raise HTTPException(status_code=404, detail="League not found")
+
+    previous_league_id = current_user.league_id
+    logger.info(
+        "league context transition",
+        extra={
+            "user_id": current_user.id,
+            "previous_league_id": previous_league_id,
+            "target_league_id": league_id,
+            "is_superuser": bool(current_user.is_superuser),
+        },
+    )
 
     current_user.league_id = league_id
     db.commit()
@@ -1520,7 +1644,11 @@ def _safe_record_float(record: Dict[str, Any], *keys: str) -> float:
 
 
 def _normalize_history_team_key(value: Any) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+    return history_enrichment_service.normalize_history_team_key(value)
+
+
+def _owner_label_is_placeholder(owner_label: Any, team_name: Any) -> bool:
+    return history_enrichment_service.owner_label_is_placeholder(owner_label, team_name)
 
 
 def _resolve_mapped_owner_name(
@@ -1531,22 +1659,13 @@ def _resolve_mapped_owner_name(
     map_by_team_key: Dict[str, List[tuple[int, str]]],
     user_owner_by_team_key: Dict[str, str],
 ) -> str:
-    team_key = _normalize_history_team_key(team_name)
-    if not team_key:
-        return "-"
-    mapped = map_by_season_key.get((year, team_key))
-    if mapped:
-        return mapped
-    season_candidates = map_by_team_key.get(team_key, [])
-    if season_candidates:
-        # Prefer nearest mapped season; tie-break toward more recent seasons.
-        _, nearest_owner = min(
-            season_candidates,
-            key=lambda item: (abs(item[0] - year), -item[0]),
-        )
-        if nearest_owner:
-            return nearest_owner
-    return user_owner_by_team_key.get(team_key, "-")
+    return history_enrichment_service.resolve_mapped_owner_name(
+        year=year,
+        team_name=team_name,
+        map_by_season_key=map_by_season_key,
+        map_by_team_key=map_by_team_key,
+        user_owner_by_team_key=user_owner_by_team_key,
+    )
 
 
 def _build_owner_mapping_indexes(
@@ -1559,57 +1678,71 @@ def _build_owner_mapping_indexes(
     Dict[str, List[tuple[int, str]]],
     Dict[str, str],
 ]:
-    mapping_rows = (
-        db.query(models.LeagueHistoryTeamOwnerMap)
-        .filter(models.LeagueHistoryTeamOwnerMap.league_id == league_id)
-        .all()
-    )
-    owner_by_season_key: Dict[tuple[int, str], str] = {}
-    team_by_season_key: Dict[tuple[int, str], str] = {}
-    owner_by_team_key: Dict[str, List[tuple[int, str]]] = {}
-    for mapping in mapping_rows:
-        mapping_key = str(mapping.team_name_key or "").strip()
-        if not mapping_key:
-            continue
-        mapping_season = int(mapping.season)
-        team_by_season_key[(mapping_season, mapping_key)] = str(mapping.team_name or "").strip() or mapping_key
-        owner_label = (
-            str(mapping.owner_name or "").strip()
-            or str(getattr(mapping.owner, "username", "") or "").strip()
-            or str(getattr(mapping.owner, "team_name", "") or "").strip()
-        )
-        if owner_label:
-            owner_by_season_key[(mapping_season, mapping_key)] = owner_label
-            owner_by_team_key.setdefault(mapping_key, []).append((mapping_season, owner_label))
-
-    for mapping_key, season_rows in owner_by_team_key.items():
-        owner_by_team_key[mapping_key] = sorted(season_rows, key=lambda item: item[0])
-
-    user_owner_by_team_key: Dict[str, str] = {}
-    users = db.query(models.User).filter(models.User.league_id == league_id).all()
-    for user in users:
-        owner_label = str(user.username or user.team_name or f"Owner {user.id}").strip()
-        for candidate in (user.team_name, user.username):
-            key = _normalize_history_team_key(candidate)
-            if key and key not in user_owner_by_team_key:
-                user_owner_by_team_key[key] = owner_label
-
-    return owner_by_season_key, team_by_season_key, owner_by_team_key, user_owner_by_team_key
+    return history_enrichment_service.build_owner_mapping_indexes(db, league_id=league_id)
 
 
 def _extract_mfl_options_token(source_url: Any) -> str:
-    raw = str(source_url or "").strip()
-    if not raw:
-        return ""
-    try:
-        parsed = urlparse(raw)
-        query = parse_qs(parsed.query)
-        report_code = str((query.get("O") or query.get("o") or [""])[0]).strip()
-        if report_code:
-            return _normalize_history_team_key(f"mfl_o_{report_code}")
-    except Exception:
-        return ""
-    return ""
+    return history_enrichment_service.extract_mfl_options_token(source_url)
+
+
+def _build_history_owner_gap_report(
+    db: Session,
+    *,
+    league_id: int,
+    detail_limit: int | None = None,
+    season_limit: int | None = None,
+) -> Dict[str, Any]:
+    owner_by_season_key, team_by_season_key, owner_by_team_key, user_owner_by_team_key = _build_owner_mapping_indexes(
+        db,
+        league_id=league_id,
+    )
+
+    mapping_rows = (
+        db.query(models.LeagueHistoryTeamOwnerMap)
+        .filter(models.LeagueHistoryTeamOwnerMap.league_id == league_id)
+        .order_by(desc(models.LeagueHistoryTeamOwnerMap.season), models.LeagueHistoryTeamOwnerMap.team_name.asc())
+        .all()
+    )
+    match_records = _historical_records_query(
+        db,
+        dataset_key="html_matchup_records_normalized",
+        league_id=league_id,
+    ).all()
+    raw_match_rows = [r.record_json for r in match_records]
+    malformed_match_row_count = sum(1 for row in raw_match_rows if not isinstance(row, dict))
+    deduped_match_rows = _dedupe_and_enrich_match_records(
+        rows=raw_match_rows,
+        map_by_season_key=owner_by_season_key,
+        map_by_team_key=owner_by_team_key,
+        user_owner_by_team_key=user_owner_by_team_key,
+        limit=None,
+    )
+    series_records = _historical_records_query(
+        db,
+        dataset_key="html_all_time_series_normalized",
+        league_id=league_id,
+    ).all()
+    raw_series_rows = [r.record_json for r in series_records]
+    malformed_series_row_count = sum(1 for row in raw_series_rows if not isinstance(row, dict))
+    deduped_series_rows = _dedupe_and_enrich_all_time_series_records(
+        rows=raw_series_rows,
+        owner_by_season_key=owner_by_season_key,
+        team_by_season_key=team_by_season_key,
+        owner_by_team_key=owner_by_team_key,
+        user_owner_by_team_key=user_owner_by_team_key,
+        limit=None,
+    )
+    return build_history_owner_gap_report(
+        league_id=league_id,
+        mapping_rows=mapping_rows,
+        deduped_match_rows=deduped_match_rows,
+        deduped_series_rows=deduped_series_rows,
+        malformed_match_row_count=malformed_match_row_count,
+        malformed_series_row_count=malformed_series_row_count,
+        detail_limit=detail_limit,
+        season_limit=season_limit,
+        logger=logger,
+    )
 
 
 def _dedupe_and_enrich_all_time_series_records(
@@ -1621,60 +1754,14 @@ def _dedupe_and_enrich_all_time_series_records(
     user_owner_by_team_key: Dict[str, str],
     limit: int | None,
 ) -> List[Dict[str, Any]]:
-    deduped: Dict[tuple[Any, ...], Dict[str, Any]] = {}
-    for row in rows:
-        season_year = _safe_record_int(row, "series_season", "record_year", "season")
-        opponent_team = str(row.get("opponent_franchise_raw") or row.get("opponent") or "Unknown").strip()
-        perspective_token = _extract_mfl_options_token(row.get("source_url") or row.get("source_href"))
-
-        perspective_owner = owner_by_season_key.get((season_year, perspective_token), "-") if perspective_token else "-"
-        perspective_team = team_by_season_key.get((season_year, perspective_token), "-") if perspective_token else "-"
-        if perspective_owner == "-" and perspective_team != "-":
-            perspective_owner = _resolve_mapped_owner_name(
-                year=season_year,
-                team_name=perspective_team,
-                map_by_season_key=owner_by_season_key,
-                map_by_team_key=owner_by_team_key,
-                user_owner_by_team_key=user_owner_by_team_key,
-            )
-
-        opponent_owner = _resolve_mapped_owner_name(
-            year=season_year,
-            team_name=opponent_team,
-            map_by_season_key=owner_by_season_key,
-            map_by_team_key=owner_by_team_key,
-            user_owner_by_team_key=user_owner_by_team_key,
-        )
-
-        record = dict(row)
-        record["perspective_owner_name"] = perspective_owner
-        record["perspective_team_name"] = perspective_team
-        record["opponent_owner_name"] = opponent_owner
-        record["opponent_team_name"] = opponent_team
-        record["perspective_source_key"] = perspective_token or "-"
-
-        key = (
-            season_year,
-            perspective_token or "-",
-            _normalize_history_team_key(opponent_team),
-            str(row.get("season_w_l_t_raw") or "-"),
-            str(row.get("total_w_l_t_raw") or "-"),
-        )
-        if key in deduped:
-            continue
-        deduped[key] = record
-
-    data = list(deduped.values())
-    data.sort(
-        key=lambda record: (
-            _safe_record_float(record, "total_pct"),
-            _safe_record_int(record, "series_season", "season"),
-        ),
-        reverse=True,
+    return history_enrichment_service.dedupe_and_enrich_all_time_series_records(
+        rows=rows,
+        owner_by_season_key=owner_by_season_key,
+        team_by_season_key=team_by_season_key,
+        owner_by_team_key=owner_by_team_key,
+        user_owner_by_team_key=user_owner_by_team_key,
+        limit=limit,
     )
-    if limit is not None:
-        return data[:limit]
-    return data
 
 
 def _dedupe_and_enrich_match_records(
@@ -1685,60 +1772,13 @@ def _dedupe_and_enrich_match_records(
     user_owner_by_team_key: Dict[str, str],
     limit: int | None,
 ) -> List[Dict[str, Any]]:
-    deduped: Dict[tuple[Any, ...], Dict[str, Any]] = {}
-    for row in rows:
-        year = _safe_record_int(row, "record_year", "season", "year")
-        week = _safe_record_int(row, "record_week", "week")
-        away_team = str(row.get("away_franchise_raw") or row.get("away_team") or "Unknown").strip()
-        home_team = str(row.get("home_franchise_raw") or row.get("home_team") or "Unknown").strip()
-        away_score = _safe_record_float(row, "away_points", "away_score")
-        home_score = _safe_record_float(row, "home_points", "home_score")
-        combined = _safe_record_float(row, "combined_score", "combined", "total_points")
-
-        key = (
-            year,
-            week,
-            _normalize_history_team_key(away_team),
-            _normalize_history_team_key(home_team),
-            round(away_score, 2),
-            round(home_score, 2),
-            round(combined, 2),
-        )
-        if key in deduped:
-            continue
-
-        record = dict(row)
-        if "combined_score" not in record or record.get("combined_score") in (None, ""):
-            record["combined_score"] = round(away_score + home_score, 2)
-
-        record["away_owner_name"] = _resolve_mapped_owner_name(
-            year=year,
-            team_name=away_team,
-            map_by_season_key=map_by_season_key,
-            map_by_team_key=map_by_team_key,
-            user_owner_by_team_key=user_owner_by_team_key,
-        )
-        record["home_owner_name"] = _resolve_mapped_owner_name(
-            year=year,
-            team_name=home_team,
-            map_by_season_key=map_by_season_key,
-            map_by_team_key=map_by_team_key,
-            user_owner_by_team_key=user_owner_by_team_key,
-        )
-        deduped[key] = record
-
-    data = list(deduped.values())
-    data.sort(
-        key=lambda record: (
-            _safe_record_float(record, "combined_score", "combined", "total_points"),
-            _safe_record_int(record, "record_year", "season", "year"),
-            _safe_record_int(record, "record_week", "week"),
-        ),
-        reverse=True,
+    return history_enrichment_service.dedupe_and_enrich_match_records(
+        rows=rows,
+        map_by_season_key=map_by_season_key,
+        map_by_team_key=map_by_team_key,
+        user_owner_by_team_key=user_owner_by_team_key,
+        limit=limit,
     )
-    if limit is not None:
-        return data[:limit]
-    return data
 
 
 def _sorted_record_json(
@@ -1747,15 +1787,11 @@ def _sorted_record_json(
     sort_keys: List[str] | None = None,
     limit: int | None = None,
 ) -> List[Dict[str, Any]]:
-    data = [r.record_json for r in records]
-    if sort_keys:
-        data.sort(
-            key=lambda row: _safe_record_int(row, *sort_keys),
-            reverse=True,
-        )
-    if limit is not None:
-        return data[:limit]
-    return data
+    return history_enrichment_service.sorted_record_json(
+        records,
+        sort_keys=sort_keys,
+        limit=limit,
+    )
 
 
 @router.get("/{league_id}/history/team-owner-map")
@@ -1964,6 +2000,29 @@ def get_unmapped_series_keys(
         "unmapped_count": len(unmapped),
         "mapped_count": len(mapped),
     }
+
+
+@router.get("/{league_id}/history/owner-gap-report")
+def get_history_owner_gap_report(
+    league_id: int,
+    detail_limit: int | None = Query(default=None, ge=1, le=5000),
+    season_limit: int | None = Query(default=None, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.is_superuser and int(current_user.league_id or 0) != int(league_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    # Tests invoke this function directly, bypassing FastAPI's Query coercion.
+    resolved_detail_limit = detail_limit if isinstance(detail_limit, int) and detail_limit > 0 else None
+    resolved_season_limit = season_limit if isinstance(season_limit, int) and season_limit > 0 else None
+
+    return _build_history_owner_gap_report(
+        db,
+        league_id=league_id,
+        detail_limit=resolved_detail_limit,
+        season_limit=resolved_season_limit,
+    )
 
 
 @router.get("/{league_id}/history/champions")

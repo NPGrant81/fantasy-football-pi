@@ -5,9 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # backend/scripts/daily_sync.py
-# nfl_data_py is an optional dependency used by the reality sync.
-# import lazily inside the function so that tests that import `main` will not
-# fail if the package isn't installed.
+# Uses direct ESPN roster APIs via backend.services.espn_roster_service.
 from database import SessionLocal
 import models
 try:
@@ -18,23 +16,20 @@ except ModuleNotFoundError:
     from services import player_service
 try:
     from backend.services.player_identity_service import current_season, upsert_player_season
+    from backend.services.nfl_roster_provider_service import fetch_current_players
 except ModuleNotFoundError:
     from services.player_identity_service import current_season, upsert_player_season
+    from services.nfl_roster_provider_service import fetch_current_players
 
 def sync_nfl_reality():
-    # import here to avoid requiring the package in lightweight test runs
-    try:
-        # optional; may not be installed in minimal environments
-        import nfl_data_py as nfl  # type: ignore[import]
-    except ImportError:
-        print("⚠️ nfl_data_py not installed; skipping reality sync")
-        return
-
     db = SessionLocal()
-    print("🔄 Pulling latest NFL roster data...")
+    print("🔄 Pulling latest NFL roster data from ESPN...")
     
-    # Fetch latest player data for 2025/2026
-    df = nfl.import_players()
+    df = fetch_current_players()
+    if df.empty:
+        print("⚠️ ESPN roster fetch returned no rows; skipping reality sync")
+        db.close()
+        return
     
     # Filter for active players to keep it fast
     active_players = df[df['status'] == 'Active']
@@ -54,13 +49,12 @@ def sync_nfl_reality():
 
         player = player_service.find_existing_player(
             db,
-            gsis_id=str(row['gsis_id']) if row.get('gsis_id') else None,
+            gsis_id=None,
             name=name,
             position=position,
             nfl_team=team,
         )
         if player:
-            player.gsis_id = str(row['gsis_id']) if row.get('gsis_id') else player.gsis_id
             # Update their team if they've been traded or moved
             if player.nfl_team != team:
                 print(f"🚀 Trade Alert: {player.name} moved from {player.nfl_team} to {team}")

@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
 from backend.routers import draft as draft_router
-from etl.transform.monte_carlo_simulation import MonteCarloSimulationResult
+from etl.transform.monte_carlo_simulation import MonteCarloSimulationResult, build_monte_carlo_inputs_from_db
 
 
 @pytest.fixture
@@ -169,3 +169,64 @@ def test_simulation_endpoint_returns_focal_strategy_payload(db_session, monkeypa
     assert response["used_strategy"]["aggressiveness_multiplier"] == 1.3
     assert response["used_strategy"]["position_weights"]["RB"] == 1.25
     assert len(response["key_target_probabilities"]) > 0
+
+
+def test_build_monte_carlo_inputs_from_db_returns_live_league_frames(db_session):
+    league, _, owner_a, _ = _create_league_and_users(db_session)
+
+    active_player = models.Player(id=201, name="Active Player", position="WR", nfl_team="AAA")
+    legacy_bid_player = models.Player(id=202, name="Legacy Bid Player", position="RB", nfl_team="BBB")
+    db_session.add_all([active_player, legacy_bid_player])
+    db_session.commit()
+
+    db_session.add(
+        models.PlayerSeason(
+            player_id=active_player.id,
+            season=2026,
+            position="WR",
+            nfl_team="AAA",
+            is_active=True,
+        )
+    )
+    db_session.add(
+        models.DraftPick(
+            owner_id=owner_a.id,
+            player_id=legacy_bid_player.id,
+            league_id=league.id,
+            amount=18.0,
+            year=2026,
+            current_status="BENCH",
+        )
+    )
+    db_session.add(
+        models.DraftBudget(
+            owner_id=owner_a.id,
+            league_id=league.id,
+            year=2026,
+            total_budget=215,
+        )
+    )
+    db_session.commit()
+
+    from backend.models_draft_value import DraftValue
+
+    db_session.add(
+        DraftValue(
+            player_id=active_player.id,
+            season=2026,
+            avg_auction_value=32.0,
+            model_score=7.5,
+        )
+    )
+    db_session.commit()
+
+    inputs = build_monte_carlo_inputs_from_db(db_session, league_id=league.id, ranking_season=2026)
+
+    assert not inputs.players_df.empty
+    assert set(inputs.players_df["Player_ID"].tolist()) == {201}
+    assert not inputs.draft_results_df.empty
+    assert set(inputs.draft_results_df["PlayerID"].tolist()) == {202}
+    assert inputs.bid_stats_map[202]["avg_bid"] == 18.0
+    fallback_row = inputs.historical_rankings_df[inputs.historical_rankings_df["player_id"] == 202].iloc[0]
+    assert fallback_row["predicted_auction_value"] == 18.0
+    assert inputs.budget_df.iloc[0]["DraftBudget"] == 215

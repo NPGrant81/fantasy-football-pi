@@ -129,6 +129,10 @@ def test_owner_summary_contains_owner_1_distributions_and_target_probabilities()
     assert row["expected_total_points"] > 0
     assert row["expected_spend_rb"] >= 0
     assert isinstance(row["key_target_probability_snapshot"], str)
+    assert "predicted_auction_value" in result.draft_picks.columns
+    assert result.draft_picks["predicted_auction_value"].notna().all()
+    assert "winning_bid" in result.draft_picks.columns
+    assert result.draft_picks["winning_bid"].notna().all()
 
 
 def test_simulation_handles_missing_position_ids_in_draft_results():

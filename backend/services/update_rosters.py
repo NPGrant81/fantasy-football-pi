@@ -1,18 +1,16 @@
-import nfl_data_py as nfl
 import pandas as pd
-from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from .. import models
+from .nfl_roster_provider_service import fetch_rosters_for_seasons
 
 def run_update():
     # 1. Connect to Database
     db = SessionLocal()
     print("🏈 Fetching latest NFL rosters from the cloud...")
 
-    # 2. Fetch Data (2024 and 2025)
-    # Returns columns: 'player_name', 'position', 'team', 'status', 'player_id' (gsis_id), 'season'
+    # 2. Fetch Data from direct ESPN roster endpoints
     try:
-        df = nfl.import_seasonal_rosters([2024, 2025])
+        df = fetch_rosters_for_seasons([2024, 2025])
     except Exception as e:
         print(f"❌ Error fetching data: {e}")
         return

@@ -1,25 +1,25 @@
-import nfl_data_py as nfl
 import pandas as pd
-from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
 try:
     # Support both module execution (python -m backend.scripts.import_nfl_data)
     # and direct script execution from backend/scripts.
     from backend.services import player_service
+    from backend.services.nfl_roster_provider_service import fetch_rosters_for_seasons
 except ModuleNotFoundError:
     from services import player_service
+    from services.nfl_roster_provider_service import fetch_rosters_for_seasons
 
 # 1. Initialize DB
 models.Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
 def import_fresh_data():
-    print("🏈 Fetching LIVE NFL Data (2025 Season)...")
+    print("🏈 Fetching LIVE NFL Data from ESPN (2025 Season snapshot)...")
     
     # --- A. FETCH PLAYERS ---
     try:
-        df = nfl.import_seasonal_rosters([2025])
+        df = fetch_rosters_for_seasons([2025])
     except Exception as e:
         print(f"❌ Error fetching NFL data: {e}")
         return
