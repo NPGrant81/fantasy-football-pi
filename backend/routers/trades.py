@@ -47,6 +47,10 @@ class TradeSubmissionCreate(BaseModel):
     assets_from_b: list[TradeAssetCreate]
 
 
+class TradeReviewAction(BaseModel):
+    commissioner_comments: str | None = None
+
+
 @router.post("/propose")
 def propose_trade(
     payload: TradeProposalCreate,
@@ -343,6 +347,152 @@ def submit_trade_v2(
         "message": "Trade submitted and pending commissioner review.",
         "trade_id": trade.id,
         "status": trade.status,
+    }
+
+
+def _serialize_trade_assets(trade: models.Trade):
+    assets_from_a = []
+    assets_from_b = []
+    for asset in trade.assets:
+        row = {
+            "id": asset.id,
+            "asset_type": asset.asset_type,
+            "player_id": asset.player_id,
+            "player_name": _normalize_player_name(asset.player.name) if asset.player else None,
+            "draft_pick_id": asset.draft_pick_id,
+            "amount": float(asset.amount or 0) if asset.amount is not None else None,
+            "season_year": asset.season_year,
+        }
+        if asset.asset_side == "A":
+            assets_from_a.append(row)
+        else:
+            assets_from_b.append(row)
+    return assets_from_a, assets_from_b
+
+
+def _serialize_trade_v2(trade: models.Trade):
+    assets_from_a, assets_from_b = _serialize_trade_assets(trade)
+    return {
+        "id": trade.id,
+        "league_id": trade.league_id,
+        "team_a_id": trade.team_a_id,
+        "team_a_name": trade.team_a.username if trade.team_a else f"User {trade.team_a_id}",
+        "team_b_id": trade.team_b_id,
+        "team_b_name": trade.team_b.username if trade.team_b else f"User {trade.team_b_id}",
+        "status": trade.status,
+        "commissioner_comments": trade.commissioner_comments,
+        "submitted_at": trade.submitted_at.isoformat() if trade.submitted_at else None,
+        "approved_at": trade.approved_at.isoformat() if trade.approved_at else None,
+        "rejected_at": trade.rejected_at.isoformat() if trade.rejected_at else None,
+        "assets_from_a": assets_from_a,
+        "assets_from_b": assets_from_b,
+    }
+
+
+@router.get("/leagues/{league_id}/pending-v2")
+def get_pending_trades_v2(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    if current_user.league_id != league_id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="You do not have access to this league.")
+
+    trades = (
+        db.query(models.Trade)
+        .filter(
+            models.Trade.league_id == league_id,
+            models.Trade.status == "PENDING",
+        )
+        .order_by(models.Trade.id.desc())
+        .all()
+    )
+    return [_serialize_trade_v2(trade) for trade in trades]
+
+
+@router.get("/leagues/{league_id}/{trade_id}-v2")
+def get_trade_detail_v2(
+    league_id: int,
+    trade_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    if current_user.league_id != league_id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="You do not have access to this league.")
+
+    trade = (
+        db.query(models.Trade)
+        .filter(models.Trade.id == trade_id, models.Trade.league_id == league_id)
+        .first()
+    )
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found.")
+    return _serialize_trade_v2(trade)
+
+
+@router.post("/leagues/{league_id}/{trade_id}/approve-v2")
+def approve_trade_v2(
+    league_id: int,
+    trade_id: int,
+    payload: TradeReviewAction,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    if current_user.league_id != league_id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="You do not have access to this league.")
+
+    trade = (
+        db.query(models.Trade)
+        .filter(models.Trade.id == trade_id, models.Trade.league_id == league_id)
+        .first()
+    )
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found.")
+    if trade.status != "PENDING":
+        raise HTTPException(status_code=400, detail="Only pending trades can be approved.")
+
+    trade.status = "APPROVED"
+    trade.approved_at = datetime.now(UTC)
+    trade.commissioner_comments = (payload.commissioner_comments or "").strip() or None
+    db.commit()
+    db.refresh(trade)
+
+    return {
+        "message": "Trade approved",
+        "trade": _serialize_trade_v2(trade),
+    }
+
+
+@router.post("/leagues/{league_id}/{trade_id}/reject-v2")
+def reject_trade_v2(
+    league_id: int,
+    trade_id: int,
+    payload: TradeReviewAction,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    if current_user.league_id != league_id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="You do not have access to this league.")
+
+    trade = (
+        db.query(models.Trade)
+        .filter(models.Trade.id == trade_id, models.Trade.league_id == league_id)
+        .first()
+    )
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found.")
+    if trade.status != "PENDING":
+        raise HTTPException(status_code=400, detail="Only pending trades can be rejected.")
+
+    trade.status = "REJECTED"
+    trade.rejected_at = datetime.now(UTC)
+    trade.commissioner_comments = (payload.commissioner_comments or "").strip() or None
+    db.commit()
+    db.refresh(trade)
+
+    return {
+        "message": "Trade rejected",
+        "trade": _serialize_trade_v2(trade),
     }
 
 
