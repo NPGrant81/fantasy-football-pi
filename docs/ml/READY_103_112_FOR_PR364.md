@@ -34,4 +34,4 @@ Collect in-repo artifacts that are ready now from the 103-112 program stream so 
 | #112 | In-progress on this branch | Dedicated execution plan artifact committed |
 
 ## Next Merge Unit
-- Add first implementation artifacts from #361/#362/#363 as follow-on commits once ETL outputs and validation evidence are generated.
+- Add additional implementation and validation artifacts for #361/#362/#363 as follow-on commits, extending beyond the Phase 1 ETL modules and committed outputs included in this PR.

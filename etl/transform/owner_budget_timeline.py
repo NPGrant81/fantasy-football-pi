@@ -24,6 +24,13 @@ def _parse_dollars(value: Any) -> float | None:
         return None
 
 
+def _parse_int(value: Any) -> int | None:
+    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(numeric):
+        return None
+    return int(numeric)
+
+
 def _resolve_starting_budget(
     *,
     owner_id: int,
@@ -58,10 +65,12 @@ def build_owner_budget_timeline(
     users_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     budget_rows = draft_budget_df.copy()
-    budget_rows["owner_id"] = budget_rows["OwnerID"].apply(lambda x: int(x) if str(x).strip().isdigit() else None)
-    budget_rows["season_year"] = budget_rows["Year"].apply(lambda x: int(x) if str(x).strip().isdigit() else None)
+    budget_rows["owner_id"] = pd.to_numeric(budget_rows["OwnerID"], errors="coerce")
+    budget_rows["season_year"] = pd.to_numeric(budget_rows["Year"], errors="coerce")
     budget_rows["starting_budget"] = budget_rows["DraftBudget"].apply(_parse_dollars)
     budget_rows = budget_rows.dropna(subset=["owner_id", "season_year", "starting_budget"]).copy()
+    budget_rows["owner_id"] = budget_rows["owner_id"].astype(int)
+    budget_rows["season_year"] = budget_rows["season_year"].astype(int)
 
     owner_lookup = (
         users_df.copy()
@@ -144,7 +153,7 @@ def build_owner_budget_timeline(
                     "owner_id": int(owner_id),
                     "owner_name": owner_name,
                     "event_sequence": int(event["event_sequence"]),
-                    "player_id": int(event["PlayerID"]) if str(event.get("PlayerID", "")).isdigit() else None,
+                    "player_id": _parse_int(event.get("PlayerID")),
                     "winning_bid": round(winning_bid, 2),
                     "cumulative_spend": round(spend_cumulative, 2),
                     "starting_budget": round(starting_budget, 2),
