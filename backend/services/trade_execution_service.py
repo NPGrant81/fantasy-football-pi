@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from .ledger_service import record_ledger_entry
+from .trade_event_service import record_trade_event
 from .transaction_service import log_transaction
 
 
@@ -162,6 +163,14 @@ def execute_trade_v2_approval(
         trade.status = "APPROVED"
         trade.approved_at = datetime.now(UTC)
         trade.commissioner_comments = (commissioner_comments or "").strip() or None
+
+        record_trade_event(
+            db,
+            trade_id=trade.id,
+            event_type="APPROVED",
+            actor_user_id=approver_id,
+            comment=trade.commissioner_comments,
+        )
 
         db.commit()
         db.refresh(trade)

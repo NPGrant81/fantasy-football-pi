@@ -11,6 +11,7 @@ import models
 from backend.routers.trades import (
     TradeReviewAction,
     approve_trade_v2,
+    get_trade_history_v2,
     get_pending_trades_v2,
     reject_trade_v2,
     submit_trade_v2,
@@ -132,6 +133,10 @@ def test_approve_trade_v2_sets_status_and_comment():
     assert trade.commissioner_comments == "Looks good"
     assert trade.approved_at is not None
 
+    events = get_trade_history_v2(league.id, trade_id, db=db, current_user=CU(commissioner))
+    assert [row["event_type"] for row in events] == ["SUBMITTED", "APPROVED"]
+    assert events[-1]["comment"] == "Looks good"
+
 
 def test_reject_trade_v2_sets_status_and_comment():
     db = setup_db()
@@ -151,6 +156,10 @@ def test_reject_trade_v2_sets_status_and_comment():
     assert trade.commissioner_comments == "Insufficient value"
     assert trade.rejected_at is not None
 
+    events = get_trade_history_v2(league.id, trade_id, db=db, current_user=CU(commissioner))
+    assert [row["event_type"] for row in events] == ["SUBMITTED", "REJECTED"]
+    assert events[-1]["comment"] == "Insufficient value"
+
 
 def test_review_v2_blocks_other_league_commissioner():
     db = setup_db()
@@ -167,6 +176,19 @@ def test_review_v2_blocks_other_league_commissioner():
             db=db,
             current_user=CU(other_comm),
         )
+
+    assert exc.value.status_code == 403
+
+
+def test_trade_history_v2_blocks_other_league_commissioner():
+    db = setup_db()
+    league, _, trade_id = create_pending_trade(db)
+
+    other_league = make_league(db, name="HistoryOtherLeague")
+    other_comm = make_user(db, other_league, "history-other-comm", is_commissioner=True)
+
+    with pytest.raises(HTTPException) as exc:
+        get_trade_history_v2(league.id, trade_id, db=db, current_user=CU(other_comm))
 
     assert exc.value.status_code == 403
 

@@ -105,6 +105,16 @@ def test_submit_trade_v2_creates_pending_trade_and_assets():
     assets = db.query(models.TradeAsset).filter(models.TradeAsset.trade_id == trade_id).all()
     assert len(assets) == 4
 
+    events = (
+        db.query(models.TradeEvent)
+        .filter(models.TradeEvent.trade_id == trade_id)
+        .order_by(models.TradeEvent.id.asc())
+        .all()
+    )
+    assert len(events) == 1
+    assert events[0].event_type == "SUBMITTED"
+    assert events[0].actor_user_id == team_a.id
+
 
 def test_submit_trade_v2_requires_current_user_on_trade_team():
     db = setup_db()

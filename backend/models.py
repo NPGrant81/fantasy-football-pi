@@ -872,6 +872,7 @@ class Trade(Base):
     team_b = relationship("User", foreign_keys=[team_b_id])
     created_by_user = relationship("User", foreign_keys=[created_by_user_id])
     assets = relationship("TradeAsset", back_populates="trade", cascade="all, delete-orphan")
+    events = relationship("TradeEvent", back_populates="trade", cascade="all, delete-orphan")
 
 
 class TradeAsset(Base):
@@ -897,6 +898,25 @@ class TradeAsset(Base):
     trade = relationship("Trade", back_populates="assets")
     player = relationship("Player")
     draft_pick = relationship("DraftPick")
+
+
+class TradeEvent(Base):
+    __tablename__ = "trade_events"
+    __table_args__ = (
+        Index("ix_trade_events_trade_created", "trade_id", "created_at"),
+        Index("ix_trade_events_type", "event_type"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    trade_id = Column(Integer, ForeignKey("trades.id"), nullable=False, index=True)
+    event_type = Column(String(32), nullable=False)
+    actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    comment = Column(String, nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    trade = relationship("Trade", back_populates="events")
+    actor_user = relationship("User", foreign_keys=[actor_user_id])
 
 
 # --- 14. UNMATCHED PLAYERS (Dead Letter Queue) ---

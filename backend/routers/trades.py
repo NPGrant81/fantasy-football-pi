@@ -20,6 +20,7 @@ from ..services.trade_validation_service import (
     validate_trade_request,
 )
 from ..services.trade_execution_service import execute_trade_v2_approval
+from ..services.trade_event_service import record_trade_event
 
 router = APIRouter(prefix="/trades", tags=["Trades"])
 
@@ -50,6 +51,17 @@ class TradeSubmissionCreate(BaseModel):
 
 class TradeReviewAction(BaseModel):
     commissioner_comments: str | None = None
+
+
+class TradeEventOut(BaseModel):
+    id: int
+    trade_id: int
+    event_type: str
+    actor_user_id: int | None = None
+    actor_username: str | None = None
+    comment: str | None = None
+    metadata_json: dict | None = None
+    created_at: str | None = None
 
 
 @router.post("/propose")
@@ -341,6 +353,15 @@ def submit_trade_v2(
 
     if assets:
         db.add_all(assets)
+
+    record_trade_event(
+        db,
+        trade_id=trade.id,
+        event_type="SUBMITTED",
+        actor_user_id=current_user.id,
+        comment=None,
+    )
+
     db.commit()
     db.refresh(trade)
 
@@ -390,6 +411,19 @@ def _serialize_trade_v2(trade: models.Trade):
     }
 
 
+def _serialize_trade_event(event: models.TradeEvent):
+    return {
+        "id": event.id,
+        "trade_id": event.trade_id,
+        "event_type": event.event_type,
+        "actor_user_id": event.actor_user_id,
+        "actor_username": event.actor_user.username if event.actor_user else None,
+        "comment": event.comment,
+        "metadata_json": event.metadata_json,
+        "created_at": event.created_at.isoformat() if event.created_at else None,
+    }
+
+
 @router.get("/leagues/{league_id}/pending-v2")
 def get_pending_trades_v2(
     league_id: int,
@@ -429,6 +463,33 @@ def get_trade_detail_v2(
     if not trade:
         raise HTTPException(status_code=404, detail="Trade not found.")
     return _serialize_trade_v2(trade)
+
+
+@router.get("/leagues/{league_id}/{trade_id}/history-v2", response_model=list[TradeEventOut])
+def get_trade_history_v2(
+    league_id: int,
+    trade_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    if current_user.league_id != league_id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="You do not have access to this league.")
+
+    trade = (
+        db.query(models.Trade)
+        .filter(models.Trade.id == trade_id, models.Trade.league_id == league_id)
+        .first()
+    )
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found.")
+
+    events = (
+        db.query(models.TradeEvent)
+        .filter(models.TradeEvent.trade_id == trade_id)
+        .order_by(models.TradeEvent.created_at.asc(), models.TradeEvent.id.asc())
+        .all()
+    )
+    return [_serialize_trade_event(event) for event in events]
 
 
 @router.post("/leagues/{league_id}/{trade_id}/approve-v2")
@@ -492,6 +553,15 @@ def reject_trade_v2(
     trade.status = "REJECTED"
     trade.rejected_at = datetime.now(UTC)
     trade.commissioner_comments = (payload.commissioner_comments or "").strip() or None
+
+    record_trade_event(
+        db,
+        trade_id=trade.id,
+        event_type="REJECTED",
+        actor_user_id=current_user.id,
+        comment=trade.commissioner_comments,
+    )
+
     db.commit()
     db.refresh(trade)
 
