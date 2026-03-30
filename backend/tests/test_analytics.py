@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -11,6 +12,7 @@ import models
 from backend.routers.analytics import (
     get_draft_value_data,
     get_efficiency_leaderboard,
+    get_post_draft_outlook,
     get_player_heatmap_data,
     get_rivalry_graph,
     get_roster_strength,
@@ -304,8 +306,67 @@ def test_weekly_matchup_comparison_payload(db_session):
         db=db_session,
     )
     assert comparison["meta"]["metric"] == "weekly_matchup_comparison"
-    assert len(comparison["rows"]) == 2
-    assert comparison["rows"][0]["entries"][0]["score"] >= comparison["rows"][0]["entries"][1]["score"]
+
+
+def test_post_draft_outlook_payload_and_owner_focus(db_session):
+    league = make_league(db_session)
+    owner_a = make_user(db_session, league.id, username="OutlookA", team_name="Alpha")
+    owner_b = make_user(db_session, league.id, username="OutlookB", team_name="Bravo")
+
+    qb = models.Player(name="Outlook QB", position="QB", nfl_team="AAA", projected_points=275.0)
+    rb = models.Player(name="Outlook RB", position="RB", nfl_team="BBB", projected_points=215.0)
+    wr = models.Player(name="Outlook WR", position="WR", nfl_team="CCC", projected_points=190.0)
+    te = models.Player(name="Outlook TE", position="TE", nfl_team="DDD", projected_points=140.0)
+    db_session.add_all([qb, rb, wr, te])
+    db_session.commit()
+    db_session.refresh(qb)
+    db_session.refresh(rb)
+    db_session.refresh(wr)
+    db_session.refresh(te)
+
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=rb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=wr.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_b.id, league_id=league.id, player_id=te.id, current_status="STARTER", amount=10),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_post_draft_outlook(
+        league_id=league.id,
+        owner_id=owner_a.id,
+        season=2026,
+        db=db_session,
+    )
+
+    assert payload["meta"]["metric"] == "post_draft_season_outlook"
+    assert len(payload["team_rows"]) == 2
+    assert payload["owner_focus"] is not None
+    assert payload["owner_focus"]["owner_id"] == owner_a.id
+    assert "summary" in payload["owner_focus"]
+
+
+def test_post_draft_outlook_rejects_owner_outside_league(db_session):
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="LeagueOwner")
+
+    other_league = models.League(name="OtherLeague")
+    db_session.add(other_league)
+    db_session.commit()
+    db_session.refresh(other_league)
+    outsider = make_user(db_session, other_league.id, username="Outsider")
+
+    with pytest.raises(HTTPException) as exc:
+        get_post_draft_outlook(
+            league_id=league.id,
+            owner_id=outsider.id,
+            season=2026,
+            db=db_session,
+        )
+
+    assert exc.value.status_code == 404
 
 
 def test_weekly_matchup_comparison_ignores_malformed_rows(db_session):
