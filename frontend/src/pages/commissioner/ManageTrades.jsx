@@ -47,17 +47,17 @@ const summarizeAssets = (assets = []) => {
 };
 
 export default function ManageTrades() {
+  const leagueId = useActiveLeague();
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [leagueId, setLeagueId] = useState(null);
   const [actionComments, setActionComments] = useState({});
 
   const fetchTrades = async (currentLeagueId) => {
     if (!currentLeagueId) {
       setTrades([]);
       setLoading(false);
-  const leagueId = useActiveLeague();
+      setMessage('No active league selected.');
       return;
     }
     setLoading(true);
@@ -74,23 +74,8 @@ export default function ManageTrades() {
   };
 
   useEffect(() => {
-    async function bootstrap() {
-      setLoading(true);
-      setMessage('');
-      try {
-        const me = await apiClient.get('/auth/me');
-        const resolvedLeagueId = Number(me.data?.league_id || 0) || null;
-        setLeagueId(resolvedLeagueId);
-        await fetchTrades(resolvedLeagueId);
-      } catch {
-        setTrades([]);
-        setLeagueId(null);
-        setMessage('Failed to load commissioner context');
-        setLoading(false);
-      }
-    }
-    bootstrap();
-  }, []);
+    fetchTrades(leagueId);
+  }, [leagueId]);
 
   const handleAction = async (tradeId, action) => {
     setMessage('');
