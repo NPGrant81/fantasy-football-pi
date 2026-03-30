@@ -55,6 +55,7 @@ def notify_trade_approved(trade: models.Trade) -> int:
 
 def notify_trade_rejected(trade: models.Trade) -> int:
     recipients = {int(trade.team_a_id), int(trade.team_b_id)}
+    reason = (trade.commissioner_comments or "").strip() or None
     return _send(
         recipients,
         "trade_rejected",
@@ -63,5 +64,7 @@ def notify_trade_rejected(trade: models.Trade) -> int:
             "trade_id": trade.id,
             "status": trade.status,
             "commissioner_comments": trade.commissioner_comments,
+            "rejection_reason": reason,
+            "has_rejection_reason": bool(reason),
         },
     )

@@ -183,6 +183,11 @@ def test_reject_trade_v2_sets_status_and_comment(monkeypatch):
     rejection_recipient_ids = {user_id for user_id, template_id, _ in sent if template_id == "trade_rejected"}
     assert rejection_recipient_ids == {trade.team_a_id, trade.team_b_id}
 
+    rejection_payloads = [context for _, template_id, context in sent if template_id == "trade_rejected"]
+    assert rejection_payloads
+    assert all(payload.get("rejection_reason") == "Insufficient value" for payload in rejection_payloads)
+    assert all(payload.get("has_rejection_reason") is True for payload in rejection_payloads)
+
 
 def test_review_v2_blocks_other_league_commissioner():
     db = setup_db()
