@@ -1,5 +1,11 @@
 # Phase 1 Artifact PR Checklists (Issues #361, #362, #363)
 
+## Progress Snapshot (2026-03-29)
+- #361 in progress: initial transform module, alias map, and docs landed.
+- #362 in progress: initial timeline transform and reconciliation docs landed.
+- #363 in progress: initial draft validator transform and ledger schema docs landed.
+- Pending for all three: production ETL output files from real data runs and gate evidence posted back to issue #360.
+
 ## Issue #361 (Implements #103)
 ### Deliverable file targets
 - docs/ml/phase1/103/artifact-01-canonicalization-spec.md

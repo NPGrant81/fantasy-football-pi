@@ -7,6 +7,11 @@
 ## Active Phase
 - Phase 1 - Data Foundations (#103, #104, #105)
 
+## Latest Execution Update (2026-03-29)
+- #112 lane: post-draft outlook API now includes degraded-mode diagnostics, strict response contracts, and confidence context.
+- #361/#362/#363 lane: initial transform artifacts and specs are now committed in-repo with unit tests.
+- Remaining gate work: run transforms against real source data and publish evidence outputs/reports to issue #360 cadence.
+
 ## Phase Order
 1. Data foundations: #103, #104, #105
 2. Feature contract: #106
