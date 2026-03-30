@@ -53,6 +53,7 @@ Refer to the appropriate file for more information.
 - [Scoring Edge Case Test Matrix](SCORING_EDGE_CASE_TEST_MATRIX.md)
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
+- [Trade QA Regression 2026-03-30](TRADE_QA_REGRESSION_2026-03-30.md)
 - [Ui Reference](UI_REFERENCE.md)
 - [Ui Ux Automation Pipeline](UI_UX_AUTOMATION_PIPELINE.md)
 - [Ux-Insights-Spec](ux-insights-spec.md)

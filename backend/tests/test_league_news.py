@@ -14,11 +14,30 @@ class FakeQuery:
     def __init__(self, data, is_single=False):
         self._data = data
         self._is_single = is_single
+        self._league_id_filter = None
+        self._owner_id_filter = None
+        self._skip_none_filter = False
 
     def join(self, *args, **kwargs):
         return self
 
     def filter(self, *args, **kwargs):
+        # Parse SQLAlchemy filter expressions for common patterns
+        # This is a simplified mock that handles the specific filters used in get_league_news
+        for arg in args:
+            arg_str = str(arg)
+            # Handle league_id == value filters
+            if 'league_id' in arg_str and '=' in arg_str:
+                # Extract from expression like "draft_picks.league_id = :league_id_1"
+                if hasattr(arg, 'right') and hasattr(arg.right, 'value'):
+                    self._league_id_filter = arg.right.value
+            # Handle owner_id == value filters
+            elif 'owner_id' in arg_str and '=' in arg_str:
+                if hasattr(arg, 'right') and hasattr(arg.right, 'value'):
+                    self._owner_id_filter = arg.right.value
+            # Handle player_id.isnot(None) filters
+            elif 'player_id' in arg_str and ('IS NOT' in arg_str or 'isnot' in arg_str):
+                self._skip_none_filter = True
         return self
 
     def order_by(self, *args, **kwargs):
@@ -30,14 +49,25 @@ class FakeQuery:
     def all(self):
         if self._is_single:
             return [self._data] if self._data else []
-        return self._data
+        
+        # Apply filters to the data in memory
+        filtered = self._data
+        if self._league_id_filter is not None:
+            filtered = [item for item in filtered if getattr(item, 'league_id', None) == self._league_id_filter]
+        if self._owner_id_filter is not None:
+            filtered = [item for item in filtered if getattr(item, 'owner_id', None) == self._owner_id_filter]
+        if self._skip_none_filter:
+            filtered = [item for item in filtered if getattr(item, 'player_id', None) is not None]
+        
+        return filtered
 
     def first(self):
         if self._is_single:
             return self._data
-        if not self._data:
+        data = self.all()
+        if not data:
             return None
-        return self._data[0]
+        return data[0]
 
 
 class FakeDB:

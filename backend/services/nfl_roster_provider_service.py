@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from io import StringIO
 import logging
 import os
 from typing import Any
@@ -8,7 +9,6 @@ from typing import Any
 import pandas as pd
 import requests
 
-from backend.services.espn_roster_service import fetch_current_players as fetch_espn_current_players
 from backend.services.espn_roster_service import fetch_rosters_for_seasons as fetch_espn_rosters_for_seasons
 
 
@@ -82,7 +82,9 @@ def _fetch_nfldb_for_season(*, season: int, timeout_seconds: int) -> pd.DataFram
     url = template.format(season=season)
     try:
         if url.lower().endswith(".csv"):
-            frame = pd.read_csv(url)
+            response = requests.get(url, timeout=timeout_seconds)
+            response.raise_for_status()
+            frame = pd.read_csv(StringIO(response.text))
         else:
             response = requests.get(url, timeout=timeout_seconds)
             response.raise_for_status()

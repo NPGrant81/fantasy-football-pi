@@ -14,6 +14,7 @@ from ..services.standings_service import owner_standings_sort_key
 from ..services.history_owner_gap_service import build_history_owner_gap_report
 from ..services import league_history_enrichment_service as history_enrichment_service
 from ..services.player_service import normalize_display_name as _normalize_player_name
+from ..services.player_news_service import sentiment_from_text as _sentiment_from_text
 from ..services.validation_service import (
     validate_league_settings_boundary,
     validate_league_settings_dynamic_rules,
@@ -179,34 +180,9 @@ def _parse_since_timestamp(value: str | None) -> datetime | None:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid since timestamp. Use ISO-8601 format.") from exc
 
-
 def _news_sentiment(title: str) -> tuple[float, str, List[str]]:
-    text = (title or "").lower()
-    positive_terms = {"active", "healthy", "cleared", "boost", "upgraded", "surge", "breakout"}
-    negative_terms = {"out", "injury", "questionable", "doubtful", "limited", "suspended", "tear", "strain"}
-
-    pos = sum(1 for term in positive_terms if term in text)
-    neg = sum(1 for term in negative_terms if term in text)
-    if pos == 0 and neg == 0:
-        return 0.0, "neutral", []
-
-    score = (pos - neg) / max(1, (pos + neg))
-    if score > 0.2:
-        label = "positive"
-    elif score < -0.2:
-        label = "negative"
-    else:
-        label = "neutral"
-
-    tags: List[str] = []
-    if any(term in text for term in {"injury", "out", "questionable", "doubtful", "limited", "tear", "strain"}):
-        tags.append("injury")
-    if any(term in text for term in {"trade", "traded"}):
-        tags.append("trade")
-    if any(term in text for term in {"breakout", "surge", "boost", "upgraded"}):
-        tags.append("performance")
-
-    return round(float(score), 3), label, tags
+    """Wrapper around centralized sentiment logic for league draft events."""
+    return _sentiment_from_text(title=title)
 
 
 def canonicalize_lineup_slots(slots: Dict[str, int] | None) -> Dict[str, int]:
@@ -625,6 +601,8 @@ def get_league_news(
     if owner_id is not None:
         # Build the owner's complete roster from ALL DraftPicks, not just limited news window,
         # so we don't miss older rostered players outside the recent picks query.
+        # Note: Using Python-level distinct for compatibility with both real DB and test FakeDB.
+        # Real DB will still execute the query efficiently; FakeDB compatibility ensures test suite works.
         owner_roster_rows = (
             db.query(models.DraftPick)
             .filter(
@@ -660,7 +638,11 @@ def get_league_news(
             if isinstance(pick.timestamp, datetime):
                 pick_dt = pick.timestamp
             elif pick.timestamp is not None:
-                pick_dt = _parse_since_timestamp(str(pick.timestamp))
+                try:
+                    pick_dt = _parse_since_timestamp(str(pick.timestamp))
+                except HTTPException:
+                    # Malformed timestamp; treat as older-than-since
+                    pick_dt = None
             else:
                 pick_dt = None
             if pick_dt is None or pick_dt < since_dt:

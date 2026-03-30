@@ -336,8 +336,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
   const [myTradeRoster, setMyTradeRoster] = useState([]);
   const [targetRoster, setTargetRoster] = useState([]);
   const [proposalToUserId, setProposalToUserId] = useState('');
-  const [offeredPlayerId, setOfferedPlayerId] = useState('');
-  const [requestedPlayerId, setRequestedPlayerId] = useState('');
+  const [offeredPlayerIds, setOfferedPlayerIds] = useState([]);
+  const [requestedPlayerIds, setRequestedPlayerIds] = useState([]);
   const [proposalNote, setProposalNote] = useState('');
   const [offeredDollars, setOfferedDollars] = useState('');
   const [requestedDollars, setRequestedDollars] = useState('');
@@ -554,7 +554,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
     async function loadTargetRoster() {
       if (!proposalToUserId) {
         setTargetRoster([]);
-        setRequestedPlayerId('');
+        setRequestedPlayerIds([]);
         return;
       }
 
@@ -1009,8 +1009,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
     console.log('handleSubmitTradeProposal called', {
       canProposeTrade,
       proposalToUserId,
-      offeredPlayerId,
-      requestedPlayerId,
+      offeredPlayerIds,
+      requestedPlayerIds,
       offeredDollars,
       requestedDollars,
     });
@@ -1022,34 +1022,74 @@ export default function YourLockerRoom({ activeOwnerId }) {
       return;
     }
 
-    if (!proposalToUserId || !offeredPlayerId || !requestedPlayerId) {
-      setToast({ message: 'Select manager and both players.', type: 'error' });
+    if (
+      !proposalToUserId ||
+      offeredPlayerIds.length === 0 ||
+      requestedPlayerIds.length === 0
+    ) {
+      setToast({ message: 'Select manager and at least one player on each side.', type: 'error' });
       return;
     }
 
     try {
-      await apiClient.post('/trades/propose', {
-        to_user_id: Number(proposalToUserId),
-        offered_player_id: Number(offeredPlayerId),
-        requested_player_id: Number(requestedPlayerId),
-        offered_dollars: Number(offeredDollars) || 0,
-        requested_dollars: Number(requestedDollars) || 0,
-        note: proposalNote,
+      const assetsFromA = offeredPlayerIds.map((playerId) => ({
+        asset_type: 'PLAYER',
+        player_id: Number(playerId),
+      }));
+      const assetsFromB = requestedPlayerIds.map((playerId) => ({
+        asset_type: 'PLAYER',
+        player_id: Number(playerId),
+      }));
+
+      if ((Number(offeredDollars) || 0) > 0) {
+        assetsFromA.push({
+          asset_type: 'DRAFT_DOLLARS',
+          amount: Number(offeredDollars) || 0,
+        });
+      }
+      if ((Number(requestedDollars) || 0) > 0) {
+        assetsFromB.push({
+          asset_type: 'DRAFT_DOLLARS',
+          amount: Number(requestedDollars) || 0,
+        });
+      }
+
+      await apiClient.post(`/trades/leagues/${userInfo.leagueId}/submit-v2`, {
+        team_a_id: Number(currentUserId),
+        team_b_id: Number(proposalToUserId),
+        assets_from_a: assetsFromA,
+        assets_from_b: assetsFromB,
+        proposal_note: proposalNote,
       });
 
       setToast({ message: 'Trade proposal submitted.', type: 'success' });
       setShowProposeTrade(false);
       setProposalToUserId('');
-      setOfferedPlayerId('');
-      setRequestedPlayerId('');
+      setOfferedPlayerIds([]);
+      setRequestedPlayerIds([]);
       setProposalNote('');
       setOfferedDollars('');
       setRequestedDollars('');
       fetchTeam();
     } catch (err) {
+      const detail = err.response?.data?.detail;
+      const flattenedDetail =
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.join(', ')
+            : detail && typeof detail === 'object'
+              ? Object.entries(detail)
+                  .flatMap(([key, value]) => {
+                    if (Array.isArray(value)) {
+                      return value.map((message) => `${key}: ${message}`);
+                    }
+                    return [`${key}: ${String(value)}`];
+                  })
+                  .join(', ')
+              : null;
       setToast({
-        message:
-          err.response?.data?.detail || 'Failed to submit trade proposal.',
+        message: flattenedDetail || 'Failed to submit trade proposal.',
         type: 'error',
       });
     }
@@ -1411,17 +1451,25 @@ export default function YourLockerRoom({ activeOwnerId }) {
                 </label>
                 <select
                   id="you-offer"
-                  value={offeredPlayerId}
-                  onChange={(e) => setOfferedPlayerId(e.target.value)}
+                  multiple
+                  size={6}
+                  value={offeredPlayerIds}
+                  onChange={(e) =>
+                    setOfferedPlayerIds(
+                      Array.from(e.target.selectedOptions, (opt) => opt.value)
+                    )
+                  }
                   className={inputBase}
                 >
-                  <option value="">Select your player</option>
                   {myTradeRoster.map((player) => (
                     <option key={player.id} value={player.id}>
                       {player.name} ({player.position})
                     </option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs text-slate-500">
+                  Hold Ctrl (Windows) or Cmd (Mac) to select multiple players.
+                </p>
               </div>
 
               <div>
@@ -1433,18 +1481,26 @@ export default function YourLockerRoom({ activeOwnerId }) {
                 </label>
                 <select
                   id="you-request"
-                  value={requestedPlayerId}
-                  onChange={(e) => setRequestedPlayerId(e.target.value)}
+                  multiple
+                  size={6}
+                  value={requestedPlayerIds}
+                  onChange={(e) =>
+                    setRequestedPlayerIds(
+                      Array.from(e.target.selectedOptions, (opt) => opt.value)
+                    )
+                  }
                   className={inputBase}
                   disabled={!proposalToUserId}
                 >
-                  <option value="">Select requested player</option>
                   {targetRoster.map((player) => (
                     <option key={player.id} value={player.id}>
                       {player.name} ({player.position})
                     </option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs text-slate-500">
+                  Hold Ctrl (Windows) or Cmd (Mac) to select multiple players.
+                </p>
               </div>
 
               <div className="flex gap-4">
