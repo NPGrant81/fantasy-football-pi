@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
+import backend.services.notifications as notifications_module
 from backend.routers.trades import submit_trade_v2, TradeSubmissionCreate, TradeAssetCreate
 from fastapi import HTTPException
 
@@ -63,7 +64,7 @@ class CU:
         self.future_draft_budget = user.future_draft_budget
 
 
-def test_submit_trade_v2_creates_pending_trade_and_assets():
+def test_submit_trade_v2_creates_pending_trade_and_assets(monkeypatch):
     db = setup_db()
     league = make_league(db)
     db.add(models.LeagueSettings(league_id=league.id, roster_size=16, trade_deadline=None))
@@ -71,6 +72,16 @@ def test_submit_trade_v2_creates_pending_trade_and_assets():
 
     team_a = make_user(db, league, "team-a", budget=30)
     team_b = make_user(db, league, "team-b", budget=20)
+    commissioner = make_user(db, league, "commish", budget=0)
+    commissioner.is_commissioner = True
+    db.commit()
+
+    sent = []
+    monkeypatch.setattr(
+        notifications_module.NotifyService,
+        "send_transactional_email",
+        lambda user_id, template_id, context: sent.append((user_id, template_id, context)),
+    )
 
     player_a = make_player(db, "A Player", position="RB")
     player_b = make_player(db, "B Player", position="WR")
@@ -114,6 +125,9 @@ def test_submit_trade_v2_creates_pending_trade_and_assets():
     assert len(events) == 1
     assert events[0].event_type == "SUBMITTED"
     assert events[0].actor_user_id == team_a.id
+
+    recipient_ids = {user_id for user_id, template_id, _ in sent if template_id == "trade_submitted_pending_review"}
+    assert recipient_ids == {team_b.id, commissioner.id}
 
 
 def test_submit_trade_v2_requires_current_user_on_trade_team():

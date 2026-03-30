@@ -21,6 +21,11 @@ from ..services.trade_validation_service import (
 )
 from ..services.trade_execution_service import execute_trade_v2_approval
 from ..services.trade_event_service import record_trade_event
+from ..services.trade_notification_service import (
+    notify_trade_approved,
+    notify_trade_rejected,
+    notify_trade_submitted,
+)
 
 router = APIRouter(prefix="/trades", tags=["Trades"])
 
@@ -365,6 +370,12 @@ def submit_trade_v2(
     db.commit()
     db.refresh(trade)
 
+    try:
+        notify_trade_submitted(db, trade, submitting_user_id=current_user.id)
+    except Exception:
+        # Notifications are best-effort; trade creation should not fail if delivery fails.
+        pass
+
     return {
         "message": "Trade submitted and pending commissioner review.",
         "trade_id": trade.id,
@@ -523,6 +534,12 @@ def approve_trade_v2(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    try:
+        notify_trade_approved(trade)
+    except Exception:
+        # Notifications are best-effort; approval is already committed.
+        pass
+
     return {
         "message": "Trade approved",
         "trade": _serialize_trade_v2(trade),
@@ -564,6 +581,12 @@ def reject_trade_v2(
 
     db.commit()
     db.refresh(trade)
+
+    try:
+        notify_trade_rejected(trade)
+    except Exception:
+        # Notifications are best-effort; rejection is already committed.
+        pass
 
     return {
         "message": "Trade rejected",

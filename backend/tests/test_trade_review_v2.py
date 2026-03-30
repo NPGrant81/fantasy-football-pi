@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
+import backend.services.notifications as notifications_module
 from backend.routers.trades import (
     TradeReviewAction,
     approve_trade_v2,
@@ -115,9 +116,17 @@ def test_pending_trade_list_v2_returns_pending_trade():
     assert rows[0]["assets_from_b"]
 
 
-def test_approve_trade_v2_sets_status_and_comment():
+def test_approve_trade_v2_sets_status_and_comment(monkeypatch):
     db = setup_db()
     league, commissioner, trade_id = create_pending_trade(db)
+    trade = db.get(models.Trade, trade_id)
+
+    sent = []
+    monkeypatch.setattr(
+        notifications_module.NotifyService,
+        "send_transactional_email",
+        lambda user_id, template_id, context: sent.append((user_id, template_id, context)),
+    )
 
     result = approve_trade_v2(
         league.id,
@@ -137,10 +146,21 @@ def test_approve_trade_v2_sets_status_and_comment():
     assert [row["event_type"] for row in events] == ["SUBMITTED", "APPROVED"]
     assert events[-1]["comment"] == "Looks good"
 
+    approval_recipient_ids = {user_id for user_id, template_id, _ in sent if template_id == "trade_approved"}
+    assert approval_recipient_ids == {trade.team_a_id, trade.team_b_id}
 
-def test_reject_trade_v2_sets_status_and_comment():
+
+def test_reject_trade_v2_sets_status_and_comment(monkeypatch):
     db = setup_db()
     league, commissioner, trade_id = create_pending_trade(db)
+    trade = db.get(models.Trade, trade_id)
+
+    sent = []
+    monkeypatch.setattr(
+        notifications_module.NotifyService,
+        "send_transactional_email",
+        lambda user_id, template_id, context: sent.append((user_id, template_id, context)),
+    )
 
     result = reject_trade_v2(
         league.id,
@@ -159,6 +179,9 @@ def test_reject_trade_v2_sets_status_and_comment():
     events = get_trade_history_v2(league.id, trade_id, db=db, current_user=CU(commissioner))
     assert [row["event_type"] for row in events] == ["SUBMITTED", "REJECTED"]
     assert events[-1]["comment"] == "Insufficient value"
+
+    rejection_recipient_ids = {user_id for user_id, template_id, _ in sent if template_id == "trade_rejected"}
+    assert rejection_recipient_ids == {trade.team_a_id, trade.team_b_id}
 
 
 def test_review_v2_blocks_other_league_commissioner():
