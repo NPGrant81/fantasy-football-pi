@@ -47,14 +47,19 @@ def sync_nfl_reality():
         ):
             continue
 
+        espn_id = str(row.get('player_id') or '')
         player = player_service.find_existing_player(
             db,
             gsis_id=None,
+            espn_id=espn_id,
             name=name,
             position=position,
             nfl_team=team,
         )
         if player:
+            # Update ESPN ID if we have it and it's missing from the record
+            if espn_id and not player.espn_id:
+                player.espn_id = espn_id
             # Update their team if they've been traded or moved
             if player.nfl_team != team:
                 print(f"🚀 Trade Alert: {player.name} moved from {player.nfl_team} to {team}")
