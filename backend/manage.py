@@ -644,29 +644,43 @@ def restore_mfl_archive(
 
 
 @cli.command("import-mfl-csv")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
+@click.option("--source-mode", type=click.Choice(["db", "csv"]), default="db", show_default=True, help="Import source mode. Use db (recommended) to read from mfl_html_record_facts.")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default=None, help="Legacy CSV mode: extraction root folder (required when --source-mode=csv).")
+@click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id receiving imported rows.")
 @click.option("--start-year", type=int, required=True, help="First season year to import.")
 @click.option("--end-year", type=int, required=True, help="Last season year to import.")
 @click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write changes (default dry-run).")
 def import_mfl_csv(
-    input_root: str,
+    source_mode: str,
+    input_root: str | None,
+    source_league_id: str | None,
     target_league_id: int,
     start_year: int,
     end_year: int,
     apply_changes: bool,
 ):
     """Import normalized MFL CSV files into app tables with validation."""
+    if source_mode == "csv" and not input_root:
+        raise click.UsageError("--input-root is required when --source-mode=csv")
+
     summary = run_import_mfl_csv(
         input_root=input_root,
         target_league_id=target_league_id,
         start_year=start_year,
         end_year=end_year,
         dry_run=not apply_changes,
+        source_mode=source_mode,
+        source_league_id=source_league_id,
     )
 
-    click.echo("MFL CSV import summary")
+    click.echo("MFL import summary")
     click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Source mode: {source_mode}")
+    if source_mode == "csv":
+        click.echo(f"- Input root: {input_root}")
+    elif source_league_id:
+        click.echo(f"- Source league id: {source_league_id}")
     click.echo(f"- Files checked: {summary['files_checked']}")
     click.echo(f"- Files missing: {summary['files_missing']}")
     click.echo(f"- Rows validated: {summary['rows_validated']}")

@@ -252,3 +252,148 @@ def test_run_scaffold_mfl_manual_csv_creates_header_only_templates(tmp_path):
         "extracted_at_utc",
     ]
     assert draft_headers[-2:] == ["winning_bid", "is_keeper_pick"]
+
+
+def test_import_mfl_csv_supports_db_source_mode(monkeypatch):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+
+    session = TestingSessionLocal()
+    try:
+        league = models.League(name="Legacy League DB")
+        session.add(league)
+        session.flush()
+
+        session.add_all(
+            [
+                models.User(
+                    username="alpha-owner",
+                    email="alpha@example.com",
+                    hashed_password="x",
+                    league_id=league.id,
+                    team_name="Alpha Team",
+                ),
+                models.User(
+                    username="beta-owner",
+                    email="beta@example.com",
+                    hashed_password="x",
+                    league_id=league.id,
+                    team_name="Beta Team",
+                ),
+                models.Player(
+                    name="Player One",
+                    position="QB",
+                    nfl_team="BUF",
+                    adp=1.0,
+                    projected_points=10.0,
+                ),
+            ]
+        )
+
+        season = 2023
+        league_id = "11422"
+        facts = [
+            {
+                "dataset_key": "html_franchises_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": league_id,
+                    "franchise_id": "A",
+                    "franchise_name": "Alpha Team",
+                    "owner_name": "alpha-owner",
+                },
+            },
+            {
+                "dataset_key": "html_franchises_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": league_id,
+                    "franchise_id": "B",
+                    "franchise_name": "Beta Team",
+                    "owner_name": "beta-owner",
+                },
+            },
+            {
+                "dataset_key": "html_players_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": league_id,
+                    "player_mfl_id": "1001",
+                    "player_name": "Player One",
+                    "position": "QB",
+                    "nfl_team": "BUF",
+                },
+            },
+            {
+                "dataset_key": "html_players_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": league_id,
+                    "player_mfl_id": "1002",
+                    "player_name": "Player Two",
+                    "position": "WR",
+                    "nfl_team": "KC",
+                },
+            },
+            {
+                "dataset_key": "html_draft_results_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": league_id,
+                    "franchise_id": "A",
+                    "player_mfl_id": "1001",
+                    "round": "1",
+                    "pick_number": "1",
+                    "winning_bid": "$25",
+                },
+            },
+            {
+                "dataset_key": "html_draft_results_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": league_id,
+                    "franchise_id": "B",
+                    "player_mfl_id": "1002",
+                    "round": "1",
+                    "pick_number": "2",
+                    "winning_bid": "$18",
+                },
+            },
+        ]
+        for idx, payload in enumerate(facts, start=1):
+            session.add(
+                models.MflHtmlRecordFact(
+                    dataset_key=payload["dataset_key"],
+                    season=season,
+                    league_id=league_id,
+                    normalization_version="v1",
+                    row_fingerprint=f"fp-{idx}",
+                    record_json=payload["record_json"],
+                )
+            )
+
+        session.commit()
+    finally:
+        session.close()
+
+    monkeypatch.setattr(import_mfl_csv, "SessionLocal", TestingSessionLocal)
+
+    summary = import_mfl_csv.run_import_mfl_csv(
+        input_root=None,
+        target_league_id=1,
+        start_year=season,
+        end_year=season,
+        dry_run=False,
+        source_mode="db",
+        source_league_id=league_id,
+    )
+
+    assert summary["players_matched"] == 1
+    assert summary["players_inserted"] == 1
+    assert summary["draft_picks_inserted"] == 2
+    assert summary["draft_picks_skipped"] == 0
