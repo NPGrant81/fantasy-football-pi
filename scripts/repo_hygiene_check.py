@@ -103,6 +103,8 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("governance", "process")
     if any(token in name for token in ["project_management", "issue_status", "backlog_triage", "pr_notes", "cli_checkin"]):
         return ("product", "tracking")
+    if any(token in name for token in ["trade_qa", "qa_regression"]):
+        return ("qa", "qa-regression")
     if name == "architecture.md":
         return ("engineering", "architecture")
 

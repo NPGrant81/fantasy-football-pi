@@ -736,7 +736,7 @@ def build_monte_carlo_inputs_from_db(
     league_id: int | None = None,
     ranking_season: int | None = None,
 ) -> MonteCarloDbInputs:
-    from sqlalchemy import distinct, func, select
+    from sqlalchemy import func, select
 
     from backend import models
     from backend.models_draft_value import DraftValue

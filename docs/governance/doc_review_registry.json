@@ -568,5 +568,11 @@
     "owner": "data",
     "cadence_days": 14,
     "last_reviewed": "2026-03-29"
+  },
+  {
+    "path": "docs/TRADE_QA_REGRESSION_2026-03-30.md",
+    "owner": "qa",
+    "cadence_days": 30,
+    "last_reviewed": "2026-03-30"
   }
 ]

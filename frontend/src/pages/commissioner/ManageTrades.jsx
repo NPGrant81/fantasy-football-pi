@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
+import { useActiveLeague } from '@context/LeagueContext';
 import { FiChevronLeft } from 'react-icons/fi';
 import PageTemplate from '@components/layout/PageTemplate';
 import { EmptyState, LoadingState } from '@components/common/AsyncState';
@@ -27,36 +28,78 @@ const normalizeTrades = (payload) => {
   return [];
 };
 
+const summarizeAssets = (assets = []) => {
+  if (!Array.isArray(assets) || assets.length === 0) return 'None';
+  return assets
+    .map((asset) => {
+      if (asset.asset_type === 'PLAYER') {
+        return asset.player_name || `Player #${asset.player_id}`;
+      }
+      if (asset.asset_type === 'DRAFT_PICK') {
+        return `Pick #${asset.draft_pick_id}${asset.season_year ? ` (${asset.season_year})` : ''}`;
+      }
+      if (asset.asset_type === 'DRAFT_DOLLARS') {
+        return `$${Number(asset.amount || 0)}`;
+      }
+      return asset.asset_type;
+    })
+    .join(', ');
+};
+
 export default function ManageTrades() {
+  const leagueId = useActiveLeague();
   const [trades, setTrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [actionComments, setActionComments] = useState({});
+
+  const fetchTrades = async (currentLeagueId) => {
+    if (!currentLeagueId) {
+      setTrades([]);
+      setLoading(false);
+      setMessage('No active league selected.');
+      return;
+    }
+    setLoading(true);
+    setMessage('');
+    try {
+      const res = await apiClient.get(`/trades/leagues/${currentLeagueId}/pending-v2`);
+      setTrades(normalizeTrades(res.data));
+    } catch {
+      setTrades([]);
+      setMessage('Failed to load trades');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchTrades() {
-      setLoading(true);
-      setMessage('');
-      try {
-        // Replace with real endpoint and league context as needed
-        const res = await apiClient.get('/trades/pending');
-        setTrades(normalizeTrades(res.data));
-      } catch {
-        setTrades([]);
-        setMessage('Failed to load trades');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchTrades();
-  }, []);
+    fetchTrades(leagueId);
+  }, [leagueId]);
 
   const handleAction = async (tradeId, action) => {
     setMessage('');
     try {
-      // Replace with real endpoint
-      await apiClient.post(`/trades/${tradeId}/${action}`);
+      if (!leagueId) {
+        setMessage('Unable to determine league context.');
+        return;
+      }
+      const comments = actionComments[tradeId] || '';
+      const endpoint =
+        action === 'approve'
+          ? `/trades/leagues/${leagueId}/${tradeId}/approve-v2`
+          : `/trades/leagues/${leagueId}/${tradeId}/reject-v2`;
+      await apiClient.post(endpoint, {
+        commissioner_comments: comments,
+      });
       setTrades((prevTrades) => prevTrades.filter((t) => t.id !== tradeId));
-      setMessage(`Trade ${action}d successfully!`);
+      setActionComments((prev) => {
+        const next = { ...prev };
+        delete next[tradeId];
+        return next;
+      });
+      const actionLabel = action === 'approve' ? 'approved' : 'rejected';
+      setMessage(`Trade ${actionLabel} successfully!`);
     } catch {
       setMessage(`Failed to ${action} trade`);
     }
@@ -95,21 +138,39 @@ export default function ManageTrades() {
             <StandardTable>
               <StandardTableHead
                 headers={[
-                  { key: 'from', label: 'From' },
-                  { key: 'to', label: 'To' },
-                  { key: 'players', label: 'Players' },
+                  { key: 'from', label: 'From Team' },
+                  { key: 'to', label: 'To Team' },
+                  { key: 'assetsFromA', label: 'Assets From A' },
+                  { key: 'assetsFromB', label: 'Assets From B' },
+                  { key: 'comments', label: 'Comments' },
                   { key: 'actions', label: 'Actions' },
                 ]}
               />
               <tbody>
                 {trades.map((trade) => (
                   <StandardTableRow key={trade.id}>
-                    <td className={tableCell}>{trade.from_team || trade.from_user}</td>
-                    <td className={tableCell}>{trade.to_team || trade.to_user}</td>
+                    <td className={tableCell}>{trade.team_a_name || 'Unknown Team A'}</td>
+                    <td className={tableCell}>{trade.team_b_name || 'Unknown Team B'}</td>
                     <td className={tableCell}>
-                      {trade.players && trade.players.length > 0
-                        ? trade.players.map((p) => p.name).join(', ')
-                        : 'N/A'}
+                      {summarizeAssets(trade.assets_from_a)}
+                    </td>
+                    <td className={tableCell}>
+                      {summarizeAssets(trade.assets_from_b)}
+                    </td>
+                    <td className={tableCell}>
+                      <textarea
+                        rows={2}
+                        aria-label={`Commissioner comments for trade ${trade.id}`}
+                        className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+                        placeholder="Optional commissioner comment"
+                        value={actionComments[trade.id] || ''}
+                        onChange={(e) =>
+                          setActionComments((prev) => ({
+                            ...prev,
+                            [trade.id]: e.target.value,
+                          }))
+                        }
+                      />
                     </td>
                     <td className={`${tableCell} space-x-2`}>
                       <button
@@ -122,9 +183,9 @@ export default function ManageTrades() {
                       <button
                         type="button"
                         className={buttonDanger}
-                        onClick={() => handleAction(trade.id, 'deny')}
+                        onClick={() => handleAction(trade.id, 'reject')}
                       >
-                        Deny
+                        Reject
                       </button>
                     </td>
                   </StandardTableRow>

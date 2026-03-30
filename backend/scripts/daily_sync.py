@@ -1,5 +1,6 @@
 import sys
 import os
+import pandas as pd
 
 # Add the parent directory (backend) to the system path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,14 +48,26 @@ def sync_nfl_reality():
         ):
             continue
 
+        raw_espn_id = row.get('player_id')
+        if pd.isna(raw_espn_id):
+            espn_id = None
+        else:
+            espn_id = str(raw_espn_id).strip()
+            if espn_id.lower() in {'', 'nan', 'none', 'null'}:
+                espn_id = None
+
         player = player_service.find_existing_player(
             db,
             gsis_id=None,
+            espn_id=espn_id,
             name=name,
             position=position,
             nfl_team=team,
         )
         if player:
+            # Update ESPN ID if we have it and it's missing from the record
+            if espn_id and not player.espn_id:
+                player.espn_id = espn_id
             # Update their team if they've been traded or moved
             if player.nfl_team != team:
                 print(f"🚀 Trade Alert: {player.name} moved from {player.nfl_team} to {team}")
