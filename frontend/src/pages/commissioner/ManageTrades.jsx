@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import apiClient from '@api/client';
 import { Link } from 'react-router-dom';
+import { useActiveLeague } from '@context/LeagueContext';
 import { FiChevronLeft } from 'react-icons/fi';
 import PageTemplate from '@components/layout/PageTemplate';
 import { EmptyState, LoadingState } from '@components/common/AsyncState';
@@ -56,6 +57,7 @@ export default function ManageTrades() {
     if (!currentLeagueId) {
       setTrades([]);
       setLoading(false);
+  const leagueId = useActiveLeague();
       return;
     }
     setLoading(true);

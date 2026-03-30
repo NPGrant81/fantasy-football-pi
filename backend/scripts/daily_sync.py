@@ -1,5 +1,6 @@
 import sys
 import os
+import pandas as pd
 
 # Add the parent directory (backend) to the system path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,7 +48,14 @@ def sync_nfl_reality():
         ):
             continue
 
-        espn_id = str(row.get('player_id') or '')
+        raw_espn_id = row.get('player_id')
+        if pd.isna(raw_espn_id):
+            espn_id = None
+        else:
+            espn_id = str(raw_espn_id).strip()
+            if espn_id.lower() in {'', 'nan', 'none', 'null'}:
+                espn_id = None
+
         player = player_service.find_existing_player(
             db,
             gsis_id=None,

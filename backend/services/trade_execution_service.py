@@ -161,7 +161,7 @@ def execute_trade_v2_approval(
                 league_id=trade.league_id,
                 season_year=None,
                 currency_type="DRAFT_DOLLARS",
-            amount=offered_by_b,
+                amount=offered_by_b,
                 from_owner_id=trade.team_b_id,
                 to_owner_id=trade.team_a_id,
                 transaction_type="TRADE_DOLLARS",
