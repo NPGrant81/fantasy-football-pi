@@ -410,6 +410,8 @@ def get_post_draft_outlook(
             "risk_score": row.risk_score,
             "positional_balance_score": row.positional_balance_score,
             "strength_score": row.strength_score,
+            "confidence_score": row.confidence_score,
+            "confidence_label": row.confidence_label,
         }
         ranked_rows.append(serialized)
 
@@ -433,6 +435,8 @@ def get_post_draft_outlook(
                 "projected_points": owner_focus.projected_points,
                 "projected_points_vs_league_avg": owner_focus.projected_points_vs_league_avg,
                 "risk_score": owner_focus.risk_score,
+                "confidence_score": owner_focus.confidence_score,
+                "confidence_label": owner_focus.confidence_label,
                 "positional_gaps": owner_focus.positional_gaps,
                 "summary": summary,
             }
@@ -459,6 +463,12 @@ def get_post_draft_outlook(
         "invalid_projection_rows": diagnostics.invalid_projection_rows,
         "unknown_position_rows": diagnostics.unknown_position_rows,
         "projection_coverage": diagnostics.projection_coverage,
+    }
+    payload["meta"]["confidence_context"] = {
+        "method": "phase_b_baseline_v1",
+        "model_signal_available": False,
+        "simulation_signal_available": False,
+        "baseline_only": True,
     }
     return payload
 

@@ -19,6 +19,7 @@ from backend.routers.analytics import (
     get_weekly_matchup_comparison,
     get_weekly_stats,
 )
+from backend.schemas.season_outlook import PostDraftOutlookResponse
 
 
 @pytest.fixture
@@ -346,6 +347,68 @@ def test_post_draft_outlook_payload_and_owner_focus(db_session):
     assert payload["owner_focus"] is not None
     assert payload["owner_focus"]["owner_id"] == owner_a.id
     assert "summary" in payload["owner_focus"]
+    assert isinstance(payload["team_rows"][0]["confidence_score"], float)
+    assert payload["team_rows"][0]["confidence_label"] in {"low", "moderate", "high"}
+
+
+def test_post_draft_outlook_contract_shape_is_stable(db_session):
+    league = make_league(db_session)
+    owner_a = make_user(db_session, league.id, username="ContractA", team_name="Contract A")
+    owner_b = make_user(db_session, league.id, username="ContractB", team_name="Contract B")
+
+    qb = models.Player(name="Contract QB", position="QB", nfl_team="AAA", projected_points=250.0)
+    wr = models.Player(name="Contract WR", position="WR", nfl_team="BBB", projected_points=180.0)
+    db_session.add_all([qb, wr])
+    db_session.commit()
+    db_session.refresh(qb)
+    db_session.refresh(wr)
+
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_b.id, league_id=league.id, player_id=wr.id, current_status="STARTER", amount=10),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_post_draft_outlook(
+        league_id=league.id,
+        owner_id=owner_a.id,
+        season=2026,
+        db=db_session,
+    )
+
+    validated = PostDraftOutlookResponse.model_validate(payload)
+    assert validated.season == 2026
+
+    assert set(payload["meta"].keys()) == {
+        "metric",
+        "league_id",
+        "season",
+        "scoring_profile",
+        "computed_at",
+        "degraded_mode",
+        "degradation_reasons",
+        "data_quality",
+        "confidence_context",
+    }
+
+    assert set(payload["meta"]["data_quality"].keys()) == {
+        "total_draft_rows",
+        "included_rows",
+        "skipped_rows",
+        "duplicate_rows_skipped",
+        "invalid_projection_rows",
+        "unknown_position_rows",
+        "projection_coverage",
+    }
+
+    assert set(payload["meta"]["confidence_context"].keys()) == {
+        "method",
+        "model_signal_available",
+        "simulation_signal_available",
+        "baseline_only",
+    }
 
 
 def test_post_draft_outlook_degraded_metadata_for_messy_inputs(db_session):

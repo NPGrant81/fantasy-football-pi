@@ -27,6 +27,8 @@ class TeamOutlook:
     risk_score: float
     positional_balance_score: float
     strength_score: float
+    confidence_score: float
+    confidence_label: str
     positional_gaps: list[str]
 
 
@@ -76,6 +78,14 @@ def _is_excluded_status(value: str | None) -> bool:
     if not token:
         return False
     return token in {"DROPPED", "DROP", "CUT", "WAIVER_DROP", "RELEASED"}
+
+
+def _confidence_label(score: float) -> str:
+    if score >= 75.0:
+        return "high"
+    if score >= 55.0:
+        return "moderate"
+    return "low"
 
 
 def build_post_draft_outlook(
@@ -166,6 +176,10 @@ def build_post_draft_outlook(
         if position in position_counts_by_owner[owner_key]:
             position_counts_by_owner[owner_key][position] += 1
 
+    total_roster_slots = sum(roster_size_by_owner.values())
+    total_missing = sum(missing_projection_by_owner.values())
+    projection_coverage = 1.0 - (total_missing / max(1, total_roster_slots))
+
     league_average = sum(projected_by_owner.values()) / max(1, len(projected_by_owner))
 
     rows: list[TeamOutlook] = []
@@ -188,6 +202,14 @@ def build_post_draft_outlook(
         positional_balance_score = round(met_slots / len(_MIN_POSITION_TARGETS), 3)
         strength_score = round(projected_points * (1.0 - (risk_score * 0.35)) + (positional_balance_score * 25), 2)
 
+        confidence_raw = (
+            ((1.0 - risk_score) * 0.55)
+            + (positional_balance_score * 0.25)
+            + (projection_coverage * 0.20)
+        ) * 100.0
+        confidence_score = round(max(5.0, min(95.0, confidence_raw)), 1)
+        confidence_label = _confidence_label(confidence_score)
+
         rows.append(
             TeamOutlook(
                 owner_id=owner_key,
@@ -199,6 +221,8 @@ def build_post_draft_outlook(
                 risk_score=risk_score,
                 positional_balance_score=positional_balance_score,
                 strength_score=strength_score,
+                confidence_score=confidence_score,
+                confidence_label=confidence_label,
                 positional_gaps=positional_gaps,
             )
         )
@@ -218,13 +242,11 @@ def build_post_draft_outlook(
                 risk_score=row.risk_score,
                 positional_balance_score=row.positional_balance_score,
                 strength_score=row.strength_score,
+                confidence_score=row.confidence_score,
+                confidence_label=row.confidence_label,
                 positional_gaps=row.positional_gaps,
             )
             break
-
-    total_roster_slots = sum(roster_size_by_owner.values())
-    total_missing = sum(missing_projection_by_owner.values())
-    projection_coverage = 1.0 - (total_missing / max(1, total_roster_slots))
 
     degradation_reasons: list[str] = []
     if included_rows == 0:
