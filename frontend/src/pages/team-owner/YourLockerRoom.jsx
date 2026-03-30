@@ -1059,6 +1059,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
         team_b_id: Number(proposalToUserId),
         assets_from_a: assetsFromA,
         assets_from_b: assetsFromB,
+        proposal_note: proposalNote,
       });
 
       setToast({ message: 'Trade proposal submitted.', type: 'success' });
@@ -1071,9 +1072,24 @@ export default function YourLockerRoom({ activeOwnerId }) {
       setRequestedDollars('');
       fetchTeam();
     } catch (err) {
+      const detail = err.response?.data?.detail;
+      const flattenedDetail =
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.join(', ')
+            : detail && typeof detail === 'object'
+              ? Object.entries(detail)
+                  .flatMap(([key, value]) => {
+                    if (Array.isArray(value)) {
+                      return value.map((message) => `${key}: ${message}`);
+                    }
+                    return [`${key}: ${String(value)}`];
+                  })
+                  .join(', ')
+              : null;
       setToast({
-        message:
-          err.response?.data?.detail || 'Failed to submit trade proposal.',
+        message: flattenedDetail || 'Failed to submit trade proposal.',
         type: 'error',
       });
     }

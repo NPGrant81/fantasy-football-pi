@@ -67,6 +67,17 @@ def test_validate_draft_capital_enforces_available_balances():
     assert "assets_from_b" not in report.errors
 
 
+def test_validate_multi_asset_trade_rejects_fractional_draft_dollars():
+    report = validate_multi_asset_trade(
+        assets_from_a=[TradeAssetInput(asset_type="DRAFT_DOLLARS", amount=1.5)],
+        assets_from_b=[TradeAssetInput(asset_type="PLAYER", player_id=9)],
+    )
+
+    assert not report.valid
+    assert "assets_from_a[0]" in report.errors
+    assert any("whole number" in message for message in report.errors["assets_from_a[0]"])
+
+
 def test_validate_position_suppression_rejects_blocked_position():
     report = validate_position_suppression(
         assets_from_a=[TradeAssetInput(asset_type="PLAYER", player_id=1, position="K")],

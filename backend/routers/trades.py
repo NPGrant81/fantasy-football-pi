@@ -52,6 +52,7 @@ class TradeSubmissionCreate(BaseModel):
     team_b_id: int
     assets_from_a: list[TradeAssetCreate]
     assets_from_b: list[TradeAssetCreate]
+    proposal_note: str | None = None
 
 
 class TradeReviewAction(BaseModel):
@@ -195,6 +196,11 @@ def submit_trade_v2(
 
     if current_user.id not in {payload.team_a_id, payload.team_b_id}:
         raise HTTPException(status_code=403, detail="You can only submit trades involving your own team.")
+    if current_user.id != payload.team_a_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You must submit trades as team A (team_a_id must be your team).",
+        )
 
     teams = (
         db.query(models.User)
@@ -415,6 +421,7 @@ def submit_trade_v2(
         event_type="SUBMITTED",
         actor_user_id=current_user.id,
         comment=None,
+        metadata_json={"proposal_note": (payload.proposal_note or "").strip() or None},
     )
 
     db.commit()

@@ -111,7 +111,8 @@ export default function ManageTrades() {
         delete next[tradeId];
         return next;
       });
-      setMessage(`Trade ${action}d successfully!`);
+      const actionLabel = action === 'approve' ? 'approved' : 'rejected';
+      setMessage(`Trade ${actionLabel} successfully!`);
     } catch {
       setMessage(`Failed to ${action} trade`);
     }

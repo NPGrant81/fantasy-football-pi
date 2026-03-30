@@ -28,6 +28,10 @@ def _find_player_pick(db: Session, *, league_id: int, owner_id: int, player_id: 
     )
 
 
+def _draft_dollars_to_int(value: object) -> int:
+    return int(round(float(value or 0)))
+
+
 def execute_trade_v2_approval(
     db: Session,
     *,
@@ -116,24 +120,32 @@ def execute_trade_v2_approval(
             pick.owner_id = trade.team_a_id
 
         # 3) Apply draft-dollar transfers and ledger entries.
-        offered_by_a = sum(float(asset.amount or 0) for asset in side_a if asset.asset_type == "DRAFT_DOLLARS")
-        offered_by_b = sum(float(asset.amount or 0) for asset in side_b if asset.asset_type == "DRAFT_DOLLARS")
+        offered_by_a = sum(
+            _draft_dollars_to_int(asset.amount)
+            for asset in side_a
+            if asset.asset_type == "DRAFT_DOLLARS"
+        )
+        offered_by_b = sum(
+            _draft_dollars_to_int(asset.amount)
+            for asset in side_b
+            if asset.asset_type == "DRAFT_DOLLARS"
+        )
 
-        if float(team_a.future_draft_budget or 0) < offered_by_a:
+        if int(team_a.future_draft_budget or 0) < offered_by_a:
             raise ValueError("Team A lacks sufficient draft dollars")
-        if float(team_b.future_draft_budget or 0) < offered_by_b:
+        if int(team_b.future_draft_budget or 0) < offered_by_b:
             raise ValueError("Team B lacks sufficient draft dollars")
 
-        team_a.future_draft_budget = int(float(team_a.future_draft_budget or 0) - offered_by_a + offered_by_b)
-        team_b.future_draft_budget = int(float(team_b.future_draft_budget or 0) - offered_by_b + offered_by_a)
+        team_a.future_draft_budget = int(team_a.future_draft_budget or 0) - offered_by_a + offered_by_b
+        team_b.future_draft_budget = int(team_b.future_draft_budget or 0) - offered_by_b + offered_by_a
 
-        if int(offered_by_a) > 0:
+        if offered_by_a > 0:
             record_ledger_entry(
                 db,
                 league_id=trade.league_id,
                 season_year=None,
                 currency_type="DRAFT_DOLLARS",
-                amount=int(offered_by_a),
+                amount=offered_by_a,
                 from_owner_id=trade.team_a_id,
                 to_owner_id=trade.team_b_id,
                 transaction_type="TRADE_DOLLARS",
@@ -143,13 +155,13 @@ def execute_trade_v2_approval(
                 created_by_user_id=approver_id,
             )
 
-        if int(offered_by_b) > 0:
+        if offered_by_b > 0:
             record_ledger_entry(
                 db,
                 league_id=trade.league_id,
                 season_year=None,
                 currency_type="DRAFT_DOLLARS",
-                amount=int(offered_by_b),
+            amount=offered_by_b,
                 from_owner_id=trade.team_b_id,
                 to_owner_id=trade.team_a_id,
                 transaction_type="TRADE_DOLLARS",

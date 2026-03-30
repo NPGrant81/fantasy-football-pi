@@ -84,6 +84,8 @@ def validate_multi_asset_trade(
                 amount = float(asset.amount or 0)
                 if amount <= 0:
                     _add_error(report, path, "draft dollar asset amount must be greater than zero")
+                elif not amount.is_integer():
+                    _add_error(report, path, "draft dollar asset amount must be a whole number")
 
     return report
 

@@ -93,6 +93,7 @@ def test_submit_trade_v2_creates_pending_trade_and_assets(monkeypatch):
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
         team_b_id=team_b.id,
+        proposal_note="Offer includes draft dollars for balance",
         assets_from_a=[
             TradeAssetCreate(asset_type="PLAYER", player_id=player_a.id),
             TradeAssetCreate(asset_type="DRAFT_PICK", draft_pick_id=pick_a.id, season_year=2027),
@@ -125,6 +126,7 @@ def test_submit_trade_v2_creates_pending_trade_and_assets(monkeypatch):
     assert len(events) == 1
     assert events[0].event_type == "SUBMITTED"
     assert events[0].actor_user_id == team_a.id
+    assert events[0].metadata_json.get("proposal_note") == "Offer includes draft dollars for balance"
 
     recipient_ids = {user_id for user_id, template_id, _ in sent if template_id == "trade_submitted_pending_review"}
     assert recipient_ids == {team_b.id, commissioner.id}
@@ -184,3 +186,31 @@ def test_submit_trade_v2_rejects_player_not_owned_by_offering_team():
 
     assert exc.value.status_code == 400
     assert "does not own player" in str(exc.value.detail)
+
+
+def test_submit_trade_v2_requires_submitter_to_be_team_a():
+    db = setup_db()
+    league = make_league(db)
+    db.add(models.LeagueSettings(league_id=league.id, roster_size=16, trade_deadline=None))
+    db.commit()
+
+    team_a = make_user(db, league, "team-a-side", budget=30)
+    team_b = make_user(db, league, "team-b-side", budget=20)
+
+    player_a = make_player(db, "A Side Player", position="RB")
+    player_b = make_player(db, "B Side Player", position="WR")
+    make_pick(db, league.id, team_a.id, player_a.id)
+    make_pick(db, league.id, team_b.id, player_b.id)
+
+    payload = TradeSubmissionCreate(
+        team_a_id=team_a.id,
+        team_b_id=team_b.id,
+        assets_from_a=[TradeAssetCreate(asset_type="PLAYER", player_id=player_a.id)],
+        assets_from_b=[TradeAssetCreate(asset_type="PLAYER", player_id=player_b.id)],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        submit_trade_v2(league.id, payload, db=db, current_user=CU(team_b))
+
+    assert exc.value.status_code == 403
+    assert "team A" in str(exc.value.detail)
