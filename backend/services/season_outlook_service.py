@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from sqlalchemy.orm import Session
 
@@ -29,8 +30,52 @@ class TeamOutlook:
     positional_gaps: list[str]
 
 
+@dataclass
+class OutlookDiagnostics:
+    degraded_mode: bool
+    degradation_reasons: list[str]
+    total_draft_rows: int
+    included_rows: int
+    skipped_rows: int
+    duplicate_rows_skipped: int
+    invalid_projection_rows: int
+    unknown_position_rows: int
+    projection_coverage: float
+
+
 def _empty_counts() -> dict[str, int]:
     return {"QB": 0, "RB": 0, "WR": 0, "TE": 0, "K": 0, "DEF": 0}
+
+
+def _safe_int(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_projection(value) -> float:
+    try:
+        numeric = float(value or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+    return numeric if math.isfinite(numeric) else 0.0
+
+
+def _normalized_position(value: str | None) -> str:
+    token = (value or "").strip().upper()
+    if token in {"DST", "D/ST"}:
+        return "DEF"
+    return token
+
+
+def _is_excluded_status(value: str | None) -> bool:
+    token = (value or "").strip().upper()
+    if not token:
+        return False
+    return token in {"DROPPED", "DROP", "CUT", "WAIVER_DROP", "RELEASED"}
 
 
 def build_post_draft_outlook(
@@ -39,7 +84,7 @@ def build_post_draft_outlook(
     league_id: int,
     season: int,
     owner_id: int | None = None,
-) -> tuple[list[TeamOutlook], TeamOutlook | None]:
+) -> tuple[list[TeamOutlook], TeamOutlook | None, OutlookDiagnostics]:
     league = db.query(models.League.id).filter(models.League.id == league_id).first()
     if not league:
         raise ValueError("League not found")
@@ -57,13 +102,19 @@ def build_post_draft_outlook(
     if owner_id is not None and owner_id not in owner_by_id:
         raise ValueError("Owner not found in this league")
 
-    player_rows = (
-        db.query(models.DraftPick.owner_id, models.Player.position, models.Player.projected_points)
-        .join(models.Player, models.Player.id == models.DraftPick.player_id)
+    draft_rows = (
+        db.query(
+            models.DraftPick.id,
+            models.DraftPick.owner_id,
+            models.DraftPick.player_id,
+            models.DraftPick.current_status,
+            models.Player.position,
+            models.Player.projected_points,
+        )
+        .outerjoin(models.Player, models.Player.id == models.DraftPick.player_id)
         .filter(
             models.DraftPick.league_id == league_id,
             models.DraftPick.owner_id.in_(list(owner_by_id.keys())),
-            models.DraftPick.player_id.isnot(None),
         )
         .all()
     )
@@ -72,17 +123,46 @@ def build_post_draft_outlook(
     roster_size_by_owner = {owner_key: 0 for owner_key in owner_by_id}
     missing_projection_by_owner = {owner_key: 0 for owner_key in owner_by_id}
     position_counts_by_owner = {owner_key: _empty_counts() for owner_key in owner_by_id}
+    seen_owner_player: set[tuple[int, int]] = set()
 
-    for row in player_rows:
-        owner_key = int(row.owner_id)
-        position = (row.position or "").strip().upper()
-        projection = float(row.projected_points or 0.0)
+    included_rows = 0
+    skipped_rows = 0
+    duplicate_rows_skipped = 0
+    invalid_projection_rows = 0
+    unknown_position_rows = 0
+
+    for row in draft_rows:
+        owner_key = _safe_int(row.owner_id)
+        if owner_key is None or owner_key not in owner_by_id:
+            skipped_rows += 1
+            continue
+
+        if _is_excluded_status(row.current_status):
+            skipped_rows += 1
+            continue
+
+        player_id = _safe_int(row.player_id)
+        if player_id is not None:
+            dedupe_key = (owner_key, player_id)
+            if dedupe_key in seen_owner_player:
+                duplicate_rows_skipped += 1
+                skipped_rows += 1
+                continue
+            seen_owner_player.add(dedupe_key)
+
+        projection = _safe_projection(row.projected_points)
+        if projection <= 0:
+            missing_projection_by_owner[owner_key] += 1
+            if row.projected_points not in (None, 0, 0.0):
+                invalid_projection_rows += 1
+
+        position = _normalized_position(row.position)
+        if position and position not in position_counts_by_owner[owner_key]:
+            unknown_position_rows += 1
 
         roster_size_by_owner[owner_key] += 1
         projected_by_owner[owner_key] += projection
-        if projection <= 0:
-            missing_projection_by_owner[owner_key] += 1
-
+        included_rows += 1
         if position in position_counts_by_owner[owner_key]:
             position_counts_by_owner[owner_key][position] += 1
 
@@ -123,7 +203,7 @@ def build_post_draft_outlook(
             )
         )
 
-    rows.sort(key=lambda item: item.strength_score, reverse=True)
+    rows.sort(key=lambda item: (-item.strength_score, -item.projected_points, item.owner_id))
 
     focus: TeamOutlook | None = None
     for idx, row in enumerate(rows, start=1):
@@ -142,4 +222,30 @@ def build_post_draft_outlook(
             )
             break
 
-    return rows, focus
+    total_roster_slots = sum(roster_size_by_owner.values())
+    total_missing = sum(missing_projection_by_owner.values())
+    projection_coverage = 1.0 - (total_missing / max(1, total_roster_slots))
+
+    degradation_reasons: list[str] = []
+    if included_rows == 0:
+        degradation_reasons.append("no_roster_rows")
+    if projection_coverage < 0.60:
+        degradation_reasons.append("low_projection_coverage")
+    if unknown_position_rows > 0:
+        degradation_reasons.append("unknown_positions_present")
+    if duplicate_rows_skipped > 0:
+        degradation_reasons.append("duplicate_rows_suppressed")
+
+    diagnostics = OutlookDiagnostics(
+        degraded_mode=len(degradation_reasons) > 0,
+        degradation_reasons=degradation_reasons,
+        total_draft_rows=len(draft_rows),
+        included_rows=included_rows,
+        skipped_rows=skipped_rows,
+        duplicate_rows_skipped=duplicate_rows_skipped,
+        invalid_projection_rows=invalid_projection_rows,
+        unknown_position_rows=unknown_position_rows,
+        projection_coverage=round(max(0.0, min(1.0, projection_coverage)), 3),
+    )
+
+    return rows, focus, diagnostics

@@ -384,7 +384,7 @@ def get_post_draft_outlook(
     resolved_season = _resolved_season(season)
 
     try:
-        team_rows, owner_focus = build_post_draft_outlook(
+        team_rows, owner_focus, diagnostics = build_post_draft_outlook(
             db,
             league_id=league_id,
             season=resolved_season,
@@ -414,7 +414,12 @@ def get_post_draft_outlook(
         ranked_rows.append(serialized)
 
         if owner_focus is not None and owner_focus.owner_id == row.owner_id:
-            if owner_focus.positional_gaps:
+            if diagnostics.degraded_mode:
+                summary = (
+                    f"Rank {idx}. Data quality is degraded ({', '.join(diagnostics.degradation_reasons)}); "
+                    "treat recommendations as conservative baseline guidance."
+                )
+            elif owner_focus.positional_gaps:
                 summary = (
                     f"Rank {idx}. Focus next on {', '.join(owner_focus.positional_gaps)} "
                     "to reduce structural roster risk."
@@ -432,7 +437,7 @@ def get_post_draft_outlook(
                 "summary": summary,
             }
 
-    return {
+    payload = {
         "season": resolved_season,
         "team_rows": ranked_rows,
         "owner_focus": focus_payload,
@@ -443,6 +448,19 @@ def get_post_draft_outlook(
             season=resolved_season,
         ),
     }
+
+    payload["meta"]["degraded_mode"] = diagnostics.degraded_mode
+    payload["meta"]["degradation_reasons"] = diagnostics.degradation_reasons
+    payload["meta"]["data_quality"] = {
+        "total_draft_rows": diagnostics.total_draft_rows,
+        "included_rows": diagnostics.included_rows,
+        "skipped_rows": diagnostics.skipped_rows,
+        "duplicate_rows_skipped": diagnostics.duplicate_rows_skipped,
+        "invalid_projection_rows": diagnostics.invalid_projection_rows,
+        "unknown_position_rows": diagnostics.unknown_position_rows,
+        "projection_coverage": diagnostics.projection_coverage,
+    }
+    return payload
 
 
 @router.get('/league/{league_id}/player-heatmap')
