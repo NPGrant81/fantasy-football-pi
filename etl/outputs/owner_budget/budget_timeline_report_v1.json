@@ -1,0 +1,512 @@
+{
+  "generated_at": "2026-03-30T02:37:15.369867+00:00",
+  "timeline_rows": 0,
+  "owner_season_pairs": 0,
+  "overspent_owner_seasons": 0,
+  "exceptions": [
+    {
+      "season_year": 2018,
+      "owner_id": 1,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 2,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 3,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 4,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 5,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 6,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 7,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 8,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 9,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 10,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 11,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 13,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 1,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 2,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 3,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 4,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 5,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 6,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 7,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 8,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 9,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 10,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 11,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 12,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 1,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 2,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 3,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 4,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 5,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 6,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 7,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 8,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 9,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 10,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 11,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 12,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 1,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 2,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 3,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 4,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 5,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 6,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 7,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 8,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 9,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 10,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 11,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 12,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 1,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 2,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 3,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 4,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 5,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 6,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 7,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 8,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 9,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 10,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 11,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 12,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 1,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 2,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 3,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 4,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 5,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 6,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 7,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 8,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 9,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 10,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 11,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 12,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 1,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 2,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 3,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 4,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 5,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 6,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 7,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 8,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 9,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 10,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 11,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    },
+    {
+      "season_year": 2024,
+      "owner_id": 12,
+      "issue_type": "missing_starting_budget",
+      "detail": "No DraftBudget row found for owner-season"
+    }
+  ]
+}

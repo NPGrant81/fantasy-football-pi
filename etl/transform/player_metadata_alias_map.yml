@@ -1,0 +1,9 @@
+# Canonical aliases for player display names. Keys and values should remain title-cased.
+# This map is intentionally small for v1 and can be expanded from real QA findings.
+aliases:
+  A.J. Green: AJ Green
+  A.J. Brown: AJ Brown
+  D.K. Metcalf: DK Metcalf
+  T.Y. Hilton: TY Hilton
+  Odell Beckham Jr.: Odell Beckham
+  Robert Griffin III: Robert Griffin
