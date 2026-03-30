@@ -618,11 +618,12 @@ def get_league_news(
             )
             .all()
         )
-        # Build set of unique player_ids; this is O(n) and avoids redundant filtering logic
         roster_player_ids = {
             pick.player_id
             for pick in owner_roster_rows
-            if pick.player_id is not None
+            if getattr(pick, "player_id", None) is not None
+            and getattr(pick, "owner_id", None) == owner_id
+            and getattr(pick, "league_id", None) == league_id
         }
 
     items: List[LeagueNewsItem] = []
@@ -654,7 +655,7 @@ def get_league_news(
                 continue
 
         title = f"{owner_name} drafted {player_name} for ${pick.amount}"
-        sentiment_score, sentiment_label, sentiment_tags = _sentiment_from_text(title=title)
+        sentiment_score, sentiment_label, sentiment_tags = _news_sentiment(title)
 
         items.append(
             LeagueNewsItem(
