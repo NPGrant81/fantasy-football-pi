@@ -5,13 +5,14 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from sqlalchemy import create_engine, inspect
 
-from etl.transform.historical_draft_validator import write_draft_validation_outputs
-from etl.transform.owner_budget_timeline import write_budget_timeline_outputs
-from etl.transform.player_metadata_canonicalization import write_canonicalization_outputs
+from etl.transform.historical_draft_validator import write_draft_validation_outputs_from_dataframes
+from etl.transform.owner_budget_timeline import write_budget_timeline_outputs_from_dataframes
+from etl.transform.player_metadata_canonicalization import write_canonicalization_outputs_from_dataframes
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "backend" / "data"
@@ -35,17 +36,19 @@ def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
         return pd.read_csv(path, encoding="latin-1")
 
 
-def _load_from_postgres_or_exports() -> dict[str, str]:
+def _load_from_postgres_or_exports() -> dict[str, Any]:
     dataset_dir = OUTPUT_DIR / "_source_snapshots"
     dataset_dir.mkdir(parents=True, exist_ok=True)
 
-    required = {
+    snapshot_paths = {
         "players": dataset_dir / "players.csv",
         "positions": dataset_dir / "positions.csv",
         "users": dataset_dir / "users.csv",
         "draft_budget": dataset_dir / "draft_budget.csv",
         "draft_results": dataset_dir / "draft_results.csv",
     }
+
+    frames: dict[str, pd.DataFrame] = {}
 
     database_url = os.getenv("DATABASE_URL")
     source_mode = "csv_exports"
@@ -82,7 +85,7 @@ def _load_from_postgres_or_exports() -> dict[str, str]:
                 players_query = f'SELECT id as "Player_ID", name as "PlayerName", {position_id_expr}, {position_expr} FROM players'
             else:
                 players_query = "SELECT * FROM players"
-            pd.read_sql(players_query, engine).to_csv(required["players"], index=False)
+            frames["players"] = pd.read_sql(players_query, engine)
 
             positions_columns = {col["name"] for col in inspector.get_columns("positions")}
             if {"PositionID", "Position"}.issubset(positions_columns):
@@ -91,17 +94,17 @@ def _load_from_postgres_or_exports() -> dict[str, str]:
                 positions_query = 'SELECT id as "PositionID", name as "Position" FROM positions'
             else:
                 positions_query = "SELECT * FROM positions"
-            pd.read_sql(positions_query, engine).to_csv(required["positions"], index=False)
+            frames["positions"] = pd.read_sql(positions_query, engine)
 
-            pd.read_sql("SELECT id as \"OwnerID\", username as \"OwnerName\" FROM users", engine).to_csv(required["users"], index=False)
+            frames["users"] = pd.read_sql("SELECT id as \"OwnerID\", username as \"OwnerName\" FROM users", engine)
 
             budget_columns = {col["name"] for col in inspector.get_columns("draft_budgets")}
             if {"owner_id", "year"}.issubset(budget_columns) and ("budget" in budget_columns or "total_budget" in budget_columns):
                 budget_amount_col = "budget" if "budget" in budget_columns else "total_budget"
-                pd.read_sql(
+                frames["draft_budget"] = pd.read_sql(
                     f'SELECT {budget_amount_col} as "DraftBudget", year as "Year", owner_id as "OwnerID" FROM draft_budgets',
                     engine,
-                ).to_csv(required["draft_budget"], index=False)
+                )
             else:
                 latest_year_df = pd.read_sql('SELECT MAX(year) as "Year" FROM draft_picks', engine)
                 latest_year = None
@@ -109,10 +112,10 @@ def _load_from_postgres_or_exports() -> dict[str, str]:
                     latest_year = int(latest_year_df["Year"].iloc[0])
                 if latest_year is None:
                     latest_year = datetime.now(UTC).year
-                pd.read_sql(
+                frames["draft_budget"] = pd.read_sql(
                     f'SELECT future_draft_budget as "DraftBudget", {latest_year} as "Year", id as "OwnerID" FROM users',
                     engine,
-                ).to_csv(required["draft_budget"], index=False)
+                )
 
             draft_pick_columns = {col["name"] for col in inspector.get_columns("draft_picks")}
             if not {"player_id", "owner_id", "year"}.issubset(draft_pick_columns):
@@ -123,10 +126,10 @@ def _load_from_postgres_or_exports() -> dict[str, str]:
 
             position_expr = 'position_id as "PositionID"' if "position_id" in draft_pick_columns else 'NULL as "PositionID"'
             team_expr = 'team_id as "TeamID"' if "team_id" in draft_pick_columns else 'NULL as "TeamID"'
-            pd.read_sql(
+            frames["draft_results"] = pd.read_sql(
                 f'SELECT player_id as "PlayerID", owner_id as "OwnerID", year as "Year", {position_expr}, {team_expr}, {bid_col} as "WinningBid" FROM draft_picks',
                 engine,
-            ).to_csv(required["draft_results"], index=False)
+            )
             source_mode = "postgres"
         except Exception as exc:
             print(
@@ -146,43 +149,47 @@ def _load_from_postgres_or_exports() -> dict[str, str]:
         for key, src in fallback_map.items():
             if not src.exists():
                 raise FileNotFoundError(f"Missing required source export: {src}")
-            _read_csv_with_fallback(src).to_csv(required[key], index=False)
+            frames[key] = _read_csv_with_fallback(src)
+
+    for key, frame in frames.items():
+        frame.to_csv(snapshot_paths[key], index=False)
 
     return {
         "source_mode": source_mode,
-        **{k: str(v) for k, v in required.items()},
+        "frames": frames,
+        "source_paths": {k: str(v) for k, v in snapshot_paths.items()},
     }
 
 
 def main() -> int:
     source_info = _load_from_postgres_or_exports()
+    frames: dict[str, pd.DataFrame] = source_info["frames"]
 
-    canonical_output = write_canonicalization_outputs(
-        players_csv=Path(source_info["players"]),
-        positions_csv=Path(source_info["positions"]),
+    canonical_output = write_canonicalization_outputs_from_dataframes(
+        players_df=frames["players"],
+        positions_df=frames["positions"],
         alias_map_path=ROOT / "etl" / "transform" / "player_metadata_alias_map.yml",
         output_dir=OUTPUT_DIR / "player_metadata",
     )
 
-    budget_output = write_budget_timeline_outputs(
-        draft_budget_csv=Path(source_info["draft_budget"]),
-        draft_results_csv=Path(source_info["draft_results"]),
-        users_csv=Path(source_info["users"]),
+    budget_output = write_budget_timeline_outputs_from_dataframes(
+        draft_budget_df=frames["draft_budget"],
+        draft_results_df=frames["draft_results"],
+        users_df=frames["users"],
         output_dir=OUTPUT_DIR / "owner_budget",
     )
 
-    draft_validation_output = write_draft_validation_outputs(
-        draft_results_csv=Path(source_info["draft_results"]),
-        players_csv=Path(source_info["players"]),
-        users_csv=Path(source_info["users"]),
-        positions_csv=Path(source_info["positions"]),
+    draft_validation_output = write_draft_validation_outputs_from_dataframes(
+        draft_results_df=frames["draft_results"],
+        players_df=frames["players"],
+        users_df=frames["users"],
+        positions_df=frames["positions"],
         output_dir=OUTPUT_DIR / "draft_validation",
     )
 
     source_manifest = {
         k: _manifest_rel(v)
-        for k, v in source_info.items()
-        if k != "source_mode"
+        for k, v in source_info["source_paths"].items()
     }
     canonical_manifest = {
         **canonical_output,

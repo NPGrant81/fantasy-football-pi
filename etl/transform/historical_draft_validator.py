@@ -202,6 +202,24 @@ def write_draft_validation_outputs(
     users_df = pd.read_csv(users_csv)
     positions_df = pd.read_csv(positions_csv)
 
+    return write_draft_validation_outputs_from_dataframes(
+        draft_results_df=draft_results_df,
+        players_df=players_df,
+        users_df=users_df,
+        positions_df=positions_df,
+        output_dir=output_dir,
+    )
+
+
+def write_draft_validation_outputs_from_dataframes(
+    *,
+    draft_results_df: pd.DataFrame,
+    players_df: pd.DataFrame,
+    users_df: pd.DataFrame,
+    positions_df: pd.DataFrame,
+    output_dir: Path,
+) -> dict[str, Any]:
+
     validated_df, correction_df, report = validate_historical_draft_results(
         draft_results_df,
         players_df,
