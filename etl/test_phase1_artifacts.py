@@ -8,54 +8,82 @@ from etl.transform.player_metadata_canonicalization import canonicalize_player_m
 def test_player_metadata_canonicalization_is_deterministic_and_normalized():
     players = pd.DataFrame(
         [
-            {"player_id": 1, "player_name": "CeeDee Lamb", "position": "WR", "nfl_team": "dal"},
-            {"player_id": 1, "player_name": "Cee Dee Lamb", "position": "WR", "nfl_team": "DAL"},
-            {"player_id": 2, "player_name": "Cowboys DST", "position": "d/st", "nfl_team": "DAL"},
+            {"Player_ID": 1, "PlayerName": "CeeDee Lamb", "PositionID": 4},
+            {"Player_ID": 1, "PlayerName": "Cee Dee Lamb", "PositionID": 4},
+            {"Player_ID": 2, "PlayerName": "Cowboys DST", "PositionID": 99},
         ]
     )
-    aliases = {"cee dee lamb": "CeeDee Lamb"}
+    positions = pd.DataFrame(
+        [
+            {"PositionID": 4, "Position": "WR"},
+            {"PositionID": 99, "Position": "D/ST"},
+        ]
+    )
+    aliases = {"Cee Dee Lamb": "CeeDee Lamb"}
 
-    first = canonicalize_player_metadata(players, aliases)
-    second = canonicalize_player_metadata(players.sample(frac=1.0, random_state=7), aliases)
+    first_canonical, first_report = canonicalize_player_metadata(players, positions, alias_map=aliases)
+    second_canonical, second_report = canonicalize_player_metadata(
+        players.sample(frac=1.0, random_state=7),
+        positions,
+        alias_map=aliases,
+    )
 
-    assert len(first.canonical_players) == 2
-    assert first.run_report["digest"] == second.run_report["digest"]
-    assert set(first.canonical_players["position"].tolist()) == {"WR", "DEF"}
-    assert first.run_report["position_resolution_pct"] == 100.0
+    assert len(first_canonical) == 2
+    assert first_report["content_digest"] == second_report["content_digest"]
+    assert set(first_canonical["canonical_position"].tolist()) == {"WR", "DEF"}
 
 
 def test_owner_budget_timeline_builds_cumulative_spend_and_reconciliation():
-    events = pd.DataFrame(
+    draft_budget = pd.DataFrame(
         [
-            {"league_id": 1, "season": 2026, "owner_id": 10, "event_ts": "2026-08-01T00:00:00Z", "event_type": "draft_pick", "winning_bid": 20},
-            {"league_id": 1, "season": 2026, "owner_id": 10, "event_ts": "2026-08-01T00:01:00Z", "event_type": "draft_pick", "winning_bid": 10},
-            {"league_id": 1, "season": 2026, "owner_id": 11, "event_ts": "2026-08-01T00:02:00Z", "event_type": "draft_pick", "winning_bid": 15},
+            {"OwnerID": 10, "Year": 2026, "DraftBudget": 200},
+            {"OwnerID": 11, "Year": 2026, "DraftBudget": 200},
+        ]
+    )
+    draft_results = pd.DataFrame(
+        [
+            {"PlayerID": 1001, "OwnerID": 10, "Year": 2026, "WinningBid": 20},
+            {"PlayerID": 1002, "OwnerID": 10, "Year": 2026, "WinningBid": 10},
+            {"PlayerID": 1003, "OwnerID": 11, "Year": 2026, "WinningBid": 15},
+        ]
+    )
+    users = pd.DataFrame(
+        [
+            {"OwnerID": 10, "OwnerName": "Owner 10"},
+            {"OwnerID": 11, "OwnerName": "Owner 11"},
         ]
     )
 
-    result = build_owner_budget_timeline(events, start_budget=200.0)
+    timeline, report = build_owner_budget_timeline(draft_budget, draft_results, users)
 
-    assert len(result.timeline) == 3
-    owner_10_rows = result.timeline[result.timeline["owner_id"] == 10].sort_values("event_ts")
+    assert len(timeline) == 3
+    owner_10_rows = timeline[timeline["owner_id"] == 10].sort_values("event_sequence")
     assert owner_10_rows.iloc[0]["remaining_budget"] == 180.0
     assert owner_10_rows.iloc[1]["remaining_budget"] == 170.0
-    assert result.reconciliation_report["failed_rows"] == 0
+    assert report["timeline_rows"] == 3
+    assert len(report["exceptions"]) == 0
 
 
 def test_historical_draft_validator_flags_duplicates_and_missing_refs():
     draft = pd.DataFrame(
         [
-            {"league_id": 1, "year": 2025, "owner_id": 10, "player_id": 100, "round_num": 1, "pick_num": 1, "is_keeper": False},
-            {"league_id": 1, "year": 2025, "owner_id": 10, "player_id": 101, "round_num": 1, "pick_num": 1, "is_keeper": True},
-            {"league_id": 1, "year": 2025, "owner_id": -1, "player_id": -1, "round_num": 2, "pick_num": 2, "is_keeper": False},
+            {"PlayerID": 100, "OwnerID": 10, "Year": 2025, "PositionID": 4, "TeamID": 1, "WinningBid": 10},
+            {"PlayerID": 100, "OwnerID": 10, "Year": 2025, "PositionID": 4, "TeamID": 1, "WinningBid": 9},
+            {"PlayerID": -1, "OwnerID": -1, "Year": 2025, "PositionID": -1, "TeamID": 1, "WinningBid": 5},
         ]
     )
-    players = pd.DataFrame([{"id": 100}])
-    owners = pd.DataFrame([{"id": 10}])
+    players = pd.DataFrame([{"Player_ID": 100}])
+    users = pd.DataFrame([{"OwnerID": 10, "OwnerName": "Owner 10"}])
+    positions = pd.DataFrame([{"PositionID": 4, "Position": "WR"}])
 
-    result = validate_historical_draft_results(draft, players_df=players, owners_df=owners)
+    validated_df, correction_df, report = validate_historical_draft_results(
+        draft,
+        players_df=players,
+        users_df=users,
+        positions_df=positions,
+    )
 
-    assert result.validation_report["duplicate_pick_count"] == 2
-    assert result.validation_report["critical_unresolved_reference_count"] >= 1
-    assert result.validation_report["keeper_labeling_summary"]["keeper_rows"] == 1
-    assert not result.correction_ledger.empty
+    assert report["duplicate_key_count"] == 1
+    assert report["error_count"] >= 3
+    assert not correction_df.empty
+    assert len(validated_df) == 1

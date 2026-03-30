@@ -9,6 +9,16 @@ from typing import Any
 import pandas as pd
 
 
+CORRECTION_LEDGER_COLUMNS = [
+    "source_row_number",
+    "action",
+    "reason",
+    "season_year",
+    "owner_id",
+    "player_id",
+]
+
+
 def _to_int(value: Any) -> int | None:
     try:
         if value is None or str(value).strip() == "":
@@ -142,7 +152,7 @@ def validate_historical_draft_results(
         kind="mergesort",
     ).reset_index(drop=True)
 
-    correction_df = pd.DataFrame(correction_ledger)
+    correction_df = pd.DataFrame(correction_ledger, columns=CORRECTION_LEDGER_COLUMNS)
     error_df = pd.DataFrame(validation_errors)
 
     report = {

@@ -10,8 +10,8 @@ Collect in-repo artifacts that are ready now from the 103-112 program stream so 
 - Dependency and readiness mapping for #103-#112.
 
 ## Not Included in This PR
-- Runtime implementation code for #103-#111 that remains on the separate branch/PR lane.
-- Any generated outputs that require running ETL jobs first.
+- Runtime implementation code for #106-#111 that remains on the separate branch/PR lane.
+- Additional generated outputs beyond the committed Phase 1 artifacts.
 
 ## Source of Truth
 - Parent execution board: issue #360

@@ -2,29 +2,29 @@
   "generated_at": "2026-03-30T02:42:17.736933+00:00",
   "source_mode": "postgres",
   "sources": {
-    "players": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\_source_snapshots\\players.csv",
-    "positions": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\_source_snapshots\\positions.csv",
-    "users": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\_source_snapshots\\users.csv",
-    "draft_budget": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\_source_snapshots\\draft_budget.csv",
-    "draft_results": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\_source_snapshots\\draft_results.csv"
+    "players": "etl/outputs/_source_snapshots/players.csv",
+    "positions": "etl/outputs/_source_snapshots/positions.csv",
+    "users": "etl/outputs/_source_snapshots/users.csv",
+    "draft_budget": "etl/outputs/_source_snapshots/draft_budget.csv",
+    "draft_results": "etl/outputs/_source_snapshots/draft_results.csv"
   },
   "artifacts": {
     "361_player_metadata": {
-      "csv": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\player_metadata\\canonical_players_v1.csv",
-      "report": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\player_metadata\\canonicalization_report_v1.json",
+      "csv": "etl/outputs/player_metadata/canonical_players_v1.csv",
+      "report": "etl/outputs/player_metadata/canonicalization_report_v1.json",
       "rows": 1791,
       "digest": "6e455986b3489a1b887f977bae289150eed985e90bb636b9908c7eb7f96f3d65"
     },
     "362_owner_budget_timeline": {
-      "csv": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\owner_budget\\budget_timeline_v1.csv",
-      "report": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\owner_budget\\budget_timeline_report_v1.json",
+      "csv": "etl/outputs/owner_budget/budget_timeline_v1.csv",
+      "report": "etl/outputs/owner_budget/budget_timeline_report_v1.json",
       "rows": 1050,
       "exceptions": 108
     },
     "363_historical_draft_validation": {
-      "csv": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\draft_validation\\validated_draft_results_v1.csv",
-      "correction_ledger": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\draft_validation\\draft_correction_ledger_v1.csv",
-      "report": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\draft_validation\\draft_validation_report_v1.json",
+      "csv": "etl/outputs/draft_validation/validated_draft_results_v1.csv",
+      "correction_ledger": "etl/outputs/draft_validation/draft_correction_ledger_v1.csv",
+      "report": "etl/outputs/draft_validation/draft_validation_report_v1.json",
       "rows": 1050,
       "corrections": 0
     }

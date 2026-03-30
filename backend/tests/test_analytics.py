@@ -307,6 +307,20 @@ def test_weekly_matchup_comparison_payload(db_session):
         db=db_session,
     )
     assert comparison["meta"]["metric"] == "weekly_matchup_comparison"
+    rows = comparison.get("rows") or comparison.get("matchup_rows")
+    assert isinstance(rows, list)
+    assert len(rows) == 2
+    assert [row.get("week") for row in rows] == [1, 2]
+    for row in rows:
+        if row.get("home_score") is not None or row.get("away_score") is not None:
+            assert isinstance(row.get("home_score"), (int, float))
+            assert isinstance(row.get("away_score"), (int, float))
+        else:
+            entries = row.get("entries")
+            assert isinstance(entries, list)
+            assert len(entries) == 2
+            for entry in entries:
+                assert isinstance(entry.get("score"), (int, float))
 
 
 def test_post_draft_outlook_payload_and_owner_focus(db_session):

@@ -30,17 +30,43 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
+def _normalize_position_token(value: Any) -> str:
+    token = str(value or "").strip().upper()
+    normalized = {
+        "D/ST": "DEF",
+        "DST": "DEF",
+        "DEFENSE": "DEF",
+    }
+    return normalized.get(token, token)
+
+
 def canonicalize_player_metadata(
     players_df: pd.DataFrame,
     positions_df: pd.DataFrame,
     alias_map: dict[str, str] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     alias_map = alias_map or {}
-    pos_lookup = {
-        _safe_int(row.get("PositionID")): str(row.get("Position") or "").strip().upper()
-        for _, row in positions_df.iterrows()
-        if _safe_int(row.get("PositionID")) is not None
-    }
+    preferred_positions = ["QB", "RB", "WR", "TE", "K", "DEF"]
+    priority_rank = {pos: rank for rank, pos in enumerate(preferred_positions)}
+    default_rank = len(preferred_positions)
+
+    pos_lookup: dict[int, str] = {}
+    pos_rank_lookup: dict[int, int] = {}
+    for _, row in positions_df.iterrows():
+        position_id = _safe_int(row.get("PositionID"))
+        if position_id is None:
+            continue
+        token = _normalize_position_token(row.get("Position"))
+        rank = priority_rank.get(token, default_rank)
+
+        if position_id not in pos_lookup:
+            pos_lookup[position_id] = token
+            pos_rank_lookup[position_id] = rank
+            continue
+
+        if rank < pos_rank_lookup.get(position_id, default_rank):
+            pos_lookup[position_id] = token
+            pos_rank_lookup[position_id] = rank
 
     rows: list[dict[str, Any]] = []
     for _, row in players_df.iterrows():

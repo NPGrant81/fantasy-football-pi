@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 
 from etl.transform.historical_draft_validator import write_draft_validation_outputs
 from etl.transform.owner_budget_timeline import write_budget_timeline_outputs
@@ -15,6 +16,16 @@ from etl.transform.player_metadata_canonicalization import write_canonicalizatio
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "backend" / "data"
 OUTPUT_DIR = ROOT / "etl" / "outputs"
+
+
+def _manifest_rel(path_value: str | Path) -> str:
+    path_obj = Path(path_value)
+    if path_obj.is_absolute():
+        try:
+            return path_obj.relative_to(ROOT).as_posix()
+        except ValueError:
+            return path_obj.as_posix()
+    return path_obj.as_posix()
 
 
 def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
@@ -42,16 +53,40 @@ def _load_from_postgres_or_exports() -> dict[str, Path]:
     if database_url:
         try:
             engine = create_engine(database_url)
+            inspector = inspect(engine)
             pd.read_sql("SELECT * FROM players", engine).to_csv(required["players"], index=False)
             pd.read_sql("SELECT * FROM positions", engine).to_csv(required["positions"], index=False)
             pd.read_sql("SELECT id as \"OwnerID\", username as \"OwnerName\" FROM users", engine).to_csv(required["users"], index=False)
-            pd.read_sql("SELECT future_draft_budget as \"DraftBudget\", 2026 as \"Year\", id as \"OwnerID\" FROM users", engine).to_csv(required["draft_budget"], index=False)
+
+            budget_columns = {col["name"] for col in inspector.get_columns("draft_budgets")}
+            if {"owner_id", "year"}.issubset(budget_columns) and ("budget" in budget_columns or "total_budget" in budget_columns):
+                budget_amount_col = "budget" if "budget" in budget_columns else "total_budget"
+                pd.read_sql(
+                    f'SELECT {budget_amount_col} as "DraftBudget", year as "Year", owner_id as "OwnerID" FROM draft_budgets',
+                    engine,
+                ).to_csv(required["draft_budget"], index=False)
+            else:
+                pd.read_sql(
+                    'SELECT future_draft_budget as "DraftBudget", 2026 as "Year", id as "OwnerID" FROM users',
+                    engine,
+                ).to_csv(required["draft_budget"], index=False)
+
+            draft_pick_columns = {col["name"] for col in inspector.get_columns("draft_picks")}
+            if not {"player_id", "owner_id", "year"}.issubset(draft_pick_columns):
+                raise RuntimeError("draft_picks is missing one or more required columns: player_id, owner_id, year")
+            bid_col = "amount" if "amount" in draft_pick_columns else ("winning_bid" if "winning_bid" in draft_pick_columns else None)
+            if bid_col is None:
+                raise RuntimeError("draft_picks is missing required bid column (amount or winning_bid)")
+
+            position_expr = 'position_id as "PositionID"' if "position_id" in draft_pick_columns else 'NULL as "PositionID"'
+            team_expr = 'team_id as "TeamID"' if "team_id" in draft_pick_columns else 'NULL as "TeamID"'
             pd.read_sql(
-                "SELECT player_id as \"PlayerID\", owner_id as \"OwnerID\", year as \"Year\", position_id as \"PositionID\", team_id as \"TeamID\", amount as \"WinningBid\" FROM draft_picks",
+                f'SELECT player_id as "PlayerID", owner_id as "OwnerID", year as "Year", {position_expr}, {team_expr}, {bid_col} as "WinningBid" FROM draft_picks',
                 engine,
             ).to_csv(required["draft_results"], index=False)
             source_mode = "postgres"
-        except Exception:
+        except Exception as exc:
+            print(f"Warning: Postgres extraction failed, falling back to CSV exports: {exc}", file=sys.stderr)
             source_mode = "csv_exports"
 
     if source_mode != "postgres":
@@ -98,18 +133,36 @@ def main() -> int:
         output_dir=OUTPUT_DIR / "draft_validation",
     )
 
+    source_manifest = {
+        k: _manifest_rel(v)
+        for k, v in source_info.items()
+        if k != "source_mode"
+    }
+    canonical_manifest = {
+        **canonical_output,
+        "csv": _manifest_rel(canonical_output["csv"]),
+        "report": _manifest_rel(canonical_output["report"]),
+    }
+    budget_manifest = {
+        **budget_output,
+        "csv": _manifest_rel(budget_output["csv"]),
+        "report": _manifest_rel(budget_output["report"]),
+    }
+    draft_validation_manifest = {
+        **draft_validation_output,
+        "csv": _manifest_rel(draft_validation_output["csv"]),
+        "correction_ledger": _manifest_rel(draft_validation_output["correction_ledger"]),
+        "report": _manifest_rel(draft_validation_output["report"]),
+    }
+
     manifest = {
         "generated_at": datetime.now(UTC).isoformat(),
         "source_mode": source_info["source_mode"],
-        "sources": {
-            k: v
-            for k, v in source_info.items()
-            if k != "source_mode"
-        },
+        "sources": source_manifest,
         "artifacts": {
-            "361_player_metadata": canonical_output,
-            "362_owner_budget_timeline": budget_output,
-            "363_historical_draft_validation": draft_validation_output,
+            "361_player_metadata": canonical_manifest,
+            "362_owner_budget_timeline": budget_manifest,
+            "363_historical_draft_validation": draft_validation_manifest,
         },
     }
 

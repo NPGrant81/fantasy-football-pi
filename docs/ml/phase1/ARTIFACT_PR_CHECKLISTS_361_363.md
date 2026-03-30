@@ -13,7 +13,7 @@
 - etl/transform/player_metadata_canonicalization.py
 - etl/transform/player_metadata_alias_map.yml
 - etl/outputs/player_metadata/canonical_players_v1.csv
-- etl/outputs/player_metadata/canonicalization_run_report_v1.json
+- etl/outputs/player_metadata/canonicalization_report_v1.json
 
 ### Required validation outputs
 - Idempotency check from two consecutive runs.
@@ -27,8 +27,7 @@
 - docs/ml/phase1/104/artifact-01-reconciliation-rules.md
 - etl/transform/owner_budget_timeline.py
 - etl/outputs/owner_budget/budget_timeline_v1.csv
-- etl/outputs/owner_budget/budget_reconciliation_report_v1.json
-- etl/outputs/owner_budget/owner_mapping_exceptions_v1.csv
+- etl/outputs/owner_budget/budget_timeline_report_v1.json
 
 ### Required validation outputs
 - Reconciliation pass rate and failed owner-year rows.
@@ -43,7 +42,7 @@
 - etl/transform/historical_draft_validator.py
 - etl/outputs/draft_validation/validated_draft_results_v1.csv
 - etl/outputs/draft_validation/draft_validation_report_v1.json
-- etl/outputs/draft_validation/correction_ledger_v1.csv
+- etl/outputs/draft_validation/draft_correction_ledger_v1.csv
 
 ### Required validation outputs
 - Critical unresolved reference count by type.
