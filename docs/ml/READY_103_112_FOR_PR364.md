@@ -1,12 +1,13 @@
 # Ready Items Bundle for PR #364 (Issues #103-#112)
 
 ## Purpose
-Collect in-repo artifacts that are ready now from the 103-112 program stream so PR #364 can serve as the single review surface for currently shippable planning and execution guidance.
+Collect in-repo artifacts that are ready now from the 103-112 program stream so PR #364 can serve as the single review surface for currently shippable planning guidance and Phase 1 implementation evidence.
 
 ## Included and Ready
 - Issue #112 dedicated execution plan and phase model.
 - Program-level execution board snapshot for issues #103-#111 alignment.
 - Phase 1 artifact PR checklists for issue execution children #361, #362, #363.
+- Phase 1 ETL implementation modules and committed artifact outputs for #361, #362, and #363.
 - Dependency and readiness mapping for #103-#112.
 
 ## Not Included in This PR

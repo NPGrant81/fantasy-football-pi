@@ -46,6 +46,26 @@ def validate_historical_draft_results(
     users_df: pd.DataFrame,
     positions_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    required_draft_cols = {"PlayerID", "OwnerID", "Year", "PositionID", "TeamID", "WinningBid"}
+    missing_draft_cols = sorted(required_draft_cols - set(draft_results_df.columns))
+    if missing_draft_cols:
+        raise ValueError(f"Missing required columns in draft_results_df: {', '.join(missing_draft_cols)}")
+
+    required_player_cols = {"Player_ID"}
+    missing_player_cols = sorted(required_player_cols - set(players_df.columns))
+    if missing_player_cols:
+        raise ValueError(f"Missing required columns in players_df: {', '.join(missing_player_cols)}")
+
+    required_user_cols = {"OwnerID"}
+    missing_user_cols = sorted(required_user_cols - set(users_df.columns))
+    if missing_user_cols:
+        raise ValueError(f"Missing required columns in users_df: {', '.join(missing_user_cols)}")
+
+    required_position_cols = {"PositionID"}
+    missing_position_cols = sorted(required_position_cols - set(positions_df.columns))
+    if missing_position_cols:
+        raise ValueError(f"Missing required columns in positions_df: {', '.join(missing_position_cols)}")
+
     player_ids = {
         int(v)
         for v in pd.to_numeric(players_df.get("Player_ID"), errors="coerce").dropna().astype(int).tolist()

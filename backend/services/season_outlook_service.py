@@ -124,6 +124,7 @@ def build_post_draft_outlook(
         .outerjoin(models.Player, models.Player.id == models.DraftPick.player_id)
         .filter(
             models.DraftPick.league_id == league_id,
+            models.DraftPick.year == season,
             models.DraftPick.owner_id.in_(list(owner_by_id.keys())),
         )
         .all()

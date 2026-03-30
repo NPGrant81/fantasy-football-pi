@@ -35,7 +35,7 @@ def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
         return pd.read_csv(path, encoding="latin-1")
 
 
-def _load_from_postgres_or_exports() -> dict[str, Path]:
+def _load_from_postgres_or_exports() -> dict[str, str]:
     dataset_dir = OUTPUT_DIR / "_source_snapshots"
     dataset_dir.mkdir(parents=True, exist_ok=True)
 
@@ -54,8 +54,31 @@ def _load_from_postgres_or_exports() -> dict[str, Path]:
         try:
             engine = create_engine(database_url)
             inspector = inspect(engine)
-            pd.read_sql("SELECT * FROM players", engine).to_csv(required["players"], index=False)
-            pd.read_sql("SELECT * FROM positions", engine).to_csv(required["positions"], index=False)
+
+            players_columns = {col["name"] for col in inspector.get_columns("players")}
+            if {"Player_ID", "PlayerName"}.issubset(players_columns):
+                if "PositionID" in players_columns:
+                    players_query = 'SELECT "Player_ID", "PlayerName", "PositionID" FROM players'
+                else:
+                    players_query = 'SELECT "Player_ID", "PlayerName", NULL as "PositionID" FROM players'
+            elif {"id", "name"}.issubset(players_columns):
+                if "position_id" in players_columns:
+                    players_query = 'SELECT id as "Player_ID", name as "PlayerName", position_id as "PositionID" FROM players'
+                else:
+                    players_query = 'SELECT id as "Player_ID", name as "PlayerName", NULL as "PositionID" FROM players'
+            else:
+                players_query = "SELECT * FROM players"
+            pd.read_sql(players_query, engine).to_csv(required["players"], index=False)
+
+            positions_columns = {col["name"] for col in inspector.get_columns("positions")}
+            if {"PositionID", "Position"}.issubset(positions_columns):
+                positions_query = 'SELECT "PositionID", "Position" FROM positions'
+            elif {"id", "name"}.issubset(positions_columns):
+                positions_query = 'SELECT id as "PositionID", name as "Position" FROM positions'
+            else:
+                positions_query = "SELECT * FROM positions"
+            pd.read_sql(positions_query, engine).to_csv(required["positions"], index=False)
+
             pd.read_sql("SELECT id as \"OwnerID\", username as \"OwnerName\" FROM users", engine).to_csv(required["users"], index=False)
 
             budget_columns = {col["name"] for col in inspector.get_columns("draft_budgets")}

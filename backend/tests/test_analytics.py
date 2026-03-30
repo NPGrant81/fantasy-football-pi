@@ -341,10 +341,10 @@ def test_post_draft_outlook_payload_and_owner_focus(db_session):
 
     db_session.add_all(
         [
-            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=qb.id, current_status="STARTER", amount=10),
-            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=rb.id, current_status="STARTER", amount=10),
-            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=wr.id, current_status="STARTER", amount=10),
-            models.DraftPick(owner_id=owner_b.id, league_id=league.id, player_id=te.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=rb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=wr.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_b.id, league_id=league.id, year=2026, player_id=te.id, current_status="STARTER", amount=10),
         ]
     )
     db_session.commit()
@@ -379,8 +379,8 @@ def test_post_draft_outlook_contract_shape_is_stable(db_session):
 
     db_session.add_all(
         [
-            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=qb.id, current_status="STARTER", amount=10),
-            models.DraftPick(owner_id=owner_b.id, league_id=league.id, player_id=wr.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_b.id, league_id=league.id, year=2026, player_id=wr.id, current_status="STARTER", amount=10),
         ]
     )
     db_session.commit()
@@ -443,11 +443,11 @@ def test_post_draft_outlook_degraded_metadata_for_messy_inputs(db_session):
 
     db_session.add_all(
         [
-            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=qb.id, current_status="STARTER", amount=10),
-            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=qb.id, current_status="BENCH", amount=10),
-            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=fb.id, current_status="STARTER", amount=10),
-            models.DraftPick(owner_id=owner_a.id, league_id=league.id, player_id=wr.id, current_status="DROPPED", amount=10),
-            models.DraftPick(owner_id=owner_b.id, league_id=league.id, player_id=te.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=qb.id, current_status="BENCH", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=fb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner_a.id, league_id=league.id, year=2026, player_id=wr.id, current_status="DROPPED", amount=10),
+            models.DraftPick(owner_id=owner_b.id, league_id=league.id, year=2026, player_id=te.id, current_status="STARTER", amount=10),
         ]
     )
     db_session.commit()

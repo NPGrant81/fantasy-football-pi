@@ -2,23 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import yaml
+from etl.transform.normalize import normalize_player_name
 
 
 def _normalize_name(value: str) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return ""
-    text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"[.]", "", text)
-    text = re.sub(r"\s+(jr|sr|ii|iii|iv)$", "", text, flags=re.IGNORECASE)
-    return text.strip()
+    return normalize_player_name(str(value or ""))
 
 
 def _safe_int(value: Any) -> int | None:
@@ -45,6 +39,16 @@ def canonicalize_player_metadata(
     positions_df: pd.DataFrame,
     alias_map: dict[str, str] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
+    required_player_cols = {"Player_ID", "PlayerName"}
+    missing_player_cols = sorted(required_player_cols - set(players_df.columns))
+    if missing_player_cols:
+        raise ValueError(f"Missing required columns in players_df: {', '.join(missing_player_cols)}")
+
+    required_position_cols = {"PositionID", "Position"}
+    missing_position_cols = sorted(required_position_cols - set(positions_df.columns))
+    if missing_position_cols:
+        raise ValueError(f"Missing required columns in positions_df: {', '.join(missing_position_cols)}")
+
     alias_map = alias_map or {}
     preferred_positions = ["QB", "RB", "WR", "TE", "K", "DEF"]
     priority_rank = {pos: rank for rank, pos in enumerate(preferred_positions)}

@@ -5,25 +5,27 @@ Validate historical draft rows for key integrity before model features and post-
 
 ## Inputs
 - Draft results with at minimum:
-  - `league_id`
-  - `year`
-  - `owner_id`
-  - `player_id`
-  - `round_num`
-  - `pick_num`
+  - `PlayerID`
+  - `OwnerID`
+  - `Year`
+  - `PositionID`
+  - `TeamID`
+  - `WinningBid`
 - Optional reference datasets:
-  - players (`id`)
-  - owners (`id`)
+  - players (`Player_ID`)
+  - owners (`OwnerID`)
+  - positions (`PositionID`)
 
 ## Validation Rules
-1. Enforce required key columns.
-2. Flag missing critical references (`owner_id`, `player_id`, etc.).
-3. Flag duplicate pick slots by (`league_id`, `year`, `round_num`, `pick_num`).
-4. Optionally flag unknown owner/player references against supplied tables.
-5. Emit `validation_status` and correction ledger entries for all issues.
+1. Enforce required columns for draft rows and reference datasets.
+2. Flag invalid/missing references for `PlayerID`, `OwnerID`, and `PositionID`.
+3. Flag invalid or null `Year`.
+4. Flag invalid or negative `WinningBid`.
+5. Identify duplicate `(Year, OwnerID, PlayerID)` tuples and emit correction-ledger rows.
+6. Emit validated rows, correction ledger, and aggregate validation report.
+7. Pick-slot completeness checks by (`league_id`, `round_num`, `pick_num`) are out of current scope.
 
 ## Output Contract
 - Validated draft rows with normalized numeric keys.
-- Validation status per row.
-- Aggregated report with unresolved counts and year completeness.
-- Correction ledger with row-level issue records.
+- Correction ledger rows for duplicate-key candidates.
+- Aggregated report with source row counts, error counts, duplicate-key counts, and error breakdown.

@@ -1,18 +1,15 @@
 # Artifact 01: Correction Ledger Schema (#105)
 
 ## Columns
-- `row_index` (int): source row index in the input draft dataset
-- `field` (str): field associated with the correction/flag
-- `old_value` (str/int): observed input value
-- `new_value` (str/int): transformed/final value (or unchanged if only flagged)
-- `action` (str): `flagged` or `unresolved`
-- `reason` (str): machine-readable cause (for example `duplicate_pick_slot`)
+- `source_row_number` (int): source row index in the input draft dataset
+- `action` (str): correction action emitted by validator (for example `dedupe_candidate`)
+- `reason` (str): machine-readable cause (for example `duplicate season/owner/player tuple`)
+- `season_year` (int): season year associated with the row
+- `owner_id` (int): owner identifier associated with the row
+- `player_id` (int): player identifier associated with the row
 
 ## Reason Taxonomy (initial)
-- `missing_critical_reference`
-- `duplicate_pick_slot`
-- `unknown_player_reference`
-- `unknown_owner_reference`
+- `duplicate season/owner/player tuple`
 
 ## Governance
 - Ledger rows are append-only for a single run.
