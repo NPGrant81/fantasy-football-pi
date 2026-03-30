@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-30T02:37:15.514837+00:00",
+  "generated_at": "2026-03-30T02:42:17.736933+00:00",
   "source_mode": "postgres",
   "sources": {
     "players": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\_source_snapshots\\players.csv",
@@ -18,8 +18,8 @@
     "362_owner_budget_timeline": {
       "csv": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\owner_budget\\budget_timeline_v1.csv",
       "report": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\owner_budget\\budget_timeline_report_v1.json",
-      "rows": 0,
-      "exceptions": 84
+      "rows": 1050,
+      "exceptions": 108
     },
     "363_historical_draft_validation": {
       "csv": "C:\\Users\\nicho\\Dev\\fantasy-football-pi\\fantasy-football-pi\\etl\\outputs\\draft_validation\\validated_draft_results_v1.csv",

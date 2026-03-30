@@ -24,6 +24,34 @@ def _parse_dollars(value: Any) -> float | None:
         return None
 
 
+def _resolve_starting_budget(
+    *,
+    owner_id: int,
+    season_year: int,
+    owner_budget_years: dict[int, list[tuple[int, float]]],
+    global_budget_default: float,
+) -> tuple[float, str, int | None]:
+    owner_rows = owner_budget_years.get(owner_id, [])
+    if not owner_rows:
+        return float(global_budget_default), "global_default", None
+
+    for year, amount in owner_rows:
+        if year == season_year:
+            return float(amount), "exact", year
+
+    prior_rows = [(year, amount) for year, amount in owner_rows if year < season_year]
+    if prior_rows:
+        year, amount = max(prior_rows, key=lambda row: row[0])
+        return float(amount), "carry_forward", int(year)
+
+    future_rows = [(year, amount) for year, amount in owner_rows if year > season_year]
+    if future_rows:
+        year, amount = min(future_rows, key=lambda row: row[0])
+        return float(amount), "carry_backward", int(year)
+
+    return float(global_budget_default), "global_default", None
+
+
 def build_owner_budget_timeline(
     draft_budget_df: pd.DataFrame,
     draft_results_df: pd.DataFrame,
@@ -59,25 +87,48 @@ def build_owner_budget_timeline(
         [["season_year", "owner_id", "starting_budget"]]
     )
 
+    owner_budget_years: dict[int, list[tuple[int, float]]] = {}
+    for _, row in grouped_budget.iterrows():
+        owner_id = int(row["owner_id"])
+        season_year = int(row["season_year"])
+        starting_budget = float(row["starting_budget"])
+        owner_budget_years.setdefault(owner_id, []).append((season_year, starting_budget))
+    for owner_id in owner_budget_years:
+        owner_budget_years[owner_id] = sorted(owner_budget_years[owner_id], key=lambda item: item[0])
+
+    global_budget_default = float(grouped_budget["starting_budget"].median()) if not grouped_budget.empty else 200.0
+
+    budget_resolution_counts = {
+        "exact": 0,
+        "carry_forward": 0,
+        "carry_backward": 0,
+        "global_default": 0,
+    }
+
     timeline_rows: list[dict[str, Any]] = []
     exception_rows: list[dict[str, Any]] = []
 
     for (season_year, owner_id), owner_events in draft_rows.groupby(["season_year", "owner_id"], sort=True):
-        budget_match = grouped_budget[
-            (grouped_budget["season_year"] == season_year) & (grouped_budget["owner_id"] == owner_id)
-        ]
-        if budget_match.empty:
+        starting_budget, budget_source, source_season_year = _resolve_starting_budget(
+            owner_id=int(owner_id),
+            season_year=int(season_year),
+            owner_budget_years=owner_budget_years,
+            global_budget_default=global_budget_default,
+        )
+        budget_resolution_counts[budget_source] = int(budget_resolution_counts.get(budget_source, 0) + 1)
+        if budget_source != "exact":
             exception_rows.append(
                 {
                     "season_year": int(season_year),
                     "owner_id": int(owner_id),
-                    "issue_type": "missing_starting_budget",
-                    "detail": "No DraftBudget row found for owner-season",
+                    "issue_type": "budget_imputed",
+                    "detail": (
+                        f"source={budget_source}; "
+                        + (f"source_season_year={source_season_year}" if source_season_year is not None else "source_season_year=None")
+                    ),
                 }
             )
-            continue
 
-        starting_budget = float(budget_match.iloc[-1]["starting_budget"])
         owner_name = str(owner_name_by_id.get(int(owner_id), f"Owner {owner_id}"))
         spend_cumulative = 0.0
 
@@ -99,6 +150,8 @@ def build_owner_budget_timeline(
                     "starting_budget": round(starting_budget, 2),
                     "remaining_budget": round(remaining_budget, 2),
                     "overspent": remaining_budget < 0,
+                    "budget_source": budget_source,
+                    "source_season_year": source_season_year,
                 }
             )
 
@@ -125,6 +178,8 @@ def build_owner_budget_timeline(
         "starting_budget",
         "remaining_budget",
         "overspent",
+        "budget_source",
+        "source_season_year",
     ])
 
     report = {
@@ -132,6 +187,7 @@ def build_owner_budget_timeline(
         "timeline_rows": int(len(timeline_df)),
         "owner_season_pairs": int(timeline_df[["season_year", "owner_id"]].drop_duplicates().shape[0]) if not timeline_df.empty else 0,
         "overspent_owner_seasons": int(timeline_df[timeline_df["overspent"]][["season_year", "owner_id"]].drop_duplicates().shape[0]) if not timeline_df.empty else 0,
+        "budget_resolution_counts": {str(k): int(v) for k, v in budget_resolution_counts.items()},
         "exceptions": exception_rows,
     }
 
