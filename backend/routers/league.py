@@ -626,16 +626,21 @@ def get_league_news(
         # Build the owner's complete roster from ALL DraftPicks, not just limited news window,
         # so we don't miss older rostered players outside the recent picks query.
         owner_roster_rows = (
-            db.query(models.DraftPick.player_id)
+            db.query(models.DraftPick)
             .filter(
                 models.DraftPick.league_id == league_id,
                 models.DraftPick.owner_id == owner_id,
                 models.DraftPick.player_id.isnot(None),
             )
-            .distinct()
             .all()
         )
-        roster_player_ids = {row[0] for row in owner_roster_rows}
+        roster_player_ids = {
+            pick.player_id
+            for pick in owner_roster_rows
+            if getattr(pick, "player_id", None) is not None
+            and getattr(pick, "owner_id", None) == owner_id
+            and getattr(pick, "league_id", None) == league_id
+        }
 
     items: List[LeagueNewsItem] = []
     for pick in picks:
@@ -650,9 +655,15 @@ def get_league_news(
         player_name = _normalize_player_name(pick.player.name) if pick.player else "Unknown Player"
         timestamp = _normalize_news_timestamp(pick.timestamp)
 
-        if since_dt is not None and pick.timestamp is not None:
-            pick_dt = pick.timestamp if isinstance(pick.timestamp, datetime) else _parse_since_timestamp(str(pick.timestamp))
-            if pick_dt is not None and pick_dt < since_dt:
+        if since_dt is not None:
+            # Treat missing/unparseable timestamps as older-than-since so they are skipped.
+            if isinstance(pick.timestamp, datetime):
+                pick_dt = pick.timestamp
+            elif pick.timestamp is not None:
+                pick_dt = _parse_since_timestamp(str(pick.timestamp))
+            else:
+                pick_dt = None
+            if pick_dt is None or pick_dt < since_dt:
                 continue
 
         title = f"{owner_name} drafted {player_name} for ${pick.amount}"

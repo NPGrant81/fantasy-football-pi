@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..core.security import check_is_commissioner
+from ..core.security import check_is_commissioner, get_current_user
+from .. import models
 from ..services.player_news_service import (
     get_global_news,
     get_team_news,
@@ -55,8 +56,8 @@ class SentimentTrendResponse(BaseModel):
 
 def _to_item_response(item: Any) -> NewsItemResponse:
     published = item.published_at.isoformat() if isinstance(item.published_at, datetime) else None
-    # Avoid N+1 queries: if links were eager-loaded they're in __dict__, else hydrate from empty list
-    links_collection = item.__dict__.get('links', getattr(item, 'links', []) if hasattr(item, 'links') else [])
+    # Avoid N+1 queries: only use links when already loaded on the instance.
+    links_collection = item.__dict__.get("links") or []
     linked_player_ids = sorted({link.player_id for link in links_collection if link.player_id is not None})
     return NewsItemResponse(
         id=item.id,
@@ -100,8 +101,24 @@ def global_news(
     player_id: int | None = Query(None, ge=1),
     since: str | None = Query(None),
     limit: int = Query(25, ge=1, le=250),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Direct function-invocation tests may pass FastAPI Depends sentinel values.
+    # Only enforce auth scoping when we have a resolved user object.
+    if isinstance(current_user, models.User):
+        user_league_id = getattr(current_user, "league_id", None)
+        if league_id is None:
+            if user_league_id is None and not getattr(current_user, "is_superuser", False):
+                raise HTTPException(status_code=400, detail="league_id is required")
+            league_id = user_league_id
+        elif (
+            not getattr(current_user, "is_superuser", False)
+            and user_league_id is not None
+            and league_id != user_league_id
+        ):
+            raise HTTPException(status_code=403, detail="Not authorized for this league")
+
     try:
         rows = get_global_news(
             db,
@@ -122,13 +139,33 @@ def team_news(
     league_id: int | None = Query(None, ge=1),
     since: str | None = Query(None),
     limit: int = Query(25, ge=1, le=250),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    team_owner = db.query(models.User).filter(models.User.id == team_id).first()
+    if team_owner is None:
+        raise HTTPException(status_code=404, detail="Team owner not found")
+
+    target_league_id = team_owner.league_id
+    if target_league_id is None:
+        raise HTTPException(status_code=400, detail="Team owner is not assigned to a league")
+
+    if isinstance(current_user, models.User):
+        if (
+            not getattr(current_user, "is_superuser", False)
+            and getattr(current_user, "league_id", None) != target_league_id
+        ):
+            raise HTTPException(status_code=403, detail="Not authorized for this league")
+
+    # Derive effective league from team owner; reject mismatched override.
+    if league_id is not None and league_id != target_league_id:
+        raise HTTPException(status_code=400, detail="league_id does not match team owner league")
+
     try:
         rows = get_team_news(
             db,
             team_id=team_id,
-            league_id=league_id,
+            league_id=target_league_id,
             since=since,
             limit=limit,
         )

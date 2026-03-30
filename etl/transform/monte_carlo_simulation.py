@@ -513,7 +513,7 @@ def _run_single_iteration(
                     "player_id": player_id,
                     "player_name": str(candidate_row["player_name"]),
                     "position": position,
-                        "winning_bid": float(paid),
+                    "winning_bid": float(paid),
                     "predicted_auction_value": float(candidate_row["predicted_auction_value"]),
                     "projected_points": float(candidate_row["projected_points"]),
                 }

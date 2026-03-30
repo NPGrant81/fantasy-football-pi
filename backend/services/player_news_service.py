@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from difflib import SequenceMatcher
+import ipaddress
 import json
 import logging
 import os
+import socket
 from typing import Any
 from urllib.parse import urlparse
 import requests
@@ -29,7 +30,7 @@ BLOCKED_HOSTNAMES = {
 
 
 def _validate_url(url: str) -> bool:
-    """Validate URL to prevent SSRF attacks (schemes, private hosts, private IP ranges)."""
+    """Validate URL to prevent SSRF attacks (schemes + private/loopback/link-local addresses)."""
     try:
         parsed = urlparse(url)
 
@@ -50,13 +51,43 @@ def _validate_url(url: str) -> bool:
             )
             return False
 
-        # Reject private IP ranges (simple heuristic)
-        if hostname.startswith(("10.", "172.", "192.168.")):
-            LOGGER.warning(
-                "player_news.url_private_ip_blocked",
-                extra={"url": url, "hostname": hostname},
-            )
-            return False
+        # Reject non-routable IP literals directly.
+        try:
+            literal_ip = ipaddress.ip_address(hostname)
+            if (
+                literal_ip.is_private
+                or literal_ip.is_loopback
+                or literal_ip.is_link_local
+                or literal_ip.is_reserved
+                or literal_ip.is_multicast
+                or literal_ip.is_unspecified
+            ):
+                LOGGER.warning(
+                    "player_news.url_ip_literal_blocked",
+                    extra={"url": url, "hostname": hostname, "ip": str(literal_ip)},
+                )
+                return False
+        except ValueError:
+            # Hostname is not an IP literal; continue with DNS resolution checks.
+            pass
+
+        # Resolve hostname and block if any resolved address is non-routable.
+        resolved = socket.getaddrinfo(hostname, parsed.port or 443, proto=socket.IPPROTO_TCP)
+        for entry in resolved:
+            candidate_ip = ipaddress.ip_address(entry[4][0])
+            if (
+                candidate_ip.is_private
+                or candidate_ip.is_loopback
+                or candidate_ip.is_link_local
+                or candidate_ip.is_reserved
+                or candidate_ip.is_multicast
+                or candidate_ip.is_unspecified
+            ):
+                LOGGER.warning(
+                    "player_news.url_dns_ip_blocked",
+                    extra={"url": url, "hostname": hostname, "ip": str(candidate_ip)},
+                )
+                return False
 
         return True
     except Exception as exc:
@@ -333,16 +364,12 @@ def _link_news_item_to_players(
         if not normalized:
             continue
 
-        confidence = 0.0
-        match_reason = ""
-        if normalized in text_blob:
-            confidence = 1.0 if reason == "name_exact" else 0.9
-            match_reason = reason
-        else:
-            ratio = SequenceMatcher(None, normalized, text_blob).ratio()
-            if ratio >= 0.62:
-                confidence = min(0.8, ratio)
-                match_reason = f"fuzzy:{reason}"
+        # Keep matching strategy intentionally cheap for ingestion throughput.
+        if normalized not in text_blob:
+            continue
+
+        confidence = 1.0 if reason == "name_exact" else 0.9
+        match_reason = reason
 
         if confidence < 0.62 or player_id in linked_player_ids:
             continue
