@@ -1,7 +1,13 @@
-"""Reconcile MFL CSV sources against imported database rows.
+"""Reconcile MFL source counts against imported database rows.
+
+Supports two source modes:
+- ``db`` (default): reads source counts from ``mfl_html_record_facts`` by
+  dataset_key, eliminating the need for any CSV staging files.
+- ``csv`` (legacy): reads staged CSV extraction files from a local root.
+  Requires ``--input-root`` and is retained for historical audit only.
 
 Issue #259 baseline:
-- Compare source CSV row counts vs database import outcomes by season.
+- Compare source row counts vs database import outcomes by season.
 - Emit mismatch details for audit and rerun decisions.
 """
 
@@ -9,6 +15,8 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -17,6 +25,8 @@ from sqlalchemy import func
 
 from backend import models
 from backend.database import SessionLocal
+
+_CSV_PIPELINE_ENV_VAR = "FFPI_ALLOW_LEGACY_CSV_PIPELINE"
 
 
 REQUIRED_COLUMNS: dict[str, list[str]] = {
@@ -133,40 +143,102 @@ def _db_counts_for_season(*, season: int, target_league_id: int) -> dict[str, in
         db.close()
 
 
+def _db_html_source_counts_for_season(*, season: int, target_league_id: int) -> dict[str, "CsvReportCount"]:
+    """Query mfl_html_record_facts for raw source row counts by dataset_key.
+
+    Returns a dict with the same shape as the CSV-mode source_counts so that
+    downstream check and mismatch logic is unchanged.  Each CsvReportCount has
+    total_rows == valid_rows == the fact row count; invalid_rows == 0.
+    """
+    db = SessionLocal()
+    try:
+        result: dict[str, CsvReportCount] = {}
+        for dataset_key in ("franchises", "players", "draftResults"):
+            count = int(
+                db.query(func.count(models.MflHtmlRecordFact.id))
+                .filter(
+                    models.MflHtmlRecordFact.season == season,
+                    models.MflHtmlRecordFact.target_league_id == target_league_id,
+                    models.MflHtmlRecordFact.dataset_key == dataset_key,
+                )
+                .scalar()
+                or 0
+            )
+            rc = CsvReportCount()
+            rc.total_rows = count
+            rc.valid_rows = count
+            result[dataset_key] = rc
+        return result
+    finally:
+        db.close()
+
+
 def run_reconcile_mfl_import(
     *,
-    input_root: str,
+    input_root: str | None = None,
     target_league_id: int,
     start_year: int,
     end_year: int,
+    source_mode: str = "db",
     output_json: str | None = None,
 ) -> dict[str, Any]:
+    """Reconcile MFL source counts against imported DB rows.
+
+    Parameters
+    ----------
+    source_mode:
+        ``"db"`` (default) — read source counts from ``mfl_html_record_facts``
+        by ``dataset_key``; no local CSV files required.
+        ``"csv"`` (legacy) — read source counts from staged CSV extraction
+        files under ``input_root``; requires ``FFPI_ALLOW_LEGACY_CSV_PIPELINE=1``.
+    input_root:
+        Required when ``source_mode="csv"``. Ignored in ``"db"`` mode.
+    """
+    if source_mode not in {"db", "csv"}:
+        raise ValueError(f"source_mode must be 'db' or 'csv', got {source_mode!r}")
+    if source_mode == "csv":
+        if os.environ.get(_CSV_PIPELINE_ENV_VAR) != "1":
+            raise RuntimeError(
+                "reconcile-mfl-import CSV mode requires "
+                f"{_CSV_PIPELINE_ENV_VAR}=1. "
+                "Use source_mode='db' (the default) to read from mfl_html_record_facts."
+            )
+        if not input_root:
+            raise ValueError("input_root is required when source_mode='csv'")
+
     seasons = list(range(start_year, end_year + 1))
     warnings: list[str] = []
     reports: list[SeasonReconciliation] = []
-    root = Path(input_root)
+    root = Path(input_root) if input_root else None
 
     for season in seasons:
-        source_counts = {
-            "franchises": _csv_count_for_season(
-                input_root=root,
+        if source_mode == "db":
+            source_counts = _db_html_source_counts_for_season(
                 season=season,
-                report_type="franchises",
-                warnings=warnings,
-            ),
-            "players": _csv_count_for_season(
-                input_root=root,
-                season=season,
-                report_type="players",
-                warnings=warnings,
-            ),
-            "draftResults": _csv_count_for_season(
-                input_root=root,
-                season=season,
-                report_type="draftResults",
-                warnings=warnings,
-            ),
-        }
+                target_league_id=target_league_id,
+            )
+        else:
+            assert root is not None
+            source_counts = {
+                "franchises": _csv_count_for_season(
+                    input_root=root,
+                    season=season,
+                    report_type="franchises",
+                    warnings=warnings,
+                ),
+                "players": _csv_count_for_season(
+                    input_root=root,
+                    season=season,
+                    report_type="players",
+                    warnings=warnings,
+                ),
+                "draftResults": _csv_count_for_season(
+                    input_root=root,
+                    season=season,
+                    report_type="draftResults",
+                    warnings=warnings,
+                ),
+            }
         db_counts = _db_counts_for_season(season=season, target_league_id=target_league_id)
 
         checks = {
@@ -203,7 +275,7 @@ def run_reconcile_mfl_import(
         )
 
     summary = ReconciliationSummary(
-        input_root=input_root,
+        input_root=input_root if source_mode == "csv" else "db:mfl_html_record_facts",
         target_league_id=target_league_id,
         seasons=seasons,
         season_reports=reports,

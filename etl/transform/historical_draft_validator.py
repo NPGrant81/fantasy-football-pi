@@ -197,6 +197,19 @@ def write_draft_validation_outputs(
     positions_csv: Path,
     output_dir: Path,
 ) -> dict[str, Any]:
+    """DEPRECATED: Reads source DataFrames from CSV files.
+
+    Use ``write_draft_validation_outputs_from_dataframes()`` instead, which
+    accepts DataFrames directly and is the active code path in
+    ``etl/build_phase1_artifacts.py``.
+    """
+    import warnings
+    warnings.warn(
+        "write_draft_validation_outputs() reads from CSV files and is a legacy interface. "
+        "Call write_draft_validation_outputs_from_dataframes() directly.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     draft_results_df = pd.read_csv(draft_results_csv)
     players_df = pd.read_csv(players_csv)
     users_df = pd.read_csv(users_csv)
