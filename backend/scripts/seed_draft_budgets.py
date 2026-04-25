@@ -100,7 +100,9 @@ def seed(league_id: int = DEFAULT_LEAGUE_ID) -> None:
             print(
                 f"\nWARNING: {len(missing_owners)} owner IDs from the CSV are not in the users table "
                 f"and were skipped: {sorted(missing_owners)}\n"
-                "Run load_ppl_history.py first to populate the users table, then re-run this script."
+                "The users table must already be populated (the DB is the source of truth). "
+                "load_ppl_history.py is archival-only and requires an explicit opt-in; "
+                "do not run it unless rebuilding from scratch after a deliberate full-reset."
             )
         if inserted > 0:
             print(
@@ -112,6 +114,21 @@ def seed(league_id: int = DEFAULT_LEAGUE_ID) -> None:
 
 
 def main() -> None:
+    import os
+
+    if os.environ.get("FFPI_ALLOW_LEGACY_CSV_SEED") != "1":
+        print(
+            "seed_draft_budgets.py is an archival-only utility.\n"
+            "It requires backend/data/draft_budget.csv, which is no longer\n"
+            "part of the active data workflow.\n"
+            "\n"
+            "To run it, set FFPI_ALLOW_LEGACY_CSV_SEED=1.\n"
+            "For active draft budget management, populate the draft_budgets\n"
+            "table directly from the DB-backed import pipeline.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     league_id = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_LEAGUE_ID
     seed(league_id)
 

@@ -160,6 +160,20 @@ def write_canonicalization_outputs(
     alias_map_path: Path,
     output_dir: Path,
 ) -> dict[str, Any]:
+    """DEPRECATED: Reads source DataFrames from CSV files.
+
+    Use ``write_canonicalization_outputs_from_dataframes()`` instead, which
+    accepts DataFrames directly and is the active code path in
+    ``etl/build_phase1_artifacts.py``.
+    """
+    import sys as _sys
+    import warnings
+    warnings.warn(
+        "write_canonicalization_outputs() reads from CSV files and is a legacy interface. "
+        "Call write_canonicalization_outputs_from_dataframes() directly.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     players_df = pd.read_csv(players_csv)
     positions_df = pd.read_csv(positions_csv)
 

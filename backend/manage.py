@@ -34,6 +34,7 @@ from .scripts.validation.validate_mfl_import import run_validate_mfl_import, for
 from .scripts.validation.validate_season_hierarchy import run_validate_season_hierarchy, format_season_hierarchy_output
 from .scripts.validation.validate_league_readiness import run_validate_league_readiness, format_league_readiness_output
 import csv as _csv
+import os as _os
 from . import models
 
 
@@ -939,7 +940,20 @@ def stage_mfl_html_for_import(
     output_root: str,
     overwrite: bool,
 ):
-    """Stage HTML + API extraction outputs into an importer-compatible root."""
+    """Stage HTML + API extraction outputs into an importer-compatible root.
+
+    LEGACY: This command is part of the CSV staging pipeline and is only needed
+    when using the legacy CSV import path (import-mfl-csv --source-mode=csv).
+    It is not required for the default DB-backed import workflow.
+    Set FFPI_ALLOW_LEGACY_CSV_PIPELINE=1 to enable.
+    """
+    if _os.environ.get("FFPI_ALLOW_LEGACY_CSV_PIPELINE") != "1":
+        raise click.ClickException(
+            "stage-mfl-html-for-import is a LEGACY archival tool for the CSV staging pipeline.\n"
+            "The active MFL import path (import-mfl-csv --source-mode=db) reads directly from\n"
+            "mfl_html_record_facts and does not require CSV staging.\n\n"
+            "To run this legacy command, set FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."
+        )
     if end_year < start_year:
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
@@ -987,7 +1001,17 @@ def prepare_mfl_draft_backfill_sheet(
     output_root: str | None,
     include_filled: bool,
 ):
-    """Generate fill-ready draft backfill sheets with snake/auction guidance."""
+    """Generate fill-ready draft backfill sheets with snake/auction guidance.
+
+    LEGACY: Requires a CSV staging root from the legacy CSV import pipeline.
+    Set FFPI_ALLOW_LEGACY_CSV_PIPELINE=1 to enable.
+    """
+    if _os.environ.get("FFPI_ALLOW_LEGACY_CSV_PIPELINE") != "1":
+        raise click.ClickException(
+            "prepare-mfl-draft-backfill-sheet is a LEGACY archival tool that reads from\n"
+            "staged CSV extraction files. It is not part of the active DB-backed import workflow.\n\n"
+            "To run this legacy command, set FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."
+        )
     if end_year < start_year:
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
@@ -1047,7 +1071,17 @@ def apply_mfl_draft_backfill_sheet(
     require_source_url: bool,
     enforce_2002_source_policy: bool,
 ):
-    """Apply completed draft backfill sheets into manual override CSVs."""
+    """Apply completed draft backfill sheets into manual override CSVs.
+
+    LEGACY: Reads from and writes to staged CSV extraction files.
+    Set FFPI_ALLOW_LEGACY_CSV_PIPELINE=1 to enable.
+    """
+    if _os.environ.get("FFPI_ALLOW_LEGACY_CSV_PIPELINE") != "1":
+        raise click.ClickException(
+            "apply-mfl-draft-backfill-sheet is a LEGACY archival tool that reads/writes\n"
+            "staged CSV extraction files. It is not part of the active DB-backed import workflow.\n\n"
+            "To run this legacy command, set FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."
+        )
     if end_year < start_year:
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
@@ -1100,7 +1134,17 @@ def resolve_mfl_draft_backfill_names(
     sheet_root: str | None,
     apply_changes: bool,
 ):
-    """Resolve manual draft player names to season player_mfl_id values."""
+    """Resolve manual draft player names to season player_mfl_id values.
+
+    LEGACY: Reads from staged CSV backfill sheets.
+    Set FFPI_ALLOW_LEGACY_CSV_PIPELINE=1 to enable.
+    """
+    if _os.environ.get("FFPI_ALLOW_LEGACY_CSV_PIPELINE") != "1":
+        raise click.ClickException(
+            "resolve-mfl-draft-backfill-names is a LEGACY archival tool that reads\n"
+            "staged CSV backfill sheets. It is not part of the active DB-backed import workflow.\n\n"
+            "To run this legacy command, set FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."
+        )
     if end_year < start_year:
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
@@ -1127,31 +1171,60 @@ def resolve_mfl_draft_backfill_names(
 
 
 @cli.command("reconcile-mfl-import")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
+@click.option(
+    "--source-mode",
+    type=click.Choice(["db", "csv"]),
+    default="db",
+    show_default=True,
+    help=(
+        "Reconciliation source mode. 'db' (default, recommended) reads source counts from "
+        "mfl_html_record_facts. 'csv' is LEGACY and requires --input-root and "
+        "FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."
+    ),
+)
+@click.option(
+    "--input-root",
+    type=click.Path(file_okay=False, dir_okay=True, exists=True),
+    default=None,
+    help="LEGACY CSV mode only: path to staged CSV extraction root (required when --source-mode=csv).",
+)
 @click.option("--target-league-id", type=int, required=True, help="App league_id to reconcile against imported rows.")
 @click.option("--start-year", type=int, required=True, help="First season year to reconcile.")
 @click.option("--end-year", type=int, required=True, help="Last season year to reconcile.")
 @click.option("--output-json", type=click.Path(file_okay=True, dir_okay=False), default=None, help="Optional JSON output path for machine-readable mismatch report.")
 def reconcile_mfl_import(
-    input_root: str,
+    source_mode: str,
+    input_root: str | None,
     target_league_id: int,
     start_year: int,
     end_year: int,
     output_json: str | None,
 ):
-    """Compare MFL CSV source counts against imported DB counts by season."""
+    """Compare MFL source counts against imported DB counts by season.
+
+    DB mode (default) reads from mfl_html_record_facts; no CSV files required.
+    CSV mode is LEGACY and reads from staged extraction files under --input-root.
+    """
     if end_year < start_year:
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
-    summary = run_reconcile_mfl_import(
-        input_root=input_root,
-        target_league_id=target_league_id,
-        start_year=start_year,
-        end_year=end_year,
-        output_json=output_json,
-    )
+    if source_mode == "csv" and not input_root:
+        raise click.UsageError("--input-root is required when --source-mode=csv")
+
+    try:
+        summary = run_reconcile_mfl_import(
+            input_root=input_root,
+            target_league_id=target_league_id,
+            start_year=start_year,
+            end_year=end_year,
+            source_mode=source_mode,
+            output_json=output_json,
+        )
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     click.echo("MFL import reconciliation summary")
+    click.echo(f"- Source mode: {source_mode}")
     click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
     click.echo(f"- Mismatch count: {summary['mismatch_count']}")
 

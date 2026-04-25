@@ -122,11 +122,18 @@ def test_import_mfl_csv_default_source_mode_is_db(monkeypatch):
     def fake_run(**kwargs):
         captured.update(kwargs)
         return {
-            "files_checked": 0, "files_missing": 0, "rows_validated": 0,
-            "rows_invalid": 0, "players_inserted": 0, "players_matched": 0,
-            "draft_picks_inserted": 0, "draft_picks_skipped": 0,
-            "matchups_inserted": 0, "matchups_skipped": 0,
-            "bye_matchups_skipped": 0, "skipped_missing_owner_map": 0,
+            "files_checked": 0,
+            "files_missing": 0,
+            "rows_validated": 0,
+            "rows_invalid": 0,
+            "players_inserted": 0,
+            "players_matched": 0,
+            "draft_picks_inserted": 0,
+            "draft_picks_skipped": 0,
+            "matchups_inserted": 0,
+            "matchups_skipped": 0,
+            "bye_matchups_skipped": 0,
+            "skipped_missing_owner_map": 0,
             "skipped_missing_player_map": 0,
         }
 
@@ -137,11 +144,137 @@ def test_import_mfl_csv_default_source_mode_is_db(monkeypatch):
         manage.cli,
         [
             "import-mfl-csv",
-            "--target-league-id", "60",
-            "--start-year", "2022",
-            "--end-year", "2022",
+            "--target-league-id",
+            "60",
+            "--start-year",
+            "2022",
+            "--end-year",
+            "2022",
         ],
     )
     assert result.exit_code == 0, result.output
     assert captured.get("source_mode") == "db"
     assert captured.get("input_root") is None
+
+
+def test_reconcile_mfl_import_default_source_mode_is_db(monkeypatch):
+    captured = {}
+
+    def fake_run_reconcile(**kwargs):
+        captured.update(kwargs)
+        return {
+            "input_root": "db:mfl_html_record_facts",
+            "target_league_id": 60,
+            "seasons": [2022],
+            "mismatch_count": 0,
+            "season_reports": [],
+            "warnings": [],
+        }
+
+    monkeypatch.setattr(manage, "run_reconcile_mfl_import", fake_run_reconcile)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        manage.cli,
+        [
+            "reconcile-mfl-import",
+            "--target-league-id",
+            "60",
+            "--start-year",
+            "2022",
+            "--end-year",
+            "2022",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["source_mode"] == "db"
+    assert captured["input_root"] is None
+
+
+def test_reconcile_mfl_import_csv_mode_requires_input_root():
+    runner = CliRunner()
+    result = runner.invoke(
+        manage.cli,
+        [
+            "reconcile-mfl-import",
+            "--source-mode",
+            "csv",
+            "--target-league-id",
+            "60",
+            "--start-year",
+            "2022",
+            "--end-year",
+            "2022",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "--input-root is required when --source-mode=csv" in result.output
+
+
+def test_reconcile_mfl_import_csv_mode_blocked_without_env(monkeypatch, tmp_path):
+    """reconcile-mfl-import CSV mode raises ClickException when env gate is not set."""
+    monkeypatch.delenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        manage.cli,
+        [
+            "reconcile-mfl-import",
+            "--source-mode",
+            "csv",
+            "--input-root",
+            str(tmp_path),
+            "--target-league-id",
+            "60",
+            "--start-year",
+            "2022",
+            "--end-year",
+            "2022",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "FFPI_ALLOW_LEGACY_CSV_PIPELINE" in result.output
+
+
+def test_stage_mfl_html_for_import_blocked_without_env(monkeypatch):
+    """stage-mfl-html-for-import requires FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."""
+    monkeypatch.delenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        manage.cli,
+        [
+            "stage-mfl-html-for-import",
+            "--start-year",
+            "2022",
+            "--end-year",
+            "2022",
+            "--api-root",
+            "/tmp",
+            "--html-root",
+            "/tmp",
+            "--output-root",
+            "/tmp/out",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "FFPI_ALLOW_LEGACY_CSV_PIPELINE" in result.output
+
+
+def test_prepare_mfl_draft_backfill_sheet_blocked_without_env(monkeypatch, tmp_path):
+    """prepare-mfl-draft-backfill-sheet requires FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."""
+    monkeypatch.delenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        manage.cli,
+        [
+            "prepare-mfl-draft-backfill-sheet",
+            "--input-root",
+            str(tmp_path),
+            "--start-year",
+            "2022",
+            "--end-year",
+            "2022",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "FFPI_ALLOW_LEGACY_CSV_PIPELINE" in result.output
