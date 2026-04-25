@@ -209,6 +209,19 @@ def write_budget_timeline_outputs(
     users_csv: Path,
     output_dir: Path,
 ) -> dict[str, Any]:
+    """DEPRECATED: Reads source DataFrames from CSV files.
+
+    Use ``write_budget_timeline_outputs_from_dataframes()`` instead, which
+    accepts DataFrames directly and is the active code path in
+    ``etl/build_phase1_artifacts.py``.
+    """
+    import warnings
+    warnings.warn(
+        "write_budget_timeline_outputs() reads from CSV files and is a legacy interface. "
+        "Call write_budget_timeline_outputs_from_dataframes() directly.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     draft_budget_df = pd.read_csv(draft_budget_csv)
     draft_results_df = pd.read_csv(draft_results_csv)
     users_df = pd.read_csv(users_csv)
