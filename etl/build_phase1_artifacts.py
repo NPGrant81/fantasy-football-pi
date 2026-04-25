@@ -36,7 +36,27 @@ def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
         return pd.read_csv(path, encoding="latin-1")
 
 
-def _load_from_postgres_or_exports() -> dict[str, Any]:
+# Set ETL_ALLOW_CSV_FALLBACK=1 only for archival/offline use.
+# Normal operation must always use DATABASE_URL.
+_CSV_FALLBACK_ENV = "ETL_ALLOW_CSV_FALLBACK"
+
+
+def _load_from_postgres() -> dict[str, Any]:
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        csv_fallback_allowed = os.getenv(_CSV_FALLBACK_ENV, "").strip() in ("1", "true", "yes")
+        if csv_fallback_allowed:
+            print(
+                f"Warning: DATABASE_URL not set. Using CSV fallback because {_CSV_FALLBACK_ENV}=1."
+                " This mode is for archival/offline use only.",
+                file=sys.stderr,
+            )
+            return _load_from_csv_exports()
+        raise EnvironmentError(
+            "DATABASE_URL is not set. The ETL artifact builder requires a Postgres connection.\n"
+            f"To use CSV exports for archival/offline purposes only, set {_CSV_FALLBACK_ENV}=1."
+        )
+
     dataset_dir = OUTPUT_DIR / "_source_snapshots"
     dataset_dir.mkdir(parents=True, exist_ok=True)
 
@@ -49,109 +69,92 @@ def _load_from_postgres_or_exports() -> dict[str, Any]:
     }
 
     frames: dict[str, pd.DataFrame] = {}
+    source_mode = "postgres"
 
-    database_url = os.getenv("DATABASE_URL")
-    source_mode = "csv_exports"
+    try:
+        engine = create_engine(database_url)
+        inspector = inspect(engine)
 
-    if database_url:
-        try:
-            engine = create_engine(database_url)
-            inspector = inspect(engine)
-
-            players_columns = {col["name"] for col in inspector.get_columns("players")}
-            if {"Player_ID", "PlayerName"}.issubset(players_columns):
-                if "PositionID" in players_columns:
-                    position_id_expr = '"PositionID"'
-                else:
-                    position_id_expr = 'NULL as "PositionID"'
-                if "Position" in players_columns:
-                    position_expr = '"Position"'
-                elif "position" in players_columns:
-                    position_expr = 'position as "Position"'
-                else:
-                    position_expr = 'NULL as "Position"'
-                players_query = f'SELECT "Player_ID", "PlayerName", {position_id_expr}, {position_expr} FROM players ORDER BY "Player_ID"'
-            elif {"id", "name"}.issubset(players_columns):
-                if "position_id" in players_columns:
-                    position_id_expr = 'position_id as "PositionID"'
-                else:
-                    position_id_expr = 'NULL as "PositionID"'
-                if "position" in players_columns:
-                    position_expr = 'position as "Position"'
-                elif "Position" in players_columns:
-                    position_expr = '"Position"'
-                else:
-                    position_expr = 'NULL as "Position"'
-                players_query = f'SELECT id as "Player_ID", name as "PlayerName", {position_id_expr}, {position_expr} FROM players ORDER BY id'
+        players_columns = {col["name"] for col in inspector.get_columns("players")}
+        if {"Player_ID", "PlayerName"}.issubset(players_columns):
+            if "PositionID" in players_columns:
+                position_id_expr = '"PositionID"'
             else:
-                players_query = "SELECT * FROM players"
-            frames["players"] = pd.read_sql(players_query, engine)
-
-            positions_columns = {col["name"] for col in inspector.get_columns("positions")}
-            if {"PositionID", "Position"}.issubset(positions_columns):
-                positions_query = 'SELECT "PositionID", "Position" FROM positions'
-            elif {"id", "name"}.issubset(positions_columns):
-                positions_query = 'SELECT id as "PositionID", name as "Position" FROM positions'
+                position_id_expr = 'NULL as "PositionID"'
+            if "Position" in players_columns:
+                position_expr = '"Position"'
+            elif "position" in players_columns:
+                position_expr = 'position as "Position"'
             else:
-                positions_query = "SELECT * FROM positions"
-            frames["positions"] = pd.read_sql(positions_query, engine)
-
-            frames["users"] = pd.read_sql("SELECT id as \"OwnerID\", username as \"OwnerName\" FROM users", engine)
-
-            budget_columns = {col["name"] for col in inspector.get_columns("draft_budgets")}
-            if {"owner_id", "year"}.issubset(budget_columns) and ("budget" in budget_columns or "total_budget" in budget_columns):
-                budget_amount_col = "budget" if "budget" in budget_columns else "total_budget"
-                frames["draft_budget"] = pd.read_sql(
-                    f'SELECT {budget_amount_col} as "DraftBudget", year as "Year", owner_id as "OwnerID" FROM draft_budgets',
-                    engine,
-                )
+                position_expr = 'NULL as "Position"'
+            players_query = f'SELECT "Player_ID", "PlayerName", {position_id_expr}, {position_expr} FROM players ORDER BY "Player_ID"'
+        elif {"id", "name"}.issubset(players_columns):
+            if "position_id" in players_columns:
+                position_id_expr = 'position_id as "PositionID"'
             else:
-                latest_year_df = pd.read_sql('SELECT MAX(year) as "Year" FROM draft_picks', engine)
-                latest_year = None
-                if not latest_year_df.empty and not latest_year_df["Year"].isna().all():
-                    latest_year = int(latest_year_df["Year"].iloc[0])
-                if latest_year is None:
-                    latest_year = datetime.now(UTC).year
-                frames["draft_budget"] = pd.read_sql(
-                    f'SELECT future_draft_budget as "DraftBudget", {latest_year} as "Year", id as "OwnerID" FROM users',
-                    engine,
-                )
+                position_id_expr = 'NULL as "PositionID"'
+            if "position" in players_columns:
+                position_expr = 'position as "Position"'
+            elif "Position" in players_columns:
+                position_expr = '"Position"'
+            else:
+                position_expr = 'NULL as "Position"'
+            players_query = f'SELECT id as "Player_ID", name as "PlayerName", {position_id_expr}, {position_expr} FROM players ORDER BY id'
+        else:
+            players_query = "SELECT * FROM players"
+        frames["players"] = pd.read_sql(players_query, engine)
 
-            draft_pick_columns = {col["name"] for col in inspector.get_columns("draft_picks")}
-            if not {"player_id", "owner_id", "year"}.issubset(draft_pick_columns):
-                raise RuntimeError("draft_picks is missing one or more required columns: player_id, owner_id, year")
-            bid_col = "amount" if "amount" in draft_pick_columns else ("winning_bid" if "winning_bid" in draft_pick_columns else None)
-            if bid_col is None:
-                raise RuntimeError("draft_picks is missing required bid column (amount or winning_bid)")
+        positions_columns = {col["name"] for col in inspector.get_columns("positions")}
+        if {"PositionID", "Position"}.issubset(positions_columns):
+            positions_query = 'SELECT "PositionID", "Position" FROM positions'
+        elif {"id", "name"}.issubset(positions_columns):
+            positions_query = 'SELECT id as "PositionID", name as "Position" FROM positions'
+        else:
+            positions_query = "SELECT * FROM positions"
+        frames["positions"] = pd.read_sql(positions_query, engine)
 
-            position_expr = 'position_id as "PositionID"' if "position_id" in draft_pick_columns else 'NULL as "PositionID"'
-            team_expr = 'team_id as "TeamID"' if "team_id" in draft_pick_columns else 'NULL as "TeamID"'
-            stable_pick_order_col = "id" if "id" in draft_pick_columns else "player_id"
-            order_by_clause = f"year, owner_id, {stable_pick_order_col}"
-            frames["draft_results"] = pd.read_sql(
-                f'SELECT player_id as "PlayerID", owner_id as "OwnerID", year as "Year", {position_expr}, {team_expr}, {bid_col} as "WinningBid" FROM draft_picks ORDER BY {order_by_clause}',
+        frames["users"] = pd.read_sql('SELECT id as "OwnerID", username as "OwnerName" FROM users', engine)
+
+        budget_columns = {col["name"] for col in inspector.get_columns("draft_budgets")}
+        if {"owner_id", "year"}.issubset(budget_columns) and ("budget" in budget_columns or "total_budget" in budget_columns):
+            budget_amount_col = "budget" if "budget" in budget_columns else "total_budget"
+            frames["draft_budget"] = pd.read_sql(
+                f'SELECT {budget_amount_col} as "DraftBudget", year as "Year", owner_id as "OwnerID" FROM draft_budgets',
                 engine,
             )
-            source_mode = "postgres"
-        except Exception as exc:
-            print(
-                f"Warning: Postgres extraction failed (error type: {type(exc).__name__}), falling back to CSV exports.",
-                file=sys.stderr,
+        else:
+            latest_year_df = pd.read_sql('SELECT MAX(year) as "Year" FROM draft_picks', engine)
+            latest_year = None
+            if not latest_year_df.empty and not latest_year_df["Year"].isna().all():
+                latest_year = int(latest_year_df["Year"].iloc[0])
+            if latest_year is None:
+                latest_year = datetime.now(UTC).year
+            frames["draft_budget"] = pd.read_sql(
+                f'SELECT future_draft_budget as "DraftBudget", {latest_year} as "Year", id as "OwnerID" FROM users',
+                engine,
             )
-            source_mode = "csv_exports"
 
-    if source_mode != "postgres":
-        fallback_map = {
-            "players": DATA_DIR / "players.csv",
-            "positions": DATA_DIR / "positions.csv",
-            "users": DATA_DIR / "users.csv",
-            "draft_budget": DATA_DIR / "draft_budget.csv",
-            "draft_results": DATA_DIR / "draft_results.csv",
-        }
-        for key, src in fallback_map.items():
-            if not src.exists():
-                raise FileNotFoundError(f"Missing required source export: {src}")
-            frames[key] = _read_csv_with_fallback(src)
+        draft_pick_columns = {col["name"] for col in inspector.get_columns("draft_picks")}
+        if not {"player_id", "owner_id", "year"}.issubset(draft_pick_columns):
+            raise RuntimeError("draft_picks is missing one or more required columns: player_id, owner_id, year")
+        bid_col = "amount" if "amount" in draft_pick_columns else ("winning_bid" if "winning_bid" in draft_pick_columns else None)
+        if bid_col is None:
+            raise RuntimeError("draft_picks is missing required bid column (amount or winning_bid)")
+
+        position_expr = 'position_id as "PositionID"' if "position_id" in draft_pick_columns else 'NULL as "PositionID"'
+        team_expr = 'team_id as "TeamID"' if "team_id" in draft_pick_columns else 'NULL as "TeamID"'
+        stable_pick_order_col = "id" if "id" in draft_pick_columns else "player_id"
+        order_by_clause = f"year, owner_id, {stable_pick_order_col}"
+        frames["draft_results"] = pd.read_sql(
+            f'SELECT player_id as "PlayerID", owner_id as "OwnerID", year as "Year", {position_expr}, {team_expr}, {bid_col} as "WinningBid" FROM draft_picks ORDER BY {order_by_clause}',
+            engine,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            f"Postgres extraction failed ({type(exc).__name__}: {exc}).\n"
+            "Fix the database connection or query before regenerating artifacts.\n"
+            f"To use CSV exports for archival/offline purposes only, unset DATABASE_URL and set {_CSV_FALLBACK_ENV}=1."
+        ) from exc
 
     for key, frame in frames.items():
         frame.to_csv(snapshot_paths[key], index=False)
@@ -163,8 +166,39 @@ def _load_from_postgres_or_exports() -> dict[str, Any]:
     }
 
 
+def _load_from_csv_exports() -> dict[str, Any]:
+    dataset_dir = OUTPUT_DIR / "_source_snapshots"
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+
+    fallback_map = {
+        "players": DATA_DIR / "players.csv",
+        "positions": DATA_DIR / "positions.csv",
+        "users": DATA_DIR / "users.csv",
+        "draft_budget": DATA_DIR / "draft_budget.csv",
+        "draft_results": DATA_DIR / "draft_results.csv",
+    }
+    snapshot_paths = {
+        key: dataset_dir / src.name for key, src in fallback_map.items()
+    }
+
+    frames: dict[str, pd.DataFrame] = {}
+    for key, src in fallback_map.items():
+        if not src.exists():
+            raise FileNotFoundError(f"Missing required CSV export: {src}")
+        frames[key] = _read_csv_with_fallback(src)
+
+    for key, frame in frames.items():
+        frame.to_csv(snapshot_paths[key], index=False)
+
+    return {
+        "source_mode": "csv_exports",
+        "frames": frames,
+        "source_paths": {k: str(v) for k, v in snapshot_paths.items()},
+    }
+
+
 def main() -> int:
-    source_info = _load_from_postgres_or_exports()
+    source_info = _load_from_postgres()
     frames: dict[str, pd.DataFrame] = source_info["frames"]
 
     canonical_output = write_canonicalization_outputs_from_dataframes(
