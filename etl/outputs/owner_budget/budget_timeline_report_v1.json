@@ -1,68 +1,80 @@
 {
-  "generated_at": "2026-03-30T02:42:17.620475+00:00",
-  "timeline_rows": 1050,
-  "owner_season_pairs": 84,
-  "overspent_owner_seasons": 24,
+  "generated_at": "2026-04-25T21:43:08.800034+00:00",
+  "timeline_rows": 1197,
+  "owner_season_pairs": 96,
+  "overspent_owner_seasons": 40,
   "budget_resolution_counts": {
-    "exact": 0,
+    "exact": 24,
     "carry_forward": 0,
-    "carry_backward": 84,
-    "global_default": 0
+    "carry_backward": 71,
+    "global_default": 1
   },
   "exceptions": [
     {
       "season_year": 2018,
       "owner_id": 1,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2018,
       "owner_id": 2,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 2,
+      "issue_type": "overspent_budget",
+      "detail": "spent=176.00 > budget=101.00"
     },
     {
       "season_year": 2018,
       "owner_id": 3,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2018,
       "owner_id": 3,
       "issue_type": "overspent_budget",
-      "detail": "spent=166.00 > budget=151.00"
+      "detail": "spent=166.00 > budget=135.00"
     },
     {
       "season_year": 2018,
       "owner_id": 4,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2018,
       "owner_id": 5,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 5,
+      "issue_type": "overspent_budget",
+      "detail": "spent=167.00 > budget=159.00"
     },
     {
       "season_year": 2018,
       "owner_id": 6,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2018,
       "owner_id": 7,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2018,
       "owner_id": 8,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2018,
@@ -74,163 +86,187 @@
       "season_year": 2018,
       "owner_id": 9,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 9,
+      "issue_type": "overspent_budget",
+      "detail": "spent=186.00 > budget=176.00"
     },
     {
       "season_year": 2018,
       "owner_id": 10,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2018,
       "owner_id": 11,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2018,
+      "owner_id": 11,
+      "issue_type": "overspent_budget",
+      "detail": "spent=207.00 > budget=89.00"
     },
     {
       "season_year": 2018,
       "owner_id": 13,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=global_default; source_season_year=None"
     },
     {
       "season_year": 2018,
       "owner_id": 13,
       "issue_type": "overspent_budget",
-      "detail": "spent=244.00 > budget=0.00"
+      "detail": "spent=244.00 > budget=179.50"
     },
     {
       "season_year": 2019,
       "owner_id": 1,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 2,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 2,
       "issue_type": "overspent_budget",
-      "detail": "spent=223.00 > budget=181.00"
+      "detail": "spent=223.00 > budget=101.00"
     },
     {
       "season_year": 2019,
       "owner_id": 3,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 3,
       "issue_type": "overspent_budget",
-      "detail": "spent=156.00 > budget=151.00"
+      "detail": "spent=156.00 > budget=135.00"
     },
     {
       "season_year": 2019,
       "owner_id": 4,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 5,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 6,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 7,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 8,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 9,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 10,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 11,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2019,
+      "owner_id": 11,
+      "issue_type": "overspent_budget",
+      "detail": "spent=208.00 > budget=89.00"
     },
     {
       "season_year": 2019,
       "owner_id": 12,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2019,
       "owner_id": 12,
       "issue_type": "overspent_budget",
-      "detail": "spent=213.00 > budget=181.00"
+      "detail": "spent=213.00 > budget=171.00"
     },
     {
       "season_year": 2020,
       "owner_id": 1,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
       "owner_id": 2,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 2,
+      "issue_type": "overspent_budget",
+      "detail": "spent=172.00 > budget=101.00"
     },
     {
       "season_year": 2020,
       "owner_id": 3,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
       "owner_id": 3,
       "issue_type": "overspent_budget",
-      "detail": "spent=152.00 > budget=151.00"
+      "detail": "spent=152.00 > budget=135.00"
     },
     {
       "season_year": 2020,
       "owner_id": 4,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
       "owner_id": 5,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
       "owner_id": 6,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
@@ -242,13 +278,13 @@
       "season_year": 2020,
       "owner_id": 7,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
       "owner_id": 8,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
@@ -260,19 +296,19 @@
       "season_year": 2020,
       "owner_id": 9,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
       "owner_id": 9,
       "issue_type": "overspent_budget",
-      "detail": "spent=218.00 > budget=195.00"
+      "detail": "spent=218.00 > budget=176.00"
     },
     {
       "season_year": 2020,
       "owner_id": 10,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2020,
@@ -284,91 +320,97 @@
       "season_year": 2020,
       "owner_id": 11,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2020,
+      "owner_id": 11,
+      "issue_type": "overspent_budget",
+      "detail": "spent=163.00 > budget=89.00"
     },
     {
       "season_year": 2020,
       "owner_id": 12,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 1,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 2,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 2,
       "issue_type": "overspent_budget",
-      "detail": "spent=213.00 > budget=181.00"
+      "detail": "spent=213.00 > budget=101.00"
     },
     {
       "season_year": 2021,
       "owner_id": 3,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 3,
       "issue_type": "overspent_budget",
-      "detail": "spent=159.00 > budget=151.00"
+      "detail": "spent=159.00 > budget=135.00"
     },
     {
       "season_year": 2021,
       "owner_id": 4,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 5,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 5,
       "issue_type": "overspent_budget",
-      "detail": "spent=208.00 > budget=192.00"
+      "detail": "spent=208.00 > budget=159.00"
     },
     {
       "season_year": 2021,
       "owner_id": 6,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 7,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 8,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 9,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
       "owner_id": 10,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2021,
@@ -380,61 +422,79 @@
       "season_year": 2021,
       "owner_id": 11,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 11,
+      "issue_type": "overspent_budget",
+      "detail": "spent=187.00 > budget=89.00"
     },
     {
       "season_year": 2021,
       "owner_id": 12,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2021,
+      "owner_id": 12,
+      "issue_type": "overspent_budget",
+      "detail": "spent=177.00 > budget=171.00"
     },
     {
       "season_year": 2022,
       "owner_id": 1,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
       "owner_id": 2,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
       "owner_id": 2,
       "issue_type": "overspent_budget",
-      "detail": "spent=219.00 > budget=181.00"
+      "detail": "spent=219.00 > budget=101.00"
     },
     {
       "season_year": 2022,
       "owner_id": 3,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
       "owner_id": 3,
       "issue_type": "overspent_budget",
-      "detail": "spent=174.00 > budget=151.00"
+      "detail": "spent=174.00 > budget=135.00"
     },
     {
       "season_year": 2022,
       "owner_id": 4,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
       "owner_id": 5,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 5,
+      "issue_type": "overspent_budget",
+      "detail": "spent=181.00 > budget=159.00"
     },
     {
       "season_year": 2022,
       "owner_id": 6,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
@@ -446,31 +506,31 @@
       "season_year": 2022,
       "owner_id": 7,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
       "owner_id": 8,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
       "owner_id": 9,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
       "owner_id": 9,
       "issue_type": "overspent_budget",
-      "detail": "spent=200.00 > budget=195.00"
+      "detail": "spent=200.00 > budget=176.00"
     },
     {
       "season_year": 2022,
       "owner_id": 10,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2022,
@@ -482,49 +542,67 @@
       "season_year": 2022,
       "owner_id": 11,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 11,
+      "issue_type": "overspent_budget",
+      "detail": "spent=192.00 > budget=89.00"
     },
     {
       "season_year": 2022,
       "owner_id": 12,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2022,
+      "owner_id": 12,
+      "issue_type": "overspent_budget",
+      "detail": "spent=172.00 > budget=171.00"
     },
     {
       "season_year": 2023,
       "owner_id": 1,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 2,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 2,
+      "issue_type": "overspent_budget",
+      "detail": "spent=111.00 > budget=101.00"
     },
     {
       "season_year": 2023,
       "owner_id": 3,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 4,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 5,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 6,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
@@ -536,85 +614,55 @@
       "season_year": 2023,
       "owner_id": 7,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 8,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 9,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 9,
       "issue_type": "overspent_budget",
-      "detail": "spent=218.00 > budget=195.00"
+      "detail": "spent=219.00 > budget=176.00"
     },
     {
       "season_year": 2023,
       "owner_id": 10,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 11,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
+    },
+    {
+      "season_year": 2023,
+      "owner_id": 11,
+      "issue_type": "overspent_budget",
+      "detail": "spent=213.00 > budget=89.00"
     },
     {
       "season_year": 2023,
       "owner_id": 12,
       "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "source=carry_backward; source_season_year=2024"
     },
     {
       "season_year": 2023,
       "owner_id": 12,
       "issue_type": "overspent_budget",
-      "detail": "spent=232.00 > budget=181.00"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 1,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 2,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 3,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 4,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 5,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 6,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "detail": "spent=232.00 > budget=171.00"
     },
     {
       "season_year": 2024,
@@ -624,39 +672,15 @@
     },
     {
       "season_year": 2024,
-      "owner_id": 7,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 8,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 9,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 10,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
-      "owner_id": 11,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
-    },
-    {
-      "season_year": 2024,
       "owner_id": 12,
-      "issue_type": "budget_imputed",
-      "detail": "source=carry_backward; source_season_year=2026"
+      "issue_type": "overspent_budget",
+      "detail": "spent=173.00 > budget=171.00"
+    },
+    {
+      "season_year": 2025,
+      "owner_id": 12,
+      "issue_type": "overspent_budget",
+      "detail": "spent=200.00 > budget=181.00"
     }
   ]
 }

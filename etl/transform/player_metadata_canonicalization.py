@@ -30,6 +30,7 @@ def _normalize_position_token(value: Any) -> str:
         "D/ST": "DEF",
         "DST": "DEF",
         "DEFENSE": "DEF",
+        "TD": "DEF",
         "PK": "K",
         "KICKER": "K",
     }

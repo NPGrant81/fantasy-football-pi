@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-30T02:42:17.493637+00:00",
+  "generated_at": "2026-04-25T21:43:08.588538+00:00",
   "total_rows": 1850,
   "unique_player_ids": 1791,
   "deduplicated_rows": 59,
@@ -9,8 +9,8 @@
     "RB": 180,
     "QB": 110,
     "TE": 77,
-    "TD": 33,
-    "PK": 27,
+    "DEF": 33,
+    "K": 27,
     "FB": 1
   },
   "duplicate_name_keys": [
@@ -155,5 +155,5 @@
       "player_count": 2
     }
   ],
-  "content_digest": "6e455986b3489a1b887f977bae289150eed985e90bb636b9908c7eb7f96f3d65"
+  "content_digest": "1a6f842fd3792027418b267260a81c1de164164a83f9872fb842b198021bdca8"
 }

@@ -727,6 +727,7 @@ def bootstrap_mfl_franchise_users(
             facts_query = (
                 db.query(models.MflHtmlRecordFact)
                 .filter(models.MflHtmlRecordFact.season == source_season)
+                .filter(models.MflHtmlRecordFact.dataset_key == "html_franchises_normalized")
             )
             if source_league_id:
                 facts_query = facts_query.filter(models.MflHtmlRecordFact.league_id == source_league_id)

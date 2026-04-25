@@ -25,10 +25,10 @@ def _parse_dollars(value: Any) -> float | None:
 
 
 def _parse_int(value: Any) -> int | None:
-    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
-    if pd.isna(numeric):
+    try:
+        return int(float(str(value).strip()))
+    except (ValueError, TypeError):
         return None
-    return int(numeric)
 
 
 def _resolve_starting_budget(

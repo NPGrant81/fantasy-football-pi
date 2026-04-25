@@ -1,5 +1,3 @@
-import os
-
 from backend.scripts import load_ppl_history
 
 

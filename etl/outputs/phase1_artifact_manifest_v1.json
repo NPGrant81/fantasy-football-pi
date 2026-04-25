@@ -1,31 +1,31 @@
 {
-  "generated_at": "2026-03-30T02:42:17.736933+00:00",
-  "source_mode": "postgres",
+  "generated_at": "2026-04-25T21:43:09.037884+00:00",
+  "source_mode": "csv_exports",
   "sources": {
-    "players": null,
-    "positions": null,
-    "users": null,
-    "draft_budget": null,
-    "draft_results": null
+    "players": "etl/outputs/_source_snapshots/players.csv",
+    "positions": "etl/outputs/_source_snapshots/positions.csv",
+    "users": "etl/outputs/_source_snapshots/users.csv",
+    "draft_budget": "etl/outputs/_source_snapshots/draft_budget.csv",
+    "draft_results": "etl/outputs/_source_snapshots/draft_results.csv"
   },
   "artifacts": {
     "361_player_metadata": {
       "csv": "etl/outputs/player_metadata/canonical_players_v1.csv",
       "report": "etl/outputs/player_metadata/canonicalization_report_v1.json",
       "rows": 1791,
-      "digest": "6e455986b3489a1b887f977bae289150eed985e90bb636b9908c7eb7f96f3d65"
+      "digest": "1a6f842fd3792027418b267260a81c1de164164a83f9872fb842b198021bdca8"
     },
     "362_owner_budget_timeline": {
       "csv": "etl/outputs/owner_budget/budget_timeline_v1.csv",
       "report": "etl/outputs/owner_budget/budget_timeline_report_v1.json",
-      "rows": 1050,
-      "exceptions": 108
+      "rows": 1197,
+      "exceptions": 112
     },
     "363_historical_draft_validation": {
       "csv": "etl/outputs/draft_validation/validated_draft_results_v1.csv",
       "correction_ledger": "etl/outputs/draft_validation/draft_correction_ledger_v1.csv",
       "report": "etl/outputs/draft_validation/draft_validation_report_v1.json",
-      "rows": 1050,
+      "rows": 1053,
       "corrections": 0
     }
   }

@@ -1,9 +1,11 @@
 {
-  "generated_at": "2026-03-30T02:42:17.732651+00:00",
-  "source_rows": 1050,
-  "validated_rows": 1050,
-  "error_count": 0,
+  "generated_at": "2026-04-25T21:43:09.026453+00:00",
+  "source_rows": 1197,
+  "validated_rows": 1053,
+  "error_count": 144,
   "duplicate_key_count": 0,
   "correction_ledger_rows": 0,
-  "error_breakdown": {}
+  "error_breakdown": {
+    "invalid_position_id": 144
+  }
 }

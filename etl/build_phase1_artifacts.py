@@ -70,7 +70,7 @@ def _load_from_postgres_or_exports() -> dict[str, Any]:
                     position_expr = 'position as "Position"'
                 else:
                     position_expr = 'NULL as "Position"'
-                players_query = f'SELECT "Player_ID", "PlayerName", {position_id_expr}, {position_expr} FROM players'
+                players_query = f'SELECT "Player_ID", "PlayerName", {position_id_expr}, {position_expr} FROM players ORDER BY "Player_ID"'
             elif {"id", "name"}.issubset(players_columns):
                 if "position_id" in players_columns:
                     position_id_expr = 'position_id as "PositionID"'
@@ -82,7 +82,7 @@ def _load_from_postgres_or_exports() -> dict[str, Any]:
                     position_expr = '"Position"'
                 else:
                     position_expr = 'NULL as "Position"'
-                players_query = f'SELECT id as "Player_ID", name as "PlayerName", {position_id_expr}, {position_expr} FROM players'
+                players_query = f'SELECT id as "Player_ID", name as "PlayerName", {position_id_expr}, {position_expr} FROM players ORDER BY id'
             else:
                 players_query = "SELECT * FROM players"
             frames["players"] = pd.read_sql(players_query, engine)
@@ -126,8 +126,10 @@ def _load_from_postgres_or_exports() -> dict[str, Any]:
 
             position_expr = 'position_id as "PositionID"' if "position_id" in draft_pick_columns else 'NULL as "PositionID"'
             team_expr = 'team_id as "TeamID"' if "team_id" in draft_pick_columns else 'NULL as "TeamID"'
+            stable_pick_order_col = "id" if "id" in draft_pick_columns else "player_id"
+            order_by_clause = f"year, owner_id, {stable_pick_order_col}"
             frames["draft_results"] = pd.read_sql(
-                f'SELECT player_id as "PlayerID", owner_id as "OwnerID", year as "Year", {position_expr}, {team_expr}, {bid_col} as "WinningBid" FROM draft_picks',
+                f'SELECT player_id as "PlayerID", owner_id as "OwnerID", year as "Year", {position_expr}, {team_expr}, {bid_col} as "WinningBid" FROM draft_picks ORDER BY {order_by_clause}',
                 engine,
             )
             source_mode = "postgres"
