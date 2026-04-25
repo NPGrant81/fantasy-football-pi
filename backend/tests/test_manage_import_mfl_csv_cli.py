@@ -134,7 +134,31 @@ def test_reconcile_mfl_import_csv_mode_requires_input_root():
     assert "--input-root is required when --source-mode=csv" in result.output
 
 
-def test_stage_mfl_html_for_import_blocked_without_env(monkeypatch):
+def test_reconcile_mfl_import_csv_mode_blocked_without_env(monkeypatch, tmp_path):
+    """reconcile-mfl-import CSV mode raises ClickException when env gate is not set."""
+    monkeypatch.delenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", raising=False)
+    runner = CliRunner()
+    result = runner.invoke(
+        manage.cli,
+        [
+            "reconcile-mfl-import",
+            "--source-mode",
+            "csv",
+            "--input-root",
+            str(tmp_path),
+            "--target-league-id",
+            "60",
+            "--start-year",
+            "2022",
+            "--end-year",
+            "2022",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "FFPI_ALLOW_LEGACY_CSV_PIPELINE" in result.output
+
+
+
     """stage-mfl-html-for-import requires FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."""
     monkeypatch.delenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", raising=False)
     runner = CliRunner()

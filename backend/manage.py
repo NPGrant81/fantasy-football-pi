@@ -1179,7 +1179,7 @@ def resolve_mfl_draft_backfill_names(
 )
 @click.option(
     "--input-root",
-    type=click.Path(file_okay=False, dir_okay=True),
+    type=click.Path(file_okay=False, dir_okay=True, exists=True),
     default=None,
     help="LEGACY CSV mode only: path to staged CSV extraction root (required when --source-mode=csv).",
 )
@@ -1206,14 +1206,17 @@ def reconcile_mfl_import(
     if source_mode == "csv" and not input_root:
         raise click.UsageError("--input-root is required when --source-mode=csv")
 
-    summary = run_reconcile_mfl_import(
-        input_root=input_root,
-        target_league_id=target_league_id,
-        start_year=start_year,
-        end_year=end_year,
-        source_mode=source_mode,
-        output_json=output_json,
-    )
+    try:
+        summary = run_reconcile_mfl_import(
+            input_root=input_root,
+            target_league_id=target_league_id,
+            start_year=start_year,
+            end_year=end_year,
+            source_mode=source_mode,
+            output_json=output_json,
+        )
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     click.echo("MFL import reconciliation summary")
     click.echo(f"- Source mode: {source_mode}")

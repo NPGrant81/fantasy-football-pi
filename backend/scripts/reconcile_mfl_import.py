@@ -26,7 +26,7 @@ from sqlalchemy import func
 from backend import models
 from backend.database import SessionLocal
 
-_ALLOW_CSV = os.environ.get("FFPI_ALLOW_LEGACY_CSV_PIPELINE") == "1"
+_CSV_PIPELINE_ENV_VAR = "FFPI_ALLOW_LEGACY_CSV_PIPELINE"
 
 
 REQUIRED_COLUMNS: dict[str, list[str]] = {
@@ -194,15 +194,15 @@ def run_reconcile_mfl_import(
     input_root:
         Required when ``source_mode="csv"``. Ignored in ``"db"`` mode.
     """
+    if source_mode not in {"db", "csv"}:
+        raise ValueError(f"source_mode must be 'db' or 'csv', got {source_mode!r}")
     if source_mode == "csv":
-        if not _ALLOW_CSV:
-            print(
-                "DeprecationWarning: reconcile-mfl-import CSV mode requires "
-                "FFPI_ALLOW_LEGACY_CSV_PIPELINE=1. "
-                "Use --source-mode=db (the default) to read from mfl_html_record_facts.",
-                file=sys.stderr,
+        if os.environ.get(_CSV_PIPELINE_ENV_VAR) != "1":
+            raise RuntimeError(
+                "reconcile-mfl-import CSV mode requires "
+                f"{_CSV_PIPELINE_ENV_VAR}=1. "
+                "Use source_mode='db' (the default) to read from mfl_html_record_facts."
             )
-            sys.exit(1)
         if not input_root:
             raise ValueError("input_root is required when source_mode='csv'")
 
