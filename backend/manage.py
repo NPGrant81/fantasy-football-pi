@@ -644,29 +644,43 @@ def restore_mfl_archive(
 
 
 @cli.command("import-mfl-csv")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
+@click.option("--source-mode", type=click.Choice(["db", "csv"]), default="db", show_default=True, help="Import source mode. Use db (recommended) to read from mfl_html_record_facts.")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default=None, help="Legacy CSV mode: extraction root folder (required when --source-mode=csv).")
+@click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id receiving imported rows.")
 @click.option("--start-year", type=int, required=True, help="First season year to import.")
 @click.option("--end-year", type=int, required=True, help="Last season year to import.")
 @click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write changes (default dry-run).")
 def import_mfl_csv(
-    input_root: str,
+    source_mode: str,
+    input_root: str | None,
+    source_league_id: str | None,
     target_league_id: int,
     start_year: int,
     end_year: int,
     apply_changes: bool,
 ):
     """Import normalized MFL CSV files into app tables with validation."""
+    if source_mode == "csv" and not input_root:
+        raise click.UsageError("--input-root is required when --source-mode=csv")
+
     summary = run_import_mfl_csv(
         input_root=input_root,
         target_league_id=target_league_id,
         start_year=start_year,
         end_year=end_year,
         dry_run=not apply_changes,
+        source_mode=source_mode,
+        source_league_id=source_league_id,
     )
 
-    click.echo("MFL CSV import summary")
+    click.echo("MFL import summary")
     click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Source mode: {source_mode}")
+    if source_mode == "csv":
+        click.echo(f"- Input root: {input_root}")
+    elif source_league_id:
+        click.echo(f"- Source league id: {source_league_id}")
     click.echo(f"- Files checked: {summary['files_checked']}")
     click.echo(f"- Files missing: {summary['files_missing']}")
     click.echo(f"- Rows validated: {summary['rows_validated']}")
@@ -683,21 +697,69 @@ def import_mfl_csv(
 
 
 @cli.command("bootstrap-mfl-franchise-users")
-@click.option("--franchises-csv", type=click.Path(file_okay=True, dir_okay=False, exists=True), required=True, help="Path to a staged franchises CSV (e.g. exports/history_staged_2003/franchises/2003.csv).")
+@click.option("--franchises-csv", type=click.Path(file_okay=True, dir_okay=False, exists=True), default=None, help="Legacy mode: path to a staged franchises CSV (e.g. exports/history_staged_2003/franchises/2003.csv).")
+@click.option("--source-season", type=int, default=None, help="DB mode: season year to pull franchises from mfl_html_record_facts.")
+@click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when using --source-season.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id to create stub users in.")
 @click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write users to DB (default dry-run).")
 def bootstrap_mfl_franchise_users(
-    franchises_csv: str,
+    franchises_csv: str | None,
+    source_season: int | None,
+    source_league_id: str | None,
     target_league_id: int,
     apply_changes: bool,
 ):
     """Create locked stub user accounts for historical MFL franchises not yet in the league."""
-    rows: list[dict] = []
-    with open(franchises_csv, newline="", encoding="utf-8") as fh:
-        rows = list(_csv.DictReader(fh))
+    if franchises_csv and source_season is not None:
+        raise click.UsageError("Choose one input source: either --franchises-csv (legacy) or --source-season (DB mode), not both.")
+    if not franchises_csv and source_season is None:
+        raise click.UsageError("Provide an input source: --source-season for DB mode (recommended) or --franchises-csv for legacy CSV mode.")
 
     db = SessionLocal()
     try:
+        rows: list[dict] = []
+        source_label = ""
+        if franchises_csv:
+            with open(franchises_csv, newline="", encoding="utf-8") as fh:
+                rows = list(_csv.DictReader(fh))
+            source_label = f"csv:{franchises_csv}"
+        else:
+            facts_query = (
+                db.query(models.MflHtmlRecordFact)
+                .filter(models.MflHtmlRecordFact.season == source_season)
+                .filter(models.MflHtmlRecordFact.dataset_key == "html_franchises_normalized")
+            )
+            if source_league_id:
+                facts_query = facts_query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
+
+            facts = facts_query.all()
+            for fact in facts:
+                record = fact.record_json or {}
+                if not isinstance(record, dict):
+                    continue
+                franchise_id = str(record.get("franchise_id") or "").strip()
+                franchise_name = str(record.get("franchise_name") or "").strip()
+                if not franchise_id or not franchise_name:
+                    continue
+                row_season = record.get("season") if record.get("season") is not None else source_season
+                row_league_id = str(record.get("league_id") or fact.league_id or "").strip()
+                if source_league_id and row_league_id and row_league_id != source_league_id:
+                    continue
+                rows.append(
+                    {
+                        "season": str(row_season or "").strip(),
+                        "franchise_id": franchise_id,
+                        "franchise_name": franchise_name,
+                        "owner_name": str(record.get("owner_name") or "").strip(),
+                        "league_id": row_league_id,
+                    }
+                )
+
+            source_label = f"db:season={source_season}" + (f",league_id={source_league_id}" if source_league_id else "")
+
+        if not rows:
+            raise click.ClickException("No franchise rows found for the selected source. Verify season/league filters or provide a valid CSV.")
+
         existing_in_league = db.query(models.User).filter(models.User.league_id == target_league_id).all()
         existing_team_lower = {(u.team_name or "").strip().lower() for u in existing_in_league}
         all_usernames_lower = {(u.username or "").strip().lower() for u in db.query(models.User.username).all()}
@@ -753,8 +815,9 @@ def bootstrap_mfl_franchise_users(
 
         click.echo("Bootstrap MFL franchise users")
         click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+        click.echo(f"- Source: {source_label}")
         click.echo(f"- Target league: {target_league_id}")
-        click.echo(f"- Rows in CSV: {len(rows)}")
+        click.echo(f"- Rows loaded: {len(rows)}")
         click.echo(f"- Users to create: {len(to_create)}")
         click.echo(f"- Existing stubs to refresh: {len(updates)}")
         click.echo(f"- Already exist (skipped): {len(skipped)}")

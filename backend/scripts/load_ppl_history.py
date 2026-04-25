@@ -11,7 +11,15 @@ STATUS: ALREADY RUN — DATA IS IN THE DATABASE.
   The CSV files it reads (users.csv, players.csv, positions.csv,
   draft_results.csv) are retained solely as disaster-recovery references.
   Once their DB data is verified, they can be deleted.
+
+ARCHIVAL-ONLY SAFETY GATE:
+    This script is intentionally hard-gated and requires both:
+    1) environment variable FFPI_ALLOW_LEGACY_CSV_BOOTSTRAP=1
+    2) CLI flag --allow-legacy-csv-bootstrap
+
+    Without both signals, execution is refused.
 """
+import argparse
 import os, sys
 from pathlib import Path
 import pandas as pd
@@ -29,14 +37,41 @@ LEAGUE_ID = 60  # Post Pacific League
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 BCRYPT_PLACEHOLDER = "$2b$12$AT98P1yMsFB6voQYGgVxEO21tf6tZuXl79b/j615NkIKMhnx0LL3W"
 CSV_BOOTSTRAP_ENV_FLAG = "FFPI_ALLOW_LEGACY_CSV_BOOTSTRAP"
+CSV_BOOTSTRAP_CLI_FLAG = "--allow-legacy-csv-bootstrap"
 
 
 load_backend_env_file()
-DB_URL = resolve_database_url(require_explicit=True, context="backend/scripts/load_ppl_history.py")
 
 
 def connect():
-    return psycopg2.connect(DB_URL)
+    db_url = resolve_database_url(require_explicit=True, context="backend/scripts/load_ppl_history.py")
+    return psycopg2.connect(db_url)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Legacy archival CSV bootstrap for Post Pacific League history."
+    )
+    parser.add_argument(
+        "--allow-legacy-csv-bootstrap",
+        action="store_true",
+        help="Required archival acknowledgment flag.",
+    )
+    return parser.parse_args(argv)
+
+
+def legacy_csv_bootstrap_opted_in(cli_flag_enabled: bool) -> bool:
+    env_enabled = os.getenv(CSV_BOOTSTRAP_ENV_FLAG, "0") == "1"
+    return bool(cli_flag_enabled and env_enabled)
+
+
+def validate_required_csv_sources(data_dir: str) -> list[str]:
+    required = ["users.csv", "players.csv", "positions.csv", "draft_results.csv"]
+    missing: list[str] = []
+    for name in required:
+        if not Path(data_dir, name).exists():
+            missing.append(str(Path(data_dir, name)))
+    return missing
 
 
 def clean_money(val):
@@ -190,12 +225,21 @@ def step3_load_draft_picks(cur, data_dir):
     print(f"  Draft picks inserted: {inserted} (skipped {skipped})")
 
 
-def main():
-    if os.getenv(CSV_BOOTSTRAP_ENV_FLAG, "0") != "1":
+def main(argv: list[str] | None = None):
+    args = parse_args(argv)
+
+    if not legacy_csv_bootstrap_opted_in(args.allow_legacy_csv_bootstrap):
         print(
-            "Refusing to run legacy CSV bootstrap. "
-            f"Set {CSV_BOOTSTRAP_ENV_FLAG}=1 to run intentionally."
+            "Refusing to run archival legacy CSV bootstrap. "
+            f"Set {CSV_BOOTSTRAP_ENV_FLAG}=1 and pass {CSV_BOOTSTRAP_CLI_FLAG} to run intentionally."
         )
+        sys.exit(1)
+
+    missing_sources = validate_required_csv_sources(DATA_DIR)
+    if missing_sources:
+        print("Refusing to run legacy CSV bootstrap; missing required source files:")
+        for source in missing_sources:
+            print(f"  - {source}")
         sys.exit(1)
 
     conn = connect()

@@ -30,6 +30,7 @@ def _normalize_position_token(value: Any) -> str:
         "D/ST": "DEF",
         "DST": "DEF",
         "DEFENSE": "DEF",
+        "TD": "DEF",
         "PK": "K",
         "KICKER": "K",
     }
@@ -161,6 +162,22 @@ def write_canonicalization_outputs(
 ) -> dict[str, Any]:
     players_df = pd.read_csv(players_csv)
     positions_df = pd.read_csv(positions_csv)
+
+    return write_canonicalization_outputs_from_dataframes(
+        players_df=players_df,
+        positions_df=positions_df,
+        alias_map_path=alias_map_path,
+        output_dir=output_dir,
+    )
+
+
+def write_canonicalization_outputs_from_dataframes(
+    *,
+    players_df: pd.DataFrame,
+    positions_df: pd.DataFrame,
+    alias_map_path: Path,
+    output_dir: Path,
+) -> dict[str, Any]:
 
     alias_map: dict[str, str] = {}
     if alias_map_path.exists():

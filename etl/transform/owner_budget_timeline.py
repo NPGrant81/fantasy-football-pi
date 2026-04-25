@@ -25,10 +25,10 @@ def _parse_dollars(value: Any) -> float | None:
 
 
 def _parse_int(value: Any) -> int | None:
-    numeric = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
-    if pd.isna(numeric):
+    try:
+        return int(float(str(value).strip()))
+    except (ValueError, TypeError):
         return None
-    return int(numeric)
 
 
 def _resolve_starting_budget(
@@ -212,6 +212,22 @@ def write_budget_timeline_outputs(
     draft_budget_df = pd.read_csv(draft_budget_csv)
     draft_results_df = pd.read_csv(draft_results_csv)
     users_df = pd.read_csv(users_csv)
+
+    return write_budget_timeline_outputs_from_dataframes(
+        draft_budget_df=draft_budget_df,
+        draft_results_df=draft_results_df,
+        users_df=users_df,
+        output_dir=output_dir,
+    )
+
+
+def write_budget_timeline_outputs_from_dataframes(
+    *,
+    draft_budget_df: pd.DataFrame,
+    draft_results_df: pd.DataFrame,
+    users_df: pd.DataFrame,
+    output_dir: Path,
+) -> dict[str, Any]:
 
     timeline_df, report = build_owner_budget_timeline(draft_budget_df, draft_results_df, users_df)
 

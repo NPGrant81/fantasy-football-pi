@@ -28,6 +28,14 @@ REQUIRED_COLUMNS: dict[str, list[str]] = {
     "transactions": ["season", "league_id", "franchise_id", "transaction_type", "player_mfl_id"],
 }
 
+DB_DATASET_KEYS: dict[str, set[str]] = {
+    "franchises": {"html_franchises_normalized"},
+    "players": {"html_players_normalized"},
+    "draftResults": {"html_draft_results_normalized"},
+    "schedule": {"html_schedule_normalized"},
+    "transactions": {"html_transactions_normalized"},
+}
+
 
 @dataclass
 class ImportSummary:
@@ -112,6 +120,69 @@ def _load_report_rows(
                 )
                 continue
             rows.append(row)
+
+    return rows
+
+
+def _load_report_rows_from_db(
+    *,
+    db: Session,
+    report_type: str,
+    seasons: list[int],
+    summary: ImportSummary,
+    source_league_id: str | None,
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    required = REQUIRED_COLUMNS.get(report_type, [])
+    dataset_keys = DB_DATASET_KEYS.get(report_type, set())
+    season_set = set(seasons)
+    matched_seasons: set[int] = set()
+
+    facts_query = db.query(models.MflHtmlRecordFact).filter(models.MflHtmlRecordFact.season.in_(seasons))
+    if dataset_keys:
+        facts_query = facts_query.filter(models.MflHtmlRecordFact.dataset_key.in_(dataset_keys))
+    if source_league_id:
+        facts_query = facts_query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
+
+    for fact in facts_query.all():
+        record = fact.record_json or {}
+        if not isinstance(record, dict):
+            continue
+
+        row_season = _safe_int(str(record.get("season") if record.get("season") is not None else fact.season))
+        if row_season is None or row_season not in season_set:
+            continue
+
+        row_league_id = str(record.get("league_id") or fact.league_id or "").strip()
+        if source_league_id and row_league_id and row_league_id != source_league_id:
+            continue
+
+        if not all(col in record for col in required):
+            continue
+
+        matched_seasons.add(row_season)
+        row = {str(k): "" if v is None else str(v) for k, v in record.items()}
+        row.setdefault("season", str(row_season))
+        if row_league_id:
+            row.setdefault("league_id", row_league_id)
+
+        summary.rows_validated += 1
+        missing = [col for col in required if (row.get(col) or "").strip() == ""]
+        if missing:
+            summary.rows_invalid += 1
+            summary.warnings.append(
+                f"invalid {report_type} row season={row_season}: missing columns {missing}"
+            )
+            continue
+
+        rows.append(row)
+
+    for season in seasons:
+        if season in matched_seasons:
+            summary.files_checked += 1
+        else:
+            summary.files_missing += 1
+            summary.warnings.append(f"missing db rows: report={report_type} season={season}")
 
     return rows
 
@@ -261,53 +332,97 @@ def _build_playoff_week_map(
 
 def run_import_mfl_csv(
     *,
-    input_root: str,
+    input_root: str | None,
     target_league_id: int,
     start_year: int,
     end_year: int,
     dry_run: bool = True,
+    source_mode: str = "csv",
+    source_league_id: str | None = None,
 ) -> dict[str, Any]:
     seasons = list(range(start_year, end_year + 1))
     summary = ImportSummary(
-        input_root=input_root,
+        input_root=input_root or "db:mfl_html_record_facts",
         target_league_id=target_league_id,
         dry_run=dry_run,
         seasons=seasons,
     )
 
-    root = Path(input_root)
+    if source_mode not in {"csv", "db"}:
+        raise ValueError("source_mode must be either 'csv' or 'db'")
+    if source_mode == "csv" and not input_root:
+        raise ValueError("input_root is required when source_mode='csv'")
+
+    root = Path(input_root) if input_root else None
     db = SessionLocal()
     try:
-        franchise_rows = _load_report_rows(
-            input_root=root,
-            report_type="franchises",
-            seasons=seasons,
-            summary=summary,
-        )
-        player_rows = _load_report_rows(
-            input_root=root,
-            report_type="players",
-            seasons=seasons,
-            summary=summary,
-        )
-        draft_rows = _load_report_rows(
-            input_root=root,
-            report_type="draftResults",
-            seasons=seasons,
-            summary=summary,
-        )
-        schedule_rows = _load_report_rows(
-            input_root=root,
-            report_type="schedule",
-            seasons=seasons,
-            summary=summary,
-        )
-        transaction_rows = _load_report_rows(
-            input_root=root,
-            report_type="transactions",
-            seasons=seasons,
-            summary=summary,
-        )
+        if source_mode == "db":
+            franchise_rows = _load_report_rows_from_db(
+                db=db,
+                report_type="franchises",
+                seasons=seasons,
+                summary=summary,
+                source_league_id=source_league_id,
+            )
+            player_rows = _load_report_rows_from_db(
+                db=db,
+                report_type="players",
+                seasons=seasons,
+                summary=summary,
+                source_league_id=source_league_id,
+            )
+            draft_rows = _load_report_rows_from_db(
+                db=db,
+                report_type="draftResults",
+                seasons=seasons,
+                summary=summary,
+                source_league_id=source_league_id,
+            )
+            schedule_rows = _load_report_rows_from_db(
+                db=db,
+                report_type="schedule",
+                seasons=seasons,
+                summary=summary,
+                source_league_id=source_league_id,
+            )
+            transaction_rows = _load_report_rows_from_db(
+                db=db,
+                report_type="transactions",
+                seasons=seasons,
+                summary=summary,
+                source_league_id=source_league_id,
+            )
+        else:
+            franchise_rows = _load_report_rows(
+                input_root=root,
+                report_type="franchises",
+                seasons=seasons,
+                summary=summary,
+            )
+            player_rows = _load_report_rows(
+                input_root=root,
+                report_type="players",
+                seasons=seasons,
+                summary=summary,
+            )
+            draft_rows = _load_report_rows(
+                input_root=root,
+                report_type="draftResults",
+                seasons=seasons,
+                summary=summary,
+            )
+            schedule_rows = _load_report_rows(
+                input_root=root,
+                report_type="schedule",
+                seasons=seasons,
+                summary=summary,
+            )
+            transaction_rows = _load_report_rows(
+                input_root=root,
+                report_type="transactions",
+                seasons=seasons,
+                summary=summary,
+            )
 
         owner_map = _build_owner_map(
             db,
