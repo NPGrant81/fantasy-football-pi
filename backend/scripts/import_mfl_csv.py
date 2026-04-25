@@ -337,7 +337,7 @@ def run_import_mfl_csv(
     start_year: int,
     end_year: int,
     dry_run: bool = True,
-    source_mode: str = "csv",
+    source_mode: str = "db",
     source_league_id: str | None = None,
 ) -> dict[str, Any]:
     seasons = list(range(start_year, end_year + 1))
@@ -352,6 +352,14 @@ def run_import_mfl_csv(
         raise ValueError("source_mode must be either 'csv' or 'db'")
     if source_mode == "csv" and not input_root:
         raise ValueError("input_root is required when source_mode='csv'")
+    if source_mode == "csv":
+        import sys as _sys
+        print(
+            "DeprecationWarning: source_mode='csv' is a legacy path. "
+            "Use source_mode='db' (the default) to read from mfl_html_record_facts. "
+            "CSV mode will be removed in a future release.",
+            file=_sys.stderr,
+        )
 
     root = Path(input_root) if input_root else None
     db = SessionLocal()
