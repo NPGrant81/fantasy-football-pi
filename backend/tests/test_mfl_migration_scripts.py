@@ -197,6 +197,7 @@ def test_import_and_reconcile_mfl_csv_round_trip(tmp_path, monkeypatch):
         start_year=season,
         end_year=season,
         dry_run=False,
+        source_mode="csv",
     )
 
     assert import_summary["files_checked"] == 3
@@ -206,12 +207,14 @@ def test_import_and_reconcile_mfl_csv_round_trip(tmp_path, monkeypatch):
     assert import_summary["draft_picks_inserted"] == 2
     assert import_summary["draft_picks_skipped"] == 0
 
+    monkeypatch.setenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", "1")
     reconcile_output = tmp_path / "reconcile.json"
     reconcile_summary = reconcile_mfl_import.run_reconcile_mfl_import(
         input_root=str(tmp_path),
         target_league_id=1,
         start_year=season,
         end_year=season,
+        source_mode="csv",
         output_json=str(reconcile_output),
     )
 
