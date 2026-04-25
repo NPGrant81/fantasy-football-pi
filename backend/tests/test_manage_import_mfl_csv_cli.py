@@ -158,7 +158,7 @@ def test_reconcile_mfl_import_csv_mode_blocked_without_env(monkeypatch, tmp_path
     assert "FFPI_ALLOW_LEGACY_CSV_PIPELINE" in result.output
 
 
-
+def test_stage_mfl_html_for_import_blocked_without_env(monkeypatch):
     """stage-mfl-html-for-import requires FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."""
     monkeypatch.delenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", raising=False)
     runner = CliRunner()
