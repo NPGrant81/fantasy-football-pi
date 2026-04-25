@@ -100,7 +100,9 @@ def seed(league_id: int = DEFAULT_LEAGUE_ID) -> None:
             print(
                 f"\nWARNING: {len(missing_owners)} owner IDs from the CSV are not in the users table "
                 f"and were skipped: {sorted(missing_owners)}\n"
-                "Run load_ppl_history.py first to populate the users table, then re-run this script."
+                "The users table must already be populated (the DB is the source of truth). "
+                "load_ppl_history.py is archival-only and requires an explicit opt-in; "
+                "do not run it unless rebuilding from scratch after a deliberate full-reset."
             )
         if inserted > 0:
             print(
