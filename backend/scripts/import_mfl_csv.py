@@ -353,12 +353,13 @@ def run_import_mfl_csv(
     if source_mode == "csv" and not input_root:
         raise ValueError("input_root is required when source_mode='csv'")
     if source_mode == "csv":
-        import sys as _sys
-        print(
-            "DeprecationWarning: source_mode='csv' is a legacy path. "
+        import warnings
+        warnings.warn(
+            "source_mode='csv' is a legacy path. "
             "Use source_mode='db' (the default) to read from mfl_html_record_facts. "
             "CSV mode will be removed in a future release.",
-            file=_sys.stderr,
+            DeprecationWarning,
+            stacklevel=2,
         )
 
     root = Path(input_root) if input_root else None

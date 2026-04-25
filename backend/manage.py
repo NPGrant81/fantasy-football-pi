@@ -645,7 +645,7 @@ def restore_mfl_archive(
 
 @cli.command("import-mfl-csv")
 @click.option("--source-mode", type=click.Choice(["db", "csv"]), default="db", show_default=True, help="Import source mode. 'db' (default, recommended) reads from mfl_html_record_facts. 'csv' is LEGACY and requires --input-root.")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default=None, help="LEGACY CSV mode only: extraction root folder (required when --source-mode=csv). Not used in db mode.")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True), default=None, help="LEGACY CSV mode only: extraction root folder (required when --source-mode=csv). Not used in db mode.")
 @click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id receiving imported rows.")
 @click.option("--start-year", type=int, required=True, help="First season year to import.")
