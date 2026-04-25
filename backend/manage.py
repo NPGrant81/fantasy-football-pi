@@ -645,8 +645,8 @@ def restore_mfl_archive(
 
 
 @cli.command("import-mfl-csv")
-@click.option("--source-mode", type=click.Choice(["db", "csv"]), default="db", show_default=True, help="Import source mode. Use db (recommended) to read from mfl_html_record_facts.")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default=None, help="Legacy CSV mode: extraction root folder (required when --source-mode=csv).")
+@click.option("--source-mode", type=click.Choice(["db", "csv"]), default="db", show_default=True, help="Import source mode. 'db' (default, recommended) reads from mfl_html_record_facts. 'csv' is LEGACY and requires --input-root.")
+@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True), default=None, help="LEGACY CSV mode only: extraction root folder (required when --source-mode=csv). Not used in db mode.")
 @click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id receiving imported rows.")
 @click.option("--start-year", type=int, required=True, help="First season year to import.")
@@ -698,8 +698,8 @@ def import_mfl_csv(
 
 
 @cli.command("bootstrap-mfl-franchise-users")
-@click.option("--franchises-csv", type=click.Path(file_okay=True, dir_okay=False, exists=True), default=None, help="Legacy mode: path to a staged franchises CSV (e.g. exports/history_staged_2003/franchises/2003.csv).")
-@click.option("--source-season", type=int, default=None, help="DB mode: season year to pull franchises from mfl_html_record_facts.")
+@click.option("--franchises-csv", type=click.Path(file_okay=True, dir_okay=False, exists=True), default=None, help="LEGACY: path to a staged franchises CSV. Prefer --source-season (DB mode) instead.")
+@click.option("--source-season", type=int, default=None, help="DB mode (recommended): season year to pull franchises from mfl_html_record_facts.")
 @click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when using --source-season.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id to create stub users in.")
 @click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write users to DB (default dry-run).")
@@ -712,9 +712,14 @@ def bootstrap_mfl_franchise_users(
 ):
     """Create locked stub user accounts for historical MFL franchises not yet in the league."""
     if franchises_csv and source_season is not None:
-        raise click.UsageError("Choose one input source: either --franchises-csv (legacy) or --source-season (DB mode), not both.")
+        raise click.UsageError("Choose one input source: either --franchises-csv (legacy CSV) or --source-season (DB mode), not both.")
     if not franchises_csv and source_season is None:
-        raise click.UsageError("Provide an input source: --source-season for DB mode (recommended) or --franchises-csv for legacy CSV mode.")
+        raise click.UsageError(
+            "--source-season is required. "
+            "Example: --source-season 2023 --target-league-id 60 "
+            "(reads from mfl_html_record_facts in the DB). "
+            "CSV mode is legacy only: use --franchises-csv to override."
+        )
 
     db = SessionLocal()
     try:

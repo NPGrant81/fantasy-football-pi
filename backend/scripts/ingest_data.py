@@ -7,8 +7,9 @@ DEPRECATED — superseded by load_ppl_history.py and the MFL migration pipeline.
     It is kept for historical reference only.  It is intentionally disabled:
     running it requires setting the environment variable
         FFPI_HARD_RESET=1
-    as a safety gate.  If you think you need this script, use
-    load_ppl_history.py for re-seeding PPL data instead.
+    as a safety gate.  load_ppl_history.py is also archival-only (requires both
+    FFPI_ALLOW_LEGACY_CSV_BOOTSTRAP=1 env var and --allow-legacy-csv-bootstrap CLI flag).
+    The DB is the source of truth; do not use these scripts for active data management.
 """
 import os
 import sys
