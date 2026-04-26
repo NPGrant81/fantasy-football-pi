@@ -19,6 +19,7 @@ import {
   FiAlertTriangle,
   FiClock,
   FiRefreshCw,
+  FiArrowLeftRight,
 } from 'react-icons/fi';
 
 // 1.1 COMPONENT DECLARED OUTSIDE (Fixes "Cannot create components during render")
@@ -160,6 +161,14 @@ export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout,
             title="Keepers"
             desc="Manage off‑season keepers"
             icon={FiRepeat}
+            onClick={onClose}
+          />
+
+          <MenuBlock
+            to="/trades/submit"
+            title="Trades"
+            desc="Propose a trade"
+            icon={FiArrowLeftRight}
             onClick={onClose}
           />
 

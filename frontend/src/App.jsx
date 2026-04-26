@@ -46,6 +46,7 @@ const ManageWaiverRules = lazy(
   () => import('./pages/commissioner/ManageWaiverRules')
 );
 const ManageTrades = lazy(() => import('./pages/commissioner/ManageTrades'));
+const TradeBuilder = lazy(() => import('./pages/TradeBuilder'));
 const ManageScoringRules = lazy(
   () => import('./pages/commissioner/ManageScoringRules')
 );
@@ -96,6 +97,7 @@ function resolveLayoutPageTitle(pathname) {
   if (pathname === '/commissioner/manage-owners') return 'Manage Owners';
   if (pathname === '/commissioner/manage-waiver-rules') return 'Manage Waiver Rules';
   if (pathname === '/commissioner/manage-trades') return 'Manage Trades';
+  if (pathname === '/trades/submit') return 'Trade Builder';
   if (pathname === '/commissioner/manage-scoring-rules') return 'Manage Scoring Rules';
   if (pathname === '/commissioner/manage-divisions') return 'Manage Divisions';
   if (pathname === '/commissioner/history-owner-mapping') return 'Historical Owner Mapping';
@@ -297,6 +299,7 @@ function AuthenticatedShell({
           />
           <Route path="/bug-report" element={<BugReport />} />
           <Route path="/keepers" element={<Keepers />} />
+          <Route path="/trades/submit" element={<TradeBuilder />} />
           <Route path="/analytics" element={<AnalyticsDashboard />} />
           <Route path="/playoffs" element={<PlayoffBracket />} />
           <Route
