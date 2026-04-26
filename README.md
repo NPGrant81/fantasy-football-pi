@@ -89,7 +89,7 @@ They keep Linux and Windows behavior aligned:
 - start frontend only after backend is healthy
 - fail fast on backend port conflicts with actionable messaging
 
-Linux/macOS:
+Linux/WSL:
 
 ```bash
 ./start-dev.sh

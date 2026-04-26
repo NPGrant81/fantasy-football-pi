@@ -37,13 +37,27 @@ resolve_backend_python() {
     fi
   done
 
-  if command -v python >/dev/null 2>&1 && python -c "import fastapi, uvicorn" >/dev/null 2>&1; then
-    BACKEND_PYTHON="python"
-    return 0
+  for py in python3 python; do
+    if command -v "${py}" >/dev/null 2>&1 && "${py}" -c "import fastapi, uvicorn" >/dev/null 2>&1; then
+      BACKEND_PYTHON="${py}"
+      return 0
+    fi
+  done
+}
+
+port_in_use() {
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn | grep -q ":${BACKEND_PORT} "
+    return $?
   fi
 
-  log "Could not find a Python interpreter with fastapi and uvicorn installed."
-  log "Install backend dependencies in backend/venv or .venv, then retry."
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"${BACKEND_PORT}" -sTCP:LISTEN >/dev/null 2>&1
+    return $?
+  fi
+
+  log "Could not find a supported port-inspection tool (ss or lsof)."
+  log "Install one of them or set BACKEND_PORT to a known-free port."
   exit 1
 }
 
@@ -58,7 +72,6 @@ trap cleanup EXIT INT TERM
 
 require_cmd curl
 require_cmd npm
-require_cmd ss
 
 cd "${ROOT_DIR}"
 
@@ -68,6 +81,10 @@ if [[ ! -d "frontend" ]]; then
 fi
 
 if [[ ! -f "backend/.env" ]]; then
+  if [[ ! -f "backend/.env.example" ]]; then
+    log "backend/.env.example not found. Cannot bootstrap backend/.env."
+    exit 1
+  fi
   log "backend/.env not found. Creating it from backend/.env.example."
   cp backend/.env.example backend/.env
 fi
@@ -79,7 +96,8 @@ if command -v pg_isready >/dev/null 2>&1; then
   if pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
     log "Postgres is reachable on 127.0.0.1:5432"
   else
-    log "Postgres is not reachable on 127.0.0.1:5432 (continuing; backend may fail if DB is required)."
+    log "Postgres is not reachable on 127.0.0.1:5432."
+    log "Backend health requires DB connectivity, so startup will likely fail until Postgres is available."
   fi
 else
   log "pg_isready not found; skipping Postgres readiness check."
@@ -88,7 +106,7 @@ fi
 if curl -fsS "${BACKEND_HEALTH_URL}" >/dev/null 2>&1; then
   log "Backend already healthy at ${BACKEND_HEALTH_URL}"
 else
-  if ss -ltn | grep -q ":${BACKEND_PORT} "; then
+  if port_in_use; then
     log "Port ${BACKEND_PORT} is already in use, but ${BACKEND_HEALTH_URL} is not healthy."
     log "Stop the process using port ${BACKEND_PORT} or set BACKEND_PORT to a different value."
     exit 1
@@ -123,4 +141,4 @@ fi
 
 log "Starting frontend on port ${FRONTEND_PORT}"
 cd "${ROOT_DIR}/frontend"
-exec npm run dev -- --port "${FRONTEND_PORT}" --strictPort
+npm run dev -- --port "${FRONTEND_PORT}" --strictPort

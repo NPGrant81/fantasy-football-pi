@@ -218,6 +218,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 frontend/dist/
+.dev-backend.log
 frontend/build/
 .npm
 .yarn
