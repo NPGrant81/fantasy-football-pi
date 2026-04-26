@@ -250,7 +250,7 @@ def test_validate_draft_capital_accepts_within_available_balance():
     assert not report.errors
 
 
-def test_validate_draft_capital_accepts_zero_dollars_when_other_assets_present():
+def test_validate_draft_capital_accepts_non_dollar_assets_without_violation():
     report = validate_draft_capital(
         team_a_id=1,
         team_b_id=2,
@@ -310,7 +310,9 @@ def test_validate_roster_limits_accepts_valid_trade():
     assert not report.errors
 
 
-def test_validate_roster_limits_accepts_boundary_sizes():
+def test_validate_roster_limits_accepts_trade_landing_exactly_at_min_and_max():
+    # Team A: 10 roster − 3 sent + 1 received = 8 (at min_roster_size)
+    # Team B: 13 roster − 1 sent + 3 received = 15 (at max_roster_size)
     report = validate_roster_limits(
         team_a_id=1,
         team_b_id=2,
@@ -320,7 +322,7 @@ def test_validate_roster_limits_accepts_boundary_sizes():
             TradeAssetInput(asset_type="PLAYER", player_id=3),
         ],
         assets_from_b=[TradeAssetInput(asset_type="PLAYER", player_id=4)],
-        roster_sizes={1: 15, 2: 8},
+        roster_sizes={1: 10, 2: 13},
         max_roster_size=15,
         min_roster_size=8,
     )
