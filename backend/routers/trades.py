@@ -184,8 +184,8 @@ def propose_trade(
 class TradeWindowSettings(BaseModel):
     trade_start_at: str | None = None   # ISO-8601 UTC string
     trade_end_at: str | None = None     # ISO-8601 UTC string
-    allow_playoff_trades: bool = True
-    require_commissioner_approval: bool = True
+    allow_playoff_trades: bool | None = None
+    require_commissioner_approval: bool | None = None
 
 
 @router.get("/leagues/{league_id}/settings/trade-window")
@@ -212,8 +212,8 @@ def get_trade_window_settings(
     )
 
     return {
-        "trade_start_at": settings.trade_start_at.isoformat() if settings.trade_start_at else None,
-        "trade_end_at": settings.trade_end_at.isoformat() if settings.trade_end_at else None,
+        "trade_start_at": _ensure_aware(settings.trade_start_at).isoformat() if settings.trade_start_at else None,
+        "trade_end_at": _ensure_aware(settings.trade_end_at).isoformat() if settings.trade_end_at else None,
         "allow_playoff_trades": settings.allow_playoff_trades if settings.allow_playoff_trades is not None else True,
         "require_commissioner_approval": settings.require_commissioner_approval if settings.require_commissioner_approval is not None else True,
         "trade_window_open": trade_open,
@@ -242,14 +242,16 @@ def update_trade_window_settings(
         if value is None:
             return None
         try:
-            dt = datetime.fromisoformat(value)
+            # Normalize trailing 'Z' to '+00:00' for Python < 3.11 compatibility
+            normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+            dt = datetime.fromisoformat(normalized)
             if dt.tzinfo is None:
                 raise ValueError("Timezone required")
             return dt
         except (ValueError, TypeError) as exc:
             raise HTTPException(
                 status_code=400,
-                detail=f"{field} must be a valid ISO-8601 datetime with timezone (e.g. '2026-09-01T00:00:00Z').",
+                detail=f"{field} must be a valid ISO-8601 datetime with timezone (e.g. '2026-09-01T00:00:00+00:00' or '2026-09-01T00:00:00Z').",
             ) from exc
 
     start_at = _parse_dt(payload.trade_start_at, "trade_start_at")
@@ -260,8 +262,10 @@ def update_trade_window_settings(
 
     settings.trade_start_at = start_at
     settings.trade_end_at = end_at
-    settings.allow_playoff_trades = payload.allow_playoff_trades
-    settings.require_commissioner_approval = payload.require_commissioner_approval
+    if payload.allow_playoff_trades is not None:
+        settings.allow_playoff_trades = payload.allow_playoff_trades
+    if payload.require_commissioner_approval is not None:
+        settings.require_commissioner_approval = payload.require_commissioner_approval
 
     db.commit()
     db.refresh(settings)
@@ -277,8 +281,8 @@ def update_trade_window_settings(
 
     return {
         "message": "Trade window settings updated.",
-        "trade_start_at": settings.trade_start_at.isoformat() if settings.trade_start_at else None,
-        "trade_end_at": settings.trade_end_at.isoformat() if settings.trade_end_at else None,
+        "trade_start_at": _ensure_aware(settings.trade_start_at).isoformat() if settings.trade_start_at else None,
+        "trade_end_at": _ensure_aware(settings.trade_end_at).isoformat() if settings.trade_end_at else None,
         "allow_playoff_trades": settings.allow_playoff_trades,
         "require_commissioner_approval": settings.require_commissioner_approval,
         "trade_window_open": trade_open,
@@ -419,7 +423,7 @@ def submit_trade_v2(
             suppressed_positions=set(),
             player_positions_by_id=player_positions_by_id,
             trade_start_at=settings.trade_start_at if settings else None,
-            trade_end_at=settings.trade_end_at or parse_commissioner_deadline(settings.trade_deadline if settings else None),
+            trade_end_at=(settings.trade_end_at if settings else None) or parse_commissioner_deadline(settings.trade_deadline if settings else None),
             allow_playoff_trades=settings.allow_playoff_trades if (settings and settings.allow_playoff_trades is not None) else True,
             is_playoff=False,
             max_future_year_offset=2,

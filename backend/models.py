@@ -144,8 +144,8 @@ class LeagueSettings(Base):
     trade_deadline = Column(String, nullable=True)   # new trade deadline option
     trade_start_at = Column(DateTime(timezone=True), nullable=True)
     trade_end_at = Column(DateTime(timezone=True), nullable=True)
-    allow_playoff_trades = Column(Boolean, default=True)
-    require_commissioner_approval = Column(Boolean, default=True)
+    allow_playoff_trades = Column(Boolean, nullable=False, default=True)
+    require_commissioner_approval = Column(Boolean, nullable=False, default=True)
     draft_year = Column(Integer, nullable=True)
     future_draft_cap = Column(Integer, default=0)  # maximum dollars each owner may start with
 
