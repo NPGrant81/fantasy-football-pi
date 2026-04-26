@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-from datetime import datetime
 
 import pytest
 from sqlalchemy import create_engine
@@ -11,7 +10,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import models
 from backend.routers.trades import propose_trade, approve_trade, reject_trade, submit_trade_v2
 from backend.routers.trades import TradeSubmissionCreate, TradeAssetCreate
-from backend.services.transaction_service import get_acquisition_method
 from fastapi import HTTPException
 
 
@@ -189,6 +187,14 @@ def test_trade_proposal_respects_commissioner_trade_deadline():
 # ==== INTEGRATION TESTS FOR SUBMIT_TRADE_V2 (#349) ====
 
 
+class _SubmitCU:
+    """Minimal mock CurrentUser for submit_trade_v2 tests."""
+    def __init__(self, user):
+        self.id = user.id
+        self.league_id = user.league_id
+
+
+
 def test_submit_trade_v2_creates_pending_trade_with_events():
     """Trade created with Pending status and SUBMITTED event recorded."""
     db = setup_db()
@@ -203,11 +209,6 @@ def test_submit_trade_v2_creates_pending_trade_with_events():
     make_pick(db, team_a, p1)
     make_pick(db, team_b, p2)
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
         team_b_id=team_b.id,
@@ -216,7 +217,7 @@ def test_submit_trade_v2_creates_pending_trade_with_events():
         proposal_note="Fair deal",
     )
 
-    result = submit_trade_v2(league.id, payload, db=db, current_user=CU(team_a))
+    result = submit_trade_v2(league.id, payload, db=db, current_user=_SubmitCU(team_a))
     assert result["status"] == "PENDING"
     assert "trade_id" in result
 
@@ -259,11 +260,6 @@ def test_submit_trade_v2_rejects_unauthorized_user():
     make_pick(db, team_a, p1)
     make_pick(db, team_b, p2)
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
         team_b_id=team_b.id,
@@ -272,7 +268,7 @@ def test_submit_trade_v2_rejects_unauthorized_user():
     )
 
     with pytest.raises(HTTPException) as exc:
-        submit_trade_v2(league.id, payload, db=db, current_user=CU(outsider))
+        submit_trade_v2(league.id, payload, db=db, current_user=_SubmitCU(outsider))
     assert exc.value.status_code == 403
 
 
@@ -290,11 +286,6 @@ def test_submit_trade_v2_requires_team_a_submission():
     make_pick(db, team_a, p1)
     make_pick(db, team_b, p2)
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
         team_b_id=team_b.id,
@@ -304,7 +295,7 @@ def test_submit_trade_v2_requires_team_a_submission():
 
     # Team B trying to submit as team A should fail
     with pytest.raises(HTTPException) as exc:
-        submit_trade_v2(league.id, payload, db=db, current_user=CU(team_b))
+        submit_trade_v2(league.id, payload, db=db, current_user=_SubmitCU(team_b))
     assert exc.value.status_code == 403
     assert "team_a_id" in str(exc.value.detail).lower() or "team A" in str(exc.value.detail)
 
@@ -322,11 +313,6 @@ def test_submit_trade_v2_rejects_same_team_both_sides():
     make_pick(db, team, p1)
     make_pick(db, team, p2)
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     payload = TradeSubmissionCreate(
         team_a_id=team.id,
         team_b_id=team.id,
@@ -335,7 +321,7 @@ def test_submit_trade_v2_rejects_same_team_both_sides():
     )
 
     with pytest.raises(HTTPException) as exc:
-        submit_trade_v2(league.id, payload, db=db, current_user=CU(team))
+        submit_trade_v2(league.id, payload, db=db, current_user=_SubmitCU(team))
     assert exc.value.status_code == 400
     assert "different" in str(exc.value.detail).lower()
 
@@ -356,11 +342,6 @@ def test_submit_trade_v2_rejects_player_not_owned():
     make_pick(db, team_b, p_other)
     # p_not_owned is not owned by anyone
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
         team_b_id=team_b.id,
@@ -369,7 +350,7 @@ def test_submit_trade_v2_rejects_player_not_owned():
     )
 
     with pytest.raises(HTTPException) as exc:
-        submit_trade_v2(league.id, payload, db=db, current_user=CU(team_a))
+        submit_trade_v2(league.id, payload, db=db, current_user=_SubmitCU(team_a))
     assert exc.value.status_code == 400
     assert "does not own" in str(exc.value.detail).lower()
 
@@ -388,11 +369,6 @@ def test_submit_trade_v2_rejects_invalid_validation():
     make_pick(db, team_a, p1)
     make_pick(db, team_b, p2)
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     # Try to trade 50 dollars from team_a with only 10 available
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
@@ -402,7 +378,7 @@ def test_submit_trade_v2_rejects_invalid_validation():
     )
 
     with pytest.raises(HTTPException) as exc:
-        submit_trade_v2(league.id, payload, db=db, current_user=CU(team_a))
+        submit_trade_v2(league.id, payload, db=db, current_user=_SubmitCU(team_a))
     assert exc.value.status_code == 400
     assert "draft dollar" in str(exc.value.detail).lower() or "cannot trade" in str(exc.value.detail).lower()
 
@@ -423,11 +399,6 @@ def test_submit_trade_v2_multi_asset_trade():
     pick_b = make_pick(db, team_b, p2)
     make_pick(db, team_a, p3)
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
         team_b_id=team_b.id,
@@ -441,7 +412,7 @@ def test_submit_trade_v2_multi_asset_trade():
         ],
     )
 
-    result = submit_trade_v2(league.id, payload, db=db, current_user=CU(team_a))
+    result = submit_trade_v2(league.id, payload, db=db, current_user=_SubmitCU(team_a))
     assert result["status"] == "PENDING"
 
     trade = db.get(models.Trade, result["trade_id"])
@@ -482,11 +453,6 @@ def test_submit_trade_v2_respects_commissioner_deadline():
     make_pick(db, team_a, p1)
     make_pick(db, team_b, p2)
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
         team_b_id=team_b.id,
@@ -495,7 +461,7 @@ def test_submit_trade_v2_respects_commissioner_deadline():
     )
 
     with pytest.raises(HTTPException) as exc:
-        submit_trade_v2(league.id, payload, db=db, current_user=CU(team_a))
+        submit_trade_v2(league.id, payload, db=db, current_user=_SubmitCU(team_a))
     assert exc.value.status_code == 400
     assert "closed" in str(exc.value.detail).lower() or "trade" in str(exc.value.detail).lower()
 
@@ -516,11 +482,6 @@ def test_submit_trade_v2_league_access_control():
     make_pick(db, team_a, p1)
     make_pick(db, team_a, p2)
 
-    class CU:
-        def __init__(self, user):
-            self.id = user.id
-            self.league_id = user.league_id
-
     payload = TradeSubmissionCreate(
         team_a_id=team_a.id,
         team_b_id=team_a.id + 1000,
@@ -529,5 +490,5 @@ def test_submit_trade_v2_league_access_control():
     )
 
     with pytest.raises(HTTPException) as exc:
-        submit_trade_v2(league2.id, payload, db=db, current_user=CU(team_a))
+        submit_trade_v2(league2.id, payload, db=db, current_user=_SubmitCU(team_a))
     assert exc.value.status_code == 403
