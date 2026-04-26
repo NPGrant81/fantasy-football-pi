@@ -17,11 +17,9 @@ Covers history endpoint ordering and completeness:
 """
 
 import sys
-import time
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -179,12 +177,7 @@ def override_db(api_db):
 
     app.dependency_overrides[get_db] = _override
     yield
-    app.dependency_overrides.pop(get_db, None)
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
+    app.dependency_overrides.clear()
 
 
 def _seed_league_for_history(api_db, league_name="HistoryLeague"):
@@ -291,13 +284,15 @@ def test_history_endpoint_reject_shows_submitted_then_rejected(client, api_db):
             "assets_from_b": [{"asset_type": "PLAYER", "player_id": seeded["player_b"].id}],
         },
     )
+    assert submit.status_code == 200
     trade_id = submit.json()["trade_id"]
 
     app.dependency_overrides[get_current_user] = lambda: seeded["commissioner"]
-    client.post(
+    reject = client.post(
         f"/trades/leagues/{seeded['league'].id}/{trade_id}/reject-v2",
         json={"commissioner_comments": "Too one-sided"},
     )
+    assert reject.status_code == 200
 
     history_resp = client.get(f"/trades/leagues/{seeded['league'].id}/{trade_id}/history-v2")
     history = history_resp.json()
@@ -321,17 +316,57 @@ def test_history_endpoint_scoped_to_trade(client, api_db):
             "assets_from_b": [{"asset_type": "DRAFT_DOLLARS", "amount": 3}],
         },
     )
+    assert s1.status_code == 200
     trade1_id = s1.json()["trade_id"]
 
-    # Manually insert an event for a different trade_id
-    dummy_event = models.TradeEvent(trade_id=trade1_id + 9999, event_type="SUBMITTED", actor_user_id=seeded["team_a"].id)
-    api_db.add(dummy_event)
-    api_db.commit()
+    # Submit a second real trade so scoping excludes events from another valid trade.
+    s2 = client.post(
+        f"/trades/leagues/{seeded['league'].id}/submit-v2",
+        json={
+            "team_a_id": seeded["team_a"].id,
+            "team_b_id": seeded["team_b"].id,
+            "assets_from_a": [{"asset_type": "PLAYER", "player_id": seeded["player_a"].id}],
+            "assets_from_b": [{"asset_type": "PLAYER", "player_id": seeded["player_b"].id}],
+        },
+    )
+    assert s2.status_code == 200
+    trade2_id = s2.json()["trade_id"]
 
     app.dependency_overrides[get_current_user] = lambda: seeded["commissioner"]
+    approve_second = client.post(
+        f"/trades/leagues/{seeded['league'].id}/{trade2_id}/approve-v2",
+        json={"commissioner_comments": "approve second trade"},
+    )
+    assert approve_second.status_code == 200
+
     history_resp = client.get(f"/trades/leagues/{seeded['league'].id}/{trade1_id}/history-v2")
+    assert history_resp.status_code == 200
     history = history_resp.json()
+    assert len(history) == 1
+    assert history[0]["event_type"] == "SUBMITTED"
     assert all(e["trade_id"] == trade1_id for e in history)
+
+
+def test_history_endpoint_returns_empty_list_for_trade_with_no_events(client, api_db):
+    """Trade with no TradeEvent rows returns an empty history list."""
+    seeded = _seed_league_for_history(api_db, "HistLeagueNoEvents")
+
+    no_event_trade = models.Trade(
+        league_id=seeded["league"].id,
+        team_a_id=seeded["team_a"].id,
+        team_b_id=seeded["team_b"].id,
+        status="PENDING",
+    )
+    api_db.add(no_event_trade)
+    api_db.commit()
+    api_db.refresh(no_event_trade)
+
+    app.dependency_overrides[get_current_user] = lambda: seeded["commissioner"]
+    history_resp = client.get(
+        f"/trades/leagues/{seeded['league'].id}/{no_event_trade.id}/history-v2"
+    )
+    assert history_resp.status_code == 200
+    assert history_resp.json() == []
 
 
 def test_history_endpoint_returns_404_for_unknown_trade(client, api_db):
