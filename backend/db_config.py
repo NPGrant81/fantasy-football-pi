@@ -1,5 +1,4 @@
 import os
-import sys
 import warnings
 from pathlib import Path
 from urllib.parse import urlparse
@@ -37,7 +36,6 @@ def resolve_database_url(*, require_explicit: bool, context: str) -> str:
         in_pytest = (
             os.getenv("TESTING") in {"1", "true", "True"}
             or "PYTEST_CURRENT_TEST" in os.environ
-            or "pytest" in sys.modules
         )
         if in_pytest:
             database_url = TEST_DEFAULT_DB_URL
