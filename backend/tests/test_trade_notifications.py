@@ -32,10 +32,9 @@ Covers router integration (notify called after approve/reject):
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -330,12 +329,7 @@ def override_db(api_db):
 
     app.dependency_overrides[get_db] = _override
     yield
-    app.dependency_overrides.pop(get_db, None)
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
+    app.dependency_overrides.clear()
 
 
 def _seed(api_db):
