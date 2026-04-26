@@ -380,6 +380,32 @@ def test_execute_rolls_back_when_team_a_pick_not_owned():
     assert db.get(models.Trade, trade.id).status == "PENDING"
 
 
+def test_execute_rolls_back_when_team_b_pick_not_owned():
+    """Rollback: draft pick offered by team B no longer belongs to team B."""
+    db = setup_db()
+    league = make_league(db)
+    team_a = make_user(db, league, "a", budget=0)
+    team_b = make_user(db, league, "b", budget=0)
+    commissioner = make_user(db, league, "comm", budget=0)
+
+    p_a = make_player(db, "PA")
+    make_pick(db, league.id, team_a.id, p_a.id)
+    # Pick created owned by team_a, not team_b
+    pick = make_pick(db, league.id, team_a.id, year=2028)
+
+    trade = create_pending_trade(
+        db, league, team_a, team_b,
+        assets_a=[{"asset_type": "PLAYER", "player_id": p_a.id}],
+        assets_b=[{"asset_type": "DRAFT_PICK", "draft_pick_id": pick.id, "season_year": 2028}],
+    )
+
+    with pytest.raises(ValueError, match="[Tt]eam B"):
+        execute_trade_v2_approval(db, trade_id=trade.id, approver_id=commissioner.id)
+
+    db.expire_all()
+    assert db.get(models.Trade, trade.id).status == "PENDING"
+
+
 def test_execute_rolls_back_when_team_a_lacks_draft_dollars():
     """Rollback: team A can't cover the draft dollar amount they offered."""
     db = setup_db()
