@@ -887,9 +887,10 @@ describe('MyTeam (Roster & Lineups)', () => {
       maxWr: 1,
       maxTe: 1,
     });
+    const getCurrentSettings = vi.fn(() => currentSettings);
     const originalVisibilityState = document.visibilityState;
 
-    mockOwnerRulesSyncApi(() => currentSettings, canonicalRefreshRoster);
+    mockOwnerRulesSyncApi(getCurrentSettings, canonicalRefreshRoster);
     render(<MyTeam activeOwnerId={1} />);
 
     await expectSubmitButtonInitiallyDisabled();
@@ -903,10 +904,6 @@ describe('MyTeam (Roster & Lineups)', () => {
     });
     Object.defineProperty(document, 'visibilityState', {
       configurable: true,
-      value: 'hidden',
-    });
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
       value: 'visible',
     });
 
@@ -914,6 +911,9 @@ describe('MyTeam (Roster & Lineups)', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
+    await waitFor(() => {
+      expect(getCurrentSettings.mock.calls.length).toBeGreaterThan(1);
+    });
     await expectSubmitButtonEventuallyEnabled();
 
     Object.defineProperty(document, 'visibilityState', {
@@ -1194,15 +1194,13 @@ describe('MyTeam (Roster & Lineups)', () => {
     fireEvent.change(screen.getByLabelText(/Trade With/i), {
       target: { value: '2' },
     });
-    // wait for target roster to load an actual option to request
+    // wait for target roster options to load, then pick the first one.
     await waitFor(() => {
       const reqSel = screen.getByLabelText(/You Request/i);
-      // >1 because first option is placeholder
-      expect(reqSel.children.length).toBeGreaterThan(1);
+      expect(reqSel.children.length).toBeGreaterThan(0);
     });
-    // pick the first real option
     const reqSelect = screen.getByLabelText(/You Request/i);
-    const optionValue = reqSelect.children[1].value;
+    const optionValue = reqSelect.children[0].value;
     fireEvent.change(reqSelect, { target: { value: optionValue } });
 
     fireEvent.change(screen.getByLabelText(/You Offer/i), {
@@ -1221,20 +1219,25 @@ describe('MyTeam (Roster & Lineups)', () => {
         expect.objectContaining({
           canProposeTrade: true,
           proposalToUserId: '2',
-          offeredPlayerId: '201',
-          requestedPlayerId: optionValue,
+          offeredPlayerIds: ['201'],
+          requestedPlayerIds: [optionValue],
           offeredDollars: '5',
           requestedDollars: '3',
         })
       );
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/trades/propose',
+        '/trades/leagues/1/submit-v2',
         expect.objectContaining({
-          to_user_id: 2,
-          offered_player_id: 201,
-          requested_player_id: Number(optionValue),
-          offered_dollars: 5,
-          requested_dollars: 3,
+          team_a_id: 1,
+          team_b_id: 2,
+          assets_from_a: expect.arrayContaining([
+            expect.objectContaining({ asset_type: 'PLAYER', player_id: 201 }),
+            expect.objectContaining({ asset_type: 'DRAFT_DOLLARS', amount: 5 }),
+          ]),
+          assets_from_b: expect.arrayContaining([
+            expect.objectContaining({ asset_type: 'PLAYER', player_id: Number(optionValue) }),
+            expect.objectContaining({ asset_type: 'DRAFT_DOLLARS', amount: 3 }),
+          ]),
         })
       );
     });

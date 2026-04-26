@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 
 DEFAULT_DB_URL = "postgresql://localhost/fantasy_football"
+TEST_DEFAULT_DB_URL = "sqlite:" + "///./pytest_backend.db"
 
 
 def load_backend_env_file() -> None:
@@ -31,13 +32,21 @@ def resolve_database_url(*, require_explicit: bool, context: str) -> str:
             f"before running {context}."
         )
     else:
-        warnings.warn(
-            "DATABASE_URL is not set; falling back to local Postgres URL without credentials. "
-            "Copy backend/.env.example to backend/.env and set DATABASE_URL for reliable local runtime.",
-            RuntimeWarning,
-            stacklevel=2,
+        # Keep tests resilient even if env bootstrapping order changes.
+        in_pytest = (
+            os.getenv("TESTING") in {"1", "true", "True"}
+            or "PYTEST_CURRENT_TEST" in os.environ
         )
-        database_url = DEFAULT_DB_URL
+        if in_pytest:
+            database_url = TEST_DEFAULT_DB_URL
+        else:
+            warnings.warn(
+                "DATABASE_URL is not set; falling back to local Postgres URL without credentials. "
+                "Copy backend/.env.example to backend/.env and set DATABASE_URL for reliable local runtime.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            database_url = DEFAULT_DB_URL
 
     if is_credentialless_local_postgres(database_url):
         warnings.warn(
