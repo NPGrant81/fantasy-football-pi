@@ -12,6 +12,7 @@ import backend.services.notifications as notifications_module
 from backend.routers.trades import (
     TradeReviewAction,
     approve_trade_v2,
+    get_trade_detail_v2,
     get_trade_history_v2,
     get_pending_trades_v2,
     reject_trade_v2,
@@ -337,3 +338,168 @@ def test_approve_trade_v2_rolls_back_on_invalid_player_ownership():
     # budget unchanged due to rollback
     refreshed_owner = db.get(models.User, owner_row.id)
     assert refreshed_owner.future_draft_budget == owner_row.future_draft_budget
+
+
+# ─── Additional edge case tests for #351 acceptance criteria ─────────────────
+
+
+def test_get_trade_detail_v2_returns_full_trade():
+    """get_trade_detail_v2 returns serialised trade with assets from both sides."""
+    db = setup_db()
+    league, commissioner, trade_id = create_pending_trade(db)
+
+    result = get_trade_detail_v2(league.id, trade_id, db=db, current_user=CU(commissioner))
+
+    assert result["id"] == trade_id
+    assert result["status"] == "PENDING"
+    assert result["league_id"] == league.id
+    assert len(result["assets_from_a"]) == 1
+    assert len(result["assets_from_b"]) == 1
+    assert result["assets_from_a"][0]["asset_type"] == "PLAYER"
+    assert result["assets_from_b"][0]["asset_type"] == "PLAYER"
+
+
+def test_get_trade_detail_v2_returns_404_for_unknown_trade():
+    """get_trade_detail_v2 returns 404 for a trade ID that doesn't exist."""
+    db = setup_db()
+    league, commissioner, _ = create_pending_trade(db)
+
+    with pytest.raises(HTTPException) as exc:
+        get_trade_detail_v2(league.id, 9999, db=db, current_user=CU(commissioner))
+    assert exc.value.status_code == 404
+
+
+def test_get_trade_history_v2_returns_submitted_event():
+    """get_trade_history_v2 returns at least the SUBMITTED event for a pending trade."""
+    db = setup_db()
+    league, commissioner, trade_id = create_pending_trade(db)
+
+    events = get_trade_history_v2(league.id, trade_id, db=db, current_user=CU(commissioner))
+
+    assert len(events) >= 1
+    event_types = [e["event_type"] for e in events]
+    assert "SUBMITTED" in event_types
+
+
+def test_get_trade_history_v2_records_approved_event():
+    """get_trade_history_v2 includes APPROVED event after approval."""
+    import backend.services.notifications as notifications_module
+    db = setup_db()
+    league, commissioner, trade_id = create_pending_trade(db)
+
+    # Patch notifications to avoid side effects
+    original = getattr(notifications_module, "send_notification", None)
+    notifications_module.send_notification = lambda *a, **kw: None
+
+    approve_trade_v2(
+        league.id,
+        trade_id,
+        TradeReviewAction(commissioner_comments="LGTM"),
+        db=db,
+        current_user=CU(commissioner),
+    )
+
+    if original is not None:
+        notifications_module.send_notification = original
+
+    events = get_trade_history_v2(league.id, trade_id, db=db, current_user=CU(commissioner))
+    event_types = [e["event_type"] for e in events]
+    assert "APPROVED" in event_types
+
+
+def test_approve_trade_v2_rejects_already_approved_trade():
+    """Attempting to approve an already-approved trade returns 400."""
+    import backend.services.notifications as notifications_module
+    db = setup_db()
+    league, commissioner, trade_id = create_pending_trade(db)
+
+    notifications_module.send_notification = lambda *a, **kw: None
+
+    approve_trade_v2(
+        league.id, trade_id, TradeReviewAction(), db=db, current_user=CU(commissioner)
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        approve_trade_v2(
+            league.id, trade_id, TradeReviewAction(), db=db, current_user=CU(commissioner)
+        )
+    assert exc.value.status_code == 400
+    assert "pending" in str(exc.value.detail).lower()
+
+
+def test_reject_trade_v2_rejects_already_rejected_trade():
+    """Attempting to reject an already-rejected trade returns 400."""
+    import backend.services.notifications as notifications_module
+    db = setup_db()
+    league, commissioner, trade_id = create_pending_trade(db)
+
+    notifications_module.send_notification = lambda *a, **kw: None
+
+    reject_trade_v2(
+        league.id,
+        trade_id,
+        TradeReviewAction(commissioner_comments="No thanks"),
+        db=db,
+        current_user=CU(commissioner),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        reject_trade_v2(
+            league.id,
+            trade_id,
+            TradeReviewAction(commissioner_comments="Again"),
+            db=db,
+            current_user=CU(commissioner),
+        )
+    assert exc.value.status_code == 400
+
+
+def test_reject_trade_v2_persists_rejection_reason():
+    """Rejection reason (commissioner_comments) is saved to the trade record."""
+    import backend.services.notifications as notifications_module
+    db = setup_db()
+    league, commissioner, trade_id = create_pending_trade(db)
+
+    notifications_module.send_notification = lambda *a, **kw: None
+
+    result = reject_trade_v2(
+        league.id,
+        trade_id,
+        TradeReviewAction(commissioner_comments="Unbalanced trade"),
+        db=db,
+        current_user=CU(commissioner),
+    )
+
+    assert result["trade"]["status"] == "REJECTED"
+    assert result["trade"]["commissioner_comments"] == "Unbalanced trade"
+
+    trade = db.get(models.Trade, trade_id)
+    assert trade.commissioner_comments == "Unbalanced trade"
+    assert trade.rejected_at is not None
+
+    # REJECTED event should also be in history
+    events = get_trade_history_v2(league.id, trade_id, db=db, current_user=CU(commissioner))
+    event_types = [e["event_type"] for e in events]
+    assert "REJECTED" in event_types
+
+
+def test_pending_trade_list_v2_excludes_approved_and_rejected():
+    """get_pending_trades_v2 only returns PENDING trades, not resolved ones."""
+    import backend.services.notifications as notifications_module
+    db = setup_db()
+    league, commissioner, trade_id = create_pending_trade(db)
+
+    notifications_module.send_notification = lambda *a, **kw: None
+
+    reject_trade_v2(
+        league.id,
+        trade_id,
+        TradeReviewAction(commissioner_comments="reject"),
+        db=db,
+        current_user=CU(commissioner),
+    )
+
+    pending = get_pending_trades_v2(league.id, db=db, current_user=CU(commissioner))
+    pending_ids = [t["id"] for t in pending]
+    assert trade_id not in pending_ids
+
