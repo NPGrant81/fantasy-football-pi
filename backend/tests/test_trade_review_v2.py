@@ -381,15 +381,17 @@ def test_get_trade_history_v2_returns_submitted_event():
     assert "SUBMITTED" in event_types
 
 
-def test_get_trade_history_v2_records_approved_event():
+def test_get_trade_history_v2_records_approved_event(monkeypatch):
     """get_trade_history_v2 includes APPROVED event after approval."""
     import backend.services.notifications as notifications_module
     db = setup_db()
     league, commissioner, trade_id = create_pending_trade(db)
 
-    # Patch notifications to avoid side effects
-    original = getattr(notifications_module, "send_notification", None)
-    notifications_module.send_notification = lambda *a, **kw: None
+    monkeypatch.setattr(
+        notifications_module.NotifyService,
+        "send_transactional_email",
+        lambda *a, **kw: None,
+    )
 
     approve_trade_v2(
         league.id,
@@ -399,21 +401,22 @@ def test_get_trade_history_v2_records_approved_event():
         current_user=CU(commissioner),
     )
 
-    if original is not None:
-        notifications_module.send_notification = original
-
     events = get_trade_history_v2(league.id, trade_id, db=db, current_user=CU(commissioner))
     event_types = [e["event_type"] for e in events]
     assert "APPROVED" in event_types
 
 
-def test_approve_trade_v2_rejects_already_approved_trade():
+def test_approve_trade_v2_rejects_already_approved_trade(monkeypatch):
     """Attempting to approve an already-approved trade returns 400."""
     import backend.services.notifications as notifications_module
     db = setup_db()
     league, commissioner, trade_id = create_pending_trade(db)
 
-    notifications_module.send_notification = lambda *a, **kw: None
+    monkeypatch.setattr(
+        notifications_module.NotifyService,
+        "send_transactional_email",
+        lambda *a, **kw: None,
+    )
 
     approve_trade_v2(
         league.id, trade_id, TradeReviewAction(), db=db, current_user=CU(commissioner)
@@ -427,13 +430,17 @@ def test_approve_trade_v2_rejects_already_approved_trade():
     assert "pending" in str(exc.value.detail).lower()
 
 
-def test_reject_trade_v2_rejects_already_rejected_trade():
+def test_reject_trade_v2_rejects_already_rejected_trade(monkeypatch):
     """Attempting to reject an already-rejected trade returns 400."""
     import backend.services.notifications as notifications_module
     db = setup_db()
     league, commissioner, trade_id = create_pending_trade(db)
 
-    notifications_module.send_notification = lambda *a, **kw: None
+    monkeypatch.setattr(
+        notifications_module.NotifyService,
+        "send_transactional_email",
+        lambda *a, **kw: None,
+    )
 
     reject_trade_v2(
         league.id,
@@ -454,13 +461,17 @@ def test_reject_trade_v2_rejects_already_rejected_trade():
     assert exc.value.status_code == 400
 
 
-def test_reject_trade_v2_persists_rejection_reason():
+def test_reject_trade_v2_persists_rejection_reason(monkeypatch):
     """Rejection reason (commissioner_comments) is saved to the trade record."""
     import backend.services.notifications as notifications_module
     db = setup_db()
     league, commissioner, trade_id = create_pending_trade(db)
 
-    notifications_module.send_notification = lambda *a, **kw: None
+    monkeypatch.setattr(
+        notifications_module.NotifyService,
+        "send_transactional_email",
+        lambda *a, **kw: None,
+    )
 
     result = reject_trade_v2(
         league.id,
@@ -483,23 +494,53 @@ def test_reject_trade_v2_persists_rejection_reason():
     assert "REJECTED" in event_types
 
 
-def test_pending_trade_list_v2_excludes_approved_and_rejected():
+def test_pending_trade_list_v2_excludes_approved_and_rejected(monkeypatch):
     """get_pending_trades_v2 only returns PENDING trades, not resolved ones."""
     import backend.services.notifications as notifications_module
     db = setup_db()
-    league, commissioner, trade_id = create_pending_trade(db)
+    league, commissioner, trade_id_reject = create_pending_trade(db)
 
-    notifications_module.send_notification = lambda *a, **kw: None
+    team_a = db.query(models.User).filter_by(league_id=league.id, username="team-a").first()
+    team_b = db.query(models.User).filter_by(league_id=league.id, username="team-b").first()
+    player_c = make_player(db, "Player C", position="RB")
+    player_d = make_player(db, "Player D", position="WR")
+    make_pick(db, league.id, team_a.id, player_c.id)
+    make_pick(db, league.id, team_b.id, player_d.id)
+
+    payload = TradeSubmissionCreate(
+        team_a_id=team_a.id,
+        team_b_id=team_b.id,
+        assets_from_a=[TradeAssetCreate(asset_type="PLAYER", player_id=player_c.id)],
+        assets_from_b=[TradeAssetCreate(asset_type="PLAYER", player_id=player_d.id)],
+    )
+    created = submit_trade_v2(league.id, payload, db=db, current_user=SubmitCU(team_a))
+    trade_id_approve = created["trade_id"]
+
+    monkeypatch.setattr(
+        notifications_module.NotifyService,
+        "send_transactional_email",
+        lambda *a, **kw: None,
+    )
 
     reject_trade_v2(
         league.id,
-        trade_id,
+        trade_id_reject,
         TradeReviewAction(commissioner_comments="reject"),
+        db=db,
+        current_user=CU(commissioner),
+    )
+
+    approve_trade_v2(
+        league.id,
+        trade_id_approve,
+        TradeReviewAction(commissioner_comments="approve"),
         db=db,
         current_user=CU(commissioner),
     )
 
     pending = get_pending_trades_v2(league.id, db=db, current_user=CU(commissioner))
     pending_ids = [t["id"] for t in pending]
-    assert trade_id not in pending_ids
+    assert trade_id_reject not in pending_ids
+    assert trade_id_approve not in pending_ids
+    assert pending_ids == []
 
