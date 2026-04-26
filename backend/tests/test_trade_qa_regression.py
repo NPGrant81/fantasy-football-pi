@@ -57,7 +57,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -98,12 +97,7 @@ def _override_db(api_db):
             pass
     app.dependency_overrides[get_db] = _get
     yield
-    app.dependency_overrides.pop(get_db, None)
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
+    app.dependency_overrides.clear()
 
 
 # ─── Seed helper ──────────────────────────────────────────────────────────────
@@ -113,6 +107,19 @@ def _suffix(obj):
 
 
 _HAS_TRADE_WINDOW_COLS = hasattr(models.LeagueSettings, "trade_start_at")
+
+
+def _to_aware_dt(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed
+    raise TypeError(f"Unsupported datetime value type: {type(value)!r}")
 
 
 def _seed(api_db, *, suffix_tag="", trade_deadline=None, trade_start_at=None, trade_end_at=None):
@@ -128,9 +135,9 @@ def _seed(api_db, *, suffix_tag="", trade_deadline=None, trade_start_at=None, tr
     # trade_start_at/trade_end_at are added by migration #347; set via update if present
     if _HAS_TRADE_WINDOW_COLS:
         if trade_start_at is not None:
-            settings.trade_start_at = trade_start_at
+            settings.trade_start_at = _to_aware_dt(trade_start_at)
         if trade_end_at is not None:
-            settings.trade_end_at = trade_end_at
+            settings.trade_end_at = _to_aware_dt(trade_end_at)
 
     team_a = models.User(
         username=f"qa_a_{league.id}", hashed_password="pw", league_id=league.id,
@@ -245,7 +252,7 @@ def test_qa04_submission_blocked_by_past_deadline(client, api_db):
 @pytest.mark.skipif(not _HAS_TRADE_WINDOW_COLS, reason="trade window columns not yet in this branch")
 def test_qa05_submission_blocked_after_trade_end_at(client, api_db):
     """QA-05: Trade blocked when trade_end_at has passed."""
-    past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    past = datetime.now(UTC) - timedelta(days=1)
     s = _seed(api_db, suffix_tag="05", trade_end_at=past)
     resp = _submit(client, s)
     assert resp.status_code == 400
@@ -324,7 +331,14 @@ def test_qa12_trade_detail_includes_assets(client, api_db):
     resp = client.get(f"/trades/leagues/{s['league'].id}/{trade_id}-v2")
     assert resp.status_code == 200
     data = resp.json()
-    assert "assets_from_a" in data or "assets" in data or data.get("id") == trade_id
+    assert data["id"] == trade_id
+    assert "assets_from_a" in data and "assets_from_b" in data
+    assert len(data["assets_from_a"]) == 1
+    assert len(data["assets_from_b"]) == 1
+    assert data["assets_from_a"][0]["asset_type"] == "PLAYER"
+    assert data["assets_from_a"][0]["player_id"] == s["player_a"].id
+    assert data["assets_from_b"][0]["asset_type"] == "PLAYER"
+    assert data["assets_from_b"][0]["player_id"] == s["player_b"].id
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -572,7 +586,7 @@ def test_qa29_get_trade_window_returns_defaults(client, api_db):
     resp = client.get(f"/trades/leagues/{s['league'].id}/settings/trade-window")
     assert resp.status_code == 200
     data = resp.json()
-    assert "is_open" in data
+    assert "trade_window_open" in data
 
 
 @pytest.mark.skipif(not _HAS_TRADE_WINDOW_COLS, reason="trade window columns not yet in this branch")
@@ -635,7 +649,7 @@ def test_qa33_non_commissioner_cannot_update_trade_window(client, api_db):
 @pytest.mark.skipif(not _HAS_TRADE_WINDOW_COLS, reason="trade window columns not yet in this branch")
 def test_qa34_submission_blocked_when_window_not_yet_open(client, api_db):
     """QA-34: Trade submission blocked when trade_start_at is in the future."""
-    future = (datetime.now(UTC) + timedelta(days=30)).isoformat()
+    future = datetime.now(UTC) + timedelta(days=30)
     s = _seed(api_db, suffix_tag="34", trade_start_at=future)
     resp = _submit(client, s)
     assert resp.status_code == 400
