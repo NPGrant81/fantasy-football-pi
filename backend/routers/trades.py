@@ -181,6 +181,114 @@ def propose_trade(
     return {"message": "Trade proposal submitted.", "trade_id": proposal.id}
 
 
+class TradeWindowSettings(BaseModel):
+    trade_start_at: str | None = None   # ISO-8601 UTC string
+    trade_end_at: str | None = None     # ISO-8601 UTC string
+    allow_playoff_trades: bool | None = None
+    require_commissioner_approval: bool | None = None
+
+
+@router.get("/leagues/{league_id}/settings/trade-window")
+def get_trade_window_settings(
+    league_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Return trade timeline settings for the league. Any authenticated league member can read."""
+    if current_user.league_id != league_id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="You do not have access to this league.")
+
+    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league_id).first()
+    if not settings:
+        raise HTTPException(status_code=404, detail="League settings not found.")
+
+    def _ensure_aware(dt: datetime) -> datetime:
+        return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
+    now = datetime.now(UTC)
+    trade_open = (
+        (settings.trade_start_at is None or _ensure_aware(settings.trade_start_at) <= now)
+        and (settings.trade_end_at is None or _ensure_aware(settings.trade_end_at) >= now)
+    )
+
+    return {
+        "trade_start_at": _ensure_aware(settings.trade_start_at).isoformat() if settings.trade_start_at else None,
+        "trade_end_at": _ensure_aware(settings.trade_end_at).isoformat() if settings.trade_end_at else None,
+        "allow_playoff_trades": settings.allow_playoff_trades if settings.allow_playoff_trades is not None else True,
+        "require_commissioner_approval": settings.require_commissioner_approval if settings.require_commissioner_approval is not None else True,
+        "trade_window_open": trade_open,
+    }
+
+
+@router.put("/leagues/{league_id}/settings/trade-window")
+def update_trade_window_settings(
+    league_id: int,
+    payload: TradeWindowSettings,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(check_is_commissioner),
+):
+    """Update trade timeline settings. Commissioner-only."""
+    if not getattr(current_user, "is_commissioner", False) and not getattr(current_user, "is_superuser", False):
+        raise HTTPException(status_code=403, detail="Only commissioners can update trade window settings.")
+    if current_user.league_id != league_id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="You do not have access to this league.")
+
+    settings = db.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league_id).first()
+    if not settings:
+        raise HTTPException(status_code=404, detail="League settings not found.")
+
+    # Parse and validate ISO-8601 strings
+    def _parse_dt(value: str | None, field: str) -> datetime | None:
+        if value is None:
+            return None
+        try:
+            # Normalize trailing 'Z' to '+00:00' for Python < 3.11 compatibility
+            normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+            dt = datetime.fromisoformat(normalized)
+            if dt.tzinfo is None:
+                raise ValueError("Timezone required")
+            return dt
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{field} must be a valid ISO-8601 datetime with timezone (e.g. '2026-09-01T00:00:00+00:00' or '2026-09-01T00:00:00Z').",
+            ) from exc
+
+    start_at = _parse_dt(payload.trade_start_at, "trade_start_at")
+    end_at = _parse_dt(payload.trade_end_at, "trade_end_at")
+
+    if start_at and end_at and start_at >= end_at:
+        raise HTTPException(status_code=400, detail="trade_start_at must be before trade_end_at.")
+
+    settings.trade_start_at = start_at
+    settings.trade_end_at = end_at
+    if payload.allow_playoff_trades is not None:
+        settings.allow_playoff_trades = payload.allow_playoff_trades
+    if payload.require_commissioner_approval is not None:
+        settings.require_commissioner_approval = payload.require_commissioner_approval
+
+    db.commit()
+    db.refresh(settings)
+
+    def _ensure_aware(dt: datetime) -> datetime:
+        return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
+    now = datetime.now(UTC)
+    trade_open = (
+        (settings.trade_start_at is None or _ensure_aware(settings.trade_start_at) <= now)
+        and (settings.trade_end_at is None or _ensure_aware(settings.trade_end_at) >= now)
+    )
+
+    return {
+        "message": "Trade window settings updated.",
+        "trade_start_at": _ensure_aware(settings.trade_start_at).isoformat() if settings.trade_start_at else None,
+        "trade_end_at": _ensure_aware(settings.trade_end_at).isoformat() if settings.trade_end_at else None,
+        "allow_playoff_trades": settings.allow_playoff_trades,
+        "require_commissioner_approval": settings.require_commissioner_approval,
+        "trade_window_open": trade_open,
+    }
+
+
 @router.post("/leagues/{league_id}/submit-v2")
 def submit_trade_v2(
     league_id: int,
@@ -314,9 +422,9 @@ def submit_trade_v2(
             owned_pick_ids_by_team=owned_pick_ids_by_team,
             suppressed_positions=set(),
             player_positions_by_id=player_positions_by_id,
-            trade_start_at=None,
-            trade_end_at=parse_commissioner_deadline(settings.trade_deadline if settings else None),
-            allow_playoff_trades=True,
+            trade_start_at=settings.trade_start_at if settings else None,
+            trade_end_at=(settings.trade_end_at if settings else None) or parse_commissioner_deadline(settings.trade_deadline if settings else None),
+            allow_playoff_trades=settings.allow_playoff_trades if (settings and settings.allow_playoff_trades is not None) else True,
             is_playoff=False,
             max_future_year_offset=2,
             current_season=int(current_season),

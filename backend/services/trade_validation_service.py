@@ -101,14 +101,20 @@ def validate_trade_window(
     report = _new_report()
     check_now = now or datetime.now(UTC)
 
-    if trade_start_at and trade_end_at and trade_end_at < trade_start_at:
+    def _ensure_aware(dt: datetime) -> datetime:
+        return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+
+    start = _ensure_aware(trade_start_at) if trade_start_at else None
+    end = _ensure_aware(trade_end_at) if trade_end_at else None
+
+    if start and end and end < start:
         _add_error(report, "trade_window", "trade_end_at must be greater than or equal to trade_start_at")
         return report
 
-    if trade_start_at and check_now < trade_start_at:
+    if start and check_now < start:
         _add_error(report, "trade_window", "trade window is not open yet")
 
-    if trade_end_at and check_now > trade_end_at:
+    if end and check_now > end:
         _add_error(report, "trade_window", "trade window is closed")
 
     if is_playoff and not allow_playoff_trades:
