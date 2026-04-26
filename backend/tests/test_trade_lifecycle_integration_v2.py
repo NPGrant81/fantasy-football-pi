@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import create_engine
@@ -220,3 +221,84 @@ def test_trade_lifecycle_rejects_invalid_assets_and_closed_window(client, api_db
     )
     assert closed_window_response.status_code == 400
     assert "Trade proposals are closed" in str(closed_window_response.json().get("detail"))
+
+
+def test_trade_lifecycle_submit_and_approve_sends_notifications(client, api_db):
+    seeded = _seed_league(api_db, name="Trade Lifecycle API League E")
+
+    with patch("backend.services.notifications.NotifyService.send_transactional_email") as mock_send:
+        app.dependency_overrides[get_current_user] = lambda: seeded["team_a"]
+        submit_response = client.post(
+            f"/trades/leagues/{seeded['league'].id}/submit-v2",
+            json={
+                "team_a_id": seeded["team_a"].id,
+                "team_b_id": seeded["team_b"].id,
+                "assets_from_a": [{"asset_type": "PLAYER", "player_id": seeded["player_a"].id}],
+                "assets_from_b": [{"asset_type": "PLAYER", "player_id": seeded["player_b"].id}],
+            },
+        )
+        assert submit_response.status_code == 200
+        trade_id = submit_response.json()["trade_id"]
+
+        app.dependency_overrides[get_current_user] = lambda: seeded["commissioner"]
+        approve_response = client.post(
+            f"/trades/leagues/{seeded['league'].id}/{trade_id}/approve-v2",
+            json={"commissioner_comments": "Approved by commissioner"},
+        )
+        assert approve_response.status_code == 200
+
+    template_calls = [call.kwargs["template_id"] for call in mock_send.call_args_list]
+    assert template_calls.count("trade_submitted_pending_review") == 2
+    assert template_calls.count("trade_approved") == 2
+
+    approved_calls = [
+        call for call in mock_send.call_args_list if call.kwargs["template_id"] == "trade_approved"
+    ]
+    assert len(approved_calls) == 2
+    for call in approved_calls:
+        context = call.kwargs["context"]
+        assert context["trade_id"] == trade_id
+        assert context["league_id"] == seeded["league"].id
+        assert context["status"] == "APPROVED"
+        assert context["commissioner_comments"] == "Approved by commissioner"
+
+
+def test_trade_lifecycle_submit_and_reject_sends_notifications_with_reason(client, api_db):
+    seeded = _seed_league(api_db, name="Trade Lifecycle API League F")
+
+    with patch("backend.services.notifications.NotifyService.send_transactional_email") as mock_send:
+        app.dependency_overrides[get_current_user] = lambda: seeded["team_a"]
+        submit_response = client.post(
+            f"/trades/leagues/{seeded['league'].id}/submit-v2",
+            json={
+                "team_a_id": seeded["team_a"].id,
+                "team_b_id": seeded["team_b"].id,
+                "assets_from_a": [{"asset_type": "PLAYER", "player_id": seeded["player_a"].id}],
+                "assets_from_b": [{"asset_type": "PLAYER", "player_id": seeded["player_b"].id}],
+            },
+        )
+        assert submit_response.status_code == 200
+        trade_id = submit_response.json()["trade_id"]
+
+        app.dependency_overrides[get_current_user] = lambda: seeded["commissioner"]
+        reject_response = client.post(
+            f"/trades/leagues/{seeded['league'].id}/{trade_id}/reject-v2",
+            json={"commissioner_comments": "Rejected due to roster imbalance"},
+        )
+        assert reject_response.status_code == 200
+
+    template_calls = [call.kwargs["template_id"] for call in mock_send.call_args_list]
+    assert template_calls.count("trade_submitted_pending_review") == 2
+    assert template_calls.count("trade_rejected") == 2
+
+    rejected_calls = [
+        call for call in mock_send.call_args_list if call.kwargs["template_id"] == "trade_rejected"
+    ]
+    assert len(rejected_calls) == 2
+    for call in rejected_calls:
+        context = call.kwargs["context"]
+        assert context["trade_id"] == trade_id
+        assert context["league_id"] == seeded["league"].id
+        assert context["status"] == "REJECTED"
+        assert context["rejection_reason"] == "Rejected due to roster imbalance"
+        assert context["has_rejection_reason"] is True
