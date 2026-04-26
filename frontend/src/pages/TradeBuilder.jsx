@@ -152,8 +152,13 @@ export default function TradeBuilder() {
   const [rosterB, setRosterB] = useState([]);
   const [rosterBLoading, setRosterBLoading] = useState(false);
 
-  // My roster (team A) loaded from /auth/me → team context
-  const myTeamId = localStorage.getItem('team_id') || localStorage.getItem('owner_id') || null;
+  // Auth flow persists user_id; keep owner/team fallbacks for compatibility.
+  const myTeamId =
+    (typeof window !== 'undefined' &&
+      (localStorage.getItem('user_id') ||
+        localStorage.getItem('owner_id') ||
+        localStorage.getItem('team_id'))) ||
+    null;
   const [rosterA, setRosterA] = useState([]);
 
   const [assetsFromA, setAssetsFromA] = useState([]);
@@ -211,8 +216,11 @@ export default function TradeBuilder() {
 
   const validate = () => {
     if (!leagueId) return 'No active league selected.';
+    if (!myTeamId) return 'Unable to determine your team context. Please refresh and try again.';
     if (!teamBId) return 'Please select a trade partner.';
-    if (assetsFromA.length === 0 && assetsFromB.length === 0) return 'Add at least one asset to the trade.';
+    if (assetsFromA.length === 0 || assetsFromB.length === 0) {
+      return 'Add at least one asset on both sides of the trade.';
+    }
     for (const a of assetsFromA) {
       if (a.asset_type === 'PLAYER' && !a.player_id) return 'Select a player for all your player assets.';
       if (a.asset_type === 'DRAFT_PICK' && !a.draft_pick_id) return 'Enter a pick ID for all draft pick assets.';
@@ -243,6 +251,7 @@ export default function TradeBuilder() {
         return base;
       };
       await submitTrade(leagueId, {
+        team_a_id: Number(myTeamId),
         team_b_id: Number(teamBId),
         assets_from_a: assetsFromA.map(buildAsset),
         assets_from_b: assetsFromB.map(buildAsset),

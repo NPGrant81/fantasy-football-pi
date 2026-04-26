@@ -1,15 +1,46 @@
 import apiClient from '@api/client';
 
+function isNotFound(error) {
+  return Number(error?.response?.status || 0) === 404;
+}
+
+function fromLegacyLeagueSettings(data = {}) {
+  const tradeEndAt = data.trade_deadline || null;
+  const isActive = tradeEndAt ? new Date(tradeEndAt).getTime() > Date.now() : true;
+  return {
+    trade_start_at: null,
+    trade_end_at: tradeEndAt,
+    timezone: 'UTC',
+    is_active: isActive,
+  };
+}
+
 // ── Trade Window Settings ───────────────────────────────────────────────────
 
 export async function fetchTradeWindowSettings(leagueId) {
-  const res = await apiClient.get(`/trades/leagues/${leagueId}/settings/trade-window`);
-  return res.data;
+  try {
+    const res = await apiClient.get(`/trades/leagues/${leagueId}/settings/trade-window`);
+    return res.data;
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+    const legacy = await apiClient.get(`/leagues/${leagueId}/settings`);
+    return fromLegacyLeagueSettings(legacy.data);
+  }
 }
 
 export async function saveTradeWindowSettings(leagueId, payload) {
-  const res = await apiClient.put(`/trades/leagues/${leagueId}/settings/trade-window`, payload);
-  return res.data;
+  try {
+    const res = await apiClient.put(`/trades/leagues/${leagueId}/settings/trade-window`, payload);
+    return res.data;
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+    // Legacy fallback: only trade_deadline exists on older league settings schema.
+    const legacyPayload = {
+      trade_deadline: payload.is_active ? payload.trade_end_at : new Date().toISOString(),
+    };
+    const res = await apiClient.put(`/leagues/${leagueId}/settings`, legacyPayload);
+    return fromLegacyLeagueSettings(res.data);
+  }
 }
 
 // ── Pending queue (commissioner) ────────────────────────────────────────────

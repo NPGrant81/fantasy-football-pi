@@ -19,7 +19,6 @@ import {
   tableCell,
   textMuted,
   layerModal,
-  layerBackdrop,
 } from '@utils/uiStandards';
 import {
   fetchPendingTrades,
@@ -141,7 +140,7 @@ function TradeWindowSettings({ leagueId }) {
           {windowBanner.label}
           {settings?.trade_start_at && (
             <span className="ml-2 font-normal opacity-80">
-              {fmtDt(settings.trade_start_at)} → {fmtDt(settings.trade_end_at) || 'no end set'}
+              {fmtDt(settings.trade_start_at)}  {settings.trade_end_at ? fmtDt(settings.trade_end_at) : 'no end set'}
             </span>
           )}
         </div>
@@ -243,6 +242,8 @@ function TradeDetailDrawer({ leagueId, tradeId, onClose, onAction }) {
 
   useEffect(() => {
     if (!tradeId) return;
+    setComments('');
+    setActionMsg('');
     setLoading(true);
     Promise.all([
       fetchTradeDetail(leagueId, tradeId).catch(() => null),
@@ -275,7 +276,7 @@ function TradeDetailDrawer({ leagueId, tradeId, onClose, onAction }) {
 
   return (
     <>
-      <div className={`fixed inset-0 bg-black/50 ${layerBackdrop}`} onClick={onClose} aria-hidden="true" />
+      <div className={`fixed inset-0 bg-black/50 ${layerModal}`} onClick={onClose} aria-hidden="true" />
       <div
         className={`fixed right-0 top-0 h-full w-full max-w-lg overflow-y-auto bg-white dark:bg-slate-900 shadow-2xl ${layerModal} flex flex-col`}
         role="dialog"
@@ -331,7 +332,9 @@ function TradeDetailDrawer({ leagueId, tradeId, onClose, onAction }) {
                     {history.map((ev, i) => (
                       <li key={i} className="text-xs text-slate-600 dark:text-slate-400 flex items-start gap-2 flex-wrap">
                         <span className="font-semibold text-slate-700 dark:text-slate-300">{ev.event_type}</span>
-                        {ev.commissioner_comments && <span className="italic">"{ev.commissioner_comments}"</span>}
+                        {(ev.comment || ev.commissioner_comments) && (
+                          <span className="italic">"{ev.comment || ev.commissioner_comments}"</span>
+                        )}
                         <span className="ml-auto shrink-0">{fmtDt(ev.created_at)}</span>
                       </li>
                     ))}
