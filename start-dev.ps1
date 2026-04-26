@@ -7,6 +7,7 @@ $FRONTEND_PORT = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { "5173" }
 $BACKEND_HEALTH_URL = "http://$BACKEND_HOST`:$BACKEND_PORT/health"
 $BACKEND_LOG = Join-Path $ROOT_DIR ".dev-backend.log"
 $BACKEND_PROCESS = $null
+$BACKEND_PYTHON = $null
 
 function Log([string]$message) {
     $timestamp = Get-Date -Format "HH:mm:ss"
@@ -40,10 +41,36 @@ function Stop-BackendIfOwned {
     }
 }
 
+function Resolve-BackendPython {
+    $candidates = @(
+        (Join-Path $ROOT_DIR "backend/venv/Scripts/python.exe"),
+        (Join-Path $ROOT_DIR ".venv/Scripts/python.exe")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) {
+            & $candidate -c "import fastapi, uvicorn" *> $null
+            if ($LASTEXITCODE -eq 0) {
+                return $candidate
+            }
+        }
+    }
+
+    if (Get-Command "python" -ErrorAction SilentlyContinue) {
+        & python -c "import fastapi, uvicorn" *> $null
+        if ($LASTEXITCODE -eq 0) {
+            return "python"
+        }
+    }
+
+    Log "Could not find a Python interpreter with fastapi and uvicorn installed."
+    Log "Install backend dependencies in backend/venv or .venv, then retry."
+    exit 1
+}
+
 Register-EngineEvent PowerShell.Exiting -Action { Stop-BackendIfOwned } | Out-Null
 
 Require-Command "npm"
-Require-Command "python"
 
 Set-Location $ROOT_DIR
 
@@ -58,6 +85,9 @@ if (-not (Test-Path $backendEnv)) {
     Log "backend/.env not found. Creating it from backend/.env.example."
     Copy-Item -Path $backendEnvExample -Destination $backendEnv
 }
+
+$BACKEND_PYTHON = Resolve-BackendPython
+Log "Using backend Python: $BACKEND_PYTHON"
 
 if (Get-Command "pg_isready" -ErrorAction SilentlyContinue) {
     try {
@@ -85,7 +115,7 @@ if (Test-Health $BACKEND_HEALTH_URL) {
     }
 
     Log "Starting backend on $BACKEND_HOST`:$BACKEND_PORT"
-    $BACKEND_PROCESS = Start-Process -FilePath "python" -ArgumentList @(
+    $BACKEND_PROCESS = Start-Process -FilePath $BACKEND_PYTHON -ArgumentList @(
         "-m", "uvicorn", "backend.main:app", "--host", "$BACKEND_HOST", "--port", "$BACKEND_PORT", "--reload"
     ) -RedirectStandardOutput $BACKEND_LOG -RedirectStandardError $BACKEND_LOG -PassThru
 

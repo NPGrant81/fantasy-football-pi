@@ -7,6 +7,7 @@ BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 BACKEND_HEALTH_URL="http://${BACKEND_HOST}:${BACKEND_PORT}/health"
 BACKEND_LOG="${ROOT_DIR}/.dev-backend.log"
+BACKEND_PYTHON=""
 
 BACKEND_PID=""
 
@@ -21,6 +22,31 @@ require_cmd() {
   fi
 }
 
+resolve_backend_python() {
+  local candidates=(
+    "${ROOT_DIR}/backend/venv/bin/python3"
+    "${ROOT_DIR}/backend/venv/bin/python"
+    "${ROOT_DIR}/.venv/bin/python3"
+    "${ROOT_DIR}/.venv/bin/python"
+  )
+
+  for py in "${candidates[@]}"; do
+    if [[ -x "${py}" ]] && "${py}" -c "import fastapi, uvicorn" >/dev/null 2>&1; then
+      BACKEND_PYTHON="${py}"
+      return 0
+    fi
+  done
+
+  if command -v python >/dev/null 2>&1 && python -c "import fastapi, uvicorn" >/dev/null 2>&1; then
+    BACKEND_PYTHON="python"
+    return 0
+  fi
+
+  log "Could not find a Python interpreter with fastapi and uvicorn installed."
+  log "Install backend dependencies in backend/venv or .venv, then retry."
+  exit 1
+}
+
 cleanup() {
   if [[ -n "${BACKEND_PID}" ]] && kill -0 "${BACKEND_PID}" >/dev/null 2>&1; then
     log "Stopping backend (PID ${BACKEND_PID})"
@@ -31,7 +57,6 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 require_cmd curl
-require_cmd python
 require_cmd npm
 require_cmd ss
 
@@ -46,6 +71,9 @@ if [[ ! -f "backend/.env" ]]; then
   log "backend/.env not found. Creating it from backend/.env.example."
   cp backend/.env.example backend/.env
 fi
+
+resolve_backend_python
+log "Using backend Python: ${BACKEND_PYTHON}"
 
 if command -v pg_isready >/dev/null 2>&1; then
   if pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
@@ -67,7 +95,7 @@ else
   fi
 
   log "Starting backend on ${BACKEND_HOST}:${BACKEND_PORT}"
-  python -m uvicorn backend.main:app --host "${BACKEND_HOST}" --port "${BACKEND_PORT}" --reload >"${BACKEND_LOG}" 2>&1 &
+  "${BACKEND_PYTHON}" -m uvicorn backend.main:app --host "${BACKEND_HOST}" --port "${BACKEND_PORT}" --reload >"${BACKEND_LOG}" 2>&1 &
   BACKEND_PID="$!"
   log "Backend PID: ${BACKEND_PID} (logs: ${BACKEND_LOG})"
 
