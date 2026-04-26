@@ -231,6 +231,18 @@ hit breakpoints as you interact with the UI.
      - Update `docs/ISSUE_STATUS.md` with implementation state and close-out note reference.
      - Reflect the transition in the PR `Issue Hygiene` section (`Closed`, `Pending close`, `Net new`).
 
+  12. **Cross-platform startup parity gate (required for dev startup/docs changes).**
+     - If a PR changes local startup behavior, startup scripts, or startup documentation,
+       validate Linux and Windows flows remain equivalent.
+     - Required scope for parity changes:
+       - update both [start-dev.sh](start-dev.sh) and [start-dev.ps1](start-dev.ps1), or
+         explicitly justify why one platform is unaffected
+       - update the single canonical startup section in [README.md](README.md)
+     - Required PR evidence:
+       - Linux validation note (script run or syntax check)
+       - Windows validation note (PowerShell parse/run, or explicit environment limitation)
+     - PRs that change startup behavior without parity verification should not be merged.
+
 ---
 
 By adhering to these standards, the frontend stops being a black box and
