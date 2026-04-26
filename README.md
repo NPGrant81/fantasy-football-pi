@@ -78,6 +78,41 @@ For the full endpoint-level matrix (including notes and gaps), see [API_PAGE_MAT
 
 ---
 
+## Local App Startup (Cross-Platform)
+
+Use the repo-root startup scripts as the canonical local development flow.
+They keep Linux and Windows behavior aligned:
+
+- validate required tooling
+- create `backend/.env` from `backend/.env.example` when missing
+- verify backend readiness at `/health`
+- start frontend only after backend is healthy
+- fail fast on backend port conflicts with actionable messaging
+
+Linux/macOS:
+
+```bash
+./start-dev.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\start-dev.ps1
+```
+
+Optional custom ports:
+
+```bash
+BACKEND_PORT=8001 FRONTEND_PORT=5174 ./start-dev.sh
+```
+
+```powershell
+$env:BACKEND_PORT = "8001"
+$env:FRONTEND_PORT = "5174"
+.\start-dev.ps1
+```
+
 Frontend testing & local run
 
 - Install dependencies and run dev server:
