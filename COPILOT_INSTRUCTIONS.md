@@ -193,6 +193,22 @@ const fetchOwners = async (leagueId) => {
 - Add new dependencies only after discussing justification in the PR description.
 - CI pipelines validate backend lint, frontend lint, unit tests, and build steps.
 
+### Bug-fix branch and PR workflow (required)
+
+Copilot **must** follow this sequence for every bug fix, regardless of size:
+
+1. **Create a branch** named `fix/issue-<number>-<slug>` (e.g. `fix/issue-161-simulation-nan`).
+   - For multi-issue batches use `fix/issue-<n1>-<n2>-<slug>`.
+2. **Commit all changes** to that branch using Conventional Commits. Reference the issue in the commit body (e.g. `Closes #161`).
+3. **Open a PR** with `gh pr create` targeting `main`:
+   - Title: `fix: <concise description> (#<issue>)`
+   - Body: Must include `Closes #<issue>` (or `Fixes #<issue>`) so GitHub auto-closes the issue on merge.
+   - Link every related issue in the PR body under a "Related Issues" section.
+4. **Comment on the issue** with a summary of root causes and the PR link.
+5. **Do not push directly to `main`** unless the repo owner explicitly instructs otherwise.
+
+> Commits pushed directly to `main` without a PR are bypassing branch protection and will not auto-link to GitHub Issues. Always use a PR.
+
 ---
 ## 6. AI Behavior Expectations
 
