@@ -52,18 +52,20 @@ resolve_backend_python() {
 }
 
 port_in_use() {
+  local port="$1"
+
   if command -v ss >/dev/null 2>&1; then
-    ss -ltn | grep -q ":${BACKEND_PORT} "
+    ss -ltn | grep -q ":${port} "
     return $?
   fi
 
   if command -v lsof >/dev/null 2>&1; then
-    lsof -nP -iTCP:"${BACKEND_PORT}" -sTCP:LISTEN >/dev/null 2>&1
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
     return $?
   fi
 
   log "Could not find a supported port-inspection tool (ss or lsof)."
-  log "Install one of them or set BACKEND_PORT to a known-free port."
+  log "Install one of them or set BACKEND_PORT/FRONTEND_PORT to known-free ports."
   exit 1
 }
 
@@ -103,6 +105,12 @@ if [[ -z "${BACKEND_PYTHON}" ]]; then
 fi
 log "Using backend Python: ${BACKEND_PYTHON}"
 
+if port_in_use "${FRONTEND_PORT}"; then
+  log "Frontend port ${FRONTEND_PORT} is already in use."
+  log "Stop the existing frontend process or set FRONTEND_PORT to a different value."
+  exit 1
+fi
+
 if command -v pg_isready >/dev/null 2>&1; then
   if pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
     log "Postgres is reachable on 127.0.0.1:5432"
@@ -117,7 +125,7 @@ fi
 if curl -fsS "${BACKEND_HEALTH_URL}" >/dev/null 2>&1; then
   log "Backend already healthy at ${BACKEND_HEALTH_URL}"
 else
-  if port_in_use; then
+  if port_in_use "${BACKEND_PORT}"; then
     log "Port ${BACKEND_PORT} is already in use, but ${BACKEND_HEALTH_URL} is not healthy."
     log "Stop the process using port ${BACKEND_PORT} or set BACKEND_PORT to a different value."
     exit 1

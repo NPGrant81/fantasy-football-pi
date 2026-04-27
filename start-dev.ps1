@@ -33,6 +33,10 @@ function Test-Health([string]$url) {
     }
 }
 
+function Test-PortInUse([int]$port) {
+    return [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+}
+
 function Stop-BackendIfOwned {
     if ($null -ne $BACKEND_PROCESS -and -not $BACKEND_PROCESS.HasExited) {
         Log "Stopping backend (PID $($BACKEND_PROCESS.Id))"
@@ -94,6 +98,12 @@ if (-not (Test-Path $backendEnv)) {
 $BACKEND_PYTHON = Resolve-BackendPython
 Log "Using backend Python: $BACKEND_PYTHON"
 
+if (Test-PortInUse ([int]$FRONTEND_PORT)) {
+    Log "Frontend port $FRONTEND_PORT is already in use."
+    Log "Stop the existing frontend process or set FRONTEND_PORT to a different value."
+    exit 1
+}
+
 if (Get-Command "pg_isready" -ErrorAction SilentlyContinue) {
     try {
         & pg_isready -h 127.0.0.1 -p 5432 | Out-Null
@@ -114,8 +124,7 @@ try {
     if (Test-Health $BACKEND_HEALTH_URL) {
         Log "Backend already healthy at $BACKEND_HEALTH_URL"
     } else {
-        $portInUse = Get-NetTCPConnection -LocalPort ([int]$BACKEND_PORT) -State Listen -ErrorAction SilentlyContinue
-        if ($portInUse) {
+        if (Test-PortInUse ([int]$BACKEND_PORT)) {
             Log "Port $BACKEND_PORT is already in use, but $BACKEND_HEALTH_URL is not healthy."
             Log "Stop the process using port $BACKEND_PORT or set BACKEND_PORT to a different value."
             exit 1
