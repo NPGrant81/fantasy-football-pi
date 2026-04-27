@@ -164,6 +164,14 @@ export default function Sidebar({ isOpen, onClose, username, leagueId, onLogout,
           />
 
           <MenuBlock
+            to="/trades/submit"
+            title="Trades"
+            desc="Propose a trade"
+            icon={FiRepeat}
+            onClick={onClose}
+          />
+
+          <MenuBlock
             to="/analytics"
             title="Analytics"
             desc="League Charts"

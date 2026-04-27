@@ -142,6 +142,10 @@ class LeagueSettings(Base):
     waiver_system = Column(String, default='FAAB')
     waiver_tiebreaker = Column(String, default='standings')
     trade_deadline = Column(String, nullable=True)   # new trade deadline option
+    trade_start_at = Column(DateTime(timezone=True), nullable=True)
+    trade_end_at = Column(DateTime(timezone=True), nullable=True)
+    allow_playoff_trades = Column(Boolean, nullable=False, default=True)
+    require_commissioner_approval = Column(Boolean, nullable=False, default=True)
     draft_year = Column(Integer, nullable=True)
     future_draft_cap = Column(Integer, default=0)  # maximum dollars each owner may start with
 

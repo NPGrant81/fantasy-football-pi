@@ -5,7 +5,7 @@
 - [x] Issue #56: Create draft value database for fantasy football draft purposes
 - [x] Issue #57: Create APIs to pull in draft value information from ESPN, Yahoo, Draftsharks
 # GitHub Issues Status Report
-**Date:** March 14, 2026  
+**Date:** April 26, 2026  
 **Branch:** main
 
 ---
@@ -14,7 +14,7 @@
 
 - **Issue #81**: `Phase 1: Raspberry Pi OS Setup`
   - **Implementation Status:** Resolved in current branch via Raspberry Pi Phase 1 runbook updates
-  - **GitHub Status:** Pending close-out comment / closure
+  - **GitHub Status:** Closed (March 19, 2026) with close-out comment
   - **Close-Out Notes:** Captured in `docs/PR_NOTES.md` under `Issue #81 Close-Out Notes`
 
 - **Issue #131**: `Create Dedicated Draft Day Analyzer Page + Fix Advisor & Simulation Failures`
