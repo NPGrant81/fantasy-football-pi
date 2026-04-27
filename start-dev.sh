@@ -5,7 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
-BACKEND_HEALTH_URL="http://${BACKEND_HOST}:${BACKEND_PORT}/health"
+# Always probe 127.0.0.1 so the health check works even when BACKEND_HOST is 0.0.0.0
+BACKEND_HEALTH_HOST="${BACKEND_HEALTH_HOST:-127.0.0.1}"
+BACKEND_HEALTH_URL="http://${BACKEND_HEALTH_HOST}:${BACKEND_PORT}/health"
 BACKEND_LOG="${ROOT_DIR}/.dev-backend.log"
 BACKEND_PYTHON=""
 
@@ -43,6 +45,10 @@ resolve_backend_python() {
       return 0
     fi
   done
+
+  log "Could not find a Python interpreter with fastapi and uvicorn installed."
+  log "Install backend dependencies in backend/venv (or activate the venv), then retry."
+  exit 1
 }
 
 port_in_use() {
@@ -90,6 +96,11 @@ if [[ ! -f "backend/.env" ]]; then
 fi
 
 resolve_backend_python
+if [[ -z "${BACKEND_PYTHON}" ]]; then
+  log "Could not find a Python interpreter with fastapi and uvicorn installed."
+  log "Install backend dependencies in backend/venv (or activate the venv), then retry."
+  exit 1
+fi
 log "Using backend Python: ${BACKEND_PYTHON}"
 
 if command -v pg_isready >/dev/null 2>&1; then

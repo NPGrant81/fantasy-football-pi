@@ -4,7 +4,9 @@ $ROOT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $BACKEND_HOST = if ($env:BACKEND_HOST) { $env:BACKEND_HOST } else { "127.0.0.1" }
 $BACKEND_PORT = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8000" }
 $FRONTEND_PORT = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { "5173" }
-$BACKEND_HEALTH_URL = "http://$BACKEND_HOST`:$BACKEND_PORT/health"
+# Always probe 127.0.0.1 so the health check works even when BACKEND_HOST is 0.0.0.0
+$BACKEND_HEALTH_HOST = if ($env:BACKEND_HEALTH_HOST) { $env:BACKEND_HEALTH_HOST } else { "127.0.0.1" }
+$BACKEND_HEALTH_URL = "http://$BACKEND_HEALTH_HOST`:$BACKEND_PORT/health"
 $BACKEND_LOG = Join-Path $ROOT_DIR ".dev-backend.log"
 $BACKEND_PROCESS = $null
 $BACKEND_PYTHON = $null
@@ -23,7 +25,8 @@ function Require-Command([string]$name) {
 
 function Test-Health([string]$url) {
     try {
-        $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2
+        # -UseBasicParsing is not supported in PowerShell 7+; use Invoke-WebRequest without it
+        $resp = Invoke-WebRequest -Uri $url -TimeoutSec 2
         return $resp.StatusCode -ge 200 -and $resp.StatusCode -lt 300
     } catch {
         return $false
