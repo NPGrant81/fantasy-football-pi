@@ -152,7 +152,8 @@ def login_for_access_token(
         )
 
     _clear_failed_attempts(attempt_key)
-    
+    logger.info("Successful login user_id=%s username=%s ip=%s", user.id, user.username, client_ip)
+
     # 2.2.1 TOKEN GEN: Create JWT Access Token
     access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(

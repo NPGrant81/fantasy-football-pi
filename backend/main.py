@@ -129,7 +129,7 @@ async def lifespan(app: FastAPI):
         print(f"Warning: Could not initialize database tables: {e}")
 
     try:
-        auto_seed = os.getenv("AUTO_SEED_ON_STARTUP", "1")
+        auto_seed = os.getenv("AUTO_SEED_ON_STARTUP", "0")
         app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
         if auto_seed == "1" and app_env not in {"production", "prod"}:
             run_seeder(SessionLocal, get_password_hash)
@@ -144,6 +144,11 @@ async def lifespan(app: FastAPI):
         advisor_status["has_genai_sdk"],
         advisor_status["key_source"],
     )
+    if not advisor_status["has_api_key"]:
+        logger.warning(
+            "League Chatbot advisor is DISABLED: neither GEMINI_API_KEY nor GOOGLE_API_KEY is set. "
+            "Set one of these in your backend.env file to enable the chatbot."
+        )
 
     try:
         watchdog_service.start_live_scoring_watchdog_scheduler()

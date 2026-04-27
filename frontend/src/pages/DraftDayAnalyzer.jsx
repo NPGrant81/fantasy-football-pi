@@ -37,7 +37,7 @@ import {
 import { FiX } from 'react-icons/fi';
 
 const POSITION_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
-const SORTABLE_COLUMNS = ['name', 'team', 'position', 'value', 'price_min', 'price_avg', 'price_max', 'confidence'];
+const SORTABLE_COLUMNS = ['name', 'team', 'position', 'value', 'adp', 'price_min', 'price_avg', 'price_max', 'confidence'];
 const UI_STATE_KEY = 'draftDayAnalyzer.uiState.v1';
 
 const DEFAULT_UI_STATE = {
@@ -434,6 +434,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               : fallbackValue,
           source_count: ranking?.source_count ?? 0,
           sources: ranking?.sources ?? [],
+          adp: ranking?.adp != null ? parseNumber(ranking.adp, 0) : null,
           confidence:
             ranking?.confidence_score == null
               ? null
@@ -1030,10 +1031,18 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             </button>
             <button
               className="col-span-2 text-right"
+              onClick={() => toggleSort('adp')}
+              type="button"
+              title="Average Draft Position"
+            >
+              ADP
+            </button>
+            <button
+              className="col-span-1 text-right"
               onClick={() => toggleSort('price_min')}
               type="button"
             >
-              MIN $
+              MIN
             </button>
             <button
               className="col-span-2 text-right"
@@ -1043,11 +1052,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               Avg $
             </button>
             <button
-              className="col-span-2 text-right"
+              className="col-span-1 text-right"
               onClick={() => toggleSort('price_max')}
               type="button"
             >
-              MAX $
+              MAX
             </button>
           </div>
 
@@ -1088,7 +1097,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   <span className="col-span-3 truncate">{player.name}</span>
                   <span className="col-span-2 truncate text-slate-400">{player.team}</span>
                   <span className="col-span-1 font-bold">{player.position}</span>
-                  <span className="col-span-2 text-right text-slate-400">
+                  <span className="col-span-2 text-right text-slate-400" title="Average Draft Position">
+                    {player.adp != null && player.adp > 0 ? player.adp.toFixed(1) : '—'}
+                  </span>
+                  <span className="col-span-1 text-right text-slate-400">
                     {player.price_min == null ? '—' : `$${player.price_min.toFixed(0)}`}
                   </span>
                   <span className="col-span-2 text-right text-emerald-300">
@@ -1099,8 +1111,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                         : rankingSeasonOffset === 0
                           ? 'Pending data update'
                           : 'No data'}
+                    {player.source_count === 1 && player.price_avg != null ? (
+                      <span className="ml-1 text-yellow-500" title="Single source — MIN and MAX may equal AVG">*</span>
+                    ) : null}
                   </span>
-                  <span className="col-span-2 text-right text-cyan-300">
+                  <span className="col-span-1 text-right text-cyan-300">
                     {player.price_max == null ? '—' : `$${player.price_max.toFixed(0)}`}
                   </span>
                 </button>

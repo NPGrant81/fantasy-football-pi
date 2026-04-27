@@ -551,8 +551,12 @@ function App() {
       });
 
       const { owner_id, league_id, is_commissioner, is_superuser } = response.data;
-      const resolvedLeagueId =
+      const serverLeagueId =
         league_id === null || league_id === undefined ? null : String(league_id);
+      // Prefer the league the user typed in the login form over the server default,
+      // so users with access to multiple leagues (e.g. League 60) land in the right place.
+      const typedLeagueId = leagueInput && leagueInput.trim() !== '' ? String(leagueInput.trim()) : null;
+      const resolvedLeagueId = typedLeagueId || serverLeagueId;
       isLoggingOutRef.current = false;
 
       localStorage.setItem('fantasyToken', 'cookie-session');
