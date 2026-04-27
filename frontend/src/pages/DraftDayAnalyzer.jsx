@@ -236,7 +236,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
     fetchCurrentUser()
       .then((data) => {
-        setCurrentUserId(Number(data?.id || 0) || null);
+        setCurrentUserId(Number(data?.user_id || data?.id || 0) || null);
         setCurrentUserIsCommissioner(Boolean(data?.is_commissioner));
       })
       .catch(() => {

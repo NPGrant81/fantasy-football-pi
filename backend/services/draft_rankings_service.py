@@ -49,6 +49,7 @@ def _serialize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         price_max = fields.Float(allow_none=True)
         source_count = fields.Integer(allow_none=True)
         sources = fields.List(fields.String(), allow_none=True)
+        adp = fields.Float(allow_none=True)
 
     schema = HistoricalRankingSchema(many=True)
     return schema.dump(rows)

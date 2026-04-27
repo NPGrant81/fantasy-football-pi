@@ -169,6 +169,29 @@ def _prepare_owners(draft_results_df: pd.DataFrame, budget_df: pd.DataFrame, con
             owners = pd.concat([owners, pd.DataFrame(injected)], ignore_index=True)
 
     owners = owners.sort_values("owner_id").head(config.teams_count).reset_index(drop=True)
+
+    # Ensure the focal/target owner is always present in the simulation.
+    # If the top-N slice excluded them, replace the last row with a synthetic entry.
+    focal_id = config.resolved_focal_owner_id()
+    if focal_id not in owners["owner_id"].tolist():
+        focal_budget = config.budget_fallback
+        all_owner_ids = budget_lookup["owner_id"].tolist() if not budget_lookup.empty else []
+        if focal_id in all_owner_ids:
+            focal_row = budget_lookup[budget_lookup["owner_id"] == focal_id]
+            if not focal_row.empty:
+                focal_budget = float(focal_row.iloc[0]["budget"])
+        synthetic = pd.DataFrame(
+            [
+                {
+                    "owner_id": focal_id,
+                    "budget": focal_budget,
+                    "historical_spend": config.budget_fallback / config.roster_size,
+                    "draft_count": 0,
+                }
+            ]
+        )
+        owners = pd.concat([owners.iloc[:-1], synthetic], ignore_index=True)
+
     return owners
 
 
@@ -629,30 +652,33 @@ def run_monte_carlo_draft_simulation(
         key_target_probability["hit_count"] = key_target_probability["hit_count"].fillna(0)
         key_target_probability["probability"] = key_target_probability["hit_count"] / max(cfg.iterations, 1)
 
-        owner_summary_df = pd.DataFrame(
-            [
-                {
-                    "owner_id": cfg.target_owner_id,
-                    "iterations": cfg.iterations,
-                    "expected_total_points": float(target_owner_metrics["projected_points"].mean()),
-                    "points_stddev": float(target_owner_metrics["projected_points"].std(ddof=0)),
-                    "expected_total_spend": float(target_owner_metrics["total_spend"].mean()),
-                    "expected_spend_qb": float(target_owner_metrics["spend_qb"].mean()),
-                    "expected_spend_rb": float(target_owner_metrics["spend_rb"].mean()),
-                    "expected_spend_wr": float(target_owner_metrics["spend_wr"].mean()),
-                    "expected_spend_te": float(target_owner_metrics["spend_te"].mean()),
-                    "expected_spend_def": float(target_owner_metrics["spend_def"].mean()),
-                    "expected_spend_k": float(target_owner_metrics["spend_k"].mean()),
-                    "expected_value_captured": float(target_owner_metrics["value_captured"].mean()),
-                }
-            ]
-        )
-
-        if not key_target_probability.empty:
-            probability_records = key_target_probability.sort_values("probability", ascending=False).head(10)
-            owner_summary_df["key_target_probability_snapshot"] = "; ".join(
-                f"{row.player_name}:{row.probability:.3f}" for row in probability_records.itertuples(index=False)
+        if target_owner_metrics.empty:
+            owner_summary_df = pd.DataFrame()
+        else:
+            owner_summary_df = pd.DataFrame(
+                [
+                    {
+                        "owner_id": cfg.target_owner_id,
+                        "iterations": cfg.iterations,
+                        "expected_total_points": float(target_owner_metrics["projected_points"].mean()),
+                        "points_stddev": float(target_owner_metrics["projected_points"].std(ddof=0)),
+                        "expected_total_spend": float(target_owner_metrics["total_spend"].mean()),
+                        "expected_spend_qb": float(target_owner_metrics["spend_qb"].mean()),
+                        "expected_spend_rb": float(target_owner_metrics["spend_rb"].mean()),
+                        "expected_spend_wr": float(target_owner_metrics["spend_wr"].mean()),
+                        "expected_spend_te": float(target_owner_metrics["spend_te"].mean()),
+                        "expected_spend_def": float(target_owner_metrics["spend_def"].mean()),
+                        "expected_spend_k": float(target_owner_metrics["spend_k"].mean()),
+                        "expected_value_captured": float(target_owner_metrics["value_captured"].mean()),
+                    }
+                ]
             )
+
+            if not key_target_probability.empty:
+                probability_records = key_target_probability.sort_values("probability", ascending=False).head(10)
+                owner_summary_df["key_target_probability_snapshot"] = "; ".join(
+                    f"{row.player_name}:{row.probability:.3f}" for row in probability_records.itertuples(index=False)
+                )
 
     assumptions = {
         "league_rules": {
