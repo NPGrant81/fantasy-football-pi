@@ -45,7 +45,7 @@ def _looks_like_history_query(question: str) -> bool:
 
 @router.get("/status")
 def get_advisor_status():
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     has_genai_sdk = bool(genai)
     enabled = bool(api_key) and has_genai_sdk
     return {"enabled": enabled}
@@ -430,7 +430,7 @@ def ask_gemini(request: AdvisorRequest, db: Session = Depends(get_db)):
             return {"response": str(history_result.get("answer") or "No answer available.")}
 
     # 1. Check for API Key and genai availability (Lazy Load)
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key or not genai:
         logger.warning(
             "Advisor unavailable: missing Gemini configuration (has_api_key=%s, has_genai_sdk=%s)",

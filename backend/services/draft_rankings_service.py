@@ -654,6 +654,7 @@ def get_historical_rankings(
                 "price_max": price_stats.get("price_max"),
                 "source_count": price_stats.get("source_count", 0),
                 "sources": price_stats.get("sources", []),
+                "adp": float(player.adp) if player.adp is not None else None,
             }
         )
 
