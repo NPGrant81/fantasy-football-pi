@@ -17,7 +17,6 @@ from ..services.player_service import normalize_display_name as _normalize_playe
 from ..services.ledger_service import record_ledger_entry
 from ..services.league_position_service import (
     get_active_positions_for_league,
-    is_position_allowed_for_league,
     normalize_player_position,
 )
 from ..services.validation_service import (
@@ -380,13 +379,27 @@ def save_my_keepers(
         models.Keeper.season == season,
         models.Keeper.status == "pending",
     ).delete(synchronize_session="fetch")
+
+    active_positions = set(get_active_positions_for_league(db, current_user.league_id))
+    player_ids = [
+        p.player_id
+        for p in request.players
+        if p.player_id not in override_player_ids
+    ]
+    players_by_id = {
+        player.id: player
+        for player in db.query(models.Player)
+        .filter(models.Player.id.in_(player_ids))
+        .all()
+    }
+
     for p in request.players:
         if p.player_id in override_player_ids:
             continue
-        player = db.query(models.Player).filter(models.Player.id == p.player_id).first()
+        player = players_by_id.get(p.player_id)
         if not player:
             raise HTTPException(status_code=404, detail="Keeper player not found.")
-        if not is_position_allowed_for_league(db, current_user.league_id, player.position):
+        if normalize_player_position(player.position) not in active_positions:
             raise HTTPException(
                 status_code=400,
                 detail=f"Position {player.position} is disabled for this league.",

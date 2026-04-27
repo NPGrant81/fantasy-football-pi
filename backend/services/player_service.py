@@ -400,6 +400,7 @@ def get_league_free_agents(db: Session, league_id: int):
 def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
     """Return top available free agents ranked by projection, ADP, and waiver momentum."""
     safe_limit = max(1, min(int(limit), 25))
+    active_positions = get_active_positions_for_league(db, league_id)
     owned_ids_query = db.query(models.DraftPick.player_id).filter(
         models.DraftPick.league_id == league_id
     )
@@ -407,7 +408,7 @@ def get_top_free_agents(db: Session, league_id: int, limit: int = 10):
         db.query(models.Player)
         .filter(
             ~models.Player.id.in_(owned_ids_query),
-            models.Player.position.in_(ALLOWED_POSITIONS),
+            models.Player.position.in_(active_positions),
         )
         .order_by(
             models.Player.projected_points.desc(),

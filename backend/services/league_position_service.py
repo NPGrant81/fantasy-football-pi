@@ -25,7 +25,17 @@ def get_active_positions_for_league(db: Session, league_id: int | None) -> list[
     if not settings or not isinstance(settings.starting_slots, dict):
         return list(ACTIVE_PLAYER_POSITIONS)
 
-    slots = settings.starting_slots or {}
+    slots = settings.starting_slots
+    if not slots:
+        return list(ACTIVE_PLAYER_POSITIONS)
+
+    has_position_config = any(
+        f"MAX_{position}" in slots or position in slots
+        for position in ACTIVE_PLAYER_POSITIONS
+    )
+    if not has_position_config:
+        return list(ACTIVE_PLAYER_POSITIONS)
+
     active_positions: list[str] = []
     for position in ACTIVE_PLAYER_POSITIONS:
         max_key = f"MAX_{position}"

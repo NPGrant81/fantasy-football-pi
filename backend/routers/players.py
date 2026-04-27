@@ -228,7 +228,11 @@ def get_all_players(
     league_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Return all relevant fantasy players (QB, RB, WR, TE, K, DEF) from active NFL rosters."""
+    """Return relevant fantasy players from active NFL rosters.
+
+    When league_id is provided, results are filtered to that league's
+    active fantasy positions.
+    """
     deduped = player_service.get_all_relevant_players(db, league_id)
     return [
         {

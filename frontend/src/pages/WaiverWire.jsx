@@ -19,14 +19,27 @@ import {
 const PLAYER_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
 const getLeagueActivePositions = (settings) => {
-  const slots = settings?.starting_slots || {};
-  return PLAYER_POSITIONS.filter((position) => {
+  const slots = settings?.starting_slots;
+  if (!slots || Object.keys(slots).length === 0) {
+    return PLAYER_POSITIONS;
+  }
+
+  const hasPositionConfig = PLAYER_POSITIONS.some(
+    (position) => slots[`MAX_${position}`] != null || slots[position] != null
+  );
+  if (!hasPositionConfig) {
+    return PLAYER_POSITIONS;
+  }
+
+  const activePositions = PLAYER_POSITIONS.filter((position) => {
     const rawValue =
       slots[`MAX_${position}`] ??
       slots[position] ??
       (position === 'DEF' ? 1 : 0);
     return Number(rawValue) > 0;
   });
+
+  return activePositions.length > 0 ? activePositions : PLAYER_POSITIONS;
 };
 
 export default function WaiverWire({ ownerId, username, leagueName }) {
