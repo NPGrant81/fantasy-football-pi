@@ -43,3 +43,9 @@ class HistoricalRankingResponse(BaseModel):
     late_start_consistency_factor: float = 1.0
     injury_split_factor: float = 1.0
     team_change_factor: float = 1.0
+    price_min: Optional[float] = None
+    price_avg: Optional[float] = None
+    price_max: Optional[float] = None
+    source_count: Optional[int] = None
+    sources: Optional[list[str]] = None
+    adp: Optional[float] = None
