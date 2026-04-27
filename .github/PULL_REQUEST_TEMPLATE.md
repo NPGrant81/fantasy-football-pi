@@ -47,6 +47,7 @@ CI
 - [ ] Linter/formatters pass locally (pre-commit)
 - [ ] No secrets or large binaries added
 - [ ] CI checks are green (or explained why not)
+- [ ] If startup behavior/docs changed: Linux and Windows startup parity was validated (or not applicable with rationale)
 
 ## Security checklist (required for auth, API, infra, or dependency changes)
 - [ ] Inputs are validated server-side and errors do not leak sensitive internals
