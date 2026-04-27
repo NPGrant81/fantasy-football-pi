@@ -237,25 +237,19 @@ def update_trade_window_settings(
     if not settings:
         raise HTTPException(status_code=404, detail="League settings not found.")
 
-    # Parse and validate ISO-8601 strings
-    def _parse_dt(value: str | None, field: str) -> datetime | None:
-        if value is None:
-            return None
-        try:
-            # Normalize trailing 'Z' to '+00:00' for Python < 3.11 compatibility
-            normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
-            dt = datetime.fromisoformat(normalized)
-            if dt.tzinfo is None:
-                raise ValueError("Timezone required")
-            return dt
-        except (ValueError, TypeError) as exc:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{field} must be a valid ISO-8601 datetime with timezone (e.g. '2026-09-01T00:00:00+00:00' or '2026-09-01T00:00:00Z').",
-            ) from exc
-
-    start_at = _parse_dt(payload.trade_start_at, "trade_start_at")
-    end_at = _parse_dt(payload.trade_end_at, "trade_end_at")
+    # Parse and validate ISO-8601 strings via shared service (avoids inline parse logic)
+    start_at = parse_commissioner_deadline(payload.trade_start_at)
+    if payload.trade_start_at and start_at is None:
+        raise HTTPException(
+            status_code=400,
+            detail="trade_start_at must be a valid ISO-8601 datetime with timezone (e.g. '2026-09-01T00:00:00+00:00' or '2026-09-01T00:00:00Z').",
+        )
+    end_at = parse_commissioner_deadline(payload.trade_end_at)
+    if payload.trade_end_at and end_at is None:
+        raise HTTPException(
+            status_code=400,
+            detail="trade_end_at must be a valid ISO-8601 datetime with timezone (e.g. '2026-09-01T00:00:00+00:00' or '2026-09-01T00:00:00Z').",
+        )
 
     if start_at and end_at and start_at >= end_at:
         raise HTTPException(status_code=400, detail="trade_start_at must be before trade_end_at.")
