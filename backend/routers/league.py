@@ -1126,6 +1126,119 @@ def set_league_draft_year(
     db.commit()
     return {"message": "Draft year updated", "draft_year": settings.draft_year}
 
+
+# --- TRADE RULES ---
+class TradeRulesSchema(BaseModel):
+    trade_deadline: Optional[str] = None
+    trade_start_at: Optional[str] = None
+    trade_end_at: Optional[str] = None
+    allow_playoff_trades: bool = True
+    require_commissioner_approval: bool = True
+    trade_veto_enabled: bool = False
+    trade_veto_threshold: Optional[int] = None
+    trade_review_period_hours: Optional[int] = None
+    trade_max_players_per_side: Optional[int] = None
+    trade_league_vote_enabled: bool = False
+    trade_league_vote_threshold: Optional[int] = None
+
+
+@router.get("/{league_id}/trade-rules", response_model=TradeRulesSchema)
+def get_trade_rules(
+    league_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.league_id != league_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: user is not in this league.",
+        )
+    settings = (
+        db.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == league_id)
+        .first()
+    )
+    if not settings:
+        return TradeRulesSchema()
+    return TradeRulesSchema(
+        trade_deadline=settings.trade_deadline,
+        trade_start_at=settings.trade_start_at.isoformat() if settings.trade_start_at else None,
+        trade_end_at=settings.trade_end_at.isoformat() if settings.trade_end_at else None,
+        allow_playoff_trades=settings.allow_playoff_trades,
+        require_commissioner_approval=settings.require_commissioner_approval,
+        trade_veto_enabled=settings.trade_veto_enabled,
+        trade_veto_threshold=settings.trade_veto_threshold,
+        trade_review_period_hours=settings.trade_review_period_hours,
+        trade_max_players_per_side=settings.trade_max_players_per_side,
+        trade_league_vote_enabled=settings.trade_league_vote_enabled,
+        trade_league_vote_threshold=settings.trade_league_vote_threshold,
+    )
+
+
+@router.put("/{league_id}/trade-rules", response_model=TradeRulesSchema)
+def update_trade_rules(
+    league_id: int,
+    payload: TradeRulesSchema,
+    current_user: models.User = Depends(check_is_commissioner),
+    db: Session = Depends(get_db),
+):
+    _require_commissioner_in_league(current_user, league_id)
+
+    # Validate veto threshold only when veto is enabled
+    if payload.trade_veto_enabled and (
+        payload.trade_veto_threshold is None or payload.trade_veto_threshold < 1
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="trade_veto_threshold must be >= 1 when trade_veto_enabled is true.",
+        )
+
+    # Validate league vote threshold only when vote is enabled
+    if payload.trade_league_vote_enabled and (
+        payload.trade_league_vote_threshold is None
+        or not (1 <= payload.trade_league_vote_threshold <= 100)
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="trade_league_vote_threshold must be 1–100 when trade_league_vote_enabled is true.",
+        )
+
+    settings = (
+        db.query(models.LeagueSettings)
+        .filter(models.LeagueSettings.league_id == league_id)
+        .first()
+    )
+    if not settings:
+        settings = models.LeagueSettings(league_id=league_id)
+        db.add(settings)
+
+    settings.trade_deadline = payload.trade_deadline
+    settings.allow_playoff_trades = payload.allow_playoff_trades
+    settings.require_commissioner_approval = payload.require_commissioner_approval
+    settings.trade_veto_enabled = payload.trade_veto_enabled
+    settings.trade_veto_threshold = payload.trade_veto_threshold
+    settings.trade_review_period_hours = payload.trade_review_period_hours
+    settings.trade_max_players_per_side = payload.trade_max_players_per_side
+    settings.trade_league_vote_enabled = payload.trade_league_vote_enabled
+    settings.trade_league_vote_threshold = payload.trade_league_vote_threshold
+    db.commit()
+    db.refresh(settings)
+
+    return TradeRulesSchema(
+        trade_deadline=settings.trade_deadline,
+        trade_start_at=settings.trade_start_at.isoformat() if settings.trade_start_at else None,
+        trade_end_at=settings.trade_end_at.isoformat() if settings.trade_end_at else None,
+        allow_playoff_trades=settings.allow_playoff_trades,
+        require_commissioner_approval=settings.require_commissioner_approval,
+        trade_veto_enabled=settings.trade_veto_enabled,
+        trade_veto_threshold=settings.trade_veto_threshold,
+        trade_review_period_hours=settings.trade_review_period_hours,
+        trade_max_players_per_side=settings.trade_max_players_per_side,
+        trade_league_vote_enabled=settings.trade_league_vote_enabled,
+        trade_league_vote_threshold=settings.trade_league_vote_threshold,
+    )
+
+
 # --- NEW: GET/SET DRAFT BUDGETS ---
 @router.get("/{league_id}/budgets")
 def get_league_budgets(
