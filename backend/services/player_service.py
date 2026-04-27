@@ -6,6 +6,7 @@ from collections import defaultdict
 from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import Session
 from .. import models
+from .league_position_service import get_active_positions_for_league
 
 # Only relevant fantasy positions from active NFL rosters
 ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
@@ -262,11 +263,12 @@ def _active_player_or_unsynced_filter(db: Session):
     return or_(has_active_recent_season, has_unsynced_but_plausible_team)
 
 
-def get_all_relevant_players(db: Session) -> list[models.Player]:
+def get_all_relevant_players(db: Session, league_id: int | None = None) -> list[models.Player]:
+    active_positions = get_active_positions_for_league(db, league_id)
     rows = (
         db.query(models.Player)
         .filter(
-            models.Player.position.in_(ALLOWED_POSITIONS),
+            models.Player.position.in_(active_positions),
             _active_player_or_unsynced_filter(db),
         )
         .order_by(models.Player.name, models.Player.id.desc())
@@ -358,16 +360,22 @@ def get_player_quality_report(db: Session) -> dict[str, object]:
     }
 
 # 1.1.1 SERVICE: Search ALL players with position filtering
-def search_all_players(db: Session, query_str: str, pos: str = "ALL"):
+def search_all_players(
+    db: Session,
+    query_str: str,
+    pos: str = "ALL",
+    league_id: int | None = None,
+):
     search_term = f"%{query_str.strip()}%"
+    active_positions = get_active_positions_for_league(db, league_id)
     # Always filter to relevant positions
     query = db.query(models.Player).filter(
         models.Player.name.ilike(search_term),
-        models.Player.position.in_(ALLOWED_POSITIONS),
+        models.Player.position.in_(active_positions),
         _active_player_or_unsynced_filter(db),
     )
     
-    if pos != "ALL":
+    if pos != "ALL" and pos in active_positions:
         query = query.filter(models.Player.position == pos)
     
     rows = query.limit(60).all()
@@ -375,6 +383,7 @@ def search_all_players(db: Session, query_str: str, pos: str = "ALL"):
 
 # 1.1.2 SERVICE: Find Available Free Agents in a specific league
 def get_league_free_agents(db: Session, league_id: int):
+    active_positions = get_active_positions_for_league(db, league_id)
     # Subquery for IDs of all players owned in THIS league
     owned_ids_query = db.query(models.DraftPick.player_id).filter(
         models.DraftPick.league_id == league_id
@@ -383,7 +392,7 @@ def get_league_free_agents(db: Session, league_id: int):
     # Return only relevant position players NOT owned in this league
     rows = db.query(models.Player).filter(
         ~models.Player.id.in_(owned_ids_query),
-        models.Player.position.in_(ALLOWED_POSITIONS)
+        models.Player.position.in_(active_positions)
     ).limit(250).all()
     return dedupe_players(rows)[:50]
 

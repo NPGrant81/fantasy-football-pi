@@ -15,6 +15,11 @@ from ..core.security import get_current_user, get_current_active_admin
 from ..services import keeper_service
 from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.ledger_service import record_ledger_entry
+from ..services.league_position_service import (
+    get_active_positions_for_league,
+    is_position_allowed_for_league,
+    normalize_player_position,
+)
 from ..services.validation_service import (
     validate_keeper_settings_boundary,
     validate_keeper_settings_dynamic_rules,
@@ -283,6 +288,7 @@ def get_my_keepers(
     
     # Build dict of keeper info by player_id for eligibility checking
     keeper_by_player_id = {k.player_id: k for k in keepers}
+    active_positions = set(get_active_positions_for_league(db, current_user.league_id))
     
     # Fetch draft picks (the pool of available players to keep)
     draft_picks = (
@@ -300,6 +306,9 @@ def get_my_keepers(
     for pick in draft_picks:
         if not pick.player:
             continue
+        player_position = normalize_player_position(pick.player.position)
+        if player_position not in active_positions:
+            continue
         
         is_selected = pick.player_id in selected_player_ids
         keeper_info = keeper_by_player_id.get(pick.player_id)
@@ -316,7 +325,7 @@ def get_my_keepers(
         available_players.append(AvailablePlayerSchema(
             player_id=pick.player_id,
             name=_normalize_player_name(pick.player.name),
-            position=pick.player.position if pick.player.position != "TD" else "DEF",
+            position=player_position,
             nfl_team=pick.player.nfl_team,
             draft_price=int(pick.amount),
             is_selected=is_selected,
@@ -374,6 +383,14 @@ def save_my_keepers(
     for p in request.players:
         if p.player_id in override_player_ids:
             continue
+        player = db.query(models.Player).filter(models.Player.id == p.player_id).first()
+        if not player:
+            raise HTTPException(status_code=404, detail="Keeper player not found.")
+        if not is_position_allowed_for_league(db, current_user.league_id, player.position):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Position {player.position} is disabled for this league.",
+            )
         k = models.Keeper(
             league_id=current_user.league_id,
             owner_id=current_user.id,

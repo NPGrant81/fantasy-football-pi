@@ -73,10 +73,11 @@ def _build_team_logo_url(team_abbr: Optional[str]) -> Optional[str]:
 def search_players(
     q: str = Query(..., min_length=2), 
     pos: str = Query("ALL"), 
+    league_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     # 2.2.1 CALL the service for searching
-    results = player_service.search_all_players(db, q, pos)
+    results = player_service.search_all_players(db, q, pos, league_id)
     return [
         {
             "id": p.id,
@@ -223,9 +224,12 @@ def get_player_season_details(
 
 # --- NEW: GET /players/ ---
 @router.get("/", response_model=list[PlayerSearchResult])
-def get_all_players(db: Session = Depends(get_db)):
+def get_all_players(
+    league_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
     """Return all relevant fantasy players (QB, RB, WR, TE, K, DEF) from active NFL rosters."""
-    deduped = player_service.get_all_relevant_players(db)
+    deduped = player_service.get_all_relevant_players(db, league_id)
     return [
         {
             "id": p.id,

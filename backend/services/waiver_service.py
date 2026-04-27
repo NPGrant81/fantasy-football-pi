@@ -10,6 +10,7 @@ from .validation_service import (
     validate_waiver_claim_dynamic_rules,
 )
 from .commissioner_deadline_service import enforce_commissioner_deadline
+from .league_position_service import is_position_allowed_for_league
 
 
 def _validate_commissioner_waiver_rules(db: Session, user: models.User) -> int:
@@ -110,6 +111,15 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Player already owned!")
+
+    player = db.query(models.Player).filter(models.Player.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found.")
+    if not is_position_allowed_for_league(db, user.league_id, player.position):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Position {player.position} is disabled for this league.",
+        )
 
     # 2.1 CONDITIONAL DROP: If drop_id is provided, remove them first
     if drop_id:

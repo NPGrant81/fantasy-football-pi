@@ -28,7 +28,20 @@ import {
   tableCellNumeric,
 } from '@utils/uiStandards';
 
+const PLAYER_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+
 const normalizeTeamCode = (value) => String(value || '').trim().toUpperCase();
+
+const getLeagueActivePositions = (settings) => {
+  const slots = settings?.starting_slots || {};
+  return PLAYER_POSITIONS.filter((position) => {
+    const rawValue =
+      slots[`MAX_${position}`] ??
+      slots[position] ??
+      (position === 'DEF' ? 1 : 0);
+    return Number(rawValue) > 0;
+  });
+};
 
 const isActiveDraftPlayer = (player) => {
   const team = normalizeTeamCode(player?.nfl_team);
@@ -59,6 +72,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [posFilter, setPosFilter] = useState('ALL');
+  const [activePositions, setActivePositions] = useState(PLAYER_POSITIONS);
   const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerPerformance, setPlayerPerformance] = useState(null);
@@ -187,7 +201,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     if (val.length > 1) {
       try {
         const res = await apiClient.get(
-          `/players/search?q=${val}&pos=${posFilter}`
+          `/players/search?q=${val}&pos=${posFilter}&league_id=${activeLeagueId}`
         );
         const draftedIds = new Set(history.map((h) => h.player_id));
         const filtered = res.data
@@ -219,7 +233,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         .get(`/leagues/owners?league_id=${leagueIdInt}`)
         .then((res) => setOwners(res.data))
         .catch(() => setOwners([]));
-      apiClient.get('/players/').then((res) => setPlayers(res.data));
+      apiClient.get(`/players/?league_id=${leagueIdInt}`).then((res) => setPlayers(res.data));
       fetchHistory();
       // Fetch league name and user info
       apiClient
@@ -239,6 +253,10 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       apiClient
         .get(`/leagues/${activeLeagueId}/settings`)
         .then((res) => {
+          const nextActivePositions = getLeagueActivePositions(res.data);
+          setActivePositions(
+            nextActivePositions.length > 0 ? nextActivePositions : PLAYER_POSITIONS
+          );
           if (res.data?.draft_year) {
             setDraftYear(res.data.draft_year);
           }
@@ -257,6 +275,13 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     setIsPaused((p) => !p);
     // TODO: notify backend or disable interactions
   }, []);
+
+  useEffect(() => {
+    if (posFilter === 'ALL') return;
+    if (!activePositions.includes(posFilter)) {
+      setPosFilter('ALL');
+    }
+  }, [activePositions, posFilter]);
 
   useEffect(() => {
     if (!activeLeagueId || !draftYear) return;
@@ -507,6 +532,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             suggestions={suggestions}
             showSuggestions={showSuggestions}
             selectSuggestion={selectSuggestion}
+            positions={activePositions}
             posFilter={posFilter}
             setPosFilter={setPosFilter}
             winnerId={winnerId}

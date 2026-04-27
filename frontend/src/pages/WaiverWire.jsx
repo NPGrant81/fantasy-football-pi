@@ -16,6 +16,19 @@ import {
   layerModal,
 } from '../utils/uiStandards';
 
+const PLAYER_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+
+const getLeagueActivePositions = (settings) => {
+  const slots = settings?.starting_slots || {};
+  return PLAYER_POSITIONS.filter((position) => {
+    const rawValue =
+      slots[`MAX_${position}`] ??
+      slots[position] ??
+      (position === 'DEF' ? 1 : 0);
+    return Number(rawValue) > 0;
+  });
+};
+
 export default function WaiverWire({ ownerId, username, leagueName }) {
   const navigate = useNavigate();
   // --- 1.1 STATE MANAGEMENT ---
@@ -24,6 +37,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');
+  const [activePositions, setActivePositions] = useState(PLAYER_POSITIONS);
   const [searchQuery, setSearchQuery] = useState('');
   const [waiverDeadline, setWaiverDeadline] = useState(null); // New state for waiver deadline
   const [draftStatus, setDraftStatus] = useState('PRE_DRAFT');
@@ -76,11 +90,16 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
           const res = await apiClient.get(`/leagues/${leagueName}/settings`);
           setWaiverDeadline(res.data.waiver_deadline);
           setRosterSizeLimit(res.data.roster_size || 14);
+          const nextActivePositions = getLeagueActivePositions(res.data);
+          setActivePositions(
+            nextActivePositions.length > 0 ? nextActivePositions : PLAYER_POSITIONS
+          );
         }
       } catch {
         setWaiverDeadline(null);
         setDraftStatus('PRE_DRAFT');
         setRosterSizeLimit(14);
+        setActivePositions(PLAYER_POSITIONS);
       }
     };
     fetchWaiverDeadline();
@@ -90,6 +109,13 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
     }, 10000);
     return () => clearTimeout(timeout);
   }, [ownerId, fetchWaivers, leagueName]);
+
+  useEffect(() => {
+    if (activeTab === 'ALL') return;
+    if (!activePositions.includes(activeTab)) {
+      setActiveTab('ALL');
+    }
+  }, [activePositions, activeTab]);
 
   // --- 2.1 ACTION: CLAIM PLAYER ---
 
@@ -283,6 +309,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
           <WaiverPositionTabs
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            positions={activePositions}
           />
 
           <div className="mt-8">

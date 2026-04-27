@@ -19,6 +19,7 @@ from ..services.validation_service import (
     validate_draft_pick_boundary,
     validate_draft_pick_dynamic_rules,
 )
+from ..services.league_position_service import is_position_allowed_for_league
 from etl.transform.monte_carlo_simulation import (
     build_monte_carlo_inputs_from_db,
     SimulationConfig,
@@ -810,6 +811,12 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
     owner = db.query(models.User).filter(models.User.id == pick.owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
+
+    if not is_position_allowed_for_league(db, owner.league_id, player.position):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Position {player.position} is disabled for this league.",
+        )
 
     if pick.amount < 1:
         raise HTTPException(status_code=400, detail="Bid amount must be at least $1")
