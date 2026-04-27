@@ -253,6 +253,72 @@ def test_keeper_settings_propagate_to_owner_page_and_lock_enforcement():
         lock_my_keepers(db=db_session, current_user=db_session.get(models.User, owner.id))
 
 
+def test_keeper_page_filters_suppressed_positions_and_rejects_submission():
+    db_session = setup_db()
+    league = make_league(db_session)
+    owner = make_user(db_session, league, "owner-suppressed", budget=200)
+    current = CU(owner)
+
+    db_session.query(models.LeagueSettings).filter(models.LeagueSettings.league_id == league.id).update(
+        {
+            "starting_slots": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 2,
+                "TE": 1,
+                "K": 0,
+                "DEF": 1,
+                "FLEX": 1,
+                "MAX_QB": 1,
+                "MAX_RB": 3,
+                "MAX_WR": 3,
+                "MAX_TE": 2,
+                "MAX_K": 0,
+                "MAX_DEF": 1,
+                "MAX_FLEX": 1,
+            }
+        },
+        synchronize_session=False,
+    )
+
+    kicker = models.Player(name="Suppressed Keeper", position="K", nfl_team="ABC")
+    runner = models.Player(name="Eligible Keeper", position="RB", nfl_team="ABC")
+    db_session.add_all([kicker, runner])
+    db_session.commit()
+    db_session.refresh(kicker)
+    db_session.refresh(runner)
+
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner.id, player_id=kicker.id, league_id=league.id, amount=5),
+            models.DraftPick(owner_id=owner.id, player_id=runner.id, league_id=league.id, amount=6),
+        ]
+    )
+    db_session.commit()
+
+    owner_view = get_my_keepers(db=db_session, current_user=current)
+    available_positions = {player.position for player in owner_view.available_players}
+    assert "K" not in available_positions
+    assert "RB" in available_positions
+
+    req = type("R", (), {})()
+    req.players = [
+        KeeperSelectionSchema(
+            player_id=kicker.id,
+            keep_cost=5,
+            years_kept_count=0,
+            status="pending",
+            approved_by_commish=False,
+        )
+    ]
+
+    with pytest.raises(HTTPException) as exc:
+        save_my_keepers(request=req, db=db_session, current_user=current)
+
+    assert exc.value.status_code == 400
+    assert "disabled for this league" in exc.value.detail
+
+
 def test_update_keeper_settings_rejects_invalid_values():
     db_session = setup_db()
     league = make_league(db_session)

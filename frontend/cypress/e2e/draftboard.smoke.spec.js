@@ -23,7 +23,7 @@ describe('DraftBoard smoke', () => {
       ],
     }).as('owners');
 
-    cy.intercept('GET', '**/players/', {
+    cy.intercept('GET', /\/players\//, {
       statusCode: 200,
       body: [
         {

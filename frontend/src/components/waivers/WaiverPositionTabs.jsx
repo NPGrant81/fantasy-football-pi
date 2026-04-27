@@ -5,8 +5,8 @@ import { buttonPrimary, buttonSecondary } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
 
-export default function WaiverPositionTabs({ activeTab, setActiveTab }) {
-  const tabs = ['ALL', ...POSITIONS];
+export default function WaiverPositionTabs({ activeTab, setActiveTab, positions = POSITIONS }) {
+  const tabs = ['ALL', ...positions];
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar">

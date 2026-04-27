@@ -16,6 +16,7 @@ export default function AuctionBlock({
   suggestions,
   showSuggestions,
   selectSuggestion,
+  positions = POSITIONS,
   posFilter,
   setPosFilter,
   winnerId,
@@ -76,7 +77,7 @@ export default function AuctionBlock({
       <div className="flex flex-col gap-2 text-[12px] text-slate-300">
         {/* position filter row */}
         <div className="flex flex-wrap gap-1">
-          {['ALL', ...POSITIONS].map((pos) => (
+          {['ALL', ...positions].map((pos) => (
             <button
               key={pos}
               onClick={() => setPosFilter(pos)}
@@ -250,7 +251,7 @@ export default function AuctionBlock({
             <span className="font-bold text-white">{nominatorName}</span>
           </div>
           <div className="flex flex-wrap gap-1 mb-2">
-            {['ALL', ...POSITIONS].map((pos) => (
+            {['ALL', ...positions].map((pos) => (
               <button
                 key={pos}
                 onClick={() => setPosFilter(pos)}
