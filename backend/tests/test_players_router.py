@@ -459,6 +459,8 @@ def test_players_endpoint_dedupes_name_position_team_aliases(client):
     suffix = uuid4().hex[:8]
     brandin_name = f"Brandin Cooks Dedup {suffix}"
     brian_name = f"Brian Thomas Jr Dedup {suffix}"
+    sf_def_name = f"San Francisco Defense Dedup {suffix}"
+    ne_def_name = f"New England Defense Dedup {suffix}"
     created_ids: list[int] = []
     base_id = 700000 + int(suffix[:6], 16)
 
@@ -493,6 +495,34 @@ def test_players_endpoint_dedupes_name_position_team_aliases(client):
                 nfl_team="JAC",
                 gsis_id=None,
             ),
+            models.Player(
+                id=base_id + 4,
+                name=sf_def_name,
+                position="DEF",
+                nfl_team="SFO",
+                gsis_id=None,
+            ),
+            models.Player(
+                id=base_id + 5,
+                name=sf_def_name,
+                position="DEF",
+                nfl_team="SF",
+                gsis_id=None,
+            ),
+            models.Player(
+                id=base_id + 6,
+                name=ne_def_name,
+                position="DEF",
+                nfl_team="NWE",
+                gsis_id=None,
+            ),
+            models.Player(
+                id=base_id + 7,
+                name=ne_def_name,
+                position="DEF",
+                nfl_team="NE",
+                gsis_id=None,
+            ),
         ]
 
         session.add_all(players)
@@ -516,9 +546,21 @@ def test_players_endpoint_dedupes_name_position_team_aliases(client):
             for row in data
             if row.get("name") == brian_name and row.get("position") == "WR"
         ]
+        sf_def = [
+            row
+            for row in data
+            if row.get("name") == sf_def_name and row.get("position") == "DEF"
+        ]
+        ne_def = [
+            row
+            for row in data
+            if row.get("name") == ne_def_name and row.get("position") == "DEF"
+        ]
 
         assert len(brandin) == 1
         assert len(brian) == 1
+        assert len(sf_def) == 1
+        assert len(ne_def) == 1
     finally:
         cleanup = SessionLocal()
         try:

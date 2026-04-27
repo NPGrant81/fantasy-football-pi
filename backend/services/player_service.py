@@ -18,6 +18,8 @@ TEAM_ALIASES = {
     "STL": "LAR",
     "SD": "LAC",
     "OAK": "LV",
+    "SFO": "SF",
+    "NWE": "NE",
 }
 
 PLACEHOLDER_NAME_PREFIXES = ("generic", "unknown", "placeholder", "test")

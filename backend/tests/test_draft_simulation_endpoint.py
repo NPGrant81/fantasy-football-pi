@@ -230,3 +230,60 @@ def test_build_monte_carlo_inputs_from_db_returns_live_league_frames(db_session)
     fallback_row = inputs.historical_rankings_df[inputs.historical_rankings_df["player_id"] == 202].iloc[0]
     assert fallback_row["predicted_auction_value"] == 18.0
     assert inputs.budget_df.iloc[0]["DraftBudget"] == 215
+
+
+def test_simulation_endpoint_handles_missing_team_metrics_gracefully(db_session, monkeypatch):
+    league, commissioner, owner_a, _ = _create_league_and_users(db_session)
+
+    player = models.Player(id=301, name="Player Three", position="WR", nfl_team="SFO")
+    db_session.add(player)
+    db_session.commit()
+    db_session.add(
+        models.DraftPick(
+            owner_id=owner_a.id,
+            player_id=player.id,
+            league_id=league.id,
+            amount=22.0,
+            year=2026,
+            current_status="BENCH",
+        )
+    )
+    db_session.commit()
+
+    def _fake_run_monte_carlo_simulation(**kwargs):
+        picks = pd.DataFrame(
+            [
+                {
+                    "iteration": 1,
+                    "owner_id": owner_a.id,
+                    "player_id": 301,
+                    "player_name": "Player Three",
+                    "predicted_auction_value": 22.0,
+                    "position": "WR",
+                }
+            ]
+        )
+        return MonteCarloSimulationResult(
+            draft_picks=picks,
+            team_metrics=pd.DataFrame(),
+            owner_summary=pd.DataFrame(),
+            assumptions={"ok": True},
+        )
+
+    monkeypatch.setattr(draft_router, "run_monte_carlo_draft_simulation", _fake_run_monte_carlo_simulation)
+
+    payload = draft_router.DraftSimulationRequest(
+        perspective_owner_id=owner_a.id,
+        iterations=100,
+    )
+
+    response = draft_router.run_draft_simulation(
+        payload=payload,
+        db=db_session,
+        current_user=commissioner,
+    )
+
+    assert response["perspective_owner_id"] == owner_a.id
+    assert response["league_context"]["focal_avg_projected_points"] == 0.0
+    assert response["league_context"]["league_avg_projected_points"] == 0.0
+    assert response["league_context"]["delta_vs_league_avg"] == 0.0

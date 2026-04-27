@@ -52,7 +52,16 @@ const rowHeight = 40;
 const containerHeight = 560;
 
 const PLACEHOLDER_NAME_PATTERNS = [/^generic\b/i, /^unknown\b/i, /^placeholder\b/i];
-const TEAM_ALIASES = { JAX: 'JAC', WSH: 'WAS', LA: 'LAR', STL: 'LAR', SD: 'LAC', OAK: 'LV' };
+const TEAM_ALIASES = {
+  JAX: 'JAC',
+  WSH: 'WAS',
+  LA: 'LAR',
+  STL: 'LAR',
+  SD: 'LAC',
+  OAK: 'LV',
+  SFO: 'SF',
+  NWE: 'NE',
+};
 
 const parseNumber = (value, fallback = 0) => {
   const n = Number(value);

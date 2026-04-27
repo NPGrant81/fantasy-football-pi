@@ -13,6 +13,8 @@ function buildDefenseLogoUrl(nflTeam) {
     SD: 'LAC',
     STL: 'LAR',
     WSH: 'WAS',
+    SFO: 'SF',
+    NWE: 'NE',
   };
   const canonical = legacyAliases[normalized] || normalized;
   return `https://static.www.nfl.com/t_q-best/league/api/clubs/logos/${canonical}.png`;

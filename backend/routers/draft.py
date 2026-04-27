@@ -641,7 +641,13 @@ def run_draft_simulation(
     if not result.owner_summary.empty:
         focal_summary = result.owner_summary.iloc[0].to_dict()
 
-    focal_distribution = summarize_team_distribution(result.team_metrics, owner_id=perspective_owner_id)
+    required_team_metric_cols = {"owner_id", "projected_points", "total_spend"}
+    if required_team_metric_cols.issubset(set(result.team_metrics.columns)):
+        safe_team_metrics = result.team_metrics
+    else:
+        safe_team_metrics = pd.DataFrame(columns=["owner_id", "projected_points", "total_spend"])
+
+    focal_distribution = summarize_team_distribution(safe_team_metrics, owner_id=perspective_owner_id)
 
     key_target_rows: list[dict[str, Any]] = []
     if not result.draft_picks.empty:
@@ -726,13 +732,16 @@ def run_draft_simulation(
             for row in probability_df.itertuples(index=False)
         ]
 
-    league_owner_means = (
-        result.team_metrics.groupby("owner_id", as_index=False)
-        .agg(
-            avg_projected_points=("projected_points", "mean"),
-            avg_total_spend=("total_spend", "mean"),
+    if safe_team_metrics.empty:
+        league_owner_means = pd.DataFrame(columns=["owner_id", "avg_projected_points", "avg_total_spend"])
+    else:
+        league_owner_means = (
+            safe_team_metrics.groupby("owner_id", as_index=False)
+            .agg(
+                avg_projected_points=("projected_points", "mean"),
+                avg_total_spend=("total_spend", "mean"),
+            )
         )
-    )
     focal_context_row = league_owner_means[league_owner_means["owner_id"] == perspective_owner_id]
 
     focal_avg_points = (
