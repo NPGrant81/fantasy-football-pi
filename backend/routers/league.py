@@ -1208,6 +1208,57 @@ def get_league_budgets(
         for owner in owners
     ]
 
+@router.get("/{league_id}/draft-keepers")
+def get_draft_keepers(
+    league_id: int,
+    season: Optional[int] = Query(None),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return locked/approved keepers for draft board pre-population. Available to any league member."""
+    if current_user.league_id != league_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: user is not in this league.",
+        )
+    if season is not None:
+        query_season = _validate_season_year(season)
+    else:
+        settings = (
+            db.query(models.LeagueSettings)
+            .filter(models.LeagueSettings.league_id == league_id)
+            .first()
+        )
+        from datetime import timezone as _tz
+        query_season = (
+            settings.draft_year
+            if settings and settings.draft_year is not None
+            else datetime.now(_tz.utc).year
+        )
+
+    rows = (
+        db.query(models.Keeper, models.Player)
+        .join(models.Player, models.Keeper.player_id == models.Player.id)
+        .filter(
+            models.Keeper.league_id == league_id,
+            models.Keeper.season == query_season,
+            models.Keeper.status.in_(["locked", "approved"]),
+        )
+        .all()
+    )
+    return [
+        {
+            "owner_id": keeper.owner_id,
+            "player_id": keeper.player_id,
+            "player_name": player.name,
+            "position": player.position,
+            "keep_cost": float(keeper.keep_cost),
+            "status": keeper.status,
+        }
+        for keeper, player in rows
+    ]
+
+
 @router.post("/{league_id}/budgets")
 def update_league_budgets(
     league_id: int,

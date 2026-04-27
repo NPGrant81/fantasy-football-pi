@@ -93,6 +93,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     useState(false);
   const [draftPopupData, setDraftPopupData] = useState(null);
   const [historicalRankings, setHistoricalRankings] = useState([]);
+  const [keeperPicks, setKeeperPicks] = useState([]);
 
   const sessionId = useMemo(() => {
     if (activeLeagueId && draftYear) {
@@ -134,6 +135,12 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       .catch(() => console.log('No history yet'));
   }, [sessionId]);
 
+  // Merge keeper pre-picks with live draft history so budget + grid see keepers as drafted slots
+  const allPicks = useMemo(() => [
+    ...keeperPicks.map((kp) => ({ ...kp, amount: kp.keep_cost, is_keeper: true })),
+    ...history,
+  ], [keeperPicks, history]);
+
   // 1.2.1 THE DRAFT ACTION
   // We define this first, but we remove the 'reset' dependency.
   // The timer will now handle its own reset when handleDraft is triggered by the clock.
@@ -146,7 +153,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       if (!effectiveWinnerId || !playerName) return;
       const winnerStats = getOwnerStats(
         effectiveWinnerId,
-        history,
+        allPicks,
         budgetMap,
         undefined,
         rosterSize
@@ -155,7 +162,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       const foundPlayer = players.find(
         (p) => p.name.toLowerCase() === playerName.toLowerCase()
       );
-      if (!foundPlayer || history.some((h) => h.player_id === foundPlayer.id))
+      if (!foundPlayer || allPicks.some((h) => h.player_id === foundPlayer.id))
         return;
 
       const payload = {
@@ -313,6 +320,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       .catch(() => {
         setBudgetMap({});
       });
+    // Fetch locked/approved keepers for this season to pre-populate the board
+    apiClient
+      .get(`/leagues/${activeLeagueId}/draft-keepers?season=${draftYear}`)
+      .then((res) => setKeeperPicks(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setKeeperPicks([]));
   }, [activeLeagueId, draftYear]);
 
   useEffect(() => {
@@ -344,34 +356,34 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   const currentNominatorId = useMemo(() => {
     if (owners.length === 0) return null;
     return [...owners].sort((a, b) => a.id - b.id)[
-      history.length % owners.length
+      allPicks.length % owners.length
     ].id;
-  }, [owners, history.length]);
+  }, [owners, allPicks.length]);
 
   const activeStats = useMemo(() => {
     if (!effectiveWinnerId) return null;
     return getOwnerStats(
       effectiveWinnerId,
-      history,
+      allPicks,
       budgetMap,
       undefined,
       rosterSize
     );
-  }, [effectiveWinnerId, history, budgetMap, rosterSize]);
+  }, [effectiveWinnerId, allPicks, budgetMap, rosterSize]);
 
   const ownerStatsById = useMemo(() => {
     const map = {};
     owners.forEach((owner) => {
       map[owner.id] = getOwnerStats(
         owner.id,
-        history,
+        allPicks,
         budgetMap,
         undefined,
         rosterSize
       );
     });
     return map;
-  }, [owners, history, budgetMap, rosterSize]);
+  }, [owners, allPicks, budgetMap, rosterSize]);
 
   const ownersWithBudgets = useMemo(() => {
     return owners.map((owner) => ({
@@ -439,8 +451,8 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   }, [history, owners]);
 
   const undraftedPlayerIds = useMemo(
-    () => new Set(history.map((pick) => pick.player_id)),
-    [history]
+    () => new Set(allPicks.map((pick) => pick.player_id)),
+    [allPicks]
   );
 
   const bestAvailablePlayers = useMemo(() => {
@@ -583,7 +595,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           <section className="overflow-x-auto border-r border-slate-800 custom-scrollbar col-span-12">
             <DraftBoardGrid
               teams={ownersWithBudgets}
-              history={history}
+              history={allPicks}
               rosterLimit={rosterSize}
               highlightOwnerId={highlightOwnerId}
               onPlayerClick={openPlayerPerformance}
