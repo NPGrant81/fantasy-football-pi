@@ -8,6 +8,7 @@ export default function SessionHeader({
   _leagueId,
   onFinalize,
   onPause,
+  isPaused,
 }) {
   // --- 1.1 SAFETY LOGIC ---
   const handleFinalize = () => {
@@ -60,10 +61,14 @@ export default function SessionHeader({
           {onPause && (
             <button
               onClick={onPause}
-              className="group flex items-center gap-1 bg-yellow-950/40 hover:bg-yellow-600 border border-yellow-900/50 hover:border-yellow-400 text-yellow-500 hover:text-white px-4 py-1.5 rounded-full transition-all duration-300"
+              className={`group flex items-center gap-1 border px-4 py-1.5 rounded-full transition-all duration-300 ${
+                isPaused
+                  ? 'bg-yellow-600 border-yellow-400 text-white hover:bg-yellow-700'
+                  : 'bg-yellow-950/40 hover:bg-yellow-600 border-yellow-900/50 hover:border-yellow-400 text-yellow-500 hover:text-white'
+              }`}
             >
               <FiClock className="text-xs" />
-              <span className="tracking-widest">Pause</span>
+              <span className="tracking-widest">{isPaused ? 'Resume' : 'Pause'}</span>
             </button>
           )}
         </div>
