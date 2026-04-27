@@ -52,6 +52,7 @@ class DivisionFinalizeRequest(BaseModel):
     season: int
     assignment_method: str
     random_seed: str | None = None
+    manual_assignments: dict[int, list[int]] | None = None
 
 
 class DivisionReportNameRequest(BaseModel):
@@ -407,6 +408,7 @@ def finalize_assignment(
             season=payload.season,
             assignment_method=payload.assignment_method,
             random_seed=payload.random_seed,
+            manual_assignments=payload.manual_assignments,
         ),
         db=db,
         current_user=current_user,

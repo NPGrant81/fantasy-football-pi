@@ -44,6 +44,8 @@ export default function ManageDivisions() {
   const [assignmentMethod, setAssignmentMethod] = useState('heuristic');
   const [randomSeed, setRandomSeed] = useState('');
   const [names, setNames] = useState([]);
+  const [owners, setOwners] = useState([]);
+  const [manualAssignments, setManualAssignments] = useState({});
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -106,8 +108,9 @@ export default function ManageDivisions() {
         }),
       ]);
 
-      const owners = Array.isArray(ownersRes.data) ? ownersRes.data : [];
-      setOwnerCount(owners.length);
+      const ownersData = Array.isArray(ownersRes.data) ? ownersRes.data : [];
+      setOwners(ownersData);
+      setOwnerCount(ownersData.length);
 
       const cfg = configRes.data || {};
       const cfgSeason = Number(cfg.season || targetSeason);
@@ -187,13 +190,24 @@ export default function ManageDivisions() {
     setPreviewing(true);
     setMessage('');
     try {
+      const payload = {
+        season: Number(season),
+        assignment_method: assignmentMethod,
+        random_seed: randomSeed || null,
+      };
+
+      if (assignmentMethod === 'manual') {
+        if (!manualAssignments || Object.keys(manualAssignments).length === 0) {
+          setMessage('Please select teams for each division before previewing.');
+          setPreviewing(false);
+          return;
+        }
+        payload.manual_assignments = manualAssignments;
+      }
+
       const res = await apiClient.post(
         `/leagues/${leagueId}/divisions/assignment-preview`,
-        {
-          season: Number(season),
-          assignment_method: assignmentMethod,
-          random_seed: randomSeed || null,
-        }
+        payload
       );
       setPreview(res.data || null);
       setMessage('Preview generated. Review confidence and imbalance before finalizing.');
@@ -209,11 +223,17 @@ export default function ManageDivisions() {
     setFinalizing(true);
     setMessage('');
     try {
-      await apiClient.post(`/leagues/${leagueId}/divisions/finalize`, {
+      const payload = {
         season: Number(season),
         assignment_method: assignmentMethod,
         random_seed: randomSeed || null,
-      });
+      };
+
+      if (assignmentMethod === 'manual') {
+        payload.manual_assignments = manualAssignments;
+      }
+
+      await apiClient.post(`/leagues/${leagueId}/divisions/finalize`, payload);
       setMessage('Divisions finalized for the selected season.');
       await loadContext(season);
     } catch (err) {
@@ -339,9 +359,7 @@ export default function ManageDivisions() {
               disabled={!enabled}
               onChange={(e) => setAssignmentMethod(e.target.value)}
             >
-              <option value="manual" disabled>
-                Manual (coming soon)
-              </option>
+              <option value="manual">Manual (custom)</option>
               <option value="random">Random (seeded)</option>
               <option value="heuristic">Heuristic (deterministic)</option>
             </select>
@@ -360,6 +378,53 @@ export default function ManageDivisions() {
             />
           </div>
         </div>
+
+        {assignmentMethod === 'manual' && enabled && (
+          <div className="mt-6 pt-6 border-t border-slate-300 dark:border-slate-700">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">
+              Manual Team Assignment
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+              Select which teams should be assigned to each division. Each team must be assigned to exactly one division.
+            </p>
+            <div className="space-y-3">
+              {Array.from({ length: divisionCount }, (_, idx) => (
+                <div key={`manual-division-${idx}`} className="rounded-lg border border-slate-300 dark:border-slate-700 p-3">
+                  <div className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+                    {names[idx]?.name || `Division ${idx + 1}`}
+                  </div>
+                  <div className="space-y-2">
+                    {owners.map((owner) => {
+                      const isAssigned = (manualAssignments[idx] || []).includes(owner.id);
+                      return (
+                        <label key={`checkbox-${idx}-${owner.id}`} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={(e) => {
+                              const next = { ...manualAssignments };
+                              if (!next[idx]) next[idx] = [];
+                              if (e.target.checked) {
+                                next[idx].push(owner.id);
+                              } else {
+                                next[idx] = next[idx].filter((id) => id !== owner.id);
+                              }
+                              setManualAssignments(next);
+                            }}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-slate-900 dark:text-white">
+                            {owner.team_name || owner.username}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-4">
           <div className="mb-2 text-sm font-bold text-slate-900 dark:text-white">Division Names</div>
