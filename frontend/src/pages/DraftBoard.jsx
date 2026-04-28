@@ -195,7 +195,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       owners,
       playerName,
       players,
-      history,
+      allPicks,
       budgetMap,
       rosterSize,
       bidAmount,
@@ -223,7 +223,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         const res = await apiClient.get(
           `/players/search?q=${val}&pos=${posFilter}&league_id=${activeLeagueId}`
         );
-        const draftedIds = new Set(history.map((h) => h.player_id));
+        const draftedIds = new Set(allPicks.map((h) => h.player_id));
         const filtered = res.data
           .filter((p) => !draftedIds.has(p.id) && isActiveDraftPlayer(p))
           .sort((a, b) => {

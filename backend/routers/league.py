@@ -1242,7 +1242,10 @@ def get_draft_keepers(
         .filter(
             models.Keeper.league_id == league_id,
             models.Keeper.season == query_season,
-            models.Keeper.status.in_(["locked", "approved"]),
+            or_(
+                models.Keeper.status == "locked",
+                models.Keeper.approved_by_commish.is_(True),
+            ),
         )
         .all()
     )
