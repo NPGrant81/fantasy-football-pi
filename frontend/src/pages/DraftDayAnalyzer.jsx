@@ -1042,7 +1042,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               onClick={() => toggleSort('price_min')}
               type="button"
             >
-              MIN
+              Min $
             </button>
             <button
               className="col-span-2 text-right"
@@ -1056,7 +1056,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               onClick={() => toggleSort('price_max')}
               type="button"
             >
-              MAX
+              Max $
             </button>
           </div>
 
