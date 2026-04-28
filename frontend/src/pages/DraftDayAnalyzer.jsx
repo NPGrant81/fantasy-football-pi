@@ -398,10 +398,17 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         if (pos === 'DEF') return true;
         // Keep kickers regardless of external ID — provider coverage for K is inconsistent.
         if (pos === 'K') return true;
-        // For skill positions (QB/RB/WR/TE): keep if they have a ranking record even without
-        // an espn_id/gsis_id, since the DB may lag provider sync but data is valid.
-        const hasRanking = Boolean(player.id);
-        return hasExternalIdentity || hasRanking;
+        // For skill positions (QB/RB/WR/TE): keep if they have a ranking record
+        // (checked against the loaded rankings maps) even without an espn_id/gsis_id,
+        // since the DB may lag provider sync but data is valid.
+        const identityKey = identityKeyForRecord({
+          name: player.name,
+          position: player.position,
+          team: player.nfl_team,
+        });
+        const hasRankingRecord =
+          rankingByPlayerId.has(Number(player.id)) || rankingByIdentity.has(identityKey);
+        return hasExternalIdentity || hasRankingRecord;
       })
       .map((player) => {
         const identityKey = identityKeyForRecord({

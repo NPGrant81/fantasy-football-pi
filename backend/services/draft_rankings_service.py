@@ -558,6 +558,7 @@ def get_historical_rankings(
     league_id: int | None = None,
     owner_id: int | None = None,
     position: str | None = None,
+    player_ids: list[int] | None = None,
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 200))
 
@@ -633,7 +634,9 @@ def get_historical_rankings(
         )
 
         # Derive confidence_score (0–100) as the inverse of risk.
-        # Risk is based on the product of all consistency factors; 1.0 = perfectly reliable.
+        # A reliability_blend of 1.5 (all factors at/above their reliable ceiling) maps to 0 risk
+        # (100% confidence). A blend of 0 maps to 100 risk (0% confidence). A neutral blend of
+        # 1.0 (all factors at their base value) produces ~33 risk / ~67 confidence.
         reliability_blend = (
             scoring_consistency_factor
             * late_start_consistency_factor
@@ -677,6 +680,17 @@ def get_historical_rankings(
         key=lambda row: (row["final_score"], row["predicted_auction_value"]),
         reverse=True,
     )[:safe_limit]
+
+    # If specific player_ids were requested, ensure each one is present in the result
+    # regardless of rank — append any missing requested players from scored_payload.
+    if player_ids:
+        ranked_player_ids = {row["player_id"] for row in ranked}
+        required_ids = set(player_ids)
+        extras = [
+            row for row in scored_payload
+            if row["player_id"] in required_ids and row["player_id"] not in ranked_player_ids
+        ]
+        ranked = ranked + extras
 
     for index, row in enumerate(ranked, start=1):
         row["rank"] = index
