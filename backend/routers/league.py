@@ -15,6 +15,7 @@ from ..services.history_owner_gap_service import build_history_owner_gap_report
 from ..services import league_history_enrichment_service as history_enrichment_service
 from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.player_news_service import sentiment_from_text as _sentiment_from_text
+from ..services.commissioner_deadline_service import parse_commissioner_deadline
 from ..services.validation_service import (
     validate_league_settings_boundary,
     validate_league_settings_dynamic_rules,
@@ -1130,8 +1131,6 @@ def set_league_draft_year(
 # --- TRADE RULES ---
 class TradeRulesSchema(BaseModel):
     trade_deadline: Optional[str] = None
-    trade_start_at: Optional[str] = None
-    trade_end_at: Optional[str] = None
     allow_playoff_trades: bool = True
     require_commissioner_approval: bool = True
     trade_veto_enabled: bool = False
@@ -1162,8 +1161,6 @@ def get_trade_rules(
         return TradeRulesSchema()
     return TradeRulesSchema(
         trade_deadline=settings.trade_deadline,
-        trade_start_at=settings.trade_start_at.isoformat() if settings.trade_start_at else None,
-        trade_end_at=settings.trade_end_at.isoformat() if settings.trade_end_at else None,
         allow_playoff_trades=settings.allow_playoff_trades,
         require_commissioner_approval=settings.require_commissioner_approval,
         trade_veto_enabled=settings.trade_veto_enabled,
@@ -1183,6 +1180,14 @@ def update_trade_rules(
     db: Session = Depends(get_db),
 ):
     _require_commissioner_in_league(current_user, league_id)
+
+    # Validate trade_deadline as a timezone-aware ISO-8601 timestamp when provided
+    if payload.trade_deadline and payload.trade_deadline.strip():
+        if parse_commissioner_deadline(payload.trade_deadline) is None:
+            raise HTTPException(
+                status_code=400,
+                detail="trade_deadline must be a timezone-aware ISO-8601 timestamp (e.g. 2026-04-01T18:00:00Z).",
+            )
 
     # Validate veto threshold only when veto is enabled
     if payload.trade_veto_enabled and (
@@ -1226,8 +1231,6 @@ def update_trade_rules(
 
     return TradeRulesSchema(
         trade_deadline=settings.trade_deadline,
-        trade_start_at=settings.trade_start_at.isoformat() if settings.trade_start_at else None,
-        trade_end_at=settings.trade_end_at.isoformat() if settings.trade_end_at else None,
         allow_playoff_trades=settings.allow_playoff_trades,
         require_commissioner_approval=settings.require_commissioner_approval,
         trade_veto_enabled=settings.trade_veto_enabled,

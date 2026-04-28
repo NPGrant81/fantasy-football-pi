@@ -49,7 +49,8 @@ function NumberInput({ value, onChange, id, min = 1, max, placeholder }) {
       placeholder={placeholder}
       onChange={(e) => {
         const v = e.target.value;
-        onChange(v === '' ? null : Number(v));
+        const n = Number(v);
+        onChange(v === '' ? null : (Number.isFinite(n) ? Math.trunc(n) : null));
       }}
     />
   );
@@ -126,11 +127,15 @@ export default function TradeRulesModal({ open, onClose }) {
               </label>
               <input
                 id="trade_deadline"
-                type="text"
+                type="datetime-local"
                 className={inputBase}
-                value={rules.trade_deadline ?? ''}
-                placeholder="YYYY-MM-DD or leave blank"
-                onChange={(e) => set('trade_deadline')(e.target.value || null)}
+                value={rules.trade_deadline
+                  ? rules.trade_deadline.replace('Z', '').replace(/\+\d{2}:\d{2}$/, '').substring(0, 16)
+                  : ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  set('trade_deadline')(v ? v + ':00Z' : null);
+                }}
               />
             </div>
 
