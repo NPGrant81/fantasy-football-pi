@@ -34,10 +34,13 @@ from .scripts.validation.validate_mfl_import import run_validate_mfl_import, for
 from .scripts.validation.validate_season_hierarchy import run_validate_season_hierarchy, format_season_hierarchy_output
 from .scripts.validation.validate_league_readiness import run_validate_league_readiness, format_league_readiness_output
 import csv as _csv
-import io as _io
 import json as _json
 import os as _os
 from . import models
+from .services.league_history_enrichment_service import (
+    normalize_history_team_key as _normalize_history_team_key,
+    owner_label_is_placeholder as _owner_label_is_placeholder,
+)
 
 
 @click.group()
@@ -1340,7 +1343,7 @@ def history_owner_gap_report(league_id: int, season: int | None, json_output: st
         total = len(all_rows)
         placeholder_rows = [
             r for r in all_rows
-            if not r.owner_name or not r.owner_name.strip() or r.owner_name.strip() == (r.team_name or "").strip()
+            if not (r.owner_name or "").strip() or _owner_label_is_placeholder(r.owner_name, r.team_name)
         ]
         resolved_rows = [r for r in all_rows if r not in placeholder_rows]
 
@@ -1431,7 +1434,7 @@ def export_history_owner_seed(league_id: int, output: str, placeholders_only: bo
         if placeholders_only:
             rows_to_export = [
                 r for r in all_rows
-                if not r.owner_name or not r.owner_name.strip() or r.owner_name.strip() == (r.team_name or "").strip()
+                if not (r.owner_name or "").strip() or _owner_label_is_placeholder(r.owner_name, r.team_name)
             ]
         else:
             rows_to_export = all_rows
@@ -1532,7 +1535,7 @@ def import_history_owner_seed(league_id: int, csv_path: str, apply_changes: bool
                     errors.append(f"Row {i}: invalid owner_id {owner_id_raw!r} — clearing owner_id")
                     owner_id = None
 
-            team_name_key = team_name.lower().strip()
+            team_name_key = _normalize_history_team_key(team_name)
 
             existing = None
             if row_id_raw:
@@ -1556,10 +1559,11 @@ def import_history_owner_seed(league_id: int, csv_path: str, apply_changes: bool
 
             if apply_changes:
                 if existing:
+                    existing.team_name = team_name
+                    existing.team_name_key = team_name_key
                     existing.owner_name = owner_name
                     existing.owner_id = owner_id
-                    if notes:
-                        existing.notes = notes
+                    existing.notes = notes
                     updated += 1
                 else:
                     db.add(models.LeagueHistoryTeamOwnerMap(
