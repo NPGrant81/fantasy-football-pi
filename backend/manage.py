@@ -34,6 +34,8 @@ from .scripts.validation.validate_mfl_import import run_validate_mfl_import, for
 from .scripts.validation.validate_season_hierarchy import run_validate_season_hierarchy, format_season_hierarchy_output
 from .scripts.validation.validate_league_readiness import run_validate_league_readiness, format_league_readiness_output
 import csv as _csv
+import io as _io
+import json as _json
 import os as _os
 from . import models
 
@@ -1303,6 +1305,296 @@ def validate_league_readiness_cmd(league_id: int):
     
     if summary["errors"]:
         raise click.ClickException("Validation failed with errors")
+
+
+# ====== HISTORY OWNER BACKFILL COMMANDS ======
+
+
+
+@cli.command("history-owner-gap-report")
+@click.option("--league-id", type=int, required=True, help="League ID to report on (e.g. 60 for Post Pacific League).")
+@click.option("--season", type=int, default=None, help="Limit report to a specific season year.")
+@click.option("--json-output", type=click.Path(dir_okay=False, writable=True), default=None, help="Write full JSON report to file.")
+def history_owner_gap_report(league_id: int, season: int | None, json_output: str | None):
+    """Print a summary of unresolved / placeholder historical owner mappings for a league.
+
+    Useful for diagnosing League 60 (Post Pacific League) enrichment gaps before running the
+    enrichment workflow via the commissioner UI or import-history-owner-seed command.
+    """
+    db = SessionLocal()
+    try:
+        league = db.query(models.League).filter(models.League.id == league_id).first()
+        if not league:
+            raise click.ClickException(f"League {league_id} not found in the database.")
+
+        q = db.query(models.LeagueHistoryTeamOwnerMap).filter(
+            models.LeagueHistoryTeamOwnerMap.league_id == league_id,
+        )
+        if season is not None:
+            q = q.filter(models.LeagueHistoryTeamOwnerMap.season == season)
+        all_rows = q.order_by(
+            models.LeagueHistoryTeamOwnerMap.season,
+            models.LeagueHistoryTeamOwnerMap.team_name,
+        ).all()
+
+        total = len(all_rows)
+        placeholder_rows = [
+            r for r in all_rows
+            if not r.owner_name or not r.owner_name.strip() or r.owner_name.strip() == (r.team_name or "").strip()
+        ]
+        resolved_rows = [r for r in all_rows if r not in placeholder_rows]
+
+        seasons_with_gaps = sorted({r.season for r in placeholder_rows})
+        seasons_fully_resolved = sorted({r.season for r in resolved_rows} - set(seasons_with_gaps))
+
+        click.echo(f"\nHistory Owner Gap Report — League {league_id} ({league.name})")
+        click.echo(f"{'=' * 60}")
+        click.echo(f"  Total mapped rows:   {total}")
+        click.echo(f"  Resolved rows:       {len(resolved_rows)}")
+        click.echo(f"  Placeholder rows:    {len(placeholder_rows)}")
+        if total > 0:
+            coverage = round(len(resolved_rows) / total * 100)
+            click.echo(f"  Coverage:            {coverage}%")
+        click.echo()
+
+        if placeholder_rows:
+            click.echo("Seasons with placeholder owner mappings:")
+            season_groups: dict[int, list] = {}
+            for r in placeholder_rows:
+                season_groups.setdefault(r.season, []).append(r)
+            for s in sorted(season_groups):
+                rows_s = season_groups[s]
+                click.echo(f"  {s}: {len(rows_s)} placeholder(s)")
+                for r in rows_s[:5]:
+                    click.echo(f"    id={r.id} team={r.team_name!r} owner={r.owner_name!r}")
+                if len(rows_s) > 5:
+                    click.echo(f"    ... and {len(rows_s) - 5} more")
+        else:
+            click.echo("No placeholder mappings found — all rows are resolved.")
+
+        if seasons_fully_resolved:
+            click.echo(f"\nFully resolved seasons: {seasons_fully_resolved}")
+
+        if json_output:
+            report = {
+                "league_id": league_id,
+                "league_name": league.name,
+                "total": total,
+                "resolved": len(resolved_rows),
+                "placeholders": len(placeholder_rows),
+                "placeholder_rows": [
+                    {
+                        "id": r.id,
+                        "season": r.season,
+                        "team_name": r.team_name,
+                        "owner_name": r.owner_name,
+                        "notes": r.notes,
+                    }
+                    for r in placeholder_rows
+                ],
+            }
+            with open(json_output, "w", encoding="utf-8") as fh:
+                _json.dump(report, fh, indent=2)
+            click.echo(f"\nFull report written to {json_output}")
+    finally:
+        db.close()
+
+
+@cli.command("export-history-owner-seed")
+@click.option("--league-id", type=int, required=True, help="League ID to export (e.g. 60).")
+@click.option("--output", type=click.Path(dir_okay=False, writable=True), required=True, help="Output CSV path.")
+@click.option("--placeholders-only", is_flag=True, default=False, help="Export only placeholder rows (default: all rows).")
+@click.option("--season", type=int, default=None, help="Limit export to a specific season year.")
+def export_history_owner_seed(league_id: int, output: str, placeholders_only: bool, season: int | None):
+    """Export league_history_team_owner_map rows to a CSV seed file.
+
+    The exported CSV can be edited offline (fill in owner_name / owner_id)
+    and re-imported via import-history-owner-seed or the commissioner UI at
+    /commissioner/history-owner-mapping.
+    """
+    db = SessionLocal()
+    try:
+        league = db.query(models.League).filter(models.League.id == league_id).first()
+        if not league:
+            raise click.ClickException(f"League {league_id} not found in the database.")
+
+        q = db.query(models.LeagueHistoryTeamOwnerMap).filter(
+            models.LeagueHistoryTeamOwnerMap.league_id == league_id,
+        )
+        if season is not None:
+            q = q.filter(models.LeagueHistoryTeamOwnerMap.season == season)
+        all_rows = q.order_by(
+            models.LeagueHistoryTeamOwnerMap.season,
+            models.LeagueHistoryTeamOwnerMap.team_name,
+        ).all()
+
+        if placeholders_only:
+            rows_to_export = [
+                r for r in all_rows
+                if not r.owner_name or not r.owner_name.strip() or r.owner_name.strip() == (r.team_name or "").strip()
+            ]
+        else:
+            rows_to_export = all_rows
+
+        fieldnames = ["id", "season", "team_name", "owner_name", "owner_id", "notes"]
+        with open(output, "w", newline="", encoding="utf-8") as fh:
+            writer = _csv.DictWriter(fh, fieldnames=fieldnames)
+            writer.writeheader()
+            for r in rows_to_export:
+                writer.writerow({
+                    "id": r.id,
+                    "season": r.season,
+                    "team_name": r.team_name,
+                    "owner_name": r.owner_name or "",
+                    "owner_id": r.owner_id or "",
+                    "notes": r.notes or ("placeholder - fill in real owner name" if not r.owner_name or r.owner_name.strip() == (r.team_name or "").strip() else ""),
+                })
+
+        click.echo(f"Exported {len(rows_to_export)} rows for league {league_id} ({league.name}) to {output}")
+        if placeholders_only:
+            click.echo("(placeholder rows only — edit owner_name / owner_id then re-import)")
+        else:
+            click.echo("(all rows — edit owner_name / owner_id for placeholder rows then re-import)")
+    finally:
+        db.close()
+
+
+@cli.command("import-history-owner-seed")
+@click.option("--league-id", type=int, required=True, help="League ID to import into.")
+@click.option("--csv", "csv_path", type=click.Path(file_okay=True, dir_okay=False, exists=True), required=True, help="Path to filled-in seed CSV (from export-history-owner-seed).")
+@click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write to DB (default: dry-run).")
+def import_history_owner_seed(league_id: int, csv_path: str, apply_changes: bool):
+    """Import filled-in owner name mappings from a CSV seed file.
+
+    Reads a CSV produced by export-history-owner-seed (or the commissioner UI
+    export) where owner_name has been filled in, and upserts each row into
+    league_history_team_owner_map.
+
+    Rows with empty owner_name are skipped. Rows without an id are inserted as
+    new; rows with an id matching an existing record are updated.
+
+    Run without --apply for a dry-run preview first.
+    """
+    db = SessionLocal()
+    try:
+        league = db.query(models.League).filter(models.League.id == league_id).first()
+        if not league:
+            raise click.ClickException(f"League {league_id} not found in the database.")
+
+        with open(csv_path, newline="", encoding="utf-8") as fh:
+            reader = _csv.DictReader(fh)
+            rows = list(reader)
+
+        if not rows:
+            raise click.ClickException("CSV is empty — nothing to import.")
+
+        created = 0
+        updated = 0
+        skipped = 0
+        errors: list[str] = []
+
+        for i, row in enumerate(rows, start=2):  # row 1 = header
+            team_name = (row.get("team_name") or "").strip()
+            owner_name = (row.get("owner_name") or "").strip()
+            season_raw = (row.get("season") or "").strip()
+            row_id_raw = (row.get("id") or "").strip()
+            notes = (row.get("notes") or "").strip() or None
+
+            if not team_name:
+                errors.append(f"Row {i}: missing team_name — skipped")
+                skipped += 1
+                continue
+
+            if not owner_name or owner_name == team_name:
+                skipped += 1
+                continue
+
+            try:
+                season = int(season_raw)
+            except (ValueError, TypeError):
+                errors.append(f"Row {i}: invalid season {season_raw!r} — skipped")
+                skipped += 1
+                continue
+
+            owner_id: int | None = None
+            owner_id_raw = (row.get("owner_id") or "").strip()
+            if owner_id_raw:
+                try:
+                    owner_id = int(owner_id_raw)
+                    owner = db.query(models.User).filter(
+                        models.User.id == owner_id,
+                        models.User.league_id == league_id,
+                    ).first()
+                    if not owner:
+                        errors.append(f"Row {i}: owner_id {owner_id} not in league {league_id} — clearing owner_id")
+                        owner_id = None
+                except (ValueError, TypeError):
+                    errors.append(f"Row {i}: invalid owner_id {owner_id_raw!r} — clearing owner_id")
+                    owner_id = None
+
+            team_name_key = team_name.lower().strip()
+
+            existing = None
+            if row_id_raw:
+                try:
+                    existing = db.query(models.LeagueHistoryTeamOwnerMap).filter(
+                        models.LeagueHistoryTeamOwnerMap.id == int(row_id_raw),
+                        models.LeagueHistoryTeamOwnerMap.league_id == league_id,
+                    ).first()
+                except (ValueError, TypeError):
+                    pass
+
+            if existing is None:
+                existing = db.query(models.LeagueHistoryTeamOwnerMap).filter(
+                    models.LeagueHistoryTeamOwnerMap.league_id == league_id,
+                    models.LeagueHistoryTeamOwnerMap.season == season,
+                    models.LeagueHistoryTeamOwnerMap.team_name_key == team_name_key,
+                ).first()
+
+            action = "UPDATE" if existing else "INSERT"
+            click.echo(f"  [{action}] season={season} team={team_name!r} -> owner={owner_name!r}" + (f" owner_id={owner_id}" if owner_id else ""))
+
+            if apply_changes:
+                if existing:
+                    existing.owner_name = owner_name
+                    existing.owner_id = owner_id
+                    if notes:
+                        existing.notes = notes
+                    updated += 1
+                else:
+                    db.add(models.LeagueHistoryTeamOwnerMap(
+                        league_id=league_id,
+                        season=season,
+                        team_name=team_name,
+                        team_name_key=team_name_key,
+                        owner_name=owner_name,
+                        owner_id=owner_id,
+                        notes=notes,
+                    ))
+                    created += 1
+            else:
+                if existing:
+                    updated += 1
+                else:
+                    created += 1
+
+        if apply_changes:
+            db.commit()
+
+        mode_label = "applied" if apply_changes else "dry-run"
+        click.echo(f"\nImport complete ({mode_label}) — league {league_id} ({league.name})")
+        click.echo(f"  Rows read:   {len(rows)}")
+        click.echo(f"  Would insert / inserted: {created}")
+        click.echo(f"  Would update / updated:  {updated}")
+        click.echo(f"  Skipped (empty/placeholder owner): {skipped}")
+        if errors:
+            click.echo(f"\nWarnings ({len(errors)}):")
+            for e in errors:
+                click.echo(f"  {e}")
+        if not apply_changes:
+            click.echo("\nRe-run with --apply to commit changes to the database.")
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
