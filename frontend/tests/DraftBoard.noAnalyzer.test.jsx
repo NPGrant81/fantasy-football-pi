@@ -34,6 +34,13 @@ vi.mock('../src/components/player/PlayerIdentityCard', () => ({
 
 import apiClient from '../src/api/client';
 import DraftBoard from '../src/pages/DraftBoard';
+import {
+  league1BudgetsFixture,
+  league1MetaFixture,
+  league1OwnersFixture,
+  league1PlayersFixture,
+  league1SettingsFixture,
+} from './fixtures/draftboardLeague1Fixture';
 
 describe('DraftBoard analyzer isolation', () => {
   beforeEach(() => {
@@ -41,18 +48,11 @@ describe('DraftBoard analyzer isolation', () => {
 
     apiClient.get = vi.fn((url) => {
       if (url.startsWith('/leagues/owners')) {
-        return Promise.resolve({
-          data: [
-            { id: 1, username: 'alice', team_name: 'Alpha' },
-            { id: 2, username: 'bob', team_name: 'Beta' },
-          ],
-        });
+        return Promise.resolve({ data: league1OwnersFixture });
       }
 
       if (url.startsWith('/players/')) {
-        return Promise.resolve({
-          data: [{ id: 101, name: 'Player A', position: 'WR', nfl_team: 'BUF' }],
-        });
+        return Promise.resolve({ data: league1PlayersFixture });
       }
 
       if (url.startsWith('/draft/history')) {
@@ -60,7 +60,7 @@ describe('DraftBoard analyzer isolation', () => {
       }
 
       if (url.startsWith('/leagues/1/budgets')) {
-        return Promise.resolve({ data: [] });
+        return Promise.resolve({ data: league1BudgetsFixture });
       }
 
       if (url.startsWith('/draft/rankings')) {
@@ -68,17 +68,17 @@ describe('DraftBoard analyzer isolation', () => {
       }
 
       if (url === '/leagues/1') {
-        return Promise.resolve({ data: { name: 'The Big Show' } });
+        return Promise.resolve({ data: league1MetaFixture });
       }
 
       if (url === '/auth/me') {
         return Promise.resolve({
-          data: { username: 'alice', is_commissioner: true },
+          data: { username: 'nickgrant', is_commissioner: true },
         });
       }
 
       if (url.startsWith('/leagues/1/settings')) {
-        return Promise.resolve({ data: { draft_year: 2026, roster_size: 16 } });
+        return Promise.resolve({ data: league1SettingsFixture });
       }
 
       return Promise.resolve({ data: {} });

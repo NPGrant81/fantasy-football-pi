@@ -1,4 +1,5 @@
 import { FiClock, FiUsers, FiAlertTriangle } from 'react-icons/fi';
+import { DRAFT_BOARD_SORT_MODE } from '@utils/draftBoardSort';
 
 export default function SessionHeader({
   sessionId,
@@ -9,6 +10,8 @@ export default function SessionHeader({
   onFinalize,
   onPause,
   isPaused,
+  sortMode,
+  onSortModeChange,
 }) {
   // --- 1.1 SAFETY LOGIC ---
   const handleFinalize = () => {
@@ -47,6 +50,25 @@ export default function SessionHeader({
           </div>
         )}
       </div>
+
+      {onSortModeChange && (
+        <div className="flex items-center gap-2">
+          <label htmlFor="draft-board-sort-mode" className="text-slate-500">
+            Sort Team Column
+          </label>
+          <select
+            id="draft-board-sort-mode"
+            aria-label="Sort Team Column"
+            value={sortMode}
+            onChange={(event) => onSortModeChange(event.target.value)}
+            className="bg-slate-900 border border-slate-700 text-slate-100 rounded px-2 py-1 text-[10px] tracking-normal uppercase"
+          >
+            <option value={DRAFT_BOARD_SORT_MODE.DRAFT_ORDER}>Order Drafted by Team</option>
+            <option value={DRAFT_BOARD_SORT_MODE.VALUE_DESC}>Value Drafted by Team (High - Low)</option>
+            <option value={DRAFT_BOARD_SORT_MODE.POSITION}>Position by Team</option>
+          </select>
+        </div>
+      )}
 
       {/* 2.3 ADMINISTRATIVE ACTIONS */}
       {isCommissioner && (
