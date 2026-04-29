@@ -66,8 +66,9 @@ jobs:
           # Frontend: *.test.{js,jsx,ts,tsx} under frontend/tests/ OR Cypress specs.
           # Backend:  test_*.py or conftest.py under backend/tests/.
           # ETL:      test_*.py at etl root or any subdirectory.
+          # Shell/other: tests/test_* at repo root tests/ dir (e.g. test_setup_hooks.sh).
           TEST_DELTA=$(echo "$CHANGED" | grep -E \
-            '(^frontend/tests/.*\.test\.[jt]sx?$|^frontend/cypress/e2e/.*\.spec\.[jt]sx?$|^backend/tests/(test_|conftest)|^etl/.*test_)' \
+            '(^frontend/tests/.*\.test\.[jt]sx?$|^frontend/cypress/e2e/.*\.spec\.[jt]sx?$|^backend/tests/(test_|conftest)|^etl/.*test_|^tests/test_)' \
             || true)
 
           if [ -z "$TEST_DELTA" ]; then
