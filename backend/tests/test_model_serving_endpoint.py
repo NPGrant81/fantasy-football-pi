@@ -82,7 +82,7 @@ def test_model_predict_blocks_non_commissioner_cross_owner(db_session):
 def test_model_predict_returns_budget_aware_recommendations(db_session, monkeypatch):
     league, commissioner, owner_a, _ = _create_users(db_session)
 
-    def _fake_rankings_service(db, *, season, limit, league_id, owner_id, position):
+    def _fake_rankings_service(db, *, season, limit, league_id, owner_id, position, player_ids=None):
         return [
             {
                 "player_id": 10,
@@ -402,3 +402,138 @@ def test_simulation_returns_backend_error_detail(db_session, monkeypatch):
 
     assert exc.value.status_code == 500
     assert "sim engine unavailable" in str(exc.value.detail)
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for #159 / #160 fixes
+# ---------------------------------------------------------------------------
+
+def test_rankings_service_includes_confidence_score(db_session):
+    """confidence_score must be present and non-null in every rankings row (#159 fix)."""
+    import models_draft_value as draft_value_models
+
+    db_session.add_all(
+        [
+            models.Player(id=7701, name="Conf Player A", position="RB", nfl_team="AAA"),
+            models.Player(id=7702, name="Conf Player B", position="WR", nfl_team="BBB"),
+        ]
+    )
+    db_session.commit()
+    db_session.add_all(
+        [
+            models.PlayerSeason(player_id=7701, season=2026, is_active=True),
+            models.PlayerSeason(player_id=7702, season=2026, is_active=True),
+        ]
+    )
+    db_session.commit()
+    db_session.add_all(
+        [
+            draft_value_models.DraftValue(
+                player_id=7701,
+                season=2026,
+                avg_auction_value=35.0,
+                value_over_replacement=8.0,
+                consensus_tier="A",
+            ),
+            draft_value_models.DraftValue(
+                player_id=7702,
+                season=2026,
+                avg_auction_value=20.0,
+                value_over_replacement=4.0,
+                consensus_tier="B",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    rows = get_historical_rankings_service(
+        db_session,
+        season=2026,
+        limit=10,
+        league_id=None,
+        owner_id=None,
+        position=None,
+    )
+
+    assert rows, "Expected rankings rows to be returned"
+    for row in rows:
+        assert "confidence_score" in row, f"confidence_score missing from row {row}"
+        assert row["confidence_score"] is not None, "confidence_score must not be None"
+        assert 0.0 <= row["confidence_score"] <= 100.0, (
+            f"confidence_score {row['confidence_score']} out of [0, 100]"
+        )
+
+
+def test_rankings_service_player_ids_ensures_low_ranked_player_included(db_session):
+    """When player_ids is specified, the requested player must appear even if ranked >safe_limit (#159 fix)."""
+    import models_draft_value as draft_value_models
+
+    # Create 5 high-value players + 1 low-value target that would normally fall outside limit=5
+    high_ids = list(range(7801, 7806))
+    target_id = 7806
+
+    players = [
+        models.Player(id=pid, name=f"High Player {i}", position="QB", nfl_team="AAA")
+        for i, pid in enumerate(high_ids)
+    ] + [
+        models.Player(id=target_id, name="Low Ranked Target", position="QB", nfl_team="BBB"),
+    ]
+    db_session.add_all(players)
+    db_session.commit()
+
+    seasons = [
+        models.PlayerSeason(player_id=pid, season=2026, is_active=True)
+        for pid in high_ids + [target_id]
+    ]
+    db_session.add_all(seasons)
+    db_session.commit()
+
+    dv_rows = [
+        draft_value_models.DraftValue(
+            player_id=pid,
+            season=2026,
+            avg_auction_value=float(50 - i),  # high players ranked 1-5
+            value_over_replacement=float(10 - i),
+            consensus_tier="A",
+        )
+        for i, pid in enumerate(high_ids)
+    ] + [
+        draft_value_models.DraftValue(
+            player_id=target_id,
+            season=2026,
+            avg_auction_value=1.0,   # lowest value — would be cut by limit=5
+            value_over_replacement=0.1,
+            consensus_tier="C",
+        )
+    ]
+    db_session.add_all(dv_rows)
+    db_session.commit()
+
+    # Without player_ids: limit=5 should exclude the low-ranked target
+    rows_no_filter = get_historical_rankings_service(
+        db_session,
+        season=2026,
+        limit=5,
+        league_id=None,
+        owner_id=None,
+        position=None,
+    )
+    returned_ids_no_filter = {row["player_id"] for row in rows_no_filter}
+    assert target_id not in returned_ids_no_filter, (
+        "Low-ranked player should be absent when player_ids not specified and limit=5"
+    )
+
+    # With player_ids=[target_id]: must be present regardless of rank
+    rows_with_filter = get_historical_rankings_service(
+        db_session,
+        season=2026,
+        limit=5,
+        league_id=None,
+        owner_id=None,
+        position=None,
+        player_ids=[target_id],
+    )
+    returned_ids_with_filter = {row["player_id"] for row in rows_with_filter}
+    assert target_id in returned_ids_with_filter, (
+        "Low-ranked player must be present when explicitly requested via player_ids"
+    )

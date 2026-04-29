@@ -50,6 +50,7 @@ def _serialize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         source_count = fields.Integer(allow_none=True)
         sources = fields.List(fields.String(), allow_none=True)
         adp = fields.Float(allow_none=True)
+        confidence_score = fields.Float(allow_none=True)
 
     schema = HistoricalRankingSchema(many=True)
     return schema.dump(rows)
@@ -557,6 +558,7 @@ def get_historical_rankings(
     league_id: int | None = None,
     owner_id: int | None = None,
     position: str | None = None,
+    player_ids: list[int] | None = None,
 ) -> list[dict[str, Any]]:
     safe_limit = max(1, min(int(limit), 200))
 
@@ -631,6 +633,19 @@ def get_historical_rankings(
             * team_change_factor
         )
 
+        # Derive confidence_score (0–100) as the inverse of risk.
+        # A reliability_blend of 1.5 (all factors at/above their reliable ceiling) maps to 0 risk
+        # (100% confidence). A blend of 0 maps to 100 risk (0% confidence). A neutral blend of
+        # 1.0 (all factors at their base value) produces ~33 risk / ~67 confidence.
+        reliability_blend = (
+            scoring_consistency_factor
+            * late_start_consistency_factor
+            * injury_split_factor
+            * team_change_factor
+        )
+        risk_score_derived = max(0.0, min(100.0, (1.0 - min(max(reliability_blend, 0.0), 1.5) / 1.5) * 100.0))
+        confidence_score = round(100.0 - risk_score_derived, 2)
+
         scored_payload.append(
             {
                 "player_id": int(player.id),
@@ -641,6 +656,7 @@ def get_historical_rankings(
                 "value_over_replacement": float(draft_value.value_over_replacement or 0),
                 "consensus_tier": draft_value.consensus_tier,
                 "final_score": float(final_score),
+                "confidence_score": confidence_score,
                 "league_position_weight": league_weight,
                 "owner_position_affinity": owner_pos_weight,
                 "owner_player_affinity": owner_player_weight,
@@ -664,6 +680,17 @@ def get_historical_rankings(
         key=lambda row: (row["final_score"], row["predicted_auction_value"]),
         reverse=True,
     )[:safe_limit]
+
+    # If specific player_ids were requested, ensure each one is present in the result
+    # regardless of rank — append any missing requested players from scored_payload.
+    if player_ids:
+        ranked_player_ids = {row["player_id"] for row in ranked}
+        required_ids = set(player_ids)
+        extras = [
+            row for row in scored_payload
+            if row["player_id"] in required_ids and row["player_id"] not in ranked_player_ids
+        ]
+        ranked = ranked + extras
 
     for index, row in enumerate(ranked, start=1):
         row["rank"] = index

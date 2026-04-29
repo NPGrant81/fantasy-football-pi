@@ -514,3 +514,90 @@ async def test_economic_history_csv_import_and_template():
     )
     assert budget is not None
     assert int(budget.total_budget) == 210
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for GET /leagues/{league_id}/draft-keepers (#89 fix)
+# ---------------------------------------------------------------------------
+
+def _make_keeper(db, *, league, owner, player, season, status, approved_by_commish, keep_cost=10.0):
+    k = models.Keeper(
+        league_id=league.id,
+        owner_id=owner.id,
+        player_id=player.id,
+        season=season,
+        keep_cost=keep_cost,
+        status=status,
+        approved_by_commish=approved_by_commish,
+    )
+    db.add(k)
+    db.commit()
+    db.refresh(k)
+    return k
+
+
+def test_draft_keepers_endpoint_returns_locked_and_commish_override_only():
+    """Only locked (owner-locked) and commish_override (approved_by_commish=True) keepers
+    should appear; pending and non-approved rows must be excluded (#89 fix)."""
+    from backend.routers.league import get_draft_keepers
+
+    db = setup_db()
+    league = make_league(db)
+    owner = make_user(db, league, "owner-dk")
+    member = make_user(db, league, "member-dk")
+
+    pa = make_player(db, "Locked Player")
+    pb = make_player(db, "Override Player")
+    pc = make_player(db, "Pending Player")
+    pd = make_player(db, "Locked Not Approved")
+
+    # Should appear: locked (regardless of approved_by_commish flag)
+    _make_keeper(db, league=league, owner=owner, player=pa, season=2026,
+                 status="locked", approved_by_commish=False, keep_cost=15.0)
+    # Should appear: commish_override with approved_by_commish=True
+    _make_keeper(db, league=league, owner=owner, player=pb, season=2026,
+                 status="commish_override", approved_by_commish=True, keep_cost=25.0)
+    # Should NOT appear: pending
+    _make_keeper(db, league=league, owner=owner, player=pc, season=2026,
+                 status="pending", approved_by_commish=False)
+    # Should NOT appear: non-matching season
+    _make_keeper(db, league=league, owner=owner, player=pd, season=2025,
+                 status="locked", approved_by_commish=False)
+
+    result = get_draft_keepers(
+        league_id=league.id,
+        season=2026,
+        current_user=CU(member),
+        db=db,
+    )
+
+    returned_player_ids = {row["player_id"] for row in result}
+    assert pa.id in returned_player_ids, "locked keeper must appear"
+    assert pb.id in returned_player_ids, "commish_override+approved_by_commish keeper must appear"
+    assert pc.id not in returned_player_ids, "pending keeper must be excluded"
+    assert pd.id not in returned_player_ids, "wrong-season keeper must be excluded"
+
+    # verify shape of returned rows
+    for row in result:
+        assert {"owner_id", "player_id", "player_name", "position", "keep_cost", "status"} <= row.keys()
+
+
+def test_draft_keepers_endpoint_rejects_non_member():
+    """A user from a different league must receive 403 (#89 fix)."""
+    from backend.routers.league import get_draft_keepers
+    from fastapi import HTTPException
+
+    db = setup_db()
+    league_a = make_league(db, "LA")
+    league_b = make_league(db, "LB")
+    # give league_b a settings row so setup_db() helper doesn't complain
+    outsider = make_user(db, league_b, "outsider-dk")
+
+    with pytest.raises(HTTPException) as exc:
+        get_draft_keepers(
+            league_id=league_a.id,
+            season=2026,
+            current_user=CU(outsider),
+            db=db,
+        )
+    assert exc.value.status_code == 403

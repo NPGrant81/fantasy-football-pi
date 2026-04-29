@@ -49,3 +49,4 @@ class HistoricalRankingResponse(BaseModel):
     source_count: Optional[int] = None
     sources: Optional[list[str]] = None
     adp: Optional[float] = None
+    confidence_score: Optional[float] = None
