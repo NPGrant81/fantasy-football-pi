@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# .githooks/pre-push
+#
+# Runs the local pre-PR gate before every `git push`.
+# Skips if pushing to a branch named 'main' directly (rare; CI covers that).
+#
+# To install: run  scripts/setup-hooks.sh  once after cloning.
+# To bypass one-off: git push --no-verify
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+GATE="$REPO_ROOT/tests/local_pre_pr_check.sh"
+
+# Read the remote/URL passed by git (stdin not needed here; we use positional args)
+REMOTE="$1"
+# URL is $2 but we only need it to detect pushes to origin
+
+# Don't block pushes that only touch remote refs we can't diff locally
+# (e.g. deleting a remote branch).
+while read local_ref local_sha remote_ref remote_sha; do
+    # Skip branch deletion pushes
+    if [[ "$local_sha" == "0000000000000000000000000000000000000000" ]]; then
+        continue
+    fi
+
+    # Determine the branch name being pushed
+    BRANCH="${local_ref#refs/heads/}"
+
+    # Skip direct pushes to main (shouldn't happen in normal workflow, but be safe)
+    if [[ "$BRANCH" == "main" ]]; then
+        echo "[pre-push] Pushing to main — skipping local gate (CI enforces)."
+        continue
+    fi
+
+    echo ""
+    echo "[pre-push] Running local pre-PR gate (mode: changed)..."
+    echo "[pre-push] To skip: git push --no-verify"
+    echo ""
+
+    if [[ ! -f "$GATE" ]]; then
+        echo "[pre-push] WARNING: $GATE not found — skipping gate."
+        continue
+    fi
+
+    if ! bash "$GATE" changed; then
+        echo ""
+        echo "[pre-push] Pre-push gate FAILED. Fix issues above or use --no-verify to bypass."
+        exit 1
+    fi
+
+done
+
+exit 0

@@ -516,3 +516,12 @@ lanes:
       - file: backend/tests/test_api_integration_pipeline.py
         domain: infra
         status: active
+
+  shell:
+    description: Shell script unit tests (bash-based)
+    runner: bash tests/test_setup_hooks.sh
+    files:
+      - file: tests/test_setup_hooks.sh
+        domain: dev-tooling
+        status: active
+        notes: Tests scripts/setup-hooks.sh and .githooks/pre-push (#373)

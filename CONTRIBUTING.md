@@ -125,9 +125,69 @@ hit breakpoints as you interact with the UI.
 
 ---
 
+## Local Pre-PR Gate (Phase 2 of testing epic #370)
+
+Run this before pushing a branch or opening a PR. It mirrors the CI checks so
+failures are caught locally instead of in the pipeline.
+
+### Quick start
+
+```bash
+# Normal work — tests only the lanes with changed files (fast):
+bash tests/local_pre_pr_check.sh changed
+
+# Risky changes (e.g. schema migrations, cross-cutting refactors) — all lanes:
+bash tests/local_pre_pr_check.sh full
+
+# All lanes + E2E (once #375 is implemented):
+bash tests/local_pre_pr_check.sh full --with-e2e
+```
+
+### Automatic hook (recommended)
+
+Install a `pre-push` git hook so the `changed` check runs automatically on
+every push without having to remember:
+
+```bash
+bash scripts/setup-hooks.sh
+```
+
+This copies `.githooks/pre-push` into `.git/hooks/`. The hook:
+- Runs `tests/local_pre_pr_check.sh changed` before any push to a non-`main` branch.
+- Skips pushes directly to `main` (rare; CI covers that path).
+- Can be bypassed for a single push with `git push --no-verify`.
+
+To uninstall: `rm .git/hooks/pre-push`
+
+### When to use each mode
+
+| Situation | Command |
+|---|---|
+| Everyday feature/bugfix work | `changed` (default) |
+| Schema migration, auth change, cross-cutting refactor | `full` |
+| Final check before a release branch PR | `full --with-e2e` (requires #375) |
+
+### Environment overrides
+
+Set these to skip individual lanes when you know they're unaffected:
+
+```bash
+SKIP_BACKEND=1 bash tests/local_pre_pr_check.sh changed   # skip backend pytest
+SKIP_FRONTEND=1 bash tests/local_pre_pr_check.sh changed  # skip frontend vitest
+SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
+```
+
+---
+
 ## Current Action Items
 
-1. **Maintain naming and structure hygiene.**
+1. **Run the local pre-PR gate before every push.**
+   - Install the hook once: `bash scripts/setup-hooks.sh`
+   - Or run manually: `bash tests/local_pre_pr_check.sh changed`
+   - For risky changes (migrations, cross-cutting refactors): `bash tests/local_pre_pr_check.sh full`
+   - The gate mirrors CI — catching failures locally is faster than waiting for the pipeline.
+
+2. **Maintain naming and structure hygiene.**
    - Keep React component filenames in PascalCase and avoid case-only name
      differences in tracked files.
    - If you add a new route page or major module, place it under the existing
