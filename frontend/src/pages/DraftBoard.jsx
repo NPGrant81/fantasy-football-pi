@@ -285,8 +285,9 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   }, [token, activeLeagueId, fetchHistory]);
 
   const handlePause = useCallback(() => {
+    if (!isPaused) reset(); // stop and reset timer when pausing so resume starts fresh
     setIsPaused((p) => !p);
-  }, []);
+  }, [isPaused, reset]);
 
   useEffect(() => {
     if (posFilter === 'ALL') return;
@@ -570,6 +571,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             winnerMaxBidAllowed={winnerMaxBidAllowed}
             winnerOpenSlotsAllowed={winnerOpenSlotsAllowed}
             winnerRosterSlotsConfigured={winnerRosterSlotsConfigured}
+            isPaused={isPaused}
           />
         </div>
       </div>

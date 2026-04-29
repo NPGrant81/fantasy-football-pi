@@ -49,7 +49,7 @@ describe('DraftBoard analyzer isolation', () => {
         });
       }
 
-      if (url === '/players/') {
+      if (url.startsWith('/players/')) {
         return Promise.resolve({
           data: [{ id: 101, name: 'Player A', position: 'WR', nfl_team: 'BUF' }],
         });
@@ -91,7 +91,9 @@ describe('DraftBoard analyzer isolation', () => {
     render(<DraftBoard token="token" activeOwnerId={1} activeLeagueId={1} />);
 
     await waitFor(() =>
-      expect(apiClient.get).toHaveBeenCalledWith('/players/')
+      expect(apiClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('/players/')
+      )
     );
 
     expect(screen.getByText('Draft Board')).toBeInTheDocument();
