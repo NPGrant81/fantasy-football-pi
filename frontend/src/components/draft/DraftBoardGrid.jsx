@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { DRAFT_BOARD_SORT_MODE, sortPlayersForMode } from '@utils/draftBoardSort';
 
 const DRAFTBOARD_POSITION_STYLE = {
   QB: { bg: 'bg-red-600', text: 'text-white' },
@@ -30,17 +31,24 @@ export default function DraftBoardGrid({
   rosterLimit = 14,
   highlightOwnerId = null,
   onPlayerClick,
+  sortMode = DRAFT_BOARD_SORT_MODE.DRAFT_ORDER,
+  sortOwnerId = null,
 }) {
   const rosterMap = useMemo(() => {
     const map = {};
     teams.forEach((t) => (map[t.id] = []));
-    history.forEach((h) => {
+    history.forEach((h, index) => {
       if (map[h.owner_id]) {
-        map[h.owner_id].push(h);
+        map[h.owner_id].push({ ...h, __historyIndex: index });
       }
     });
+
+    if (sortOwnerId != null && map[sortOwnerId]) {
+      map[sortOwnerId] = sortPlayersForMode(map[sortOwnerId], sortMode);
+    }
+
     return map;
-  }, [teams, history]);
+  }, [teams, history, sortMode, sortOwnerId]);
 
   // use flex container with fixed-width columns so every column is identical regardless of content
   return (
@@ -51,6 +59,7 @@ export default function DraftBoardGrid({
       {teams.map((team) => (
         <div
           key={team.id}
+          data-owner-id={team.id}
           className={`flex-1 min-w-0 flex flex-col border ${
             team.id === highlightOwnerId
               ? 'border-cyan-400'
@@ -74,6 +83,7 @@ export default function DraftBoardGrid({
               return (
                 <div
                   data-testid={player ? 'player-card' : undefined}
+                  data-player-name={player ? player.player_name || player.name || '' : undefined}
                   key={i}
                   onClick={() => {
                     if (player && onPlayerClick) onPlayerClick(player);

@@ -11,6 +11,7 @@ if (!('VITE_API_BASE_URL' in import.meta.env)) {
   import.meta.env.VITE_API_BASE_URL = '';
 }
 import DraftBoardGrid from '../src/components/draft/DraftBoardGrid';
+import { DRAFT_BOARD_SORT_MODE } from '../src/utils/draftBoardSort';
 
 // simple fixtures
 // include alternate keys that come from API (team_name, username)
@@ -103,6 +104,42 @@ describe('DraftBoardGrid header', () => {
       expect(card.className).toMatch(/bg-/);
       expect(card.classList.contains('border-slate-600')).toBe(true);
     });
+  });
+
+  it('applies sort mode only to selected team column', () => {
+    const teams4 = [
+      { id: 10, name: 'Sorted Team', remainingBudget: 100 },
+      { id: 20, name: 'Unsorted Team', remainingBudget: 100 },
+    ];
+    const history4 = [
+      { owner_id: 10, player_name: 'Low Value', position: 'WR', amount: 5 },
+      { owner_id: 20, player_name: 'Keep First', position: 'RB', amount: 70 },
+      { owner_id: 10, player_name: 'High Value', position: 'QB', amount: 40 },
+      { owner_id: 20, player_name: 'Keep Second', position: 'WR', amount: 65 },
+    ];
+
+    const { container } = render(
+      <DraftBoardGrid
+        teams={teams4}
+        history={history4}
+        rosterLimit={3}
+        sortMode={DRAFT_BOARD_SORT_MODE.VALUE_DESC}
+        sortOwnerId={10}
+      />
+    );
+
+    const sortedTeamCards = container.querySelectorAll(
+      '[data-owner-id="10"] [data-testid="player-card"]'
+    );
+    const unsortedTeamCards = container.querySelectorAll(
+      '[data-owner-id="20"] [data-testid="player-card"]'
+    );
+
+    expect(sortedTeamCards[0]).toHaveAttribute('data-player-name', 'High Value');
+    expect(sortedTeamCards[1]).toHaveAttribute('data-player-name', 'Low Value');
+
+    expect(unsortedTeamCards[0]).toHaveAttribute('data-player-name', 'Keep First');
+    expect(unsortedTeamCards[1]).toHaveAttribute('data-player-name', 'Keep Second');
   });
 });
 
