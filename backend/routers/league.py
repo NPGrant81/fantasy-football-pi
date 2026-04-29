@@ -15,6 +15,7 @@ from ..services.history_owner_gap_service import build_history_owner_gap_report
 from ..services import league_history_enrichment_service as history_enrichment_service
 from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.player_news_service import sentiment_from_text as _sentiment_from_text
+from ..services.commissioner_deadline_service import parse_commissioner_deadline
 from ..services.validation_service import (
     validate_league_settings_boundary,
     validate_league_settings_dynamic_rules,
@@ -1130,8 +1131,6 @@ def set_league_draft_year(
 # --- TRADE RULES ---
 class TradeRulesSchema(BaseModel):
     trade_deadline: Optional[str] = None
-    trade_start_at: Optional[str] = None
-    trade_end_at: Optional[str] = None
     allow_playoff_trades: bool = True
     require_commissioner_approval: bool = True
     trade_veto_enabled: bool = False
@@ -1162,8 +1161,6 @@ def get_trade_rules(
         return TradeRulesSchema()
     return TradeRulesSchema(
         trade_deadline=settings.trade_deadline,
-        trade_start_at=settings.trade_start_at.isoformat() if settings.trade_start_at else None,
-        trade_end_at=settings.trade_end_at.isoformat() if settings.trade_end_at else None,
         allow_playoff_trades=settings.allow_playoff_trades,
         require_commissioner_approval=settings.require_commissioner_approval,
         trade_veto_enabled=settings.trade_veto_enabled,
@@ -1183,6 +1180,26 @@ def update_trade_rules(
     db: Session = Depends(get_db),
 ):
     _require_commissioner_in_league(current_user, league_id)
+
+    # Validate trade_deadline as a timezone-aware ISO-8601 timestamp when provided
+    if payload.trade_deadline and payload.trade_deadline.strip():
+        if parse_commissioner_deadline(payload.trade_deadline) is None:
+            raise HTTPException(
+                status_code=400,
+                detail="trade_deadline must be a timezone-aware ISO-8601 timestamp (e.g. 2026-04-01T18:00:00Z).",
+            )
+
+    # Validate numeric governance fields
+    if payload.trade_review_period_hours is not None and payload.trade_review_period_hours < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="trade_review_period_hours must be >= 1.",
+        )
+    if payload.trade_max_players_per_side is not None and not (1 <= payload.trade_max_players_per_side <= 20):
+        raise HTTPException(
+            status_code=400,
+            detail="trade_max_players_per_side must be between 1 and 20.",
+        )
 
     # Validate veto threshold only when veto is enabled
     if payload.trade_veto_enabled and (
@@ -1215,6 +1232,9 @@ def update_trade_rules(
     settings.trade_deadline = payload.trade_deadline
     settings.allow_playoff_trades = payload.allow_playoff_trades
     settings.require_commissioner_approval = payload.require_commissioner_approval
+    # NOTE: The following governance fields are persisted here but not yet wired into the
+    # trade submission / review / veto flow (tracked in issue #436 / future work).
+    # Commissioners can configure them now; enforcement will be added in a follow-up PR.
     settings.trade_veto_enabled = payload.trade_veto_enabled
     settings.trade_veto_threshold = payload.trade_veto_threshold
     settings.trade_review_period_hours = payload.trade_review_period_hours
@@ -1226,8 +1246,6 @@ def update_trade_rules(
 
     return TradeRulesSchema(
         trade_deadline=settings.trade_deadline,
-        trade_start_at=settings.trade_start_at.isoformat() if settings.trade_start_at else None,
-        trade_end_at=settings.trade_end_at.isoformat() if settings.trade_end_at else None,
         allow_playoff_trades=settings.allow_playoff_trades,
         require_commissioner_approval=settings.require_commissioner_approval,
         trade_veto_enabled=settings.trade_veto_enabled,
@@ -1320,6 +1338,60 @@ def get_league_budgets(
         }
         for owner in owners
     ]
+
+@router.get("/{league_id}/draft-keepers")
+def get_draft_keepers(
+    league_id: int,
+    season: Optional[int] = Query(None),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return locked/approved keepers for draft board pre-population. Available to any league member."""
+    if current_user.league_id != league_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: user is not in this league.",
+        )
+    if season is not None:
+        query_season = _validate_season_year(season)
+    else:
+        settings = (
+            db.query(models.LeagueSettings)
+            .filter(models.LeagueSettings.league_id == league_id)
+            .first()
+        )
+        from datetime import timezone as _tz
+        query_season = (
+            settings.draft_year
+            if settings and settings.draft_year is not None
+            else datetime.now(_tz.utc).year
+        )
+
+    rows = (
+        db.query(models.Keeper, models.Player)
+        .join(models.Player, models.Keeper.player_id == models.Player.id)
+        .filter(
+            models.Keeper.league_id == league_id,
+            models.Keeper.season == query_season,
+            or_(
+                models.Keeper.status == "locked",
+                models.Keeper.approved_by_commish.is_(True),
+            ),
+        )
+        .all()
+    )
+    return [
+        {
+            "owner_id": keeper.owner_id,
+            "player_id": keeper.player_id,
+            "player_name": player.name,
+            "position": player.position,
+            "keep_cost": float(keeper.keep_cost),
+            "status": keeper.status,
+        }
+        for keeper, player in rows
+    ]
+
 
 @router.post("/{league_id}/budgets")
 def update_league_budgets(
