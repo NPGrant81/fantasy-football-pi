@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 // --- 1.1 CONFIGURATION ---
-export function useDraftTimer(initialTime = 10, onTimeUp) {
+export function useDraftTimer(initialTime = 5, onTimeUp) {
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [isActive, setIsActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false); // prevent race when clock hits zero

@@ -146,6 +146,14 @@ class LeagueSettings(Base):
     trade_end_at = Column(DateTime(timezone=True), nullable=True)
     allow_playoff_trades = Column(Boolean, nullable=False, default=True)
     require_commissioner_approval = Column(Boolean, nullable=False, default=True)
+
+    # --- Trade governance rules ---
+    trade_veto_enabled = Column(Boolean, nullable=False, default=False)
+    trade_veto_threshold = Column(Integer, nullable=True)            # number of owner votes required to veto
+    trade_review_period_hours = Column(Integer, nullable=True)       # hours commissioner/league has to review/veto
+    trade_max_players_per_side = Column(Integer, nullable=True)      # max players each side may include
+    trade_league_vote_enabled = Column(Boolean, nullable=False, default=False)
+    trade_league_vote_threshold = Column(Integer, nullable=True)     # % of owners required to approve
     draft_year = Column(Integer, nullable=True)
     future_draft_cap = Column(Integer, default=0)  # maximum dollars each owner may start with
 

@@ -8,10 +8,10 @@ import {
   StandardTableRow,
   StandardTableStateRow,
 } from '@components/table/TablePrimitives';
+import PageTemplate from '@components/layout/PageTemplate';
 import {
   cardSurface,
   inputBase,
-  pageShell,
   tableCell,
   tableCellNumeric,
   textMeta,
@@ -73,7 +73,7 @@ export default function LedgerStatementOwner() {
   }, [leagueId, currencyType, seasonYear]);
 
   return (
-    <div className={pageShell}>
+    <PageTemplate title="Ledger Statement" subtitle="Your economic history and balances.">
       <div className={`${cardSurface} grid grid-cols-1 gap-4 md:grid-cols-3`}>
         <div>
           <label className={`mb-2 block font-bold ${textMeta}`}>
@@ -156,6 +156,6 @@ export default function LedgerStatementOwner() {
           </tbody>
         </StandardTable>
       </StandardTableContainer>
-    </div>
+    </PageTemplate>
   );
 }

@@ -499,6 +499,9 @@ def predict_model_recommendations(
         safe_limit,
     )
 
+    # When fetching for specific player_ids, use a high enough limit so lower-ranked
+    # players are not excluded by the default cap. For a general ranked list, use the
+    # normal 2x multiplier with a 100-row floor.
     ranking_rows = get_historical_rankings_service(
         db,
         season=int(payload.season),
@@ -506,6 +509,7 @@ def predict_model_recommendations(
         league_id=int(requested_league_id),
         owner_id=int(payload.owner_id),
         position=None,
+        player_ids=[int(p) for p in payload.player_ids] if payload.player_ids else None,
     )
 
     drafted_ids = set(int(player_id) for player_id in (payload.draft_state.drafted_player_ids if payload.draft_state else []))

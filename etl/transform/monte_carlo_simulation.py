@@ -168,29 +168,29 @@ def _prepare_owners(draft_results_df: pd.DataFrame, budget_df: pd.DataFrame, con
         if injected:
             owners = pd.concat([owners, pd.DataFrame(injected)], ignore_index=True)
 
-    owners = owners.sort_values("owner_id").head(config.teams_count).reset_index(drop=True)
+    all_owners = owners.sort_values("owner_id").reset_index(drop=True)
+    owners = all_owners.head(config.teams_count).reset_index(drop=True)
 
     # Ensure the focal/target owner is always present in the simulation.
-    # If the top-N slice excluded them, replace the last row with a synthetic entry.
+    # If the top-N slice excluded them, replace the last row with a real or synthetic entry.
     focal_id = config.resolved_focal_owner_id()
     if focal_id not in owners["owner_id"].tolist():
-        focal_budget = config.budget_fallback
-        all_owner_ids = budget_lookup["owner_id"].tolist() if not budget_lookup.empty else []
-        if focal_id in all_owner_ids:
-            focal_row = budget_lookup[budget_lookup["owner_id"] == focal_id]
-            if not focal_row.empty:
-                focal_budget = float(focal_row.iloc[0]["budget"])
-        synthetic = pd.DataFrame(
-            [
-                {
-                    "owner_id": focal_id,
-                    "budget": focal_budget,
-                    "historical_spend": config.budget_fallback / config.roster_size,
-                    "draft_count": 0,
-                }
-            ]
-        )
-        owners = pd.concat([owners.iloc[:-1], synthetic], ignore_index=True)
+        real_row = all_owners[all_owners["owner_id"] == focal_id]
+        if not real_row.empty:
+            focal_entry = real_row.iloc[[0]].copy()
+        else:
+            focal_budget = config.budget_fallback
+            focal_entry = pd.DataFrame(
+                [
+                    {
+                        "owner_id": focal_id,
+                        "budget": focal_budget,
+                        "historical_spend": config.budget_fallback / config.roster_size,
+                        "draft_count": 0,
+                    }
+                ]
+            )
+        owners = pd.concat([owners.iloc[:-1], focal_entry], ignore_index=True)
 
     return owners
 

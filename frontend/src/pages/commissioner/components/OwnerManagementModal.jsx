@@ -1,33 +1,21 @@
 /* ignore-breakpoints: modal layout and responsiveness are handled by shared uiStandards modal classes; no additional breakpoint-specific behaviour is required */
-import React from 'react';
-import { FiUsers } from 'react-icons/fi';
-import {
-  modalCloseButton,
-  modalDescription,
-  modalOverlay,
-  modalPlaceholder,
-  modalSurface,
-  modalTitle,
-} from '@utils/uiStandards';
+import React, { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function OwnerManagementModal({ open, onClose }) {
-  if (!open) return null;
-  return (
-    <div className={modalOverlay}>
-      <div className={modalSurface}>
-        <button onClick={onClose} className={modalCloseButton}>
-          ✕
-        </button>
-        <h2 className={modalTitle}>
-          <FiUsers /> Invite/Manage Team Owners
-        </h2>
-        <p className={modalDescription}>
-          Invite new owners, manage teams, and verify league access.
-        </p>
-        <div className={modalPlaceholder}>
-          Owner management form coming soon...
-        </div>
-      </div>
-    </div>
-  );
+  const navigate = useNavigate();
+  const didRedirect = useRef(false);
+
+  useEffect(() => {
+    if (open && !didRedirect.current) {
+      didRedirect.current = true;
+      onClose();
+      navigate('/manage-owners');
+    }
+    if (!open) {
+      didRedirect.current = false;
+    }
+  }, [open, onClose, navigate]);
+
+  return null;
 }

@@ -9,9 +9,9 @@ if os.environ.get("RESET_DB_CONFIRMED", "").lower() not in ("true", "1", "yes"):
     print("  e.g.: RESET_DB_CONFIRMED=true python -m backend.scripts.reset_db")
     sys.exit(1)
 
-from database import engine, Base
+from backend.database import engine, Base
 # Removed 'Team' from the import list since it's not in models.py
-from models import User, League, LeagueSettings, ScoringRule, DraftPick, Player, Matchup
+from backend.models import User, League, LeagueSettings, ScoringRule, DraftPick, Player, Matchup
 
 print("🔥 DESTROYING ALL DATA...")
 
