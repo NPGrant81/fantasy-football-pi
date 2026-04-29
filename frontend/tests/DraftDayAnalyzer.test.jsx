@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 vi.mock('../src/api/client', () => {
@@ -274,5 +274,65 @@ describe.sequential('DraftDayAnalyzer advisor actions', () => {
       );
       expect(dedupedRows).toHaveLength(1);
     });
+  });
+
+  test('websocket pick message and 30s fallback polling refresh history', async () => {
+    const setIntervalSpy = vi.spyOn(global, 'setInterval');
+    const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
+
+    const originalWebSocket = global.WebSocket;
+    class MockWebSocket {
+      static OPEN = 1;
+      static CONNECTING = 0;
+      static instances = [];
+
+      constructor(url) {
+        this.url = url;
+        this.readyState = MockWebSocket.OPEN;
+        this.close = vi.fn(() => {
+          this.readyState = 3;
+        });
+        MockWebSocket.instances.push(this);
+      }
+    }
+
+    global.WebSocket = MockWebSocket;
+
+    const countHistoryCalls = () =>
+      apiClient.get.mock.calls.filter(([url]) => String(url).startsWith('/draft/history')).length;
+
+    const view = render(<DraftDayAnalyzer activeOwnerId={1} activeLeagueId={1} />);
+
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+    const initialCount = countHistoryCalls();
+
+    const fallbackCall = setIntervalSpy.mock.calls.find(([, delay]) => delay === 30000);
+    expect(fallbackCall).toBeTruthy();
+
+    await act(async () => {
+      fallbackCall[0]();
+    });
+
+    await waitFor(() => expect(countHistoryCalls()).toBeGreaterThan(initialCount));
+    const afterFallbackCount = countHistoryCalls();
+
+    await act(async () => {
+      MockWebSocket.instances[0].onmessage?.({
+        data: JSON.stringify({
+          type: 'pick',
+          payload: { session_id: 'LEAGUE_1_YEAR_2026' },
+        }),
+      });
+    });
+
+    await waitFor(() => expect(countHistoryCalls()).toBeGreaterThan(afterFallbackCount));
+
+    view.unmount();
+    expect(MockWebSocket.instances[0].close).toHaveBeenCalled();
+    expect(clearIntervalSpy).toHaveBeenCalled();
+
+    global.WebSocket = originalWebSocket;
+    setIntervalSpy.mockRestore();
+    clearIntervalSpy.mockRestore();
   });
 });

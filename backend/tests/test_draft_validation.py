@@ -10,7 +10,12 @@ from unittest.mock import AsyncMock
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
-from backend.routers.draft import DraftPickCreate, draft_player, manager
+from backend.routers.draft import (
+    DraftPickCreate,
+    _can_access_draft_session,
+    draft_player,
+    manager,
+)
 
 
 @pytest.fixture
@@ -162,3 +167,27 @@ async def test_draft_player_broadcasts_pick_payload(db_session, monkeypatch):
     assert broadcast_message["payload"]["session_id"] == session_id
     assert broadcast_message["payload"]["player_id"] == player.id
     assert broadcast_message["payload"]["owner_id"] == owner.id
+
+
+def test_can_access_draft_session_restricts_cross_league_user():
+    user = models.User(username="owner-authz", hashed_password="pw", league_id=60)
+    assert _can_access_draft_session(user, "LEAGUE_60_YEAR_2026") is True
+    assert _can_access_draft_session(user, "LEAGUE_61_YEAR_2026") is False
+
+
+def test_can_access_draft_session_allows_commissioner_and_superuser():
+    commissioner = models.User(
+        username="commish-authz",
+        hashed_password="pw",
+        league_id=60,
+        is_commissioner=True,
+    )
+    superuser = models.User(
+        username="admin-authz",
+        hashed_password="pw",
+        league_id=60,
+        is_superuser=True,
+    )
+
+    assert _can_access_draft_session(commissioner, "LEAGUE_999_YEAR_2026") is True
+    assert _can_access_draft_session(superuser, "LEAGUE_999_YEAR_2026") is True

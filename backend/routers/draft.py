@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from jose import JWTError, jwt
 
 # Internal Imports
-from ..database import get_db
+from ..database import SessionLocal, get_db
 import models
 from ..schemas.draft import HistoricalRankingResponse
 from ..services.ledger_service import owner_draft_budget_total, owner_has_incoming_credits
@@ -98,6 +98,17 @@ def _get_websocket_user(websocket: WebSocket, db: Session):
         return None
 
     return db.query(models.User).filter(models.User.username == username).first()
+
+
+def _can_access_draft_session(current_user: models.User, session_id: str) -> bool:
+    league_id, _ = _parse_session_context(session_id)
+    if league_id is None:
+        return False
+
+    if bool(current_user.is_superuser) or bool(current_user.is_commissioner):
+        return True
+
+    return current_user.league_id == league_id
 
 
 def _serialize_pick_for_ws(new_pick: models.DraftPick, player_name: str) -> dict:
@@ -975,9 +986,18 @@ def get_draft_state(league_id: int, db: Session = Depends(get_db)):
 
 # --- 5. THE WEBSOCKET ENDPOINT ---
 @router.websocket("/draft/ws/{session_id}")
-async def websocket_endpoint(session_id: str, websocket: WebSocket, db: Session = Depends(get_db)):
-    current_user = _get_websocket_user(websocket, db)
+async def websocket_endpoint(session_id: str, websocket: WebSocket):
+    db = SessionLocal()
+    try:
+        current_user = _get_websocket_user(websocket, db)
+    finally:
+        db.close()
+
     if current_user is None:
+        await websocket.close(code=1008)
+        return
+
+    if not _can_access_draft_session(current_user, session_id):
         await websocket.close(code=1008)
         return
 
@@ -991,6 +1011,6 @@ async def websocket_endpoint(session_id: str, websocket: WebSocket, db: Session 
 
 
 @router.websocket("/ws/{league_id}")
-async def websocket_endpoint_legacy(league_id: int, websocket: WebSocket, db: Session = Depends(get_db)):
+async def websocket_endpoint_legacy(league_id: int, websocket: WebSocket):
     # Legacy alias kept for backwards compatibility with older clients.
-    return await websocket_endpoint(f"LEAGUE_{league_id}", websocket, db)
+    return await websocket_endpoint(f"LEAGUE_{league_id}", websocket)
