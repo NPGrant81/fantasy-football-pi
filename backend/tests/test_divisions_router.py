@@ -295,3 +295,197 @@ def test_report_name_skips_name_validation_when_no_season(client, api_db):
         json={"division_name": "Whatever"},
     )
     assert res.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Manual assignment path tests
+# ---------------------------------------------------------------------------
+
+def _setup_manual_league(db, client, app, commissioner, league, users, team_count=6):
+    """Configure divisions for league and return a valid manual_assignments dict."""
+    assert team_count % 2 == 0, "Need even team count for 2 divisions"
+    cfg = client.put(
+        f"/leagues/{league.id}/divisions/config",
+        json={
+            "season": 2026,
+            "enabled": True,
+            "division_count": 2,
+            "assignment_method": "manual",
+            "names": [
+                {"name": "North", "order_index": 0},
+                {"name": "South", "order_index": 1},
+            ],
+        },
+    )
+    assert cfg.status_code == 200
+    # Split users evenly between two divisions
+    half = team_count // 2
+    return {
+        0: [u.id for u in users[:half]],
+        1: [u.id for u in users[half:]],
+    }
+
+
+def test_manual_assignment_preview_success(client, api_db):
+    """Valid manual_assignments produces a preview with all teams assigned."""
+    db, _ = api_db
+    league, commissioner, users = _seed_league(db, team_count=6)
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+
+    manual = _setup_manual_league(db, client, app, commissioner, league, users, team_count=6)
+
+    res = client.post(
+        f"/leagues/{league.id}/divisions/assignment-preview",
+        json={
+            "season": 2026,
+            "assignment_method": "manual",
+            "manual_assignments": manual,
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["assignment_method"] == "manual"
+    assert len(data["assignments"]) == 2
+    all_team_ids = [tid for row in data["assignments"] for tid in row["team_ids"]]
+    assert sorted(all_team_ids) == sorted(u.id for u in users)
+
+
+def test_manual_assignment_finalize_assigns_all_teams(client, api_db):
+    """Finalize with a valid manual map sets division_id on all users."""
+    db, _ = api_db
+    league, commissioner, users = _seed_league(db, team_count=6)
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+
+    manual = _setup_manual_league(db, client, app, commissioner, league, users, team_count=6)
+
+    res = client.post(
+        f"/leagues/{league.id}/divisions/finalize",
+        json={
+            "season": 2026,
+            "assignment_method": "manual",
+            "manual_assignments": manual,
+        },
+    )
+    assert res.status_code == 200
+
+    for user in users:
+        db.refresh(user)
+        assert user.division_id is not None, f"User {user.id} has no division_id after finalize"
+
+
+def test_manual_assignment_preview_rejects_missing_teams(client, api_db):
+    """manual_assignments that omits some league teams returns 422."""
+    db, _ = api_db
+    league, commissioner, users = _seed_league(db, team_count=6)
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+
+    _setup_manual_league(db, client, app, commissioner, league, users, team_count=6)
+
+    # Omit last user from assignments
+    partial = {
+        0: [u.id for u in users[:3]],
+        1: [u.id for u in users[3:5]],  # missing users[5]
+    }
+
+    res = client.post(
+        f"/leagues/{league.id}/divisions/assignment-preview",
+        json={
+            "season": 2026,
+            "assignment_method": "manual",
+            "manual_assignments": partial,
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_manual_assignment_preview_rejects_duplicate_team_ids(client, api_db):
+    """manual_assignments with the same team in two divisions returns 422."""
+    db, _ = api_db
+    league, commissioner, users = _seed_league(db, team_count=6)
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+
+    _setup_manual_league(db, client, app, commissioner, league, users, team_count=6)
+
+    duplicate_id = users[0].id
+    duplicated = {
+        0: [u.id for u in users[:3]],
+        1: [duplicate_id, users[3].id, users[4].id, users[5].id],  # users[0] duplicated
+    }
+
+    res = client.post(
+        f"/leagues/{league.id}/divisions/assignment-preview",
+        json={
+            "season": 2026,
+            "assignment_method": "manual",
+            "manual_assignments": duplicated,
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_manual_assignment_preview_rejects_out_of_range_division_index(client, api_db):
+    """manual_assignments with a division index >= division_count returns 422."""
+    db, _ = api_db
+    league, commissioner, users = _seed_league(db, team_count=6)
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+
+    _setup_manual_league(db, client, app, commissioner, league, users, team_count=6)
+
+    out_of_range = {
+        0: [u.id for u in users[:3]],
+        99: [u.id for u in users[3:]],  # division index 99 doesn't exist
+    }
+
+    res = client.post(
+        f"/leagues/{league.id}/divisions/assignment-preview",
+        json={
+            "season": 2026,
+            "assignment_method": "manual",
+            "manual_assignments": out_of_range,
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_manual_assignment_preview_rejects_unknown_team_id(client, api_db):
+    """manual_assignments with a team_id not in the league returns 422."""
+    db, _ = api_db
+    league, commissioner, users = _seed_league(db, team_count=6)
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+
+    _setup_manual_league(db, client, app, commissioner, league, users, team_count=6)
+
+    with_unknown = {
+        0: [u.id for u in users[:3]],
+        1: [999999, users[3].id, users[4].id],  # 999999 not in league, users[5] missing
+    }
+
+    res = client.post(
+        f"/leagues/{league.id}/divisions/assignment-preview",
+        json={
+            "season": 2026,
+            "assignment_method": "manual",
+            "manual_assignments": with_unknown,
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_manual_assignment_preview_rejects_empty_manual_assignments(client, api_db):
+    """manual_assignments=None or {} returns 400."""
+    db, _ = api_db
+    league, commissioner, users = _seed_league(db, team_count=6)
+    app.dependency_overrides[divisions_router.get_current_user] = lambda: commissioner
+
+    _setup_manual_league(db, client, app, commissioner, league, users, team_count=6)
+
+    for empty_value in [None, {}]:
+        res = client.post(
+            f"/leagues/{league.id}/divisions/assignment-preview",
+            json={
+                "season": 2026,
+                "assignment_method": "manual",
+                "manual_assignments": empty_value,
+            },
+        )
+        assert res.status_code in (400, 422)

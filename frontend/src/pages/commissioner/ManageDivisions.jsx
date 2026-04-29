@@ -92,6 +92,35 @@ export default function ManageDivisions() {
     return next;
   };
 
+  const validateManualAssignments = () => {
+    // Returns an error string if invalid, or null if valid.
+    const allOwnerIds = new Set(owners.map((o) => o.id));
+    const assignedIds = new Set();
+    const validIndices = new Set(Array.from({ length: divisionCount }, (_, i) => i));
+
+    for (const key of Object.keys(manualAssignments)) {
+      if (!validIndices.has(Number(key))) {
+        return `Division index ${key} is out of range (0..${divisionCount - 1}).`;
+      }
+      for (const id of manualAssignments[key]) {
+        if (assignedIds.has(id)) {
+          return `Team id ${id} is assigned to more than one division.`;
+        }
+        if (!allOwnerIds.has(id)) {
+          return `Team id ${id} does not belong to this league.`;
+        }
+        assignedIds.add(id);
+      }
+    }
+
+    const missing = [...allOwnerIds].filter((id) => !assignedIds.has(id));
+    if (missing.length > 0) {
+      return `${missing.length} team(s) are not assigned to any division. Assign all teams before proceeding.`;
+    }
+
+    return null;
+  };
+
   const loadContext = async (targetSeason = season) => {
     if (!leagueId) {
       setMessage('No active league selected.');
@@ -197,8 +226,9 @@ export default function ManageDivisions() {
       };
 
       if (assignmentMethod === 'manual') {
-        if (!manualAssignments || Object.keys(manualAssignments).length === 0) {
-          setMessage('Please select teams for each division before previewing.');
+        const validationError = validateManualAssignments();
+        if (validationError) {
+          setMessage(validationError);
           setPreviewing(false);
           return;
         }
@@ -230,6 +260,12 @@ export default function ManageDivisions() {
       };
 
       if (assignmentMethod === 'manual') {
+        const validationError = validateManualAssignments();
+        if (validationError) {
+          setMessage(validationError);
+          setFinalizing(false);
+          return;
+        }
         payload.manual_assignments = manualAssignments;
       }
 
@@ -403,11 +439,18 @@ export default function ManageDivisions() {
                             checked={isAssigned}
                             onChange={(e) => {
                               const next = { ...manualAssignments };
-                              if (!next[idx]) next[idx] = [];
+                              const currentAssignments = [...(next[idx] || [])];
                               if (e.target.checked) {
-                                next[idx].push(owner.id);
+                                next[idx] = currentAssignments.includes(owner.id)
+                                  ? currentAssignments
+                                  : [...currentAssignments, owner.id];
                               } else {
-                                next[idx] = next[idx].filter((id) => id !== owner.id);
+                                const filtered = currentAssignments.filter((id) => id !== owner.id);
+                                if (filtered.length > 0) {
+                                  next[idx] = filtered;
+                                } else {
+                                  delete next[idx];
+                                }
                               }
                               setManualAssignments(next);
                             }}

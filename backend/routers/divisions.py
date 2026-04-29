@@ -317,6 +317,45 @@ def preview_assignment(
         if not payload.manual_assignments:
             raise HTTPException(status_code=400, detail="manual_assignments is required for manual previews")
 
+        valid_team_ids = {item.team_id for item in strengths}
+        all_league_team_ids = {item.team_id for item in team_inputs}
+        valid_division_indices = set(range(division_count))
+        errors: list[str] = []
+
+        # Validate division indices are within range
+        for key in payload.manual_assignments:
+            if int(key) not in valid_division_indices:
+                errors.append(
+                    f"Division index {key} is out of range (0..{division_count - 1})."
+                )
+
+        # Collect all assigned team ids to check for duplicates and completeness
+        all_assigned: list[int] = []
+        for key, team_ids in payload.manual_assignments.items():
+            if int(key) not in valid_division_indices:
+                continue
+            for team_id in team_ids:
+                if team_id not in valid_team_ids:
+                    errors.append(f"Team id {team_id} does not belong to this league.")
+                all_assigned.append(team_id)
+
+        # Check for duplicates
+        seen: set[int] = set()
+        for team_id in all_assigned:
+            if team_id in seen:
+                errors.append(f"Team id {team_id} appears in more than one division.")
+            seen.add(team_id)
+
+        # Check all league teams are assigned
+        missing = all_league_team_ids - seen
+        if missing:
+            errors.append(
+                f"The following team ids are not assigned to any division: {sorted(missing)}."
+            )
+
+        if errors:
+            raise HTTPException(status_code=422, detail=errors)
+
         by_team = {item.team_id: item for item in strengths}
         assignment_rows: dict[int, list[Any]] = {}
         for key, team_ids in payload.manual_assignments.items():
