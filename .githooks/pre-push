@@ -9,7 +9,9 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Use git to find the repo root — works correctly whether the hook lives in
+# .githooks/ (source) or .git/hooks/ (after installation via setup-hooks.sh).
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 GATE="$REPO_ROOT/tests/local_pre_pr_check.sh"
 
 # Read the remote/URL passed by git (stdin not needed here; we use positional args)
@@ -18,9 +20,16 @@ REMOTE="$1"
 
 # Don't block pushes that only touch remote refs we can't diff locally
 # (e.g. deleting a remote branch).
+GATE_SHOULD_RUN=false
+
 while read local_ref local_sha remote_ref remote_sha; do
     # Skip branch deletion pushes
     if [[ "$local_sha" == "0000000000000000000000000000000000000000" ]]; then
+        continue
+    fi
+
+    # Only handle branch refs (refs/heads/*); skip tags, notes, etc.
+    if [[ "$local_ref" != refs/heads/* ]]; then
         continue
     fi
 
@@ -33,6 +42,13 @@ while read local_ref local_sha remote_ref remote_sha; do
         continue
     fi
 
+    # Mark that at least one non-main branch ref warrants running the gate
+    GATE_SHOULD_RUN=true
+
+done
+
+# Run the gate at most once per push (even if multiple branch refs were pushed)
+if [[ "$GATE_SHOULD_RUN" == "true" ]]; then
     echo ""
     echo "[pre-push] Running local pre-PR gate (mode: changed)..."
     echo "[pre-push] To skip: git push --no-verify"
@@ -40,7 +56,7 @@ while read local_ref local_sha remote_ref remote_sha; do
 
     if [[ ! -f "$GATE" ]]; then
         echo "[pre-push] WARNING: $GATE not found — skipping gate."
-        continue
+        exit 0
     fi
 
     if ! bash "$GATE" changed; then
@@ -48,7 +64,6 @@ while read local_ref local_sha remote_ref remote_sha; do
         echo "[pre-push] Pre-push gate FAILED. Fix issues above or use --no-verify to bypass."
         exit 1
     fi
-
-done
+fi
 
 exit 0

@@ -194,20 +194,20 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
      feature folders (for example `src/pages/commissioner/`) rather than
      introducing ad-hoc top-level folders.
 
-2. **Audit critical pages.**
+3. **Audit critical pages.**
    - Before adding new UI (e.g. Taxi Squad) or touching existing logic
      (LineupRules, WaiverRules, etc.), set breakpoints in each module’s
      fetch hooks and handlers as described above and walk through them using
      the VS Code debugger. Capture a screenshot of the _Variables_ pane for
      at least one component to prove the audit was done.
 
-3. **Keep docs and route matrices synchronized.**
+4. **Keep docs and route matrices synchronized.**
    - Any new page, endpoint surface, or major integration should be reflected
      in `docs/API_PAGE_MATRIX.md` and linked from `docs/INDEX.md`.
    - If docs in `docs/` change, ensure index updates are included in the same
      PR.
 
-4. **UAT artifacts must be updated with every feature or behavior change.**
+5. **UAT artifacts must be updated with every feature or behavior change.**
    - Any new feature, workflow change, validation rule, or UI behavior update
      must include matching updates in `docs/uat/uat_master.xlsx` and
      `docs/uat/uat_overview.pptx` in the same PR.
@@ -221,11 +221,11 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
      `docs/uat/UAT_MASTER_DOCUMENT_INSTRUCTIONS.md` when policy/process needs
      clarification.
 
-5. **Follow the DoD on every PR.** Any pull request lacking one of the three
+6. **Follow the DoD on every PR.** Any pull request lacking one of the three
    DoD checks (tests, debugger walkthrough, clean console) should be
    rejected until the developer demonstrates compliance.
 
-6. **PR review gate: UAT sync check.**
+7. **PR review gate: UAT sync check.**
    - Reviewers should reject PRs with user-facing changes if UAT artifacts were
      not updated.
    - Minimum expected evidence in PR description:
@@ -234,7 +234,7 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
      - whether `Execution Tier` changed for impacted scenarios
      - any new entries added to `Defect_Rollup` template fields if applicable
 
-7. **Workflow YAML hygiene gate (new standard).**
+8. **Workflow YAML hygiene gate (new standard).**
    - Any edit under `.github/workflows/*.yml` must be made in the actual tracked file,
      not a temporary chat/editor buffer.
    - Before commit, verify workflow structure with:
@@ -247,7 +247,7 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
    - PRs that modify workflows should include a brief note that YAML structure was
      reviewed and CI syntax is valid.
 
-8. **Issue triage checklist (required before merge).**
+9. **Issue triage checklist (required before merge).**
    - Confirm whether each issue touched by the PR is:
      - `Resolved in code and ready to close`, or
      - `Still open with remaining implementation work`.
@@ -262,7 +262,7 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
      - `Pending close:` list
      - `Net new:` list
 
-9. **PR feedback closure gate (required before merge/issue close).**
+10. **PR feedback closure gate (required before merge/issue close).**
    - Before merging any PR and before closing linked issues, confirm review feedback is resolved.
    - Required checks:
      - `gh pr view <PR_NUMBER> --repo NPGrant81/fantasy-football-pi --json comments,reviews,reviewDecision`
@@ -271,7 +271,7 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
      - If any actionable thread remains unresolved (`isResolved=false` and not outdated), do not merge yet.
      - Either address it in follow-up commits or explicitly defer it with rationale in PR comments before merge.
 
-10. **Branch/worktree lifecycle policy (required after merge).**
+11. **Branch/worktree lifecycle policy (required after merge).**
    - For merged or obsolete PRs, retire the branch/worktree set:
      - delete remote topic branch (when policy allows)
      - remove local worktree tied to that topic branch
@@ -280,7 +280,7 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
    - Reopen an old PR only when it was closed by mistake and the work scope is unchanged.
    - In follow-up PRs, include cross-links to previous PRs/issues for historical context.
 
-11. **Issue status transition policy (required while work is active).**
+12. **Issue status transition policy (required while work is active).**
    - Use these canonical status transitions for every issue touched by a PR:
      - `To Do` -> `In Progress` when implementation starts (first code, test, or docs commit tied to the issue)
      - `In Progress` -> `Complete` when acceptance criteria are met and validation evidence is posted
@@ -291,7 +291,7 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
      - Update `docs/ISSUE_STATUS.md` with implementation state and close-out note reference.
      - Reflect the transition in the PR `Issue Hygiene` section (`Closed`, `Pending close`, `Net new`).
 
-  12. **Cross-platform startup parity gate (required for dev startup/docs changes).**
+  13. **Cross-platform startup parity gate (required for dev startup/docs changes).**
      - If a PR changes local startup behavior, startup scripts, or startup documentation,
        validate Linux and Windows flows remain equivalent.
      - Required scope for parity changes:

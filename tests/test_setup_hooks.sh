@@ -24,7 +24,11 @@ echo ""
 # ── Setup: work in a temp dir with a fake .git/hooks ─────────────────────────
 TMPDIR_ROOT="$(mktemp -d)"
 FAKE_REPO="$TMPDIR_ROOT/repo"
-mkdir -p "$FAKE_REPO/.git/hooks"
+mkdir -p "$FAKE_REPO"
+
+# Initialize a real git repo so `git rev-parse --show-toplevel` works in hook
+git -C "$FAKE_REPO" init --quiet
+
 mkdir -p "$FAKE_REPO/.githooks"
 mkdir -p "$FAKE_REPO/scripts"
 mkdir -p "$FAKE_REPO/tests"
@@ -69,9 +73,15 @@ else
 fi
 
 # ── Test 4: re-running setup-hooks.sh succeeds (idempotent) ──────────────────
-echo "4. setup-hooks.sh is idempotent (re-run succeeds)"
+echo "4. setup-hooks.sh is idempotent (re-run succeeds and creates no extra backups)"
+BACKUPS_BEFORE=$(ls "$FAKE_REPO/.git/hooks/" | grep -c "pre-push.bak" || true)
 if (cd "$FAKE_REPO" && bash scripts/setup-hooks.sh >/dev/null 2>&1); then
-    ok "second run exits 0"
+    BACKUPS_AFTER=$(ls "$FAKE_REPO/.git/hooks/" | grep -c "pre-push.bak" || true)
+    if [[ $BACKUPS_AFTER -eq $BACKUPS_BEFORE ]]; then
+        ok "second run exits 0 and created no extra backups"
+    else
+        fail "second run created extra backups (before=$BACKUPS_BEFORE after=$BACKUPS_AFTER)"
+    fi
 else
     fail "second run failed"
 fi
@@ -110,10 +120,14 @@ echo "7. pre-push hook passes when local_pre_pr_check.sh exits 0"
 HOOK="$FAKE_REPO/.git/hooks/pre-push"
 # Simulate git calling the hook: local_ref local_sha remote_ref remote_sha
 PUSH_LINE="refs/heads/feat/foo abc123 refs/heads/feat/foo 000000"
-if echo "$PUSH_LINE" | (cd "$FAKE_REPO" && bash "$HOOK" origin https://example.com 2>&1) >/dev/null 2>&1; then
-    ok "hook exits 0 when gate passes"
+HOOK_OUT=$(echo "$PUSH_LINE" | (cd "$FAKE_REPO" && bash "$HOOK" origin https://example.com 2>&1)) && HOOK_EXIT=0 || HOOK_EXIT=$?
+
+if [[ $HOOK_EXIT -ne 0 ]]; then
+    fail "hook unexpectedly failed (exit $HOOK_EXIT)"
+elif echo "$HOOK_OUT" | grep -q "\[gate\]"; then
+    ok "hook exits 0 when gate passes (gate was executed)"
 else
-    fail "hook unexpectedly failed"
+    fail "hook exited 0 but gate stub output not found — gate may not have been called"
 fi
 
 # ── Test 8: pre-push hook skips when pushing a deletion (zero sha) ───────────

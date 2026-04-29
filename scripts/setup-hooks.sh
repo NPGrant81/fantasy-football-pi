@@ -38,10 +38,18 @@ for hook_src in "$HOOKS_SRC"/*; do
     hook_name="$(basename "$hook_src")"
     hook_dst="$HOOKS_DST/$hook_name"
 
+    # Skip backup+copy if the destination already matches the source (idempotent)
+    if [[ -f "$hook_dst" ]] && cmp -s "$hook_src" "$hook_dst"; then
+        echo "  Already up-to-date: $hook_name"
+        ((SKIPPED++)) || true
+        continue
+    fi
+
     # Back up any existing hook that isn't already a symlink to ours
     if [[ -f "$hook_dst" && ! -L "$hook_dst" ]]; then
-        backup="$hook_dst.bak.$(date +%s)"
-        echo "  Backing up existing $hook_name → $hook_name.bak.$(date +%s)"
+        ts="$(date +%s)"
+        backup="$hook_dst.bak.$ts"
+        echo "  Backing up existing $hook_name → $hook_name.bak.$ts"
         mv "$hook_dst" "$backup"
     fi
 
@@ -52,7 +60,7 @@ for hook_src in "$HOOKS_SRC"/*; do
 done
 
 echo ""
-echo "Done. $INSTALLED hook(s) installed."
+echo "Done. $INSTALLED hook(s) installed, $SKIPPED already up-to-date."
 echo ""
 echo "Hooks installed:"
 echo "  pre-push  — runs 'tests/local_pre_pr_check.sh changed' before every push"
