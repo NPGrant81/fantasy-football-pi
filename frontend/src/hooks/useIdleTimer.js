@@ -37,6 +37,8 @@ export function useIdleTimer({
   const timeoutTimerRef = useRef(null);
   const onWarningRef = useRef(onWarning);
   const onTimeoutRef = useRef(onTimeout);
+  // Track last reschedule time to throttle high-frequency activity events.
+  const lastActivityRef = useRef(0);
 
   // Keep callback refs current without re-scheduling timers on every render.
   useEffect(() => { onWarningRef.current = onWarning; }, [onWarning]);
@@ -55,6 +57,11 @@ export function useIdleTimer({
 
   const scheduleTimers = useCallback(() => {
     clearTimers();
+
+    // Don't schedule if disabled or idle period is not a positive finite number.
+    if (!Number.isFinite(idleMinutes) || idleMinutes <= 0) {
+      return;
+    }
 
     const idleMs        = idleMinutes * 60 * 1000;
     const warningMs     = idleMs - warningLeadSeconds * 1000;
@@ -88,7 +95,12 @@ export function useIdleTimer({
 
     scheduleTimers();
 
+    // Throttle: only reschedule at most once per 500 ms to avoid timer churn
+    // on high-frequency events like mousemove and scroll.
     const handleActivity = () => {
+      const now = Date.now();
+      if (now - lastActivityRef.current < 500) return;
+      lastActivityRef.current = now;
       scheduleTimers();
     };
 

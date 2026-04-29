@@ -48,9 +48,14 @@ vi.mock('../src/api/client', () => ({
   },
 }));
 
+vi.mock('../src/hooks/useIdleTimer', () => ({
+  useIdleTimer: vi.fn(() => ({ resetTimer: vi.fn() })),
+}));
+
 import App from '../src/App';
 import apiClient from '../src/api/client';
 import { emitVisitEvent } from '../src/services/visitLogger';
+import { useIdleTimer } from '../src/hooks/useIdleTimer';
 
 vi.mock('../src/services/visitLogger', () => ({
   emitVisitEvent: vi.fn(),
@@ -339,5 +344,78 @@ describe('App (basic)', () => {
     // ensure auth fetch happens
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
     expect(await screen.findByText('PlayoffBracket')).toBeInTheDocument();
+  });
+});
+
+describe('App idle session timeout', () => {
+  let capturedIdleProps = {};
+
+  beforeEach(() => {
+    capturedLayoutProps = {};
+    capturedIdleProps = {};
+    localStorage.clear();
+    vi.resetAllMocks();
+    // Capture idle hook props by inspecting the mock after each render.
+    // The useIdleTimer module is mocked at the top of this file.
+    vi.mocked(useIdleTimer).mockImplementation((props) => {
+      capturedIdleProps = props;
+      return { resetTimer: vi.fn() };
+    });
+  });
+
+  function setupAuthenticatedApp() {
+    localStorage.setItem('fantasyToken', 'fake-token');
+    localStorage.setItem('fantasyLeagueId', '1');
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me')
+        return Promise.resolve({ data: { user_id: 7, username: 'alice', league_id: 1 } });
+      return Promise.resolve({ data: {} });
+    });
+  }
+
+  test('idle warning modal appears after onWarning is called', async () => {
+    setupAuthenticatedApp();
+    render(<App />);
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+
+    // Idle warning should not be visible yet
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    // Simulate the idle hook firing the warning callback
+    act(() => { capturedIdleProps.onWarning?.(); });
+
+    // Warning modal should now be visible
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeInTheDocument());
+    expect(screen.getByText(/Session Timeout Warning/i)).toBeInTheDocument();
+  });
+
+  test('idle warning modal is dismissed when user clicks Stay Logged In', async () => {
+    setupAuthenticatedApp();
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+
+    // Trigger warning
+    act(() => { capturedIdleProps.onWarning?.(); });
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+    // Click "Stay Logged In"
+    await user.click(screen.getByRole('button', { name: /Stay Logged In/i }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  test('idle timer enabled flag is false when IDLE_TIMEOUT_MINUTES is 0', async () => {
+    // Simulate env var set to 0 by overriding import.meta.env
+    vi.stubEnv('VITE_IDLE_TIMEOUT_MINUTES', '0');
+
+    setupAuthenticatedApp();
+    render(<App />);
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
+
+    // Hook should be called with enabled: false when timeout is 0
+    expect(capturedIdleProps.enabled).toBe(false);
+
+    vi.unstubAllEnvs();
   });
 });

@@ -144,4 +144,42 @@ describe('useIdleTimer', () => {
     act(() => { vi.advanceTimersByTime(49_000); });
     expect(onWarning).not.toHaveBeenCalled();
   });
+
+  test('does not fire when idleMinutes is 0', () => {
+    const onWarning = vi.fn();
+    const onTimeout = vi.fn();
+
+    renderHook(() =>
+      useIdleTimer({
+        idleMinutes:        0,
+        warningLeadSeconds: 10,
+        onWarning,
+        onTimeout,
+        enabled: true,
+      })
+    );
+
+    act(() => { vi.advanceTimersByTime(120_000); });
+    expect(onWarning).not.toHaveBeenCalled();
+    expect(onTimeout).not.toHaveBeenCalled();
+  });
+
+  test('does not fire when idleMinutes is negative', () => {
+    const onWarning = vi.fn();
+    const onTimeout = vi.fn();
+
+    renderHook(() =>
+      useIdleTimer({
+        idleMinutes:        -5,
+        warningLeadSeconds: 10,
+        onWarning,
+        onTimeout,
+        enabled: true,
+      })
+    );
+
+    act(() => { vi.advanceTimersByTime(120_000); });
+    expect(onWarning).not.toHaveBeenCalled();
+    expect(onTimeout).not.toHaveBeenCalled();
+  });
 });

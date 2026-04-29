@@ -22,6 +22,12 @@ export default function IdleWarningModal({
   const [seconds, setSeconds] = useState(initialSeconds);
   const intervalRef = useRef(null);
 
+  // Sync seconds to initialSeconds whenever the prop changes (e.g. if the
+  // caller passes a live remaining-time value instead of a fixed constant).
+  useEffect(() => {
+    setSeconds(initialSeconds);
+  }, [initialSeconds]);
+
   // Reset and start countdown whenever the modal opens.
   useEffect(() => {
     if (!isOpen) {
@@ -31,6 +37,9 @@ export default function IdleWarningModal({
       }
       return;
     }
+
+    // Ensure countdown starts fresh from the current initialSeconds value.
+    setSeconds(initialSeconds);
 
     intervalRef.current = setInterval(() => {
       setSeconds((prev) => {
@@ -49,7 +58,7 @@ export default function IdleWarningModal({
         intervalRef.current = null;
       }
     };
-  }, [isOpen]);
+  }, [isOpen, initialSeconds]);
 
   if (!isOpen) return null;
 
