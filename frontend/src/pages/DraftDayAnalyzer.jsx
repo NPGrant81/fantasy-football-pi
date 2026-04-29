@@ -35,6 +35,7 @@ import {
   modalTitle,
 } from '@utils/uiStandards';
 import { FiX } from 'react-icons/fi';
+import { buildDraftWebSocketUrl } from '@utils/draftWebSocket';
 
 const POSITION_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 const SORTABLE_COLUMNS = ['name', 'team', 'position', 'value', 'adp', 'price_min', 'price_avg', 'price_max', 'confidence'];
@@ -213,6 +214,10 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   ]);
 
   const rankingSeason = useMemo(() => Number(draftYear), [draftYear]);
+  const sessionId = useMemo(() => {
+    if (!activeLeagueId || !draftYear) return null;
+    return `LEAGUE_${activeLeagueId}_YEAR_${draftYear}`;
+  }, [activeLeagueId, draftYear]);
   // Offset from the current calendar year (0 = this season, >0 = historical).
   // Used to differentiate "Pending data update" (current year) from "No data" (past years).
   const rankingSeasonOffset = useMemo(
@@ -221,15 +226,14 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   );
 
   const fetchHistory = useCallback(async () => {
-    if (!activeLeagueId || !draftYear) return;
-    const sessionId = `LEAGUE_${activeLeagueId}_YEAR_${draftYear}`;
+    if (!sessionId) return;
     try {
       const data = await fetchDraftHistory(sessionId);
       setHistory(Array.isArray(data) ? data : []);
     } catch {
       setHistory([]);
     }
-  }, [activeLeagueId, draftYear]);
+  }, [sessionId]);
 
   useEffect(() => {
     if (!activeLeagueId) return;
@@ -272,10 +276,37 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   }, [activeLeagueId]);
 
   useEffect(() => {
+    if (!sessionId) return undefined;
+
     fetchHistory();
-    const id = setInterval(fetchHistory, 4000);
-    return () => clearInterval(id);
-  }, [fetchHistory]);
+    const fallbackInterval = setInterval(fetchHistory, 30000);
+    let socket;
+
+    if (typeof WebSocket !== 'undefined') {
+      try {
+        socket = new WebSocket(buildDraftWebSocketUrl(sessionId));
+        socket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data || '{}');
+            if (message?.type === 'pick' && message?.payload?.session_id === sessionId) {
+              fetchHistory();
+            }
+          } catch {
+            // ignore malformed websocket payloads
+          }
+        };
+      } catch {
+        // fallback interval keeps history fresh even when WS isn't available.
+      }
+    }
+
+    return () => {
+      clearInterval(fallbackInterval);
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        socket.close();
+      }
+    };
+  }, [sessionId, fetchHistory]);
 
   const availablePerspectiveOwners = useMemo(() => {
     if (currentUserIsCommissioner) {

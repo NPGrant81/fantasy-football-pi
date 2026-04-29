@@ -6,9 +6,10 @@ import pandas as pd
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
+from jose import JWTError, jwt
 
 # Internal Imports
-from ..database import get_db
+from ..database import SessionLocal, get_db
 import models
 from ..schemas.draft import HistoricalRankingResponse
 from ..services.ledger_service import owner_draft_budget_total, owner_has_incoming_credits
@@ -27,6 +28,7 @@ from etl.transform.monte_carlo_simulation import (
     run_monte_carlo_draft_simulation,
     summarize_team_distribution,
 )
+from ..core import security
 
 # Create the router
 # Note: We removed the 'prefix' so your current frontend links (/draft-history) 
@@ -38,18 +40,26 @@ logger = logging.getLogger(__name__)
 # This handles the "Real Time" part (pushing updates to all owners instantly)
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: dict[str, list[WebSocket]] = {}
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, session_id: str):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        self.active_connections.setdefault(session_id, []).append(websocket)
 
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+    def disconnect(self, websocket: WebSocket, session_id: str):
+        connections = self.active_connections.get(session_id, [])
+        if websocket in connections:
+            connections.remove(websocket)
+        if not connections and session_id in self.active_connections:
+            self.active_connections.pop(session_id, None)
 
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections:
-            await connection.send_json(message)
+    async def broadcast(self, session_id: str, message: dict):
+        connections = list(self.active_connections.get(session_id, []))
+        for connection in connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                self.disconnect(connection, session_id)
 
 manager = ConnectionManager()
 
@@ -70,6 +80,49 @@ def _parse_session_context(session_id: str) -> tuple[int | None, int | None]:
             except ValueError:
                 draft_year = None
     return league_id, draft_year
+
+
+def _get_websocket_user(websocket: WebSocket, db: Session):
+    cookie_token = websocket.cookies.get(security.ACCESS_TOKEN_COOKIE_NAME)
+    bearer_token = websocket.query_params.get("token") if security.ALLOW_BEARER_AUTH else None
+    auth_token = cookie_token or bearer_token
+    if not auth_token:
+        return None
+
+    try:
+        payload = jwt.decode(auth_token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        username = payload.get("sub")
+        if not username:
+            return None
+    except JWTError:
+        return None
+
+    return db.query(models.User).filter(models.User.username == username).first()
+
+
+def _can_access_draft_session(current_user: models.User, session_id: str) -> bool:
+    league_id, _ = _parse_session_context(session_id)
+    if league_id is None:
+        return False
+
+    if bool(current_user.is_superuser) or bool(current_user.is_commissioner):
+        return True
+
+    return current_user.league_id == league_id
+
+
+def _serialize_pick_for_ws(new_pick: models.DraftPick, player_name: str) -> dict:
+    return {
+        "id": new_pick.id,
+        "owner_id": new_pick.owner_id,
+        "player_id": new_pick.player_id,
+        "amount": new_pick.amount,
+        "year": new_pick.year,
+        "session_id": new_pick.session_id,
+        "league_id": new_pick.league_id,
+        "timestamp": new_pick.timestamp,
+        "player_name": player_name,
+    }
 
 
 def _get_league_settings(db: Session, league_id: int | None):
@@ -910,13 +963,13 @@ async def draft_player(pick: DraftPickCreate, db: Session = Depends(get_db)):
 
     # 3. REAL-TIME MAGIC (The new addition!)
     # Notify all connected users that a pick was made!
-    await manager.broadcast({
-        "event": "PICK_MADE",
-        "player_id": pick.player_id,
-        "owner_id": pick.owner_id,
-        "amount": pick.amount,
-        "player_name": _normalize_player_name(player.name) # useful for the ticker
-    })
+    await manager.broadcast(
+        pick.session_id,
+        {
+            "type": "pick",
+            "payload": _serialize_pick_for_ws(new_pick, _normalize_player_name(player.name)),
+        },
+    )
 
     return new_pick
 
@@ -932,12 +985,32 @@ def get_draft_state(league_id: int, db: Session = Depends(get_db)):
     return {"status": "active", "league_id": league_id}
 
 # --- 5. THE WEBSOCKET ENDPOINT ---
-@router.websocket("/ws/{league_id}")
-async def websocket_endpoint(websocket: WebSocket, league_id: int):
-    await manager.connect(websocket)
+@router.websocket("/draft/ws/{session_id}")
+async def websocket_endpoint(session_id: str, websocket: WebSocket):
+    db = SessionLocal()
+    try:
+        current_user = _get_websocket_user(websocket, db)
+    finally:
+        db.close()
+
+    if current_user is None:
+        await websocket.close(code=1008)
+        return
+
+    if not _can_access_draft_session(current_user, session_id):
+        await websocket.close(code=1008)
+        return
+
+    await manager.connect(websocket, session_id)
     try:
         while True:
             # tailored to wait for messages if you add chat later
-            data = await websocket.receive_text()
+            await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, session_id)
+
+
+@router.websocket("/ws/{league_id}")
+async def websocket_endpoint_legacy(league_id: int, websocket: WebSocket):
+    # Legacy alias kept for backwards compatibility with older clients.
+    return await websocket_endpoint(f"LEAGUE_{league_id}", websocket)

@@ -27,6 +27,7 @@ import {
   tableCell,
   tableCellNumeric,
 } from '@utils/uiStandards';
+import { buildDraftWebSocketUrl } from '@utils/draftWebSocket';
 
 const PLAYER_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
@@ -285,11 +286,43 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           }
         })
         .catch(() => {});
-      const interval = setInterval(fetchHistory, 3000);
-      return () => clearInterval(interval);
+      return undefined;
     }
     return undefined;
   }, [token, activeLeagueId, fetchHistory]);
+
+  useEffect(() => {
+    if (!token || !activeLeagueId || !sessionId) return undefined;
+
+    fetchHistory();
+    const fallbackInterval = setInterval(fetchHistory, 30000);
+    let socket;
+
+    if (typeof WebSocket !== 'undefined') {
+      try {
+        socket = new WebSocket(buildDraftWebSocketUrl(sessionId));
+        socket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data || '{}');
+            if (message?.type === 'pick' && message?.payload?.session_id === sessionId) {
+              fetchHistory();
+            }
+          } catch {
+            // Ignore malformed websocket payloads.
+          }
+        };
+      } catch {
+        // Fallback interval keeps history fresh when WS isn't available.
+      }
+    }
+
+    return () => {
+      clearInterval(fallbackInterval);
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        socket.close();
+      }
+    };
+  }, [token, activeLeagueId, sessionId, fetchHistory]);
 
   const handlePause = useCallback(() => {
     if (!isPaused) reset(); // stop and reset timer when pausing so resume starts fresh
