@@ -1189,6 +1189,18 @@ def update_trade_rules(
                 detail="trade_deadline must be a timezone-aware ISO-8601 timestamp (e.g. 2026-04-01T18:00:00Z).",
             )
 
+    # Validate numeric governance fields
+    if payload.trade_review_period_hours is not None and payload.trade_review_period_hours < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="trade_review_period_hours must be >= 1.",
+        )
+    if payload.trade_max_players_per_side is not None and not (1 <= payload.trade_max_players_per_side <= 20):
+        raise HTTPException(
+            status_code=400,
+            detail="trade_max_players_per_side must be between 1 and 20.",
+        )
+
     # Validate veto threshold only when veto is enabled
     if payload.trade_veto_enabled and (
         payload.trade_veto_threshold is None or payload.trade_veto_threshold < 1
@@ -1220,6 +1232,9 @@ def update_trade_rules(
     settings.trade_deadline = payload.trade_deadline
     settings.allow_playoff_trades = payload.allow_playoff_trades
     settings.require_commissioner_approval = payload.require_commissioner_approval
+    # NOTE: The following governance fields are persisted here but not yet wired into the
+    # trade submission / review / veto flow (tracked in issue #436 / future work).
+    # Commissioners can configure them now; enforcement will be added in a follow-up PR.
     settings.trade_veto_enabled = payload.trade_veto_enabled
     settings.trade_veto_threshold = payload.trade_veto_threshold
     settings.trade_review_period_hours = payload.trade_review_period_hours

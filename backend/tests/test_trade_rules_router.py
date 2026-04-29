@@ -245,3 +245,46 @@ def test_trade_rules_put_vote_threshold_bounds_enforced(db_session):
                 league_id=league.id, payload=payload, current_user=commissioner, db=db_session
             )
         assert exc_info.value.status_code == 400
+
+
+def test_trade_rules_put_review_period_hours_range_enforced(db_session):
+    """trade_review_period_hours must be >= 1 when provided."""
+    league = make_league(db_session)
+    commissioner = make_commissioner(db_session, league)
+
+    for bad_value in (0, -1, -48):
+        payload = TradeRulesSchema(trade_review_period_hours=bad_value)
+        with pytest.raises(HTTPException) as exc_info:
+            update_trade_rules(
+                league_id=league.id, payload=payload, current_user=commissioner, db=db_session
+            )
+        assert exc_info.value.status_code == 400
+
+    # Valid value should be accepted
+    payload = TradeRulesSchema(trade_review_period_hours=24)
+    result = update_trade_rules(
+        league_id=league.id, payload=payload, current_user=commissioner, db=db_session
+    )
+    assert result.trade_review_period_hours == 24
+
+
+def test_trade_rules_put_max_players_per_side_range_enforced(db_session):
+    """trade_max_players_per_side must be between 1 and 20 when provided."""
+    league = make_league(db_session)
+    commissioner = make_commissioner(db_session, league)
+
+    for bad_value in (0, -1, 21, 50):
+        payload = TradeRulesSchema(trade_max_players_per_side=bad_value)
+        with pytest.raises(HTTPException) as exc_info:
+            update_trade_rules(
+                league_id=league.id, payload=payload, current_user=commissioner, db=db_session
+            )
+        assert exc_info.value.status_code == 400
+
+    # Valid boundary values should be accepted
+    for good_value in (1, 10, 20):
+        payload = TradeRulesSchema(trade_max_players_per_side=good_value)
+        result = update_trade_rules(
+            league_id=league.id, payload=payload, current_user=commissioner, db=db_session
+        )
+        assert result.trade_max_players_per_side == good_value
