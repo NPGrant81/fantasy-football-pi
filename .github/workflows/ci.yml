@@ -37,6 +37,52 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce test delta for feature/bugfix PRs
+        # Skip on direct pushes to main (merge commits) and on chore/docs/refactor PRs.
+        # A PR is exempt if its title starts with: chore, docs, refactor, ci, build, style, test
+        # or if the PR has zero changed files (shouldn't happen, but guard against it).
+        if: github.event_name == 'pull_request'
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          EXEMPT_PREFIXES="^(chore|docs|refactor|ci|build|style|test)[:(]"
+
+          if echo "$PR_TITLE" | grep -qiE "$EXEMPT_PREFIXES"; then
+            echo "PR title indicates exempt type — skipping test delta check."
+            exit 0
+          fi
+
+          echo "Checking for test file changes in this PR..."
+
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          TEST_DELTA=$(echo "$CHANGED" | grep -E \
+            '(^frontend/tests/|^backend/tests/test_|^etl/test_|tests/feature_test_matrix\.yaml)' \
+            || true)
+
+          if [ -z "$TEST_DELTA" ]; then
+            echo ""
+            echo "ERROR: No test files added or modified in this PR."
+            echo ""
+            echo "Every feature/bugfix PR must include at least one of:"
+            echo "  - frontend/tests/*.test.{js,jsx}"
+            echo "  - backend/tests/test_*.py"
+            echo "  - etl/test_*.py"
+            echo "  - tests/feature_test_matrix.yaml (if adding a new test file)"
+            echo ""
+            echo "If this PR has no testable behaviour change, prefix the PR title with"
+            echo "one of: chore, docs, refactor, ci, build, style, test"
+            exit 1
+          fi
+
+          echo ""
+          echo "Test delta found:"
+          echo "$TEST_DELTA"
+          echo "Test delta check passed."
 
       - name: Record backend job start time
         id: timing_start

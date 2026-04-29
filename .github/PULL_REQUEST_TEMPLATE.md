@@ -41,6 +41,17 @@ End-to-end
 CI
 - CI runs: backend pytest (with coverage), frontend lint & tests, and Cypress E2E. Make sure your PR passes those checks.
 
+## Test delta (required for every feature/bugfix PR)
+
+> Skip this section only for `chore`, `docs`, or `refactor` PRs with no behaviour change.
+
+- [ ] At least one test file was **added or modified** in this PR
+- [ ] `tests/feature_test_matrix.yaml` updated with any new test files (add a row under the correct lane)
+- [ ] `tests/local_pre_pr_check.sh changed` passes locally (run from repo root)
+
+If no test delta is included, explain why:
+<!-- e.g. "pure docs update", "config-only change with no testable behaviour" -->
+
 ## Checklist (required before marking ready)
 - [ ] I added/updated tests covering the change
 - [ ] I updated any relevant documentation (README, migrations, or CHANGELOG)
