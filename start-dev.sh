@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_HOST="${BACKEND_HOST:-127.0.0.1}"
-BACKEND_PORT="${BACKEND_PORT:-8000}"
+BACKEND_PORT="${BACKEND_PORT:-8010}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 # Always probe 127.0.0.1 so the health check works even when BACKEND_HOST is 0.0.0.0
 BACKEND_HEALTH_HOST="${BACKEND_HEALTH_HOST:-127.0.0.1}"
