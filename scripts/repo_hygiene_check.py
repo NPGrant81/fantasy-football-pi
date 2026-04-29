@@ -97,7 +97,7 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("platform", "operations")
     if any(token in name for token in ["security", "permissions"]):
         return ("security", "policy")
-    if any(token in name for token in ["data", "scoring", "validation", "dictionary", "monte-carlo", "mfl_", "cross_module_edge_case", "db_migration_phase1"]):
+    if any(token in name for token in ["data", "scoring", "validation", "dictionary", "monte-carlo", "mfl_", "cross_module_edge_case", "db_migration_phase1", "owner_backfill"]):
         return ("data", "data-contract-or-quality")
     if any(token in name for token in ["pattern", "governance", "doc_issue", "documentation_update", "testing_session_summary", "dependency_maintenance", "dev-environment"]):
         return ("governance", "process")
