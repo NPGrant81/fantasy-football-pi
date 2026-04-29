@@ -211,7 +211,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     start,
     reset,
     isActive: isTimerRunning,
-  } = useDraftTimer(5, () => handleDraft(true)); // call with forced flag on expiry
+  } = useDraftTimer(5, () => { if (!isPaused) handleDraft(true); }); // blocked when paused
 
   // --- 1.3 SEARCH & POLL ---
 
@@ -292,9 +292,9 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
   }, [token, activeLeagueId, fetchHistory]);
 
   const handlePause = useCallback(() => {
+    if (!isPaused) reset(); // stop and reset timer when pausing so resume starts fresh
     setIsPaused((p) => !p);
-    // TODO: notify backend or disable interactions
-  }, []);
+  }, [isPaused, reset]);
 
   useEffect(() => {
     if (posFilter === 'ALL') return;
@@ -425,7 +425,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     !!activeStats && !activeStats.isFull && bidAmount <= activeStats.maxBid;
 
   const canSubmitDraft = Boolean(
-    playerName && effectiveWinnerId && canCurrentWinnerAfford
+    playerName && effectiveWinnerId && canCurrentWinnerAfford && !isPaused
   );
 
   const winnerBudget = activeStats?.budget ?? 0;
@@ -583,6 +583,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
             winnerMaxBidAllowed={winnerMaxBidAllowed}
             winnerOpenSlotsAllowed={winnerOpenSlotsAllowed}
             winnerRosterSlotsConfigured={winnerRosterSlotsConfigured}
+            isPaused={isPaused}
           />
         </div>
       </div>

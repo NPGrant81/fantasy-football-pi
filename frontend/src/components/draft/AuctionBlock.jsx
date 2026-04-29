@@ -36,6 +36,7 @@ export default function AuctionBlock({
   setOverrideNominator,
   isCommissioner,
   lastDraftedText,
+  isPaused = false,
 }) {
   const suggestionsAnchorRef = useRef(null);
 
@@ -255,7 +256,8 @@ export default function AuctionBlock({
               <button
                 key={pos}
                 onClick={() => setPosFilter(pos)}
-                className={`text-xs font-bold px-4 py-2 rounded border transition uppercase ${
+                disabled={isPaused}
+                className={`text-xs font-bold px-4 py-2 rounded border transition uppercase disabled:opacity-40 ${
                   posFilter === pos
                     ? 'bg-yellow-500 text-black border-yellow-500'
                     : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
@@ -267,10 +269,11 @@ export default function AuctionBlock({
           </div>
           <div ref={suggestionsAnchorRef} className="relative min-w-0">
             <input
-              className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-lg font-bold outline-none focus:border-yellow-500 transition-colors"
+              className="w-full p-3 rounded bg-slate-950 border border-slate-700 text-lg font-bold outline-none focus:border-yellow-500 transition-colors disabled:opacity-40"
               value={playerName}
               onChange={handleSearchChange}
               placeholder="Nominate Player..."
+              disabled={isPaused}
             />
             {showSuggestions && suggestions.length > 0 && (
               <FloatingLayer
@@ -312,10 +315,10 @@ export default function AuctionBlock({
             Winning Bidder
           </label>
           <select
-            className="w-full bg-slate-900 text-white border border-slate-700 rounded p-1.5 text-sm font-bold mb-2 outline-none focus:border-yellow-500"
+            className="w-full bg-slate-900 text-white border border-slate-700 rounded p-1.5 text-sm font-bold mb-2 outline-none focus:border-yellow-500 disabled:opacity-40"
             value={owners.some((o) => o.id === winnerId) ? winnerId : ''}
             onChange={(e) => setWinnerId(parseInt(e.target.value))}
-            disabled={owners.length === 0}
+            disabled={isPaused || owners.length === 0}
           >
             <option value="" disabled>
               {owners.length === 0 ? 'No owners available' : 'Select Owner'}
@@ -335,19 +338,21 @@ export default function AuctionBlock({
           <div className="flex gap-2 mb-2">
             <button
               onClick={() => setBidAmount(Math.min(maxBid, bidAmount + 1))}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
+              disabled={isPaused}
+              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold disabled:opacity-40"
             >
               +$1
             </button>
             <button
               onClick={() => setBidAmount(Math.min(maxBid, bidAmount + 5))}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
+              disabled={isPaused}
+              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold disabled:opacity-40"
             >
               +$5
             </button>
             <button
               onClick={() => setBidAmount(Math.max(MIN_BID, maxBid))}
-              disabled={bidAmount >= maxBid}
+              disabled={isPaused || bidAmount >= maxBid}
               className="flex-1 bg-red-900 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50"
             >
               MAX
@@ -357,14 +362,16 @@ export default function AuctionBlock({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setBidAmount(Math.max(MIN_BID, bidAmount - 1))}
-              className="w-10 h-10 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-2xl"
+              disabled={isPaused}
+              className="w-10 h-10 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-2xl disabled:opacity-40"
             >
               -
             </button>
             <input
               type="number"
-              className="flex-1 text-center bg-slate-950 text-2xl font-mono font-bold border-y border-slate-700 py-1"
+              className="flex-1 text-center bg-slate-950 text-2xl font-mono font-bold border-y border-slate-700 py-1 disabled:opacity-40"
               value={bidAmount}
+              disabled={isPaused}
               onChange={(e) => {
                 const next = parseInt(e.target.value, 10);
                 if (Number.isNaN(next)) {
@@ -380,7 +387,8 @@ export default function AuctionBlock({
               onClick={() =>
                 setBidAmount(Math.min(maxBid || MIN_BID, bidAmount + 1))
               }
-              className="w-10 h-10 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-2xl"
+              disabled={isPaused}
+              className="w-10 h-10 bg-slate-700 hover:bg-slate-600 text-white rounded font-bold text-2xl disabled:opacity-40"
             >
               +
             </button>
@@ -420,7 +428,8 @@ export default function AuctionBlock({
             </div>
             <button
               onClick={isTimerRunning ? reset : start}
-              className={`text-[11px] py-2 px-3 rounded font-black uppercase transition ${
+              disabled={isPaused}
+              className={`text-[11px] py-2 px-3 rounded font-black uppercase transition disabled:opacity-40 ${
                 isTimerRunning
                   ? 'bg-slate-700 text-slate-300 hover:bg-red-900/40'
                   : 'bg-green-600 text-white hover:bg-green-500'

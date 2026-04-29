@@ -69,6 +69,23 @@ port_in_use() {
   exit 1
 }
 
+kill_port() {
+  local port="$1"
+  local pids=""
+
+  if command -v lsof >/dev/null 2>&1; then
+    pids="$(lsof -ti TCP:"${port}" 2>/dev/null || true)"
+  elif command -v ss >/dev/null 2>&1; then
+    pids="$(ss -ltnp "sport = :${port}" 2>/dev/null | awk -F'pid=' '/pid=/{gsub(/,.*/,"",$2); print $2}' || true)"
+  fi
+
+  if [[ -n "${pids}" ]]; then
+    log "Killing stale process(es) on port ${port}: ${pids}"
+    echo "${pids}" | xargs kill -9 2>/dev/null || true
+    sleep 1
+  fi
+}
+
 cleanup() {
   if [[ -n "${BACKEND_PID}" ]] && kill -0 "${BACKEND_PID}" >/dev/null 2>&1; then
     log "Stopping backend (PID ${BACKEND_PID})"
@@ -106,9 +123,8 @@ fi
 log "Using backend Python: ${BACKEND_PYTHON}"
 
 if port_in_use "${FRONTEND_PORT}"; then
-  log "Frontend port ${FRONTEND_PORT} is already in use."
-  log "Stop the existing frontend process or set FRONTEND_PORT to a different value."
-  exit 1
+  log "Frontend port ${FRONTEND_PORT} is already in use — killing stale process."
+  kill_port "${FRONTEND_PORT}"
 fi
 
 if command -v pg_isready >/dev/null 2>&1; then
@@ -126,9 +142,8 @@ if curl -fsS "${BACKEND_HEALTH_URL}" >/dev/null 2>&1; then
   log "Backend already healthy at ${BACKEND_HEALTH_URL}"
 else
   if port_in_use "${BACKEND_PORT}"; then
-    log "Port ${BACKEND_PORT} is already in use, but ${BACKEND_HEALTH_URL} is not healthy."
-    log "Stop the process using port ${BACKEND_PORT} or set BACKEND_PORT to a different value."
-    exit 1
+    log "Port ${BACKEND_PORT} is already in use but not healthy — killing stale process."
+    kill_port "${BACKEND_PORT}"
   fi
 
   log "Starting backend on ${BACKEND_HOST}:${BACKEND_PORT}"
