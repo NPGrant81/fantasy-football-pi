@@ -1,0 +1,517 @@
+# feature_test_matrix.yaml
+# Phase 0 baseline — all known test suites classified by domain and lane.
+# Update this file whenever a feature is added, modified, or a new test is written.
+#
+# Schema per entry:
+#   file:        path relative to repo root
+#   lane:        backend-api | backend-logic | frontend | etl | integration | e2e | security
+#   domain:      short domain tag (auth, draft, trade, waiver, scoring, analytics, etc.)
+#   status:      active | stub | skipped
+#   owner:       team/person responsible (optional)
+#   notes:       free-text context (optional)
+
+lanes:
+  backend-api:
+    description: FastAPI router-level request/response contract tests
+    runner: .venv/bin/pytest backend/tests/
+    files:
+      - file: backend/tests/test_admin_tools.py
+        domain: admin
+        status: active
+      - file: backend/tests/test_advisor_router.py
+        domain: draft-advisor
+        status: active
+      - file: backend/tests/test_analytics_api_boundaries.py
+        domain: analytics
+        status: active
+      - file: backend/tests/test_analytics.py
+        domain: analytics
+        status: active
+      - file: backend/tests/test_api_integration_pipeline.py
+        domain: integration
+        status: active
+      - file: backend/tests/test_auth_cookie_csrf.py
+        domain: auth
+        status: active
+      - file: backend/tests/test_divisions_router.py
+        domain: divisions
+        status: active
+      - file: backend/tests/test_draft_history.py
+        domain: draft
+        status: active
+      - file: backend/tests/test_draft_simulation_endpoint.py
+        domain: draft
+        status: active
+      - file: backend/tests/test_draft_validation.py
+        domain: draft
+        status: active
+      - file: backend/tests/test_etl_router.py
+        domain: etl
+        status: active
+        notes: Added #428 — non-blocking background task
+      - file: backend/tests/test_feedback_router.py
+        domain: feedback
+        status: active
+      - file: backend/tests/test_github_issues.py
+        domain: feedback
+        status: active
+      - file: backend/tests/test_health_endpoint.py
+        domain: infra
+        status: active
+      - file: backend/tests/test_keeper_router.py
+        domain: keepers
+        status: active
+      - file: backend/tests/test_league_news.py
+        domain: news
+        status: active
+      - file: backend/tests/test_league_owner_auth_api.py
+        domain: auth
+        status: active
+      - file: backend/tests/test_league_owner_gap_report_api_boundaries.py
+        domain: admin
+        status: active
+      - file: backend/tests/test_league_owner_management.py
+        domain: admin
+        status: active
+      - file: backend/tests/test_league_owners_api.py
+        domain: admin
+        status: active
+      - file: backend/tests/test_league_router.py
+        domain: league
+        status: active
+      - file: backend/tests/test_ledger_router.py
+        domain: ledger
+        status: active
+      - file: backend/tests/test_matchups_scoring_router.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_model_serving_endpoint.py
+        domain: ml
+        status: active
+      - file: backend/tests/test_news_router.py
+        domain: news
+        status: active
+      - file: backend/tests/test_nfl_schedule.py
+        domain: schedule
+        status: active
+      - file: backend/tests/test_platform_commissioners_api.py
+        domain: admin
+        status: active
+      - file: backend/tests/test_players_router.py
+        domain: players
+        status: active
+      - file: backend/tests/test_playoff_router.py
+        domain: playoffs
+        status: active
+      - file: backend/tests/test_scoring_import.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_scoring_router_integration.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_team_router.py
+        domain: team
+        status: active
+      - file: backend/tests/test_trade_router.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_rules_router.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_waiver_router.py
+        domain: waiver
+        status: active
+
+  backend-logic:
+    description: Service-layer, business logic, and utility unit tests
+    runner: .venv/bin/pytest backend/tests/
+    files:
+      - file: backend/tests/test_advisor_draft_day.py
+        domain: draft-advisor
+        status: active
+      - file: backend/tests/test_commissioner_deadline_service.py
+        domain: admin
+        status: active
+      - file: backend/tests/test_consensus_service.py
+        domain: draft-advisor
+        status: active
+      - file: backend/tests/test_core_security.py
+        domain: auth
+        status: active
+      - file: backend/tests/test_division_balancing_service.py
+        domain: divisions
+        status: active
+      - file: backend/tests/test_efficiency.py
+        domain: analytics
+        status: active
+      - file: backend/tests/test_email_templates.py
+        domain: notifications
+        status: active
+      - file: backend/tests/test_keeper_service.py
+        domain: keepers
+        status: active
+      - file: backend/tests/test_ledger_service.py
+        domain: ledger
+        status: active
+      - file: backend/tests/test_live_scoring_contract.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_live_scoring_ingest_service.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_live_scoring_watchdog_service.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_main.py
+        domain: infra
+        status: active
+      - file: backend/tests/test_playoff_logic.py
+        domain: playoffs
+        status: active
+      - file: backend/tests/test_schemas.py
+        domain: infra
+        status: active
+      - file: backend/tests/test_scoring_engine_service.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_scoring_import_service.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_scoring_points_override_upload.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_startup.py
+        domain: infra
+        status: active
+      - file: backend/tests/test_trade_audit_history.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_execution_service.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_lifecycle_integration_v2.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_models.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_notifications.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_qa_regression.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_review_v2.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_submission_v2.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_timeline_settings.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_trade_validation_service.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_transaction_service.py
+        domain: waiver
+        status: active
+      - file: backend/tests/test_utils.py
+        domain: infra
+        status: active
+      - file: backend/tests/test_validation_service.py
+        domain: infra
+        status: active
+      - file: backend/tests/test_waiver_budgets.py
+        domain: waiver
+        status: active
+      - file: backend/tests/test_waiver_service.py
+        domain: waiver
+        status: active
+      - file: backend/tests/test_week_finalization.py
+        domain: scoring
+        status: active
+
+  backend-security:
+    description: Security hardening and auth guardrail tests
+    runner: .venv/bin/pytest backend/tests/
+    files:
+      - file: backend/tests/test_security_hardening.py
+        domain: security
+        status: active
+      - file: backend/tests/test_db_credentials_guardrail.py
+        domain: security
+        status: active
+      - file: backend/tests/test_sqlite_runtime_guardrail.py
+        domain: security
+        status: active
+
+  backend-data-quality:
+    description: Data quality guardrails, ingestion validation, and audit tests
+    runner: .venv/bin/pytest backend/tests/
+    files:
+      - file: backend/tests/test_data_quality_guardrails.py
+        domain: data-quality
+        status: active
+      - file: backend/tests/test_data_quality_seasonal_guardrails.py
+        domain: data-quality
+        status: active
+      - file: backend/tests/test_data_quality_volume_guardrails.py
+        domain: data-quality
+        status: active
+      - file: backend/tests/test_audit_player_duplicates.py
+        domain: data-quality
+        status: active
+
+  etl:
+    description: ETL pipeline, MFL import/export, and data extraction tests
+    runner: .venv/bin/pytest etl/ backend/tests/test_apply_mfl_draft_backfill_sheet.py backend/tests/test_archive_mfl_*.py backend/tests/test_extract_mfl_*.py backend/tests/test_load_mfl_*.py backend/tests/test_mfl_*.py backend/tests/test_normalize_mfl_*.py backend/tests/test_prepare_mfl_*.py backend/tests/test_resolve_mfl_*.py backend/tests/test_restore_mfl_*.py backend/tests/test_stage_mfl_*.py
+    files:
+      - file: etl/test_etl_pipeline.py
+        domain: etl
+        status: active
+      - file: etl/test_etl_utils.py
+        domain: etl
+        status: active
+      - file: etl/test_load_validation.py
+        domain: etl
+        status: active
+      - file: etl/test_phase1_artifacts.py
+        domain: etl
+        status: active
+      - file: etl/test_validation_framework.py
+        domain: etl
+        status: active
+      - file: etl/test_data_source_audit.py
+        domain: etl
+        status: active
+      - file: etl/test_historical_rankings.py
+        domain: etl
+        status: active
+      - file: etl/test_monte_carlo_simulation.py
+        domain: etl
+        status: active
+      - file: etl/test_fantasynerds_preprod.py
+        domain: etl
+        status: active
+        notes: pre-prod integration; may need live credentials
+      - file: etl/test_yahoo_preprod.py
+        domain: etl
+        status: active
+        notes: pre-prod integration; may need live credentials
+      - file: backend/tests/test_apply_mfl_draft_backfill_sheet.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_archive_mfl_csv_exports.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_archive_mfl_html_exports.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_archive_mfl_json_exports.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_extract_mfl_history_draft_results.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_load_mfl_html_normalized.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_load_mfl_html_normalized_json_safe.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_load_ppl_history_guards.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_manage_history_owner_cli.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_manage_import_mfl_csv_cli.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_mfl_html_report_extract.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_mfl_migration_scripts.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_normalize_mfl_html_records.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_prepare_mfl_draft_backfill_sheet.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_resolve_mfl_draft_backfill_names.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_restore_mfl_archive.py
+        domain: etl
+        status: active
+      - file: backend/tests/test_stage_mfl_html_for_import.py
+        domain: etl
+        status: active
+
+  frontend:
+    description: React component and utility unit tests (vitest)
+    runner: cd frontend && npm run test -- --run
+    files:
+      - file: frontend/tests/AdminSettings.test.jsx
+        domain: admin
+        status: active
+      - file: frontend/tests/AnalyticsDashboard.test.jsx
+        domain: analytics
+        status: active
+      - file: frontend/tests/App.test.jsx
+        domain: infra
+        status: active
+      - file: frontend/tests/BestAvailableList.test.jsx
+        domain: draft
+        status: active
+      - file: frontend/tests/BracketAccordion.test.jsx
+        domain: playoffs
+        status: active
+      - file: frontend/tests/BugReport.test.jsx
+        domain: feedback
+        status: active
+      - file: frontend/tests/CommissionerDashboard.test.jsx
+        domain: admin
+        status: active
+      - file: frontend/tests/DraftBoardGrid.test.jsx
+        domain: draft
+        status: active
+      - file: frontend/tests/DraftBoard.noAnalyzer.test.jsx
+        domain: draft
+        status: active
+      - file: frontend/tests/DraftBoard.pause.test.jsx
+        domain: draft
+        status: active
+      - file: frontend/tests/draftBoardSort.test.js
+        domain: draft
+        status: active
+        notes: Added #247 — per-team column sort utility
+      - file: frontend/tests/DraftDayAnalyzer.test.jsx
+        domain: draft-advisor
+        status: active
+      - file: frontend/tests/DraftHistoryFeed.test.jsx
+        domain: draft
+        status: active
+      - file: frontend/tests/GameCenter.test.jsx
+        domain: scoring
+        status: active
+      - file: frontend/tests/HistoryOwnerMappingUtility.test.jsx
+        domain: admin
+        status: active
+      - file: frontend/tests/Home.test.jsx
+        domain: infra
+        status: active
+      - file: frontend/tests/Keepers.test.jsx
+        domain: keepers
+        status: active
+      - file: frontend/tests/Layout.test.jsx
+        domain: infra
+        status: active
+      - file: frontend/tests/LeagueAdvisor.test.jsx
+        domain: draft-advisor
+        status: active
+      - file: frontend/tests/LeagueSelector.test.jsx
+        domain: league
+        status: active
+      - file: frontend/tests/LineupRules.test.jsx
+        domain: scoring
+        status: active
+      - file: frontend/tests/ManageCommissioners.test.jsx
+        domain: admin
+        status: active
+      - file: frontend/tests/ManageKeeperRules.test.jsx
+        domain: keepers
+        status: active
+      - file: frontend/tests/ManageOwners.test.jsx
+        domain: admin
+        status: active
+      - file: frontend/tests/ManagerTrendChart.test.jsx
+        domain: analytics
+        status: active
+      - file: frontend/tests/ManageScoringRules.test.jsx
+        domain: scoring
+        status: active
+      - file: frontend/tests/MarkdownRenderer.test.jsx
+        domain: infra
+        status: active
+      - file: frontend/tests/Matchups.test.jsx
+        domain: matchups
+        status: active
+      - file: frontend/tests/MermaidDiagram.test.jsx
+        domain: infra
+        status: active
+      - file: frontend/tests/MyTeam.test.jsx
+        domain: team
+        status: active
+      - file: frontend/tests/PageSmokes.test.jsx
+        domain: infra
+        status: active
+      - file: frontend/tests/PlayerIdentityCard.test.jsx
+        domain: players
+        status: active
+      - file: frontend/tests/Playoff.test.jsx
+        domain: playoffs
+        status: active
+      - file: frontend/tests/RivalryGraph.test.jsx
+        domain: analytics
+        status: active
+      - file: frontend/tests/rosterHelpers.test.js
+        domain: team
+        status: active
+      - file: frontend/tests/ScoringRulesModal.test.jsx
+        domain: scoring
+        status: active
+      - file: frontend/tests/SessionHeader.sorting.test.jsx
+        domain: draft
+        status: active
+        notes: Added #247 — sort dropdown UI
+      - file: frontend/tests/Sidebar.test.jsx
+        domain: infra
+        status: active
+      - file: frontend/tests/ThemeContext.test.jsx
+        domain: infra
+        status: active
+      - file: frontend/tests/tradeAnalyzerLogic.test.js
+        domain: trade
+        status: active
+      - file: frontend/tests/TradeAnalyzer.test.jsx
+        domain: trade
+        status: active
+      - file: frontend/tests/uat_data.test.jsx
+        domain: uat
+        status: active
+      - file: frontend/tests/uiHelpers.test.js
+        domain: infra
+        status: active
+      - file: frontend/tests/uiStandards.snapshot.test.js
+        domain: infra
+        status: active
+      - file: frontend/tests/useDraftTimer.test.jsx
+        domain: draft
+        status: active
+      - file: frontend/tests/YourLockerRoom.test.jsx
+        domain: team
+        status: active
+
+  e2e:
+    description: End-to-end browser tests
+    runner: "# Not yet configured — no Cypress or Playwright config found"
+    files: []
+    notes: E2E lane is planned (Phase 4, issue #375). No test files exist yet.
+
+  integration:
+    description: Cross-layer integration tests (API + DB + service)
+    runner: .venv/bin/pytest backend/tests/ -m integration
+    files:
+      - file: backend/tests/test_scoring_router_integration.py
+        domain: scoring
+        status: active
+      - file: backend/tests/test_trade_lifecycle_integration_v2.py
+        domain: trade
+        status: active
+      - file: backend/tests/test_api_integration_pipeline.py
+        domain: infra
+        status: active
