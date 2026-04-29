@@ -1,6 +1,7 @@
 # feature_test_matrix.yaml
 # Phase 0 baseline — all known test suites classified by domain and lane.
 # Update this file whenever a feature is added, modified, or a new test is written.
+# Phase 1 (#372): updating this file is required for every feature/bugfix PR that adds or modifies test files.
 #
 # Schema per entry:
 #   file:        path relative to repo root

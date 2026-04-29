@@ -37,6 +37,68 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce test delta for feature/bugfix PRs
+        # Only runs on pull_request events; direct pushes to main bypass it by event filter.
+        # A PR is exempt if its title starts with one of the conventional-commit types:
+        #   chore, docs, refactor, ci, build, style, test
+        # followed by ':', '(', or ' ' (space) — e.g. "chore: …", "docs(api): …", "refactor …".
+        if: github.event_name == 'pull_request'
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          # Match conventional commit prefix: type followed by ':', '(', or space.
+          EXEMPT_PREFIXES="^(chore|docs|refactor|ci|build|style|test)[ :(\.]"
+
+          if echo "$PR_TITLE" | grep -qiE "$EXEMPT_PREFIXES"; then
+            echo "PR title indicates exempt type — skipping test delta check."
+            exit 0
+          fi
+
+          echo "Checking for test file changes in this PR..."
+
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          # Match actual test files only (not fixtures, snapshots, or the matrix yaml alone).
+          # Frontend: *.test.{js,jsx,ts,tsx} under frontend/tests/ OR Cypress specs.
+          # Backend:  test_*.py or conftest.py under backend/tests/.
+          # ETL:      test_*.py at etl root or any subdirectory.
+          TEST_DELTA=$(echo "$CHANGED" | grep -E \
+            '(^frontend/tests/.*\.test\.[jt]sx?$|^frontend/cypress/e2e/.*\.spec\.[jt]sx?$|^backend/tests/(test_|conftest)|^etl/.*test_)' \
+            || true)
+
+          if [ -z "$TEST_DELTA" ]; then
+            echo ""
+            echo "ERROR: No test files added or modified in this PR."
+            echo ""
+            echo "Every feature/bugfix PR must include at least one of:"
+            echo "  - frontend/tests/*.test.{js,jsx,ts,tsx}"
+            echo "  - frontend/cypress/e2e/*.spec.{js,jsx,ts,tsx}"
+            echo "  - backend/tests/test_*.py or backend/tests/conftest.py"
+            echo "  - etl/**/test_*.py"
+            echo ""
+            echo "Also update tests/feature_test_matrix.yaml with any new test files."
+            echo ""
+            echo "If this PR has no testable behaviour change, prefix the PR title with"
+            echo "one of: chore, docs, refactor, ci, build, style, test"
+            echo "(followed by ':', '(', or a space — e.g. 'chore: …' or 'docs(api): …')"
+            exit 1
+          fi
+
+          echo ""
+          echo "Test delta found:"
+          echo "$TEST_DELTA"
+
+          # Remind (non-blocking) if the matrix was not updated alongside new test files.
+          if ! echo "$CHANGED" | grep -q 'tests/feature_test_matrix\.yaml'; then
+            echo "NOTICE: tests/feature_test_matrix.yaml was not updated."
+            echo "If you added new test files, please add a row for each under the correct lane."
+          fi
+
+          echo "Test delta check passed."
 
       - name: Record backend job start time
         id: timing_start
