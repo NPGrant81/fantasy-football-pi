@@ -43,7 +43,7 @@ CI
 
 ## Test delta (required for every feature/bugfix PR)
 
-> Skip this section only for `chore`, `docs`, or `refactor` PRs with no behaviour change.
+> Skip this section only for PRs whose title starts with one of these conventional-commit types (followed by `:`, `(`, or a space): `chore`, `docs`, `refactor`, `ci`, `build`, `style`, or `test`. All other feature/bugfix PRs must include a test delta.
 
 - [ ] At least one test file was **added or modified** in this PR
 - [ ] `tests/feature_test_matrix.yaml` updated with any new test files (add a row under the correct lane)
