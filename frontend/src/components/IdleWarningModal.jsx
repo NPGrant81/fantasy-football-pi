@@ -32,8 +32,6 @@ export default function IdleWarningModal({
       return;
     }
 
-    setSeconds(initialSeconds);
-
     intervalRef.current = setInterval(() => {
       setSeconds((prev) => {
         if (prev <= 1) {
@@ -51,7 +49,7 @@ export default function IdleWarningModal({
         intervalRef.current = null;
       }
     };
-  }, [isOpen, initialSeconds]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

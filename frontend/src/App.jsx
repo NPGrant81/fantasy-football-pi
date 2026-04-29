@@ -715,6 +715,7 @@ function App() {
           />
         </BrowserRouter>
         <IdleWarningModal
+          key={showIdleWarning ? 'idle-warning-open' : 'idle-warning-closed'}
           isOpen={showIdleWarning}
           secondsRemaining={WARNING_LEAD_SECONDS}
           onStay={handleStayLoggedIn}

@@ -122,6 +122,7 @@ describe('IdleWarningModal', () => {
   test('resets countdown when reopened with new secondsRemaining', () => {
     const { rerender } = render(
       <IdleWarningModal
+        key="open-10"
         isOpen={true}
         secondsRemaining={10}
         onStay={vi.fn()}
@@ -135,6 +136,7 @@ describe('IdleWarningModal', () => {
     // Close then reopen with fresh count
     rerender(
       <IdleWarningModal
+        key="closed-60"
         isOpen={false}
         secondsRemaining={60}
         onStay={vi.fn()}
@@ -143,6 +145,7 @@ describe('IdleWarningModal', () => {
     );
     rerender(
       <IdleWarningModal
+        key="open-60"
         isOpen={true}
         secondsRemaining={60}
         onStay={vi.fn()}
