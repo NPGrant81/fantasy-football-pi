@@ -103,7 +103,7 @@ describe('App (basic)', () => {
     });
   });
 
-  test('login without server league_id does not persist arbitrary league from input', async () => {
+  test('login without server league_id persists typed league from input', async () => {
     // Setup
     apiClient.post.mockResolvedValue({
       data: { access_token: 'new-token', owner_id: 42 },
@@ -139,15 +139,15 @@ describe('App (basic)', () => {
       )
     );
 
-    // Verify we do not force a league from client-side input when server omitted league_id.
+    // Verify typed league ID is used when server omits league_id.
     await waitFor(() => {
-      expect(localStorage.getItem('fantasyLeagueId')).toBeNull();
+      expect(localStorage.getItem('fantasyLeagueId')).toBe('5');
       // Verify fantasyToken is set so auth persists across refresh
       expect(localStorage.getItem('fantasyToken')).toBe('cookie-session');
     });
 
-    // With no active league, app should route to league selector flow.
-    expect(screen.getByText(/Select your league to enter/i)).toBeInTheDocument();
+    // With an active league, app should render authenticated layout.
+    expect(screen.getByTestId('layout')).toBeInTheDocument();
   });
 
   test('logout clears fantasyToken so auth check is not re-triggered', async () => {

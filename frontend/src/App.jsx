@@ -20,6 +20,8 @@ import { BRAND_NAME } from './constants/branding';
 import { ThemeProvider } from './context/ThemeContext';
 import { LeagueContext } from './context/LeagueContext';
 import { emitVisitEvent } from './services/visitLogger';
+import { useIdleTimer } from './hooks/useIdleTimer';
+import IdleWarningModal from './components/IdleWarningModal';
 
 // Import Pages (Lazy Loaded)
 const YourLockerRoom = lazy(() => import('./pages/team-owner/YourLockerRoom'));
@@ -438,6 +440,37 @@ function App() {
     }
   }, [clearAuthState]);
 
+  // --- 1.25 IDLE SESSION TIMEOUT ---
+  // Timeout in minutes: configurable via VITE_IDLE_TIMEOUT_MINUTES (default 30).
+  const IDLE_TIMEOUT_MINUTES = Number(
+    import.meta.env.VITE_IDLE_TIMEOUT_MINUTES ?? 30
+  );
+  const WARNING_LEAD_SECONDS = 60;
+
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+
+  const handleIdleWarning = useCallback(() => {
+    setShowIdleWarning(true);
+  }, []);
+
+  const handleIdleTimeout = useCallback(() => {
+    setShowIdleWarning(false);
+    handleLogout();
+  }, [handleLogout]);
+
+  const { resetTimer: resetIdleTimer } = useIdleTimer({
+    idleMinutes:        IDLE_TIMEOUT_MINUTES,
+    warningLeadSeconds: WARNING_LEAD_SECONDS,
+    onWarning:          handleIdleWarning,
+    onTimeout:          handleIdleTimeout,
+    enabled:            !!token,
+  });
+
+  const handleStayLoggedIn = useCallback(() => {
+    setShowIdleWarning(false);
+    resetIdleTimer();
+  }, [resetIdleTimer]);
+
   // --- 1.3 AUTH CHECK (The Guard) ---
   useEffect(() => {
     const storedToken = localStorage.getItem('fantasyToken');
@@ -681,6 +714,12 @@ function App() {
             onLeagueSwitch={handleLeagueSwitch}
           />
         </BrowserRouter>
+        <IdleWarningModal
+          isOpen={showIdleWarning}
+          secondsRemaining={WARNING_LEAD_SECONDS}
+          onStay={handleStayLoggedIn}
+          onLogout={handleIdleTimeout}
+        />
       </ThemeProvider>
     </LeagueContext.Provider>
   );

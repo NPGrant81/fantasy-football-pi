@@ -402,6 +402,14 @@ lanes:
       - file: frontend/tests/HistoryOwnerMappingUtility.test.jsx
         domain: admin
         status: active
+      - file: frontend/tests/IdleWarningModal.test.jsx
+        domain: auth
+        status: active
+        notes: IdleWarningModal component — 7 tests (#404)
+      - file: frontend/tests/useIdleTimer.test.js
+        domain: auth
+        status: active
+        notes: useIdleTimer hook — 5 tests covering warning/timeout/reset/disable/activity (#404)
       - file: frontend/tests/Home.test.jsx
         domain: infra
         status: active
