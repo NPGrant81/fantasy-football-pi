@@ -24,6 +24,12 @@
     "last_reviewed": "2026-04-27"
   },
   {
+    "path": "docs/LEAGUE60_OWNER_BACKFILL.md",
+    "owner": "data",
+    "cadence_days": 60,
+    "last_reviewed": "2026-04-27"
+  },
+  {
     "path": "docs/FRONTEND_UI_STANDARDS.md",
     "owner": "frontend",
     "cadence_days": 60,
