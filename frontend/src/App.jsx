@@ -20,6 +20,8 @@ import { BRAND_NAME } from './constants/branding';
 import { ThemeProvider } from './context/ThemeContext';
 import { LeagueContext } from './context/LeagueContext';
 import { emitVisitEvent } from './services/visitLogger';
+import { useIdleTimer } from './hooks/useIdleTimer';
+import IdleWarningModal from './components/IdleWarningModal';
 
 // Import Pages (Lazy Loaded)
 const YourLockerRoom = lazy(() => import('./pages/team-owner/YourLockerRoom'));
@@ -438,6 +440,66 @@ function App() {
     }
   }, [clearAuthState]);
 
+  // --- 1.25 IDLE SESSION TIMEOUT ---
+  // Timeout in minutes: configurable via VITE_IDLE_TIMEOUT_MINUTES (default 30).
+  // Set to 0 in the env to disable the idle timer entirely.
+  const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
+  const rawIdleTimeoutMinutes = import.meta.env.VITE_IDLE_TIMEOUT_MINUTES;
+  const parsedIdleTimeoutMinutes = Number(rawIdleTimeoutMinutes);
+  // Fall back to default for NaN/non-numeric values; allow 0 to mean "disabled".
+  const IDLE_TIMEOUT_MINUTES =
+    Number.isFinite(parsedIdleTimeoutMinutes) && parsedIdleTimeoutMinutes >= 0
+      ? parsedIdleTimeoutMinutes
+      : DEFAULT_IDLE_TIMEOUT_MINUTES;
+  const WARNING_LEAD_SECONDS = 60;
+
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
+
+  const handleIdleWarning = useCallback(() => {
+    setShowIdleWarning(true);
+  }, []);
+
+  const handleIdleTimeout = useCallback(() => {
+    setShowIdleWarning(false);
+    handleLogout();
+  }, [handleLogout]);
+
+  const { resetTimer: resetIdleTimer } = useIdleTimer({
+    idleMinutes:        IDLE_TIMEOUT_MINUTES,
+    warningLeadSeconds: WARNING_LEAD_SECONDS,
+    onWarning:          handleIdleWarning,
+    onTimeout:          handleIdleTimeout,
+    enabled:            !!token && IDLE_TIMEOUT_MINUTES > 0,
+  });
+
+  const handleStayLoggedIn = useCallback(() => {
+    setShowIdleWarning(false);
+    resetIdleTimer();
+  }, [resetIdleTimer]);
+
+  // Dismiss the warning modal (and reset timers) if the user performs any
+  // activity while it is open — keeps the UI in sync with the underlying hook.
+  const handleIdleActivity = useCallback(() => {
+    setShowIdleWarning(false);
+    resetIdleTimer();
+  }, [resetIdleTimer]);
+
+  useEffect(() => {
+    if (!showIdleWarning) return undefined;
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
+    const onActivity = () => { handleIdleActivity(); };
+
+    activityEvents.forEach((evt) => {
+      window.addEventListener(evt, onActivity, { passive: true });
+    });
+    return () => {
+      activityEvents.forEach((evt) => {
+        window.removeEventListener(evt, onActivity);
+      });
+    };
+  }, [showIdleWarning, handleIdleActivity]);
+
   // --- 1.3 AUTH CHECK (The Guard) ---
   useEffect(() => {
     const storedToken = localStorage.getItem('fantasyToken');
@@ -681,6 +743,13 @@ function App() {
             onLeagueSwitch={handleLeagueSwitch}
           />
         </BrowserRouter>
+        <IdleWarningModal
+          key={showIdleWarning ? 'idle-warning-open' : 'idle-warning-closed'}
+          isOpen={showIdleWarning}
+          secondsRemaining={WARNING_LEAD_SECONDS}
+          onStay={handleStayLoggedIn}
+          onLogout={handleIdleTimeout}
+        />
       </ThemeProvider>
     </LeagueContext.Provider>
   );
