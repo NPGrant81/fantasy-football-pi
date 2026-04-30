@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# .githooks/pre-push
+#
+# Runs the local pre-PR gate before every `git push`.
+# Skips if pushing to a branch named 'main' directly (rare; CI covers that).
+#
+# To install: run  scripts/setup-hooks.sh  once after cloning.
+# To bypass one-off: git push --no-verify
+
+set -euo pipefail
+
+# Use git to find the repo root — works correctly whether the hook lives in
+# .githooks/ (source) or .git/hooks/ (after installation via setup-hooks.sh).
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+GATE="$REPO_ROOT/tests/local_pre_pr_check.sh"
+
+# Read the remote/URL passed by git (stdin not needed here; we use positional args)
+REMOTE="$1"
+# URL is $2 but we only need it to detect pushes to origin
+
+# Don't block pushes that only touch remote refs we can't diff locally
+# (e.g. deleting a remote branch).
+GATE_SHOULD_RUN=false
+
+while read local_ref local_sha remote_ref remote_sha; do
+    # Skip branch deletion pushes
+    if [[ "$local_sha" == "0000000000000000000000000000000000000000" ]]; then
+        continue
+    fi
+
+    # Only handle branch refs (refs/heads/*); skip tags, notes, etc.
+    if [[ "$local_ref" != refs/heads/* ]]; then
+        continue
+    fi
+
+    # Determine the branch name being pushed
+    BRANCH="${local_ref#refs/heads/}"
+
+    # Skip direct pushes to main (shouldn't happen in normal workflow, but be safe)
+    if [[ "$BRANCH" == "main" ]]; then
+        echo "[pre-push] Pushing to main — skipping local gate (CI enforces)."
+        continue
+    fi
+
+    # Mark that at least one non-main branch ref warrants running the gate
+    GATE_SHOULD_RUN=true
+
+done
+
+# Run the gate at most once per push (even if multiple branch refs were pushed)
+if [[ "$GATE_SHOULD_RUN" == "true" ]]; then
+    echo ""
+    echo "[pre-push] Running local pre-PR gate (mode: changed)..."
+    echo "[pre-push] To skip: git push --no-verify"
+    echo ""
+
+    if [[ ! -f "$GATE" ]]; then
+        echo "[pre-push] WARNING: $GATE not found — skipping gate."
+        exit 0
+    fi
+
+    if ! bash "$GATE" changed; then
+        echo ""
+        echo "[pre-push] Pre-push gate FAILED. Fix issues above or use --no-verify to bypass."
+        exit 1
+    fi
+fi
+
+exit 0

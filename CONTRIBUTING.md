@@ -125,29 +125,89 @@ hit breakpoints as you interact with the UI.
 
 ---
 
+## Local Pre-PR Gate (Phase 2 of testing epic #370)
+
+Run this before pushing a branch or opening a PR. It mirrors the CI checks so
+failures are caught locally instead of in the pipeline.
+
+### Quick start
+
+```bash
+# Normal work — tests only the lanes with changed files (fast):
+bash tests/local_pre_pr_check.sh changed
+
+# Risky changes (e.g. schema migrations, cross-cutting refactors) — all lanes:
+bash tests/local_pre_pr_check.sh full
+
+# All lanes + E2E (once #375 is implemented):
+bash tests/local_pre_pr_check.sh full --with-e2e
+```
+
+### Automatic hook (recommended)
+
+Install a `pre-push` git hook so the `changed` check runs automatically on
+every push without having to remember:
+
+```bash
+bash scripts/setup-hooks.sh
+```
+
+This copies `.githooks/pre-push` into `.git/hooks/`. The hook:
+- Runs `tests/local_pre_pr_check.sh changed` before any push to a non-`main` branch.
+- Skips pushes directly to `main` (rare; CI covers that path).
+- Can be bypassed for a single push with `git push --no-verify`.
+
+To uninstall: `rm .git/hooks/pre-push`
+
+### When to use each mode
+
+| Situation | Command |
+|---|---|
+| Everyday feature/bugfix work | `changed` (default) |
+| Schema migration, auth change, cross-cutting refactor | `full` |
+| Final check before a release branch PR | `full --with-e2e` (requires #375) |
+
+### Environment overrides
+
+Set these to skip individual lanes when you know they're unaffected:
+
+```bash
+SKIP_BACKEND=1 bash tests/local_pre_pr_check.sh changed   # skip backend pytest
+SKIP_FRONTEND=1 bash tests/local_pre_pr_check.sh changed  # skip frontend vitest
+SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
+```
+
+---
+
 ## Current Action Items
 
-1. **Maintain naming and structure hygiene.**
+1. **Run the local pre-PR gate before every push.**
+   - Install the hook once: `bash scripts/setup-hooks.sh`
+   - Or run manually: `bash tests/local_pre_pr_check.sh changed`
+   - For risky changes (migrations, cross-cutting refactors): `bash tests/local_pre_pr_check.sh full`
+   - The gate mirrors CI — catching failures locally is faster than waiting for the pipeline.
+
+2. **Maintain naming and structure hygiene.**
    - Keep React component filenames in PascalCase and avoid case-only name
      differences in tracked files.
    - If you add a new route page or major module, place it under the existing
      feature folders (for example `src/pages/commissioner/`) rather than
      introducing ad-hoc top-level folders.
 
-2. **Audit critical pages.**
+3. **Audit critical pages.**
    - Before adding new UI (e.g. Taxi Squad) or touching existing logic
      (LineupRules, WaiverRules, etc.), set breakpoints in each module’s
      fetch hooks and handlers as described above and walk through them using
      the VS Code debugger. Capture a screenshot of the _Variables_ pane for
      at least one component to prove the audit was done.
 
-3. **Keep docs and route matrices synchronized.**
+4. **Keep docs and route matrices synchronized.**
    - Any new page, endpoint surface, or major integration should be reflected
      in `docs/API_PAGE_MATRIX.md` and linked from `docs/INDEX.md`.
    - If docs in `docs/` change, ensure index updates are included in the same
      PR.
 
-4. **UAT artifacts must be updated with every feature or behavior change.**
+5. **UAT artifacts must be updated with every feature or behavior change.**
    - Any new feature, workflow change, validation rule, or UI behavior update
      must include matching updates in `docs/uat/uat_master.xlsx` and
      `docs/uat/uat_overview.pptx` in the same PR.
@@ -161,11 +221,11 @@ hit breakpoints as you interact with the UI.
      `docs/uat/UAT_MASTER_DOCUMENT_INSTRUCTIONS.md` when policy/process needs
      clarification.
 
-5. **Follow the DoD on every PR.** Any pull request lacking one of the three
+6. **Follow the DoD on every PR.** Any pull request lacking one of the three
    DoD checks (tests, debugger walkthrough, clean console) should be
    rejected until the developer demonstrates compliance.
 
-6. **PR review gate: UAT sync check.**
+7. **PR review gate: UAT sync check.**
    - Reviewers should reject PRs with user-facing changes if UAT artifacts were
      not updated.
    - Minimum expected evidence in PR description:
@@ -174,7 +234,7 @@ hit breakpoints as you interact with the UI.
      - whether `Execution Tier` changed for impacted scenarios
      - any new entries added to `Defect_Rollup` template fields if applicable
 
-7. **Workflow YAML hygiene gate (new standard).**
+8. **Workflow YAML hygiene gate (new standard).**
    - Any edit under `.github/workflows/*.yml` must be made in the actual tracked file,
      not a temporary chat/editor buffer.
    - Before commit, verify workflow structure with:
@@ -187,7 +247,7 @@ hit breakpoints as you interact with the UI.
    - PRs that modify workflows should include a brief note that YAML structure was
      reviewed and CI syntax is valid.
 
-8. **Issue triage checklist (required before merge).**
+9. **Issue triage checklist (required before merge).**
    - Confirm whether each issue touched by the PR is:
      - `Resolved in code and ready to close`, or
      - `Still open with remaining implementation work`.
@@ -202,7 +262,7 @@ hit breakpoints as you interact with the UI.
      - `Pending close:` list
      - `Net new:` list
 
-9. **PR feedback closure gate (required before merge/issue close).**
+10. **PR feedback closure gate (required before merge/issue close).**
    - Before merging any PR and before closing linked issues, confirm review feedback is resolved.
    - Required checks:
      - `gh pr view <PR_NUMBER> --repo NPGrant81/fantasy-football-pi --json comments,reviews,reviewDecision`
@@ -211,7 +271,7 @@ hit breakpoints as you interact with the UI.
      - If any actionable thread remains unresolved (`isResolved=false` and not outdated), do not merge yet.
      - Either address it in follow-up commits or explicitly defer it with rationale in PR comments before merge.
 
-10. **Branch/worktree lifecycle policy (required after merge).**
+11. **Branch/worktree lifecycle policy (required after merge).**
    - For merged or obsolete PRs, retire the branch/worktree set:
      - delete remote topic branch (when policy allows)
      - remove local worktree tied to that topic branch
@@ -220,7 +280,7 @@ hit breakpoints as you interact with the UI.
    - Reopen an old PR only when it was closed by mistake and the work scope is unchanged.
    - In follow-up PRs, include cross-links to previous PRs/issues for historical context.
 
-11. **Issue status transition policy (required while work is active).**
+12. **Issue status transition policy (required while work is active).**
    - Use these canonical status transitions for every issue touched by a PR:
      - `To Do` -> `In Progress` when implementation starts (first code, test, or docs commit tied to the issue)
      - `In Progress` -> `Complete` when acceptance criteria are met and validation evidence is posted
@@ -231,7 +291,7 @@ hit breakpoints as you interact with the UI.
      - Update `docs/ISSUE_STATUS.md` with implementation state and close-out note reference.
      - Reflect the transition in the PR `Issue Hygiene` section (`Closed`, `Pending close`, `Net new`).
 
-  12. **Cross-platform startup parity gate (required for dev startup/docs changes).**
+  13. **Cross-platform startup parity gate (required for dev startup/docs changes).**
      - If a PR changes local startup behavior, startup scripts, or startup documentation,
        validate Linux and Windows flows remain equivalent.
      - Required scope for parity changes:
