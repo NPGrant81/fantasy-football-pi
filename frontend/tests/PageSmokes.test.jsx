@@ -605,7 +605,7 @@ describe('SiteAdmin (Smoke Test)', () => {
 
     expect(promptSpy).toHaveBeenCalled();
     expect(apiClient.post).toHaveBeenCalledWith(
-      '/admin/tools/import-nfl-schedule',
+      '/admin/nfl/schedule/import',
       { year: 2025, week: 1 },
       { timeout: 300000 }
     );

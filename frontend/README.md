@@ -67,7 +67,8 @@ src/
   the development server can proxy them to the Python backend (avoids CORS).
   Set `VITE_API_BASE_URL` in production to your actual API host (e.g. `https://api.example.com`).
   During local development you can override it or leave it blank; the proxy in
-  `vite.config.js` handles `/team`, `/league`, `/admin/tools`, etc.
+  `vite.config.js` handles `/team`, `/league`, `/admin/tools`, `/admin/nfl`,
+  `/admin/live-scoring`, `/admin/drafts`, `/admin/config`, etc.
 - Page-local components: PascalCase under `pages/<feature>/components`.
 - Shared components: PascalCase under `src/components`.
 - Utilities: camelCase under `src/utils`.

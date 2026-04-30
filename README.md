@@ -65,7 +65,7 @@ or commit it yourself.
 | Waiver Wire (`/waivers`)            | `GET /players/waiver-wire`, `POST /waivers/claim`, `GET /waivers/claims` (commissioner audit), `GET /dashboard/{ownerId}`, `GET /leagues/*`                                            |
 | Commissioner (`/commissioner`)      | `GET/PUT /leagues/{id}/settings` (including waiver rules and budgets), `GET /leagues/owners`, `GET /trades/pending`, `GET /leagues/{id}/waiver-budgets`, budget + draft-year endpoints |
 | Divisions (`/commissioner/manage-divisions`) | `GET/PUT /leagues/{id}/divisions/config`, `POST /leagues/{id}/divisions/assignment-preview`, `POST /leagues/{id}/divisions/finalize`, `POST /leagues/{id}/divisions/undo-last`, `POST /leagues/{id}/divisions/report-name`, `GET /leagues/owners` |
-| Site Admin (`/admin`)               | `POST /admin/tools/sync-nfl`, `POST /admin/create-test-league`, `POST /admin/reset-draft`                                                                                              |
+| Site Admin (`/admin`)               | `POST /admin/nfl/sync`, `POST /admin/nfl/schedule/import`, `POST /admin/create-test-league`, `POST /admin/reset-draft`                                                               |
 | Bug Report (`/bug-report`)          | `PUT /auth/email`, `POST /feedback/bug`                                                                                                                                                |
 | Analytics (`/analytics`)            | Fetches league/manager data from `/analytics/*` endpoints (leaderboard, weekly-stats, roster-strength); dashboard includes efficiency leaderboard, trade/roster strength charts                                                                  |
 
@@ -231,7 +231,7 @@ Files added for testing
 The backend ships with a helper script to ingest the official NFL schedule from
 ESPN and store it locally. You can invoke the script directly (see examples
 below) or use the new **Site Admin → NFL Schedule Import** button, which
-posts to `/admin/tools/import-nfl-schedule` with the desired year/week. Run it
+posts to `/admin/nfl/schedule/import` with the desired year/week. Run it
 once each week (or more frequently during
 game days) so the `/matchups/week/{week}` API returns real data.
 

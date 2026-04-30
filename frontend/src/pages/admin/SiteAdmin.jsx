@@ -29,7 +29,7 @@ export default function SiteAdmin() {
     try {
       // Sync can take 2+ minutes with ESPN API calls, so use longer timeout
       const res = await apiClient.post(
-        '/admin/tools/sync-nfl',
+        '/admin/nfl/sync',
         {},
         { timeout: 300000 }
       );
@@ -73,7 +73,7 @@ export default function SiteAdmin() {
     setLoading(true);
     try {
       const res = await apiClient.post(
-        '/admin/tools/import-nfl-schedule',
+        '/admin/nfl/schedule/import',
         { year, week },
         { timeout: 300000 }
       );

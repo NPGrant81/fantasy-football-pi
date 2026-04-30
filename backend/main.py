@@ -29,7 +29,10 @@ if __name__ == "__main__" or __package__ in (None, ""):
     # the package itself may not yet have attributes for each router, so import
     # them individually and bind to names below
     admin = importlib.import_module("backend.routers.admin")
-    admin_tools = importlib.import_module("backend.routers.admin_tools")
+    admin_nfl = importlib.import_module("backend.routers.admin_nfl")
+    admin_live_scoring = importlib.import_module("backend.routers.admin_live_scoring")
+    admin_drafts = importlib.import_module("backend.routers.admin_drafts")
+    admin_config = importlib.import_module("backend.routers.admin_config")
     team = importlib.import_module("backend.routers.team")
     matchups = importlib.import_module("backend.routers.matchups")
     league = importlib.import_module("backend.routers.league")
@@ -68,7 +71,15 @@ else:
     from .services import player_news_scheduler_service
     from .scripts.seed import run_seeder
     from .routers import (
-        admin, admin_tools, team, matchups, league, advisor,
+        admin,
+        admin_nfl,
+        admin_live_scoring,
+        admin_drafts,
+        admin_config,
+        team,
+        matchups,
+        league,
+        advisor,
         dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, news, keepers, divisions, scoring
     )
 
@@ -360,8 +371,11 @@ app.include_router(
 # analytics endpoints are public to league members (authorization can be added later)
 app.include_router(analytics.router)
 app.include_router(news.router)
-# ADMIN TOOLS: commissioner‑level maintenance helpers (schedule import, etc.)
-app.include_router(admin_tools.router)
+# Domain-scoped admin maintenance routers.
+app.include_router(admin_nfl.router)
+app.include_router(admin_live_scoring.router)
+app.include_router(admin_drafts.router)
+app.include_router(admin_config.router)
 
 # PLATFORM TOOLS: superuser endpoints such as commissioner management
 # (must match prefix set in routers/platform_tools.py)
