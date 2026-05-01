@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 import sqlalchemy as sa
 from typing import List
 from datetime import datetime, timezone
+import requests
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..database import get_db
@@ -14,6 +15,7 @@ from ..services.season_outlook_service import build_post_draft_outlook
 from ..schemas.season_outlook import PostDraftOutlookResponse
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 
 MIN_VALID_SEASON_YEAR = 2000
 MAX_VALID_SEASON_YEAR = datetime.now().year + 2
@@ -595,6 +597,278 @@ def get_player_heatmap_data(
     }
 
 
+@router.get('/league/{league_id}/positional-heatmap')
+def get_positional_heatmap_data(
+    league_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    profile: str = Query("standard", description="Heatmap profile: standard or pass-catching-rbs"),
+    stream_position: str = Query("WR", description="Position focus for streaming suggestions"),
+    db: Session = Depends(get_db),
+):
+    """Return team-vs-position matchup heatmap data.
+
+    Phase 2 uses live aggregates from player weekly stats plus ESPN matchup maps.
+    Falls back to deterministic mock payload if live inputs are incomplete.
+    """
+    resolved_season = _resolved_season(season)
+
+    normalized_profile = (profile or "standard").strip().lower()
+    if normalized_profile not in {"standard", "pass-catching-rbs"}:
+        raise HTTPException(status_code=400, detail="profile must be 'standard' or 'pass-catching-rbs'")
+
+    positions = ["QB", "RB", "WR", "TE"]
+    focus = (stream_position or "WR").strip().upper()
+    if focus not in positions:
+        raise HTTPException(status_code=400, detail="stream_position must be one of QB, RB, WR, TE")
+
+    weekly_stats_rows = (
+        db.query(models.PlayerWeeklyStat)
+        .join(models.Player, models.PlayerWeeklyStat.player_id == models.Player.id)
+        .filter(
+            models.PlayerWeeklyStat.season == resolved_season,
+            models.Player.position.in_(positions),
+            models.PlayerWeeklyStat.fantasy_points.isnot(None),
+            models.Player.nfl_team.isnot(None),
+        )
+        .all()
+    )
+
+    if not weekly_stats_rows:
+        return _build_mock_positional_heatmap_payload(
+            db=db,
+            league_id=league_id,
+            season=resolved_season,
+            profile=normalized_profile,
+            focus=focus,
+            reason="no_weekly_stats",
+        )
+
+    weeks = sorted({int(row.week) for row in weekly_stats_rows if row.week is not None})
+    opponent_map_by_week = _fetch_espn_opponent_map_for_weeks(resolved_season, weeks)
+    if not opponent_map_by_week:
+        return _build_mock_positional_heatmap_payload(
+            db=db,
+            league_id=league_id,
+            season=resolved_season,
+            profile=normalized_profile,
+            focus=focus,
+            reason="missing_opponent_map",
+        )
+
+    totals: dict[str, dict[str, float]] = {}
+    counts: dict[str, dict[str, int]] = {}
+
+    for row in weekly_stats_rows:
+        if row.player is None or row.week is None:
+            continue
+
+        offense_team = (row.player.nfl_team or "").strip().upper()
+        if not offense_team:
+            continue
+
+        week_map = opponent_map_by_week.get(int(row.week), {})
+        defense_team = week_map.get(offense_team)
+        if not defense_team:
+            continue
+
+        position = (row.player.position or "").strip().upper()
+        if position not in positions:
+            continue
+
+        fp = float(row.fantasy_points or 0.0)
+        if normalized_profile == "pass-catching-rbs" and position == "RB":
+            targets = _extract_numeric(row.stats or {}, ["TGTS", "targets", "receivingTargets", "Tgt"])
+            if not targets or targets <= 0:
+                continue
+
+        totals.setdefault(defense_team, {}).setdefault(position, 0.0)
+        counts.setdefault(defense_team, {}).setdefault(position, 0)
+        totals[defense_team][position] += fp
+        counts[defense_team][position] += 1
+
+    if not totals:
+        return _build_mock_positional_heatmap_payload(
+            db=db,
+            league_id=league_id,
+            season=resolved_season,
+            profile=normalized_profile,
+            focus=focus,
+            reason="insufficient_live_rows",
+        )
+
+    nfl_teams = sorted(totals.keys())
+    league_avg = {}
+    for pos in positions:
+        samples = [
+            totals[team][pos] / counts[team][pos]
+            for team in nfl_teams
+            if counts.get(team, {}).get(pos, 0) > 0
+        ]
+        league_avg[pos] = round(sum(samples) / len(samples), 2) if samples else 0.0
+
+    rows = []
+    for team_code in nfl_teams:
+        values = {}
+        for pos in positions:
+            sample_count = counts.get(team_code, {}).get(pos, 0)
+            if sample_count > 0:
+                values[pos] = round(totals[team_code][pos] / sample_count, 2)
+            else:
+                values[pos] = league_avg[pos]
+
+        rows.append(
+            {
+                "defense_team": team_code,
+                "values": values,
+                "weakest_position": max(values.items(), key=lambda item: item[1])[0],
+            }
+        )
+
+    sorted_by_focus = sorted(rows, key=lambda row: row["values"][focus], reverse=True)
+    streaming_suggestions = [
+        {
+            "rank": idx,
+            "defense_team": row["defense_team"],
+            "target_position": focus,
+            "points_allowed": row["values"][focus],
+            "rationale": (
+                f"{row['defense_team']} allows top-tier fantasy output to {focus}; "
+                f"prioritize streaming and waiver exposure against this matchup."
+            ),
+        }
+        for idx, row in enumerate(sorted_by_focus[:5], start=1)
+    ]
+
+    return {
+        "profile": normalized_profile,
+        "mock_data": False,
+        "positions": positions,
+        "rows": rows,
+        "streaming_suggestions": streaming_suggestions,
+        "meta": _analytics_meta(
+            db,
+            metric="positional_matchup_heatmap",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+    }
+
+
+def _fetch_espn_opponent_map_for_weeks(season: int, weeks: list[int]) -> dict[int, dict[str, str]]:
+    by_week: dict[int, dict[str, str]] = {}
+    for week in weeks:
+        try:
+            response = requests.get(
+                ESPN_SCOREBOARD_URL,
+                params={"year": season, "week": week, "seasontype": 2},
+                timeout=12,
+            )
+            response.raise_for_status()
+            payload = response.json() or {}
+        except Exception:
+            continue
+
+        week_map: dict[str, str] = {}
+        for event in payload.get("events", []):
+            competitions = event.get("competitions") or []
+            if not competitions:
+                continue
+            competitors = competitions[0].get("competitors") or []
+            if len(competitors) != 2:
+                continue
+
+            team_a = ((competitors[0].get("team") or {}).get("abbreviation") or "").strip().upper()
+            team_b = ((competitors[1].get("team") or {}).get("abbreviation") or "").strip().upper()
+            if not team_a or not team_b:
+                continue
+            week_map[team_a] = team_b
+            week_map[team_b] = team_a
+
+        if week_map:
+            by_week[int(week)] = week_map
+
+    return by_week
+
+
+def _build_mock_positional_heatmap_payload(
+    *,
+    db: Session,
+    league_id: int,
+    season: int,
+    profile: str,
+    focus: str,
+    reason: str,
+) -> dict:
+    positions = ["QB", "RB", "WR", "TE"]
+    nfl_teams = [
+        "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
+        "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
+        "LAC", "LAR", "LV", "MIA", "MIN", "NE", "NO", "NYG",
+        "NYJ", "PHI", "PIT", "SEA", "SF", "TB", "TEN", "WAS",
+    ]
+
+    base_by_position = {
+        "QB": 17.5,
+        "RB": 18.2 if profile == "standard" else 10.8,
+        "WR": 21.0,
+        "TE": 12.8,
+    }
+    profile_boost = {
+        "QB": 1.0,
+        "RB": 1.0 if profile == "standard" else 1.25,
+        "WR": 1.0,
+        "TE": 1.0,
+    }
+
+    rows = []
+    for index, team_code in enumerate(nfl_teams):
+        values = {}
+        for pos in positions:
+            seed = sum(ord(c) for c in f"{season}:{team_code}:{pos}")
+            cyclical = ((seed % 11) - 5) * 0.72
+            schedule_bias = ((index % 6) - 2.5) * 0.45
+            value = (base_by_position[pos] + cyclical + schedule_bias) * profile_boost[pos]
+            values[pos] = round(max(4.0, value), 2)
+
+        rows.append(
+            {
+                "defense_team": team_code,
+                "values": values,
+                "weakest_position": max(values.items(), key=lambda item: item[1])[0],
+            }
+        )
+
+    sorted_by_focus = sorted(rows, key=lambda row: row["values"][focus], reverse=True)
+    streaming_suggestions = [
+        {
+            "rank": idx,
+            "defense_team": row["defense_team"],
+            "target_position": focus,
+            "points_allowed": row["values"][focus],
+            "rationale": (
+                f"{row['defense_team']} ranks in the top matchup tier against {focus}; "
+                f"consider streaming or waiver priority for this position."
+            ),
+        }
+        for idx, row in enumerate(sorted_by_focus[:5], start=1)
+    ]
+
+    return {
+        "profile": profile,
+        "mock_data": True,
+        "fallback_reason": reason,
+        "positions": positions,
+        "rows": rows,
+        "streaming_suggestions": streaming_suggestions,
+        "meta": _analytics_meta(
+            db,
+            metric="positional_matchup_heatmap",
+            league_id=league_id,
+            season=season,
+        ),
+    }
+
+
 @router.get('/league/{league_id}/weekly-matchups')
 def get_weekly_matchup_comparison(
     league_id: int,
@@ -1125,3 +1399,220 @@ def get_player_consistency(
             season=resolved_season,
         ),
     }
+
+
+@router.get('/league/{league_id}/waiver-opportunities')
+def get_waiver_opportunities(
+    league_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    limit: int = Query(30, ge=5, le=100),
+    position: str = Query(None, description="Filter by position: QB, RB, WR, TE, K"),
+    db: Session = Depends(get_db),
+):
+    """Waiver wire opportunity tracker — rolling opportunity analysis for free agents.
+
+    Returns free agent players ranked by recent opportunity volume and trend:
+    - opportunity_score: composite of targets + carries + fantasy_points (normalized)
+    - trend: slope of opportunity across last 4 weeks (positive = trending up)
+    - weekly_scores: week-by-week fantasy points for heatmap rendering
+    - breakout_flag: True when trending strongly upward (slope > threshold)
+    """
+    resolved_season = _resolved_season(season)
+
+    # Find all player IDs currently owned in this league (via draft or active transactions)
+    owned_player_ids = {
+        row[0]
+        for row in db.query(models.DraftPick.player_id)
+        .filter(models.DraftPick.league_id == league_id)
+        .all()
+    }
+
+    # Also include players added via waiver and not subsequently dropped
+    waiver_adds = (
+        db.query(
+            models.TransactionHistory.player_id,
+            models.TransactionHistory.transaction_type,
+            models.TransactionHistory.timestamp,
+        )
+        .filter(
+            models.TransactionHistory.league_id == league_id,
+            models.TransactionHistory.season == resolved_season,
+            models.TransactionHistory.transaction_type.in_(["waiver_add", "waiver_drop", "drop"]),
+        )
+        .order_by(models.TransactionHistory.timestamp.asc())
+        .all()
+    )
+
+    # Apply add/drop logic to get final ownership state
+    for row in waiver_adds:
+        if row.transaction_type == "waiver_add":
+            owned_player_ids.add(row.player_id)
+        elif row.transaction_type in ("waiver_drop", "drop"):
+            owned_player_ids.discard(row.player_id)
+
+    # Active positions for the league
+    from ..services.player_service import get_active_positions_for_league
+
+    active_positions = get_active_positions_for_league(db, league_id)
+    if position:
+        pos_upper = position.upper()
+        if pos_upper in active_positions:
+            active_positions = [pos_upper]
+        else:
+            active_positions = [pos_upper]  # Still allow explicit filter
+
+    # Get all weekly stats for this season for free-agent-eligible positions
+    # Fetch stats + player in one join, excluding owned players
+    weekly_stats_rows = (
+        db.query(models.PlayerWeeklyStat)
+        .join(models.Player, models.PlayerWeeklyStat.player_id == models.Player.id)
+        .filter(
+            models.PlayerWeeklyStat.season == resolved_season,
+            models.Player.position.in_(active_positions),
+            ~models.PlayerWeeklyStat.player_id.in_(list(owned_player_ids)),
+        )
+        .order_by(models.PlayerWeeklyStat.player_id, models.PlayerWeeklyStat.week)
+        .all()
+    )
+
+    # Group by player
+    import statistics as _stats
+
+    players_data: dict[int, dict] = {}
+    for stat in weekly_stats_rows:
+        pid = stat.player_id
+        if pid not in players_data:
+            player = stat.player
+            players_data[pid] = {
+                "player_id": pid,
+                "player_name": player.full_name or player.name or f"Player {pid}",
+                "position": player.position or "N/A",
+                "nfl_team": player.nfl_team or "N/A",
+                "weekly": {},  # week -> {fp, targets, carries}
+            }
+
+        fp = float(stat.fantasy_points) if stat.fantasy_points is not None else 0.0
+        raw_stats = stat.stats or {}
+
+        # Extract opportunity metrics from ESPN stats JSON
+        targets = _extract_numeric(raw_stats, ["TGTS", "targets", "receivingTargets", "Tgt"])
+        carries = _extract_numeric(raw_stats, ["CAR", "carries", "rushingAttempts", "Att"])
+        red_zone_targets = _extract_numeric(raw_stats, ["RZTGTS", "redZoneTargets", "rzTargets"])
+        snap_pct = _extract_numeric(raw_stats, ["SNAP%", "snapPct", "snap_pct", "snapCountPct"])
+
+        players_data[pid]["weekly"][stat.week] = {
+            "fantasy_points": fp,
+            "targets": targets,
+            "carries": carries,
+            "red_zone_targets": red_zone_targets,
+            "snap_pct": snap_pct,
+        }
+
+    # Calculate metrics per player
+    rows = []
+    for pid, data in players_data.items():
+        weekly = data["weekly"]
+        if len(weekly) < 1:
+            continue
+
+        weeks_sorted = sorted(weekly.keys())
+        fp_list = [weekly[w]["fantasy_points"] for w in weeks_sorted]
+        targets_list = [weekly[w]["targets"] for w in weeks_sorted]
+        carries_list = [weekly[w]["carries"] for w in weeks_sorted]
+
+        avg_fp = _stats.mean(fp_list) if fp_list else 0.0
+        total_targets = sum(t for t in targets_list if t is not None)
+        total_carries = sum(c for c in carries_list if c is not None)
+        total_rz_targets = sum(
+            weekly[w]["red_zone_targets"]
+            for w in weeks_sorted
+            if weekly[w]["red_zone_targets"] is not None
+        )
+
+        # Opportunity score: weighted composite
+        opportunity_score = round(
+            avg_fp * 1.0
+            + (total_targets / max(len(weeks_sorted), 1)) * 0.5
+            + (total_carries / max(len(weeks_sorted), 1)) * 0.3
+            + (total_rz_targets / max(len(weeks_sorted), 1)) * 0.8,
+            2,
+        )
+
+        # Trend: linear regression slope across last 4 weeks of fp
+        recent_fp = fp_list[-4:] if len(fp_list) >= 4 else fp_list
+        trend = _calc_slope(recent_fp)
+
+        # Recent avg (last 3 weeks)
+        recent_avg = round(_stats.mean(fp_list[-3:]), 2) if fp_list else 0.0
+
+        # Season avg
+        season_avg = round(avg_fp, 2)
+
+        # Breakout flag: strongly trending up in recent weeks
+        breakout_flag = trend > 2.0 and recent_avg > season_avg * 1.15
+
+        # Weekly scores for heatmap (all weeks)
+        weekly_scores = {str(w): round(weekly[w]["fantasy_points"], 2) for w in weeks_sorted}
+
+        rows.append({
+            "player_id": pid,
+            "player_name": data["player_name"],
+            "position": data["position"],
+            "nfl_team": data["nfl_team"],
+            "season_avg": season_avg,
+            "recent_avg": recent_avg,
+            "opportunity_score": opportunity_score,
+            "trend": round(trend, 3),
+            "breakout_flag": breakout_flag,
+            "total_targets": total_targets,
+            "total_carries": total_carries,
+            "total_rz_targets": total_rz_targets,
+            "weeks_played": len(weeks_sorted),
+            "weekly_scores": weekly_scores,
+        })
+
+    # Sort by opportunity_score descending
+    rows.sort(key=lambda r: (-r["opportunity_score"], -r["season_avg"]))
+    rows = rows[:limit]
+
+    # Compute max values for heatmap normalization
+    max_fp = max((r["season_avg"] for r in rows), default=1.0)
+
+    return {
+        "rows": rows,
+        "meta": _analytics_meta(
+            db,
+            metric="waiver_opportunities",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+        "heatmap_max": round(max_fp, 2),
+        "all_weeks": sorted(
+            {int(w) for r in rows for w in r["weekly_scores"].keys()},
+        ),
+    }
+
+
+def _extract_numeric(stats_dict: dict, keys: list) -> float | None:
+    """Try multiple key names and return first numeric match."""
+    for key in keys:
+        val = stats_dict.get(key)
+        if val is not None:
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _calc_slope(values: list[float]) -> float:
+    """Calculate linear regression slope for a list of values."""
+    n = len(values)
+    if n < 2:
+        return 0.0
+    x = list(range(n))
+    x_mean = sum(x) / n
+    y_mean = sum(values) / n
+    numerator = sum((x[i] - x_mean) * (values[i] - y_mean) for i in range(n))
+    denominator = sum((x[i] - x_mean) ** 2 for i in range(n))
+    return numerator / denominator if denominator != 0 else 0.0

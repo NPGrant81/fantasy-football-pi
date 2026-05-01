@@ -2,7 +2,27 @@
 
 This document provides repository‑specific guidelines that GitHub Copilot (and other AI tools) should follow when generating code, suggestions, or assisting with pull‑requests. It reflects the architecture and conventions of the `fantasy-football-pi` project.
 
+## Skills Registry
+
+Detailed domain knowledge is organized into skill files. Load a skill when context matches the topic. You can invoke them directly by referencing the file path below.
+
+| Skill | Purpose |
+|-------|---------|
+| [Project Bootstrap](.github/skills/project-bootstrap/SKILL.md) | Dev environment setup, Docker, first run, port map |
+| [Architecture](.github/skills/architecture/SKILL.md) | Layer map, DTOs (Pydantic schemas), cross-layer naming |
+| [Database](.github/skills/database/SKILL.md) | ORM models, Alembic migrations, `hist_%` exclusion rule |
+| [API Patterns](.github/skills/api-patterns/SKILL.md) | Router → service → schema conventions, error handling |
+| [ML Ops](.github/skills/ml-ops/SKILL.md) | Analytics endpoints, ESPN stat parsing, feature formulas |
+| [Security](.github/skills/security/SKILL.md) | Auth/RBAC, OWASP compliance, secret management |
+| [UI/UX](.github/skills/ui-ux/SKILL.md) | Tailwind light-first tokens, component patterns, Chart.js |
+| [Testing](.github/skills/testing/SKILL.md) | pytest, Vitest, fixture/mock patterns, known flaky tests |
+| [Git Workflow](.github/skills/git-workflow/SKILL.md) | Branch naming, conventional commits, PR process, CI |
+| [Deployment](.github/skills/deployment/SKILL.md) | Pi + Nginx + Cloudflare Tunnel + systemd release process |
+| [Maintenance](.github/skills/maintenance/SKILL.md) | Dependency audits, backups, logging, ETL, Pi hardware |
+| [ADRs](.github/skills/adrs/SKILL.md) | Architecture Decision Records — why key decisions were made |
+
 ---
+
 ## 1. Project Architecture
 
 ### Backend structure (`backend/`)

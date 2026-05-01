@@ -39,6 +39,17 @@ export function fetchPlayerHeatmapAnalytics(leagueId, season, limit = 8, weeks =
   });
 }
 
+export function fetchPositionalHeatmapAnalytics(leagueId, season, profile = 'standard', streamPosition = 'WR') {
+  return getJson(`/analytics/league/${leagueId}/positional-heatmap`, {
+    params: {
+      season,
+      profile,
+      stream_position: streamPosition,
+    },
+    retries: 1,
+  });
+}
+
 export function fetchRosterStrengthAnalytics(leagueId, ownerId) {
   return getJson('/analytics/roster-strength', {
     params: { league_id: leagueId, owner_id: ownerId },
@@ -60,6 +71,15 @@ export function fetchLuckIndexAnalytics(leagueId, season) {
 export function fetchPlayerConsistencyAnalytics(leagueId, season, limit = 20) {
   return getJson(`/analytics/league/${leagueId}/player-consistency`, {
     params: { season, limit },
+    retries: 1,
+  });
+}
+
+export function fetchWaiverOpportunitiesAnalytics(leagueId, season, position = null, limit = 30) {
+  const params = { season, limit };
+  if (position) params.position = position;
+  return getJson(`/analytics/league/${leagueId}/waiver-opportunities`, {
+    params,
     retries: 1,
   });
 }

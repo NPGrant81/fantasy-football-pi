@@ -25,11 +25,12 @@ import DraftValueBoard from '../../components/charts/DraftValueBoard';
 import ManagerTrendChart from '../../components/charts/ManagerTrendChart';
 import ManagerEfficiencyLeaderboard from '../../components/charts/ManagerEfficiencyLeaderboard';
 import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
-import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
+import PositionalHeatmap from '../../components/charts/PositionalHeatmap';
 import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
 import RivalryGraph from '../../components/charts/RivalryGraph';
 import LuckIndexChart from '../../components/charts/LuckIndexChart';
 import PlayerConsistencyChart from '../../components/charts/PlayerConsistencyChart';
+import WaiverOpportunityChart from '../../components/charts/WaiverOpportunityChart';
 import { LoadingState } from '@components/common/AsyncState';
 import PageTemplate from '@components/layout/PageTemplate';
 import {
@@ -41,7 +42,7 @@ import {
 /* ignore-breakpoints */
 
 const AnalyticsDashboard = () => {
-  const [selected, setSelected] = React.useState(null); // null, 'draft','manager','luck','consistency','weekly','heatmap','trade','rivalry'
+  const [selected, setSelected] = React.useState(null); // null, 'draft','manager','luck','consistency','waiver','weekly','heatmap','trade','rivalry'
   const [loadingChart, setLoadingChart] = React.useState(false);
 
   const charts = [
@@ -76,9 +77,15 @@ const AnalyticsDashboard = () => {
       icon: FiTrendingDown,
     },
     {
+      key: 'waiver',
+      label: 'Waiver Wire Opportunities',
+      description: 'Breakout candidates via rolling opportunity analysis heatmap.',
+      icon: FiActivity,
+    },
+    {
       key: 'heatmap',
-      label: 'Player Heatmap',
-      description: 'Scan player-by-week output in a matrix view.',
+      label: 'Positional Matchup Heatmap',
+      description: 'Team-vs-position weakness grid with streaming signals.',
       icon: FiGrid,
     },
     {
@@ -127,10 +134,16 @@ const AnalyticsDashboard = () => {
             <PlayerConsistencyChart />
           </div>
         );
-      case 'weekly':
+      case 'waiver':
         return (
           <div className="chart-card">
-            <PlayerHeatmap />
+            <WaiverOpportunityChart />
+          </div>
+        );
+      case 'heatmap':
+        return (
+          <div className="chart-card">
+            <PositionalHeatmap />
           </div>
         );
       case 'trade':

@@ -168,7 +168,7 @@ export default function LuckIndexChart() {
         <Scatter data={chartData} options={chartOptions} />
         
         {/* Median lines explanation */}
-        <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="text-slate-600 dark:text-slate-400">
             <span className="font-semibold">Median PF:</span> {median_pf.toFixed(0)}
             <div className="text-[10px] italic">Vertical divider</div>
@@ -200,7 +200,7 @@ export default function LuckIndexChart() {
           </ul>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-900/50 p-3 rounded">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-slate-50 dark:bg-slate-900/50 p-3 rounded">
           <div className="border-l-4 border-emerald-500 pl-2">
             <p className="font-semibold text-emerald-700 dark:text-emerald-300">Good/Lucky</p>
             <p className="text-slate-600 dark:text-slate-400">High PF, easy schedule</p>
