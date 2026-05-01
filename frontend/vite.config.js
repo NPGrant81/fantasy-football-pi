@@ -39,6 +39,10 @@ export default defineConfig(({ mode }) => {
       // /admin paths, so forwarding everything breaks SPA routing (see
       // Manage Commissioners page). narrowing prevents 404s on reload.
       '/admin/tools': apiProxyTarget,
+      '/admin/nfl': apiProxyTarget,
+      '/admin/live-scoring': apiProxyTarget,
+      '/admin/drafts': apiProxyTarget,
+      '/admin/config': apiProxyTarget,
       '/admin/create-test-league': apiProxyTarget,
       '/admin/reset-draft': apiProxyTarget,
       '/team/': apiProxyTarget,

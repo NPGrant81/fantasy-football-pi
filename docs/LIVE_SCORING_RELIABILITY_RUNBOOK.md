@@ -21,13 +21,13 @@ Scope: Live scoreboard ingestion reliability controls and operator workflow.
 
 ### Diagnostics
 - API endpoint for direct run diagnostics:
-  - `POST /admin/tools/live-score-ingest`
+  - `POST /admin/live-scoring/ingest`
 - API endpoint for trend diagnostics:
-  - `GET /admin/tools/live-score-ingest/health?limit=50`
+  - `GET /admin/live-scoring/health?limit=50`
 - API endpoint for explicit watchdog evaluation:
-  - `POST /admin/tools/live-score-ingest/watchdog`
+  - `POST /admin/live-scoring/watchdog`
 - API endpoint for recent watchdog alerts:
-  - `GET /admin/tools/live-score-ingest/watchdog/alerts?limit=20`
+  - `GET /admin/live-scoring/watchdog/alerts?limit=20`
 - Health summary includes:
   - success/failure/degraded counts
   - failure rate
@@ -47,7 +47,7 @@ Scope: Live scoreboard ingestion reliability controls and operator workflow.
 
 ### Hot-Fix Process
 - Operators can run one-off ingest with temporary override URL:
-  - `override_url` in `POST /admin/tools/live-score-ingest`
+  - `override_url` in `POST /admin/live-scoring/ingest`
 - Operators can disable failover to isolate a specific endpoint issue:
   - `enable_failover=false`
 - Safe dry-run mode allows payload validation with no DB writes:
@@ -68,7 +68,7 @@ Scope: Live scoreboard ingestion reliability controls and operator workflow.
 
 ### 1) Detect an Incident
 - Call:
-  - `GET /admin/tools/live-score-ingest/health?limit=100`
+  - `GET /admin/live-scoring/health?limit=100`
 - Trigger incident when any condition is true:
   - failure rate > 0.20 over recent runs
   - degraded runs spike above baseline
@@ -76,7 +76,7 @@ Scope: Live scoreboard ingestion reliability controls and operator workflow.
 
 ### 2) Diagnose Quickly
 - Run a dry diagnostic fetch:
-  - `POST /admin/tools/live-score-ingest` with `{ "year": <year>, "week": <week>, "dry_run": true }`
+  - `POST /admin/live-scoring/ingest` with `{ "year": <year>, "week": <week>, "dry_run": true }`
 - Inspect:
   - `fetch_diagnostics.attempts`
   - `missing_required_paths`

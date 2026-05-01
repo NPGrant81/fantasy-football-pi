@@ -62,7 +62,7 @@ def test_import_schedule_denied_for_non_commissioner(client, api_db):
 
     app.dependency_overrides[check_is_commissioner] = deny_commissioner
 
-    response = client.post("/admin/tools/import-nfl-schedule", json={"year": 2025})
+    response = client.post("/admin/nfl/schedule/import", json={"year": 2025})
     assert response.status_code == 403
     assert response.json()["detail"] == "Access denied. Commissioner privileges required."
 
@@ -86,7 +86,7 @@ def test_import_schedule_runs_upsert(client, api_db):
 
     sched.upsert_games = fake_upsert
 
-    response = client.post("/admin/tools/import-nfl-schedule", json={"year": 2026, "week": 3})
+    response = client.post("/admin/nfl/schedule/import", json={"year": 2026, "week": 3})
     assert response.status_code == 200
     assert "Schedule import started" in response.json().get("detail", "")
 
@@ -107,7 +107,7 @@ def test_reload_config_endpoint(client, api_db):
     with open(".env", "w") as f:
         f.write("TEST_RELOAD_KEY=hello\n")
 
-    response = client.post("/admin/tools/reload-config")
+    response = client.post("/admin/config/reload")
     assert response.status_code == 200
     assert response.json()["reloaded"] is True
     assert os.environ.get("TEST_RELOAD_KEY") == "hello"
@@ -137,7 +137,7 @@ def test_live_score_ingest_dry_run_endpoint(client, api_db):
     ingest.run_live_scoreboard_ingest_with_controls = fake_run
 
     response = client.post(
-        "/admin/tools/live-score-ingest",
+        "/admin/live-scoring/ingest",
         json={
             "year": 2026,
             "week": 2,
@@ -189,7 +189,7 @@ def test_live_score_ingest_endpoint_returns_502_with_diagnostics(client, api_db)
 
     ingest.run_live_scoreboard_ingest_with_controls = fake_run
 
-    response = client.post("/admin/tools/live-score-ingest", json={"year": 2026, "dry_run": True})
+    response = client.post("/admin/live-scoring/ingest", json={"year": 2026, "dry_run": True})
     assert response.status_code == 502
     detail = response.json()["detail"]
     assert detail["error_signature"] == "IngestFetchError"
@@ -219,7 +219,7 @@ def test_live_score_ingest_health_endpoint(client, api_db):
 
     ingest.summarize_ingest_health = fake_summary
 
-    response = client.get("/admin/tools/live-score-ingest/health?limit=25")
+    response = client.get("/admin/live-scoring/health?limit=25")
     assert response.status_code == 200
     body = response.json()
     assert body["runs_considered"] == 2
@@ -245,7 +245,7 @@ def test_live_score_watchdog_run_endpoint(client, api_db):
 
     watchdog.run_watchdog_check = fake_run_watchdog
 
-    response = client.post("/admin/tools/live-score-ingest/watchdog", json={"limit": 12})
+    response = client.post("/admin/live-scoring/watchdog", json={"limit": 12})
     assert response.status_code == 200
     body = response.json()
     assert body["alert_count"] == 1
@@ -265,7 +265,7 @@ def test_live_score_watchdog_alerts_endpoint(client, api_db):
 
     watchdog.load_recent_watchdog_alerts = fake_load_alerts
 
-    response = client.get("/admin/tools/live-score-ingest/watchdog/alerts?limit=7")
+    response = client.get("/admin/live-scoring/watchdog/alerts?limit=7")
     assert response.status_code == 200
     body = response.json()
     assert body["limit"] == 7
@@ -279,17 +279,17 @@ def test_refresh_draft_values_enqueues_background_task(client, api_db, monkeypat
 
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
-    import backend.routers.admin_tools as admin_tools
+    import backend.routers.admin_drafts as admin_drafts
 
     calls = []
 
     def fake_run(payload):
         calls.append(payload)
 
-    monkeypatch.setattr(admin_tools, "_run_draft_values_refresh", fake_run)
+    monkeypatch.setattr(admin_drafts, "_run_draft_values_refresh", fake_run)
 
     response = client.post(
-        "/admin/tools/refresh-draft-values",
+        "/admin/drafts/refresh-values",
         json={
             "season": 2026,
             "sources": ["fantasynerds"],
@@ -307,12 +307,12 @@ def test_refresh_draft_values_enqueues_background_task(client, api_db, monkeypat
 def test_refresh_draft_values_fantasynerds_precheck_blocks_load(monkeypatch):
     import pandas as pd
     import backend.database as database
-    import backend.routers.admin_tools as admin_tools
+    import backend.routers.admin_drafts as admin_drafts
     import etl.extract.extract_fantasynerds as fantasynerds
     import etl.load.load_to_postgres as loader
     import etl.services.consensus_service as consensus
 
-    payload = admin_tools.RefreshDraftValuesPayload(
+    payload = admin_drafts.RefreshDraftValuesPayload(
         season=2026,
         sources=["fantasynerds"],
         fantasynerds_api_key="k",
@@ -353,19 +353,19 @@ def test_refresh_draft_values_fantasynerds_precheck_blocks_load(monkeypatch):
     monkeypatch.setattr(database, "SessionLocal", lambda: _DummySession())
     monkeypatch.setattr(consensus, "build_and_store_consensus_draft_values", lambda db, season: {"updated": 0})
 
-    admin_tools._run_draft_values_refresh(payload)
+    admin_drafts._run_draft_values_refresh(payload)
     assert loaded == []
 
 
 def test_refresh_draft_values_fantasynerds_precheck_passes_and_loads(monkeypatch):
     import pandas as pd
     import backend.database as database
-    import backend.routers.admin_tools as admin_tools
+    import backend.routers.admin_drafts as admin_drafts
     import etl.extract.extract_fantasynerds as fantasynerds
     import etl.load.load_to_postgres as loader
     import etl.services.consensus_service as consensus
 
-    payload = admin_tools.RefreshDraftValuesPayload(
+    payload = admin_drafts.RefreshDraftValuesPayload(
         season=2026,
         sources=["fantasynerds"],
         fantasynerds_api_key="k",
@@ -408,19 +408,19 @@ def test_refresh_draft_values_fantasynerds_precheck_passes_and_loads(monkeypatch
     monkeypatch.setattr(database, "SessionLocal", lambda: _DummySession())
     monkeypatch.setattr(consensus, "build_and_store_consensus_draft_values", lambda db, season: {"updated": 0})
 
-    admin_tools._run_draft_values_refresh(payload)
+    admin_drafts._run_draft_values_refresh(payload)
     assert loaded == [(1, 2026, "FantasyNerds")]
 
 
 def test_refresh_draft_values_yahoo_precheck_blocks_load(monkeypatch):
     import backend.database as database
-    import backend.routers.admin_tools as admin_tools
+    import backend.routers.admin_drafts as admin_drafts
     import etl.extract.extract_yahoo as yahoo
     import etl.extract.extract_yahoo_precheck as yahoo_precheck
     import etl.load.load_to_postgres as loader
     import etl.services.consensus_service as consensus
 
-    payload = admin_tools.RefreshDraftValuesPayload(
+    payload = admin_drafts.RefreshDraftValuesPayload(
         season=2026,
         sources=[],
         include_yahoo=True,
@@ -448,18 +448,18 @@ def test_refresh_draft_values_yahoo_precheck_blocks_load(monkeypatch):
     # Keep evaluator real to validate threshold behavior for adp=0 rows.
     assert callable(yahoo_precheck.evaluate_yahoo_quality)
 
-    admin_tools._run_draft_values_refresh(payload)
+    admin_drafts._run_draft_values_refresh(payload)
     assert loaded == []
 
 
 def test_refresh_draft_values_yahoo_precheck_passes_and_loads(monkeypatch):
     import backend.database as database
-    import backend.routers.admin_tools as admin_tools
+    import backend.routers.admin_drafts as admin_drafts
     import etl.extract.extract_yahoo as yahoo
     import etl.load.load_to_postgres as loader
     import etl.services.consensus_service as consensus
 
-    payload = admin_tools.RefreshDraftValuesPayload(
+    payload = admin_drafts.RefreshDraftValuesPayload(
         season=2026,
         sources=[],
         include_yahoo=True,
@@ -488,5 +488,5 @@ def test_refresh_draft_values_yahoo_precheck_passes_and_loads(monkeypatch):
     monkeypatch.setattr(database, "SessionLocal", lambda: _DummySession())
     monkeypatch.setattr(consensus, "build_and_store_consensus_draft_values", lambda db, season: {"updated": 0})
 
-    admin_tools._run_draft_values_refresh(payload)
+    admin_drafts._run_draft_values_refresh(payload)
     assert loaded == [(1, 2026, "Yahoo")]
