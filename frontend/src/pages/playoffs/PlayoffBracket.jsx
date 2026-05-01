@@ -42,8 +42,8 @@ export default function PlayoffBracket({ username, leagueId, setSubHeader }) {
       title="Playoff Bracket"
       subtitle="View playoff seeding and matchup progression."
     >
-      <div className="mb-3 rounded-lg border border-slate-700 bg-slate-900/40 p-3">
-        <p className="text-xs text-slate-300">
+      <div className="mb-3 rounded-lg border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+        <p className="text-xs text-slate-600 dark:text-slate-300">
           Historical bracket lookup has moved to League History.
         </p>
         <Link to="/league-history/season-records" className={`${buttonSecondary} mt-2 inline-flex`}>

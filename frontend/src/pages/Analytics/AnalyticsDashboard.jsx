@@ -18,6 +18,8 @@ import {
   FiGrid,
   FiShuffle,
   FiGitBranch,
+  FiCompass,
+  FiTrendingDown,
 } from 'react-icons/fi';
 import DraftValueBoard from '../../components/charts/DraftValueBoard';
 import ManagerTrendChart from '../../components/charts/ManagerTrendChart';
@@ -26,6 +28,8 @@ import WeeklyMatchupChart from '../../components/charts/WeeklyMatchupChart';
 import PlayerHeatmap from '../../components/charts/PlayerHeatmap';
 import TradeAnalyzer from '../../components/charts/TradeAnalyzer';
 import RivalryGraph from '../../components/charts/RivalryGraph';
+import LuckIndexChart from '../../components/charts/LuckIndexChart';
+import PlayerConsistencyChart from '../../components/charts/PlayerConsistencyChart';
 import { LoadingState } from '@components/common/AsyncState';
 import PageTemplate from '@components/layout/PageTemplate';
 import {
@@ -37,7 +41,7 @@ import {
 /* ignore-breakpoints */
 
 const AnalyticsDashboard = () => {
-  const [selected, setSelected] = React.useState(null); // null, 'draft','manager','weekly','heatmap'
+  const [selected, setSelected] = React.useState(null); // null, 'draft','manager','luck','consistency','weekly','heatmap','trade','rivalry'
   const [loadingChart, setLoadingChart] = React.useState(false);
 
   const charts = [
@@ -60,10 +64,16 @@ const AnalyticsDashboard = () => {
       icon: FiTrendingUp,
     },
     {
-      key: 'weekly',
-      label: 'Weekly Matchup Comparison',
-      description: 'Inspect week-level team scoring distribution.',
-      icon: FiActivity,
+      key: 'luck',
+      label: 'The Luck Index',
+      description: 'Schedule analysis: actual wins vs hypothetical record.',
+      icon: FiCompass,
+    },
+    {
+      key: 'consistency',
+      label: 'Player Consistency Ratings',
+      description: 'Analyze player volatility and reliability for lineup planning.',
+      icon: FiTrendingDown,
     },
     {
       key: 'heatmap',
@@ -111,13 +121,13 @@ const AnalyticsDashboard = () => {
             <ManagerTrendChart />
           </div>
         );
-      case 'weekly':
+      case 'consistency':
         return (
           <div className="chart-card">
-            <WeeklyMatchupChart />
+            <PlayerConsistencyChart />
           </div>
         );
-      case 'heatmap':
+      case 'weekly':
         return (
           <div className="chart-card">
             <PlayerHeatmap />
@@ -127,6 +137,12 @@ const AnalyticsDashboard = () => {
         return (
           <div className="chart-card">
             <TradeAnalyzer />
+          </div>
+        );
+      case 'luck':
+        return (
+          <div className="chart-card">
+            <LuckIndexChart />
           </div>
         );
       case 'rivalry':

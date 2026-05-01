@@ -26,7 +26,7 @@ export default function SessionHeader({
 
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
-    <div className="flex justify-between items-center py-2 md:py-3 bg-slate-950 border border-slate-800 rounded-lg px-4 mb-6 shadow-inner uppercase tracking-[0.2em] text-[9px] font-black">
+    <div className="flex justify-between items-center py-2 md:py-3 bg-white border border-slate-200 rounded-lg px-4 mb-6 shadow-inner uppercase tracking-[0.2em] text-[9px] font-black dark:bg-slate-950 dark:border-slate-800">
       {/* 2.2 METADATA GROUP */}
       <div className="flex gap-8 items-center">
         <div className="flex items-center gap-2 group">
@@ -61,7 +61,7 @@ export default function SessionHeader({
             aria-label="Sort Team Column"
             value={sortMode}
             onChange={(event) => onSortModeChange(event.target.value)}
-            className="bg-slate-900 border border-slate-700 text-slate-100 rounded px-2 py-1 text-[10px] tracking-normal uppercase"
+            className="bg-white border border-slate-300 text-slate-700 rounded px-2 py-1 text-[10px] tracking-normal uppercase dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
           >
             <option value={DRAFT_BOARD_SORT_MODE.DRAFT_ORDER}>Order Drafted by Team</option>
             <option value={DRAFT_BOARD_SORT_MODE.VALUE_DESC}>Value Drafted by Team (High - Low)</option>

@@ -113,7 +113,7 @@ export default function ScoringRulesModal({ open, onClose }) {
           </StandardTableContainer>
         )}
         {loading && <p className={`${textMuted} mt-3`}>Loading rules…</p>}
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+        {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
         {!loading && !error && rules.length === 0 && (
           <p className={`${textMuted} mt-3`}>No scoring rules have been configured for this league yet.</p>
         )}

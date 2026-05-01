@@ -11,6 +11,7 @@ import {
   FiBookOpen,
   FiGrid,
   FiClock,
+  FiAward,
 } from 'react-icons/fi';
 
 // Professional Imports
@@ -187,6 +188,16 @@ export default function CommissionerDashboard() {
           loading={false}
           actionLabel="View Ledger"
           tone="blue"
+        />
+        <AdminActionCard
+          icon={FiAward}
+          badge="PLAYOFFS"
+          title="Playoff Settings"
+          description="Set qualifier count, bracket re-seeding, consolation bracket, and tiebreaker priority."
+          onClick={() => navigate('/commissioner/playoff-settings')}
+          loading={false}
+          actionLabel="Edit Playoff Settings"
+          tone="yellow"
         />
       </div>
     </PageTemplate>

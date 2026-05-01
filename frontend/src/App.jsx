@@ -64,6 +64,9 @@ const KeeperRules = lazy(
 const LedgerStatement = lazy(
   () => import('./pages/commissioner/LedgerStatement')
 );
+const ManagePlayoffSettings = lazy(
+  () => import('./pages/commissioner/ManagePlayoffSettings')
+);
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
@@ -105,6 +108,7 @@ function resolveLayoutPageTitle(pathname) {
   if (pathname === '/commissioner/history-owner-mapping') return 'Historical Owner Mapping';
   if (pathname === '/commissioner/keeper-rules') return 'Keeper Rules';
   if (pathname === '/commissioner/ledger-statement') return 'Ledger Statement';
+  if (pathname === '/commissioner/playoff-settings') return 'Playoff Settings';
   if (pathname === '/waivers') return 'Waiver Wire';
   if (pathname === '/waiver-rules') return 'Waiver Rules';
   if (pathname === '/bug-report') return 'Bug Report';
@@ -282,6 +286,14 @@ function AuthenticatedShell({
             element={
               <RequireCommissioner isCommissioner={isCommissioner}>
                 <LedgerStatement />
+              </RequireCommissioner>
+            }
+          />
+          <Route
+            path="/commissioner/playoff-settings"
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <ManagePlayoffSettings />
               </RequireCommissioner>
             }
           />

@@ -63,7 +63,7 @@ export default function LeagueSelector({ onLeagueSelect, _token }) {
           Select your league to enter
         </p>
         {error ? (
-          <p className="mb-4 text-center text-sm font-semibold text-red-300">
+          <p className="mb-4 text-center text-sm font-semibold text-red-600 dark:text-red-300">
             {error}
           </p>
         ) : null}

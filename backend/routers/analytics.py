@@ -788,3 +788,340 @@ def get_rivalry_graph(
             season=resolved_season,
         ),
     }
+
+
+@router.get('/league/{league_id}/luck-index')
+def get_luck_index(
+    league_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    db: Session = Depends(get_db),
+):
+    """Calculate the 'Luck Index' — how much a manager benefited from scheduling.
+    
+    Returns each manager's:
+    - actual_wins: real wins against actual opponents
+    - hypothetical_wins: wins if manager's scores played all other schedules
+    - luck: actual_wins - hypothetical_wins (positive = lucky scheduling)
+    - pf: points for (scoring efficiency)
+    - pa: points against (schedule strength)
+    """
+    resolved_season = _resolved_season(season)
+    
+    # Get all owners with their actual records
+    owners = (
+        db.query(models.User)
+        .filter(
+            models.User.league_id == league_id,
+            models.User.is_superuser.is_(False),
+            ~models.User.username.like("hist_%"),
+        )
+        .all()
+    )
+    if not owners:
+        return {
+            "rows": [],
+            "meta": _analytics_meta(
+                db,
+                metric="luck_index",
+                league_id=league_id,
+                season=resolved_season,
+            ),
+        }
+    
+    owner_ids = {o.id for o in owners}
+    owner_by_id = {o.id: o for o in owners}
+    
+    # Helper: get all completed matchups for an owner
+    def get_owner_matchups(owner_id: int):
+        return (
+            db.query(models.Matchup)
+            .filter(
+                models.Matchup.league_id == league_id,
+                or_(
+                    models.Matchup.home_team_id == owner_id,
+                    models.Matchup.away_team_id == owner_id,
+                ),
+                models.Matchup.is_completed.is_(True),
+            )
+            .all()
+        )
+    
+    # Helper: calculate W-L-T from a set of matchups with owner as a specific side
+    def calc_record_against(owner_id: int, matchups: list):
+        w = l = t = pf = pa = 0
+        for m in matchups:
+            if m.home_team_id == owner_id:
+                score = m.home_score or 0
+                opp_score = m.away_score or 0
+            else:
+                score = m.away_score or 0
+                opp_score = m.home_score or 0
+            
+            pf += score
+            pa += opp_score
+            if score > opp_score:
+                w += 1
+            elif score < opp_score:
+                l += 1
+            else:
+                t += 1
+        return w, l, t, pf, pa
+    
+    # Helper: calculate hypothetical record
+    # For each owner, apply their scores to all other owners' opponent schedules
+    def calc_hypothetical_wins(owner_id: int, owner_matchups: list, all_owners_matchups: dict):
+        """
+        Calculate expected wins if this owner played all other teams' schedules.
+        Method: For each opponent the owner actually faced, replace with every
+        other team's opponent and see cumulative wins.
+        """
+        total_hypothetical_w = 0
+        total_hypothetical_games = 0
+        
+        # Get this owner's actual scores
+        owner_scores = []
+        for m in owner_matchups:
+            if m.home_team_id == owner_id:
+                owner_scores.append(m.home_score or 0)
+            else:
+                owner_scores.append(m.away_score or 0)
+        
+        # For each other owner, see what our owner's record would be against their opponents
+        for other_owner_id in owner_ids:
+            if other_owner_id == owner_id:
+                continue
+            
+            other_matchups = all_owners_matchups.get(other_owner_id, [])
+            if not other_matchups:
+                continue
+            
+            # Get other owner's opponent scores (the scores this owner would face)
+            hypothetical_scores = []
+            for m in other_matchups:
+                if m.home_team_id == other_owner_id:
+                    hypothetical_scores.append(m.away_score or 0)
+                else:
+                    hypothetical_scores.append(m.home_score or 0)
+            
+            # Compare owner_scores with hypothetical_scores
+            min_games = min(len(owner_scores), len(hypothetical_scores))
+            for i in range(min_games):
+                total_hypothetical_games += 1
+                if owner_scores[i] > hypothetical_scores[i]:
+                    total_hypothetical_w += 1
+        
+        # Average the hypothetical wins
+        if total_hypothetical_games > 0:
+            return round(total_hypothetical_w * len(owner_ids) / total_hypothetical_games, 1)
+        return 0.0
+    
+    # Pre-fetch all matchups
+    all_owners_matchups = {}
+    for owner_id in owner_ids:
+        all_owners_matchups[owner_id] = get_owner_matchups(owner_id)
+    
+    # Calculate luck for each owner
+    rows = []
+    for owner_id in owner_ids:
+        matchups = all_owners_matchups[owner_id]
+        if not matchups:
+            continue
+        
+        actual_w, actual_l, actual_t, pf, pa = calc_record_against(owner_id, matchups)
+        hypothetical_w = calc_hypothetical_wins(owner_id, matchups, all_owners_matchups)
+        luck = round(actual_w - hypothetical_w, 1)
+        
+        # Calculate efficiency: fraction of total points scored (not allowed)
+        total_points = pf + pa
+        efficiency = round((pf / total_points) if total_points > 0 else 0.5, 3)
+        
+        owner = owner_by_id.get(owner_id)
+        rows.append({
+            "owner_id": owner_id,
+            "owner_name": owner.username if owner else f"Owner {owner_id}",
+            "team_name": owner.team_name if owner else f"Team {owner_id}",
+            "actual_wins": actual_w,
+            "actual_losses": actual_l,
+            "actual_ties": actual_t,
+            "actual_record": f"{actual_w}-{actual_l}" + (f"-{actual_t}" if actual_t else ""),
+            "hypothetical_wins": hypothetical_w,
+            "luck": luck,
+            "pf": float(pf),
+            "pa": float(pa),
+            "efficiency": efficiency,
+            "win_percentage": round((actual_w / (actual_w + actual_l)) if (actual_w + actual_l) > 0 else 0, 3),
+        })
+    
+    # Calculate league medians for quadrant positioning
+    all_pf = [r["pf"] for r in rows]
+    all_pa = [r["pa"] for r in rows]
+    median_pf = sorted(all_pf)[len(all_pf) // 2] if all_pf else 0
+    median_pa = sorted(all_pa)[len(all_pa) // 2] if all_pa else 0
+    
+    # Add quadrant and luck category
+    for row in rows:
+        if row["pf"] >= median_pf:
+            pf_quadrant = "Good"
+        else:
+            pf_quadrant = "Bad"
+        
+        if row["pa"] <= median_pa:
+            pa_quadrant = "Lucky"  # Low PA = lucky (weaker opponents)
+        else:
+            pa_quadrant = "Unlucky"  # High PA = unlucky (stronger opponents)
+        
+        row["quadrant"] = f"{pf_quadrant}/{pa_quadrant}"
+    
+    # Sort by luck (most lucky first)
+    rows.sort(key=lambda r: r["luck"], reverse=True)
+    
+    return {
+        "rows": rows,
+        "meta": _analytics_meta(
+            db,
+            metric="luck_index",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+        "medians": {
+            "pf": float(median_pf),
+            "pa": float(median_pa),
+        },
+    }
+
+
+@router.get('/league/{league_id}/player-consistency')
+def get_player_consistency(
+    league_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    limit: int = Query(20, ge=5, le=100),
+    db: Session = Depends(get_db),
+):
+    """Analyze player week-to-week consistency and volatility.
+    
+    Returns players grouped by reliability vs volatility, with consistency metrics:
+    - floor: minimum fantasy points scored in any week
+    - ceiling: maximum fantasy points scored in any week
+    - median: 50th percentile
+    - avg: mean fantasy points
+    - stdev: standard deviation
+    - variance: stdev²
+    - reliability_score: normalized measure (1.0 = perfect consistency)
+    """
+    resolved_season = _resolved_season(season)
+    
+    # Get all players on rosters in this league
+    roster_player_ids = set()
+    rosters = (
+        db.query(models.Roster)
+        .filter(models.Roster.league_id == league_id)
+        .all()
+    )
+    for roster in rosters:
+        if roster.players_json:
+            for player_id in roster.players_json.values():
+                if player_id:
+                    try:
+                        roster_player_ids.add(int(player_id))
+                    except (TypeError, ValueError):
+                        pass
+    
+    if not roster_player_ids:
+        return {
+            "most_reliable": [],
+            "most_volatile": [],
+            "meta": _analytics_meta(
+                db,
+                metric="player_consistency",
+                league_id=league_id,
+                season=resolved_season,
+            ),
+        }
+    
+    # Fetch weekly stats for these players
+    weekly_stats = (
+        db.query(models.PlayerWeeklyStat)
+        .filter(
+            models.PlayerWeeklyStat.player_id.in_(list(roster_player_ids)),
+            models.PlayerWeeklyStat.season == resolved_season,
+        )
+        .all()
+    )
+    
+    # Organize by player
+    stats_by_player: dict[int, list[float]] = {}
+    player_info: dict[int, dict] = {}
+    
+    for stat in weekly_stats:
+        if stat.fantasy_points is not None:
+            if stat.player_id not in stats_by_player:
+                stats_by_player[stat.player_id] = []
+            stats_by_player[stat.player_id].append(float(stat.fantasy_points))
+            
+            # Capture player info
+            if stat.player_id not in player_info:
+                player = stat.player
+                if player:
+                    player_info[stat.player_id] = {
+                        "name": player.full_name or f"Player {stat.player_id}",
+                        "position": player.position or "N/A",
+                        "player_id": stat.player_id,
+                    }
+    
+    # Calculate consistency metrics
+    consistency_rows = []
+    
+    for player_id, points_list in stats_by_player.items():
+        if len(points_list) < 2:
+            continue  # Need at least 2 data points
+        
+        import statistics
+        
+        avg = statistics.mean(points_list)
+        median = statistics.median(points_list)
+        stdev = statistics.stdev(points_list) if len(points_list) > 1 else 0.0
+        variance = stdev ** 2
+        floor = min(points_list)
+        ceiling = max(points_list)
+        
+        # Reliability score: normalized consistency (1.0 = never varies)
+        # If avg is high and stdev is low, reliability is high
+        reliability_score = avg / (avg + stdev) if (avg + stdev) > 0 else 0.5
+        
+        info = player_info.get(player_id, {})
+        consistency_rows.append({
+            "player_id": player_id,
+            "player_name": info.get("name", f"Player {player_id}"),
+            "position": info.get("position", "N/A"),
+            "avg": round(avg, 2),
+            "floor": round(floor, 2),
+            "ceiling": round(ceiling, 2),
+            "median": round(median, 2),
+            "stdev": round(stdev, 2),
+            "variance": round(variance, 2),
+            "reliability_score": round(reliability_score, 3),
+            "weeks_played": len(points_list),
+            "weekly_points": [round(p, 2) for p in points_list],
+        })
+    
+    # Sort by reliability (highest first) and volatility (highest stdev first)
+    most_reliable = sorted(
+        consistency_rows,
+        key=lambda r: (-r["reliability_score"], -r["avg"]),
+    )[:limit]
+    
+    most_volatile = sorted(
+        consistency_rows,
+        key=lambda r: (-r["variance"], -r["avg"]),
+    )[:limit]
+    
+    return {
+        "most_reliable": most_reliable,
+        "most_volatile": most_volatile,
+        "meta": _analytics_meta(
+            db,
+            metric="player_consistency",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+    }

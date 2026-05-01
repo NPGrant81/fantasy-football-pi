@@ -60,7 +60,7 @@ export default function MermaidDiagram({ chart }) {
     return (
       <div
         role="alert"
-        className="rounded-md border border-red-500 bg-red-900/20 p-3 text-xs text-red-300"
+        className="rounded-md border border-red-400/60 bg-red-50 p-3 text-xs text-red-700 dark:border-red-500 dark:bg-red-900/20 dark:text-red-300"
       >
         <span className="font-semibold">Diagram error: </span>
         {result.error}

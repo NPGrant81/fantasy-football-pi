@@ -49,22 +49,22 @@ export default function BracketAccordion({
     const alignmentClass = align === 'right' ? 'text-right' : 'text-left';
     return (
       <div className={`flex flex-col ${alignmentClass}`}>
-        <span className="font-semibold text-slate-100">
+        <span className="font-semibold text-slate-900 dark:text-slate-100">
           {teamId ? ownerNameById[Number(teamId)] || `Team ${teamId}` : 'TBD'}
         </span>
         <div className="flex flex-wrap gap-1 mt-1">
           {seed ? (
-            <span className="rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
+            <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
               Seed {seed}
             </span>
           ) : null}
           {isDivisionWinner ? (
-            <span className="rounded border border-cyan-700 bg-cyan-950/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-cyan-300">
+            <span className="rounded border border-cyan-600 bg-cyan-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300">
               Division Winner
             </span>
           ) : null}
           {divisionName ? (
-            <span className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+            <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
               {divisionName}
             </span>
           ) : null}
@@ -174,18 +174,18 @@ export default function BracketAccordion({
     return (
       <div
         key={id}
-        className="border border-slate-700 rounded p-2 mb-2 bg-slate-900/30 min-w-[220px]"
+        className="border border-slate-300 rounded p-2 mb-2 bg-white dark:border-slate-700 dark:bg-slate-900/30 min-w-[220px]"
       >
-        <div className="text-xs text-slate-400 flex items-center justify-between gap-2">
+        <div className="text-xs text-slate-500 flex items-center justify-between gap-2 dark:text-slate-400">
           <span>{id}</span>
           {m.round ? (
-            <span className="rounded border border-slate-700 px-1.5 py-0.5 uppercase tracking-wide text-[10px]">
+            <span className="rounded border border-slate-300 px-1.5 py-0.5 uppercase tracking-wide text-[10px] dark:border-slate-700">
               Round {m.round}
             </span>
           ) : null}
         </div>
         {m.is_bye ? (
-          <div className="text-sm text-yellow-400">
+          <div className="text-sm text-yellow-600 dark:text-yellow-400">
             BYE - {m.team_1_id ? ownerNameById[Number(m.team_1_id)] || `Team ${m.team_1_id}` : 'TBD'} advances
           </div>
         ) : (
@@ -196,7 +196,7 @@ export default function BracketAccordion({
               isDivisionWinner: m.team_1_is_division_winner,
               divisionName: m.team_1_division_name,
             })}
-            <span className="text-slate-400">vs</span>
+            <span className="text-slate-400 dark:text-slate-400">vs</span>
             {renderTeamLine({
               teamId: m.team_2_id,
               seed: m.team_2_seed,
@@ -207,7 +207,7 @@ export default function BracketAccordion({
           </div>
         )}
         {m.winner_to ? (
-          <div className="mt-2 text-[11px] text-slate-400">Winner advances to next round</div>
+          <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Winner advances to next round</div>
         ) : null}
       </div>
     );
@@ -231,7 +231,7 @@ export default function BracketAccordion({
         <div className="flex gap-4 pb-2 min-w-max">
           {roundKeys.map((roundNum) => (
             <div key={roundNum} className="min-w-[250px]">
-              <div className="mb-2 text-xs uppercase tracking-wider text-slate-400">
+              <div className="mb-2 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">
                 {roundLabels[String(roundNum)] || `Round ${roundNum}`}
               </div>
               {grouped[String(roundNum)].map((match) => renderMatchCard(match))}
@@ -253,7 +253,7 @@ export default function BracketAccordion({
           <button
             type="button"
             onClick={() => setHistoricalMode((prev) => !prev)}
-            className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100 hover:bg-slate-700"
+            className="rounded border border-slate-300 bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
           >
             {historicalMode ? 'Show Current Season' : 'See Historical'}
           </button>
@@ -263,7 +263,7 @@ export default function BracketAccordion({
           <>
             <label className="text-xs">Season:</label>
             <select
-              className="bg-slate-800 text-white p-1 rounded"
+              className="rounded border border-slate-300 bg-white p-1 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               value={season}
               onChange={(e) => setSeason(Number(e.target.value))}
             >
@@ -279,10 +279,10 @@ export default function BracketAccordion({
 
       <details
         open
-        className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 shadow-xl"
+        className="rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-800 dark:bg-slate-900/50"
         onToggle={(e) => setOpen(e.target.open)}
       >
-        <summary className="cursor-pointer text-lg font-bold text-white flex items-center justify-start">
+        <summary className="cursor-pointer text-lg font-bold text-slate-900 flex items-center justify-start dark:text-white">
           Playoff Bracket
         </summary>
 
@@ -290,16 +290,16 @@ export default function BracketAccordion({
         {!loading && bracket && (
           <div className="mt-4">
             {bracket.meta ? (
-              <div className="mb-4 rounded border border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-100">
+              <div className="mb-4 rounded border border-amber-300/80 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold uppercase tracking-wider text-amber-200">
+                  <span className="font-bold uppercase tracking-wider text-amber-700 dark:text-amber-200">
                     Bracket Source
                   </span>
-                  <span className="rounded border border-amber-700/70 bg-amber-900/40 px-2 py-1 uppercase tracking-wide text-[10px] text-amber-100">
+                  <span className="rounded border border-amber-400/70 bg-amber-100 px-2 py-1 uppercase tracking-wide text-[10px] text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/40 dark:text-amber-100">
                     {formatMetaSource(bracket.meta.source)}
                   </span>
                   {bracket.meta.is_partial ? (
-                    <span className="rounded border border-amber-600/70 bg-amber-900/20 px-2 py-1 uppercase tracking-wide text-[10px] text-amber-200">
+                    <span className="rounded border border-amber-500/70 bg-amber-100 px-2 py-1 uppercase tracking-wide text-[10px] text-amber-700 dark:border-amber-600/70 dark:bg-amber-900/20 dark:text-amber-200">
                       Partial Data
                     </span>
                   ) : null}
@@ -315,24 +315,39 @@ export default function BracketAccordion({
             ) : null}
 
             {bracket.seeding_policy ? (
-              <div className="mb-4 rounded border border-slate-700 bg-slate-900/40 p-3">
-                <div className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+              <div className="mb-4 rounded border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2 dark:text-slate-300">
                   Seeding Policy
                 </div>
                 <div className="flex flex-wrap gap-2 mb-2">
+                  {bracket.seeding_policy.playoff_qualifiers ? (
+                    <span className="rounded border border-indigo-600 bg-indigo-50 px-2 py-1 text-[10px] uppercase tracking-wide text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                      {bracket.seeding_policy.playoff_qualifiers} Team Playoff
+                    </span>
+                  ) : null}
+                  {bracket.seeding_policy.playoff_reseed ? (
+                    <span className="rounded border border-violet-600 bg-violet-50 px-2 py-1 text-[10px] uppercase tracking-wide text-violet-700 dark:border-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+                      Reseeding
+                    </span>
+                  ) : null}
+                  {bracket.seeding_policy.playoff_consolation ? (
+                    <span className="rounded border border-amber-600 bg-amber-50 px-2 py-1 text-[10px] uppercase tracking-wide text-amber-700 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                      Consolation Bracket
+                    </span>
+                  ) : null}
                   {bracket.seeding_policy.division_winners_top_seeds ? (
-                    <span className="rounded border border-cyan-700 bg-cyan-950/60 px-2 py-1 text-[10px] uppercase tracking-wide text-cyan-300">
+                    <span className="rounded border border-cyan-600 bg-cyan-50 px-2 py-1 text-[10px] uppercase tracking-wide text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300">
                       Division Winners Top Seeds
                     </span>
                   ) : null}
                   {bracket.seeding_policy.wildcards_by_overall_record ? (
-                    <span className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-300">
+                    <span className="rounded border border-slate-300 bg-slate-100 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
                       Wildcards by Overall Record
                     </span>
                   ) : null}
                 </div>
                 {Array.isArray(bracket.seeding_policy.tiebreak_chain) && (
-                  <div className="text-xs text-slate-400">
+                  <div className="text-xs text-slate-600 dark:text-slate-400">
                     Tiebreak chain:{' '}
                     {bracket.seeding_policy.tiebreak_chain
                       .map((token) => formatTiebreakToken(token))
@@ -346,7 +361,7 @@ export default function BracketAccordion({
             <div className="mb-4 flex items-center gap-2">
               <label className="text-xs">View:</label>
               <select
-                className="bg-slate-800 text-white p-1 rounded"
+                className="rounded border border-slate-300 bg-white p-1 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 value={view}
                 onChange={(e) => setView(e.target.value)}
               >
@@ -356,16 +371,16 @@ export default function BracketAccordion({
                 ) : null}
               </select>
             </div>
-            <h3 className="text-sm text-slate-400 mb-2 uppercase">
+            <h3 className="text-sm text-slate-600 mb-2 uppercase dark:text-slate-400">
               {view === 'championship' ? 'Champion' : 'Toilet Bowl'}
             </h3>
             {view === 'championship' && bracket.champion ? (
-              <div className="mb-3 text-xs text-emerald-300">
+              <div className="mb-3 text-xs text-emerald-600 dark:text-emerald-300">
                 Champion: {bracket.champion.team_name}
               </div>
             ) : null}
             {view === 'consolation' && bracket.toilet_bowl_winner ? (
-              <div className="mb-3 text-xs text-cyan-300">
+              <div className="mb-3 text-xs text-cyan-600 dark:text-cyan-300">
                 Toilet Bowl Winner: {bracket.toilet_bowl_winner.team_name}
               </div>
             ) : null}
@@ -378,7 +393,7 @@ export default function BracketAccordion({
               )}
             </div>
             {(view === 'championship' ? championshipMatchCount === 0 : consolationMatchCount === 0) && (
-              <div className="mt-3 text-xs text-slate-400">
+              <div className="mt-3 text-xs text-slate-600 dark:text-slate-400">
                 No {view} bracket matchups are stored for season {selectedSeason}.
               </div>
             )}
@@ -386,7 +401,7 @@ export default function BracketAccordion({
         )}
 
         {!loading && !bracket && (
-          <div className="text-slate-500 mt-2 italic">No bracket data for season {selectedSeason}.</div>
+          <div className="mt-2 italic text-slate-600 dark:text-slate-500">No bracket data for season {selectedSeason}.</div>
         )}
 
         {/* season picker above the summary */}

@@ -49,3 +49,17 @@ export function fetchRosterStrengthAnalytics(leagueId, ownerId) {
 export function fetchRivalryAnalytics(leagueId) {
   return getJson(`/analytics/league/${leagueId}/rivalry`, { retries: 1 });
 }
+
+export function fetchLuckIndexAnalytics(leagueId, season) {
+  return getJson(`/analytics/league/${leagueId}/luck-index`, {
+    params: { season },
+    retries: 1,
+  });
+}
+
+export function fetchPlayerConsistencyAnalytics(leagueId, season, limit = 20) {
+  return getJson(`/analytics/league/${leagueId}/player-consistency`, {
+    params: { season, limit },
+    retries: 1,
+  });
+}

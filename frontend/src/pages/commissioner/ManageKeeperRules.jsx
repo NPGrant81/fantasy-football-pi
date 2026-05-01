@@ -419,7 +419,7 @@ export default function ManageKeeperRules() {
             {settingsLoading ? 'Saving...' : 'Update Settings'}
           </button>
           {message && (
-            <div className="mt-4 text-sm text-cyan-300">{message}</div>
+            <div className="mt-4 text-sm text-cyan-700 dark:text-cyan-300">{message}</div>
           )}
         </div>
       </form>

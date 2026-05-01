@@ -85,7 +85,7 @@ describe('DraftBoardGrid header', () => {
     // drafted cell should have a position color class and drafted border treatment
     const cell = screen.getByTestId('player-card');
     expect(cell.className).toMatch(/bg-/);
-    expect(cell).toHaveClass('border-2', 'border-slate-600');
+    expect(cell).toHaveClass('border-2', 'border-slate-400');
   });
 
   it('highlights every drafted slot when multiple picks exist', () => {
@@ -102,7 +102,7 @@ describe('DraftBoardGrid header', () => {
     expect(draftedCards.length).toBe(2);
     draftedCards.forEach((card) => {
       expect(card.className).toMatch(/bg-/);
-      expect(card.classList.contains('border-slate-600')).toBe(true);
+      expect(card.classList.contains('border-slate-400')).toBe(true);
     });
   });
 

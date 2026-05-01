@@ -24,7 +24,7 @@ import CommissionerDashboard from '@/pages/commissioner/CommissionerDashboard';
 import ManageTrades from '@/pages/commissioner/ManageTrades';
 import CommishAdmin from '@/pages/commissioner/CommishAdmin';
 import MyTeam from '@/pages/team-owner/YourLockerRoom';
-import TradeAnalyzer from '@/components/charts/TradeAnalyzer';
+import ManagePlayoffSettings from '@/pages/commissioner/ManagePlayoffSettings';
 
 describe('DraftBoard (Smoke Test)', () => {
   beforeEach(() => {
@@ -717,6 +717,95 @@ describe('MyTeam taxi support', () => {
     fireEvent.click(taxiBtn);
     expect(apiClient.post).toHaveBeenCalledWith('/team/taxi/demote', {
       player_id: 2,
+    });
+  });
+});
+
+describe('ManagePlayoffSettings (Smoke Test)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem('fantasyLeagueId', '1');
+    vi.resetAllMocks();
+  });
+
+  test('renders and loads current settings', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url.startsWith('/playoffs/settings'))
+        return Promise.resolve({
+          data: {
+            playoff_qualifiers: 6,
+            playoff_reseed: true,
+            playoff_consolation: false,
+            playoff_tiebreakers: ['overall_record', 'points_for'],
+          },
+        });
+      return Promise.resolve({ data: {} });
+    });
+    apiClient.patch.mockResolvedValue({ data: {} });
+
+    render(<ManagePlayoffSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('qualifiers-input')).toHaveValue(6);
+    });
+    expect(screen.getByTestId('reseed-checkbox')).toBeChecked();
+    expect(screen.getByTestId('consolation-checkbox')).not.toBeChecked();
+    expect(screen.getByText(/Overall Record/i)).toBeInTheDocument();
+    expect(screen.getByText(/Points For/i)).toBeInTheDocument();
+  });
+
+  test('saves updated settings and shows confirmation', async () => {
+    apiClient.get.mockResolvedValue({
+      data: {
+        playoff_qualifiers: 4,
+        playoff_reseed: false,
+        playoff_consolation: true,
+        playoff_tiebreakers: [],
+      },
+    });
+    apiClient.patch.mockResolvedValue({ data: {} });
+
+    render(<ManagePlayoffSettings />);
+
+    await waitFor(() => expect(screen.getByTestId('qualifiers-input')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('save-btn'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('settings-message')).toHaveTextContent(/saved/i)
+    );
+    expect(apiClient.patch).toHaveBeenCalledWith(
+      expect.stringContaining('/playoffs/settings'),
+      expect.objectContaining({ playoff_qualifiers: 4 })
+    );
+  });
+
+  test('adds and removes a tiebreaker', async () => {
+    apiClient.get.mockResolvedValue({
+      data: {
+        playoff_qualifiers: 4,
+        playoff_reseed: false,
+        playoff_consolation: false,
+        playoff_tiebreakers: [],
+      },
+    });
+    apiClient.patch.mockResolvedValue({ data: {} });
+
+    render(<ManagePlayoffSettings />);
+
+    await waitFor(() => expect(screen.getByTestId('tiebreaker-select')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId('tiebreaker-select'), {
+      target: { value: 'points_for' },
+    });
+    fireEvent.click(screen.getByTestId('add-tiebreaker-btn'));
+
+    await waitFor(() => expect(screen.getByText(/Points For/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText(/Remove Points For/i));
+    await waitFor(() => {
+      const list = screen.getByTestId('tiebreaker-list');
+      expect(list.textContent).not.toMatch(/Points For/i);
     });
   });
 });

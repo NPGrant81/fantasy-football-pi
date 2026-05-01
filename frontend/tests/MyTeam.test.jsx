@@ -754,7 +754,7 @@ describe('MyTeam (Roster & Lineups)', () => {
 
     render(<MyTeam activeOwnerId={1} />);
     await waitFor(() =>
-      expect(screen.getByText(/QB 2/)).toHaveClass('text-red-300')
+      expect(screen.getByText(/QB 2/)).toHaveClass('text-red-600')
     );
     // submit button should be disabled when the roster is invalid
     const submitBtn = screen.getByRole('button', { name: /submit roster/i });

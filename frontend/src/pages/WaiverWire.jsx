@@ -347,10 +347,10 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
       {confirmAction && (
         <div className={`fixed inset-0 ${layerModal} flex items-center justify-center bg-black/70 p-4`}>
           <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-brand-black p-6 shadow-2xl">
-            <h3 className="text-lg font-black tracking-tight text-white">
+            <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
               Confirm Waiver Action
             </h3>
-            <p className="mt-3 text-sm text-slate-300">
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
               {confirmAction.message}
             </p>
             <div className="mt-6 flex justify-end gap-3">

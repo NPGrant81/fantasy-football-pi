@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 
 const ScoringCard = ({ title, fields }) => (
-  <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg">
-    <h3 className="text-white font-bold mb-4 border-b border-slate-800 pb-2">
+  <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg dark:bg-slate-900 dark:border-slate-800">
+    <h3 className="text-slate-900 font-bold mb-4 border-b border-slate-200 pb-2 dark:text-white dark:border-slate-800">
       {title}
     </h3>
     {fields.map((field) => (
       <div key={field} className="flex justify-between items-center mb-3">
-        <span className="text-sm text-slate-400">{field.split(' ')[0]}</span>
+        <span className="text-sm text-slate-600 dark:text-slate-400">{field.split(' ')[0]}</span>
         <input
           type="number"
-          className="w-20 bg-black border border-slate-700 rounded p-1 text-right text-cyan-400 text-sm"
+          className="w-20 bg-white border border-slate-300 rounded p-1 text-right text-blue-600 text-sm dark:bg-black dark:border-slate-700 dark:text-cyan-400"
           placeholder="0"
         />
       </div>
@@ -29,17 +29,17 @@ export default function AdminSettings() {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#05070a] border border-slate-800 rounded-lg shadow-2xl">
+    <div className="flex flex-col h-full bg-white border border-slate-200 rounded-lg shadow-2xl dark:bg-[#05070a] dark:border-slate-800">
       {/* Tab Navigation */}
-      <div className="flex border-b border-slate-800 bg-slate-900/50">
+      <div className="flex border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/50">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-6 py-4 text-xs font-bold uppercase tracking-widest transition-all ${
               activeTab === tab.id
-                ? 'text-cyan-400 border-b-2 border-cyan-400 bg-slate-800'
-                : 'text-slate-500 hover:text-slate-300'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-white dark:text-cyan-400 dark:border-cyan-400 dark:bg-slate-800'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300'
             }`}
           >
             {tab.label}
@@ -64,13 +64,13 @@ export default function AdminSettings() {
 
         {activeTab === 'data' && (
           <div className="space-y-4">
-            <div className="p-4 bg-slate-800 rounded border border-slate-700">
-              <h3 className="text-cyan-400 font-bold mb-2">NFL Data Refresh</h3>
-              <p className="text-xs text-slate-400 mb-4">
+            <div className="p-4 bg-slate-100 rounded border border-slate-300 dark:bg-slate-800 dark:border-slate-700">
+              <h3 className="text-blue-600 font-bold mb-2 dark:text-cyan-400">NFL Data Refresh</h3>
+              <p className="text-xs text-slate-600 mb-4 dark:text-slate-400">
                 Syncs latest rosters and projections. Existing data will be
                 updated, not duplicated.
               </p>
-              <button className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded text-sm font-bold">
+              <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold dark:bg-cyan-600 dark:hover:bg-cyan-500">
                 Run Regen Script
               </button>
             </div>
@@ -79,13 +79,13 @@ export default function AdminSettings() {
 
         {activeTab === 'league' && (
           <div>
-            <p className="text-slate-400">League preparation tools go here.</p>
+            <p className="text-slate-600 dark:text-slate-400">League preparation tools go here.</p>
           </div>
         )}
 
         {activeTab === 'roster' && (
           <div>
-            <p className="text-slate-400">Roster & Lineup rules.</p>
+            <p className="text-slate-600 dark:text-slate-400">Roster & Lineup rules.</p>
           </div>
         )}
       </div>
