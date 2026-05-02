@@ -1,10 +1,161 @@
-# Canonical aliases for player display names. Keys/values are authored in title case for readability.
-# Aliases are applied to raw source names, then canonical names are normalized by the ETL pipeline.
-# This map is intentionally small for v1 and can be expanded from real QA findings.
+# Canonical aliases for player display names.
+# Keys are raw source names; values are the preferred canonical display names.
+# These are applied BEFORE normalize_player_name(), so only add entries where
+# normalization alone would NOT resolve the mismatch (e.g. genuine nickname
+# differences, shortened first names, or variant spellings across sources).
+#
+# Do NOT add entries where the only difference is punctuation (periods,
+# apostrophes, commas) or common suffixes (Jr, Sr, II, III, IV) — the
+# normalize_player_name() function already strips those.
+#
+# Format:  "Raw Source Name": "Canonical Name"
+# Sources: MFL, ESPN, Yahoo, DraftSharks, FantasyNerds cross-ref QA
 aliases:
+  # ── Punctuation / initials already handled by normalize, kept for
+  #    backward-compat with any source that skips normalization ─────────────
   A.J. Green: AJ Green
   A.J. Brown: AJ Brown
   D.K. Metcalf: DK Metcalf
   T.Y. Hilton: TY Hilton
   Odell Beckham Jr.: Odell Beckham
   Robert Griffin III: Robert Griffin
+
+  # ── Shortened first names (ESPN uses full; MFL/Yahoo abbreviate) ─────────
+  Gabriel Davis: Gabe Davis
+  Scotty Miller: Scott Miller
+  Robbie Anderson: Robbie Anderson         # alias for "Rob Anderson" on MFL
+  Rob Anderson: Robbie Anderson
+  Michael Pittman: Michael Pittman Jr      # ESPN drops Jr, MFL keeps it
+  Michael Pittman Jr.: Michael Pittman Jr
+  Marvin Harrison: Marvin Harrison Jr      # ESPN drops Jr
+  Marvin Harrison Jr.: Marvin Harrison Jr
+  Brian Robinson: Brian Robinson Jr        # ESPN drops Jr
+  Brian Robinson Jr.: Brian Robinson Jr
+  Duke Johnson: Duke Johnson Jr            # ESPN drops Jr
+  Duke Johnson Jr.: Duke Johnson Jr
+  Mecole Hardman: Mecole Hardman Jr        # ESPN drops Jr
+  Mecole Hardman Jr.: Mecole Hardman Jr
+
+  # ── Nicknames used as primary name on some platforms ────────────────────
+  Hollywood Brown: Marquise Brown          # MFL uses nickname; ESPN uses legal
+  Marquise Brown: Marquise Brown           # passthrough
+  Cordarrelle Patterson: C.J. Patterson    # some sources abbreviate
+  C.J. Patterson: Cordarrelle Patterson
+  Laviska Shenault Jr: Laviska Shenault    # Jr dropped on some sources
+  Laviska Shenault Jr.: Laviska Shenault
+
+  # ── Hyphenated / compound surnames ──────────────────────────────────────
+  Ke'Shawn Vaughn: Keshawn Vaughn
+  Keshawn Vaughn: Keshawn Vaughn           # passthrough after apostrophe strip
+  De'Von Achane: Devon Achane
+  Devon Achane: Devon Achane
+  Za'Darius Smith: Zadarius Smith
+  Zadarius Smith: Zadarius Smith
+  Tre'Quan Smith: Trequan Smith
+  Trequan Smith: Trequan Smith
+  Ja'Marr Chase: Jamarr Chase
+  Jamarr Chase: Jamarr Chase
+  De'Anthony Thomas: Deanthony Thomas
+  Deanthony Thomas: Deanthony Thomas
+
+  # ── Defense / ST naming variants across sources ──────────────────────────
+  San Francisco 49ers: SF
+  San Francisco Defense: SF
+  San Francisco 49ers D/ST: SF
+  New England Patriots: NE
+  New England Defense: NE
+  New England Patriots D/ST: NE
+  Kansas City Chiefs: KC
+  Kansas City Defense: KC
+  Kansas City Chiefs D/ST: KC
+  Dallas Cowboys: DAL
+  Dallas Cowboys Defense: DAL
+  Dallas Cowboys D/ST: DAL
+  Philadelphia Eagles: PHI
+  Philadelphia Defense: PHI
+  Philadelphia Eagles D/ST: PHI
+  Baltimore Ravens: BAL
+  Baltimore Defense: BAL
+  Baltimore Ravens D/ST: BAL
+  Buffalo Bills: BUF
+  Buffalo Defense: BUF
+  Buffalo Bills D/ST: BUF
+  Miami Dolphins: MIA
+  Miami Defense: MIA
+  Miami Dolphins D/ST: MIA
+  Minnesota Vikings: MIN
+  Minnesota Defense: MIN
+  Minnesota Vikings D/ST: MIN
+  Green Bay Packers: GB
+  Green Bay Defense: GB
+  Green Bay Packers D/ST: GB
+  Los Angeles Rams: LAR
+  Los Angeles Rams Defense: LAR
+  Los Angeles Rams D/ST: LAR
+  Los Angeles Chargers: LAC
+  Los Angeles Chargers Defense: LAC
+  Los Angeles Chargers D/ST: LAC
+  Chicago Bears: CHI
+  Chicago Defense: CHI
+  Chicago Bears D/ST: CHI
+  New York Giants: NYG
+  New York Giants Defense: NYG
+  New York Giants D/ST: NYG
+  New York Jets: NYJ
+  New York Jets Defense: NYJ
+  New York Jets D/ST: NYJ
+  Pittsburgh Steelers: PIT
+  Pittsburgh Defense: PIT
+  Pittsburgh Steelers D/ST: PIT
+  Cleveland Browns: CLE
+  Cleveland Defense: CLE
+  Cleveland Browns D/ST: CLE
+  Cincinnati Bengals: CIN
+  Cincinnati Defense: CIN
+  Cincinnati Bengals D/ST: CIN
+  Indianapolis Colts: IND
+  Indianapolis Defense: IND
+  Indianapolis Colts D/ST: IND
+  Tennessee Titans: TEN
+  Tennessee Defense: TEN
+  Tennessee Titans D/ST: TEN
+  Houston Texans: HOU
+  Houston Defense: HOU
+  Houston Texans D/ST: HOU
+  Jacksonville Jaguars: JAX
+  Jacksonville Defense: JAX
+  Jacksonville Jaguars D/ST: JAX
+  Denver Broncos: DEN
+  Denver Defense: DEN
+  Denver Broncos D/ST: DEN
+  Las Vegas Raiders: LV
+  Las Vegas Raiders Defense: LV
+  Las Vegas Raiders D/ST: LV
+  Oakland Raiders: OAK
+  Oakland Raiders Defense: OAK
+  Seattle Seahawks: SEA
+  Seattle Defense: SEA
+  Seattle Seahawks D/ST: SEA
+  Arizona Cardinals: ARI
+  Arizona Defense: ARI
+  Arizona Cardinals D/ST: ARI
+  Atlanta Falcons: ATL
+  Atlanta Defense: ATL
+  Atlanta Falcons D/ST: ATL
+  Carolina Panthers: CAR
+  Carolina Defense: CAR
+  Carolina Panthers D/ST: CAR
+  New Orleans Saints: NO
+  New Orleans Defense: NO
+  New Orleans Saints D/ST: NO
+  Tampa Bay Buccaneers: TB
+  Tampa Bay Defense: TB
+  Tampa Bay Buccaneers D/ST: TB
+  Washington Commanders: WAS
+  Washington Commanders Defense: WAS
+  Washington Commanders D/ST: WAS
+  Washington Redskins: WAS
+  Washington Football Team: WAS
+  Detroit Lions: DET
+  Detroit Defense: DET
+  Detroit Lions D/ST: DET
