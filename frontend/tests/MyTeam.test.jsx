@@ -370,7 +370,9 @@ describe('MyTeam (Roster & Lineups)', () => {
     });
   });
 
-  test('displays pending trades stat box', async () => {
+  // pending_trades stat box was removed from Locker Room scope (issue #90).
+  // Verify standing badge still renders and Pending Trades is gone.
+  test('displays standing badge and omits removed pending-trades stat box', async () => {
     const mockSummary = {
       player_count: 15,
       active_lineups: 8,
@@ -418,8 +420,10 @@ describe('MyTeam (Roster & Lineups)', () => {
     render(<MyTeam activeOwnerId={1} />);
 
     await waitFor(() => {
-      expect(screen.getByText('2')).toBeInTheDocument();
+      expect(screen.getByText(/#1 Place/i)).toBeInTheDocument();
     });
+    // pending trades UI was removed (issue #90)
+    expect(screen.queryByText(/Pending Trades/i)).toBeNull();
   });
 
   test('displays roster list from summary', async () => {
@@ -558,7 +562,8 @@ describe('MyTeam (Roster & Lineups)', () => {
     await waitFor(() => {
       expect(screen.getByText(/Scoring Rules/i)).toBeInTheDocument();
     });
-    expect(screen.getByText(/Owner Management/i)).toBeInTheDocument();
+    // Owner Management is no longer surfaced in Locker Room (issue #90)
+    expect(screen.queryByText(/Owner Management/i)).toBeNull();
     expect(screen.getByText(/Keeper Rules/i)).toBeInTheDocument();
   });
 
@@ -834,7 +839,8 @@ describe('MyTeam (Roster & Lineups)', () => {
     });
 
     render(<MyTeam activeOwnerId={1} />);
-    await waitFor(() => expect(screen.getByText(/RB1/i)).toBeInTheDocument());
+    // QB1 is non-taxi STARTER and QB slot is configured, so it renders in the active section
+    await waitFor(() => expect(screen.getByText(/QB1/i)).toBeInTheDocument());
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     // wait for the submit button to appear and be enabled (no validation errors)
     let button;
@@ -1138,110 +1144,36 @@ describe('MyTeam (Roster & Lineups)', () => {
     });
   });
 
-  test('trade modal shows dollar inputs and sends them', async () => {
+  // Trade proposal was removed from Locker Room scope (issue #90).
+  // Trade functionality now lives in the dedicated Trades module.
+  test('Propose Trade button is not present in Locker Room (issue #90)', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me')
         return Promise.resolve({
-          data: {
-            user_id: 1,
-            username: 'alice',
-            league_id: 1,
-            is_commissioner: false,
-          },
+          data: { user_id: 1, username: 'alice', league_id: 1, is_commissioner: false },
         });
       if (url === '/leagues/1')
         return Promise.resolve({ data: { name: 'The Big Show' } });
       if (url === '/leagues/1/settings')
-        return Promise.resolve({
-          data: {
-            scoring_rules: [],
-            waiver_deadline: null,
-            trade_deadline: null,
-          },
-        });
+        return Promise.resolve({ data: { scoring_rules: [] } });
       if (url === '/dashboard/1')
-        return Promise.resolve({
-          data: { roster: [{ id: 201, name: 'P1', position: 'WR' }] },
-        });
-      if (url === '/dashboard/2')
-        return Promise.resolve({
-          data: { roster: [{ id: 301, name: 'Other', position: 'RB' }] },
-        });
-      if (url === '/leagues/owners?league_id=1')
-        return Promise.resolve({
-          data: [{ id: 2, username: 'bob', team_name: 'Bob Team' }],
-        });
+        return Promise.resolve({ data: { roster: [] } });
       if (url.startsWith('/team/1?week='))
         return Promise.resolve({ data: { roster: [] } });
       if (url === '/scoring/1') return Promise.resolve({ data: [] });
       return Promise.reject(new Error('Unknown URL'));
     });
-
     apiClient.post.mockResolvedValue({ data: {} });
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     render(<MyTeam activeOwnerId={1} />);
-    await waitFor(() =>
-      expect(screen.getByText(/Propose Trade/i)).toBeInTheDocument()
-    );
-    fireEvent.click(screen.getByRole('button', { name: /Propose Trade/i }));
-    expect(
-      screen.getByLabelText(/Offer \$ \(future draft\)/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/Request \$ \(future draft\)/i)
-    ).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/Trade With/i), {
-      target: { value: '2' },
-    });
-    // wait for target roster options to load, then pick the first one.
-    await waitFor(() => {
-      const reqSel = screen.getByLabelText(/You Request/i);
-      expect(reqSel.children.length).toBeGreaterThan(0);
-    });
-    const reqSelect = screen.getByLabelText(/You Request/i);
-    const optionValue = reqSelect.children[0].value;
-    fireEvent.change(reqSelect, { target: { value: optionValue } });
 
-    fireEvent.change(screen.getByLabelText(/You Offer/i), {
-      target: { value: '201' },
-    });
-    fireEvent.change(screen.getByLabelText(/Offer \$ \(future draft\)/i), {
-      target: { value: '5' },
-    });
-    fireEvent.change(screen.getByLabelText(/Request \$ \(future draft\)/i), {
-      target: { value: '3' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Submit Proposal/i }));
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'handleSubmitTradeProposal called',
-        expect.objectContaining({
-          canProposeTrade: true,
-          proposalToUserId: '2',
-          offeredPlayerIds: ['201'],
-          requestedPlayerIds: [optionValue],
-          offeredDollars: '5',
-          requestedDollars: '3',
-        })
-      );
-      expect(apiClient.post).toHaveBeenCalledWith(
-        '/trades/leagues/1/submit-v2',
-        expect.objectContaining({
-          team_a_id: 1,
-          team_b_id: 2,
-          assets_from_a: expect.arrayContaining([
-            expect.objectContaining({ asset_type: 'PLAYER', player_id: 201 }),
-            expect.objectContaining({ asset_type: 'DRAFT_DOLLARS', amount: 5 }),
-          ]),
-          assets_from_b: expect.arrayContaining([
-            expect.objectContaining({ asset_type: 'PLAYER', player_id: Number(optionValue) }),
-            expect.objectContaining({ asset_type: 'DRAFT_DOLLARS', amount: 3 }),
-          ]),
-        })
-      );
+      // Page loaded (scoring rules button visible)
+      expect(screen.getByText(/Scoring Rules/i)).toBeInTheDocument();
     });
-    consoleSpy.mockRestore();
+
+    expect(screen.queryByRole('button', { name: /Propose Trade/i })).toBeNull();
+    expect(screen.queryByText(/Pending Trades/i)).toBeNull();
   });
 
   test('handles API errors gracefully', async () => {
