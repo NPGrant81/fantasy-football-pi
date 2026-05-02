@@ -55,7 +55,7 @@ describe('GameCenter (Match Details)', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Week 5/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /back to matchups/i })).toBeInTheDocument();
     });
     expect(
       screen.getByRole('heading', { level: 2, name: /Runaway Train/i })
@@ -227,7 +227,7 @@ describe('GameCenter (Match Details)', () => {
     render(<GameCenter />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Week 5/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /back to matchups/i })).toBeInTheDocument();
     });
 
     const backLink = screen.getByRole('link', { name: /back to matchups/i });

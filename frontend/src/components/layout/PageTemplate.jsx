@@ -10,7 +10,7 @@ export default function PageTemplate({
   actions,
   children,
   className = '',
-  hideHeader = false,
+  hideHeader = true,
 }) {
   return (
     <div className={`${pageShell} ${className}`.trim()}>

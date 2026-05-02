@@ -377,6 +377,6 @@ describe('Matchups (Weekly Matchups)', () => {
     });
 
     const gameLink = screen.getByText(/Game Center/i).closest('a');
-    expect(gameLink).toHaveAttribute('href', '/matchup/99');
+    expect(gameLink).toHaveAttribute('href', '/matchup/99?week=1&view=projected');
   });
 });

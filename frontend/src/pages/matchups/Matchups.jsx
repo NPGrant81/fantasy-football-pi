@@ -147,8 +147,6 @@ export default function Matchups() {
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
     <PageTemplate
-      title="Matchups"
-      subtitle="Weekly matchups, projected outcomes, and direct game-center navigation."
       className="pb-20 animate-fade-in"
     >
       {/* Optional back nav; page title is now handled by global Layout header */}
@@ -445,7 +443,7 @@ export default function Matchups() {
               )}
 
               <Link
-                to={`/matchup/${game.id}`}
+                to={`/matchup/${game.id}?week=${week}&view=${showProjected ? 'projected' : 'actual'}`}
                 className="block border-t border-slate-200 bg-slate-50/90 p-3 text-center transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/30 dark:hover:bg-slate-800"
               >
                 <div className="mx-auto flex items-center justify-center gap-1 text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">

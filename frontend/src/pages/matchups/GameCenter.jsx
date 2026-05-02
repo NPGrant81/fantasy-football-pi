@@ -155,21 +155,24 @@ export default function GameCenter() {
     );
   }
 
+  const selectedWeek = (() => {
+    if (typeof window === 'undefined') return game.week;
+    const params = new URLSearchParams(window.location.search || '');
+    const parsedWeek = parseInt(params.get('week'), 10);
+    return parsedWeek >= 1 && parsedWeek <= 17 ? parsedWeek : game.week;
+  })();
+
   return (
-    <PageTemplate
-      title={`Week ${game.week} Matchup`}
-      subtitle={`${showProjected ? 'Projected' : 'Actual'} scoring view with starter breakdown.`}
-      className="pb-20 animate-fade-in"
-      actions={
+    <PageTemplate className="pb-20 animate-fade-in">
+      <div className="mb-4 flex justify-end">
         <Link
-          to={`/matchups?week=${game.week}&view=${showProjected ? 'projected' : 'actual'}`}
+          to={`/matchups?week=${selectedWeek}&view=${showProjected ? 'projected' : 'actual'}`}
           aria-label="Back to matchups"
           className={`${buttonSecondary} inline-flex w-fit items-center gap-2 px-3 py-1.5 text-xs no-underline`}
         >
           <FiArrowLeft size={16} /> Back
         </Link>
-      }
-    >
+      </div>
 
       {/* 2.3 SCOREBOARD BANNER */}
       <div
