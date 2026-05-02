@@ -55,6 +55,9 @@ def simple_draft_df() -> pd.DataFrame:
         # Season 2024 — owner 2
         {"player_id": 201, "owner_id": 2, "season_year": 2024, "position_id": 3, "winning_bid": 80.0, "is_keeper": False},
         {"player_id": 205, "owner_id": 2, "season_year": 2024, "position_id": 1, "winning_bid": 18.0, "is_keeper": False},
+        # Season 2025 — player 101 drafted a third time (enables ≥ 2 prior-season history)
+        {"player_id": 101, "owner_id": 1, "season_year": 2025, "position_id": 3, "winning_bid": 75.0, "is_keeper": False},
+        {"player_id": 106, "owner_id": 2, "season_year": 2025, "position_id": 2, "winning_bid": 22.0, "is_keeper": False},
     ])
 
 
@@ -78,25 +81,25 @@ class TestComputePlayerDraftFeatures:
             assert col in result.columns, f"Missing column: {col}"
 
     def test_draft_avg_cost_single_season(self, simple_draft_df):
-        """Player 102 appears only in 2023 — avg, max, median all = 30.0."""
+        """Player 102 appears only in 2023 — no prior-season history, so avg/max/median are all None."""
         result = compute_player_draft_features(simple_draft_df)
         row = result[(result["player_id"] == 102) & (result["season_year"] == 2023)].iloc[0]
-        assert row["draft_avg_cost"] == pytest.approx(30.0, abs=0.01)
-        assert row["draft_max_cost"] == pytest.approx(30.0, abs=0.01)
-        assert row["draft_median_cost"] == pytest.approx(30.0, abs=0.01)
+        assert pd.isna(row["draft_avg_cost"])
+        assert pd.isna(row["draft_max_cost"])
+        assert pd.isna(row["draft_median_cost"])
 
     def test_draft_avg_cost_multi_season(self, simple_draft_df):
-        """Player 101 was drafted at 50 (2023) and 65 (2024) — avg = 57.5 in 2024 row."""
+        """Player 101 drafted at 50 (2023) and 65 (2024) — 2025 row uses prior-seasons avg of [50,65] = 57.5."""
         result = compute_player_draft_features(simple_draft_df)
-        row = result[(result["player_id"] == 101) & (result["season_year"] == 2024)].iloc[0]
-        # Both seasons included (no reference_season), avg of [50, 65] = 57.5
+        row = result[(result["player_id"] == 101) & (result["season_year"] == 2025)].iloc[0]
+        # Prior seasons for 2025 row: yr < 2025 → [50, 65]; avg = 57.5
         assert row["draft_avg_cost"] == pytest.approx(57.5, abs=0.01)
 
     def test_reference_season_excludes_future(self, simple_draft_df):
-        """With reference_season=2024, player 101's 2024 row should only use 2023 data."""
+        """With reference_season=2024, player 101's 2025 row should cap history at yr < 2024 (only 2023 bid=50)."""
         result = compute_player_draft_features(simple_draft_df, reference_season=2024)
-        row = result[(result["player_id"] == 101) & (result["season_year"] == 2024)].iloc[0]
-        # Only 2023 bid (50.0) is before 2024
+        row = result[(result["player_id"] == 101) & (result["season_year"] == 2025)].iloc[0]
+        # yr < 2025 AND yr < 2024 → only 2023 bid (50.0); without the cap, avg would be 57.5
         assert row["draft_avg_cost"] == pytest.approx(50.0, abs=0.01)
 
     def test_bidding_war_likelihood_requires_two_seasons(self, simple_draft_df):
@@ -110,7 +113,7 @@ class TestComputePlayerDraftFeatures:
         result = compute_player_draft_features(simple_draft_df)
         rows_101 = result[result["player_id"] == 101]
         # At least one row should have a non-None CV
-        cv_values = [r for r in rows_101["bidding_war_likelihood"] if r is not None]
+        cv_values = rows_101["bidding_war_likelihood"].dropna().tolist()
         assert len(cv_values) > 0
         assert all(v > 0 for v in cv_values)
 
@@ -261,13 +264,13 @@ class TestComputeDraftSeasonFeatures:
     def test_returns_one_row_per_season(self, simple_draft_df):
         result = compute_draft_season_features(simple_draft_df, position_abbrev_map=POS_MAP)
         seasons = result["season_year"].tolist()
-        assert sorted(seasons) == [2023, 2024]
+        assert sorted(seasons) == [2023, 2024, 2025]
 
     def test_total_league_spend_correct(self, simple_draft_df):
         result = compute_draft_season_features(simple_draft_df, position_abbrev_map=POS_MAP)
         row_2023 = result[result["season_year"] == 2023].iloc[0]
-        # 2023 bids: 50+30+20+70+25+15 = 210
-        assert row_2023["total_league_spend"] == pytest.approx(210.0, abs=0.01)
+        # 2023 non-keeper bids: 50+30+70+25+15 = 190 (player 103 is_keeper=True, bid=20 excluded)
+        assert row_2023["total_league_spend"] == pytest.approx(190.0, abs=0.01)
 
     def test_avg_cost_by_position_present(self, simple_draft_df):
         result = compute_draft_season_features(simple_draft_df, position_abbrev_map=POS_MAP)

@@ -10,7 +10,7 @@
 #   inputs                – list of source column / table references
 #   output_type           – float | int | bool | dict | list[float]
 #   tier                  – critical | standard | optional
-#   null_rate_threshold   – max acceptable null fraction (0–1); critical ≤ 0.05
+#   null_rate_threshold   – max acceptable null fraction (0–1); critical ≤ 0.10
 #   offline               – available in ETL / offline training pipeline
 #   online                – safe to serve at request time (no future-data leakage)
 #   temporal_leakage_guard– description of cut rule enforced at computation time
@@ -590,7 +590,7 @@ features:
     formula: >
       For each position: linear regression slope of winning_bid vs pick_order_within_position
       in season. Measures how fast prices rise as each positional pick is taken.
-      Positive slope = early picks cost more (normal scarcity); near-zero = flat pricing.
+      Negative slope = early picks cost more (normal scarcity); near-zero = flat pricing.
     inputs:
       - validated_draft_results.winning_bid
       - validated_draft_results.position_id

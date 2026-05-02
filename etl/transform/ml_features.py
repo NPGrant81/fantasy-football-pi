@@ -170,9 +170,11 @@ def compute_player_draft_features(
         pos_id = int(row["position_id"]) if "position_id" in row and not pd.isna(row.get("position_id")) else None
 
         # Historical bids: all seasons < reference_season (or all if None)
+        # Historical bids: strictly prior seasons (temporal leakage guard).
+        # Also respect reference_season cap when provided.
         history = [
             b for (yr, b) in player_history[pid]
-            if reference_season is None or yr < reference_season
+            if yr < season and (reference_season is None or yr < reference_season)
         ]
 
         draft_avg = _safe_mean(history)
@@ -232,11 +234,7 @@ def compute_owner_season_extensions(
 
     Adds the following columns (defined in feature_registry.yml):
       - budget_drift: (total_spend - starting_budget) / starting_budget
-      - keeper_count: populated from validated_draft_df via compute_keeper_metrics
-      - keeper_spend: populated from validated_draft_df via compute_keeper_metrics
-      - owner_vs_league_avg_spend: per-position delta from league average
-
-    Call ``compute_keeper_metrics`` first and join the result, then pass here.
+            - owner_vs_league_avg_spend: per-position delta from league average
 
     Parameters
     ----------
@@ -484,7 +482,7 @@ def compute_draft_season_features(
 
         rows.append({
             "season_year": season,
-            "total_league_spend": total_spend,
+            "total_league_spend": round(total_non_keeper_spend, 2),
             "avg_cost_by_position": avg_cost,
             "league_avg_position_spend_pct": league_pct,
             "pick_count_by_position": pick_count,

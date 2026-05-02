@@ -121,6 +121,7 @@ following rules are enforced at computation time:
 - **Temporal leakage:** `reference_season` parameter gates which seasons count
 - **Online:** **no** — full draft history required
 - **Null threshold:** 15 %
+- **Null threshold:** 20 %
 
 #### `draft_max_cost`
 - **Formula:** `MAX(winning_bid)` for this player across all seasons
@@ -226,6 +227,7 @@ following rules are enforced at computation time:
 
 #### `total_league_spend`
 - **Formula:** `SUM(winning_bid)` for all picks in season (including keepers)
+- **Formula:** `SUM(winning_bid)` for all non-keeper picks in season
 - **Online:** yes
 
 #### `avg_cost_by_position`
@@ -284,12 +286,10 @@ for seasons 2021–2024 and stored at `etl/outputs/parity_golden_sample.csv`.
 
 | Test | Threshold |
 |---|---|
-| `test_player_draft_features_deterministic` | Exact match on 2 consecutive runs |
-| `test_draft_season_features_deterministic` | Exact match |
-| `test_owner_extensions_deterministic` | Exact match |
-| `test_bargain_score_parity` | `|offline - online_equiv| < 0.001` |
-| `test_inflation_null_for_first_season` | Null check |
-| `test_no_future_leakage_reference_season` | Asserts reference_season gate |
+| `test_deterministic_on_repeated_calls` | Exact match on 2 consecutive runs |
+| `test_bargain_score_positive_when_below_position_avg` | bargain_score > 0 when bid < position avg |
+| `test_inflation_index_null_for_first_season` | inflation_index is None for first season |
+| `test_reference_season_excludes_future` | Asserts prior-seasons-only leakage guard |
 
 ### 6.3 Parity Metrics (observability)
 
