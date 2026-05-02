@@ -5,14 +5,12 @@ import {
   FiRepeat,
   FiPlus,
   FiList,
-  FiSend,
   FiX,
   FiBarChart2,
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 // --- Commissioner Modal Imports ---
 import ScoringRulesModal from '../commissioner/components/ScoringRulesModal';
-import OwnerManagementModal from '../commissioner/components/OwnerManagementModal';
 import WaiverWireRulesModal from '../commissioner/components/WaiverWireRulesModal';
 import TradeRulesModal from '../commissioner/components/TradeRulesModal';
 import PlayerIdentityCard from '../../components/player/PlayerIdentityCard';
@@ -318,7 +316,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
   const viewedOwnerId = activeOwnerId ? Number(activeOwnerId) : null;
   // --- 0.1 Commissioner Modal State ---
   const [showScoring, setShowScoring] = useState(false);
-  const [showOwners, setShowOwners] = useState(false);
   const [showWaivers, setShowWaivers] = useState(false);
   const [showTrades, setShowTrades] = useState(false);
   const [showRuleViewer, setShowRuleViewer] = useState(false);
@@ -1234,10 +1231,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
         open={showScoring}
         onClose={() => setShowScoring(false)}
       />
-      <OwnerManagementModal
-        open={showOwners}
-        onClose={() => setShowOwners(false)}
-      />
       <WaiverWireRulesModal
         open={showWaivers}
         onClose={() => setShowWaivers(false)}
@@ -1325,8 +1318,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
       )}
 
       <div className="mb-6">
-        <div className="mt-6 flex flex-wrap items-center gap-2 lg:flex-nowrap lg:gap-2 lg:overflow-x-auto">
-          <div className="contents">
+        <div className="mt-6 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() =>
                 userInfo.is_commissioner
@@ -1337,14 +1330,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
             >
               Scoring Rules
             </button>
-            {userInfo.is_commissioner && (
-              <button
-                onClick={() => setShowOwners(true)}
-                className={`${controlButtonClass} ${buttonSecondary}`}
-              >
-                Owner Management
-              </button>
-            )}
             <button
               onClick={() =>
                 userInfo.is_commissioner
@@ -1380,6 +1365,9 @@ export default function YourLockerRoom({ activeOwnerId }) {
                 Keeper Rules
               </button>
             )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/waivers"
               className={`${controlButtonClass} ${buttonPrimary} inline-flex items-center justify-center gap-2`}
@@ -1392,25 +1380,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
             >
               <FiRepeat className="text-base" /> Manage Keepers
             </Link>
-
-            {canProposeTrade && (
-              <button
-                onClick={() => setShowProposeTrade(true)}
-                className={`${controlButtonClass} ${buttonPrimary}`}
-              >
-                <div className="flex items-center justify-center gap-2 whitespace-nowrap">
-                  <FiSend className="text-base" /> Propose Trade
-                </div>
-              </button>
-            )}
-
-            <div
-              className={`${controlButtonClass} inline-flex items-center gap-2 border border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200`}
-            >
-              <FiRepeat className="text-base text-blue-400" />
-              <span className="uppercase">Pending Trades</span>
-              <span className="font-black">{summary.pending_trades}</span>
-            </div>
           </div>
         </div>
 
