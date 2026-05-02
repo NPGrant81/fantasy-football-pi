@@ -7,6 +7,10 @@ from sqlalchemy import text
 from backend.database import SessionLocal
 import backend.models as models
 from backend.core import security
+from backend.services.player_identity_service import (
+    deactivate_stale_player_seasons,
+    upsert_player_season,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -1219,6 +1223,129 @@ def test_top_free_agents_returns_ranked_players_with_reasons(client):
         cleanup = SessionLocal()
         try:
             cleanup.query(models.WaiverClaim).filter(models.WaiverClaim.player_id.in_(created_ids)).delete(synchronize_session=False)
+            cleanup.query(models.Player).filter(models.Player.id.in_(created_ids)).delete(synchronize_session=False)
+            cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+# ---------------------------------------------------------------------------
+# deactivate_stale_player_seasons tests
+# ---------------------------------------------------------------------------
+
+def test_deactivate_stale_player_seasons_marks_absent_players_inactive():
+    """Players not in the active feed set should have is_active flipped to False."""
+    suffix = uuid4().hex[:8]
+    season = 2099  # isolated test season unlikely to clash
+
+    db = SessionLocal()
+    created_ids = []
+    try:
+        # Create two players: one will be "seen" in the feed, one will be absent.
+        p_active = models.Player(name=f"Active Player {suffix}", position="WR", nfl_team="GB")
+        p_gone = models.Player(name=f"Retired Player {suffix}", position="RB", nfl_team="NE")
+        db.add_all([p_active, p_gone])
+        db.flush()
+        created_ids.extend([int(p_active.id), int(p_gone.id)])
+
+        upsert_player_season(db, player_id=p_active.id, season=season, nfl_team="GB", position="WR", bye_week=None, is_active=True, source="test")
+        upsert_player_season(db, player_id=p_gone.id, season=season, nfl_team="NE", position="RB", bye_week=None, is_active=True, source="test")
+        db.flush()
+
+        # Only p_active appears in today's feed.
+        deactivated = deactivate_stale_player_seasons(
+            db,
+            season=season,
+            active_player_ids={int(p_active.id)},
+            min_active_threshold=1,
+        )
+
+        assert deactivated == 1
+        gone_season = db.query(models.PlayerSeason).filter_by(player_id=int(p_gone.id), season=season).first()
+        active_season = db.query(models.PlayerSeason).filter_by(player_id=int(p_active.id), season=season).first()
+        assert gone_season.is_active is False
+        assert active_season.is_active is True
+    finally:
+        db.rollback()
+        cleanup = SessionLocal()
+        try:
+            cleanup.query(models.PlayerSeason).filter(models.PlayerSeason.player_id.in_(created_ids)).delete(synchronize_session=False)
+            cleanup.query(models.Player).filter(models.Player.id.in_(created_ids)).delete(synchronize_session=False)
+            cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_deactivate_stale_player_seasons_skips_def_rows():
+    """DEF player-seasons must never be deactivated by the feed comparison."""
+    suffix = uuid4().hex[:8]
+    season = 2099
+
+    db = SessionLocal()
+    created_ids = []
+    try:
+        p_def = models.Player(name=f"SF Defense {suffix}", position="DEF", nfl_team="SF")
+        db.add(p_def)
+        db.flush()
+        created_ids.append(int(p_def.id))
+
+        upsert_player_season(db, player_id=p_def.id, season=season, nfl_team="SF", position="DEF", bye_week=None, is_active=True, source="test")
+        db.flush()
+
+        # DEF not in the feed — but should NOT be deactivated.
+        deactivated = deactivate_stale_player_seasons(
+            db,
+            season=season,
+            active_player_ids=set(),
+            min_active_threshold=0,
+        )
+
+        assert deactivated == 0
+        def_season = db.query(models.PlayerSeason).filter_by(player_id=int(p_def.id), season=season).first()
+        assert def_season.is_active is True
+    finally:
+        db.rollback()
+        cleanup = SessionLocal()
+        try:
+            cleanup.query(models.PlayerSeason).filter(models.PlayerSeason.player_id.in_(created_ids)).delete(synchronize_session=False)
+            cleanup.query(models.Player).filter(models.Player.id.in_(created_ids)).delete(synchronize_session=False)
+            cleanup.commit()
+        finally:
+            cleanup.close()
+
+
+def test_deactivate_stale_player_seasons_threshold_guard():
+    """If feed returns fewer players than min_active_threshold, nothing is deactivated."""
+    suffix = uuid4().hex[:8]
+    season = 2099
+
+    db = SessionLocal()
+    created_ids = []
+    try:
+        p = models.Player(name=f"QB Threshold {suffix}", position="QB", nfl_team="KC")
+        db.add(p)
+        db.flush()
+        created_ids.append(int(p.id))
+
+        upsert_player_season(db, player_id=p.id, season=season, nfl_team="KC", position="QB", bye_week=None, is_active=True, source="test")
+        db.flush()
+
+        # Feed has 0 players — below default threshold of 100, so guard fires.
+        deactivated = deactivate_stale_player_seasons(
+            db,
+            season=season,
+            active_player_ids=set(),
+            min_active_threshold=100,
+        )
+
+        assert deactivated == 0
+        season_row = db.query(models.PlayerSeason).filter_by(player_id=int(p.id), season=season).first()
+        assert season_row.is_active is True
+    finally:
+        db.rollback()
+        cleanup = SessionLocal()
+        try:
+            cleanup.query(models.PlayerSeason).filter(models.PlayerSeason.player_id.in_(created_ids)).delete(synchronize_session=False)
             cleanup.query(models.Player).filter(models.Player.id.in_(created_ids)).delete(synchronize_session=False)
             cleanup.commit()
         finally:

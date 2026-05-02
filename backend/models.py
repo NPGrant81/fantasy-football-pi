@@ -1029,6 +1029,10 @@ class MflIngestionFile(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+# ---------------------------------------------------------------------------
+# ISSUE #105 — Validated Draft Results
+# ---------------------------------------------------------------------------
+
 class ValidatedDraftResult(Base):
     """Cleaned, validated historical draft picks produced by the ETL pipeline.
 
@@ -1067,3 +1071,148 @@ class ValidatedDraftResult(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+# ---------------------------------------------------------------------------
+# ISSUE #104 — Owner Budget Behavior Features
+# ---------------------------------------------------------------------------
+
+class OwnerSeasonBehavior(Base):
+    """Per-owner-per-season behavioral feature aggregate derived from draft spend.
+
+    Populated by the ETL behavior feature pass (etl/transform/owner_budget_timeline.py).
+    Consumed downstream by ML feature engineering (#106) and draft analyzer (#109).
+    """
+
+    __tablename__ = "owner_season_behaviors"
+    __table_args__ = (
+        UniqueConstraint("league_id", "owner_id", "season_year", name="uq_osb_league_owner_season"),
+        Index("ix_osb_league_season", "league_id", "season_year"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    season_year = Column(Integer, nullable=False, index=True)
+
+    # Budget reconciliation fields
+    starting_budget = Column(Numeric(10, 2), nullable=True)
+    total_spend = Column(Numeric(10, 2), nullable=True)
+    remaining_budget = Column(Numeric(10, 2), nullable=True)
+    budget_source = Column(String(32), nullable=True)  # exact / carry_forward / carry_backward / global_default
+    overspent = Column(Boolean, nullable=True)
+
+    # Positional breakdown (JSON dicts keyed by position abbreviation, e.g. "QB")
+    spend_by_position = Column(JSON, nullable=True)       # {"QB": 45.0, "RB": 87.0, ...}
+    pick_count_by_position = Column(JSON, nullable=True)  # {"QB": 2, "RB": 5, ...}
+    position_spend_pct = Column(JSON, nullable=True)      # {"QB": 0.23, "RB": 0.44, ...}
+    max_bid_by_position = Column(JSON, nullable=True)     # {"QB": 42.0, "RB": 55.0, ...}
+    avg_bid_by_position = Column(JSON, nullable=True)     # {"QB": 22.5, "RB": 17.4, ...}
+
+    # Scalar behavioral indices
+    # aggressiveness_index: fraction of total spend concentrated in the owner's
+    # top-quartile bids (0–1; higher = more concentrated / aggressive top picks)
+    aggressiveness_index = Column(Float, nullable=True)
+    # positional_bias_index: mean absolute deviation of owner's positional spend
+    # percentages from the league-average percentages for that season (0–1)
+    positional_bias_index = Column(Float, nullable=True)
+
+    # Audit
+    etl_version = Column(String(32), nullable=True)   # e.g. "v1"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+# --- ISSUE #103 PHASE 2: Position registry ---
+class Position(Base):
+    """Canonical position registry for all fantasy-eligible NFL positions.
+
+    Replaces the free-form VARCHAR strings in Player.position and
+    PlayerSeason.position with FK-backed references, enabling consistent
+    ML feature engineering and draft logic.
+
+    Columns
+    -------
+    abbreviation : str(8)
+        Short token used throughout the app (QB, RB, WR, TE, K, DEF, FLEX).
+    label : str(64)
+        Human-readable display name ("Quarterback", "Running Back", …).
+    is_active : bool
+        False for deprecated/legacy positions (e.g. "TD", "PK").
+    source : str(32)
+        Origin of the record: "canonical" (hand-authored) or "mfl" (imported).
+    sort_order : int
+        Preferred display order in lineup builders and tables.
+    """
+
+    __tablename__ = "positions"
+    __table_args__ = (
+        UniqueConstraint("abbreviation", name="uq_positions_abbreviation"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    abbreviation = Column(String(8), nullable=False, index=True)
+    label = Column(String(64), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    source = Column(String(32), nullable=False, default="canonical")
+    sort_order = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+# --- ISSUE #103 PHASE 2: Versioned canonicalization snapshot ---
+class CanonicalPlayerSnapshot(Base):
+    """Versioned record of each canonicalization run result.
+
+    Each time the ETL pipeline runs ``canonicalize_player_metadata()`` it
+    produces a SHA-256 content digest over the (player_id, canonical_name,
+    canonical_position) triples.  Persisting that digest here allows:
+      - Change detection (only re-process when digest differs)
+      - Rollback: compare current state to any prior snapshot
+      - Shadow comparison: side-by-side diff between run versions
+
+    Columns
+    -------
+    season : int
+        The roster season this snapshot covers.
+    content_digest : str(64)
+        SHA-256 hex digest of the sorted canonical (player_id, name, position)
+        payload, identical to the value computed by
+        ``canonicalize_player_metadata()``.
+    total_rows : int
+        Raw row count before deduplication.
+    unique_player_ids : int
+        Count of distinct player IDs in this snapshot.
+    deduplicated_rows : int
+        Rows removed during deduplication (``total_rows - unique_player_ids``).
+    duplicate_name_keys : JSON
+        List of {canonical_name_key, player_count} dicts for names mapping to
+        multiple player IDs.
+    position_distribution : JSON
+        Mapping of canonical position → row count for quick QA.
+    source : str(32)
+        Pipeline run identifier (e.g. "etl_build", "manual", "ci").
+    """
+
+    __tablename__ = "canonical_player_snapshots"
+    __table_args__ = (
+        UniqueConstraint("season", "content_digest", name="uq_snapshot_season_digest"),
+        Index("ix_canonical_player_snapshot_season", "season"),
+        Index("ix_canonical_player_snapshot_created", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    season = Column(Integer, nullable=False, index=True)
+    content_digest = Column(String(64), nullable=False)
+    total_rows = Column(Integer, nullable=False, default=0)
+    unique_player_ids = Column(Integer, nullable=False, default=0)
+    deduplicated_rows = Column(Integer, nullable=False, default=0)
+    duplicate_name_keys = Column(JSON, nullable=False, default=list)
+    position_distribution = Column(JSON, nullable=False, default=dict)
+    source = Column(String(32), nullable=False, default="etl_build")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
