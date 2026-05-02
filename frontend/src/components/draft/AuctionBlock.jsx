@@ -94,7 +94,7 @@ export default function AuctionBlock({
         </div>
         {/* search input */}
         <input
-          className="w-40 p-1 rounded bg-white border border-slate-300 text-sm outline-none focus:border-yellow-500 dark:bg-slate-950 dark:border-slate-700"
+          className="w-40 p-1 rounded bg-white border border-slate-300 text-sm text-slate-900 outline-none focus:border-yellow-500 dark:bg-slate-950 dark:border-slate-700 dark:text-white"
           value={playerName}
           onChange={handleSearchChange}
           placeholder="Nominate Player..."
@@ -119,10 +119,10 @@ export default function AuctionBlock({
               ))}
             </select>
           ) : (
-            <span className="font-bold text-yellow-400">{nominatorName}</span>
+            <span className="font-bold text-amber-600 dark:text-amber-400">{nominatorName}</span>
           )}
           {isCommissioner && (
-            <span className="ml-2 text-red-400 uppercase font-black">
+            <span className="ml-2 text-red-600 dark:text-red-400 uppercase font-black">
               ADMIN
             </span>
           )}
@@ -132,7 +132,7 @@ export default function AuctionBlock({
             className={`w-12 font-mono text-xl font-bold text-center ${
               timeLeft <= 3 && isTimerRunning
                 ? 'text-red-500 animate-pulse'
-                : 'text-white'
+                : 'text-slate-900 dark:text-white'
             }`}
           >
             {timeLeft}
@@ -141,7 +141,7 @@ export default function AuctionBlock({
             onClick={isTimerRunning ? reset : start}
             className={`text-[10px] py-1 px-2 rounded font-black uppercase transition ${
               isTimerRunning
-                ? 'bg-slate-700 text-slate-300 hover:bg-red-900/40'
+                ? 'bg-slate-200 text-slate-700 hover:bg-red-100 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-red-900/40'
                 : 'bg-green-600 text-white hover:bg-green-500'
             }`}
           >
@@ -162,7 +162,7 @@ export default function AuctionBlock({
       <div className="bg-slate-100 border border-slate-300 p-4 rounded w-[320px] dark:bg-slate-800/30 dark:border-slate-700">
         <div className="mb-2">
           <span className="text-sm">Nominator:</span>{' '}
-          <span className="font-bold text-yellow-400">{nominatorName}</span>
+            <span className="font-bold text-amber-600 dark:text-amber-400">{nominatorName}</span>
         </div>
         <label className="block text-slate-500 text-[10px] uppercase font-black mb-2">
           Winning Bidder
@@ -205,13 +205,13 @@ export default function AuctionBlock({
           <button
             onClick={() => setBidAmount(Math.max(MIN_BID, maxBid))}
             disabled={bidAmount >= maxBid}
-            className="flex-1 bg-red-900 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50"
+            className="flex-1 bg-red-700 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50 dark:bg-red-900 dark:hover:bg-red-600"
           >
             MAX
           </button>
         </div>
 
-        {/* manual adjustment and slider omitted for brevity */}
+        {/* manual adjustment and slider omitted for brevity */
         <div className="flex items-center gap-2">
           <button
             onClick={() => setBidAmount(Math.max(MIN_BID, bidAmount - 1))}
@@ -221,7 +221,7 @@ export default function AuctionBlock({
           </button>
           <input
             type="number"
-            className="flex-1 text-center bg-white text-2xl font-mono font-bold border-y border-slate-300 py-2 dark:bg-slate-950 dark:border-slate-700"
+            className="flex-1 text-center bg-white text-2xl font-mono font-bold border-y border-slate-300 py-2 text-slate-900 dark:bg-slate-950 dark:border-slate-700 dark:text-white"
             value={bidAmount}
             onChange={(e) => {
               const next = parseInt(e.target.value, 10);
@@ -247,9 +247,9 @@ export default function AuctionBlock({
         className="grid grid-cols-1 xl:grid-cols-12 gap-0 w-full overflow-hidden border border-slate-300 rounded dark:border-slate-700"
       >
         <div className="xl:col-span-4 border-b xl:border-b-0 xl:border-r border-slate-200 bg-white/60 p-2 dark:border-slate-700 dark:bg-slate-900/40">
-          <div className="flex items-center justify-between text-slate-200 text-sm mb-2">
+          <div className="flex items-center justify-between text-slate-700 dark:text-slate-300 text-sm mb-2">
             <span className="font-semibold">Nominating Team</span>
-            <span className="font-bold text-white">{nominatorName}</span>
+            <span className="font-bold text-slate-900 dark:text-white">{nominatorName}</span>
           </div>
           <div className="flex flex-wrap gap-1 mb-2">
             {['ALL', ...positions].map((pos) => (
@@ -269,7 +269,7 @@ export default function AuctionBlock({
           </div>
           <div ref={suggestionsAnchorRef} className="relative min-w-0">
             <input
-              className="w-full p-3 rounded bg-white border border-slate-300 text-lg font-bold outline-none focus:border-yellow-500 transition-colors disabled:opacity-40 dark:bg-slate-950 dark:border-slate-700"
+              className="w-full p-3 rounded bg-white border border-slate-300 text-lg font-bold text-slate-900 outline-none focus:border-yellow-500 transition-colors disabled:opacity-40 dark:bg-slate-950 dark:border-slate-700 dark:text-white"
               value={playerName}
               onChange={handleSearchChange}
               placeholder="Nominate Player..."
@@ -353,7 +353,7 @@ export default function AuctionBlock({
             <button
               onClick={() => setBidAmount(Math.max(MIN_BID, maxBid))}
               disabled={isPaused || bidAmount >= maxBid}
-              className="flex-1 bg-red-900 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50"
+              className="flex-1 bg-red-700 hover:bg-red-600 text-white py-2 rounded font-bold disabled:opacity-50 dark:bg-red-900 dark:hover:bg-red-600"
             >
               MAX
             </button>
@@ -395,17 +395,17 @@ export default function AuctionBlock({
           </div>
 
           {activeStats && (
-            <div className="text-[10px] font-mono mt-2 text-right">
+            <div className="text-[10px] font-mono mt-2 text-right text-slate-600 dark:text-slate-300">
               Available: ${activeStats.budget} | Max Bid: ${activeStats.maxBid}
             </div>
           )}
           {selectedOwnerStats?.isFull && (
-            <div className="mt-2 text-[10px] font-mono text-right text-red-400">
+            <div className="mt-2 text-[10px] font-mono text-right text-red-600 dark:text-red-400">
               Selected owner roster is full.
             </div>
           )}
           {!selectedOwnerStats?.isFull && isOverBudget && (
-            <div className="mt-2 text-[10px] font-mono text-right text-red-400">
+            <div className="mt-2 text-[10px] font-mono text-right text-red-600 dark:text-red-400">
               Bid exceeds selected owner max (${selectedOwnerStats?.maxBid ?? 0}).
             </div>
           )}
@@ -415,7 +415,7 @@ export default function AuctionBlock({
           <div className="text-slate-600 text-[13px] font-semibold mb-2 dark:text-slate-200">Draft Timer</div>
           <div className="flex items-center justify-between gap-2">
             {isCommissioner && (
-              <span className="text-red-400 uppercase font-black text-sm">ADMIN</span>
+              <span className="text-red-600 dark:text-red-400 uppercase font-black text-sm">ADMIN</span>
             )}
             <div
               className={`font-mono text-4xl font-black text-center min-w-[48px] ${
@@ -452,7 +452,7 @@ export default function AuctionBlock({
         </div>
 
         <div className="xl:col-span-2 border-b xl:border-b-0 xl:border-r border-slate-200 bg-white/60 p-3 flex items-center dark:border-slate-700 dark:bg-slate-900/40">
-          <p className="text-amber-400 text-xl leading-tight font-medium">
+          <p className="text-amber-700 dark:text-amber-400 text-xl leading-tight font-medium">
             &lt;Pop-up: {lastDraftedText || '"Player Name" drafted to "Team Name" for "$XX"'}&gt;
           </p>
         </div>
@@ -461,7 +461,7 @@ export default function AuctionBlock({
           <div className="xl:col-span-1 flex bg-white/40 dark:bg-slate-900/40">
             <button
               onClick={() => toggleSidebar(!showBestSidebar)}
-              className="w-full min-h-[112px] px-4 py-3 rounded-none bg-slate-200 text-slate-900 text-3xl xl:text-2xl leading-tight font-medium whitespace-pre-line"
+              className="w-full min-h-[112px] px-4 py-3 rounded-none bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-slate-100 text-3xl xl:text-2xl leading-tight font-medium whitespace-pre-line"
             >
               {showBestSidebar ? 'Hide\nBest' : 'Show\nBest\nAvailable'}
             </button>

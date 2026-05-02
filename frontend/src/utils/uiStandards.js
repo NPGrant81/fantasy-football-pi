@@ -98,41 +98,42 @@ export const modalPlaceholder =
   'text-center text-slate-500 dark:text-slate-400';
 
 // --- 1.7 COMPONENT-SPECIFIC TONE TOKENS ---
+// Badge and icon styles are light-first; dark overrides follow each value.
 export const adminActionToneStyles = {
   blue: {
     hoverBorder: 'hover:border-blue-500/30',
-    icon: 'text-blue-400',
-    badge: 'bg-blue-900/30 text-blue-400',
+    icon: 'text-blue-600 dark:text-blue-400',
+    badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     button: 'bg-blue-600 hover:bg-blue-500 text-white',
   },
   green: {
     hoverBorder: 'hover:border-green-500/30',
-    icon: 'text-green-400',
-    badge: 'bg-green-900/30 text-green-400',
+    icon: 'text-green-600 dark:text-green-400',
+    badge: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
     button: 'bg-green-600 hover:bg-green-500 text-white',
   },
   yellow: {
     hoverBorder: 'hover:border-yellow-500/30',
-    icon: 'text-yellow-400',
-    badge: 'bg-yellow-900/30 text-yellow-400',
+    icon: 'text-yellow-600 dark:text-yellow-400',
+    badge: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
     button: 'bg-yellow-600 hover:bg-yellow-500 text-white',
   },
   red: {
     hoverBorder: 'hover:border-red-500/30',
-    icon: 'text-red-400',
-    badge: 'bg-red-900/30 text-red-400',
+    icon: 'text-red-600 dark:text-red-400',
+    badge: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
     button: 'bg-red-600 hover:bg-red-500 text-white',
   },
   purple: {
     hoverBorder: 'hover:border-purple-500/30',
-    icon: 'text-purple-400',
-    badge: 'bg-purple-900/30 text-purple-400',
+    icon: 'text-purple-600 dark:text-purple-400',
+    badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     button: 'bg-purple-600 hover:bg-purple-500 text-white',
   },
   indigo: {
     hoverBorder: 'hover:border-indigo-500/30',
-    icon: 'text-indigo-400',
-    badge: 'bg-indigo-900/30 text-indigo-400',
+    icon: 'text-indigo-600 dark:text-indigo-400',
+    badge: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
     button: 'bg-indigo-600 hover:bg-indigo-500 text-white',
   },
 };
