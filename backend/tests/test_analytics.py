@@ -17,6 +17,7 @@ from backend.routers.analytics import (
     get_positional_heatmap_data,
     get_rivalry_graph,
     get_roster_strength,
+    get_waiver_opportunities,
     get_weekly_matchup_comparison,
     get_weekly_stats,
 )
@@ -733,3 +734,69 @@ def test_rivalry_graph_ignores_null_trade_rows(db_session):
     res = get_rivalry_graph(league.id, db=db_session)
     assert len(res["edges"]) == 1
     assert res["edges"][0]["trades"] == 1
+
+
+def test_waiver_opportunities_exposes_usage_metrics_and_heatmap_volume(db_session):
+    league = make_league(db_session)
+    free_agent = models.Player(
+        name="Usage Riser",
+        position="WR",
+        nfl_team="XYZ",
+        projected_points=120.0,
+    )
+    db_session.add(free_agent)
+    db_session.commit()
+    db_session.refresh(free_agent)
+
+    db_session.add_all(
+        [
+            models.PlayerWeeklyStat(
+                player_id=free_agent.id,
+                season=2026,
+                week=1,
+                fantasy_points=8.0,
+                stats={
+                    "targets": 4,
+                    "carries": 0,
+                    "RZTGTS": 1,
+                    "SNAP%": 50,
+                    "ROUTE%": 55,
+                },
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=free_agent.id,
+                season=2026,
+                week=2,
+                fantasy_points=15.0,
+                stats={
+                    "targets": 9,
+                    "carries": 1,
+                    "RZTGTS": 2,
+                    "SNAP%": 78,
+                    "ROUTE%": 82,
+                },
+                source="test",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_waiver_opportunities(
+        league_id=league.id,
+        season=2026,
+        limit=30,
+        position="WR",
+        db=db_session,
+    )
+
+    assert payload["meta"]["metric"] == "waiver_opportunities"
+    assert payload["rows"]
+    first = payload["rows"][0]
+    assert first["player_name"] == "Usage Riser"
+    assert first["avg_snap_pct"] is not None
+    assert first["avg_route_participation"] is not None
+    assert set(first["weekly_opportunity"].keys()) == {"1", "2"}
+    assert first["weekly_opportunity"]["2"] > first["weekly_opportunity"]["1"]
+    assert first["weekly_scores"] == first["weekly_opportunity"]
+    assert payload["heatmap_max"] >= first["weekly_opportunity"]["2"]

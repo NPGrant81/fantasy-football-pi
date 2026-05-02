@@ -1423,9 +1423,9 @@ def get_waiver_opportunities(
     """Waiver wire opportunity tracker — rolling opportunity analysis for free agents.
 
     Returns free agent players ranked by recent opportunity volume and trend:
-    - opportunity_score: composite of targets + carries + fantasy_points (normalized)
-    - trend: slope of opportunity across last 4 weeks (positive = trending up)
-    - weekly_scores: week-by-week fantasy points for heatmap rendering
+    - opportunity_score: composite of usage and scoring indicators
+    - trend: slope of opportunity volume across last 4 weeks (positive = trending up)
+    - weekly_opportunity: week-by-week opportunity volume for heatmap rendering
     - breakout_flag: True when trending strongly upward (slope > threshold)
     """
     resolved_season = _resolved_season(season)
@@ -1494,9 +1494,11 @@ def get_waiver_opportunities(
         pid = stat.player_id
         if pid not in players_data:
             player = stat.player
+            full_name = getattr(player, "full_name", None)
+            display_name = full_name or player.name or f"Player {pid}"
             players_data[pid] = {
                 "player_id": pid,
-                "player_name": player.full_name or player.name or f"Player {pid}",
+                "player_name": display_name,
                 "position": player.position or "N/A",
                 "nfl_team": player.nfl_team or "N/A",
                 "weekly": {},  # week -> {fp, targets, carries}
@@ -1510,6 +1512,26 @@ def get_waiver_opportunities(
         carries = _extract_numeric(raw_stats, ["CAR", "carries", "rushingAttempts", "Att"])
         red_zone_targets = _extract_numeric(raw_stats, ["RZTGTS", "redZoneTargets", "rzTargets"])
         snap_pct = _extract_numeric(raw_stats, ["SNAP%", "snapPct", "snap_pct", "snapCountPct"])
+        route_participation = _extract_numeric(
+            raw_stats,
+            [
+                "ROUTE%",
+                "routeParticipation",
+                "route_participation",
+                "routePct",
+                "route_pct",
+                "RPCT",
+            ],
+        )
+
+        weekly_opportunity = (
+            (targets or 0.0) * 0.5
+            + (carries or 0.0) * 0.3
+            + (red_zone_targets or 0.0) * 0.8
+            + (snap_pct or 0.0) * 0.05
+            + (route_participation or 0.0) * 0.05
+            + fp * 1.0
+        )
 
         players_data[pid]["weekly"][stat.week] = {
             "fantasy_points": fp,
@@ -1517,6 +1539,8 @@ def get_waiver_opportunities(
             "carries": carries,
             "red_zone_targets": red_zone_targets,
             "snap_pct": snap_pct,
+            "route_participation": route_participation,
+            "opportunity": weekly_opportunity,
         }
 
     # Calculate metrics per player
@@ -1528,6 +1552,7 @@ def get_waiver_opportunities(
 
         weeks_sorted = sorted(weekly.keys())
         fp_list = [weekly[w]["fantasy_points"] for w in weeks_sorted]
+        opportunity_list = [weekly[w]["opportunity"] for w in weeks_sorted]
         targets_list = [weekly[w]["targets"] for w in weeks_sorted]
         carries_list = [weekly[w]["carries"] for w in weeks_sorted]
 
@@ -1539,31 +1564,53 @@ def get_waiver_opportunities(
             for w in weeks_sorted
             if weekly[w]["red_zone_targets"] is not None
         )
-
-        # Opportunity score: weighted composite
-        opportunity_score = round(
-            avg_fp * 1.0
-            + (total_targets / max(len(weeks_sorted), 1)) * 0.5
-            + (total_carries / max(len(weeks_sorted), 1)) * 0.3
-            + (total_rz_targets / max(len(weeks_sorted), 1)) * 0.8,
+        avg_snap_pct = round(
+            _stats.mean(
+                [
+                    weekly[w]["snap_pct"]
+                    for w in weeks_sorted
+                    if weekly[w]["snap_pct"] is not None
+                ]
+            ),
             2,
-        )
+        ) if any(weekly[w]["snap_pct"] is not None for w in weeks_sorted) else None
+        avg_route_participation = round(
+            _stats.mean(
+                [
+                    weekly[w]["route_participation"]
+                    for w in weeks_sorted
+                    if weekly[w]["route_participation"] is not None
+                ]
+            ),
+            2,
+        ) if any(weekly[w]["route_participation"] is not None for w in weeks_sorted) else None
 
-        # Trend: linear regression slope across last 4 weeks of fp
-        recent_fp = fp_list[-4:] if len(fp_list) >= 4 else fp_list
-        trend = _calc_slope(recent_fp)
+        # Opportunity score: average rolling opportunity volume
+        opportunity_score = round(_stats.mean(opportunity_list), 2)
+
+        # Trend: linear regression slope across last 4 weeks of opportunity volume
+        recent_opportunity = (
+            opportunity_list[-4:] if len(opportunity_list) >= 4 else opportunity_list
+        )
+        trend = _calc_slope(recent_opportunity)
 
         # Recent avg (last 3 weeks)
         recent_avg = round(_stats.mean(fp_list[-3:]), 2) if fp_list else 0.0
 
         # Season avg
         season_avg = round(avg_fp, 2)
+        opportunity_season_avg = round(_stats.mean(opportunity_list), 2)
+        opportunity_recent_avg = (
+            round(_stats.mean(opportunity_list[-3:]), 2)
+            if opportunity_list
+            else 0.0
+        )
 
         # Breakout flag: strongly trending up in recent weeks
-        breakout_flag = trend > 2.0 and recent_avg > season_avg * 1.15
+        breakout_flag = trend > 2.0 and opportunity_recent_avg > opportunity_season_avg * 1.15
 
-        # Weekly scores for heatmap (all weeks)
-        weekly_scores = {str(w): round(weekly[w]["fantasy_points"], 2) for w in weeks_sorted}
+        # Weekly opportunity for heatmap (all weeks)
+        weekly_opportunity = {str(w): round(weekly[w]["opportunity"], 2) for w in weeks_sorted}
 
         rows.append({
             "player_id": pid,
@@ -1572,14 +1619,20 @@ def get_waiver_opportunities(
             "nfl_team": data["nfl_team"],
             "season_avg": season_avg,
             "recent_avg": recent_avg,
+            "opportunity_season_avg": opportunity_season_avg,
+            "opportunity_recent_avg": opportunity_recent_avg,
             "opportunity_score": opportunity_score,
             "trend": round(trend, 3),
             "breakout_flag": breakout_flag,
             "total_targets": total_targets,
             "total_carries": total_carries,
             "total_rz_targets": total_rz_targets,
+            "avg_snap_pct": avg_snap_pct,
+            "avg_route_participation": avg_route_participation,
             "weeks_played": len(weeks_sorted),
-            "weekly_scores": weekly_scores,
+            "weekly_opportunity": weekly_opportunity,
+            # Keep compatibility for any clients still reading weekly_scores.
+            "weekly_scores": weekly_opportunity,
         })
 
     # Sort by opportunity_score descending
@@ -1587,7 +1640,14 @@ def get_waiver_opportunities(
     rows = rows[:limit]
 
     # Compute max values for heatmap normalization
-    max_fp = max((r["season_avg"] for r in rows), default=1.0)
+    max_opportunity = max(
+        (
+            value
+            for row in rows
+            for value in row["weekly_opportunity"].values()
+        ),
+        default=1.0,
+    )
 
     return {
         "rows": rows,
@@ -1597,9 +1657,9 @@ def get_waiver_opportunities(
             league_id=league_id,
             season=resolved_season,
         ),
-        "heatmap_max": round(max_fp, 2),
+        "heatmap_max": round(max_opportunity, 2),
         "all_weeks": sorted(
-            {int(w) for r in rows for w in r["weekly_scores"].keys()},
+            {int(w) for r in rows for w in r["weekly_opportunity"].keys()},
         ),
     }
 

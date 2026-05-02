@@ -230,19 +230,27 @@ export default function WaiverOpportunityChart() {
                     <TrendBadge trend={player.trend} />
                   </td>
 
-                  {/* Week cells (heatmap) */}
+                  {/* Week cells (opportunity-volume heatmap) */}
                   {allWeeks.map((w) => {
-                    const fp = player.weekly_scores[String(w)];
-                    const bgColor = fp != null ? heatmapColor(fp, heatmapMax) : 'transparent';
+                    const weeklyOpportunity = player.weekly_opportunity?.[String(w)]
+                      ?? player.weekly_scores?.[String(w)]
+                      ?? null;
+                    const bgColor = weeklyOpportunity != null
+                      ? heatmapColor(weeklyOpportunity, heatmapMax)
+                      : 'transparent';
                     return (
                       <td
                         key={w}
-                        title={fp != null ? `Week ${w}: ${fp} pts` : `Week ${w}: —`}
+                        title={
+                          weeklyOpportunity != null
+                            ? `Week ${w}: ${weeklyOpportunity} opportunity`
+                            : `Week ${w}: —`
+                        }
                         className="p-0 text-center border border-slate-100 dark:border-slate-800"
                         style={{ backgroundColor: bgColor }}
                       >
                         <span className="block py-2 text-[11px] font-medium text-slate-800 dark:text-slate-200">
-                          {fp != null ? fp.toFixed(1) : '—'}
+                          {weeklyOpportunity != null ? weeklyOpportunity.toFixed(1) : '—'}
                         </span>
                       </td>
                     );
@@ -268,6 +276,8 @@ export default function WaiverOpportunityChart() {
                 <th className="p-2 text-center">Targets</th>
                 <th className="p-2 text-center">Carries</th>
                 <th className="p-2 text-center">RZ Tgts</th>
+                <th className="p-2 text-center">Snap%</th>
+                <th className="p-2 text-center">Route%</th>
                 <th className="p-2 text-center">Opp Score</th>
                 <th className="p-2 text-center">Trend</th>
               </tr>
@@ -325,6 +335,14 @@ export default function WaiverOpportunityChart() {
                   <td className="p-2 text-center text-slate-700 dark:text-slate-300">
                     {player.total_rz_targets || '—'}
                   </td>
+                  <td className="p-2 text-center text-slate-700 dark:text-slate-300">
+                    {player.avg_snap_pct != null ? `${player.avg_snap_pct.toFixed(1)}%` : '—'}
+                  </td>
+                  <td className="p-2 text-center text-slate-700 dark:text-slate-300">
+                    {player.avg_route_participation != null
+                      ? `${player.avg_route_participation.toFixed(1)}%`
+                      : '—'}
+                  </td>
                   <td className="p-2 text-center font-bold text-indigo-600 dark:text-indigo-400">
                     {player.opportunity_score.toFixed(1)}
                   </td>
@@ -342,7 +360,10 @@ export default function WaiverOpportunityChart() {
       <div className="border-t border-slate-200 dark:border-slate-700 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700 dark:text-slate-300">
         <div>
           <p className="font-semibold mb-1">Opportunity Score</p>
-          <p>Composite metric: avg fantasy points + (targets/game × 0.5) + (carries/game × 0.3) + (red-zone targets/game × 0.8)</p>
+          <p>
+            Composite metric: fantasy points + (targets × 0.5) + (carries × 0.3) +
+            (red-zone targets × 0.8) + (snap% × 0.05) + (route% × 0.05)
+          </p>
         </div>
         <div>
           <p className="font-semibold mb-1">Heatmap Colors</p>
