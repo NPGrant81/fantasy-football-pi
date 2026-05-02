@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 const ScoringCard = ({ title, fields }) => (
-  <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg dark:bg-slate-900 dark:border-slate-800">
+  <div className="bg-white border border-slate-200 p-4 rounded-lg dark:bg-slate-900 dark:border-slate-800">
     <h3 className="text-slate-900 font-bold mb-4 border-b border-slate-200 pb-2 dark:text-white dark:border-slate-800">
       {title}
     </h3>

@@ -1,10 +1,6 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-// Global QueryClient for the custom render() helper's QueryClientProvider wrapper.
-const _globalQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 // Mock @tanstack/react-query so all hooks work without a QueryClientProvider.
 // useQuery executes the queryFn immediately so that apiClient stubs set in
@@ -190,12 +186,7 @@ vi.mock('react-router-dom', async () => {
 
 const originalRender = rtl.render;
 function render(ui, options) {
-  return originalRender(
-    <QueryClientProvider client={_globalQueryClient}>
-      <MemoryRouter>{ui}</MemoryRouter>
-    </QueryClientProvider>,
-    options
-  );
+  return originalRender(<MemoryRouter>{ui}</MemoryRouter>, options);
 }
 
 // re-export everything from testing-library and override render

@@ -28,8 +28,8 @@ export default function LuckIndexChart() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchLuckIndexAnalytics(leagueId);
-        setData(response.data);
+        const payload = await fetchLuckIndexAnalytics(leagueId);
+        setData(payload);
       } catch (err) {
         setError(err?.message || 'Failed to load luck index data');
       } finally {

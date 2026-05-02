@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import sqlalchemy as sa
 from typing import List
 from datetime import datetime, timezone
@@ -1105,21 +1105,6 @@ def get_luck_index(
     owner_ids = {o.id for o in owners}
     owner_by_id = {o.id: o for o in owners}
     
-    # Helper: get all completed matchups for an owner
-    def get_owner_matchups(owner_id: int):
-        return (
-            db.query(models.Matchup)
-            .filter(
-                models.Matchup.league_id == league_id,
-                or_(
-                    models.Matchup.home_team_id == owner_id,
-                    models.Matchup.away_team_id == owner_id,
-                ),
-                models.Matchup.is_completed.is_(True),
-            )
-            .all()
-        )
-    
     # Helper: calculate W-L-T from a set of matchups with owner as a specific side
     def calc_record_against(owner_id: int, matchups: list):
         w = l = t = pf = pa = 0
@@ -1173,9 +1158,14 @@ def get_luck_index(
             hypothetical_scores = []
             for m in other_matchups:
                 if m.home_team_id == other_owner_id:
-                    hypothetical_scores.append(m.away_score or 0)
+                    opponent_id = m.away_team_id
+                    opponent_score = m.away_score or 0
                 else:
-                    hypothetical_scores.append(m.home_score or 0)
+                    opponent_id = m.home_team_id
+                    opponent_score = m.home_score or 0
+                if opponent_id == owner_id:
+                    continue
+                hypothetical_scores.append(opponent_score)
             
             # Compare owner_scores with hypothetical_scores
             min_games = min(len(owner_scores), len(hypothetical_scores))
@@ -1189,10 +1179,30 @@ def get_luck_index(
             return round(total_hypothetical_w * len(owner_ids) / total_hypothetical_games, 1)
         return 0.0
     
-    # Pre-fetch all matchups
-    all_owners_matchups = {}
-    for owner_id in owner_ids:
-        all_owners_matchups[owner_id] = get_owner_matchups(owner_id)
+    # Pre-fetch all completed matchups in one query and group by owner.
+    all_matchups = (
+        db.query(models.Matchup)
+        .filter(
+            models.Matchup.league_id == league_id,
+            models.Matchup.season == resolved_season,
+            models.Matchup.is_completed.is_(True),
+            sa.or_(
+                models.Matchup.home_team_id.in_(owner_ids),
+                models.Matchup.away_team_id.in_(owner_ids),
+            ),
+        )
+        .order_by(models.Matchup.week.asc(), models.Matchup.id.asc())
+        .all()
+    )
+    all_owners_matchups = {owner_id: [] for owner_id in owner_ids}
+    for matchup in all_matchups:
+        if matchup.home_team_id in all_owners_matchups:
+            all_owners_matchups[matchup.home_team_id].append(matchup)
+        if (
+            matchup.away_team_id in all_owners_matchups
+            and matchup.away_team_id != matchup.home_team_id
+        ):
+            all_owners_matchups[matchup.away_team_id].append(matchup)
     
     # Calculate luck for each owner
     rows = []
@@ -1315,6 +1325,7 @@ def get_player_consistency(
     # Fetch weekly stats for these players
     weekly_stats = (
         db.query(models.PlayerWeeklyStat)
+        .options(joinedload(models.PlayerWeeklyStat.player))
         .filter(
             models.PlayerWeeklyStat.player_id.in_(list(roster_player_ids)),
             models.PlayerWeeklyStat.season == resolved_season,

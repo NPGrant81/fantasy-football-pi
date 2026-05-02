@@ -14,10 +14,13 @@ import { LoadingState, ErrorState } from '@components/common/AsyncState';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
-const ConsistencyBox = ({ player, type = 'reliable' }) => {
+const ConsistencyBox = ({ player }) => {
   const { player_name, position, avg, floor, ceiling, median, stdev, variance, reliability_score } = player;
   const range = ceiling - floor;
-  const rangePercent = range > 0 ? Math.round(((median - floor) / range) * 100) : 50;
+  const normalizeMarker = (value) => {
+    if (range <= 0) return 50;
+    return Math.max(0, Math.min(100, ((value - floor) / range) * 100));
+  };
 
   return (
     <div className="border border-slate-200 dark:border-slate-700 rounded p-3 mb-3 bg-white dark:bg-slate-900/30">
@@ -42,19 +45,19 @@ const ConsistencyBox = ({ player, type = 'reliable' }) => {
             {/* Floor marker */}
             <div
               className="absolute h-4 w-0.5 bg-red-500"
-              style={{ left: `${(floor / ceiling) * 100}%` }}
+              style={{ left: `${normalizeMarker(floor)}%` }}
               title={`Floor: ${floor.toFixed(1)}`}
             />
             {/* Median marker */}
             <div
               className="absolute h-4 w-1 bg-indigo-600 dark:bg-indigo-400"
-              style={{ left: `${(median / ceiling) * 100}%` }}
+              style={{ left: `${normalizeMarker(median)}%` }}
               title={`Median: ${median.toFixed(1)}`}
             />
             {/* Ceiling marker */}
             <div
               className="absolute h-4 w-0.5 bg-green-500"
-              style={{ left: `${(ceiling / ceiling) * 100}%` }}
+              style={{ left: `${normalizeMarker(ceiling)}%` }}
               title={`Ceiling: ${ceiling.toFixed(1)}`}
             />
             <div className="flex-1 text-xs text-slate-600 dark:text-slate-400 ml-2">
@@ -110,8 +113,8 @@ export default function PlayerConsistencyChart() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchPlayerConsistencyAnalytics(leagueId);
-        setData(response.data);
+        const payload = await fetchPlayerConsistencyAnalytics(leagueId);
+        setData(payload);
       } catch (err) {
         setError(err?.message || 'Failed to load player consistency data');
       } finally {

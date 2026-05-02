@@ -171,6 +171,23 @@ Recommended references:
 - `ISSUE_STATUS.md` for roll-up status tracking
 - `docs/PR_NOTES.md` for reusable close-out note snippets
 
+### Posting Close-Out Comments via MCP
+The GitHub MCP server is configured in `~/.config/Code/User/mcp.json`. Copilot can post issue comments directly using the `create_issue_comment` MCP tool — no manual browser step needed.
+
+When asked to close out an issue, use this tool:
+```
+Tool: create_issue_comment
+owner: NPGrant81
+repo: fantasy-football-pi
+issue_number: <N>
+body: <close-out comment text>
+```
+
+The MCP server requires `GITHUB_TOKEN` in the environment (set via `~/.bashrc` → `export GITHUB_TOKEN=$(gh auth token)`). If the tool is unavailable, fall back to the manual `gh` CLI:
+```bash
+gh issue comment <N> --repo NPGrant81/fantasy-football-pi --body "..."
+```
+
 Issue comment template:
 ```markdown
 ## Close-Out Notes
