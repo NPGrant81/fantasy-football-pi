@@ -49,6 +49,16 @@ npm update <package>
 npm test -- --run && npm run build   # verify
 ```
 
+### Validation stack dependency checks (Issue #76)
+```bash
+# Confirm optional validation engines resolve and import
+pip install -r backend/requirements-validation.txt
+python -m pytest backend/tests/test_validation_service.py -q
+python -m pytest etl/test_validation_framework.py -q
+```
+
+If this fails, treat as data-quality gate failure (not optional maintenance noise).
+
 **Never update multiple major dependencies simultaneously.** One at a time.
 
 See `backend/dependency-report.md` and `docs/DEPENDENCY_MAINTENANCE.md` for historical notes.
@@ -163,6 +173,7 @@ alembic revision --autogenerate -m "check" --sql | head -20
 - Check disk space on the Pi monthly (SD cards fill up)
 - Monitor `journalctl -u fantasy-backend` for error spikes after each NFL week
 - Keep `requirements-lock.txt` in sync with any `requirements.txt` changes
+- Keep `backend/requirements-validation.txt` aligned with validation engines used in code
 - Document dependency decisions in `docs/DEPENDENCY_MAINTENANCE.md`
 
 ## Never Do

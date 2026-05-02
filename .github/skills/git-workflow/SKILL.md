@@ -104,6 +104,11 @@ See `.github/REVIEW_CHECKLIST.md` for full list. Key gates:
 - `Closes #N` in PR body
 - Tests added for new logic
 
+Validation architecture gates (Issue #76):
+- Validation dependency install path is preserved in CI (`backend/requirements-validation.txt`)
+- Validation-focused tests pass: `backend/tests/test_validation_service.py` and `etl/test_validation_framework.py`
+- PR summary states which validation boundary changed (API boundary, dynamic rules, DataFrame schema, or expectations)
+
 ## Copilot Review Monitoring (Required)
 For every opened PR, initiate Copilot review and actively monitor/respond until no actionable feedback remains.
 

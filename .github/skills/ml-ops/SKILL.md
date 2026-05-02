@@ -152,3 +152,11 @@ These patterns are specifically designed to enable:
 - [Database](../database/SKILL.md) — PlayerWeeklyStat queries
 - [Architecture](../architecture/SKILL.md) — where analytics logic lives
 - [Maintenance](../maintenance/SKILL.md) — ETL schedule, data freshness
+
+## Validation Architecture Hooks (Issue #76)
+
+For ETL or analytics data-shaping changes:
+1. Run DataFrame schema validation via `etl.validation.dataframe_validation`.
+2. Run expectations validation via `etl.validation.great_expectations_runner`.
+3. Fail load paths on invalid reports; do not continue with partial writes.
+4. Add/adjust tests in `etl/test_validation_framework.py` for both valid and invalid payloads.

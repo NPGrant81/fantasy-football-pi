@@ -33,6 +33,9 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+# Optional but recommended for full validation architecture (Issue #76)
+pip install -r requirements-validation.txt
 ```
 
 ### 3. Database

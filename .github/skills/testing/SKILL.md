@@ -197,3 +197,20 @@ npm test -- --run --coverage
 - [Database](../database/SKILL.md) — conftest.py fixture patterns
 - [UI/UX](../ui-ux/SKILL.md) — component test patterns
 - [Git Workflow](../git-workflow/SKILL.md) — CI test gates
+
+## Validation Stack Guardrails (Issue #76)
+
+Validation changes are incomplete unless these tests are included:
+
+```bash
+# Backend boundary + dynamic-rule validation
+python -m pytest backend/tests/test_validation_service.py -q
+
+# ETL DataFrame + expectations validation
+python -m pytest etl/test_validation_framework.py -q
+```
+
+Required assertions for validation-related changes:
+- Engine reporting is explicit (`pydantic`, `cerberus`, `marshmallow`, `pandera`, `great_expectations`, or fallback engine)
+- Invalid payloads/dataframes return deterministic field-level errors
+- Happy-path payloads produce normalized output contracts

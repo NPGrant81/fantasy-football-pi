@@ -144,6 +144,14 @@ def list_resource(
 | Slow endpoint | Move DB query to service; check for N+1 (use `.joinedload()`) |
 | Test fails with `None` response | Mock is not returning `.data` correctly — check `vi.mock` setup |
 
+## Validation Boundary Rule (Issue #76)
+For mutable endpoint flows (create/update commands):
+1. Boundary validation: Pydantic DTOs (required)
+2. Dynamic rule validation: validation service checks (Cerberus path or deterministic fallback)
+3. Serialization contract: Marshmallow-backed serializer path (or deterministic fallback)
+
+Do not return success if dynamic validation fails; surface field-level errors.
+
 ## Related Skills
 - [Architecture](../architecture/SKILL.md) — where each layer lives
 - [Database](../database/SKILL.md) — ORM query patterns
