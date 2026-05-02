@@ -11,7 +11,10 @@ import pandas as pd
 from sqlalchemy import create_engine, inspect
 
 from etl.transform.historical_draft_validator import write_draft_validation_outputs_from_dataframes
-from etl.transform.owner_budget_timeline import write_budget_timeline_outputs_from_dataframes
+from etl.transform.owner_budget_timeline import (
+    write_budget_timeline_outputs_from_dataframes,
+    write_behavior_feature_outputs_from_dataframes,
+)
 from etl.transform.player_metadata_canonicalization import write_canonicalization_outputs_from_dataframes
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -215,6 +218,14 @@ def main() -> int:
         output_dir=OUTPUT_DIR / "owner_budget",
     )
 
+    behavior_output = write_behavior_feature_outputs_from_dataframes(
+        draft_budget_df=frames["draft_budget"],
+        draft_results_df=frames["draft_results"],
+        users_df=frames["users"],
+        positions_df=frames["positions"],
+        output_dir=OUTPUT_DIR / "owner_budget",
+    )
+
     draft_validation_output = write_draft_validation_outputs_from_dataframes(
         draft_results_df=frames["draft_results"],
         players_df=frames["players"],
@@ -237,6 +248,11 @@ def main() -> int:
         "csv": _manifest_rel(budget_output["csv"]),
         "report": _manifest_rel(budget_output["report"]),
     }
+    behavior_manifest = {
+        **behavior_output,
+        "behavior_csv": _manifest_rel(behavior_output["behavior_csv"]),
+        "behavior_report": _manifest_rel(behavior_output["behavior_report"]),
+    }
     draft_validation_manifest = {
         **draft_validation_output,
         "csv": _manifest_rel(draft_validation_output["csv"]),
@@ -251,6 +267,7 @@ def main() -> int:
         "artifacts": {
             "361_player_metadata": canonical_manifest,
             "362_owner_budget_timeline": budget_manifest,
+            "362_owner_behavior_features": behavior_manifest,
             "363_historical_draft_validation": draft_validation_manifest,
         },
     }

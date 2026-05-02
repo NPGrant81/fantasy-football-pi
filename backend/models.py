@@ -1029,6 +1029,56 @@ class MflIngestionFile(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+# ---------------------------------------------------------------------------
+# ISSUE #104 — Owner Budget Behavior Features
+# ---------------------------------------------------------------------------
+
+class OwnerSeasonBehavior(Base):
+    """Per-owner-per-season behavioral feature aggregate derived from draft spend.
+
+    Populated by the ETL behavior feature pass (etl/transform/owner_budget_timeline.py).
+    Consumed downstream by ML feature engineering (#106) and draft analyzer (#109).
+    """
+
+    __tablename__ = "owner_season_behaviors"
+    __table_args__ = (
+        UniqueConstraint("league_id", "owner_id", "season_year", name="uq_osb_league_owner_season"),
+        Index("ix_osb_league_season", "league_id", "season_year"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    season_year = Column(Integer, nullable=False, index=True)
+
+    # Budget reconciliation fields
+    starting_budget = Column(Numeric(10, 2), nullable=True)
+    total_spend = Column(Numeric(10, 2), nullable=True)
+    remaining_budget = Column(Numeric(10, 2), nullable=True)
+    budget_source = Column(String(32), nullable=True)  # exact / carry_forward / carry_backward / global_default
+    overspent = Column(Boolean, nullable=True)
+
+    # Positional breakdown (JSON dicts keyed by position abbreviation, e.g. "QB")
+    spend_by_position = Column(JSON, nullable=True)       # {"QB": 45.0, "RB": 87.0, ...}
+    pick_count_by_position = Column(JSON, nullable=True)  # {"QB": 2, "RB": 5, ...}
+    position_spend_pct = Column(JSON, nullable=True)      # {"QB": 0.23, "RB": 0.44, ...}
+    max_bid_by_position = Column(JSON, nullable=True)     # {"QB": 42.0, "RB": 55.0, ...}
+    avg_bid_by_position = Column(JSON, nullable=True)     # {"QB": 22.5, "RB": 17.4, ...}
+
+    # Scalar behavioral indices
+    # aggressiveness_index: fraction of total spend concentrated in the owner's
+    # top-quartile bids (0–1; higher = more concentrated / aggressive top picks)
+    aggressiveness_index = Column(Float, nullable=True)
+    # positional_bias_index: mean absolute deviation of owner's positional spend
+    # percentages from the league-average percentages for that season (0–1)
+    positional_bias_index = Column(Float, nullable=True)
+
+    # Audit
+    etl_version = Column(String(32), nullable=True)   # e.g. "v1"
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 # --- ISSUE #103 PHASE 2: Position registry ---
 class Position(Base):
     """Canonical position registry for all fantasy-eligible NFL positions.
