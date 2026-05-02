@@ -112,5 +112,10 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table('canonical_player_snapshots')
-    op.drop_table('positions')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    table_names = set(inspector.get_table_names())
+    if 'canonical_player_snapshots' in table_names:
+        op.drop_table('canonical_player_snapshots')
+    if 'positions' in table_names:
+        op.drop_table('positions')
