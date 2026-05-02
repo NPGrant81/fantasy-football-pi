@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   ui-ux-automation:
     runs-on: ubuntu-latest
@@ -27,9 +31,94 @@ jobs:
           npx eslint src/components src/pages
 
       - name: Enforce light-first theme guardrails
+        id: theme_guardrails
+        continue-on-error: true
         working-directory: frontend
         run: |
-          npm run lint:theme
+          set +e
+          npm run lint:theme 2>&1 | tee ../theme-lint.log
+          exit_code=${PIPESTATUS[0]}
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Comment PR with theme guardrail failures
+        if: github.event_name == 'pull_request' && steps.theme_guardrails.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- theme-guardrails-report -->';
+            const logPath = 'theme-lint.log';
+            const fallback = 'Theme guardrails failed, but no lint log was captured.';
+            let log = fallback;
+
+            if (fs.existsSync(logPath)) {
+              log = fs.readFileSync(logPath, 'utf8').trim() || fallback;
+            }
+
+            const maxLen = 50000;
+            if (log.length > maxLen) {
+              log = `${log.slice(0, maxLen)}\n\n...output truncated...`;
+            }
+
+            const body = `${marker}
+            ## Theme Guardrails Failed
+
+            The light-first theme guardrail check failed in CI.
+
+            <details>
+            <summary>Failure Output</summary>
+
+            \`\`\`
+            ${log}
+            \`\`\`
+
+            </details>
+
+            Please convert dark-first classes to light-first with dark overrides.`;
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            const existing = comments.find(
+              (c) => c.user?.type === 'Bot' && typeof c.body === 'string' && c.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+      - name: Upload theme guardrail log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: theme-guardrail-log
+          if-no-files-found: ignore
+          path: theme-lint.log
+
+      - name: Fail when theme guardrails fail
+        if: steps.theme_guardrails.outputs.exit_code != '0'
+        run: |
+          echo "Theme guardrails failed. See PR comment and artifact for details."
+          exit 1
 
       - name: Run accessibility smoke checks
         uses: cypress-io/github-action@v6
