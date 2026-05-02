@@ -6,6 +6,7 @@ import {
 } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
 import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
+import { useTheme } from '../../hooks/useTheme';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,10 +28,16 @@ ChartJS.register(
 );
 
 const WeeklyMatchupChart = () => {
+  const { theme } = useTheme();
   const [selectedWeek, setSelectedWeek] = React.useState(null);
   const [rows, setRows] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+
+  const isDark = theme === 'dark';
+  const chartText = isDark ? '#cbd5e1' : '#334155';
+  const chartTitle = isDark ? '#f8fafc' : '#0f172a';
+  const chartGrid = isDark ? 'rgba(148, 163, 184, 0.18)' : 'rgba(100, 116, 139, 0.2)';
 
   React.useEffect(() => {
     const load = async () => {
@@ -112,10 +119,10 @@ const WeeklyMatchupChart = () => {
         display: false,
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        titleColor: '#ffffff',
-        bodyColor: '#ffffff',
-        borderColor: '#4a90e2',
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)',
+        titleColor: isDark ? '#f8fafc' : '#0f172a',
+        bodyColor: isDark ? '#cbd5e1' : '#334155',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
         borderWidth: 1,
         padding: 12,
         callbacks: {
@@ -128,7 +135,7 @@ const WeeklyMatchupChart = () => {
     scales: {
       x: {
         ticks: {
-          color: '#cccccc',
+          color: chartText,
           font: {
             size: 12,
           },
@@ -141,17 +148,17 @@ const WeeklyMatchupChart = () => {
         title: {
           display: true,
           text: 'Points Scored',
-          color: '#ffffff',
+          color: chartTitle,
           font: {
             size: 16,
             weight: 'bold',
           },
         },
         ticks: {
-          color: '#cccccc',
+          color: chartText,
         },
         grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
+          color: chartGrid,
         },
         beginAtZero: true,
       },
@@ -159,36 +166,13 @@ const WeeklyMatchupChart = () => {
   };
 
   return (
-    <div
-      className="md:block"
-      style={{
-        height: '500px',
-        padding: '20px',
-        backgroundColor: '#2a2a2a',
-        borderRadius: '8px',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px',
-        }}
-      >
-        <h3 style={{ color: '#ffffff', margin: 0 }}>Weekly Matchup Comparison</h3>
+    <div className="md:block h-[500px] rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900/40">
+      <div className="mb-5 flex items-center justify-between">
+        <h3 className="m-0 text-lg font-semibold text-slate-900 dark:text-slate-100">Weekly Matchup Comparison</h3>
         <select
           value={selectedRow.week}
           onChange={(e) => setSelectedWeek(Number(e.target.value))}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#1a1a1a',
-            color: '#ffffff',
-            border: '1px solid #4a90e2',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-          }}
+          className="cursor-pointer rounded border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         >
           {rows.map((row) => (
             <option key={row.week} value={row.week}>
@@ -197,7 +181,7 @@ const WeeklyMatchupChart = () => {
           ))}
         </select>
       </div>
-      <p style={{ color: '#cccccc', fontSize: '14px', marginBottom: '20px' }}>
+      <p className="mb-5 text-sm text-slate-600 dark:text-slate-400">
         Team scoring comparison for the selected week.
       </p>
       <Bar data={data} options={options} />

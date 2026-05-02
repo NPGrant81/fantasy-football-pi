@@ -9,7 +9,7 @@ export default function OwnerStrategyPanel({
   recommendation,
 }) {
   return (
-    <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
+    <div className="rounded-md border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-3">
       <div className="text-[11px] uppercase tracking-wide text-slate-400">
         Owner Strategy Panel ({insightOwnerLabel || `Owner ${insightOwnerId || '-'}`}
         {isCurrentUserOwner ? ' - You' : ''})

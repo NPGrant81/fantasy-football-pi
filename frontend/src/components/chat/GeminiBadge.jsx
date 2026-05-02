@@ -3,7 +3,7 @@
 /* ignore-breakpoints */
 export default function GeminiBadge() {
   return (
-    <div className="flex items-center gap-2 px-3 py-1 bg-slate-950 border border-slate-800 rounded-full group cursor-default select-none hover:bg-slate-900 transition-colors duration-300">
+    <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-full group cursor-default select-none hover:bg-slate-200 dark:hover:bg-slate-900 transition-colors duration-300">
       {/* 1.1 THE ANIMATED NEURAL CORE */}
       <div className="relative flex h-2.5 w-2.5">
         {/* Radar Pulse Effect */}

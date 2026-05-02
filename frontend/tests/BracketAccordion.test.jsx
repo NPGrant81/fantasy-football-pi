@@ -46,6 +46,8 @@ describe('BracketAccordion', () => {
             seeding_policy: {
               division_winners_top_seeds: true,
               wildcards_by_overall_record: true,
+              playoff_qualifiers: 8,
+              playoff_reseed: true,
               playoff_consolation: false,
               tiebreak_chain: ['overall_record', 'points_for'],
               round_labels: {
@@ -82,6 +84,8 @@ describe('BracketAccordion', () => {
     expect(screen.getByText(/Partial Data/i)).toBeInTheDocument();
     expect(screen.getByText(/Historical season snapshot is unavailable/i)).toBeInTheDocument();
     expect(screen.getByText(/Division Winners Top Seeds/i)).toBeInTheDocument();
+    expect(screen.getByText(/8 Team Playoff/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reseeding/i)).toBeInTheDocument();
     expect(screen.getByText(/Alpha/i)).toBeInTheDocument();
     expect(screen.getByText(/Delta/i)).toBeInTheDocument();
   });
@@ -100,6 +104,8 @@ describe('BracketAccordion', () => {
             consolation: [],
             seeding_policy: {
               playoff_consolation: false,
+              playoff_qualifiers: null,
+              playoff_reseed: false,
               tiebreak_chain: [],
               round_labels: { championship: {} },
             },
@@ -123,5 +129,49 @@ describe('BracketAccordion', () => {
     expect(await screen.findByText(/Bracket Source/i)).toBeInTheDocument();
     expect(screen.getByText(/Live data/i)).toBeInTheDocument();
     expect(screen.queryByText(/Partial Data/i)).not.toBeInTheDocument();
+    // settings badges should not appear when values are absent/false
+    expect(screen.queryByText(/Team Playoff/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Reseeding/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Consolation Bracket/i)).not.toBeInTheDocument();
+  });
+
+  test('renders consolation bracket badge when playoff_consolation is enabled', async () => {
+    const user = userEvent.setup();
+    apiClient.post.mockResolvedValue({ data: {} });
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/leagues/owners?league_id=3') {
+        return Promise.resolve({ data: [{ id: 1, team_name: 'Alpha' }] });
+      }
+      if (url === '/playoffs/bracket?league_id=3&season=2026') {
+        return Promise.resolve({
+          data: {
+            championship: [],
+            consolation: [],
+            seeding_policy: {
+              playoff_consolation: true,
+              playoff_qualifiers: 6,
+              playoff_reseed: false,
+              division_winners_top_seeds: false,
+              wildcards_by_overall_record: false,
+              tiebreak_chain: [],
+              round_labels: { championship: {}, consolation: {} },
+            },
+            meta: { source: 'snapshot', is_partial: false, warnings: [] },
+          },
+        });
+      }
+      if (url === '/playoffs/seasons?league_id=3') {
+        return Promise.resolve({ data: [2026] });
+      }
+      return Promise.reject(new Error(`Unknown URL: ${url}`));
+    });
+
+    render(<BracketAccordion leagueId={3} />);
+
+    await user.click(screen.getByText(/playoff bracket/i));
+
+    expect(await screen.findByText(/6 Team Playoff/i)).toBeInTheDocument();
+    expect(screen.getByText(/Consolation Bracket/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Reseeding/i)).not.toBeInTheDocument();
   });
 });

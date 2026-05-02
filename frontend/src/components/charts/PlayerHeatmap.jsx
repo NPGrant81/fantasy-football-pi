@@ -3,6 +3,7 @@ import { fetchCurrentUser } from '@api/commonApi';
 import { fetchPlayerHeatmapAnalytics } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
 import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
+import { useTheme } from '../../hooks/useTheme';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -27,10 +28,14 @@ ChartJS.register(
 );
 
 const PlayerHeatmap = () => {
+  const { theme } = useTheme();
   const [rows, setRows] = React.useState([]);
   const [weeks, setWeeks] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+
+  const isDark = theme === 'dark';
+  const chartText = isDark ? '#cbd5e1' : '#334155';
 
   React.useEffect(() => {
     const load = async () => {
@@ -109,10 +114,10 @@ const PlayerHeatmap = () => {
         display: false,
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        titleColor: '#ffffff',
-        bodyColor: '#ffffff',
-        borderColor: '#4a90e2',
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)',
+        titleColor: isDark ? '#f8fafc' : '#0f172a',
+        bodyColor: isDark ? '#cbd5e1' : '#334155',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
         borderWidth: 1,
         padding: 12,
         callbacks: {
@@ -135,7 +140,7 @@ const PlayerHeatmap = () => {
         type: 'category',
         labels: weeks,
         ticks: {
-          color: '#cccccc',
+          color: chartText,
         },
         grid: {
           display: false,
@@ -146,7 +151,7 @@ const PlayerHeatmap = () => {
         labels: players,
         offset: true,
         ticks: {
-          color: '#cccccc',
+          color: chartText,
         },
         grid: {
           display: false,
@@ -156,33 +161,11 @@ const PlayerHeatmap = () => {
   };
 
   return (
-    <div
-      className="md:block"
-      style={{
-        height: '500px',
-        padding: '20px',
-        backgroundColor: '#2a2a2a',
-        borderRadius: '8px',
-      }}
-    >
-      <h3
-        style={{
-          color: '#ffffff',
-          marginTop: 0,
-          marginBottom: '10px',
-          textAlign: 'center',
-        }}
-      >
+    <div className="md:block h-[500px] rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900/40">
+      <h3 className="mb-2.5 mt-0 text-center text-lg font-semibold text-slate-900 dark:text-slate-100">
         Player Performance Heatmap
       </h3>
-      <p
-        style={{
-          color: '#cccccc',
-          fontSize: '14px',
-          textAlign: 'center',
-          marginBottom: '20px',
-        }}
-      >
+      <p className="mb-5 text-center text-sm text-slate-600 dark:text-slate-400">
         Weekly fantasy scoring by player under the active league scoring profile.
       </p>
       <Chart type="matrix" data={data} options={options} />

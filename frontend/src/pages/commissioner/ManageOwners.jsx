@@ -237,7 +237,7 @@ export default function ManageOwners() {
 
       {error ? <ErrorState message={error} className="mb-4" /> : null}
       {notice && (
-        <div className="mb-4 rounded-lg border border-green-800/60 bg-green-900/20 p-3 text-sm text-green-200">
+        <div className="mb-4 rounded-lg border border-green-400/60 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800/60 dark:bg-green-900/20 dark:text-green-200">
           {notice}
         </div>
       )}

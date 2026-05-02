@@ -127,8 +127,8 @@ function TradeWindowSettings({ leagueId }) {
 
   const windowBanner = settings
     ? settings.is_active
-      ? { cls: 'bg-green-500/10 border-green-400/30 text-green-300', label: 'Trade window is OPEN' }
-      : { cls: 'bg-red-500/10 border-red-400/30 text-red-300', label: 'Trade window is CLOSED' }
+      ? { cls: 'bg-green-100 border-green-400/60 text-green-800 dark:bg-green-500/10 dark:border-green-400/30 dark:text-green-300', label: 'Trade window is OPEN' }
+      : { cls: 'bg-red-100 border-red-400/60 text-red-800 dark:bg-red-500/10 dark:border-red-400/30 dark:text-red-300', label: 'Trade window is CLOSED' }
     : null;
 
   return (
@@ -148,7 +148,7 @@ function TradeWindowSettings({ leagueId }) {
 
       {loading && <LoadingState />}
       {!loading && error && (
-        <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+        <div className="rounded-lg border border-amber-400/60 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300">
           {error}
         </div>
       )}
@@ -209,12 +209,12 @@ function TradeWindowSettings({ leagueId }) {
           </div>
 
           {message && (
-            <div className="rounded-lg border border-green-400/30 bg-green-500/10 px-3 py-2 text-sm text-green-300">
+            <div className="rounded-lg border border-green-400/60 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-400/30 dark:bg-green-500/10 dark:text-green-300">
               {message}
             </div>
           )}
           {error && (
-            <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            <div className="rounded-lg border border-red-400/60 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
               {error}
             </div>
           )}
@@ -356,7 +356,7 @@ function TradeDetailDrawer({ leagueId, tradeId, onClose, onAction }) {
               </div>
 
               {actionMsg && (
-                <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                <div className="rounded-lg border border-red-400/60 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-300">
                   {actionMsg}
                 </div>
               )}
@@ -440,7 +440,7 @@ export default function ManageTrades() {
         <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Pending Trades</h2>
 
         {message && (
-          <div className="mb-4 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-300">
+          <div className="mb-4 rounded-lg border border-cyan-400/30 bg-cyan-50 px-3 py-2 text-sm text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300">
             {message}
           </div>
         )}

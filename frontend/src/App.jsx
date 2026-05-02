@@ -64,6 +64,9 @@ const KeeperRules = lazy(
 const LedgerStatement = lazy(
   () => import('./pages/commissioner/LedgerStatement')
 );
+const ManagePlayoffSettings = lazy(
+  () => import('./pages/commissioner/ManagePlayoffSettings')
+);
 const BugReport = lazy(() => import('./pages/BugReport'));
 const AnalyticsDashboard = lazy(
   () => import('./pages/Analytics/AnalyticsDashboard')
@@ -105,6 +108,7 @@ function resolveLayoutPageTitle(pathname) {
   if (pathname === '/commissioner/history-owner-mapping') return 'Historical Owner Mapping';
   if (pathname === '/commissioner/keeper-rules') return 'Keeper Rules';
   if (pathname === '/commissioner/ledger-statement') return 'Ledger Statement';
+  if (pathname === '/commissioner/playoff-settings') return 'Playoff Settings';
   if (pathname === '/waivers') return 'Waiver Wire';
   if (pathname === '/waiver-rules') return 'Waiver Rules';
   if (pathname === '/bug-report') return 'Bug Report';
@@ -282,6 +286,14 @@ function AuthenticatedShell({
             element={
               <RequireCommissioner isCommissioner={isCommissioner}>
                 <LedgerStatement />
+              </RequireCommissioner>
+            }
+          />
+          <Route
+            path="/commissioner/playoff-settings"
+            element={
+              <RequireCommissioner isCommissioner={isCommissioner}>
+                <ManagePlayoffSettings />
               </RequireCommissioner>
             }
           />
@@ -645,10 +657,10 @@ function App() {
   // PATH A: Not Logged In
   if (!token) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex flex-col items-center justify-center text-slate-900 dark:text-white">
         <form
           onSubmit={handleLogin}
-          className="bg-slate-800 p-8 rounded-lg shadow-2xl w-96 border border-slate-700"
+          className="bg-white dark:bg-slate-800 p-8 rounded-lg shadow-2xl w-96 border border-slate-300 dark:border-slate-700"
         >
           <div className="flex flex-col items-center mb-6">
             <BrandMark
@@ -670,7 +682,7 @@ function App() {
                 Username
               </label>
               <input
-                className="w-full p-3 rounded bg-slate-900 border border-slate-600 text-white focus:border-yellow-500 outline-none"
+                className="w-full p-3 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white focus:border-yellow-500 outline-none"
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
                 placeholder="Enter username"
@@ -682,7 +694,7 @@ function App() {
               </label>
               <input
                 type="password"
-                className="w-full p-3 rounded bg-slate-900 border border-slate-600 text-white focus:border-yellow-500 outline-none"
+                className="w-full p-3 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white focus:border-yellow-500 outline-none"
                 value={passInput}
                 onChange={(e) => setPassInput(e.target.value)}
                 placeholder="Enter password"
@@ -694,7 +706,7 @@ function App() {
               </label>
               <input
                 type="number"
-                className="w-full p-3 rounded bg-slate-900 border border-slate-600 text-white focus:border-yellow-500 outline-none"
+                className="w-full p-3 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white focus:border-yellow-500 outline-none"
                 value={leagueInput}
                 onChange={(e) => setLeagueInput(e.target.value)}
                 placeholder="Enter league ID (default: 1)"

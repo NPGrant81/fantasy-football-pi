@@ -26,11 +26,11 @@ export default function GlobalSearch({ onPlayerSelect }) {
 
   return (
     <div ref={searchAnchorRef} className="relative w-full sm:max-w-md md:max-w-lg group">
-      <div className="flex items-center bg-slate-800 border border-slate-700 rounded-full px-4 py-2 focus-within:border-purple-500 transition-all">
+      <div className="flex items-center bg-white border border-slate-200 dark:bg-slate-800 dark:border-slate-700 rounded-full px-4 py-2 focus-within:border-purple-500 transition-all">
         <FiSearch className="text-slate-400 mr-2" />
         <input
           type="text"
-          className="bg-transparent border-none outline-none text-white w-full text-sm"
+          className="bg-transparent border-none outline-none text-slate-900 dark:text-white w-full text-sm"
           placeholder="Search Players (Cmd + K)"
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
@@ -46,19 +46,19 @@ export default function GlobalSearch({ onPlayerSelect }) {
           anchorRef={searchAnchorRef}
           open={results.length > 0}
           offset={8}
-          className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
+          className="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-700 rounded-xl shadow-2xl overflow-hidden"
         >
           {results.map((player) => (
             <div
               key={player.id}
               onClick={() => onPlayerSelect(player)}
-              className="flex items-center gap-3 p-3 hover:bg-slate-800 cursor-pointer transition-colors border-b border-slate-800 last:border-0"
+              className="flex items-center gap-3 p-3 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0"
             >
-              <div className="bg-slate-700 p-2 rounded-lg">
-                <FiUser className="text-purple-400" />
+              <div className="bg-slate-100 dark:bg-slate-700 p-2 rounded-lg">
+                <FiUser className="text-purple-500 dark:text-purple-400" />
               </div>
               <div>
-                <div className="text-white font-bold text-sm">
+                <div className="text-slate-900 dark:text-white font-bold text-sm">
                   {player.name}
                 </div>
                 <div className="text-slate-500 text-xs">

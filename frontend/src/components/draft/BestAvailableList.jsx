@@ -62,7 +62,7 @@ export default function BestAvailableList({
 
   if (!open) {
     return (
-      <div className="bg-slate-900 border border-slate-700 rounded-lg p-2">
+      <div className="bg-white border border-slate-200 rounded-lg p-2 dark:bg-slate-900 dark:border-slate-700">
         <button onClick={onToggle} className="text-sm text-yellow-400">
           Show Best Available ▶
         </button>
@@ -71,9 +71,9 @@ export default function BestAvailableList({
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden flex flex-col h-full md:block">
-      <div className="flex justify-between items-center bg-slate-800 p-2 border-b border-slate-700">
-        <h2 className="text-cyan-400 font-bold text-sm uppercase tracking-wider">
+    <div className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col h-full md:block dark:bg-slate-900 dark:border-slate-700">
+      <div className="flex justify-between items-center bg-slate-50 p-2 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h2 className="text-cyan-700 font-bold text-sm uppercase tracking-wider dark:text-cyan-400">
           Best Available
         </h2>
         <button onClick={onToggle} className="text-xs text-yellow-400">
@@ -82,7 +82,7 @@ export default function BestAvailableList({
       </div>
 
       {/* position filters */}
-      <div className="bg-slate-800 p-2 border-b border-slate-700 flex flex-wrap gap-1">
+      <div className="bg-slate-50 p-2 border-b border-slate-200 flex flex-wrap gap-1 dark:bg-slate-800 dark:border-slate-700">
         {['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map((pos) => (
           <button
             key={pos}
@@ -90,7 +90,7 @@ export default function BestAvailableList({
             className={`text-[10px] font-bold px-2 py-1 rounded border transition uppercase ${
               filterPos === pos
                 ? 'bg-yellow-500 text-black border-yellow-500'
-                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                : 'bg-white text-slate-600 border-slate-300 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 dark:hover:text-white'
             }`}
           >
             {pos}
@@ -100,7 +100,7 @@ export default function BestAvailableList({
 
       <div className="overflow-y-auto max-h-[400px]">
         <table className="w-full text-left text-xs">
-          <thead className="text-slate-500 uppercase bg-slate-900 sticky top-0">
+          <thead className="text-slate-500 uppercase bg-slate-50 sticky top-0 dark:bg-slate-900">
             <tr>
               <th
                 className="p-2 cursor-pointer"
@@ -122,15 +122,15 @@ export default function BestAvailableList({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {sorted.map((p) => (
-              <tr key={p.id || `${p.name}-${p.pos}`} className="hover:bg-slate-800 transition-colors">
+              <tr key={p.id || `${p.name}-${p.pos}`} className="hover:bg-slate-100 transition-colors dark:hover:bg-slate-800">
                 <td className="p-2 text-slate-400">{p.rank}</td>
-                <td className="p-2 font-semibold text-white">
-                  <span className="text-cyan-500 mr-2">{p.pos}</span>
+                <td className="p-2 font-semibold text-slate-900 dark:text-white">
+                  <span className="text-cyan-700 mr-2 dark:text-cyan-500">{p.pos}</span>
                   {p.name}
                 </td>
-                <td className="p-2 text-right text-green-400 font-mono">
+                <td className="p-2 text-right text-green-700 font-mono dark:text-green-400">
                   ${p.projectedValue}
                 </td>
               </tr>

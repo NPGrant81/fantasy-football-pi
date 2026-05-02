@@ -232,7 +232,7 @@ export default function ManageWaiverRules() {
         <button type="submit" className={buttonPrimary} disabled={loading}>
           {loading ? 'Saving...' : 'Update Waiver Rules'}
         </button>
-        {message && <div className="mt-4 text-sm text-cyan-300">{message}</div>}
+        {message && <div className="mt-4 text-sm text-cyan-700 dark:text-cyan-300">{message}</div>}
       </form>
       <div className={cardSurface}>
         <h2 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">

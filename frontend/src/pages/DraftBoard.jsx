@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import apiClient from '@api/client';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDraftTimer } from '@hooks/useDraftTimer';
 import { getOwnerStats, ROSTER_SIZE } from '@utils';
 import { FiBarChart2, FiX } from 'react-icons/fi';
@@ -68,6 +69,7 @@ const isActiveDraftPlayer = (player) => {
 };
 
 export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
+  const queryClient = useQueryClient();
   // --- 1.1 STATE MANAGEMENT ---
   const [showBestSidebar, setShowBestSidebar] = useState(false);
   const [owners, setOwners] = useState([]);
@@ -129,12 +131,147 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
   // --- 1.2 THE ENGINE (Logic Actions) ---
 
+  const leagueIdInt = useMemo(() => parseInt(activeLeagueId, 10), [activeLeagueId]);
+  const hasValidLeagueId = Number.isFinite(leagueIdInt);
+
+  const ownersQuery = useQuery({
+    queryKey: ['draft-board-owners', leagueIdInt],
+    enabled: Boolean(token && hasValidLeagueId),
+    queryFn: async () => {
+      const res = await apiClient.get(`/leagues/owners?league_id=${leagueIdInt}`);
+      return Array.isArray(res?.data) ? res.data : [];
+    },
+    staleTime: 60_000,
+  });
+
+  const playersQuery = useQuery({
+    queryKey: ['draft-board-players', leagueIdInt],
+    enabled: Boolean(token && hasValidLeagueId),
+    queryFn: async () => {
+      const res = await apiClient.get(`/players/?league_id=${leagueIdInt}`);
+      return Array.isArray(res?.data) ? res.data : [];
+    },
+    staleTime: 300_000,
+  });
+
+  const historyQueryKey = useMemo(() => ['draft-board-history', sessionId], [sessionId]);
+  const historyQuery = useQuery({
+    queryKey: historyQueryKey,
+    enabled: Boolean(token && activeLeagueId && sessionId),
+    queryFn: async () => {
+      const res = await apiClient.get(`/draft/history?session_id=${sessionId}`);
+      return Array.isArray(res?.data) ? res.data : [];
+    },
+    refetchInterval: 30_000,
+    staleTime: 10_000,
+  });
+
+  const leagueMetaQuery = useQuery({
+    queryKey: ['draft-board-league-meta', activeLeagueId],
+    enabled: Boolean(token && activeLeagueId),
+    queryFn: async () => {
+      const res = await apiClient.get(`/leagues/${activeLeagueId}`);
+      return res?.data || {};
+    },
+    staleTime: 60_000,
+  });
+
+  const authMeQuery = useQuery({
+    queryKey: ['draft-board-auth-me'],
+    enabled: Boolean(token),
+    queryFn: async () => {
+      const res = await apiClient.get('/auth/me');
+      return res?.data || {};
+    },
+    staleTime: 60_000,
+  });
+
+  const settingsQuery = useQuery({
+    queryKey: ['draft-board-settings', activeLeagueId],
+    enabled: Boolean(token && activeLeagueId),
+    queryFn: async () => {
+      const res = await apiClient.get(`/leagues/${activeLeagueId}/settings`);
+      return res?.data || {};
+    },
+    staleTime: 60_000,
+  });
+
+  const budgetsQuery = useQuery({
+    queryKey: ['draft-board-budgets', activeLeagueId, draftYear],
+    enabled: Boolean(token && activeLeagueId && draftYear),
+    queryFn: async () => {
+      const res = await apiClient.get(`/leagues/${activeLeagueId}/budgets?year=${draftYear}`);
+      return Array.isArray(res?.data) ? res.data : [];
+    },
+    staleTime: 30_000,
+  });
+
+  const keepersQuery = useQuery({
+    queryKey: ['draft-board-keepers', activeLeagueId, draftYear],
+    enabled: Boolean(token && activeLeagueId && draftYear),
+    queryFn: async () => {
+      const res = await apiClient.get(`/leagues/${activeLeagueId}/draft-keepers?season=${draftYear}`);
+      return Array.isArray(res?.data) ? res.data : [];
+    },
+    staleTime: 30_000,
+  });
+
+  const rankingsQuery = useQuery({
+    queryKey: ['draft-board-rankings', draftYear, effectiveWinnerId, activeOwnerId, activeLeagueId],
+    enabled: Boolean(token && draftYear),
+    queryFn: async () => {
+      const rankingOwnerId = Number(effectiveWinnerId || activeOwnerId || 0) || null;
+      const rankingLeagueId = Number(activeLeagueId || 0) || null;
+      const params = new URLSearchParams();
+      params.append('season', String(draftYear));
+      params.append('limit', '75');
+      if (rankingLeagueId) params.append('league_id', String(rankingLeagueId));
+      if (rankingOwnerId) params.append('owner_id', String(rankingOwnerId));
+      const res = await apiClient.get(`/draft/rankings?${params.toString()}`);
+      return Array.isArray(res?.data) ? res.data : [];
+    },
+    staleTime: 30_000,
+  });
+
+  useEffect(() => { setOwners(ownersQuery.data || []); }, [ownersQuery.data]);
+  useEffect(() => { setPlayers(playersQuery.data || []); }, [playersQuery.data]);
+  useEffect(() => { setHistory(historyQuery.data || []); }, [historyQuery.data]);
+  useEffect(() => {
+    if (!leagueMetaQuery.data) return;
+    setLeagueName(leagueMetaQuery.data.name || 'League');
+  }, [leagueMetaQuery.data]);
+  useEffect(() => {
+    if (!authMeQuery.data) return;
+    setIsCommissioner(Boolean(authMeQuery.data.is_commissioner));
+    setUsername(authMeQuery.data.username || '');
+  }, [authMeQuery.data]);
+  useEffect(() => {
+    if (!settingsQuery.data) return;
+    const settings = settingsQuery.data;
+    const nextActivePositions = getLeagueActivePositions(settings);
+    setActivePositions(nextActivePositions.length > 0 ? nextActivePositions : PLAYER_POSITIONS);
+    if (settings?.draft_year) setDraftYear(settings.draft_year);
+    if (settings?.roster_size) setRosterSize(Number(settings.roster_size) || ROSTER_SIZE);
+  }, [settingsQuery.data]);
+  useEffect(() => {
+    const rows = budgetsQuery.data || [];
+    const map = {};
+    rows.forEach((row) => { if (row.total_budget != null) { map[row.owner_id] = row.total_budget; } });
+    setBudgetMap(map);
+  }, [budgetsQuery.data]);
+  useEffect(() => { setKeeperPicks(keepersQuery.data || []); }, [keepersQuery.data]);
+  useEffect(() => { setHistoricalRankings(rankingsQuery.data || []); }, [rankingsQuery.data]);
+
   const fetchHistory = useCallback(() => {
-    apiClient
-      .get(`/draft/history?session_id=${sessionId}`)
-      .then((res) => setHistory(res.data))
-      .catch(() => console.log('No history yet'));
-  }, [sessionId]);
+    queryClient.invalidateQueries({ queryKey: historyQueryKey });
+  }, [queryClient, historyQueryKey]);
+
+  const draftPickMutation = useMutation({
+    mutationFn: async (payload) => apiClient.post('/draft/pick', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: historyQueryKey });
+    },
+  });
 
   // Merge keeper pre-picks with live draft history so budget + grid see keepers as drafted slots
   const allPicks = useMemo(() => [
@@ -175,7 +312,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       };
 
       try {
-        await apiClient.post('/draft/pick', payload);
+        await draftPickMutation.mutateAsync(payload);
         const draftedOwner = owners.find((owner) => owner.id === effectiveWinnerId);
         setDraftPopupData({
           playerName: foundPlayer.name,
@@ -184,7 +321,6 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         });
         setPlayerName('');
         setBidAmount(1);
-        fetchHistory();
         // NOTE: We don't call reset() here anymore because the hook triggers it
         // when the button is clicked or time is up.
       } catch (err) {
@@ -202,7 +338,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
       bidAmount,
       sessionId,
       draftYear,
-      fetchHistory,
+      draftPickMutation,
     ]
   );
   // 1.2.2 THE TIMER HOOK
@@ -243,59 +379,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     }
   };
 
-  useEffect(() => {
-    if (token && activeLeagueId) {
-      const leagueIdInt = parseInt(activeLeagueId, 10);
-      if (isNaN(leagueIdInt)) {
-        console.error('Invalid league_id:', activeLeagueId);
-        return undefined;
-      }
-      apiClient
-        .get(`/leagues/owners?league_id=${leagueIdInt}`)
-        .then((res) => setOwners(res.data))
-        .catch(() => setOwners([]));
-      apiClient.get(`/players/?league_id=${leagueIdInt}`).then((res) => setPlayers(res.data));
-      fetchHistory();
-      // Fetch league name and user info
-      apiClient
-        .get(`/leagues/${activeLeagueId}`)
-        .then((res) => setLeagueName(res.data.name))
-        .catch(() => setLeagueName('League'));
-      apiClient
-        .get('/auth/me')
-        .then((res) => {
-          setIsCommissioner(res.data.is_commissioner);
-          setUsername(res.data.username);
-        })
-        .catch(() => {
-          setIsCommissioner(false);
-          setUsername('');
-        });
-      apiClient
-        .get(`/leagues/${activeLeagueId}/settings`)
-        .then((res) => {
-          const nextActivePositions = getLeagueActivePositions(res.data);
-          setActivePositions(
-            nextActivePositions.length > 0 ? nextActivePositions : PLAYER_POSITIONS
-          );
-          if (res.data?.draft_year) {
-            setDraftYear(res.data.draft_year);
-          }
-          if (res.data?.roster_size) {
-            setRosterSize(Number(res.data.roster_size) || ROSTER_SIZE);
-          }
-        })
-        .catch(() => {});
-      return undefined;
-    }
-    return undefined;
-  }, [token, activeLeagueId, fetchHistory]);
+
 
   useEffect(() => {
     if (!token || !activeLeagueId || !sessionId) return undefined;
 
-    fetchHistory();
-    const fallbackInterval = setInterval(fetchHistory, 30000);
     let socket;
 
     if (typeof WebSocket !== 'undefined') {
@@ -312,12 +400,11 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
           }
         };
       } catch {
-        // Fallback interval keeps history fresh when WS isn't available.
+        // historyQuery refetchInterval keeps history fresh when WS isn't available.
       }
     }
 
     return () => {
-      clearInterval(fallbackInterval);
       if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
         socket.close();
       }
@@ -336,54 +423,9 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
     }
   }, [activePositions, posFilter]);
 
-  useEffect(() => {
-    if (!activeLeagueId || !draftYear) return;
-    apiClient
-      .get(`/leagues/${activeLeagueId}/budgets?year=${draftYear}`)
-      .then((res) => {
-        const rows = res.data || [];
-        const map = {};
-        rows.forEach((row) => {
-          if (row.total_budget != null) {
-            map[row.owner_id] = row.total_budget;
-          }
-        });
-        setBudgetMap(map);
-      })
-      .catch(() => {
-        setBudgetMap({});
-      });
-    // Fetch locked/approved keepers for this season to pre-populate the board
-    apiClient
-      .get(`/leagues/${activeLeagueId}/draft-keepers?season=${draftYear}`)
-      .then((res) => setKeeperPicks(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setKeeperPicks([]));
-  }, [activeLeagueId, draftYear]);
 
-  useEffect(() => {
-    if (!draftYear) return;
-    const rankingOwnerId = Number(effectiveWinnerId || activeOwnerId || 0) || null;
-    const rankingLeagueId = Number(activeLeagueId || 0) || null;
 
-    const params = new URLSearchParams();
-    params.append('season', String(draftYear));
-    params.append('limit', '75');
-    if (rankingLeagueId) {
-      params.append('league_id', String(rankingLeagueId));
-    }
-    if (rankingOwnerId) {
-      params.append('owner_id', String(rankingOwnerId));
-    }
 
-    apiClient
-      .get(`/draft/rankings?${params.toString()}`)
-      .then((res) => {
-        setHistoricalRankings(Array.isArray(res.data) ? res.data : []);
-      })
-      .catch(() => {
-        setHistoricalRankings([]);
-      });
-  }, [draftYear, effectiveWinnerId, activeOwnerId, activeLeagueId]);
 
   // --- 1.4 DERIVED CALCULATIONS ---
   const currentNominatorId = useMemo(() => {
@@ -582,7 +624,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       {/* auction controls top bar */}
       <div className="w-full">
-        <div className="flex flex-wrap items-end justify-start p-1 bg-slate-900/40">
+        <div className="flex flex-wrap items-end justify-start p-1 bg-slate-100/80 dark:bg-slate-900/40">
           {/* auction controls panel handles its own internal alignment */}
           <AuctionBlock
             playerName={playerName}
@@ -626,7 +668,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       <div className="relative">
         <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">
-          <section className="overflow-x-auto border-r border-slate-800 custom-scrollbar col-span-12">
+          <section className="overflow-x-auto border-r border-slate-300 dark:border-slate-800 custom-scrollbar col-span-12">
             <DraftBoardGrid
               teams={ownersWithBudgets}
               history={allPicks}
@@ -638,7 +680,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         </main>
 
         {showBestSidebar && (
-          <aside className="absolute right-2 top-2 bottom-2 w-[300px] max-w-[80vw] bg-slate-900/90 border border-slate-700 rounded-lg overflow-hidden z-20 shadow-2xl">
+          <aside className="absolute right-2 top-2 bottom-2 w-[300px] max-w-[80vw] bg-white/95 dark:bg-slate-900/90 border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden z-20 shadow-2xl">
             <BestAvailableList
               open={showBestSidebar}
               onToggle={() => setShowBestSidebar(false)}
@@ -661,7 +703,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         </div>
       )}
 
-      <footer className="bg-slate-900 px-4 md:px-6 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
+      <footer className="bg-slate-100 dark:bg-slate-900 px-4 md:px-6 py-1 flex justify-between text-[10px] text-slate-600 dark:text-slate-500 border-t border-slate-300 dark:border-slate-800">
         <span>SESSION ID: {sessionId}</span>
         <span className="text-green-500 font-mono">SERVER STATUS: ONLINE</span>
       </footer>

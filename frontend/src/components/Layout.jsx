@@ -30,7 +30,7 @@ export default function Layout({
           {/* Mobile Trigger */}
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 text-yellow-500 hover:bg-slate-800 rounded transition"
+            className="p-2 text-yellow-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition"
           >
             <FiMenu size={28} />
           </button>

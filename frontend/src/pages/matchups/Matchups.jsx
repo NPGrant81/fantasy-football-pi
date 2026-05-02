@@ -186,9 +186,9 @@ export default function Matchups() {
             onClick={() => handleWeekChange(week - 1)}
             disabled={week === 1}
             aria-label="Previous week"
-            className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"
+            className="rounded-full bg-slate-200 p-2 transition hover:bg-slate-300 disabled:opacity-30 dark:bg-slate-800 dark:hover:bg-slate-700"
           >
-            <FiChevronLeft size={24} className="text-white" />
+            <FiChevronLeft size={24} className="text-slate-700 dark:text-white" />
           </button>
 
           <div className="text-center">
@@ -201,7 +201,7 @@ export default function Matchups() {
               <select
                 value={week}
                 onChange={(e) => handleWeekChange(parseInt(e.target.value))}
-                className="bg-slate-800 text-white font-black text-2xl rounded-lg px-3 py-1 border border-slate-700 hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-2xl font-black text-slate-900 transition hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:border-slate-500"
               >
                 {Array.from({ length: 17 }, (_, i) => i + 1).map((w) => (
                   <option key={w} value={w}>
@@ -228,21 +228,21 @@ export default function Matchups() {
             onClick={() => handleWeekChange(week + 1)}
             disabled={week === 17}
             aria-label="Next week"
-            className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 disabled:opacity-30 transition"
+            className="rounded-full bg-slate-200 p-2 transition hover:bg-slate-300 disabled:opacity-30 dark:bg-slate-800 dark:hover:bg-slate-700"
           >
-            <FiChevronRight size={24} className="text-white" />
+            <FiChevronRight size={24} className="text-slate-700 dark:text-white" />
           </button>
         </div>
 
-        <div className="flex justify-center border-t border-slate-800 pt-4">
+        <div className="flex justify-center border-t border-slate-200 pt-4 dark:border-slate-800">
           <div className="relative flex items-center gap-2">
             <button
               onClick={handleToggleChange}
               aria-label="Toggle projected scores"
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-950 border border-slate-700 hover:border-slate-500 transition"
+              className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 transition hover:border-slate-500 dark:border-slate-700 dark:bg-slate-950"
             >
               <span
-                className={`text-xs font-bold uppercase ${!showProjected ? 'text-white' : 'text-slate-500'}`}
+                className={`text-xs font-bold uppercase ${!showProjected ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}
               >
                 Actual
               </span>
@@ -268,13 +268,13 @@ export default function Matchups() {
                 onClick={() => setShowScoreInfo((prev) => !prev)}
                 aria-label="Explain scoring values"
                 aria-expanded={showScoreInfo}
-                className="h-8 w-8 rounded-full bg-slate-950 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition flex items-center justify-center"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 transition hover:border-slate-500 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:text-white"
               >
                 <FiInfo size={14} />
               </button>
 
               {showScoreInfo && (
-                <div className={`absolute right-0 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300 shadow-xl ${layerDropdown}`}>
+                <div className={`absolute right-0 mt-2 w-72 rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 ${layerDropdown}`}>
                   {showProjected
                     ? 'Projected shows the expected team total based on current starters and league scoring rules.'
                     : 'Actual shows the current recorded matchup total from live/completed scoring updates.'}
@@ -287,7 +287,7 @@ export default function Matchups() {
 
       {/* 2.3 MATCHUP GRID */}
       {matchupsError ? (
-        <div className="rounded-md border border-rose-900 bg-rose-950/30 p-3 text-sm text-rose-300">
+        <div className="rounded-md border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
           {matchupsError}
         </div>
       ) : null}
@@ -300,24 +300,24 @@ export default function Matchups() {
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl animate-pulse"
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl animate-pulse dark:border-slate-800 dark:bg-slate-900"
               >
                 <div className="p-6 flex justify-between items-center">
                   <div className="text-center w-1/3">
-                    <div className="w-12 h-12 mx-auto bg-slate-800 rounded-full mb-2"></div>
-                    <div className="h-4 bg-slate-800 rounded w-20 mx-auto mb-1"></div>
-                    <div className="h-6 bg-slate-700 rounded w-12 mx-auto"></div>
+                    <div className="w-12 h-12 mx-auto rounded-full bg-slate-200 mb-2 dark:bg-slate-800"></div>
+                    <div className="h-4 w-20 mx-auto mb-1 rounded bg-slate-200 dark:bg-slate-800"></div>
+                    <div className="h-6 w-12 mx-auto rounded bg-slate-300 dark:bg-slate-700"></div>
                   </div>
                   <div className="text-center w-1/3">
-                    <div className="h-6 bg-slate-800 rounded w-8 mx-auto"></div>
+                    <div className="h-6 w-8 mx-auto rounded bg-slate-200 dark:bg-slate-800"></div>
                   </div>
                   <div className="text-center w-1/3">
-                    <div className="w-12 h-12 mx-auto bg-slate-800 rounded-full mb-2"></div>
-                    <div className="h-4 bg-slate-800 rounded w-20 mx-auto mb-1"></div>
-                    <div className="h-6 bg-slate-700 rounded w-12 mx-auto"></div>
+                    <div className="w-12 h-12 mx-auto rounded-full bg-slate-200 mb-2 dark:bg-slate-800"></div>
+                    <div className="h-4 w-20 mx-auto mb-1 rounded bg-slate-200 dark:bg-slate-800"></div>
+                    <div className="h-6 w-12 mx-auto rounded bg-slate-300 dark:bg-slate-700"></div>
                   </div>
                 </div>
-                <div className="h-12 bg-slate-950/30 border-t border-slate-800"></div>
+                <div className="h-12 border-t border-slate-200 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-950/30"></div>
               </div>
             ))}
           </div>
@@ -338,7 +338,7 @@ export default function Matchups() {
           {games.map((game) => (
             <div
               key={game.id}
-              className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-600 transition shadow-xl group flex flex-col relative"
+              className="group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl transition hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-600"
             >
               {/* Game Status Badge */}
               {game.game_status && (
@@ -346,10 +346,10 @@ export default function Matchups() {
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                       game.game_status === 'FINAL'
-                        ? 'bg-green-900/30 text-green-400 border border-green-900/50'
+                        ? 'border border-green-400/60 bg-green-50 text-green-700 dark:border-green-900/50 dark:bg-green-900/30 dark:text-green-400'
                         : game.game_status === 'IN_PROGRESS'
-                          ? 'bg-red-900/30 text-red-400 border border-red-900/50 animate-pulse'
-                          : 'bg-slate-800 text-slate-500 border border-slate-700'
+                          ? 'animate-pulse border border-red-400/60 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-400'
+                          : 'border border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500'
                     }`}
                   >
                     {game.game_status === 'NOT_STARTED' ? 'Upcoming' : game.game_status.replace('_', ' ')}
@@ -363,25 +363,25 @@ export default function Matchups() {
                   <div className="mx-auto mb-2 flex justify-center">
                     <TeamLogo teamInfo={game.home_team_info} size="md" />
                   </div>
-                  <div className="font-bold text-white text-sm truncate">
+                  <div className="truncate text-sm font-bold text-slate-900 dark:text-white">
                     {game.home_team_info?.team_name || game.home_team}
                   </div>
                   <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">
                     {game.home_team_info?.division_name || 'No Division'}
                   </div>
                   <div
-                    className={`font-mono text-2xl font-bold mt-1 ${showProjected ? 'text-blue-400' : 'text-white'}`}
+                    className={`mt-1 font-mono text-2xl font-bold ${showProjected ? 'text-blue-500 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}
                   >
                     {getScore(game, 'home')}
                   </div>
                 </div>
 
                 <div className="text-center w-1/3 flex flex-col items-center">
-                  <div className="text-slate-600 font-black italic text-xl opacity-20">
+                  <div className="text-xl font-black italic text-slate-500 opacity-30 dark:text-slate-600 dark:opacity-20">
                     VS
                   </div>
                   {showProjected && (
-                    <span className="text-[10px] text-blue-500/50 uppercase font-bold mt-1">
+                    <span className="mt-1 text-[10px] font-bold uppercase text-blue-600/70 dark:text-blue-500/50">
                       Proj
                     </span>
                   )}
@@ -392,14 +392,14 @@ export default function Matchups() {
                   <div className="mx-auto mb-2 flex justify-center">
                     <TeamLogo teamInfo={game.away_team_info} size="md" />
                   </div>
-                  <div className="font-bold text-white text-sm truncate">
+                  <div className="truncate text-sm font-bold text-slate-900 dark:text-white">
                     {game.away_team_info?.team_name || game.away_team}
                   </div>
                   <div className="text-[10px] uppercase tracking-wider text-slate-400 mt-1">
                     {game.away_team_info?.division_name || 'No Division'}
                   </div>
                   <div
-                    className={`font-mono text-2xl font-bold mt-1 ${showProjected ? 'text-blue-400' : 'text-white'}`}
+                    className={`mt-1 font-mono text-2xl font-bold ${showProjected ? 'text-blue-500 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}
                   >
                     {getScore(game, 'away')}
                   </div>
@@ -409,15 +409,15 @@ export default function Matchups() {
               {showProjected && (
                 <div className="px-4 pb-4 -mt-1">
                   <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
-                    <span className="text-blue-300">
+                    <span className="text-blue-600 dark:text-blue-300">
                       {getWinChance(game, 'home').toFixed(1)}% Win Chance
                     </span>
-                    <span className="text-red-300">
+                    <span className="text-red-600 dark:text-red-300">
                       {getWinChance(game, 'away').toFixed(1)}% Win Chance
                     </span>
                   </div>
                   <div
-                    className="h-2 w-full overflow-hidden rounded-full border border-slate-700 bg-slate-950"
+                    className="h-2 w-full overflow-hidden rounded-full border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-950"
                     role="img"
                     aria-label="Projected matchup win probability"
                   >
@@ -432,12 +432,12 @@ export default function Matchups() {
               {(game.division_context?.is_division_matchup || game.rivalry_context?.is_rivalry_week) && (
                 <div className="px-4 pb-3 -mt-1 flex flex-wrap items-center justify-center gap-2">
                   {game.division_context?.is_division_matchup && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border border-cyan-700 bg-cyan-900/20 text-cyan-300">
+                    <span className="rounded border border-cyan-500/60 bg-cyan-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:border-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-300">
                       Division Matchup
                     </span>
                   )}
                   {game.rivalry_context?.is_rivalry_week && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border border-rose-700 bg-rose-900/20 text-rose-300">
+                    <span className="rounded border border-rose-500/60 bg-rose-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:border-rose-700 dark:bg-rose-900/20 dark:text-rose-300">
                       Rivalry: {game.rivalry_context?.rivalry_name || 'Featured'}
                     </span>
                   )}
@@ -446,9 +446,9 @@ export default function Matchups() {
 
               <Link
                 to={`/matchup/${game.id}`}
-                className="block p-3 bg-slate-950/30 border-t border-slate-800 text-center hover:bg-slate-800 transition"
+                className="block border-t border-slate-200 bg-slate-50/90 p-3 text-center transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/30 dark:hover:bg-slate-800"
               >
-                <div className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center justify-center gap-1 mx-auto">
+                <div className="mx-auto flex items-center justify-center gap-1 text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
                   <FiActivity /> Game Center
                 </div>
               </Link>

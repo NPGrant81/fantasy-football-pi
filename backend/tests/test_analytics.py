@@ -14,6 +14,7 @@ from backend.routers.analytics import (
     get_efficiency_leaderboard,
     get_post_draft_outlook,
     get_player_heatmap_data,
+    get_positional_heatmap_data,
     get_rivalry_graph,
     get_roster_strength,
     get_weekly_matchup_comparison,
@@ -268,6 +269,144 @@ def test_draft_value_and_heatmap_payloads(db_session):
     assert heatmap["rows"]
     assert len(heatmap["week_labels"]) == 2
     assert heatmap["meta"]["metric"] == "player_performance_heatmap"
+
+
+def test_positional_heatmap_mock_payload(db_session):
+    league = make_league(db_session)
+
+    payload = get_positional_heatmap_data(
+        league_id=league.id,
+        season=2026,
+        profile="standard",
+        stream_position="WR",
+        db=db_session,
+    )
+
+    assert payload["meta"]["metric"] == "positional_matchup_heatmap"
+    assert payload["mock_data"] is True
+    assert payload["profile"] == "standard"
+    assert payload["positions"] == ["QB", "RB", "WR", "TE"]
+    assert len(payload["rows"]) == 32
+    assert len(payload["streaming_suggestions"]) == 5
+
+    for row in payload["rows"]:
+        assert set(row["values"].keys()) == {"QB", "RB", "WR", "TE"}
+        assert row["weakest_position"] in {"QB", "RB", "WR", "TE"}
+
+
+def test_positional_heatmap_rejects_invalid_filters(db_session):
+    league = make_league(db_session)
+
+    with pytest.raises(HTTPException) as bad_profile:
+        get_positional_heatmap_data(
+            league_id=league.id,
+            season=2026,
+            profile="invalid",
+            stream_position="WR",
+            db=db_session,
+        )
+    assert bad_profile.value.status_code == 400
+
+    with pytest.raises(HTTPException) as bad_position:
+        get_positional_heatmap_data(
+            league_id=league.id,
+            season=2026,
+            profile="standard",
+            stream_position="DST",
+            db=db_session,
+        )
+    assert bad_position.value.status_code == 400
+
+
+def test_positional_heatmap_live_mode_uses_weekly_stats(db_session, monkeypatch):
+    league = make_league(db_session)
+
+    qb = models.Player(name="Live QB", position="QB", nfl_team="KC", espn_id="1001")
+    wr = models.Player(name="Live WR", position="WR", nfl_team="BUF", espn_id="1002")
+    db_session.add_all([qb, wr])
+    db_session.commit()
+    db_session.refresh(qb)
+    db_session.refresh(wr)
+
+    db_session.add_all(
+        [
+            models.PlayerWeeklyStat(player_id=qb.id, season=2026, week=1, fantasy_points=24.0, stats={"fantasyPoints": 24.0}, source="test"),
+            models.PlayerWeeklyStat(player_id=wr.id, season=2026, week=1, fantasy_points=18.5, stats={"fantasyPoints": 18.5}, source="test"),
+        ]
+    )
+    db_session.commit()
+
+    class _MockResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "events": [
+                    {
+                        "competitions": [
+                            {
+                                "competitors": [
+                                    {"team": {"abbreviation": "KC"}},
+                                    {"team": {"abbreviation": "BUF"}},
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+
+    monkeypatch.setattr("backend.routers.analytics.requests.get", lambda *args, **kwargs: _MockResponse())
+
+    payload = get_positional_heatmap_data(
+        league_id=league.id,
+        season=2026,
+        profile="standard",
+        stream_position="WR",
+        db=db_session,
+    )
+
+    assert payload["mock_data"] is False
+    assert payload["meta"]["metric"] == "positional_matchup_heatmap"
+    assert len(payload["rows"]) == 2
+    assert len(payload["streaming_suggestions"]) == 2
+
+    by_team = {row["defense_team"]: row for row in payload["rows"]}
+    assert "BUF" in by_team
+    assert "KC" in by_team
+    assert by_team["BUF"]["values"]["QB"] == 24.0
+    assert by_team["KC"]["values"]["WR"] == 18.5
+
+
+def test_positional_heatmap_falls_back_when_scoreboard_unavailable(db_session, monkeypatch):
+    league = make_league(db_session)
+
+    qb = models.Player(name="Fallback QB", position="QB", nfl_team="SF", espn_id="2001")
+    db_session.add(qb)
+    db_session.commit()
+    db_session.refresh(qb)
+
+    db_session.add(
+        models.PlayerWeeklyStat(player_id=qb.id, season=2026, week=1, fantasy_points=20.0, stats={"fantasyPoints": 20.0}, source="test")
+    )
+    db_session.commit()
+
+    def _raise_request(*args, **kwargs):
+        raise RuntimeError("network unavailable")
+
+    monkeypatch.setattr("backend.routers.analytics.requests.get", _raise_request)
+
+    payload = get_positional_heatmap_data(
+        league_id=league.id,
+        season=2026,
+        profile="standard",
+        stream_position="QB",
+        db=db_session,
+    )
+
+    assert payload["mock_data"] is True
+    assert payload["fallback_reason"] == "missing_opponent_map"
+    assert len(payload["rows"]) == 32
 
 
 def test_weekly_matchup_comparison_payload(db_session):

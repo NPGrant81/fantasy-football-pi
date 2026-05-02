@@ -2,6 +2,68 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import React from 'react';
 
+// Mock @tanstack/react-query so all hooks work without a QueryClientProvider.
+// useQuery executes the queryFn immediately so that apiClient stubs set in
+// individual tests still populate component state as expected.
+vi.mock('@tanstack/react-query', async () => {
+  const actual = await vi.importActual('@tanstack/react-query');
+  const ReactModule = await vi.importActual('react');
+  const { useState, useEffect } = ReactModule;
+
+  const _client = new actual.QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  return {
+    ...actual,
+    QueryClientProvider: ({ children }) => children,
+    useQueryClient: () => _client,
+    useQuery: (opts) => {
+      const [data, setData] = useState(undefined);
+      const [isLoading, setIsLoading] = useState(opts?.enabled !== false && Boolean(opts?.queryFn));
+
+      useEffect(() => {
+        if (opts?.enabled === false || !opts?.queryFn) {
+          setIsLoading(false);
+          return;
+        }
+        let cancelled = false;
+        Promise.resolve(opts.queryFn())
+          .then((result) => { if (!cancelled) { setData(result); setIsLoading(false); } })
+          .catch(() => { if (!cancelled) setIsLoading(false); });
+        return () => { cancelled = true; };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [JSON.stringify(opts?.queryKey), opts?.enabled]);
+
+      return {
+        data,
+        isLoading,
+        isFetching: isLoading,
+        isError: false,
+        error: null,
+        refetch: () => Promise.resolve(),
+        status: isLoading ? 'loading' : 'success',
+      };
+    },
+    useMutation: (opts) => {
+      const mutateAsync = async (variables) => {
+        if (opts?.mutationFn) {
+          const result = await opts.mutationFn(variables);
+          if (opts?.onSuccess) opts.onSuccess(result, variables);
+          return result;
+        }
+      };
+      return {
+        mutate: (variables) => { mutateAsync(variables).catch(() => {}); },
+        mutateAsync,
+        isLoading: false,
+        isPending: false,
+        isError: false,
+        error: null,
+        reset: () => {},
+      };
+    },
+  };
+});
+
 // bring in testing-library and router helpers before any code runs
 import * as rtl from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -46,6 +108,7 @@ vi.mock('./api/client', () => ({
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
 }));

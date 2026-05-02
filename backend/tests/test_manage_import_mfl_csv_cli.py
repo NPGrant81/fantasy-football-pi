@@ -236,9 +236,15 @@ def test_reconcile_mfl_import_csv_mode_blocked_without_env(monkeypatch, tmp_path
     assert "FFPI_ALLOW_LEGACY_CSV_PIPELINE" in result.output
 
 
-def test_stage_mfl_html_for_import_blocked_without_env(monkeypatch):
+def test_stage_mfl_html_for_import_blocked_without_env(monkeypatch, tmp_path):
     """stage-mfl-html-for-import requires FFPI_ALLOW_LEGACY_CSV_PIPELINE=1."""
     monkeypatch.delenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", raising=False)
+    api_root = tmp_path / "api"
+    html_root = tmp_path / "html"
+    output_root = tmp_path / "out"
+    api_root.mkdir(parents=True, exist_ok=True)
+    html_root.mkdir(parents=True, exist_ok=True)
+    output_root.mkdir(parents=True, exist_ok=True)
     runner = CliRunner()
     result = runner.invoke(
         manage.cli,
@@ -249,11 +255,11 @@ def test_stage_mfl_html_for_import_blocked_without_env(monkeypatch):
             "--end-year",
             "2022",
             "--api-root",
-            "/tmp",
+            str(api_root),
             "--html-root",
-            "/tmp",
+            str(html_root),
             "--output-root",
-            "/tmp/out",
+            str(output_root),
         ],
     )
     assert result.exit_code != 0

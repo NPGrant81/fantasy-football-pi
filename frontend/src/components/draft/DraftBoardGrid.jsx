@@ -54,7 +54,7 @@ export default function DraftBoardGrid({
   return (
     <div
       data-testid="draft-board"
-      className="flex gap-1 p-4 bg-slate-900 w-full overflow-x-auto md:flex"
+      className="flex gap-1 p-4 bg-slate-100 w-full overflow-x-auto md:flex dark:bg-slate-900"
     >
       {teams.map((team) => (
         <div
@@ -63,11 +63,11 @@ export default function DraftBoardGrid({
           className={`flex-1 min-w-0 flex flex-col border ${
             team.id === highlightOwnerId
               ? 'border-cyan-400'
-              : 'border-slate-700'
+              : 'border-slate-300 dark:border-slate-700'
           }`}
         >
           {/* header area: team name + stats */}
-          <div className="flex flex-col items-center p-2 bg-slate-800 border-b border-slate-700 h-24 justify-between">
+          <div className="flex flex-col items-center p-2 bg-slate-200 border-b border-slate-300 h-24 justify-between dark:bg-slate-800 dark:border-slate-700">
             {/* allow long names to wrap within the column instead of overflowing (fixed height keeps all headers equal) */}
             <span className="text-sm font-bold text-white leading-tight break-words whitespace-normal text-center">
               {team.team_name || team.name || team.username}
@@ -99,11 +99,11 @@ export default function DraftBoardGrid({
                   tabIndex={player ? 0 : undefined}
                   className={(() => {
                     if (!player) {
-                      return 'h-24 flex flex-col justify-center items-center border-r border-b border-slate-700 p-2 bg-slate-900 opacity-50';
+                      return 'h-24 flex flex-col justify-center items-center border-r border-b border-slate-200 p-2 bg-slate-50 opacity-50 dark:border-slate-700 dark:bg-slate-900';
                     }
                     const style = getDraftboardPositionStyle(player.position);
                     // base background matches position, add thin gold border for emphasis
-                    return `h-24 flex flex-col justify-between items-center border-r border-b border-slate-700 p-2 ${style.bg} ${style.text} border-2 border-slate-600 rounded-md shadow-md cursor-pointer hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-400/60`;
+                    return `h-24 flex flex-col justify-between items-center border-r border-b border-slate-200 p-2 ${style.bg} ${style.text} border-2 border-slate-400 rounded-md shadow-md cursor-pointer hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-400/60 dark:border-slate-700 dark:border-slate-600`;
                   })()}
                 >
                   {player ? (

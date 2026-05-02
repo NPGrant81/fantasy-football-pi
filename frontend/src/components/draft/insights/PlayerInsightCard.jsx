@@ -11,7 +11,7 @@ export default function PlayerInsightCard({
   bidAmount,
 }) {
   return (
-    <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
+    <div className="rounded-md border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-3">
       <div className="text-[11px] uppercase tracking-wide text-slate-400">
         Player-Level Insights
       </div>
@@ -85,7 +85,7 @@ export default function PlayerInsightCard({
                   <div className="mb-1 text-slate-500" title="Current bid relative to recommendation.">
                     Live Bidding Pressure
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded bg-slate-800">
+                  <div className="h-2 w-full overflow-hidden rounded bg-slate-200 dark:bg-slate-800">
                     <div
                       className={`h-2 ${
                         pressure >= 110

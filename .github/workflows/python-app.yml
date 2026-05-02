@@ -39,6 +39,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install uvicorn  # Ensure uvicorn is available for the smoke test
           if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          if [ -f backend/requirements-validation.txt ]; then pip install -r backend/requirements-validation.txt; fi
 
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=$GITHUB_WORKSPACE/backend" >> $GITHUB_ENV

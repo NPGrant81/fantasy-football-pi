@@ -608,8 +608,8 @@ export default function ManageScoringRules() {
           </div>
         </form>
 
-        {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
-        {message && <div className="mt-4 text-sm text-cyan-300">{message}</div>}
+        {error && <div className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</div>}
+        {message && <div className="mt-4 text-sm text-cyan-700 dark:text-cyan-300">{message}</div>}
       </div>
 
       <div className={cardSurface}>
@@ -779,10 +779,10 @@ export default function ManageScoringRules() {
           onChange={(event) => setSimStatsText(event.target.value)}
         />
 
-        {simError && <div className="mt-3 text-sm text-red-400">{simError}</div>}
+        {simError && <div className="mt-3 text-sm text-red-600 dark:text-red-400">{simError}</div>}
         {simResult && (
           <div className="mt-4 rounded-lg border border-slate-300 dark:border-slate-700 p-3 space-y-2">
-            <div className="text-sm font-semibold text-cyan-300">
+            <div className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">
               Total Preview Points: {simResult.points}
             </div>
             <div className={textCaption}>

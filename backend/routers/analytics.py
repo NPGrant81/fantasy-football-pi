@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import sqlalchemy as sa
 from typing import List
 from datetime import datetime, timezone
+import requests
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..database import get_db
@@ -14,6 +15,7 @@ from ..services.season_outlook_service import build_post_draft_outlook
 from ..schemas.season_outlook import PostDraftOutlookResponse
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 
 MIN_VALID_SEASON_YEAR = 2000
 MAX_VALID_SEASON_YEAR = datetime.now().year + 2
@@ -595,6 +597,278 @@ def get_player_heatmap_data(
     }
 
 
+@router.get('/league/{league_id}/positional-heatmap')
+def get_positional_heatmap_data(
+    league_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    profile: str = Query("standard", description="Heatmap profile: standard or pass-catching-rbs"),
+    stream_position: str = Query("WR", description="Position focus for streaming suggestions"),
+    db: Session = Depends(get_db),
+):
+    """Return team-vs-position matchup heatmap data.
+
+    Phase 2 uses live aggregates from player weekly stats plus ESPN matchup maps.
+    Falls back to deterministic mock payload if live inputs are incomplete.
+    """
+    resolved_season = _resolved_season(season)
+
+    normalized_profile = (profile or "standard").strip().lower()
+    if normalized_profile not in {"standard", "pass-catching-rbs"}:
+        raise HTTPException(status_code=400, detail="profile must be 'standard' or 'pass-catching-rbs'")
+
+    positions = ["QB", "RB", "WR", "TE"]
+    focus = (stream_position or "WR").strip().upper()
+    if focus not in positions:
+        raise HTTPException(status_code=400, detail="stream_position must be one of QB, RB, WR, TE")
+
+    weekly_stats_rows = (
+        db.query(models.PlayerWeeklyStat)
+        .join(models.Player, models.PlayerWeeklyStat.player_id == models.Player.id)
+        .filter(
+            models.PlayerWeeklyStat.season == resolved_season,
+            models.Player.position.in_(positions),
+            models.PlayerWeeklyStat.fantasy_points.isnot(None),
+            models.Player.nfl_team.isnot(None),
+        )
+        .all()
+    )
+
+    if not weekly_stats_rows:
+        return _build_mock_positional_heatmap_payload(
+            db=db,
+            league_id=league_id,
+            season=resolved_season,
+            profile=normalized_profile,
+            focus=focus,
+            reason="no_weekly_stats",
+        )
+
+    weeks = sorted({int(row.week) for row in weekly_stats_rows if row.week is not None})
+    opponent_map_by_week = _fetch_espn_opponent_map_for_weeks(resolved_season, weeks)
+    if not opponent_map_by_week:
+        return _build_mock_positional_heatmap_payload(
+            db=db,
+            league_id=league_id,
+            season=resolved_season,
+            profile=normalized_profile,
+            focus=focus,
+            reason="missing_opponent_map",
+        )
+
+    totals: dict[str, dict[str, float]] = {}
+    counts: dict[str, dict[str, int]] = {}
+
+    for row in weekly_stats_rows:
+        if row.player is None or row.week is None:
+            continue
+
+        offense_team = (row.player.nfl_team or "").strip().upper()
+        if not offense_team:
+            continue
+
+        week_map = opponent_map_by_week.get(int(row.week), {})
+        defense_team = week_map.get(offense_team)
+        if not defense_team:
+            continue
+
+        position = (row.player.position or "").strip().upper()
+        if position not in positions:
+            continue
+
+        fp = float(row.fantasy_points or 0.0)
+        if normalized_profile == "pass-catching-rbs" and position == "RB":
+            targets = _extract_numeric(row.stats or {}, ["TGTS", "targets", "receivingTargets", "Tgt"])
+            if not targets or targets <= 0:
+                continue
+
+        totals.setdefault(defense_team, {}).setdefault(position, 0.0)
+        counts.setdefault(defense_team, {}).setdefault(position, 0)
+        totals[defense_team][position] += fp
+        counts[defense_team][position] += 1
+
+    if not totals:
+        return _build_mock_positional_heatmap_payload(
+            db=db,
+            league_id=league_id,
+            season=resolved_season,
+            profile=normalized_profile,
+            focus=focus,
+            reason="insufficient_live_rows",
+        )
+
+    nfl_teams = sorted(totals.keys())
+    league_avg = {}
+    for pos in positions:
+        samples = [
+            totals[team][pos] / counts[team][pos]
+            for team in nfl_teams
+            if counts.get(team, {}).get(pos, 0) > 0
+        ]
+        league_avg[pos] = round(sum(samples) / len(samples), 2) if samples else 0.0
+
+    rows = []
+    for team_code in nfl_teams:
+        values = {}
+        for pos in positions:
+            sample_count = counts.get(team_code, {}).get(pos, 0)
+            if sample_count > 0:
+                values[pos] = round(totals[team_code][pos] / sample_count, 2)
+            else:
+                values[pos] = league_avg[pos]
+
+        rows.append(
+            {
+                "defense_team": team_code,
+                "values": values,
+                "weakest_position": max(values.items(), key=lambda item: item[1])[0],
+            }
+        )
+
+    sorted_by_focus = sorted(rows, key=lambda row: row["values"][focus], reverse=True)
+    streaming_suggestions = [
+        {
+            "rank": idx,
+            "defense_team": row["defense_team"],
+            "target_position": focus,
+            "points_allowed": row["values"][focus],
+            "rationale": (
+                f"{row['defense_team']} allows top-tier fantasy output to {focus}; "
+                f"prioritize streaming and waiver exposure against this matchup."
+            ),
+        }
+        for idx, row in enumerate(sorted_by_focus[:5], start=1)
+    ]
+
+    return {
+        "profile": normalized_profile,
+        "mock_data": False,
+        "positions": positions,
+        "rows": rows,
+        "streaming_suggestions": streaming_suggestions,
+        "meta": _analytics_meta(
+            db,
+            metric="positional_matchup_heatmap",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+    }
+
+
+def _fetch_espn_opponent_map_for_weeks(season: int, weeks: list[int]) -> dict[int, dict[str, str]]:
+    by_week: dict[int, dict[str, str]] = {}
+    for week in weeks:
+        try:
+            response = requests.get(
+                ESPN_SCOREBOARD_URL,
+                params={"year": season, "week": week, "seasontype": 2},
+                timeout=12,
+            )
+            response.raise_for_status()
+            payload = response.json() or {}
+        except Exception:
+            continue
+
+        week_map: dict[str, str] = {}
+        for event in payload.get("events", []):
+            competitions = event.get("competitions") or []
+            if not competitions:
+                continue
+            competitors = competitions[0].get("competitors") or []
+            if len(competitors) != 2:
+                continue
+
+            team_a = ((competitors[0].get("team") or {}).get("abbreviation") or "").strip().upper()
+            team_b = ((competitors[1].get("team") or {}).get("abbreviation") or "").strip().upper()
+            if not team_a or not team_b:
+                continue
+            week_map[team_a] = team_b
+            week_map[team_b] = team_a
+
+        if week_map:
+            by_week[int(week)] = week_map
+
+    return by_week
+
+
+def _build_mock_positional_heatmap_payload(
+    *,
+    db: Session,
+    league_id: int,
+    season: int,
+    profile: str,
+    focus: str,
+    reason: str,
+) -> dict:
+    positions = ["QB", "RB", "WR", "TE"]
+    nfl_teams = [
+        "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
+        "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
+        "LAC", "LAR", "LV", "MIA", "MIN", "NE", "NO", "NYG",
+        "NYJ", "PHI", "PIT", "SEA", "SF", "TB", "TEN", "WAS",
+    ]
+
+    base_by_position = {
+        "QB": 17.5,
+        "RB": 18.2 if profile == "standard" else 10.8,
+        "WR": 21.0,
+        "TE": 12.8,
+    }
+    profile_boost = {
+        "QB": 1.0,
+        "RB": 1.0 if profile == "standard" else 1.25,
+        "WR": 1.0,
+        "TE": 1.0,
+    }
+
+    rows = []
+    for index, team_code in enumerate(nfl_teams):
+        values = {}
+        for pos in positions:
+            seed = sum(ord(c) for c in f"{season}:{team_code}:{pos}")
+            cyclical = ((seed % 11) - 5) * 0.72
+            schedule_bias = ((index % 6) - 2.5) * 0.45
+            value = (base_by_position[pos] + cyclical + schedule_bias) * profile_boost[pos]
+            values[pos] = round(max(4.0, value), 2)
+
+        rows.append(
+            {
+                "defense_team": team_code,
+                "values": values,
+                "weakest_position": max(values.items(), key=lambda item: item[1])[0],
+            }
+        )
+
+    sorted_by_focus = sorted(rows, key=lambda row: row["values"][focus], reverse=True)
+    streaming_suggestions = [
+        {
+            "rank": idx,
+            "defense_team": row["defense_team"],
+            "target_position": focus,
+            "points_allowed": row["values"][focus],
+            "rationale": (
+                f"{row['defense_team']} ranks in the top matchup tier against {focus}; "
+                f"consider streaming or waiver priority for this position."
+            ),
+        }
+        for idx, row in enumerate(sorted_by_focus[:5], start=1)
+    ]
+
+    return {
+        "profile": profile,
+        "mock_data": True,
+        "fallback_reason": reason,
+        "positions": positions,
+        "rows": rows,
+        "streaming_suggestions": streaming_suggestions,
+        "meta": _analytics_meta(
+            db,
+            metric="positional_matchup_heatmap",
+            league_id=league_id,
+            season=season,
+        ),
+    }
+
+
 @router.get('/league/{league_id}/weekly-matchups')
 def get_weekly_matchup_comparison(
     league_id: int,
@@ -788,3 +1062,568 @@ def get_rivalry_graph(
             season=resolved_season,
         ),
     }
+
+
+@router.get('/league/{league_id}/luck-index')
+def get_luck_index(
+    league_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    db: Session = Depends(get_db),
+):
+    """Calculate the 'Luck Index' — how much a manager benefited from scheduling.
+    
+    Returns each manager's:
+    - actual_wins: real wins against actual opponents
+    - hypothetical_wins: wins if manager's scores played all other schedules
+    - luck: actual_wins - hypothetical_wins (positive = lucky scheduling)
+    - pf: points for (scoring efficiency)
+    - pa: points against (schedule strength)
+    """
+    resolved_season = _resolved_season(season)
+    
+    # Get all owners with their actual records
+    owners = (
+        db.query(models.User)
+        .filter(
+            models.User.league_id == league_id,
+            models.User.is_superuser.is_(False),
+            ~models.User.username.like("hist_%"),
+        )
+        .all()
+    )
+    if not owners:
+        return {
+            "rows": [],
+            "meta": _analytics_meta(
+                db,
+                metric="luck_index",
+                league_id=league_id,
+                season=resolved_season,
+            ),
+        }
+    
+    owner_ids = {o.id for o in owners}
+    owner_by_id = {o.id: o for o in owners}
+    
+    # Helper: calculate W-L-T from a set of matchups with owner as a specific side
+    def calc_record_against(owner_id: int, matchups: list):
+        w = l = t = pf = pa = 0
+        for m in matchups:
+            if m.home_team_id == owner_id:
+                score = m.home_score or 0
+                opp_score = m.away_score or 0
+            else:
+                score = m.away_score or 0
+                opp_score = m.home_score or 0
+            
+            pf += score
+            pa += opp_score
+            if score > opp_score:
+                w += 1
+            elif score < opp_score:
+                l += 1
+            else:
+                t += 1
+        return w, l, t, pf, pa
+    
+    # Helper: calculate hypothetical record
+    # For each owner, apply their scores to all other owners' opponent schedules
+    def calc_hypothetical_wins(owner_id: int, owner_matchups: list, all_owners_matchups: dict):
+        """
+        Calculate expected wins if this owner played all other teams' schedules.
+        Method: For each opponent the owner actually faced, replace with every
+        other team's opponent and see cumulative wins.
+        """
+        total_hypothetical_w = 0
+        total_hypothetical_games = 0
+        
+        # Get this owner's actual scores
+        owner_scores = []
+        for m in owner_matchups:
+            if m.home_team_id == owner_id:
+                owner_scores.append(m.home_score or 0)
+            else:
+                owner_scores.append(m.away_score or 0)
+        
+        # For each other owner, see what our owner's record would be against their opponents
+        for other_owner_id in owner_ids:
+            if other_owner_id == owner_id:
+                continue
+            
+            other_matchups = all_owners_matchups.get(other_owner_id, [])
+            if not other_matchups:
+                continue
+            
+            # Get other owner's opponent scores (the scores this owner would face)
+            hypothetical_scores = []
+            for m in other_matchups:
+                if m.home_team_id == other_owner_id:
+                    opponent_id = m.away_team_id
+                    opponent_score = m.away_score or 0
+                else:
+                    opponent_id = m.home_team_id
+                    opponent_score = m.home_score or 0
+                if opponent_id == owner_id:
+                    continue
+                hypothetical_scores.append(opponent_score)
+            
+            # Compare owner_scores with hypothetical_scores
+            min_games = min(len(owner_scores), len(hypothetical_scores))
+            for i in range(min_games):
+                total_hypothetical_games += 1
+                if owner_scores[i] > hypothetical_scores[i]:
+                    total_hypothetical_w += 1
+        
+        # Average the hypothetical wins
+        if total_hypothetical_games > 0:
+            return round(total_hypothetical_w * len(owner_ids) / total_hypothetical_games, 1)
+        return 0.0
+    
+    # Pre-fetch all completed matchups in one query and group by owner.
+    all_matchups = (
+        db.query(models.Matchup)
+        .filter(
+            models.Matchup.league_id == league_id,
+            models.Matchup.season == resolved_season,
+            models.Matchup.is_completed.is_(True),
+            sa.or_(
+                models.Matchup.home_team_id.in_(owner_ids),
+                models.Matchup.away_team_id.in_(owner_ids),
+            ),
+        )
+        .order_by(models.Matchup.week.asc(), models.Matchup.id.asc())
+        .all()
+    )
+    all_owners_matchups = {owner_id: [] for owner_id in owner_ids}
+    for matchup in all_matchups:
+        if matchup.home_team_id in all_owners_matchups:
+            all_owners_matchups[matchup.home_team_id].append(matchup)
+        if (
+            matchup.away_team_id in all_owners_matchups
+            and matchup.away_team_id != matchup.home_team_id
+        ):
+            all_owners_matchups[matchup.away_team_id].append(matchup)
+    
+    # Calculate luck for each owner
+    rows = []
+    for owner_id in owner_ids:
+        matchups = all_owners_matchups[owner_id]
+        if not matchups:
+            continue
+        
+        actual_w, actual_l, actual_t, pf, pa = calc_record_against(owner_id, matchups)
+        hypothetical_w = calc_hypothetical_wins(owner_id, matchups, all_owners_matchups)
+        luck = round(actual_w - hypothetical_w, 1)
+        
+        # Calculate efficiency: fraction of total points scored (not allowed)
+        total_points = pf + pa
+        efficiency = round((pf / total_points) if total_points > 0 else 0.5, 3)
+        
+        owner = owner_by_id.get(owner_id)
+        rows.append({
+            "owner_id": owner_id,
+            "owner_name": owner.username if owner else f"Owner {owner_id}",
+            "team_name": owner.team_name if owner else f"Team {owner_id}",
+            "actual_wins": actual_w,
+            "actual_losses": actual_l,
+            "actual_ties": actual_t,
+            "actual_record": f"{actual_w}-{actual_l}" + (f"-{actual_t}" if actual_t else ""),
+            "hypothetical_wins": hypothetical_w,
+            "luck": luck,
+            "pf": float(pf),
+            "pa": float(pa),
+            "efficiency": efficiency,
+            "win_percentage": round((actual_w / (actual_w + actual_l)) if (actual_w + actual_l) > 0 else 0, 3),
+        })
+    
+    # Calculate league medians for quadrant positioning
+    all_pf = [r["pf"] for r in rows]
+    all_pa = [r["pa"] for r in rows]
+    median_pf = sorted(all_pf)[len(all_pf) // 2] if all_pf else 0
+    median_pa = sorted(all_pa)[len(all_pa) // 2] if all_pa else 0
+    
+    # Add quadrant and luck category
+    for row in rows:
+        if row["pf"] >= median_pf:
+            pf_quadrant = "Good"
+        else:
+            pf_quadrant = "Bad"
+        
+        if row["pa"] <= median_pa:
+            pa_quadrant = "Lucky"  # Low PA = lucky (weaker opponents)
+        else:
+            pa_quadrant = "Unlucky"  # High PA = unlucky (stronger opponents)
+        
+        row["quadrant"] = f"{pf_quadrant}/{pa_quadrant}"
+    
+    # Sort by luck (most lucky first)
+    rows.sort(key=lambda r: r["luck"], reverse=True)
+    
+    return {
+        "rows": rows,
+        "meta": _analytics_meta(
+            db,
+            metric="luck_index",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+        "medians": {
+            "pf": float(median_pf),
+            "pa": float(median_pa),
+        },
+    }
+
+
+@router.get('/league/{league_id}/player-consistency')
+def get_player_consistency(
+    league_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    limit: int = Query(20, ge=5, le=100),
+    db: Session = Depends(get_db),
+):
+    """Analyze player week-to-week consistency and volatility.
+    
+    Returns players grouped by reliability vs volatility, with consistency metrics:
+    - floor: minimum fantasy points scored in any week
+    - ceiling: maximum fantasy points scored in any week
+    - median: 50th percentile
+    - avg: mean fantasy points
+    - stdev: standard deviation
+    - variance: stdev²
+    - reliability_score: normalized measure (1.0 = perfect consistency)
+    """
+    resolved_season = _resolved_season(season)
+    
+    # Get all players on rosters in this league
+    roster_player_ids = set()
+    rosters = (
+        db.query(models.Roster)
+        .filter(models.Roster.league_id == league_id)
+        .all()
+    )
+    for roster in rosters:
+        if roster.players_json:
+            for player_id in roster.players_json.values():
+                if player_id:
+                    try:
+                        roster_player_ids.add(int(player_id))
+                    except (TypeError, ValueError):
+                        pass
+    
+    if not roster_player_ids:
+        return {
+            "most_reliable": [],
+            "most_volatile": [],
+            "meta": _analytics_meta(
+                db,
+                metric="player_consistency",
+                league_id=league_id,
+                season=resolved_season,
+            ),
+        }
+    
+    # Fetch weekly stats for these players
+    weekly_stats = (
+        db.query(models.PlayerWeeklyStat)
+        .options(joinedload(models.PlayerWeeklyStat.player))
+        .filter(
+            models.PlayerWeeklyStat.player_id.in_(list(roster_player_ids)),
+            models.PlayerWeeklyStat.season == resolved_season,
+        )
+        .all()
+    )
+    
+    # Organize by player
+    stats_by_player: dict[int, list[float]] = {}
+    player_info: dict[int, dict] = {}
+    
+    for stat in weekly_stats:
+        if stat.fantasy_points is not None:
+            if stat.player_id not in stats_by_player:
+                stats_by_player[stat.player_id] = []
+            stats_by_player[stat.player_id].append(float(stat.fantasy_points))
+            
+            # Capture player info
+            if stat.player_id not in player_info:
+                player = stat.player
+                if player:
+                    player_info[stat.player_id] = {
+                        "name": player.full_name or f"Player {stat.player_id}",
+                        "position": player.position or "N/A",
+                        "player_id": stat.player_id,
+                    }
+    
+    # Calculate consistency metrics
+    consistency_rows = []
+    
+    for player_id, points_list in stats_by_player.items():
+        if len(points_list) < 2:
+            continue  # Need at least 2 data points
+        
+        import statistics
+        
+        avg = statistics.mean(points_list)
+        median = statistics.median(points_list)
+        stdev = statistics.stdev(points_list) if len(points_list) > 1 else 0.0
+        variance = stdev ** 2
+        floor = min(points_list)
+        ceiling = max(points_list)
+        
+        # Reliability score: normalized consistency (1.0 = never varies)
+        # If avg is high and stdev is low, reliability is high
+        reliability_score = avg / (avg + stdev) if (avg + stdev) > 0 else 0.5
+        
+        info = player_info.get(player_id, {})
+        consistency_rows.append({
+            "player_id": player_id,
+            "player_name": info.get("name", f"Player {player_id}"),
+            "position": info.get("position", "N/A"),
+            "avg": round(avg, 2),
+            "floor": round(floor, 2),
+            "ceiling": round(ceiling, 2),
+            "median": round(median, 2),
+            "stdev": round(stdev, 2),
+            "variance": round(variance, 2),
+            "reliability_score": round(reliability_score, 3),
+            "weeks_played": len(points_list),
+            "weekly_points": [round(p, 2) for p in points_list],
+        })
+    
+    # Sort by reliability (highest first) and volatility (highest stdev first)
+    most_reliable = sorted(
+        consistency_rows,
+        key=lambda r: (-r["reliability_score"], -r["avg"]),
+    )[:limit]
+    
+    most_volatile = sorted(
+        consistency_rows,
+        key=lambda r: (-r["variance"], -r["avg"]),
+    )[:limit]
+    
+    return {
+        "most_reliable": most_reliable,
+        "most_volatile": most_volatile,
+        "meta": _analytics_meta(
+            db,
+            metric="player_consistency",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+    }
+
+
+@router.get('/league/{league_id}/waiver-opportunities')
+def get_waiver_opportunities(
+    league_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    limit: int = Query(30, ge=5, le=100),
+    position: str = Query(None, description="Filter by position: QB, RB, WR, TE, K"),
+    db: Session = Depends(get_db),
+):
+    """Waiver wire opportunity tracker — rolling opportunity analysis for free agents.
+
+    Returns free agent players ranked by recent opportunity volume and trend:
+    - opportunity_score: composite of targets + carries + fantasy_points (normalized)
+    - trend: slope of opportunity across last 4 weeks (positive = trending up)
+    - weekly_scores: week-by-week fantasy points for heatmap rendering
+    - breakout_flag: True when trending strongly upward (slope > threshold)
+    """
+    resolved_season = _resolved_season(season)
+
+    # Find all player IDs currently owned in this league (via draft or active transactions)
+    owned_player_ids = {
+        row[0]
+        for row in db.query(models.DraftPick.player_id)
+        .filter(models.DraftPick.league_id == league_id)
+        .all()
+    }
+
+    # Also include players added via waiver and not subsequently dropped
+    waiver_adds = (
+        db.query(
+            models.TransactionHistory.player_id,
+            models.TransactionHistory.transaction_type,
+            models.TransactionHistory.timestamp,
+        )
+        .filter(
+            models.TransactionHistory.league_id == league_id,
+            models.TransactionHistory.season == resolved_season,
+            models.TransactionHistory.transaction_type.in_(["waiver_add", "waiver_drop", "drop"]),
+        )
+        .order_by(models.TransactionHistory.timestamp.asc())
+        .all()
+    )
+
+    # Apply add/drop logic to get final ownership state
+    for row in waiver_adds:
+        if row.transaction_type == "waiver_add":
+            owned_player_ids.add(row.player_id)
+        elif row.transaction_type in ("waiver_drop", "drop"):
+            owned_player_ids.discard(row.player_id)
+
+    # Active positions for the league
+    from ..services.player_service import get_active_positions_for_league
+
+    active_positions = get_active_positions_for_league(db, league_id)
+    if position:
+        pos_upper = position.upper()
+        if pos_upper in active_positions:
+            active_positions = [pos_upper]
+        else:
+            active_positions = [pos_upper]  # Still allow explicit filter
+
+    # Get all weekly stats for this season for free-agent-eligible positions
+    # Fetch stats + player in one join, excluding owned players
+    weekly_stats_rows = (
+        db.query(models.PlayerWeeklyStat)
+        .join(models.Player, models.PlayerWeeklyStat.player_id == models.Player.id)
+        .filter(
+            models.PlayerWeeklyStat.season == resolved_season,
+            models.Player.position.in_(active_positions),
+            ~models.PlayerWeeklyStat.player_id.in_(list(owned_player_ids)),
+        )
+        .order_by(models.PlayerWeeklyStat.player_id, models.PlayerWeeklyStat.week)
+        .all()
+    )
+
+    # Group by player
+    import statistics as _stats
+
+    players_data: dict[int, dict] = {}
+    for stat in weekly_stats_rows:
+        pid = stat.player_id
+        if pid not in players_data:
+            player = stat.player
+            players_data[pid] = {
+                "player_id": pid,
+                "player_name": player.full_name or player.name or f"Player {pid}",
+                "position": player.position or "N/A",
+                "nfl_team": player.nfl_team or "N/A",
+                "weekly": {},  # week -> {fp, targets, carries}
+            }
+
+        fp = float(stat.fantasy_points) if stat.fantasy_points is not None else 0.0
+        raw_stats = stat.stats or {}
+
+        # Extract opportunity metrics from ESPN stats JSON
+        targets = _extract_numeric(raw_stats, ["TGTS", "targets", "receivingTargets", "Tgt"])
+        carries = _extract_numeric(raw_stats, ["CAR", "carries", "rushingAttempts", "Att"])
+        red_zone_targets = _extract_numeric(raw_stats, ["RZTGTS", "redZoneTargets", "rzTargets"])
+        snap_pct = _extract_numeric(raw_stats, ["SNAP%", "snapPct", "snap_pct", "snapCountPct"])
+
+        players_data[pid]["weekly"][stat.week] = {
+            "fantasy_points": fp,
+            "targets": targets,
+            "carries": carries,
+            "red_zone_targets": red_zone_targets,
+            "snap_pct": snap_pct,
+        }
+
+    # Calculate metrics per player
+    rows = []
+    for pid, data in players_data.items():
+        weekly = data["weekly"]
+        if len(weekly) < 1:
+            continue
+
+        weeks_sorted = sorted(weekly.keys())
+        fp_list = [weekly[w]["fantasy_points"] for w in weeks_sorted]
+        targets_list = [weekly[w]["targets"] for w in weeks_sorted]
+        carries_list = [weekly[w]["carries"] for w in weeks_sorted]
+
+        avg_fp = _stats.mean(fp_list) if fp_list else 0.0
+        total_targets = sum(t for t in targets_list if t is not None)
+        total_carries = sum(c for c in carries_list if c is not None)
+        total_rz_targets = sum(
+            weekly[w]["red_zone_targets"]
+            for w in weeks_sorted
+            if weekly[w]["red_zone_targets"] is not None
+        )
+
+        # Opportunity score: weighted composite
+        opportunity_score = round(
+            avg_fp * 1.0
+            + (total_targets / max(len(weeks_sorted), 1)) * 0.5
+            + (total_carries / max(len(weeks_sorted), 1)) * 0.3
+            + (total_rz_targets / max(len(weeks_sorted), 1)) * 0.8,
+            2,
+        )
+
+        # Trend: linear regression slope across last 4 weeks of fp
+        recent_fp = fp_list[-4:] if len(fp_list) >= 4 else fp_list
+        trend = _calc_slope(recent_fp)
+
+        # Recent avg (last 3 weeks)
+        recent_avg = round(_stats.mean(fp_list[-3:]), 2) if fp_list else 0.0
+
+        # Season avg
+        season_avg = round(avg_fp, 2)
+
+        # Breakout flag: strongly trending up in recent weeks
+        breakout_flag = trend > 2.0 and recent_avg > season_avg * 1.15
+
+        # Weekly scores for heatmap (all weeks)
+        weekly_scores = {str(w): round(weekly[w]["fantasy_points"], 2) for w in weeks_sorted}
+
+        rows.append({
+            "player_id": pid,
+            "player_name": data["player_name"],
+            "position": data["position"],
+            "nfl_team": data["nfl_team"],
+            "season_avg": season_avg,
+            "recent_avg": recent_avg,
+            "opportunity_score": opportunity_score,
+            "trend": round(trend, 3),
+            "breakout_flag": breakout_flag,
+            "total_targets": total_targets,
+            "total_carries": total_carries,
+            "total_rz_targets": total_rz_targets,
+            "weeks_played": len(weeks_sorted),
+            "weekly_scores": weekly_scores,
+        })
+
+    # Sort by opportunity_score descending
+    rows.sort(key=lambda r: (-r["opportunity_score"], -r["season_avg"]))
+    rows = rows[:limit]
+
+    # Compute max values for heatmap normalization
+    max_fp = max((r["season_avg"] for r in rows), default=1.0)
+
+    return {
+        "rows": rows,
+        "meta": _analytics_meta(
+            db,
+            metric="waiver_opportunities",
+            league_id=league_id,
+            season=resolved_season,
+        ),
+        "heatmap_max": round(max_fp, 2),
+        "all_weeks": sorted(
+            {int(w) for r in rows for w in r["weekly_scores"].keys()},
+        ),
+    }
+
+
+def _extract_numeric(stats_dict: dict, keys: list) -> float | None:
+    """Try multiple key names and return first numeric match."""
+    for key in keys:
+        val = stats_dict.get(key)
+        if val is not None:
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _calc_slope(values: list[float]) -> float:
+    """Calculate linear regression slope for a list of values."""
+    n = len(values)
+    if n < 2:
+        return 0.0
+    x = list(range(n))
+    x_mean = sum(x) / n
+    y_mean = sum(values) / n
+    numerator = sum((x[i] - x_mean) * (values[i] - y_mean) for i in range(n))
+    denominator = sum((x[i] - x_mean) ** 2 for i in range(n))
+    return numerator / denominator if denominator != 0 else 0.0

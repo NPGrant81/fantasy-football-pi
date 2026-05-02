@@ -60,15 +60,6 @@ const DEFAULT_STARTER_SLOTS = {
   FLEX: 1,
 };
 
-const MIN_ACTIVE_REQUIREMENTS = {
-  QB: 1,
-  RB: 1,
-  WR: 1,
-  TE: 1,
-  K: 0,
-  DEF: 1,
-};
-
 const DEFAULT_MAX_POSITION_LIMITS = {
   QB: 1,
   RB: 3,
@@ -77,6 +68,8 @@ const DEFAULT_MAX_POSITION_LIMITS = {
   K: 1,
   DEF: 1,
 };
+
+const ACTIVE_POSITION_KEYS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
 const STARTER_LIMIT_KEYS = {
   QB: 'MAX_QB',
@@ -165,10 +158,10 @@ const normalizeLineupConstraints = (slots) => {
   const activeRosterSize = clampInt(normalizedSlots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12);
 
   const maxLimits = {
-    QB: clampInt(normalizedSlots.MAX_QB ?? normalizedSlots.QB ?? 1, 1, 3),
-    RB: clampInt(normalizedSlots.MAX_RB ?? normalizedSlots.RB ?? 3, 1, 5),
-    WR: clampInt(normalizedSlots.MAX_WR ?? normalizedSlots.WR ?? 3, 1, 5),
-    TE: clampInt(normalizedSlots.MAX_TE ?? normalizedSlots.TE ?? 2, 1, 3),
+    QB: clampInt(normalizedSlots.MAX_QB ?? normalizedSlots.QB ?? 1, 0, 3),
+    RB: clampInt(normalizedSlots.MAX_RB ?? normalizedSlots.RB ?? 3, 0, 5),
+    WR: clampInt(normalizedSlots.MAX_WR ?? normalizedSlots.WR ?? 3, 0, 5),
+    TE: clampInt(normalizedSlots.MAX_TE ?? normalizedSlots.TE ?? 2, 0, 3),
     K: clampInt(normalizedSlots.MAX_K ?? normalizedSlots.K ?? 1, 0, 1),
     DEF: clampInt(normalizedSlots.MAX_DEF ?? normalizedSlots.DEF ?? 1, 0, 1),
     FLEX: clampInt(normalizedSlots.MAX_FLEX ?? normalizedSlots.FLEX ?? 1, 0, 2),
@@ -696,7 +689,9 @@ export default function YourLockerRoom({ activeOwnerId }) {
     const currentStarters = rosterState.filter(
       (player) => player.status === 'STARTER' && !player.is_taxi
     );
-    const counts = { QB: 0, RB: 0, WR: 0, TE: 0, DEF: 0, K: 0 };
+    const counts = Object.fromEntries(
+      ACTIVE_POSITION_KEYS.map((position) => [position, 0])
+    );
 
     for (const player of currentStarters) {
       const position = normalizePosition(player.position);
@@ -728,7 +723,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
       blockingErrors.push('too many players');
     }
 
-    const tierRows = Object.keys(MIN_ACTIVE_REQUIREMENTS)
+    const tierRows = ACTIVE_POSITION_KEYS
       .filter((position) => {
         const minimum = Number(canonicalMinimums[position] ?? 0);
         const maximum = Number(
@@ -853,6 +848,45 @@ export default function YourLockerRoom({ activeOwnerId }) {
     [benchLineupPlayers]
   );
 
+  const enabledStarterPositions = useMemo(() => {
+    return new Set(
+      ACTIVE_POSITION_KEYS.filter((position) => {
+        const minimum = Number(starterRequirements[position] ?? 0);
+        const maximum = Number(
+          maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
+        );
+        return minimum > 0 || maximum > 0;
+      })
+    );
+  }, [starterRequirements, maxPositionLimits]);
+
+  useEffect(() => {
+    let demotedCount = 0;
+    setRosterState((prev) => {
+      const next = prev.map((player) => {
+        const position = normalizePosition(player.position);
+        if (
+          player.status === 'STARTER' &&
+          !player.is_taxi &&
+          !enabledStarterPositions.has(position)
+        ) {
+          demotedCount += 1;
+          return { ...player, status: 'BENCH' };
+        }
+        return player;
+      });
+      return demotedCount > 0 ? next : prev;
+    });
+
+    if (demotedCount > 0) {
+      setToast({
+        message:
+          'Starter slots were updated for this league. Players in disabled positions were moved to bench.',
+        type: 'error',
+      });
+    }
+  }, [enabledStarterPositions]);
+
   const movePlayerToStatus = useCallback(
     (playerId, targetStatus) => {
       if (!canEditLineup) return;
@@ -865,6 +899,17 @@ export default function YourLockerRoom({ activeOwnerId }) {
           if (target.is_locked) {
             setToast({
               message: `${target.name} is locked for Week ${selectedWeek} (game already started).`,
+              type: 'error',
+            });
+            return prev;
+          }
+          const targetPosition = normalizePosition(target.position);
+          if (
+            targetStatus === 'STARTER' &&
+            !enabledStarterPositions.has(targetPosition)
+          ) {
+            setToast({
+              message: `${targetPosition} is disabled in this league and cannot be started.`,
               type: 'error',
             });
             return prev;
@@ -891,7 +936,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
         });
       }
     },
-    [canEditLineup, selectedWeek, viewMode]
+    [canEditLineup, selectedWeek, viewMode, enabledStarterPositions]
   );
 
   const applyRecommendedLineup = useCallback(() => {
@@ -967,7 +1012,11 @@ export default function YourLockerRoom({ activeOwnerId }) {
         });
       }
       const starterIds = starters
-        .filter((p) => !p.is_taxi)
+        .filter(
+          (p) =>
+            !p.is_taxi &&
+            enabledStarterPositions.has(normalizePosition(p.position))
+        )
         .map((player) => Number(player.player_id));
 
       console.log('Submitting roster payload', {
@@ -1213,8 +1262,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
               </button>
             </div>
 
-            <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 text-sm text-slate-200">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+            <div className="rounded-lg border border-slate-300 bg-slate-50 p-4 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Read-only view
               </p>
 
@@ -1228,12 +1277,12 @@ export default function YourLockerRoom({ activeOwnerId }) {
                     scoringRules.slice(0, 10).map((rule, index) => (
                       <div
                         key={`${rule.category}-${rule.event_name}-${index}`}
-                        className="rounded border border-slate-800 bg-slate-950/40 px-3 py-2"
+                        className="rounded border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/40"
                       >
-                        <div className="font-bold text-slate-100">
+                        <div className="font-bold text-slate-900 dark:text-slate-100">
                           {rule.event_name}
                         </div>
-                        <div className="text-xs text-slate-400">
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
                           {rule.category} • {rule.point_value} pts
                         </div>
                       </div>
@@ -1356,7 +1405,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
             )}
 
             <div
-              className={`${controlButtonClass} inline-flex items-center gap-2 border border-slate-700 bg-slate-900 text-slate-200`}
+              className={`${controlButtonClass} inline-flex items-center gap-2 border border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200`}
             >
               <FiRepeat className="text-base text-blue-400" />
               <span className="uppercase">Pending Trades</span>
@@ -1375,28 +1424,28 @@ export default function YourLockerRoom({ activeOwnerId }) {
             </p>
           )}
           {focusedOwner?.division_name && (
-            <p className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-cyan-300">
+            <p className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-50 px-3 py-2 text-xs font-black uppercase tracking-widest text-cyan-700 dark:bg-cyan-900/20 dark:text-cyan-300">
               Division: {focusedOwner.division_name}
             </p>
           )}
           {focusedOwner?.standings_metrics?.division_wins !== undefined && (
-            <p className="inline-flex items-center gap-2 rounded-lg border border-slate-500/40 bg-slate-900/40 px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-300">
+            <p className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-700 dark:border-slate-500/40 dark:bg-slate-900/40 dark:text-slate-300">
               Division Wins: {focusedOwner.standings_metrics.division_wins}
             </p>
           )}
           {/* deadlines indicators */}
           {waiverRemaining && userInfo.draftStatus !== 'ACTIVE' && (
-            <p className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-blue-300">
+            <p className="inline-flex items-center gap-2 rounded-lg border border-blue-400/60 bg-blue-50 px-3 py-2 text-xs font-black uppercase tracking-widest text-blue-700 dark:border-blue-500/40 dark:bg-blue-900/20 dark:text-blue-300">
               Waiver Deadline: {waiverRemaining}
             </p>
           )}
           {tradeRemaining && userInfo.draftStatus !== 'ACTIVE' && (
-            <p className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/40 bg-yellow-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-yellow-300">
+            <p className="inline-flex items-center gap-2 rounded-lg border border-yellow-400/60 bg-yellow-50 px-3 py-2 text-xs font-black uppercase tracking-widest text-yellow-800 dark:border-yellow-500/40 dark:bg-yellow-900/20 dark:text-yellow-300">
               Trade Deadline: {tradeRemaining}
             </p>
           )}
           {userInfo.draftStatus === 'ACTIVE' && (
-            <p className="inline-flex items-center gap-2 rounded-lg border border-orange-500/40 bg-orange-900/20 px-3 py-2 text-xs font-black uppercase tracking-widest text-orange-300">
+            <p className="inline-flex items-center gap-2 rounded-lg border border-orange-400/60 bg-orange-50 px-3 py-2 text-xs font-black uppercase tracking-widest text-orange-700 dark:border-orange-500/40 dark:bg-orange-900/20 dark:text-orange-300">
               Draft Active • Waiver Wire Locked
             </p>
           )}
@@ -1714,11 +1763,11 @@ export default function YourLockerRoom({ activeOwnerId }) {
               </button>
             </div>
 
-            <div className="rounded-lg border border-red-900/40 bg-red-900/10 p-4">
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-red-200">
+            <div className="rounded-lg border border-red-400/40 bg-red-50 p-4 dark:border-red-900/40 dark:bg-red-900/10">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-red-700 dark:text-red-200">
                 Week {selectedWeek} requirements are not satisfied:
               </p>
-              <ul className="space-y-1 text-sm text-red-100">
+              <ul className="space-y-1 text-sm text-red-800 dark:text-red-100">
                 {lineupValidationErrors.map((error) => (
                   <li key={error} className="flex items-center gap-2">
                     <span>•</span>
@@ -1742,8 +1791,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
       <div
         className={`${cardSurface} mb-8 border-2 ${
           lineupIsValid
-            ? 'border-green-500/40 bg-green-900/5'
-            : 'border-red-500/40 bg-red-900/5'
+            ? 'border-green-500/40 bg-green-50 dark:bg-green-900/5'
+            : 'border-red-500/40 bg-red-50 dark:bg-red-900/5'
         }`}
       >
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
@@ -1758,8 +1807,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
               for this week.
             </p>
             <p className="mt-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              <span className="text-green-300">Green = valid tier</span> •{' '}
-              <span className="text-red-300">Red = invalid tier</span>
+              <span className="text-green-600 dark:text-green-300">Green = valid tier</span> •{' '}
+              <span className="text-red-600 dark:text-red-300">Red = invalid tier</span>
             </p>
           </div>
 
@@ -1827,12 +1876,12 @@ export default function YourLockerRoom({ activeOwnerId }) {
             {(hasUnsavedLineupChanges || lineupSubmittedForWeek) && (
               <div className="flex flex-wrap items-center justify-end gap-2">
                 {hasUnsavedLineupChanges && (
-                  <span className="rounded-md border border-yellow-700/60 bg-yellow-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-yellow-300">
+                  <span className="rounded-md border border-yellow-600/60 bg-yellow-50 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-yellow-700 dark:border-yellow-700/60 dark:bg-yellow-900/20 dark:text-yellow-300">
                     Unsaved Changes
                   </span>
                 )}
                 {lineupSubmittedForWeek && (
-                  <span className="rounded-md border border-green-700/60 bg-green-900/20 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-green-300">
+                  <span className="rounded-md border border-green-600/60 bg-green-50 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-green-700 dark:border-green-700/60 dark:bg-green-900/20 dark:text-green-300">
                     Week {selectedWeek} Submitted
                   </span>
                 )}
@@ -1867,7 +1916,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                           {getPlayerSlotLabel(player)} • {player.nfl_team}
                         </div>
                       </div>
-                      <div className="text-sm font-mono font-bold text-green-300">
+                      <div className="text-sm font-mono font-bold text-green-600 dark:text-green-300">
                         {Number(player.projected_for_week || 0).toFixed(1)}
                       </div>
                     </div>
@@ -1899,7 +1948,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                           {player.nfl_team}
                         </div>
                       </div>
-                      <div className="text-xs font-black uppercase tracking-wider text-orange-300">
+                      <div className="text-xs font-black uppercase tracking-wider text-orange-600 dark:text-orange-300">
                         Sit
                       </div>
                     </div>
@@ -1917,7 +1966,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                           {getPlayerSlotLabel(player)} • {player.nfl_team}
                         </div>
                       </div>
-                      <div className="text-sm font-mono font-bold text-red-300">
+                      <div className="text-sm font-mono font-bold text-red-600 dark:text-red-300">
                         {Number(player.projected_for_week || 0).toFixed(1)}
                       </div>
                     </div>
@@ -1967,8 +2016,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
                     ? 'border-red-400'
                     : 'border-green-400';
                   const badgeColor = isTierOutOfBounds
-                    ? 'bg-red-900/20 text-red-300'
-                    : 'bg-green-900/20 text-green-300';
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300'
+                    : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300';
                   return (
                     <div
                       className="rounded-md border border-slate-300 bg-white/50 p-2 dark:border-slate-700 dark:bg-slate-900/30"
@@ -1980,7 +2029,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                       >
                         <div className="flex items-center gap-2">
                           <span
-                            className={`text-sm font-bold uppercase ${isTierOutOfBounds ? 'text-red-300' : 'text-green-300'}`}
+                            className={`text-sm font-bold uppercase ${isTierOutOfBounds ? 'text-red-600 dark:text-red-300' : 'text-green-600 dark:text-green-300'}`}
                           >
                             {pos} {tier.actual}
                           </span>
@@ -2009,7 +2058,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                               onClick={() => openPlayerPerformance(player)}
                               className={`w-full rounded-lg border px-3 py-2 text-left ${
                                 player.is_locked
-                                  ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                                  ? 'cursor-not-allowed border-orange-400/50 bg-orange-50 dark:border-orange-800/60 dark:bg-orange-900/20'
                                   : 'border-slate-300 bg-white hover:border-blue-500/50 dark:border-slate-800 dark:bg-slate-950/70'
                               }`}
                             >
@@ -2022,12 +2071,12 @@ export default function YourLockerRoom({ activeOwnerId }) {
                                     {player.nfl_team}
                                   </div>
                                 </div>
-                                <div className="text-sm font-mono font-bold text-green-300">
+                                <div className="text-sm font-mono font-bold text-green-600 dark:text-green-300">
                                   {Number(toProjectedPoints(player)).toFixed(1)}
                                 </div>
                               </div>
                               {player.is_locked && (
-                                <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                                <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-300">
                                   Locked (game started)
                                 </div>
                               )}
@@ -2069,7 +2118,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                     }}
                     className={`w-full rounded-lg border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                       player.is_locked
-                        ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                        ? 'cursor-not-allowed border-orange-400/50 bg-orange-50 dark:border-orange-800/60 dark:bg-orange-900/20'
                         : 'cursor-pointer border-slate-300 bg-white hover:border-blue-500/50 dark:border-slate-800 dark:bg-slate-950/70'
                     }`}
                   >
@@ -2100,7 +2149,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                       </div>
                     )}
                     {player.is_locked && (
-                      <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-300">
                         Locked (game started)
                       </div>
                     )}
@@ -2125,7 +2174,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
                         }}
                         className={`w-full rounded-lg border px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
                           player.is_locked
-                            ? 'cursor-not-allowed border-orange-800/60 bg-orange-900/20'
+                            ? 'cursor-not-allowed border-orange-400/50 bg-orange-50 dark:border-orange-800/60 dark:bg-orange-900/20'
                             : 'cursor-pointer border-yellow-500/50 bg-yellow-100/60 hover:border-yellow-500/50 dark:border-yellow-800 dark:bg-yellow-900/10'
                         }`}
                       >
@@ -2157,11 +2206,11 @@ export default function YourLockerRoom({ activeOwnerId }) {
                           </div>
                         )}
                         {player.is_locked && (
-                          <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-300">
+                          <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-orange-600 dark:text-orange-300">
                             Locked (game started)
                           </div>
                         )}
-                        <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-yellow-300">
+                        <div className="mt-1 text-[10px] font-black uppercase tracking-wider text-yellow-700 dark:text-yellow-300">
                           Taxi Squad
                         </div>
                       </div>

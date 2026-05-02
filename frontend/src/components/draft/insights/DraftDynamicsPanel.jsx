@@ -1,7 +1,7 @@
 /* ignore-breakpoints */
 export default function DraftDynamicsPanel({ draftDynamics }) {
   return (
-    <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3">
+    <div className="rounded-md border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-3">
       <div className="text-[11px] uppercase tracking-wide text-slate-400">
         Draft Dynamics Sidebar
       </div>
@@ -41,7 +41,7 @@ export default function DraftDynamicsPanel({ draftDynamics }) {
                   <span className="truncate pr-2">{row.owner_name}</span>
                   <span>${Number(row.budget).toFixed(0)}</span>
                 </div>
-                <div className="h-1.5 w-full rounded bg-slate-800">
+                <div className="h-1.5 w-full rounded bg-slate-200 dark:bg-slate-800">
                   <div className="h-1.5 rounded bg-cyan-500" style={{ width: `${pct}%` }} />
                 </div>
               </div>
@@ -64,7 +64,7 @@ export default function DraftDynamicsPanel({ draftDynamics }) {
                 <span>{row.position}</span>
                 <span>{row.remainingSlots} need / {row.availableCount} avail</span>
               </div>
-              <div className="mt-1 h-1.5 w-full rounded bg-slate-800">
+              <div className="mt-1 h-1.5 w-full rounded bg-slate-200 dark:bg-slate-800">
                 <div
                   className={`h-1.5 rounded ${
                     row.scarcity >= 80

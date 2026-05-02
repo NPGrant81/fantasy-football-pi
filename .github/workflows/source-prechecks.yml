@@ -22,6 +22,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
+          if [ -f backend/requirements-validation.txt ]; then pip install -r backend/requirements-validation.txt; fi
           if [ -f etl/requirements.txt ]; then pip install -r etl/requirements.txt; fi
 
       - name: Run FantasyNerds precheck

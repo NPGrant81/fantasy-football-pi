@@ -17,41 +17,41 @@ import {
 // --- 1.1 SUB-COMPONENTS (Declared Outside) ---
 // This prevents React from re-creating the component definition on every render.
 const RosterColumn = ({ players = [], teamName, teamInfo, colorClass, showProjected }) => (
-  <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-    <div className="bg-slate-950/50 p-3 border-b border-slate-800 flex items-center gap-2 justify-center">
+  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex items-center justify-center gap-2 border-b border-slate-200 bg-slate-100 p-3 dark:border-slate-800 dark:bg-slate-950/50">
       <TeamLogo teamInfo={teamInfo} size="sm" />
-      <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs">
+      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
         {teamName} Starters
       </h3>
     </div>
-    <div className="divide-y divide-slate-800">
+    <div className="divide-y divide-slate-200 dark:divide-slate-800">
       {players.length === 0 ? (
-        <div className="p-8 text-center text-slate-600 italic text-sm">
+        <div className="p-8 text-center text-sm italic text-slate-500 dark:text-slate-600">
           No starters set.
         </div>
       ) : (
         players.map((p) => (
           <div
             key={p.player_id}
-            className="flex justify-between items-center p-3 hover:bg-slate-800/30 transition"
+            className="flex items-center justify-between p-3 transition hover:bg-slate-100 dark:hover:bg-slate-800/30"
           >
             <div className="flex items-center gap-3">
               <span
                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded w-8 text-center ${
                   p.position === 'QB'
-                    ? 'bg-red-900/20 text-red-400 border border-red-900/50'
+                    ? 'border border-red-400/60 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400'
                     : p.position === 'RB'
-                      ? 'bg-green-900/20 text-green-400 border border-green-900/50'
+                      ? 'border border-green-400/60 bg-green-50 text-green-700 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-400'
                       : p.position === 'WR'
-                        ? 'bg-blue-900/20 text-blue-400 border border-blue-900/50'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        ? 'border border-blue-400/60 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-400'
+                        : 'border border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
                 }`}
               >
                 {p.position}
               </span>
               <div>
-                <div className="text-sm font-bold text-slate-200">{p.name}</div>
-                <div className="text-[10px] text-slate-500">{p.nfl_team}</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-slate-200">{p.name}</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400">{p.nfl_team}</div>
               </div>
             </div>
             <div className={`font-mono font-bold ${colorClass}`}>
@@ -182,10 +182,10 @@ export default function GameCenter() {
           <button
             onClick={handleToggleChange}
             aria-label="Toggle projected scores"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950 border border-slate-700 hover:border-slate-500 transition text-xs"
+            className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs transition hover:border-slate-500 dark:border-slate-700 dark:bg-slate-950"
           >
             <span
-              className={`font-bold uppercase ${!showProjected ? 'text-white' : 'text-slate-500'}`}
+              className={`font-bold uppercase ${!showProjected ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}
             >
               Actual
             </span>
@@ -210,12 +210,12 @@ export default function GameCenter() {
               onClick={() => setShowScoreInfo((prev) => !prev)}
               aria-label="Explain scoring values"
               aria-expanded={showScoreInfo}
-              className="h-8 w-8 rounded-full bg-slate-950 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 transition flex items-center justify-center"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 transition hover:border-slate-500 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400 dark:hover:text-white"
             >
               <FiInfo size={14} />
             </button>
             {showScoreInfo && (
-              <div className="absolute right-0 mt-2 w-72 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300 shadow-xl">
+              <div className="absolute right-0 mt-2 w-72 rounded-lg border border-slate-300 bg-white p-3 text-xs text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
                 {showProjected
                   ? 'Projected totals are calculated from each team\'s current starters and your league scoring rules.'
                   : 'Actual scores show real-time or final point totals from completed games.'}
@@ -232,7 +232,7 @@ export default function GameCenter() {
             <h2 className="truncate text-xl font-black tracking-tight text-slate-900 dark:text-white md:text-2xl">
               {game.home_team_info?.team_name || game.home_team}
             </h2>
-            <div className={`text-4xl md:text-6xl font-mono font-bold ${showProjected ? 'text-blue-400' : 'text-white'}`}>
+            <div className={`text-4xl md:text-6xl font-mono font-bold ${showProjected ? 'text-blue-500 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>
               {showProjected ? game.home_projected.toFixed(2) : game.home_score.toFixed(2)}
             </div>
             <div className={`text-xs uppercase font-bold mt-1 ${showProjected ? 'text-blue-500/50' : 'text-slate-500'}`}>
@@ -242,7 +242,7 @@ export default function GameCenter() {
 
           {/* The Midfield / Divider */}
           <div className="text-center z-10">
-            <div className="w-10 h-10 md:w-16 md:h-16 bg-slate-800 rounded-full flex items-center justify-center text-slate-500 font-black italic border border-slate-700 shadow-inner text-sm md:text-xl">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-sm font-black italic text-slate-500 shadow-inner md:h-16 md:w-16 md:text-xl dark:border-slate-700 dark:bg-slate-800">
               VS
             </div>
           </div>
@@ -253,7 +253,7 @@ export default function GameCenter() {
             <h2 className="truncate text-xl font-black tracking-tight text-slate-900 dark:text-white md:text-2xl">
               {game.away_team_info?.team_name || game.away_team}
             </h2>
-            <div className={`text-4xl md:text-6xl font-mono font-bold ${showProjected ? 'text-red-400' : 'text-white'}`}>
+            <div className={`text-4xl md:text-6xl font-mono font-bold ${showProjected ? 'text-red-500 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
               {showProjected ? game.away_projected.toFixed(2) : game.away_score.toFixed(2)}
             </div>
             <div className={`text-xs uppercase font-bold mt-1 ${showProjected ? 'text-red-500/50' : 'text-slate-500'}`}>
@@ -263,13 +263,13 @@ export default function GameCenter() {
         </div>
 
         {showProjected && (
-          <div className="mx-auto w-full max-w-2xl rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+          <div className="mx-auto w-full max-w-2xl rounded-lg border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/60">
             <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider">
-              <span className="text-blue-300">{getWinChance('home').toFixed(1)}% Win Chance</span>
-              <span className="text-red-300">{getWinChance('away').toFixed(1)}% Win Chance</span>
+              <span className="text-blue-600 dark:text-blue-300">{getWinChance('home').toFixed(1)}% Win Chance</span>
+              <span className="text-red-600 dark:text-red-300">{getWinChance('away').toFixed(1)}% Win Chance</span>
             </div>
             <div
-              className="h-3 w-full overflow-hidden rounded-full border border-slate-700 bg-slate-900"
+              className="h-3 w-full overflow-hidden rounded-full border border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
               role="img"
               aria-label="Projected matchup win probability"
             >
@@ -284,13 +284,13 @@ export default function GameCenter() {
 
       {/* 2.4 ROSTERS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
-        <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-px bg-slate-800/50 -translate-x-1/2"></div>
+        <div className="absolute left-1/2 top-0 bottom-0 hidden w-px -translate-x-1/2 bg-slate-300/70 dark:bg-slate-800/50 md:block"></div>
 
         <RosterColumn
           teamName={game.home_team_info?.team_name || game.home_team}
           teamInfo={game.home_team_info}
           players={game.home_roster}
-          colorClass={showProjected ? 'text-blue-400' : 'text-white'}
+          colorClass={showProjected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-white'}
           showProjected={showProjected}
         />
 
@@ -298,7 +298,7 @@ export default function GameCenter() {
           teamName={game.away_team_info?.team_name || game.away_team}
           teamInfo={game.away_team_info}
           players={game.away_roster}
-          colorClass={showProjected ? 'text-red-400' : 'text-white'}
+          colorClass={showProjected ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}
           showProjected={showProjected}
         />
       </div>

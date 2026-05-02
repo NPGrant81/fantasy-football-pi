@@ -12,7 +12,7 @@ const OwnerCard = memo(
       ? 'ring-2 ring-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.3)] scale-[1.02]'
       : isNominator
         ? 'border-blue-500 bg-slate-800/80'
-        : 'border-slate-800 bg-slate-900/40';
+        : 'border-slate-300 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/40';
 
     // --- 2.1 RENDER LOGIC (The View) ---
     return (
@@ -29,7 +29,7 @@ const OwnerCard = memo(
         {/* 2.3 HEADER SECTION */}
         <div
           className={`p-4 border-b flex justify-between items-start bg-black/20 rounded-t-2xl ${
-            isNominator ? 'border-blue-500/30' : 'border-slate-800'
+            isNominator ? 'border-blue-500/30' : 'border-slate-200 dark:border-slate-800'
           }`}
         >
           <div className="w-2/3">
@@ -59,7 +59,7 @@ const OwnerCard = memo(
         </div>
 
         {/* 2.4 PICKS LIST (The Roster) */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar bg-slate-950/20">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar bg-slate-100/20 dark:bg-slate-950/20">
           {myPicks.map((p) => {
             const playerDetails = players.find((pl) => pl.id === p.player_id);
             const pos = normalizePos(playerDetails?.position || 'UNK');
@@ -90,9 +90,9 @@ const OwnerCard = memo(
           {[...Array(stats.emptySpots)].map((_, i) => (
             <div
               key={`empty-${i}`}
-              className="h-9 border border-dashed border-slate-800/60 rounded-lg bg-slate-900/10 flex items-center px-3"
+              className="h-9 border border-dashed border-slate-300/60 rounded-lg bg-slate-100/30 flex items-center px-3 dark:border-slate-800/60 dark:bg-slate-900/10"
             >
-              <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest dark:text-slate-800">
                 Open Slot
               </span>
             </div>

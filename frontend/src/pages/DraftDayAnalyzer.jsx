@@ -118,13 +118,13 @@ const loadUiState = () => {
 function Drawer({ open, title, loading, error, children, onClose }) {
   return (
     <aside
-      className={`fixed right-0 top-0 ${layerDrawer} h-screen w-full max-w-md transform border-l border-slate-700 bg-slate-950/95 shadow-2xl transition-transform duration-200 ${
+      className={`fixed right-0 top-0 ${layerDrawer} h-screen w-full max-w-md transform border-l border-slate-300 bg-white shadow-2xl transition-transform duration-200 dark:border-slate-700 dark:bg-slate-950/95 ${
         open ? 'translate-x-0' : 'translate-x-full'
       }`}
       inert={!open}
     >
-      <div className="flex items-center justify-between border-b border-slate-800 p-4">
-        <h3 className="text-sm font-black uppercase tracking-wider text-cyan-300">
+      <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
+        <h3 className="text-sm font-black uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
           {title || 'Details'}
         </h3>
         <button
@@ -135,7 +135,7 @@ function Drawer({ open, title, loading, error, children, onClose }) {
           Close
         </button>
       </div>
-      <div className="h-[calc(100vh-64px)] overflow-y-auto p-4 text-sm text-slate-300">
+      <div className="h-[calc(100vh-64px)] overflow-y-auto p-4 text-sm text-slate-700 dark:text-slate-300">
         {loading ? <LoadingState /> : null}
         {error ? <ErrorState message={error} /> : null}
         {!loading && !error ? children : null}
@@ -1033,7 +1033,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
             value={searchQuery}
             onChange={handleSearchChange}
             placeholder="Search players"
-            className="ml-auto w-full max-w-sm rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+            className="ml-auto w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
           />
 
           <button
@@ -1048,8 +1048,8 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
         {rankingsError ? <ErrorState message={rankingsError} className="text-xs" /> : null}
 
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70">
-          <div className="grid grid-cols-12 border-b border-slate-800 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+        <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/70">
+          <div className="grid grid-cols-12 border-b border-slate-200 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:text-slate-400">
             <button
               className="col-span-3 text-left"
               onClick={() => toggleSort('name')}
@@ -1113,7 +1113,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                 {Array.from({ length: 8 }).map((_, index) => (
                   <div
                     key={`skeleton-${index}`}
-                    className="h-9 animate-pulse rounded border border-slate-800 bg-slate-900"
+                    className="h-9 animate-pulse rounded border border-slate-200 bg-slate-200 dark:border-slate-800 dark:bg-slate-900"
                   />
                 ))}
               </div>
@@ -1131,8 +1131,8 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   onClick={() => openPlayerInfo(player)}
                   className={`grid w-full grid-cols-12 px-3 py-2 text-left text-sm transition ${
                     selected
-                      ? 'bg-cyan-950/30 text-cyan-200'
-                      : 'text-slate-200 hover:bg-slate-900'
+                      ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-200'
+                      : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900'
                   }`}
                   style={{ height: `${rowHeight}px` }}
                 >
@@ -1145,7 +1145,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   <span className="col-span-1 text-right text-slate-400">
                     {player.price_min == null ? '—' : `$${player.price_min.toFixed(0)}`}
                   </span>
-                  <span className="col-span-2 text-right text-emerald-300">
+                  <span className="col-span-2 text-right text-emerald-700 dark:text-emerald-300">
                     {player.price_avg != null
                       ? `$${player.price_avg.toFixed(0)}`
                       : player.value != null
@@ -1157,7 +1157,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                       <span className="ml-1 text-yellow-500" title="Single source — MIN and MAX may equal AVG">*</span>
                     ) : null}
                   </span>
-                  <span className="col-span-1 text-right text-cyan-300">
+                  <span className="col-span-1 text-right text-cyan-700 dark:text-cyan-300">
                     {player.price_max == null ? '—' : `$${player.price_max.toFixed(0)}`}
                   </span>
                 </button>
@@ -1181,7 +1181,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
       <section className={`${cardSurface} space-y-3`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-black uppercase tracking-wider text-emerald-300">
+          <h2 className="text-sm font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
             Analyzer Insights
           </h2>
           <span className="text-xs text-slate-500">
@@ -1208,7 +1208,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
       <section className={`${cardSurface} space-y-3`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-black uppercase tracking-wider text-indigo-300">
+          <h2 className="text-sm font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
             Draft Day Advisor
           </h2>
           <span className="text-xs text-slate-500">Alerts &amp; Simulation</span>
@@ -1252,7 +1252,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         </div>
 
         {advisorMessage?.alerts?.length ? (
-          <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 text-xs text-amber-300">
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-amber-300">
             {advisorMessage.alerts.map((alert, index) => (
               <div key={`${alert}-${index}`} className="border-t border-slate-800 py-1 first:border-t-0">
                 {alert}
@@ -1264,12 +1264,12 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         )}
 
         <div className="border-t border-slate-800 pt-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cyan-400">Perspective Simulation</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-400">Perspective Simulation</p>
           <div className="grid gap-2 md:grid-cols-3">
             <label className="text-xs text-slate-400">
               Owner Perspective
               <select
-                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+                className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 value={simulationPerspectiveOwnerId}
                 onChange={(e) => setSimulationPerspectiveOwnerId(e.target.value)}
               >
@@ -1289,14 +1289,14 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                 max="10000"
                 value={simulationIterations}
                 onChange={(e) => setSimulationIterations(e.target.value)}
-                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200"
+                className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
               />
             </label>
 
             <div className="flex items-end">
               <button
                 type="button"
-                className="w-full rounded border border-cyan-700 bg-cyan-950 px-3 py-2 text-xs font-black uppercase tracking-wide text-cyan-200"
+                className="w-full rounded border border-cyan-600 bg-cyan-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-cyan-700 dark:border-cyan-700 dark:bg-cyan-950 dark:text-cyan-200"
                 onClick={runSimulation}
                 disabled={simulationLoading}
               >
@@ -1318,11 +1318,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               {simulationResult.focal_owner_summary && (() => {
                 const s = simulationResult.focal_owner_summary;
                 const metrics = [
-                  { label: 'Iterations', value: s.iterations, color: 'text-slate-200' },
-                  { label: 'Exp. Points', value: s.expected_total_points != null ? s.expected_total_points.toFixed(1) : '—', color: 'text-emerald-300' },
-                  { label: 'Pts Std Dev', value: s.points_stddev != null ? `±${s.points_stddev.toFixed(1)}` : '—', color: 'text-slate-400' },
-                  { label: 'Exp. Spend', value: s.expected_total_spend != null ? `$${s.expected_total_spend.toFixed(0)}` : '—', color: 'text-amber-300' },
-                  { label: 'Exp. Value Cap.', value: s.expected_value_captured != null ? s.expected_value_captured.toFixed(1) : '—', color: 'text-cyan-300' },
+                  { label: 'Iterations', value: s.iterations, color: 'text-slate-700 dark:text-slate-200' },
+                  { label: 'Exp. Points', value: s.expected_total_points != null ? s.expected_total_points.toFixed(1) : '—', color: 'text-emerald-700 dark:text-emerald-300' },
+                  { label: 'Pts Std Dev', value: s.points_stddev != null ? `±${s.points_stddev.toFixed(1)}` : '—', color: 'text-slate-500' },
+                  { label: 'Exp. Spend', value: s.expected_total_spend != null ? `$${s.expected_total_spend.toFixed(0)}` : '—', color: 'text-amber-700 dark:text-amber-300' },
+                  { label: 'Exp. Value Cap.', value: s.expected_value_captured != null ? s.expected_value_captured.toFixed(1) : '—', color: 'text-cyan-700 dark:text-cyan-300' },
                 ];
                 const spend = [
                   { pos: 'QB', val: s.expected_spend_qb },
@@ -1333,8 +1333,8 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   { pos: 'K', val: s.expected_spend_k },
                 ];
                 return (
-                  <div className="rounded-lg border border-slate-700 bg-slate-950/60 overflow-hidden">
-                    <div className="bg-slate-900 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-700">
+                  <div className="rounded-lg border border-slate-200 bg-white overflow-hidden dark:border-slate-700 dark:bg-slate-950/60">
+                    <div className="bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700">
                       Focal Owner Summary
                     </div>
                     <div className="grid grid-cols-5 divide-x divide-slate-800 border-b border-slate-800">
@@ -1348,7 +1348,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                     <div className="grid grid-cols-6 divide-x divide-slate-800">
                       {spend.map(({ pos, val }) => (
                         <div key={pos} className="flex flex-col items-center py-2 px-1 gap-0.5">
-                          <span className="text-xs font-bold text-indigo-300">
+                          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
                             {val != null ? `$${val.toFixed(0)}` : '—'}
                           </span>
                           <span className="text-[9px] uppercase text-slate-500">{pos}</span>
@@ -1363,15 +1363,15 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
               {simulationResult.focal_points_distribution && (() => {
                 const d = simulationResult.focal_points_distribution;
                 const rows = [
-                  { label: 'P10 (Floor)', val: d.points_p10, color: 'text-red-400' },
-                  { label: 'P25', val: d.points_p25, color: 'text-orange-300' },
-                  { label: 'P50 (Median)', val: d.points_p50, color: 'text-yellow-300' },
-                  { label: 'P75', val: d.points_p75, color: 'text-lime-300' },
-                  { label: 'P90 (Ceiling)', val: d.points_p90, color: 'text-emerald-300' },
+                  { label: 'P10 (Floor)', val: d.points_p10, color: 'text-red-600 dark:text-red-400' },
+                  { label: 'P25', val: d.points_p25, color: 'text-orange-600 dark:text-orange-300' },
+                  { label: 'P50 (Median)', val: d.points_p50, color: 'text-yellow-600 dark:text-yellow-300' },
+                  { label: 'P75', val: d.points_p75, color: 'text-lime-600 dark:text-lime-300' },
+                  { label: 'P90 (Ceiling)', val: d.points_p90, color: 'text-emerald-700 dark:text-emerald-300' },
                 ];
                 return (
-                  <div className="rounded-lg border border-slate-700 bg-slate-950/60 overflow-hidden">
-                    <div className="bg-slate-900 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-700">
+                  <div className="rounded-lg border border-slate-200 bg-white overflow-hidden dark:border-slate-700 dark:bg-slate-950/60">
+                    <div className="bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700">
                       Points Distribution
                     </div>
                     <div className="divide-y divide-slate-800/60">
@@ -1391,8 +1391,8 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
             {/* ── KEY TARGETS TABLE ── */}
             {Array.isArray(simulationResult.key_target_probabilities) && simulationResult.key_target_probabilities.length > 0 && (
-              <div className="rounded-lg border border-slate-700 bg-slate-950/60 overflow-hidden">
-                <div className="bg-slate-900 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-700">
+              <div className="rounded-lg border border-slate-200 bg-white overflow-hidden dark:border-slate-700 dark:bg-slate-950/60">
+                <div className="bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700">
                   Key Target Probabilities
                 </div>
                 <div className="overflow-x-auto">
@@ -1410,22 +1410,22 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                     <tbody className="divide-y divide-slate-800/60">
                       {simulationResult.key_target_probabilities.map((row) => {
                         const prob = row.probability * 100;
-                        const probColor = prob >= 50 ? 'text-emerald-300' : prob >= 25 ? 'text-yellow-300' : 'text-red-400';
+                        const probColor = prob >= 50 ? 'text-emerald-700 dark:text-emerald-300' : prob >= 25 ? 'text-yellow-600 dark:text-yellow-300' : 'text-red-600 dark:text-red-400';
                         const rivals = Array.isArray(row.rival_bidders) ? row.rival_bidders : [];
                         return (
-                          <StandardTableRow key={row.player_id} className="hover:bg-slate-900/60 transition-colors">
-                            <td className="px-3 py-2 font-semibold text-slate-100 truncate max-w-[140px]">
+                          <StandardTableRow key={row.player_id} className="hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-colors">
+                            <td className="px-3 py-2 font-semibold text-slate-700 truncate max-w-[140px] dark:text-slate-100">
                               {row.player_name}
                             </td>
                             <td className="px-3 py-2 text-center">
-                              <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 text-cyan-300 uppercase">
+                              <span className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-cyan-700 uppercase dark:bg-slate-800 dark:text-cyan-300">
                                 {row.position || '—'}
                               </span>
                             </td>
-                            <td className="px-3 py-2 text-right font-bold text-emerald-300 tabular-nums">
+                            <td className="px-3 py-2 text-right font-bold text-emerald-700 tabular-nums dark:text-emerald-300">
                               {row.predicted_auction_value > 0 ? `$${Number(row.predicted_auction_value).toFixed(0)}` : '—'}
                             </td>
-                            <td className="px-3 py-2 text-right text-amber-300 tabular-nums">
+                            <td className="px-3 py-2 text-right text-amber-700 tabular-nums dark:text-amber-300">
                               {row.avg_bid > 0 ? `$${Number(row.avg_bid).toFixed(0)}` : '—'}
                             </td>
                             <td className={`px-3 py-2 text-right font-black tabular-nums ${probColor}`}>
@@ -1440,7 +1440,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                                     <span
                                       key={rival.owner_id}
                                       title={`Won in ${rival.win_count} sim iteration(s)`}
-                                      className="rounded-full bg-slate-800 border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300"
+                                      className="rounded-full bg-slate-100 border border-slate-300 px-2 py-0.5 text-[10px] text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
                                     >
                                       {rival.owner_name}
                                     </span>
@@ -1468,7 +1468,7 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         onClose={() => setDrawerOpen(false)}
       >
         {drawerContent ? (
-          <pre className="whitespace-pre-wrap break-words rounded border border-slate-800 bg-slate-900 p-3 text-xs">
+          <pre className="whitespace-pre-wrap break-words rounded border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-900">
             {JSON.stringify(drawerContent, null, 2)}
           </pre>
         ) : (
@@ -1512,13 +1512,13 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                 />
 
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                  <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/70 p-3">
                     <div className="text-[10px] uppercase text-slate-500">Season</div>
-                    <div className="text-lg font-black text-slate-100">{rankingSeason}</div>
+                    <div className="text-lg font-black text-slate-900 dark:text-slate-100">{rankingSeason}</div>
                   </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/70 p-3">
                     <div className="text-[10px] uppercase text-slate-500">Value</div>
-                    <div className="text-lg font-black text-emerald-300">
+                    <div className="text-lg font-black text-emerald-700 dark:text-emerald-300">
                       {selectedPlayer.value == null
                         ? rankingSeasonOffset === 0
                           ? 'Pending'
@@ -1526,23 +1526,23 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                         : `$${Number(selectedPlayer.value).toFixed(1)}`}
                     </div>
                   </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/70 p-3">
                     <div className="text-[10px] uppercase text-slate-500">Confidence</div>
-                    <div className="text-lg font-black text-indigo-300">
+                    <div className="text-lg font-black text-indigo-700 dark:text-indigo-300">
                       {selectedPlayer.confidence == null
                         ? '--'
                         : `${Number(selectedPlayer.confidence).toFixed(1)}%`}
                     </div>
                   </div>
-                  <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950/70 p-3">
                     <div className="text-[10px] uppercase text-slate-500">Tier</div>
-                    <div className="text-lg font-black text-cyan-300">
+                    <div className="text-lg font-black text-cyan-700 dark:text-cyan-300">
                       {selectedPlayer.recommendation?.consensus_tier || '--'}
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-300">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300">
                   <div className="mb-1 text-slate-500">Valuation Details</div>
                   <div>
                     Final Score: {Number(selectedInsightRecommendation?.final_score ?? selectedInsightRecommendation?.value_score ?? selectedPlayer.recommendation?.final_score ?? 0).toFixed(2)}
@@ -1555,13 +1555,13 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
                   </div>
                 </div>
 
-                <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-300">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300">
                   <div className="mb-1 text-slate-500">Player Insight Snapshot</div>
                   <div>Recommended Bid: ${Number(selectedInsightRecommendation?.recommended_bid ?? selectedInsightRecommendation?.predicted_value ?? selectedPlayer.value ?? 0).toFixed(2)}</div>
                   <div>Risk Score: {Number(selectedInsightRecommendation?.risk_score ?? 0).toFixed(1)}</div>
                   <div>Tier: {selectedInsightRecommendation?.tier || selectedPlayer.recommendation?.consensus_tier || '--'}</div>
                   {Array.isArray(selectedInsightRecommendation?.flags) && selectedInsightRecommendation.flags.length > 0 ? (
-                    <div className="mt-1 text-[11px] text-amber-300">
+                    <div className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
                       Flags: {selectedInsightRecommendation.flags.join(', ')}
                     </div>
                   ) : null}

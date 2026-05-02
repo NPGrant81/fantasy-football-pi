@@ -47,10 +47,10 @@ export default function TradeAnalyzer() {
   const positions = ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'DST', 'K'];
 
   const gradeTone = (grade) => {
-    if (grade.startsWith('A')) return 'text-emerald-300';
-    if (grade.startsWith('B')) return 'text-cyan-300';
-    if (grade.startsWith('C')) return 'text-amber-300';
-    return 'text-rose-300';
+    if (grade.startsWith('A')) return 'text-emerald-600 dark:text-emerald-300';
+    if (grade.startsWith('B')) return 'text-cyan-600 dark:text-cyan-300';
+    if (grade.startsWith('C')) return 'text-amber-600 dark:text-amber-300';
+    return 'text-rose-600 dark:text-rose-300';
   };
 
   const loadOwners = useCallback(async () => {
@@ -309,8 +309,8 @@ export default function TradeAnalyzer() {
     loading,
   }) => (
     <section className={`${cardSurface} space-y-3`}>
-      <h4 className="text-sm font-black uppercase tracking-wider text-cyan-300">Team {side}</h4>
-      <label className="text-xs text-slate-400">
+      <h4 className="text-sm font-black uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Team {side}</h4>
+      <label className="text-xs text-slate-600 dark:text-slate-400">
         Team
         <select
           value={team || ''}
@@ -328,7 +328,7 @@ export default function TradeAnalyzer() {
       </label>
 
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        <label className="text-xs text-slate-400">
+        <label className="text-xs text-slate-600 dark:text-slate-400">
           Search
           <div className="relative mt-1">
             <FiSearch className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -340,7 +340,7 @@ export default function TradeAnalyzer() {
             />
           </div>
         </label>
-        <label className="text-xs text-slate-400">
+        <label className="text-xs text-slate-600 dark:text-slate-400">
           Position
           <select
             value={posFilter}
@@ -358,13 +358,13 @@ export default function TradeAnalyzer() {
         <LoadingState message="Loading roster..." className="text-xs text-slate-500" />
       ) : null}
 
-      <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/50 p-2">
+      <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/50 p-2">
         {visible.map((player) => {
           const checked = selectedIds.includes(player.player_id);
           return (
             <label
               key={player.player_id}
-              className="flex cursor-pointer items-center justify-between gap-2 rounded border border-slate-800 px-2 py-1 text-xs text-slate-300 hover:border-slate-700"
+              className="flex cursor-pointer items-center justify-between gap-2 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-400 dark:border-slate-800 dark:text-slate-300 dark:hover:border-slate-700"
             >
               <span className="min-w-0 truncate">
                 {player.name} ({normalizePosition(player.position)})
@@ -390,10 +390,10 @@ export default function TradeAnalyzer() {
         {(side === 'A' ? selectedAPlayers : selectedBPlayers).map((player) => (
           <div
             key={`${side}-${player.player_id}`}
-            className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/40 px-2 py-1 text-xs"
+            className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 px-2 py-1 text-xs"
           >
             <div className="min-w-0">
-              <div className="truncate text-slate-100">{player.name}</div>
+              <div className="truncate text-slate-900 dark:text-slate-100">{player.name}</div>
               <div className="text-slate-500">
                 {normalizePosition(player.position)} | {player.nfl_team || 'N/A'} | Bye {player.bye_week || '--'} | Val {computeLineupAdjustedValue(player)}
               </div>
@@ -415,18 +415,18 @@ export default function TradeAnalyzer() {
         ))}
       </div>
 
-      <details className="md:hidden rounded border border-slate-800 bg-slate-950/30 p-2">
-        <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-300">
+      <details className="md:hidden rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/30 p-2">
+        <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
           Selected Players ({(side === 'A' ? selectedAPlayers : selectedBPlayers).length})
         </summary>
         <div className="mt-2 space-y-2">
           {(side === 'A' ? selectedAPlayers : selectedBPlayers).map((player) => (
             <div
               key={`mobile-${side}-${player.player_id}`}
-              className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/40 px-2 py-1 text-xs"
+              className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 px-2 py-1 text-xs"
             >
               <div className="min-w-0">
-                <div className="truncate text-slate-100">{player.name}</div>
+                <div className="truncate text-slate-900 dark:text-slate-100">{player.name}</div>
                 <div className="text-slate-500">
                   {normalizePosition(player.position)} | {player.nfl_team || 'N/A'} | Bye {player.bye_week || '--'} | Val {computeLineupAdjustedValue(player)}
                 </div>
@@ -453,7 +453,7 @@ export default function TradeAnalyzer() {
   );
 
   return (
-    <div className="space-y-6 text-white">
+    <div className="space-y-6 text-slate-900 dark:text-white">
       {teamError ? (
         <InlineError title="Team selection conflict" message={teamError} />
       ) : null}
@@ -491,23 +491,23 @@ export default function TradeAnalyzer() {
       </div>
 
       <section className={`${cardSurface} mx-auto w-full max-w-5xl space-y-4`}>
-        <div className="flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-wider text-cyan-300">
+        <div className="flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
           <FiRepeat /> Total Trade Value Comparison
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded border border-slate-800 bg-slate-950/40 p-3 text-center">
-            <div className="text-xs text-slate-400">{ownerName(teamA)} Total</div>
-            <div className="text-2xl font-black text-cyan-300">{totalA.toFixed(2)}</div>
+          <div className="rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 p-3 text-center">
+            <div className="text-xs text-slate-600 dark:text-slate-400">{ownerName(teamA)} Total</div>
+            <div className="text-2xl font-black text-cyan-600 dark:text-cyan-300">{totalA.toFixed(2)}</div>
           </div>
-          <div className="rounded border border-slate-800 bg-slate-950/40 p-3 text-center">
-            <div className="text-xs text-slate-400">Difference</div>
-            <div className={`text-2xl font-black ${delta >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+          <div className="rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 p-3 text-center">
+            <div className="text-xs text-slate-600 dark:text-slate-400">Difference</div>
+            <div className={`text-2xl font-black ${delta >= 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
               {delta >= 0 ? '+' : ''}{delta.toFixed(2)}
             </div>
           </div>
-          <div className="rounded border border-slate-800 bg-slate-950/40 p-3 text-center">
-            <div className="text-xs text-slate-400">{ownerName(teamB)} Total</div>
-            <div className="text-2xl font-black text-indigo-300">{totalB.toFixed(2)}</div>
+          <div className="rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 p-3 text-center">
+            <div className="text-xs text-slate-600 dark:text-slate-400">{ownerName(teamB)} Total</div>
+            <div className="text-2xl font-black text-indigo-600 dark:text-indigo-300">{totalB.toFixed(2)}</div>
           </div>
         </div>
 
@@ -519,20 +519,20 @@ export default function TradeAnalyzer() {
               b: { names: 'No selected contributors', starterImpact: '0 starter / 0 bench', trend: 'stable', volatility: 'low', risk: 'low' },
             };
             return (
-              <div key={row.position} className="rounded border border-slate-800 bg-slate-950/40 p-2 text-xs">
-                <div className="mb-1 flex items-center justify-between text-slate-400">
+              <div key={row.position} className="rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 p-2 text-xs">
+                <div className="mb-1 flex items-center justify-between text-slate-600 dark:text-slate-400">
                   <span>{row.position}</span>
                   <span>{row.a.toFixed(1)} vs {row.b.toFixed(1)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2" role="img" aria-label={`${row.position} trade value bars`}>
-                  <div className="h-2 rounded bg-slate-900">
+                  <div className="h-2 rounded bg-slate-200 dark:bg-slate-900">
                     <div
                       className="h-full rounded bg-cyan-500"
                       style={{ width: `${(row.a / maxPos) * 100}%` }}
                       title={`${ownerName(teamA)} ${row.position}\nContributors: ${insight.a.names}\nLineup impact: ${insight.a.starterImpact}\nTrend: ${insight.a.trend}\nVolatility: ${insight.a.volatility}\nRisk: ${insight.a.risk}`}
                     />
                   </div>
-                  <div className="h-2 rounded bg-slate-900">
+                  <div className="h-2 rounded bg-slate-200 dark:bg-slate-900">
                     <div
                       className="h-full rounded bg-indigo-500"
                       style={{ width: `${(row.b / maxPos) * 100}%` }}
@@ -540,7 +540,7 @@ export default function TradeAnalyzer() {
                     />
                   </div>
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500">
+                <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-500">
                   A: {insight.a.starterImpact} | B: {insight.b.starterImpact}
                 </div>
               </div>
@@ -551,29 +551,29 @@ export default function TradeAnalyzer() {
 
       <div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
         <section className={`${cardSurface} space-y-2`}>
-          <h4 className="text-sm font-black uppercase tracking-wider text-slate-200">Trade Summary</h4>
-          <div className="text-sm text-slate-300">{ownerName(teamA)}: <span className={gradeTone(gradeA)}>{gradeA}</span></div>
-          <div className="text-sm text-slate-300">{ownerName(teamB)}: <span className={gradeTone(gradeB)}>{gradeB}</span></div>
+          <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Trade Summary</h4>
+          <div className="text-sm text-slate-700 dark:text-slate-300">{ownerName(teamA)}: <span className={gradeTone(gradeA)}>{gradeA}</span></div>
+          <div className="text-sm text-slate-700 dark:text-slate-300">{ownerName(teamB)}: <span className={gradeTone(gradeB)}>{gradeB}</span></div>
           <div
             className="text-xs text-slate-500"
             aria-label={`Lineup impact for ${ownerName(teamA)} and ${ownerName(teamB)}: ${impactA.toFixed(2)} / ${impactB.toFixed(2)}`}
           >
             Lineup impact A/B: {impactA.toFixed(2)} / {impactB.toFixed(2)}
           </div>
-          <div className="text-xs text-slate-400">{buildRationale()}</div>
+          <div className="text-xs text-slate-600 dark:text-slate-400">{buildRationale()}</div>
         </section>
 
         {cashRecommendation ? (
           <section className={`${cardSurface} border-amber-700/60 space-y-2`}>
-            <h4 className="text-sm font-black uppercase tracking-wider text-amber-300">Draft Cash Recommendation</h4>
-            <div className="text-lg font-black text-amber-200">${cashRecommendation.amount}</div>
-            <div className="text-xs text-slate-300">Tier: {cashRecommendation.tier}</div>
-            <div className="text-xs text-slate-400">{cashRecommendation.explanation}</div>
+            <h4 className="text-sm font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">Draft Cash Recommendation</h4>
+            <div className="text-lg font-black text-amber-700 dark:text-amber-200">${cashRecommendation.amount}</div>
+            <div className="text-xs text-slate-700 dark:text-slate-300">Tier: {cashRecommendation.tier}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400">{cashRecommendation.explanation}</div>
           </section>
         ) : (
           <section className={`${cardSurface} space-y-2`}>
-            <h4 className="text-sm font-black uppercase tracking-wider text-emerald-300">Draft Cash Recommendation</h4>
-            <div className="text-xs text-slate-400">Fair range: no cash adjustment required.</div>
+            <h4 className="text-sm font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Draft Cash Recommendation</h4>
+            <div className="text-xs text-slate-600 dark:text-slate-400">Fair range: no cash adjustment required.</div>
           </section>
         )}
       </div>

@@ -127,10 +127,10 @@ export default function BugReport() {
           <div
             className={`rounded-lg px-4 py-3 text-sm font-bold ${
               status.type === 'success'
-                ? 'bg-green-900/40 text-green-300 border border-green-700'
+                ? 'bg-green-50 text-green-700 border border-green-400/60 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700'
                 : status.type === 'warning'
-                ? 'bg-amber-900/40 text-amber-300 border border-amber-700'
-                : 'bg-red-900/40 text-red-300 border border-red-700'
+                ? 'bg-amber-50 text-amber-700 border border-amber-400/60 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700'
+                : 'bg-red-50 text-red-700 border border-red-400/60 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700'
             }`}
           >
             {status.message}

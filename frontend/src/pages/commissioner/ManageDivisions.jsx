@@ -332,7 +332,7 @@ export default function ManageDivisions() {
     >
 
       {message && (
-        <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-300">
+        <div className="rounded-lg border border-cyan-400/30 bg-cyan-50 px-3 py-2 text-sm text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300">
           {message}
         </div>
       )}
