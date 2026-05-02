@@ -1027,3 +1027,43 @@ class MflIngestionFile(Base):
     retention_class = Column(String(32), nullable=True)
     archived_path = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ValidatedDraftResult(Base):
+    """Cleaned, validated historical draft picks produced by the ETL pipeline.
+
+    Each row represents one auction pick (or keeper retention) for a single
+    owner in a single season.  The ``is_keeper`` flag marks picks where the
+    winning bid was at or below the keeper threshold ($1 by default).
+    """
+
+    __tablename__ = "validated_draft_results"
+    __table_args__ = (
+        UniqueConstraint(
+            "league_id",
+            "season_year",
+            "owner_id",
+            "player_id",
+            name="uq_validated_draft_results_pick",
+        ),
+        Index("ix_validated_draft_results_league_season", "league_id", "season_year"),
+        Index("ix_validated_draft_results_player", "player_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    season_year = Column(Integer, nullable=False)
+    owner_id = Column(Integer, nullable=False)
+    player_id = Column(Integer, nullable=False)
+    position_id = Column(Integer, nullable=True)
+    team_id = Column(Integer, nullable=True)
+    winning_bid = Column(Float, nullable=True)
+    is_keeper = Column(Boolean, nullable=False, default=False)
+    etl_version = Column(String(32), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

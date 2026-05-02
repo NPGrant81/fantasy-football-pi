@@ -221,6 +221,7 @@ def main() -> int:
         users_df=frames["users"],
         positions_df=frames["positions"],
         output_dir=OUTPUT_DIR / "draft_validation",
+        canonical_players_df=pd.read_csv(canonical_output["csv"]),
     )
 
     source_manifest = {
