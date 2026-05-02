@@ -12,11 +12,14 @@ import {
 import { useActiveLeague } from '@context/LeagueContext';
 import { fetchLuckIndexAnalytics } from '@api/analyticsApi';
 import { LoadingState, ErrorState } from '@components/common/AsyncState';
+import { useTheme } from '../../hooks/useTheme';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler);
 
 export default function LuckIndexChart() {
   const leagueId = useActiveLeague();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -107,7 +110,11 @@ export default function LuckIndexChart() {
         position: 'top',
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)',
+        titleColor: isDark ? '#f8fafc' : '#0f172a',
+        bodyColor: isDark ? '#cbd5e1' : '#334155',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        borderWidth: 1,
         padding: 10,
         titleFont: { size: 12, weight: 'bold' },
         bodyFont: { size: 11 },
@@ -132,30 +139,30 @@ export default function LuckIndexChart() {
         title: {
           display: true,
           text: 'Points For (Scoring Efficiency)',
-          color: '#1f2937',
+          color: isDark ? '#f8fafc' : '#1f2937',
           font: { size: 12, weight: 'bold' },
         },
         grid: {
-          color: 'rgba(226, 232, 240, 0.5)',
+          color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(226, 232, 240, 0.5)',
           drawBorder: true,
         },
         ticks: {
-          color: '#475569',
+          color: isDark ? '#94a3b8' : '#475569',
         },
       },
       y: {
         title: {
           display: true,
           text: 'Points Against (Schedule Strength)',
-          color: '#1f2937',
+          color: isDark ? '#f8fafc' : '#1f2937',
           font: { size: 12, weight: 'bold' },
         },
         grid: {
-          color: 'rgba(226, 232, 240, 0.5)',
+          color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(226, 232, 240, 0.5)',
           drawBorder: true,
         },
         ticks: {
-          color: '#475569',
+          color: isDark ? '#94a3b8' : '#475569',
         },
       },
     },

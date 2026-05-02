@@ -11,6 +11,7 @@ import {
 import { useActiveLeague } from '@context/LeagueContext';
 import { fetchPlayerConsistencyAnalytics } from '@api/analyticsApi';
 import { LoadingState, ErrorState } from '@components/common/AsyncState';
+import { useTheme } from '../../hooks/useTheme';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -102,6 +103,8 @@ const ConsistencyBox = ({ player }) => {
 
 export default function PlayerConsistencyChart() {
   const leagueId = useActiveLeague();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -171,7 +174,11 @@ export default function PlayerConsistencyChart() {
     plugins: {
       legend: { display: true },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)',
+        titleColor: isDark ? '#f8fafc' : '#0f172a',
+        bodyColor: isDark ? '#cbd5e1' : '#334155',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        borderWidth: 1,
         padding: 10,
         callbacks: {
           afterLabel: (context) => {

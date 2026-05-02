@@ -1356,7 +1356,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
             )}
 
             <div
-              className={`${controlButtonClass} inline-flex items-center gap-2 border border-slate-700 bg-slate-900 text-slate-200`}
+              className={`${controlButtonClass} inline-flex items-center gap-2 border border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200`}
             >
               <FiRepeat className="text-base text-blue-400" />
               <span className="uppercase">Pending Trades</span>

@@ -5,6 +5,7 @@ import { fetchCurrentUser } from '@api/commonApi';
 import { fetchManagerWeeklyStats, resolveRows } from '@api/analyticsApi';
 import { normalizeApiError } from '@api/fetching';
 import { ErrorState, LoadingState } from '@components/common/AsyncState';
+import { useTheme } from '../../hooks/useTheme';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,6 +30,9 @@ ChartJS.register(
 );
 
 const ManagerTrendChart = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   const [stats, setStats] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
@@ -87,7 +91,7 @@ const ManagerTrendChart = () => {
         pointRadius: 6,
         pointHoverRadius: 8,
         pointBackgroundColor: 'rgba(54, 162, 235, 1)',
-        pointBorderColor: '#ffffff',
+        pointBorderColor: isDark ? '#ffffff' : '#0f172a',
         pointBorderWidth: 2,
       },
       {
@@ -100,7 +104,7 @@ const ManagerTrendChart = () => {
         pointRadius: 6,
         pointHoverRadius: 8,
         pointBackgroundColor: 'rgba(75, 192, 192, 1)',
-        pointBorderColor: '#ffffff',
+        pointBorderColor: isDark ? '#ffffff' : '#0f172a',
         pointBorderWidth: 2,
       },
     ],
@@ -113,7 +117,7 @@ const ManagerTrendChart = () => {
       legend: {
         position: 'top',
         labels: {
-          color: '#ffffff',
+          color: isDark ? '#f8fafc' : '#0f172a',
           font: {
             size: 14,
           },
@@ -122,10 +126,10 @@ const ManagerTrendChart = () => {
         },
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        titleColor: '#ffffff',
-        bodyColor: '#ffffff',
-        borderColor: '#4a90e2',
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)',
+        titleColor: isDark ? '#f8fafc' : '#0f172a',
+        bodyColor: isDark ? '#cbd5e1' : '#334155',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
         borderWidth: 1,
         padding: 12,
         callbacks: {
@@ -140,34 +144,34 @@ const ManagerTrendChart = () => {
         title: {
           display: true,
           text: 'Week',
-          color: '#ffffff',
+          color: isDark ? '#f8fafc' : '#0f172a',
           font: {
             size: 16,
             weight: 'bold',
           },
         },
         ticks: {
-          color: '#cccccc',
+          color: isDark ? '#94a3b8' : '#475569',
         },
         grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
+          color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(226, 232, 240, 0.7)',
         },
       },
       y: {
         title: {
           display: true,
           text: 'Points Scored',
-          color: '#ffffff',
+          color: isDark ? '#f8fafc' : '#0f172a',
           font: {
             size: 16,
             weight: 'bold',
           },
         },
         ticks: {
-          color: '#cccccc',
+          color: isDark ? '#94a3b8' : '#475569',
         },
         grid: {
-          color: 'rgba(255, 255, 255, 0.1)',
+          color: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(226, 232, 240, 0.7)',
         },
         beginAtZero: false,
         min: 70,
@@ -178,32 +182,13 @@ const ManagerTrendChart = () => {
 
   return (
     <div
-      className="md:block"
-      style={{
-        height: '500px',
-        padding: '20px',
-        backgroundColor: '#2a2a2a',
-        borderRadius: '8px',
-      }}
+      className="md:block bg-white dark:bg-slate-900 rounded-lg p-5"
+      style={{ height: '500px' }}
     >
-      <h3
-        style={{
-          color: '#ffffff',
-          marginTop: 0,
-          marginBottom: '20px',
-          textAlign: 'center',
-        }}
-      >
+      <h3 className="text-slate-900 dark:text-slate-100 text-center mt-0 mb-4 text-base font-semibold">
         📈 Manager Performance Trends
       </h3>
-      <p
-        style={{
-          color: '#cccccc',
-          fontSize: '14px',
-          textAlign: 'center',
-          marginBottom: '20px',
-        }}
-      >
+      <p className="text-slate-600 dark:text-slate-400 text-sm text-center mb-4">
         Weekly scoring trends across the season
       </p>
       <Line data={data} options={options} />
