@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0023"
+revision = "0023_add_owner_season_behavior_table"
 down_revision = "0022_add_position_and_snapshot_tables"
 branch_labels = None
 depends_on = None

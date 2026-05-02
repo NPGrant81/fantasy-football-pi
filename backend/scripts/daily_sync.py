@@ -16,10 +16,18 @@ try:
 except ModuleNotFoundError:
     from services import player_service
 try:
-    from backend.services.player_identity_service import current_season, upsert_player_season
+    from backend.services.player_identity_service import (
+        current_season,
+        deactivate_stale_player_seasons,
+        upsert_player_season,
+    )
     from backend.services.nfl_roster_provider_service import fetch_current_players
 except ModuleNotFoundError:
-    from services.player_identity_service import current_season, upsert_player_season
+    from services.player_identity_service import (
+        current_season,
+        deactivate_stale_player_seasons,
+        upsert_player_season,
+    )
     from services.nfl_roster_provider_service import fetch_current_players
 
 def sync_nfl_reality():
@@ -36,6 +44,9 @@ def sync_nfl_reality():
     active_players = df[df['status'] == 'Active']
     
     season = current_season()
+    # Collect the set of local player IDs confirmed active in this feed run.
+    # Used after the loop to deactivate players absent from the current roster.
+    seen_player_ids: set[int] = set()
 
     for _, row in active_players.iterrows():
         name = row.get('display_name') or row.get('player_name') or row.get('first_name')
@@ -82,7 +93,20 @@ def sync_nfl_reality():
                 is_active=True,
                 source="nfl_daily_sync",
             )
-    
+            seen_player_ids.add(int(player.id))
+
+    # --- Deactivation pass ---
+    # Any player with an active PlayerSeason this year who did NOT appear in
+    # today's feed is presumed retired/cut/IR.  DEF rows are excluded.
+    # The threshold guard (100) prevents mass-deactivation from a bad fetch.
+    deactivated = deactivate_stale_player_seasons(
+        db,
+        season=season,
+        active_player_ids=seen_player_ids,
+    )
+    if deactivated:
+        print(f"🚫 Marked {deactivated} player-season(s) inactive (absent from feed)")
+
     db.commit()
     print("✨ NFL Reality Sync Complete.")
 
