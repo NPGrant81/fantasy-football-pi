@@ -60,15 +60,6 @@ const DEFAULT_STARTER_SLOTS = {
   FLEX: 1,
 };
 
-const MIN_ACTIVE_REQUIREMENTS = {
-  QB: 1,
-  RB: 1,
-  WR: 1,
-  TE: 1,
-  K: 0,
-  DEF: 1,
-};
-
 const DEFAULT_MAX_POSITION_LIMITS = {
   QB: 1,
   RB: 3,
@@ -77,6 +68,8 @@ const DEFAULT_MAX_POSITION_LIMITS = {
   K: 1,
   DEF: 1,
 };
+
+const ACTIVE_POSITION_KEYS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
 const STARTER_LIMIT_KEYS = {
   QB: 'MAX_QB',
@@ -165,10 +158,10 @@ const normalizeLineupConstraints = (slots) => {
   const activeRosterSize = clampInt(normalizedSlots.ACTIVE_ROSTER_SIZE ?? 9, 5, 12);
 
   const maxLimits = {
-    QB: clampInt(normalizedSlots.MAX_QB ?? normalizedSlots.QB ?? 1, 1, 3),
-    RB: clampInt(normalizedSlots.MAX_RB ?? normalizedSlots.RB ?? 3, 1, 5),
-    WR: clampInt(normalizedSlots.MAX_WR ?? normalizedSlots.WR ?? 3, 1, 5),
-    TE: clampInt(normalizedSlots.MAX_TE ?? normalizedSlots.TE ?? 2, 1, 3),
+    QB: clampInt(normalizedSlots.MAX_QB ?? normalizedSlots.QB ?? 1, 0, 3),
+    RB: clampInt(normalizedSlots.MAX_RB ?? normalizedSlots.RB ?? 3, 0, 5),
+    WR: clampInt(normalizedSlots.MAX_WR ?? normalizedSlots.WR ?? 3, 0, 5),
+    TE: clampInt(normalizedSlots.MAX_TE ?? normalizedSlots.TE ?? 2, 0, 3),
     K: clampInt(normalizedSlots.MAX_K ?? normalizedSlots.K ?? 1, 0, 1),
     DEF: clampInt(normalizedSlots.MAX_DEF ?? normalizedSlots.DEF ?? 1, 0, 1),
     FLEX: clampInt(normalizedSlots.MAX_FLEX ?? normalizedSlots.FLEX ?? 1, 0, 2),
@@ -696,7 +689,9 @@ export default function YourLockerRoom({ activeOwnerId }) {
     const currentStarters = rosterState.filter(
       (player) => player.status === 'STARTER' && !player.is_taxi
     );
-    const counts = { QB: 0, RB: 0, WR: 0, TE: 0, DEF: 0, K: 0 };
+    const counts = Object.fromEntries(
+      ACTIVE_POSITION_KEYS.map((position) => [position, 0])
+    );
 
     for (const player of currentStarters) {
       const position = normalizePosition(player.position);
@@ -728,7 +723,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
       blockingErrors.push('too many players');
     }
 
-    const tierRows = Object.keys(MIN_ACTIVE_REQUIREMENTS)
+    const tierRows = ACTIVE_POSITION_KEYS
       .filter((position) => {
         const minimum = Number(canonicalMinimums[position] ?? 0);
         const maximum = Number(
@@ -853,6 +848,45 @@ export default function YourLockerRoom({ activeOwnerId }) {
     [benchLineupPlayers]
   );
 
+  const enabledStarterPositions = useMemo(() => {
+    return new Set(
+      ACTIVE_POSITION_KEYS.filter((position) => {
+        const minimum = Number(starterRequirements[position] ?? 0);
+        const maximum = Number(
+          maxPositionLimits[position] ?? DEFAULT_MAX_POSITION_LIMITS[position]
+        );
+        return minimum > 0 || maximum > 0;
+      })
+    );
+  }, [starterRequirements, maxPositionLimits]);
+
+  useEffect(() => {
+    let demotedCount = 0;
+    setRosterState((prev) => {
+      const next = prev.map((player) => {
+        const position = normalizePosition(player.position);
+        if (
+          player.status === 'STARTER' &&
+          !player.is_taxi &&
+          !enabledStarterPositions.has(position)
+        ) {
+          demotedCount += 1;
+          return { ...player, status: 'BENCH' };
+        }
+        return player;
+      });
+      return demotedCount > 0 ? next : prev;
+    });
+
+    if (demotedCount > 0) {
+      setToast({
+        message:
+          'Starter slots were updated for this league. Players in disabled positions were moved to bench.',
+        type: 'error',
+      });
+    }
+  }, [enabledStarterPositions]);
+
   const movePlayerToStatus = useCallback(
     (playerId, targetStatus) => {
       if (!canEditLineup) return;
@@ -865,6 +899,17 @@ export default function YourLockerRoom({ activeOwnerId }) {
           if (target.is_locked) {
             setToast({
               message: `${target.name} is locked for Week ${selectedWeek} (game already started).`,
+              type: 'error',
+            });
+            return prev;
+          }
+          const targetPosition = normalizePosition(target.position);
+          if (
+            targetStatus === 'STARTER' &&
+            !enabledStarterPositions.has(targetPosition)
+          ) {
+            setToast({
+              message: `${targetPosition} is disabled in this league and cannot be started.`,
               type: 'error',
             });
             return prev;
@@ -891,7 +936,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
         });
       }
     },
-    [canEditLineup, selectedWeek, viewMode]
+    [canEditLineup, selectedWeek, viewMode, enabledStarterPositions]
   );
 
   const applyRecommendedLineup = useCallback(() => {
@@ -967,7 +1012,11 @@ export default function YourLockerRoom({ activeOwnerId }) {
         });
       }
       const starterIds = starters
-        .filter((p) => !p.is_taxi)
+        .filter(
+          (p) =>
+            !p.is_taxi &&
+            enabledStarterPositions.has(normalizePosition(p.position))
+        )
         .map((player) => Number(player.player_id));
 
       console.log('Submitting roster payload', {

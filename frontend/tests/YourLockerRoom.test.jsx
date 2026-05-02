@@ -158,4 +158,78 @@ describe('YourLockerRoom — Start/Sit Sorter (issue #173)', () => {
 
     expect(screen.queryByRole('button', { name: /Owner Management/i })).toBeNull();
   });
+
+  test('disables QB starter slot when league config turns QB off', async () => {
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { user_id: 1, username: 'alice', league_id: 1, is_commissioner: false },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'Portable League', draft_status: 'COMPLETED' } });
+      }
+      if (url.startsWith('/leagues/owners')) {
+        return Promise.resolve({ data: [] });
+      }
+      if (url.startsWith('/leagues/1/settings')) {
+        return Promise.resolve({
+          data: {
+            starting_slots: {
+              ACTIVE_ROSTER_SIZE: 1,
+              QB: 0,
+              MAX_QB: 0,
+              RB: 1,
+              MAX_RB: 1,
+              WR: 0,
+              MAX_WR: 0,
+              TE: 0,
+              MAX_TE: 0,
+              K: 0,
+              MAX_K: 0,
+              DEF: 0,
+              MAX_DEF: 0,
+              FLEX: 0,
+              MAX_FLEX: 0,
+            },
+            scoring_rules: [],
+          },
+        });
+      }
+      if (url.startsWith('/dashboard/')) {
+        return Promise.resolve({
+          data: {
+            roster: [
+              { id: 1, player_id: 1, name: 'QB One', position: 'QB', nfl_team: 'DAL', status: 'STARTER' },
+              { id: 2, player_id: 2, name: 'RB One', position: 'RB', nfl_team: 'DAL', status: 'STARTER' },
+            ],
+          },
+        });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({
+          data: {
+            roster: [
+              { id: 1, player_id: 1, name: 'QB One', position: 'QB', nfl_team: 'DAL', status: 'STARTER' },
+              { id: 2, player_id: 2, name: 'RB One', position: 'RB', nfl_team: 'DAL', status: 'STARTER' },
+            ],
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    apiClient.post.mockResolvedValue({ data: {} });
+
+    render(<YourLockerRoom activeOwnerId={1} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/RB One/i)).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/QB 0/)).toBeNull();
+      expect(screen.getByText(/RB 1/)).toBeInTheDocument();
+    });
+  });
 });
