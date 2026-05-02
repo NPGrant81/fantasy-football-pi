@@ -147,6 +147,7 @@ export default function Matchups() {
   // --- 2.1 RENDER LOGIC (The View) ---
   return (
     <PageTemplate
+      hideHeader
       className="pb-20 animate-fade-in"
     >
       {/* Optional back nav; page title is now handled by global Layout header */}

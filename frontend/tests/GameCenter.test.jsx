@@ -22,6 +22,7 @@ import apiClient from '../src/api/client';
 describe('GameCenter (Match Details)', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    window.history.replaceState({}, '', '/matchup/1');
   });
 
   test('shows loading state on mount', () => {
@@ -233,6 +234,36 @@ describe('GameCenter (Match Details)', () => {
     const backLink = screen.getByRole('link', { name: /back to matchups/i });
     // Default view is projected (no ?view=actual in location.search)
     expect(backLink).toHaveAttribute('href', '/matchups?week=5&view=projected');
+  });
+
+  test('preserves explicit deep-link week and actual view in back link', async () => {
+    window.history.replaceState({}, '', '/matchup/1?week=7&view=actual');
+
+    const mockGame = {
+      id: 1,
+      week: 5,
+      home_team: 'Team A',
+      away_team: 'Team B',
+      home_score: 100,
+      away_score: 95,
+      home_projected: 105,
+      away_projected: 100,
+      home_roster: [],
+      away_roster: [],
+    };
+
+    apiClient.get.mockResolvedValue({ data: mockGame });
+
+    render(<GameCenter />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /back to matchups/i })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Week 7 Matchup/i)).toBeInTheDocument();
+
+    const backLink = screen.getByRole('link', { name: /back to matchups/i });
+    expect(backLink).toHaveAttribute('href', '/matchups?week=7&view=actual');
   });
 
   test('handles API error gracefully', async () => {

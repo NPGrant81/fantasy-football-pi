@@ -163,7 +163,7 @@ export default function GameCenter() {
   })();
 
   return (
-    <PageTemplate className="pb-20 animate-fade-in">
+    <PageTemplate hideHeader className="pb-20 animate-fade-in">
       <div className="mb-4 flex justify-end">
         <Link
           to={`/matchups?week=${selectedWeek}&view=${showProjected ? 'projected' : 'actual'}`}
@@ -172,6 +172,10 @@ export default function GameCenter() {
         >
           <FiArrowLeft size={16} /> Back
         </Link>
+      </div>
+
+      <div className="-mt-1 mb-2 text-center text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+        Week {selectedWeek} Matchup
       </div>
 
       {/* 2.3 SCOREBOARD BANNER */}
