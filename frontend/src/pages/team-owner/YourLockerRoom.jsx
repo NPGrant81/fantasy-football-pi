@@ -320,17 +320,8 @@ export default function YourLockerRoom({ activeOwnerId }) {
   const [showTrades, setShowTrades] = useState(false);
   const [showRuleViewer, setShowRuleViewer] = useState(false);
   const [ruleViewerType, setRuleViewerType] = useState('scoring');
-  const [showProposeTrade, setShowProposeTrade] = useState(false);
   const [leagueOwners, setLeagueOwners] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [myTradeRoster, setMyTradeRoster] = useState([]);
-  const [targetRoster, setTargetRoster] = useState([]);
-  const [proposalToUserId, setProposalToUserId] = useState('');
-  const [offeredPlayerIds, setOfferedPlayerIds] = useState([]);
-  const [requestedPlayerIds, setRequestedPlayerIds] = useState([]);
-  const [proposalNote, setProposalNote] = useState('');
-  const [offeredDollars, setOfferedDollars] = useState('');
-  const [requestedDollars, setRequestedDollars] = useState('');
   const [toast, setToast] = useState(null);
   const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
   const [showLineupValidationModal, setShowLineupValidationModal] =
@@ -479,20 +470,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
           setSummary(dashRes.data);
         }
 
-        if (!loggedInUserId) {
-          setMyTradeRoster([]);
-        } else {
-          try {
-            const myDashRes = await apiClient.get(
-              `/dashboard/${loggedInUserId}`
-            );
-            setMyTradeRoster(
-              Array.isArray(myDashRes.data?.roster) ? myDashRes.data.roster : []
-            );
-          } catch {
-            setMyTradeRoster([]);
-          }
-        }
       } catch {
         setCurrentUserId(null);
         setUserInfo({
@@ -508,7 +485,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
         setMaxPositionLimits(DEFAULT_MAX_POSITION_LIMITS);
         setAllowPartialLineup(false);
         setSummary(null);
-        setMyTradeRoster([]);
         setLeagueOwners([]);
       }
     }
@@ -540,26 +516,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
     };
   }, [loadLeagueSettings, userInfo.leagueId]);
 
-  useEffect(() => {
-    async function loadTargetRoster() {
-      if (!proposalToUserId) {
-        setTargetRoster([]);
-        setRequestedPlayerIds([]);
-        return;
-      }
-
-      try {
-        const res = await apiClient.get(`/dashboard/${proposalToUserId}`);
-        console.log('loaded target roster for', proposalToUserId, res.data);
-        setTargetRoster(Array.isArray(res.data?.roster) ? res.data.roster : []);
-      } catch (err) {
-        console.error('failed to load target roster', err);
-        setTargetRoster([]);
-      }
-    }
-
-    loadTargetRoster();
-  }, [proposalToUserId]);
   // --- 1.2 STATE MANAGEMENT ---
   const [teamData, setTeamData] = useState(null);
   const [rosterState, setRosterState] = useState([]);
@@ -592,8 +548,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
   const [startSitSort] = useState('position');
   // FIX: Start loading as true to avoid sync setState inside useEffect
   const [loading, setLoading] = useState(true);
-  const canProposeTrade =
-    !!currentUserId && (!viewedOwnerId || viewedOwnerId === currentUserId);
 
   // --- 1.3 DATA RETRIEVAL (The Engine) ---
   const fetchTeam = useCallback(() => {
@@ -1051,95 +1005,6 @@ export default function YourLockerRoom({ activeOwnerId }) {
     }
   };
 
-  const handleSubmitTradeProposal = async () => {
-    console.log('handleSubmitTradeProposal called', {
-      canProposeTrade,
-      proposalToUserId,
-      offeredPlayerIds,
-      requestedPlayerIds,
-      offeredDollars,
-      requestedDollars,
-    });
-    if (!canProposeTrade) {
-      setToast({
-        message: 'Trades can only be proposed from your own roster page.',
-        type: 'error',
-      });
-      return;
-    }
-
-    if (
-      !proposalToUserId ||
-      offeredPlayerIds.length === 0 ||
-      requestedPlayerIds.length === 0
-    ) {
-      setToast({ message: 'Select manager and at least one player on each side.', type: 'error' });
-      return;
-    }
-
-    try {
-      const assetsFromA = offeredPlayerIds.map((playerId) => ({
-        asset_type: 'PLAYER',
-        player_id: Number(playerId),
-      }));
-      const assetsFromB = requestedPlayerIds.map((playerId) => ({
-        asset_type: 'PLAYER',
-        player_id: Number(playerId),
-      }));
-
-      if ((Number(offeredDollars) || 0) > 0) {
-        assetsFromA.push({
-          asset_type: 'DRAFT_DOLLARS',
-          amount: Number(offeredDollars) || 0,
-        });
-      }
-      if ((Number(requestedDollars) || 0) > 0) {
-        assetsFromB.push({
-          asset_type: 'DRAFT_DOLLARS',
-          amount: Number(requestedDollars) || 0,
-        });
-      }
-
-      await apiClient.post(`/trades/leagues/${userInfo.leagueId}/submit-v2`, {
-        team_a_id: Number(currentUserId),
-        team_b_id: Number(proposalToUserId),
-        assets_from_a: assetsFromA,
-        assets_from_b: assetsFromB,
-        proposal_note: proposalNote,
-      });
-
-      setToast({ message: 'Trade proposal submitted.', type: 'success' });
-      setShowProposeTrade(false);
-      setProposalToUserId('');
-      setOfferedPlayerIds([]);
-      setRequestedPlayerIds([]);
-      setProposalNote('');
-      setOfferedDollars('');
-      setRequestedDollars('');
-      fetchTeam();
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      const flattenedDetail =
-        typeof detail === 'string'
-          ? detail
-          : Array.isArray(detail)
-            ? detail.join(', ')
-            : detail && typeof detail === 'object'
-              ? Object.entries(detail)
-                  .flatMap(([key, value]) => {
-                    if (Array.isArray(value)) {
-                      return value.map((message) => `${key}: ${message}`);
-                    }
-                    return [`${key}: ${String(value)}`];
-                  })
-                  .join(', ')
-              : null;
-      setToast({
-        message: flattenedDetail || 'Failed to submit trade proposal.',
-        type: 'error',
-      });
-    }
-  };
 
   const openPlayerPerformance = async (player) => {
     setSelectedPlayer(player);
@@ -1421,177 +1286,7 @@ export default function YourLockerRoom({ activeOwnerId }) {
         </div>
       </div>
 
-      {showProposeTrade && canProposeTrade && (
-        <div className={modalOverlay}>
-          <div className={`${modalSurface} max-w-2xl p-6`}>
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className={modalTitle}>Propose Trade</h3>
-              <button
-                onClick={() => setShowProposeTrade(false)}
-                className={modalCloseButton}
-              >
-                <FiX />
-              </button>
-            </div>
 
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="trade-with"
-                  className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
-                >
-                  Trade With
-                </label>
-                <select
-                  id="trade-with"
-                  value={proposalToUserId}
-                  onChange={(e) => setProposalToUserId(e.target.value)}
-                  className={inputBase}
-                >
-                  <option value="">Select manager</option>
-                  {leagueOwners
-                    .filter((owner) => owner.id !== currentUserId)
-                    .map((owner) => (
-                      <option key={owner.id} value={owner.id}>
-                        {owner.team_name || owner.username}
-                        {owner.division_name ? ` (${owner.division_name})` : ''}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="you-offer"
-                  className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
-                >
-                  You Offer
-                </label>
-                <select
-                  id="you-offer"
-                  multiple
-                  size={6}
-                  value={offeredPlayerIds}
-                  onChange={(e) =>
-                    setOfferedPlayerIds(
-                      Array.from(e.target.selectedOptions, (opt) => opt.value)
-                    )
-                  }
-                  className={inputBase}
-                >
-                  {myTradeRoster.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.name} ({player.position})
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-slate-500">
-                  Hold Ctrl (Windows) or Cmd (Mac) to select multiple players.
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="you-request"
-                  className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
-                >
-                  You Request
-                </label>
-                <select
-                  id="you-request"
-                  multiple
-                  size={6}
-                  value={requestedPlayerIds}
-                  onChange={(e) =>
-                    setRequestedPlayerIds(
-                      Array.from(e.target.selectedOptions, (opt) => opt.value)
-                    )
-                  }
-                  className={inputBase}
-                  disabled={!proposalToUserId}
-                >
-                  {targetRoster.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.name} ({player.position})
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-slate-500">
-                  Hold Ctrl (Windows) or Cmd (Mac) to select multiple players.
-                </p>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label
-                    htmlFor="offered-dollars"
-                    className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
-                  >
-                    Offer $ (future draft)
-                  </label>
-                  <input
-                    id="offered-dollars"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={offeredDollars}
-                    onChange={(e) => setOfferedDollars(e.target.value)}
-                    className={inputBase}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label
-                    htmlFor="requested-dollars"
-                    className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400"
-                  >
-                    Request $ (future draft)
-                  </label>
-                  <input
-                    id="requested-dollars"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={requestedDollars}
-                    onChange={(e) => setRequestedDollars(e.target.value)}
-                    className={inputBase}
-                    placeholder="0"
-                    disabled={!proposalToUserId}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Note (Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={proposalNote}
-                  onChange={(e) => setProposalNote(e.target.value)}
-                  className={inputBase}
-                  placeholder="Add context for commissioner review"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setShowProposeTrade(false)}
-                className={buttonSecondary}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitTradeProposal}
-                className={buttonPrimary}
-              >
-                Submit Proposal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showPlayerPerformance && (
         <div className={modalOverlay}>
