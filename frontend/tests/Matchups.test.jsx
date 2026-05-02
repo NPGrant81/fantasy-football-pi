@@ -377,6 +377,70 @@ describe('Matchups (Weekly Matchups)', () => {
     });
 
     const gameLink = screen.getByText(/Game Center/i).closest('a');
-    expect(gameLink).toHaveAttribute('href', '/matchup/99');
+    expect(gameLink).toHaveAttribute('href', '/matchup/99?week=1&view=projected');
+  });
+
+  test('preserves non-default week and actual view in GameCenter links', async () => {
+    const mockGamesWeek1 = [
+      {
+        id: 1,
+        week: 1,
+        home_team: 'Team A',
+        away_team: 'Team B',
+        home_score: 100,
+        away_score: 95,
+        home_projected: 120,
+        away_projected: 100,
+      },
+    ];
+
+    const mockGamesWeek2 = [
+      {
+        id: 42,
+        week: 2,
+        home_team: 'Team C',
+        away_team: 'Team D',
+        home_score: 105,
+        away_score: 108,
+        home_projected: 100,
+        away_projected: 110,
+      },
+    ];
+
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { username: 'alice', league_id: 1 },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'The Big Show' } });
+      }
+      if (url === '/matchups/week/1') {
+        return Promise.resolve({ data: mockGamesWeek1 });
+      }
+      if (url === '/matchups/week/2') {
+        return Promise.resolve({ data: mockGamesWeek2 });
+      }
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
+    render(<Matchups />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Team A')).toBeInTheDocument();
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText(/Next week/i));
+
+    await waitFor(() => {
+      expect(screen.getByText('Team C')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByLabelText(/Toggle projected scores/i));
+
+    const gameLink = screen.getByText(/Game Center/i).closest('a');
+    expect(gameLink).toHaveAttribute('href', '/matchup/42?week=2&view=actual');
   });
 });
