@@ -159,6 +159,18 @@ describe('YourLockerRoom — Start/Sit Sorter (issue #173)', () => {
     expect(screen.queryByRole('button', { name: /Owner Management/i })).toBeNull();
   });
 
+  test('lineup view omits unrelated trade controls in top actions', async () => {
+    setupMocks();
+    render(<YourLockerRoom activeOwnerId={1} />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/QB One/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: /Propose Trade/i })).toBeNull();
+    expect(screen.queryByText(/Pending Trades/i)).toBeNull();
+  });
+
   test('disables QB starter slot when league config turns QB off', async () => {
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me') {
@@ -177,6 +189,7 @@ describe('YourLockerRoom — Start/Sit Sorter (issue #173)', () => {
           data: {
             starting_slots: {
               ACTIVE_ROSTER_SIZE: 1,
+              ALLOW_PARTIAL_LINEUP: 1,
               QB: 0,
               MAX_QB: 0,
               RB: 1,
@@ -230,6 +243,93 @@ describe('YourLockerRoom — Start/Sit Sorter (issue #173)', () => {
     await waitFor(() => {
       expect(screen.queryByText(/QB 0/)).toBeNull();
       expect(screen.getByText(/RB 1/)).toBeInTheDocument();
+    });
+  });
+
+  test('Owner Management button is removed for commissioners too', async () => {
+    setupMocks();
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { user_id: 1, username: 'alice', league_id: 1, is_commissioner: true },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'Test League', draft_status: 'COMPLETED' } });
+      }
+      if (url.startsWith('/leagues/owners')) {
+        return Promise.resolve({ data: [] });
+      }
+      if (url.startsWith('/leagues/1/settings')) {
+        return Promise.resolve({ data: { starting_slots: {}, scoring_rules: [] } });
+      }
+      if (url.startsWith('/dashboard/')) {
+        return Promise.resolve({ data: { roster: testRoster } });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({ data: { roster: testRoster } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    apiClient.post.mockResolvedValue({ data: {} });
+
+    render(<YourLockerRoom activeOwnerId={1} />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/QB One/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: /Owner Management/i })).toBeNull();
+  });
+
+  test('loads selected future week roster context', async () => {
+    const week3Roster = [
+      { id: 20, player_id: 20, name: 'RB Week Three', position: 'RB', nfl_team: 'NYG', status: 'STARTER' },
+    ];
+    setupMocks();
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({
+          data: { user_id: 1, username: 'alice', league_id: 1, is_commissioner: false },
+        });
+      }
+      if (url === '/leagues/1') {
+        return Promise.resolve({ data: { name: 'Test League', draft_status: 'COMPLETED' } });
+      }
+      if (url.startsWith('/leagues/owners')) {
+        return Promise.resolve({ data: [] });
+      }
+      if (url.startsWith('/leagues/1/settings')) {
+        return Promise.resolve({ data: { starting_slots: {}, scoring_rules: [] } });
+      }
+      if (url.startsWith('/dashboard/')) {
+        return Promise.resolve({ data: { roster: testRoster } });
+      }
+      if (url === '/team/1?week=3') {
+        return Promise.resolve({ data: { roster: week3Roster, lineup_submitted: false } });
+      }
+      if (url.startsWith('/team/1?week=')) {
+        return Promise.resolve({ data: { roster: testRoster } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+    apiClient.post.mockResolvedValue({ data: {} });
+
+    render(<YourLockerRoom activeOwnerId={1} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/QB One/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/Week/i), { target: { value: '3' } });
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('/team/1?week=3');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/RB Week Three/i)).toBeInTheDocument();
     });
   });
 });
