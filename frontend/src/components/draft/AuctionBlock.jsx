@@ -211,7 +211,7 @@ export default function AuctionBlock({
           </button>
         </div>
 
-        {/* manual adjustment and slider omitted for brevity */
+        {/* manual adjustment and slider omitted for brevity */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setBidAmount(Math.max(MIN_BID, bidAmount - 1))}

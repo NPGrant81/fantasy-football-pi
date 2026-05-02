@@ -624,7 +624,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       {/* auction controls top bar */}
       <div className="w-full">
-        <div className="flex flex-wrap items-end justify-start p-1 bg-slate-900/40">
+        <div className="flex flex-wrap items-end justify-start p-1 bg-slate-100/80 dark:bg-slate-900/40">
           {/* auction controls panel handles its own internal alignment */}
           <AuctionBlock
             playerName={playerName}
@@ -668,7 +668,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
 
       <div className="relative">
         <main className="flex-1 grid grid-cols-12 h-[70vh] md:h-screen gap-0 overflow-hidden z-0">
-          <section className="overflow-x-auto border-r border-slate-800 custom-scrollbar col-span-12">
+          <section className="overflow-x-auto border-r border-slate-300 dark:border-slate-800 custom-scrollbar col-span-12">
             <DraftBoardGrid
               teams={ownersWithBudgets}
               history={allPicks}
@@ -680,7 +680,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         </main>
 
         {showBestSidebar && (
-          <aside className="absolute right-2 top-2 bottom-2 w-[300px] max-w-[80vw] bg-slate-900/90 border border-slate-700 rounded-lg overflow-hidden z-20 shadow-2xl">
+          <aside className="absolute right-2 top-2 bottom-2 w-[300px] max-w-[80vw] bg-white/95 dark:bg-slate-900/90 border border-slate-300 dark:border-slate-700 rounded-lg overflow-hidden z-20 shadow-2xl">
             <BestAvailableList
               open={showBestSidebar}
               onToggle={() => setShowBestSidebar(false)}
@@ -703,7 +703,7 @@ export default function DraftBoard({ token, activeOwnerId, activeLeagueId }) {
         </div>
       )}
 
-      <footer className="bg-slate-900 px-4 md:px-6 py-1 flex justify-between text-[10px] text-slate-500 border-t border-slate-800">
+      <footer className="bg-slate-100 dark:bg-slate-900 px-4 md:px-6 py-1 flex justify-between text-[10px] text-slate-600 dark:text-slate-500 border-t border-slate-300 dark:border-slate-800">
         <span>SESSION ID: {sessionId}</span>
         <span className="text-green-500 font-mono">SERVER STATUS: ONLINE</span>
       </footer>

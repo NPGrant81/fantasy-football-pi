@@ -26,6 +26,11 @@ jobs:
         run: |
           npx eslint src/components src/pages
 
+      - name: Enforce light-first theme guardrails
+        working-directory: frontend
+        run: |
+          npm run lint:theme
+
       - name: Run accessibility smoke checks
         uses: cypress-io/github-action@v6
         with:
