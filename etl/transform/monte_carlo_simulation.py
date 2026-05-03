@@ -805,7 +805,7 @@ def _fallback_compute_player_draft_features(
             b for (yr, b) in player_history[pid]
             if yr < season and (reference_season is None or yr < reference_season)
         ]
-        draft_avg = float(sum(history) / len(history)) if history else None
+        draft_avg = float(sum(history) / len(history)) if history else bid
 
         bargain = None
         if not pd.isna(row.get("position_id")):
@@ -892,7 +892,8 @@ def _build_rankings_from_ml_features(
     ----------
     draft_results_df:
         Normalised draft results with columns: player_id, owner_id,
-        season_year/year, winning_bid, and position/position_id.
+        season_year (or year/Year variants), winning_bid, and position_id
+        (or PositionID variants).
     target_season:
         Target season for the temporal leakage guard.  If None, all data is used.
 
@@ -917,6 +918,8 @@ def _build_rankings_from_ml_features(
         "PlayerID": "player_id",
         "OwnerID": "owner_id",
         "Year": "season_year",
+        "year": "season_year",
+        "season_year": "season_year",
         "WinningBid": "winning_bid",
         "PositionID": "position_id",
     }
