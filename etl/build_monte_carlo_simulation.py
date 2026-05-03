@@ -9,7 +9,6 @@ from etl.transform.monte_carlo_simulation import (
     run_monte_carlo_from_db,
     summarize_team_distribution,
 )
-from etl.transform.ml_feature_bridge import build_simulation_rankings
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,8 +37,8 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help=(
             "Build historical_rankings_df from the ML feature pipeline (Issue #106) "
-            "instead of the legacy draft_values table.  Requires the ML feature "
-            "outputs to be available in the database."
+            "instead of the legacy draft_values table. Requires sufficient "
+            "historical draft pick data in draft_picks."
         ),
     )
     parser.add_argument(

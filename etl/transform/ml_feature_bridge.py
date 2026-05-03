@@ -26,8 +26,6 @@ Typical usage::
 """
 from __future__ import annotations
 
-import math
-
 import pandas as pd
 
 
@@ -129,10 +127,13 @@ def build_simulation_rankings(
     # --- inflation adjustment ---
     inflation_map = _extract_inflation_map(draft_season_features, target_season)
     if inflation_map:
-        df["predicted_auction_value"] = df.apply(
-            lambda row: _apply_inflation(row["predicted_auction_value"], inflation_map),
-            axis=1,
-        )
+        mean_rate = mean_inflation_rate(inflation_map)
+        if mean_rate is not None:
+            df["predicted_auction_value"] = (
+                (df["predicted_auction_value"] * (1.0 + mean_rate))
+                .clip(lower=_MIN_AUCTION_VALUE)
+                .round(4)
+            )
 
     # --- model_score: absolute bargain signal ---
     # A positive bargain_score means the player was acquired below position average.
@@ -169,9 +170,9 @@ def _cv_to_consistency(cv: float | None) -> float:
     High CV (volatile bidding history) → low consistency.
     None/NaN → 0.5 (unknown stability → neutral).
     """
-    if cv is None or (isinstance(cv, float) and math.isnan(cv)):
+    if cv is None or pd.isna(cv):
         return 0.5
-    clipped = min(float(cv), _MAX_CV_FOR_CLIPPING)
+    clipped = min(max(float(cv), 0.0), _MAX_CV_FOR_CLIPPING)
     return round(1.0 - clipped, 6)
 
 
@@ -181,9 +182,9 @@ def _extract_inflation_map(
 ) -> dict[str, float]:
     """Build a position → inflation_rate map from draft_season_features.
 
-    Uses the most recent season's inflation_index relative to the season
-    immediately preceding ``target_season``.  Returns empty dict if data
-    is unavailable or inapplicable.
+    Uses the latest available season < ``target_season`` with non-null
+    ``inflation_index``. Returns empty dict if data is unavailable or
+    inapplicable.
     """
     if draft_season_features is None or draft_season_features.empty:
         return {}
@@ -207,15 +208,8 @@ def _extract_inflation_map(
     return {pos: float(rate) for pos, rate in infl.items() if isinstance(rate, (int, float))}
 
 
-def _apply_inflation(value: float, inflation_map: dict[str, float]) -> float:
-    """Apply the mean inflation rate across all positions to a single value.
-
-    Position-specific inflation is averaged because individual player positions
-    are not known in the bridge (they come from the players_df in the simulation).
-    This gives a first-order price-level adjustment.
-    """
+def mean_inflation_rate(inflation_map: dict[str, float]) -> float | None:
+    """Return mean inflation rate across positions, or None when unavailable."""
     if not inflation_map:
-        return value
-    mean_rate = sum(inflation_map.values()) / len(inflation_map)
-    adjusted = value * (1.0 + mean_rate)
-    return max(_MIN_AUCTION_VALUE, round(adjusted, 4))
+        return None
+    return sum(inflation_map.values()) / len(inflation_map)

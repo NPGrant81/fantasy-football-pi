@@ -90,6 +90,12 @@ class TestCvToConsistency:
     def test_nan_yields_neutral_consistency(self):
         assert _cv_to_consistency(float("nan")) == pytest.approx(0.5, abs=1e-6)
 
+    def test_pd_na_yields_neutral_consistency(self):
+        assert _cv_to_consistency(pd.NA) == pytest.approx(0.5, abs=1e-6)
+
+    def test_negative_cv_is_clipped_to_perfect_consistency(self):
+        assert _cv_to_consistency(-0.1) == pytest.approx(1.0, abs=1e-6)
+
     def test_mid_cv_linearly_maps(self):
         # CV = 0.4 → consistency = 0.6
         assert _cv_to_consistency(0.4) == pytest.approx(0.6, abs=1e-6)

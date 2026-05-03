@@ -721,6 +721,159 @@ _POSITION_IDS: dict[str, int] = {v: k for k, v in POSITION_LABELS.items()}
 _POSITION_IDS.update({"DST": 8006, "D/ST": 8006})
 
 
+def _fallback_compute_player_draft_features(
+    validated_draft_df: pd.DataFrame,
+    *,
+    reference_season: int | None = None,
+) -> pd.DataFrame:
+    """Minimal local fallback for draft-cost player features used by bridge mode."""
+    required = {"player_id", "season_year", "winning_bid"}
+    missing = required - set(validated_draft_df.columns)
+    if missing or validated_draft_df.empty:
+        return pd.DataFrame(
+            columns=[
+                "player_id",
+                "season_year",
+                "draft_avg_cost",
+                "bargain_score",
+                "bidding_war_likelihood",
+            ]
+        )
+
+    df = validated_draft_df.copy()
+    df["player_id"] = pd.to_numeric(df["player_id"], errors="coerce")
+    df["season_year"] = pd.to_numeric(df["season_year"], errors="coerce")
+    df["winning_bid"] = pd.to_numeric(df["winning_bid"], errors="coerce")
+    df = df.dropna(subset=["player_id", "season_year", "winning_bid"]).copy()
+    if df.empty:
+        return pd.DataFrame(
+            columns=[
+                "player_id",
+                "season_year",
+                "draft_avg_cost",
+                "bargain_score",
+                "bidding_war_likelihood",
+            ]
+        )
+    df["player_id"] = df["player_id"].astype(int)
+    df["season_year"] = df["season_year"].astype(int)
+
+    if "position_id" in df.columns:
+        df["position_id"] = pd.to_numeric(df["position_id"], errors="coerce")
+
+    if "position_id" in df.columns:
+        grain_df = (
+            df.groupby(["player_id", "season_year"], as_index=False)
+            .agg(
+                winning_bid=("winning_bid", "mean"),
+                position_id=("position_id", "first"),
+            )
+            .sort_values(["player_id", "season_year"], kind="mergesort")
+            .reset_index(drop=True)
+        )
+    else:
+        grain_df = (
+            df.groupby(["player_id", "season_year"], as_index=False)
+            .agg(winning_bid=("winning_bid", "mean"))
+            .sort_values(["player_id", "season_year"], kind="mergesort")
+            .reset_index(drop=True)
+        )
+        grain_df["position_id"] = pd.NA
+
+    pos_avg: dict[tuple[int, int], float] = {}
+    pos_df = grain_df.dropna(subset=["position_id"]).copy()
+    if not pos_df.empty:
+        pos_df["position_id"] = pos_df["position_id"].astype(int)
+        for (season, pos), grp in pos_df.groupby(["season_year", "position_id"]):
+            pos_avg[(int(season), int(pos))] = float(grp["winning_bid"].mean())
+
+    player_history: dict[int, list[tuple[int, float]]] = {}
+    for _, row in grain_df.iterrows():
+        player_history.setdefault(int(row["player_id"]), []).append(
+            (int(row["season_year"]), float(row["winning_bid"]))
+        )
+
+    rows: list[dict[str, float | int | None]] = []
+    for _, row in grain_df.iterrows():
+        pid = int(row["player_id"])
+        season = int(row["season_year"])
+        bid = float(row["winning_bid"])
+
+        history = [
+            b for (yr, b) in player_history[pid]
+            if yr < season and (reference_season is None or yr < reference_season)
+        ]
+        draft_avg = float(sum(history) / len(history)) if history else None
+
+        bargain = None
+        if not pd.isna(row.get("position_id")):
+            pos_key = (season, int(row["position_id"]))
+            season_pos_avg = pos_avg.get(pos_key)
+            if season_pos_avg and season_pos_avg > 0:
+                bargain = (season_pos_avg - bid) / season_pos_avg
+
+        cv = None
+        if len(history) >= 2 and draft_avg and draft_avg > 0:
+            stdev = float(pd.Series(history).std(ddof=1))
+            cv = stdev / draft_avg
+
+        rows.append(
+            {
+                "player_id": pid,
+                "season_year": season,
+                "draft_avg_cost": round(draft_avg, 4) if draft_avg is not None else None,
+                "bargain_score": round(float(bargain), 6) if bargain is not None else None,
+                "bidding_war_likelihood": round(float(cv), 6) if cv is not None else None,
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def _fallback_compute_draft_season_features(validated_draft_df: pd.DataFrame) -> pd.DataFrame:
+    """Minimal local fallback for season inflation features used by bridge mode."""
+    required = {"season_year", "winning_bid", "position_id"}
+    if required - set(validated_draft_df.columns) or validated_draft_df.empty:
+        return pd.DataFrame(columns=["season_year", "inflation_index"])
+
+    df = validated_draft_df.copy()
+    df["season_year"] = pd.to_numeric(df["season_year"], errors="coerce")
+    df["winning_bid"] = pd.to_numeric(df["winning_bid"], errors="coerce")
+    df["position_id"] = pd.to_numeric(df["position_id"], errors="coerce")
+    df = df.dropna(subset=["season_year", "winning_bid", "position_id"]).copy()
+    if df.empty:
+        return pd.DataFrame(columns=["season_year", "inflation_index"])
+
+    df["season_year"] = df["season_year"].astype(int)
+    df["position_id"] = df["position_id"].astype(int)
+    df["pos_label"] = df["position_id"].apply(lambda v: POSITION_LABELS.get(int(v), str(int(v))))
+
+    season_pos_avg: dict[int, dict[str, float]] = {}
+    for season, grp in df.groupby("season_year"):
+        season_pos_avg[int(season)] = {
+            pos: float(pos_grp["winning_bid"].mean())
+            for pos, pos_grp in grp.groupby("pos_label")
+        }
+
+    rows: list[dict[str, object]] = []
+    sorted_seasons = sorted(season_pos_avg.keys())
+    for i, season in enumerate(sorted_seasons):
+        if i == 0:
+            infl = None
+        else:
+            prev = season_pos_avg[sorted_seasons[i - 1]]
+            curr = season_pos_avg[season]
+            infl = {}
+            for pos in set(prev.keys()) | set(curr.keys()):
+                prev_val = prev.get(pos)
+                curr_val = curr.get(pos)
+                if prev_val and curr_val and prev_val > 0:
+                    infl[pos] = round(curr_val / prev_val - 1.0, 6)
+        rows.append({"season_year": season, "inflation_index": infl})
+
+    return pd.DataFrame(rows)
+
+
 def _build_rankings_from_ml_features(
     draft_results_df: pd.DataFrame,
     target_season: int | None,
@@ -734,8 +887,8 @@ def _build_rankings_from_ml_features(
     Parameters
     ----------
     draft_results_df:
-        Normalised draft results with columns: player_id, owner_id, year,
-        winning_bid, is_keeper (or position).
+        Normalised draft results with columns: player_id, owner_id,
+        season_year/year, winning_bid, and position/position_id.
     target_season:
         Target season for the temporal leakage guard.  If None, all data is used.
 
@@ -743,11 +896,16 @@ def _build_rankings_from_ml_features(
     -------
     pd.DataFrame suitable for ``historical_rankings_df`` in the simulation engine.
     """
-    from etl.transform.ml_features import (
-        compute_draft_season_features,
-        compute_player_draft_features,
-    )
     from etl.transform.ml_feature_bridge import build_simulation_rankings
+
+    try:
+        from etl.transform.ml_features import (
+            compute_draft_season_features,
+            compute_player_draft_features,
+        )
+    except ModuleNotFoundError:
+        compute_player_draft_features = _fallback_compute_player_draft_features
+        compute_draft_season_features = _fallback_compute_draft_season_features
 
     # Build a normalised draft DataFrame with the column names ml_features expects.
     picks = draft_results_df.copy()
@@ -759,18 +917,16 @@ def _build_rankings_from_ml_features(
         "PositionID": "position_id",
     }
     picks = picks.rename(columns={k: v for k, v in col_map.items() if k in picks.columns})
-    picks["winning_bid"] = pd.to_numeric(
-        picks["winning_bid"].astype(str).str.replace("$", "", regex=False).str.replace(",", "", regex=False),
-        errors="coerce",
-    ).fillna(0.0)
+    if "winning_bid" in picks.columns:
+        picks["winning_bid"] = pd.to_numeric(
+            picks["winning_bid"].astype(str).str.replace("$", "", regex=False).str.replace(",", "", regex=False),
+            errors="coerce",
+        ).fillna(0.0)
     if "is_keeper" not in picks.columns:
         picks["is_keeper"] = False
 
     player_feats = compute_player_draft_features(picks, reference_season=target_season)
-    try:
-        season_feats = compute_draft_season_features(picks)
-    except Exception:
-        season_feats = pd.DataFrame()
+    season_feats = compute_draft_season_features(picks)
 
     return build_simulation_rankings(
         player_features=player_feats,
