@@ -1,0 +1,639 @@
+# Fantasy Football PI — ML Feature Registry
+# Single source of truth for all ML features.
+# Consumed by: ml_features.py (computation), ml-feature-specification.md (docs),
+#              test_ml_features.py (schema + selected parity checks).
+#
+# Schema per entry:
+#   name                  – machine-readable identifier (snake_case)
+#   level                 – player_season | owner_season | draft_season
+#   formula               – human-readable computation description
+#   inputs                – list of source column / table references
+#   output_type           – float | int | bool | dict | list[float]
+#   tier                  – critical | standard | optional
+#   null_rate_threshold   – max acceptable null fraction (0–1); critical ≤ 0.10
+#   offline               – available in ETL / offline training pipeline
+#   online                – safe to serve at request time (no future-data leakage)
+#   temporal_leakage_guard– description of cut rule enforced at computation time
+#   owner                 – team/system responsible for SLA
+#   version               – feature schema version; bump on breaking change
+#   deprecation_policy    – rule for safe removal
+
+version: "1.0"
+effective_date: "2026-05-02"
+
+features:
+
+  # =====================================================================
+  # PLAYER-SEASON FEATURES
+  # Source: player_weekly_stats + validated_draft_results
+  # =====================================================================
+
+  - name: points_total
+    level: player_season
+    formula: "SUM(fantasy_points) for all weeks in season"
+    inputs:
+      - player_weekly_stats.fantasy_points
+      - player_weekly_stats.season
+      - player_weekly_stats.player_id
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.05
+    offline: true
+    online: true
+    temporal_leakage_guard: "Only include weeks where week <= scoring_cutoff_week"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required; provide alias for backward compat"
+
+  - name: points_avg
+    level: player_season
+    formula: "MEAN(fantasy_points) for all weeks in season"
+    inputs:
+      - player_weekly_stats.fantasy_points
+      - player_weekly_stats.season
+      - player_weekly_stats.player_id
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.05
+    offline: true
+    online: true
+    temporal_leakage_guard: "Only include weeks where week <= scoring_cutoff_week"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: points_stdev
+    level: player_season
+    formula: "STDEV(fantasy_points) for all weeks in season"
+    inputs:
+      - player_weekly_stats.fantasy_points
+      - player_weekly_stats.season
+      - player_weekly_stats.player_id
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.10
+    offline: true
+    online: true
+    temporal_leakage_guard: "Only include weeks where week <= scoring_cutoff_week"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: reliability_score
+    level: player_season
+    formula: "points_avg / (points_avg + points_stdev). Range: 0–1. Higher = more consistent."
+    inputs:
+      - feature.points_avg
+      - feature.points_stdev
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.10
+    offline: true
+    online: true
+    temporal_leakage_guard: "Derived from points_avg and points_stdev; same cut rule applies"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: trend_slope
+    level: player_season
+    formula: >
+      Linear regression slope of fantasy_points over weeks in season.
+      Positive = improving; negative = declining.
+      Interpretation: |slope| > 2.0 is significant.
+    inputs:
+      - player_weekly_stats.fantasy_points
+      - player_weekly_stats.week
+      - player_weekly_stats.season
+      - player_weekly_stats.player_id
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.20
+    offline: true
+    online: true
+    temporal_leakage_guard: "Only include weeks where week <= scoring_cutoff_week"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: trend_yoy
+    level: player_season
+    formula: "points_avg(season) - points_avg(season - 1). Null for rookie season."
+    inputs:
+      - feature.points_avg
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.30
+    offline: true
+    online: true
+    temporal_leakage_guard: "Uses completed prior season only; never current-season partial stats"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: draft_avg_cost
+    level: player_season
+    formula: "MEAN(winning_bid) for this player across all seasons in history (capped at season - 1)"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.player_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.20
+    offline: true
+    online: false
+    temporal_leakage_guard: "Only seasons < current draft year are included in historical mean"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: draft_max_cost
+    level: player_season
+    formula: "MAX(winning_bid) for this player across all seasons (capped at season - 1)"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.player_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.20
+    offline: true
+    online: false
+    temporal_leakage_guard: "Only seasons < current draft year are included"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: draft_median_cost
+    level: player_season
+    formula: "MEDIAN(winning_bid) for this player across all seasons (capped at season - 1)"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.player_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.20
+    offline: true
+    online: false
+    temporal_leakage_guard: "Only seasons < current draft year are included"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: bargain_score
+    level: player_season
+    formula: >
+      (position_avg_cost_this_season - winning_bid_this_season) / position_avg_cost_this_season.
+      Positive = cheaper than position average (bargain); negative = overpaid.
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.player_id
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+      - feature.position_avg_cost
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.20
+    offline: true
+    online: false
+    temporal_leakage_guard: "position_avg_cost is computed within the same draft season (no leakage)"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: bidding_war_likelihood
+    level: player_season
+    formula: >
+      Coefficient of Variation (CV) of historical winning_bid for this player:
+      STDEV(winning_bid) / MEAN(winning_bid). Higher CV = more price volatility = higher
+      bidding-war likelihood. Requires >= 2 historical seasons.
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.player_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: optional
+    null_rate_threshold: 0.40
+    offline: true
+    online: false
+    temporal_leakage_guard: "Uses only seasons < current draft year"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: positional_scarcity_index
+    level: player_season
+    formula: >
+      1 - (picks_at_position_remaining / total_picks_remaining) at the time of this pick.
+      Within-season forward-looking metric; only valid for offline simulation contexts.
+      For historical analysis: picks_at_position / total_picks in season, normalized 0–1.
+    inputs:
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.10
+    offline: true
+    online: false
+    temporal_leakage_guard: "For online use, only use completed-season version (historical fraction)"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: is_keeper
+    level: player_season
+    formula: "winning_bid <= 1.0 (KEEPER_BID_THRESHOLD constant)"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.is_keeper
+    output_type: bool
+    tier: critical
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "None; computed from draft event itself"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "Threshold change requires migration and recomputation of all historical records"
+
+  # =====================================================================
+  # OWNER-SEASON FEATURES
+  # Source: owner_season_behaviors (ETL: build_owner_behavior_features)
+  # =====================================================================
+
+  - name: total_spend
+    level: owner_season
+    formula: "SUM(winning_bid) for all picks by owner in season"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.owner_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed draft events only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: starting_budget
+    level: owner_season
+    formula: "Budget assigned to owner at start of draft season (from budget timeline)"
+    inputs:
+      - owner_budget_timeline.starting_budget
+      - owner_budget_timeline.owner_id
+      - owner_budget_timeline.season_year
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.05
+    offline: true
+    online: true
+    temporal_leakage_guard: "None; pre-draft assignment"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: budget_drift
+    level: owner_season
+    formula: "(total_spend - starting_budget) / starting_budget. Positive = overspent; negative = underspent."
+    inputs:
+      - feature.total_spend
+      - feature.starting_budget
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.10
+    offline: true
+    online: true
+    temporal_leakage_guard: "None; computed from completed season totals"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: spend_by_position
+    level: owner_season
+    formula: "SUM(winning_bid) grouped by position abbreviation for owner in season"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.owner_id
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: critical
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed draft events only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: position_spend_pct
+    level: owner_season
+    formula: "spend_by_position[pos] / total_spend for each position. Sums to 1.0."
+    inputs:
+      - feature.spend_by_position
+      - feature.total_spend
+    output_type: dict
+    tier: critical
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed draft events only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: max_bid_by_position
+    level: owner_season
+    formula: "MAX(winning_bid) grouped by position abbreviation for owner in season"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.owner_id
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: standard
+    null_rate_threshold: 0.05
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed draft events only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: avg_bid_by_position
+    level: owner_season
+    formula: "MEAN(winning_bid) grouped by position abbreviation for owner in season"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.owner_id
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: standard
+    null_rate_threshold: 0.05
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed draft events only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: aggressiveness_index
+    level: owner_season
+    formula: >
+      SUM(top-quartile bids) / total_spend.
+      Top quartile = top 25% of owner's bids by value.
+      Range: 0–1. Higher = more concentrated spend on a few players.
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.owner_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.05
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed draft events only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: positional_bias_index
+    level: owner_season
+    formula: >
+      Mean Absolute Deviation of owner's position_spend_pct from league-average position_spend_pct.
+      Higher = more positionally biased than league average.
+    inputs:
+      - feature.position_spend_pct
+      - draft_season.league_avg_position_spend_pct
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.05
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed draft events only; league avg uses same season"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: owner_vs_league_avg_spend
+    level: owner_season
+    formula: >
+      For each position: owner position_spend_pct - league_avg_position_spend_pct.
+      Positive = over-indexed vs league; negative = under-indexed.
+    inputs:
+      - feature.position_spend_pct
+      - draft_season.league_avg_position_spend_pct
+    output_type: dict
+    tier: standard
+    null_rate_threshold: 0.10
+    offline: true
+    online: true
+    temporal_leakage_guard: "Uses completed-season league averages"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: keeper_count
+    level: owner_season
+    formula: "COUNT(picks) where is_keeper = True for owner in season"
+    inputs:
+      - validated_draft_results.is_keeper
+      - validated_draft_results.owner_id
+      - validated_draft_results.season_year
+    output_type: int
+    tier: standard
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "None; completed draft"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: keeper_spend
+    level: owner_season
+    formula: "SUM(winning_bid) where is_keeper = True for owner in season"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.is_keeper
+      - validated_draft_results.owner_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "None; completed draft"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  # =====================================================================
+  # DRAFT-SEASON FEATURES
+  # Source: validated_draft_results aggregated per season
+  # =====================================================================
+
+  - name: league_avg_position_spend_pct
+    level: draft_season
+    formula: "For each position: SUM(winning_bid at position) / SUM(all winning_bids) in season"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: critical
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed season only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: avg_cost_by_position
+    level: draft_season
+    formula: "MEAN(winning_bid) grouped by position in season"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: critical
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed season only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: inflation_index
+    level: draft_season
+    formula: >
+      For each position: avg_cost_by_position(season) / avg_cost_by_position(season - 1) - 1.
+      Positive = prices rose; negative = prices fell. Null for first season in data.
+    inputs:
+      - feature.avg_cost_by_position
+    output_type: dict
+    tier: standard
+    null_rate_threshold: 0.20
+    offline: true
+    online: false
+    temporal_leakage_guard: "Requires completed prior season data; never use partial-season costs"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: budget_distribution_gini
+    level: draft_season
+    formula: >
+      Gini coefficient of total_spend across all owners in season.
+      0 = perfectly equal spend; 1 = one owner spent everything.
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.owner_id
+      - validated_draft_results.season_year
+    output_type: float
+    tier: standard
+    null_rate_threshold: 0.05
+    offline: true
+    online: false
+    temporal_leakage_guard: "Completed season only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: positional_demand
+    level: draft_season
+    formula: "COUNT(picks) grouped by position in season, normalized to fraction of total picks"
+    inputs:
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: standard
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed season only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: replacement_level_value
+    level: draft_season
+    formula: >
+      For each position: winning_bid of the last (cheapest non-keeper) pick at that position
+      in the season. Represents the marginal cost above free agency.
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.position_id
+      - validated_draft_results.is_keeper
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: standard
+    null_rate_threshold: 0.10
+    offline: true
+    online: false
+    temporal_leakage_guard: "Completed season only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: scarcity_curve_slope
+    level: draft_season
+    formula: >
+      For each position: linear regression slope of winning_bid vs pick_order_within_position
+      in season. Measures how fast prices rise as each positional pick is taken.
+      Negative slope = early picks cost more (normal scarcity); near-zero = flat pricing.
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: optional
+    null_rate_threshold: 0.20
+    offline: true
+    online: false
+    temporal_leakage_guard: "Completed season only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: total_league_spend
+    level: draft_season
+    formula: "SUM(winning_bid) for all picks in season (excluding keepers)"
+    inputs:
+      - validated_draft_results.winning_bid
+      - validated_draft_results.is_keeper
+      - validated_draft_results.season_year
+    output_type: float
+    tier: critical
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed season only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "2-season notice required"
+
+  - name: pick_count_by_position
+    level: draft_season
+    formula: "COUNT(picks) grouped by position in season"
+    inputs:
+      - validated_draft_results.position_id
+      - validated_draft_results.season_year
+    output_type: dict
+    tier: standard
+    null_rate_threshold: 0.00
+    offline: true
+    online: true
+    temporal_leakage_guard: "Completed season only"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
