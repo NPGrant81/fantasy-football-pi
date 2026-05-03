@@ -182,3 +182,8 @@ Notebook clients can call the same endpoint to retrieve consistent recommendatio
 
 - v1 is synchronous and optimized for low-latency API calls.
 - If advanced model artifacts are unavailable, recommendation generation still functions through the ranking backbone and returns a stable schema.
+
+## Dependency Note
+
+- Backend serving observability uses `prometheus_client`.
+- Ensure backend environments install dependencies from `backend/requirements.txt` (or locked equivalent) so observability instrumentation is available.

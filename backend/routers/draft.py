@@ -6,12 +6,20 @@ import random
 import time
 from collections import deque
 from threading import Lock
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 import pandas as pd
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from jose import JWTError, jwt
+
+try:
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+except Exception:  # pragma: no cover
+    CONTENT_TYPE_LATEST = "text/plain; version=0.0.4"
+    Counter = None  # type: ignore[assignment]
+    Histogram = None  # type: ignore[assignment]
+    generate_latest = None  # type: ignore[assignment]
 
 # Internal Imports
 from ..database import SessionLocal, get_db
@@ -374,6 +382,33 @@ _MODEL_SERVING_COUNTERS = {
     "schema_mismatch_count": 0,
 }
 
+_PROMETHEUS_ENABLED = Counter is not None and Histogram is not None and generate_latest is not None
+if _PROMETHEUS_ENABLED:
+    _MODEL_SERVING_REQUESTS_TOTAL = Counter(
+        "ffpi_model_serving_requests_total",
+        "Total number of model serving requests.",
+        ["status", "route_strategy"],
+    )
+    _MODEL_SERVING_ERRORS_TOTAL = Counter(
+        "ffpi_model_serving_errors_total",
+        "Total number of model serving errors by code.",
+        ["code"],
+    )
+    _MODEL_SERVING_FALLBACK_TOTAL = Counter(
+        "ffpi_model_serving_fallback_invocations_total",
+        "Total number of model serving fallback invocations.",
+        ["reason"],
+    )
+    _MODEL_SERVING_SCHEMA_MISMATCH_TOTAL = Counter(
+        "ffpi_model_serving_schema_mismatch_total",
+        "Total number of schema mismatch events for model serving.",
+    )
+    _MODEL_SERVING_LATENCY_SECONDS = Histogram(
+        "ffpi_model_serving_request_latency_seconds",
+        "Model serving request latency in seconds.",
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5, 1, 2, 5),
+    )
+
 
 def _reset_model_serving_observability_for_tests() -> None:
     with _MODEL_SERVING_OBS_LOCK:
@@ -416,6 +451,8 @@ def _record_model_serving_observability(
     success: bool,
     fallback_invoked: bool,
     error_code: str | None = None,
+    route_strategy: str = "unknown",
+    fallback_reason: str | None = None,
 ) -> None:
     with _MODEL_SERVING_OBS_LOCK:
         _MODEL_SERVING_COUNTERS["request_count"] += 1
@@ -426,6 +463,21 @@ def _record_model_serving_observability(
                 _MODEL_SERVING_COUNTERS["schema_mismatch_count"] += 1
         if fallback_invoked:
             _MODEL_SERVING_COUNTERS["fallback_count"] += 1
+
+    if _PROMETHEUS_ENABLED:
+        _MODEL_SERVING_REQUESTS_TOTAL.labels(
+            status="success" if success else "error",
+            route_strategy=(route_strategy or "unknown"),
+        ).inc()
+        _MODEL_SERVING_LATENCY_SECONDS.observe(float(max(0.0, latency_ms)) / 1000.0)
+        if not success and error_code:
+            _MODEL_SERVING_ERRORS_TOTAL.labels(code=error_code).inc()
+            if error_code == "SCHEMA_MISMATCH":
+                _MODEL_SERVING_SCHEMA_MISMATCH_TOTAL.inc()
+        if fallback_invoked:
+            _MODEL_SERVING_FALLBACK_TOTAL.labels(
+                reason=(fallback_reason or "unknown"),
+            ).inc()
 
 
 def _resolve_model_version(requested_version: str | None) -> tuple[str, str, bool]:
@@ -447,6 +499,29 @@ def _resolve_model_version(requested_version: str | None) -> tuple[str, str, boo
         return resolved, "canary", canary_applied
 
     return requested_version or current_alias, "explicit", False
+
+
+@router.get("/draft/model/metrics")
+def get_model_serving_metrics(
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.is_superuser and not current_user.is_commissioner:
+        raise _model_serving_error(
+            status_code=403,
+            code="MODEL_METRICS_FORBIDDEN",
+            message="Only commissioner or superuser can access model serving metrics",
+            retryable=False,
+        )
+
+    if not _PROMETHEUS_ENABLED:
+        raise _model_serving_error(
+            status_code=503,
+            code="MODEL_METRICS_UNAVAILABLE",
+            message="Prometheus exporter is unavailable in this runtime",
+            retryable=True,
+        )
+
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 def _build_model_recommendations(
@@ -754,6 +829,8 @@ def predict_model_recommendations(
         latency_ms=latency_ms,
         success=True,
         fallback_invoked=fallback_invoked,
+        route_strategy=route_strategy,
+        fallback_reason=fallback_reason,
     )
     metrics_snapshot = _model_serving_observability_snapshot()
 

@@ -1,13 +1,38 @@
 ---
 name: ml-ops
-description: 'Analytics feature development, ML modeling patterns, player/manager metrics, historical data pipelines, consistency scoring, luck index, waiver wire opportunity analysis, and ETL conventions for Fantasy Football PI. Use when: building analytics endpoints, adding new metrics, ETL data pipelines, ML feature engineering, or working with player_weekly_stats.'
-argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-engineering | scoring | modeling)'
+description: 'Analytics feature development and ML Ops lifecycle for Fantasy Football PI, including feature engineering, model training/evaluation, serving integration, observability, and drift-aware iteration. Use when: building analytics endpoints, training/evaluating models, integrating serving contracts, or hardening model operations.'
+argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-engineering | training-eval | serving | observability | drift | modeling)'
 ---
 
 # ML Ops / Analytics Engineering
 
 ## Why This Exists
 Fantasy Football PI is evolving toward ML-informed recommendations (lineup advice, breakout detection, trade valuation). All analytics features share common patterns — consistent endpoints, standardized response shapes, shared helpers — so new metrics can be added quickly and reliably.
+
+Serving and integration hardening (Issue #109) extends this skill to include:
+
+- authenticated-owner default behavior for personalized recommendations
+- explicit model provenance metadata in serving responses
+- typed error taxonomy for caller reliability
+- observability metrics for latency, error, fallback, and schema mismatch
+- alias/canary routing controls via environment variables
+
+Issue #108 and #109 extend this scope to include end-to-end training/evaluation and serving integration hardening.
+
+## Serving Integration Guardrails (Issue #109)
+
+- Serving contract must support authenticated-owner default context (owner-specific personalization).
+- Response must include model provenance metadata (requested alias, resolved alias, route strategy).
+- Error detail should use typed codes for reliable client handling.
+- Serving logs/metrics should track latency, error rate, fallback rate, and schema mismatch count.
+- Canary routing should be alias-controlled and reversible.
+
+Operational hooks currently used:
+
+- `MODEL_SERVING_CURRENT_ALIAS`
+- `MODEL_SERVING_CANARY_ALIAS`
+- `MODEL_SERVING_CANARY_PERCENT`
+- `prometheus_client` dependency for serving observability instrumentation
 
 ## Implemented Analytics Features
 

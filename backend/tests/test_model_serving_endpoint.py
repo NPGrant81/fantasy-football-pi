@@ -80,6 +80,16 @@ def test_model_predict_blocks_non_commissioner_cross_owner(db_session):
     assert exc.value.detail["code"] == "OWNER_SCOPE_FORBIDDEN"
 
 
+def test_model_metrics_endpoint_blocks_non_commissioner(db_session):
+    _, _, owner_a, _ = _create_users(db_session)
+
+    with pytest.raises(HTTPException) as exc:
+        draft_router.get_model_serving_metrics(current_user=owner_a)
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail["code"] == "MODEL_METRICS_FORBIDDEN"
+
+
 def test_model_predict_returns_budget_aware_recommendations(db_session, monkeypatch):
     league, commissioner, owner_a, _ = _create_users(db_session)
 
@@ -318,6 +328,41 @@ def test_model_predict_response_shape_matches_analyzer_mapping_contract(db_sessi
 
     assert response.provenance.model_version_alias_resolved
     assert response.provenance.model_route_strategy in {"current-alias", "explicit", "canary"}
+
+
+def test_model_metrics_endpoint_returns_prometheus_payload_for_commissioner(db_session, monkeypatch):
+    league, commissioner, owner_a, _ = _create_users(db_session)
+    draft_router._reset_model_serving_observability_for_tests()
+
+    def _fake_rankings_service(db, *, season, limit, league_id, owner_id, position, player_ids=None):
+        return []
+
+    monkeypatch.setattr(draft_router, "get_historical_rankings_service", _fake_rankings_service)
+
+    payload = draft_router.ModelServingPredictionRequest(
+        season=2026,
+        league_id=league.id,
+        owner_id=owner_a.id,
+    )
+    draft_router.predict_model_recommendations(
+        payload=payload,
+        db=db_session,
+        current_user=commissioner,
+    )
+
+    if not draft_router._PROMETHEUS_ENABLED:
+        with pytest.raises(HTTPException) as exc:
+            draft_router.get_model_serving_metrics(current_user=commissioner)
+        assert exc.value.status_code == 503
+        assert exc.value.detail["code"] == "MODEL_METRICS_UNAVAILABLE"
+        return
+
+    metrics_response = draft_router.get_model_serving_metrics(current_user=commissioner)
+    metrics_text = metrics_response.body.decode("utf-8")
+
+    assert metrics_response.status_code == 200
+    assert "ffpi_model_serving_requests_total" in metrics_text
+    assert "ffpi_model_serving_request_latency_seconds" in metrics_text
 
 
 def test_rankings_blocks_non_commissioner_cross_owner(db_session):
