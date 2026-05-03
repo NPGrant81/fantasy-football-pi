@@ -55,7 +55,7 @@ Use it for every champion or challenger run so model decisions are auditable and
 
 ## Slice Metrics
 
-- OwnerID=1 metrics:
+- Authenticated owner metrics (request owner_id):
 - Position slices (QB/RB/WR/TE/DEF/K):
 - High-value player slice:
 

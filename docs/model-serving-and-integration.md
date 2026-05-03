@@ -157,7 +157,7 @@ This section defines the standard process for training, evaluating, promoting, a
   - Calibration metrics for bid confidence buckets when probabilities or intervals are emitted.
 5. Evaluate decision impact in simulation
   - Run Monte Carlo with candidate outputs via the ML bridge path.
-  - Compare owner-specific outcome deltas (including OwnerID=1) against current champion.
+  - Compare owner-specific outcome deltas for the authenticated request owner against current champion.
 6. Promote or reject
   - Promote only if all quality gates pass and no required slice regresses beyond threshold.
   - Store a decision record with rationale, metrics, and artifact references.
@@ -195,7 +195,7 @@ Define and enforce minimum gates before any promotion:
 
 - no regression greater than 10 percent on primary error metrics versus champion
 - no regression greater than 5 percent on ranking quality metrics
-- no significant degradation on required slices (OwnerID=1 and key positions)
+- no significant degradation on required slices (authenticated request owner and key positions)
 - reproducible rerun within accepted tolerance band
 - simulation impact must be neutral or positive for required owner slices
 

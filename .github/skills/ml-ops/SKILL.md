@@ -28,7 +28,7 @@ This skill also defines the required MLOps process for Issue #108 and later mode
     - Calibration: bucket error or calibration curve stats where applicable.
 5. Simulation impact evaluation
     - Route candidate outputs through the Issue #107 bridge path.
-    - Compare OwnerID=1 and required slice outcomes vs champion.
+    - Compare authenticated-owner slice outcomes and required slices vs champion.
 6. Champion or challenger decision
     - Promote only when all gates pass.
     - Store auditable decision record and model card.
@@ -64,7 +64,7 @@ Select winners using a composite score that includes predictive metrics and simu
 
 - no more than 10 percent regression on primary error metrics versus champion
 - no more than 5 percent regression on ranking metrics
-- no significant degradation on required slices, including OwnerID=1
+- no significant degradation on required slices, including authenticated-owner context
 - reproducible rerun within tolerance
 - neutral or positive simulation impact on required owner slices
 
