@@ -280,26 +280,30 @@ def compute_owner_season_extensions(
         df["budget_drift"] = None
 
     # owner_vs_league_avg_spend: requires league-level position spend pct per season
-    # Compute league avg per season from all rows in behavior_df
-    if "position_spend_pct" in df.columns and "season_year" in df.columns:
-        # Build league avg per season
+    # Compute spend-weighted league avg per season from all rows in behavior_df.
+    # Weighted formula: SUM(position_spend_pct[pos] * total_spend) / SUM(total_spend)
+    # This matches the registry definition of league_avg_position_spend_pct.
+    if "position_spend_pct" in df.columns and "season_year" in df.columns and "total_spend" in df.columns:
+        # Build spend-weighted league avg per season
         league_avg: dict[int, dict[str, float]] = {}
         for season, grp in df.groupby("season_year"):
-            all_positions: set[str] = set()
-            for pct_dict in grp["position_spend_pct"].dropna():
-                if isinstance(pct_dict, dict):
-                    all_positions |= pct_dict.keys()
-            if not all_positions:
+            total_spend_sum = 0.0
+            pos_weighted_sums: dict[str, float] = {}
+            for _, srow in grp.iterrows():
+                ts = srow.get("total_spend")
+                pct = srow.get("position_spend_pct")
+                if not isinstance(pct, dict) or pd.isna(ts):
+                    continue
+                ts_val = float(ts)
+                total_spend_sum += ts_val
+                for pos, frac in pct.items():
+                    pos_weighted_sums[pos] = pos_weighted_sums.get(pos, 0.0) + float(frac) * ts_val
+            if total_spend_sum == 0:
                 continue
-            pos_means: dict[str, float] = {}
-            for pos in all_positions:
-                vals = [
-                    float(pct_dict.get(pos, 0.0))
-                    for pct_dict in grp["position_spend_pct"].dropna()
-                    if isinstance(pct_dict, dict)
-                ]
-                pos_means[pos] = round(sum(vals) / len(vals), 6) if vals else 0.0
-            league_avg[int(season)] = pos_means
+            league_avg[int(season)] = {
+                pos: round(spend / total_spend_sum, 6)
+                for pos, spend in pos_weighted_sums.items()
+            }
 
         def _vs_league(row: pd.Series) -> dict[str, float] | None:
             pct = row.get("position_spend_pct")
@@ -346,21 +350,33 @@ def compute_keeper_metrics(
     df["owner_id"] = df["owner_id"].astype(int)
     df["season_year"] = df["season_year"].astype(int)
 
+    # Build a base frame with all (owner_id, season_year) combos so owners with
+    # zero keepers still appear with count=0 / spend=0.0.
+    all_pairs = df.groupby(["season_year", "owner_id"], as_index=False).size().drop(
+        columns="size"
+    )
+
     keeper_df = df[df["is_keeper"] == True].copy()  # noqa: E712
+    if keeper_df.empty:
+        all_pairs["keeper_count"] = 0
+        all_pairs["keeper_spend"] = 0.0
+        return all_pairs[["owner_id", "season_year", "keeper_count", "keeper_spend"]].sort_values(
+            ["season_year", "owner_id"]
+        ).reset_index(drop=True)
 
-    rows: list[dict[str, Any]] = []
-    for (season, owner), grp in df.groupby(["season_year", "owner_id"]):
-        kgrp = keeper_df[
-            (keeper_df["season_year"] == season) & (keeper_df["owner_id"] == owner)
-        ]
-        rows.append({
-            "owner_id": int(owner),
-            "season_year": int(season),
-            "keeper_count": int(len(kgrp)),
-            "keeper_spend": round(float(kgrp["winning_bid"].sum()), 2),
-        })
+    agg = (
+        keeper_df.groupby(["season_year", "owner_id"], as_index=False)
+        .agg(keeper_count=("winning_bid", "count"), keeper_spend=("winning_bid", "sum"))
+    )
+    agg["keeper_spend"] = agg["keeper_spend"].round(2)
 
-    return pd.DataFrame(rows).sort_values(["season_year", "owner_id"]).reset_index(drop=True)
+    result = all_pairs.merge(agg, on=["season_year", "owner_id"], how="left")
+    result["keeper_count"] = result["keeper_count"].fillna(0).astype(int)
+    result["keeper_spend"] = result["keeper_spend"].fillna(0.0).round(2)
+
+    return result[["owner_id", "season_year", "keeper_count", "keeper_spend"]].sort_values(
+        ["season_year", "owner_id"]
+    ).reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------
@@ -376,8 +392,12 @@ def compute_draft_season_features(
     Parameters
     ----------
     validated_draft_df:
-        Must have columns: season_year, owner_id, player_id, position_id,
-        winning_bid, is_keeper.
+        Required columns: season_year, owner_id, winning_bid, is_keeper.
+        Optional: position_id (enables position-level aggregates such as
+        avg_cost_by_position, league_avg_position_spend_pct,
+        pick_count_by_position, positional_demand, replacement_level_value,
+        and scarcity_curve_slope; these columns will be None/empty when
+        position_id is absent).
     position_abbrev_map:
         Optional {position_id: abbreviation} lookup for human-readable output.
         Falls back to string representation of position_id if not provided.

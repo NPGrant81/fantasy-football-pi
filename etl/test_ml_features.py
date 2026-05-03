@@ -248,20 +248,24 @@ class TestComputeOwnerSeasonExtensions:
         # (180 - 200) / 200 = -0.1
         assert row["budget_drift"] == pytest.approx(-0.1, abs=0.001)
 
-    def test_owner_vs_league_avg_sums_near_zero(self):
-        """Each position delta (owner - league_avg) should sum to ~0 across all owners."""
+    def test_owner_vs_league_avg_spend_weighted_sum_near_zero(self):
+        """The spend-weighted sum of per-position deltas should be ~0 for each position.
+
+        league_avg is spend-weighted: SUM(pct * total_spend) / SUM(total_spend).
+        Therefore SUM(total_spend * (pct - league_avg)) == 0 per position.
+        """
         df = self._make_behavior_df()
         result = compute_owner_season_extensions(df)
         for season, grp in result.groupby("season_year"):
-            # Sum of position deltas across all owners per position ≈ 0
-            pos_sums: dict[str, float] = {}
+            pos_weighted_sums: dict[str, float] = {}
             for _, row in grp.iterrows():
                 delta = row.get("owner_vs_league_avg_spend") or {}
+                ts = float(row.get("total_spend") or 0.0)
                 if isinstance(delta, dict):
                     for pos, v in delta.items():
-                        pos_sums[pos] = pos_sums.get(pos, 0.0) + v
-            for pos, total in pos_sums.items():
-                assert abs(total) < 0.01, f"Position {pos} delta sum = {total}"
+                        pos_weighted_sums[pos] = pos_weighted_sums.get(pos, 0.0) + v * ts
+            for pos, wtotal in pos_weighted_sums.items():
+                assert abs(wtotal) < 0.5, f"Weighted position {pos} delta sum = {wtotal}"
 
     def test_empty_behavior_df_returns_empty(self):
         result = compute_owner_season_extensions(pd.DataFrame())
