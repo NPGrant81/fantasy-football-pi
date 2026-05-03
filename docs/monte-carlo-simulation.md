@@ -171,9 +171,64 @@ python -m etl.build_monte_carlo_simulation \
 - If seasonal valuation rows are unavailable in `draft_values`, projected points are proxy-derived.
 - Current strategy toggles are OwnerID-centric but can be extended to multi-owner strategy scenarios.
 
+---
+
+## ML Feature Bridge (Issue #107)
+
+The simulation engine now accepts rankings derived from the ML feature pipeline
+(Issue #106) when available, with a local fallback feature computation path,
+instead of the legacy `draft_values` table.
+
+### Integration Module
+
+`etl/transform/ml_feature_bridge.py` — converts outputs of
+`compute_player_draft_features()` and `compute_draft_season_features()` (or the
+local fallback feature implementations when Issue #106 modules are unavailable) into
+the `historical_rankings_df` format required by `run_monte_carlo_draft_simulation()`.
+
+#### Feature mapping
+
+| ML Feature (Issue #106) | Simulation Input |
+|---|---|
+| `draft_avg_cost` | `predicted_auction_value` (floored at 1.0) |
+| `bargain_score` (positive component × avg_cost × 0.5) | `model_score` |
+| `bidding_war_likelihood` CV (inverted: 1 − CV) | `consistency` → `player_reliability_score` |
+| `inflation_index` from `draft_season_features` (mean across positions) | applied as a multiplier to `predicted_auction_value` |
+
+#### Temporal leakage guard
+
+`build_simulation_rankings(target_season=N)` filters `player_features` to
+`season_year < N`, then takes each player's **most recent prior season** row.
+This ensures the simulation never observes data from the season being drafted.
+
+#### CLI usage with ML features
+
+```bash
+python -m etl.build_monte_carlo_simulation \
+  --iterations 2000 \
+  --seed 42 \
+  --target-owner-id 1 \
+  --league-id 1 \
+  --use-ml-features \
+  --target-season 2026 \
+  --output-dir backend/data/simulation
+```
+
+Without `--use-ml-features`, the legacy `draft_values` table is used (default
+behaviour for backward compatibility).
+
+### Invariant guarantees
+
+The ML feature bridge preserves all existing simulation invariants:
+
+- `predicted_auction_value ≥ 1.0` for all players
+- `model_score ≥ 0.0` (negative bargain is clamped to zero)
+- `consistency ∈ [0, 1]` (CV clamped at 1.0; None/NaN → 0.5 neutral)
+
 ## Definition of Done Mapping
 
 - Full-league Monte Carlo simulation implemented and runnable: ✅
 - Inputs and assumptions documented: ✅
 - Metrics aggregated with OwnerID=1 view: ✅
 - Output hooks for notebooks/backend/analyzer: ✅
+- ML feature bridge connecting Issue #106 outputs to simulation: ✅

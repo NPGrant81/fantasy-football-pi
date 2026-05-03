@@ -26,6 +26,14 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated challenger candidates. Optional adapters load only when dependency is installed.",
     )
     parser.add_argument(
+        "--champion-model",
+        default="baseline_mean",
+        help=(
+            "Current production champion model used for drift/significance comparison "
+            "(baseline_mean, linear_feature_weighted, lightgbm, catboost)."
+        ),
+    )
+    parser.add_argument(
         "--focal-owner-id",
         type=int,
         default=None,
@@ -101,8 +109,14 @@ def _resolve_feature_cols(df: pd.DataFrame, target_col: str, raw_cols: str) -> l
         return [col.strip() for col in raw_cols.split(",") if col.strip()]
 
     numeric_cols = set(df.select_dtypes(include=["number"]).columns.tolist())
-    excluded = {"season_year", target_col}
-    return sorted(list(numeric_cols - excluded))
+    # Exclude label/time columns and entity identifiers to avoid memorization leakage.
+    excluded = {"season_year", target_col, "id", "owner_id", "player_id", "league_id", "team_id"}
+    return sorted(
+        [
+            col for col in numeric_cols
+            if col not in excluded and not col.endswith("_id")
+        ]
+    )
 
 
 def _parse_candidates(raw: str) -> list[str]:
@@ -116,27 +130,79 @@ def _build_rankings_from_predictions(
     preds: pd.Series,
     target_season: int,
     position_col: str,
+    all_players_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     if "player_id" not in test_df.columns:
         raise ValueError("Simulation impact requires 'player_id' in input CSV.")
 
-    rankings = test_df[["player_id"]].copy()
-    rankings["player_id"] = pd.to_numeric(rankings["player_id"], errors="coerce")
-    rankings = rankings.dropna(subset=["player_id"]).copy()
-    rankings["player_id"] = rankings["player_id"].astype(int)
-    rankings["predicted_auction_value"] = pd.Series(preds.values, index=test_df.index).reindex(rankings.index).fillna(1.0).clip(lower=1.0)
-    rankings["model_score"] = rankings["predicted_auction_value"]
-    if position_col in test_df.columns:
-        rankings["position"] = test_df[position_col].astype(str).reindex(rankings.index).fillna("UNK")
+    aligned = test_df.reset_index(drop=True).copy()
+    pred_series = pd.Series(preds).reset_index(drop=True)
+    scored = pd.DataFrame(
+        {
+            "player_id": pd.to_numeric(aligned["player_id"], errors="coerce"),
+            "predicted_auction_value": pd.to_numeric(pred_series, errors="coerce"),
+        }
+    )
+    if position_col in aligned.columns:
+        scored["position"] = aligned[position_col]
     else:
-        rankings["position"] = "UNK"
+        scored["position"] = pd.NA
+    scored = scored.dropna(subset=["player_id"]).copy()
+    scored["player_id"] = scored["player_id"].astype(int)
+
+    grouped = (
+        scored.groupby("player_id", as_index=False)
+        .agg(
+            predicted_auction_value=("predicted_auction_value", "mean"),
+            position=("position", "first"),
+        )
+        .copy()
+    )
+    grouped["predicted_auction_value"] = grouped["predicted_auction_value"].fillna(1.0).clip(lower=1.0)
+
+    rankings = grouped
+    if all_players_df is not None and not all_players_df.empty:
+        player_id_col = "player_id" if "player_id" in all_players_df.columns else "Player_ID"
+        if player_id_col in all_players_df.columns:
+            full_pool = all_players_df[[player_id_col]].copy()
+            full_pool = full_pool.rename(columns={player_id_col: "player_id"})
+            full_pool["player_id"] = pd.to_numeric(full_pool["player_id"], errors="coerce")
+            full_pool = full_pool.dropna(subset=["player_id"]).copy()
+            full_pool["player_id"] = full_pool["player_id"].astype(int)
+            full_pool = full_pool.drop_duplicates(subset=["player_id"])
+
+            rankings = full_pool.merge(rankings, on="player_id", how="left")
+
+            if "position" not in rankings.columns:
+                rankings["position"] = pd.NA
+
+            if "PositionID" in all_players_df.columns:
+                pos_lookup = all_players_df[[player_id_col, "PositionID"]].copy()
+                pos_lookup = pos_lookup.rename(columns={player_id_col: "player_id", "PositionID": "position_source"})
+            elif "position" in all_players_df.columns:
+                pos_lookup = all_players_df[[player_id_col, "position"]].copy()
+                pos_lookup = pos_lookup.rename(columns={player_id_col: "player_id", "position": "position_source"})
+            else:
+                pos_lookup = pd.DataFrame(columns=["player_id", "position_source"])
+
+            if not pos_lookup.empty:
+                pos_lookup["player_id"] = pd.to_numeric(pos_lookup["player_id"], errors="coerce")
+                pos_lookup = pos_lookup.dropna(subset=["player_id"]).copy()
+                pos_lookup["player_id"] = pos_lookup["player_id"].astype(int)
+                pos_lookup = pos_lookup.drop_duplicates(subset=["player_id"])
+                rankings = rankings.merge(pos_lookup, on="player_id", how="left")
+                rankings["position"] = rankings["position"].fillna(rankings["position_source"])
+                rankings = rankings.drop(columns=["position_source"])
+
+            fallback_value = float(grouped["predicted_auction_value"].median()) if not grouped.empty else 1.0
+            rankings["predicted_auction_value"] = rankings["predicted_auction_value"].fillna(fallback_value).clip(lower=1.0)
+
+    rankings["model_score"] = rankings["predicted_auction_value"]
     rankings["season"] = int(target_season)
     rankings["consistency"] = 0.5
 
     rankings = rankings.sort_values("predicted_auction_value", ascending=False).reset_index(drop=True)
     rankings["rank"] = rankings.index + 1
-    if "player_name" in test_df.columns:
-        rankings["player_name"] = test_df["player_name"].astype(str).reindex(rankings.index).fillna("Unknown")
     return rankings
 
 
@@ -165,12 +231,14 @@ def _build_simulation_evaluator(args: argparse.Namespace):
             preds=champion_preds,
             target_season=args.test_season,
             position_col=args.position_col,
+            all_players_df=players_df,
         )
         challenger_rankings = _build_rankings_from_predictions(
             test_df=test_df,
             preds=challenger_preds,
             target_season=args.test_season,
             position_col=args.position_col,
+            all_players_df=players_df,
         )
 
         champion_result = run_monte_carlo_draft_simulation(
@@ -248,6 +316,7 @@ def main() -> None:
         split=split,
         target_col=args.target_col,
         feature_cols=feature_cols,
+        champion_model=args.champion_model,
         candidate_models=candidate_models,
         focal_owner_id=args.focal_owner_id,
         owner_id_col=args.owner_id_col,

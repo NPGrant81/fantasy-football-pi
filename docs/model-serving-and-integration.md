@@ -162,7 +162,8 @@ This section defines the standard process for training, evaluating, promoting, a
   - Promote only if all quality gates pass and no required slice regresses beyond threshold.
   - Store a decision record with rationale, metrics, and artifact references.
 7. Serve and observe
-  - Update the model alias for current only after promotion gates pass.
+  - Update serving resolution only after promotion gates pass.
+  - If alias hooks are configured, rotate the current alias. Otherwise, promote via code/config deployment for the champion model selection.
   - Monitor post-promotion drift and degradation signals.
 
 ### Required Run Artifacts
