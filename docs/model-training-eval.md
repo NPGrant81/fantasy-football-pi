@@ -5,6 +5,12 @@
 This document is the execution template for Issue #108 model training cycles.
 Use it for every champion or challenger run so model decisions are auditable and comparable.
 
+## Dependency Context
+
+- Upstream feature contracts: Issue #106 (`compute_player_draft_features`, `compute_draft_season_features`)
+- Simulation impact path: Issue #107 ML bridge and Monte Carlo integration (`--use-ml-features`, `--target-season`)
+- This template is intended to support promotion decisions for Issue #108 and later model iterations.
+
 ## Run Metadata
 
 - Run ID:
