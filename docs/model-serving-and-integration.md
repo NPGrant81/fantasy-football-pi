@@ -187,3 +187,35 @@ Notebook clients can call the same endpoint to retrieve consistent recommendatio
 
 - Backend serving observability uses `prometheus_client`.
 - Ensure backend environments install dependencies from `backend/requirements.txt` (or locked equivalent) so observability instrumentation is available.
+
+## Model Serving Ops Checklist
+
+Use this checklist before and during model-serving rollout windows.
+
+### Pre-Deployment
+
+1. Confirm dependency parity (`requirements.txt` and lockfile include serving observability deps).
+2. Set alias env vars for routing:
+  - `MODEL_SERVING_CURRENT_ALIAS`
+  - `MODEL_SERVING_CANARY_ALIAS`
+  - `MODEL_SERVING_CANARY_PERCENT`
+3. Run model-serving contract tests and verify typed error payload compatibility.
+4. Confirm fallback behavior is documented for no-candidate and degraded-service paths.
+
+### Deployment
+
+1. Start with `MODEL_SERVING_CANARY_PERCENT=0`.
+2. Increase canary gradually (for example 5 -> 10 -> 25 -> 50).
+3. Monitor key metrics each step:
+  - `request_latency_p95`
+  - `prediction_error_rate`
+  - `fallback_invocation_rate`
+  - `schema_mismatch_count`
+4. Hold or rollback if latency/error/fallback regress beyond accepted thresholds.
+
+### Rollback
+
+1. Set `MODEL_SERVING_CANARY_PERCENT=0` immediately.
+2. Point `MODEL_SERVING_CURRENT_ALIAS` to last known-good alias.
+3. Re-run contract smoke checks and verify metrics return to baseline.
+4. Record incident notes with root-cause and follow-up actions.
