@@ -27,6 +27,7 @@ from etl.transform.ml_feature_bridge import (
 )
 from etl.transform.monte_carlo_simulation import (
     SimulationConfig,
+    _build_rankings_from_ml_features,
     run_monte_carlo_draft_simulation,
 )
 
@@ -140,7 +141,7 @@ class TestBuildSimulationRankings:
 
     def test_required_columns_present_in_output(self, simple_player_features):
         result = build_simulation_rankings(simple_player_features, target_season=2025)
-        for col in ["player_id", "predicted_auction_value", "model_score", "consistency", "season"]:
+        for col in ["player_id", "predicted_auction_value", "model_score", "consistency", "position", "season"]:
             assert col in result.columns, f"Missing column: {col}"
 
     def test_one_row_per_player(self, simple_player_features):
@@ -226,6 +227,20 @@ class TestBuildSimulationRankings:
         assert (result["model_score"] >= 0.0).all()
         assert (result["consistency"] >= 0.0).all()
         assert (result["consistency"] <= 1.0).all()
+
+    def test_preserves_position_when_available(self):
+        player_features = pd.DataFrame([
+            {
+                "player_id": 101,
+                "season_year": 2024,
+                "draft_avg_cost": 35.0,
+                "bargain_score": 0.1,
+                "bidding_war_likelihood": 0.2,
+                "position": "RB",
+            }
+        ])
+        result = build_simulation_rankings(player_features, target_season=2025)
+        assert result.iloc[0]["position"] == "RB"
 
 
 # ---------------------------------------------------------------------------
@@ -334,3 +349,32 @@ class TestBridgeToSimulationIntegration:
 
         dups = result.draft_picks.groupby(["iteration", "player_id"]).size()
         assert dups.max() == 1, "Duplicate player assigned within a single iteration"
+
+
+class TestBuildRankingsFromMlFeatures:
+
+    def test_normalizes_mixed_position_formats_and_bid_strings(self):
+        draft_results_df = pd.DataFrame([
+            {"PlayerID": 201, "OwnerID": 1, "Year": 2023, "WinningBid": "$40", "PositionID": "RB"},
+            {"PlayerID": 201, "OwnerID": 2, "Year": 2024, "WinningBid": "45", "PositionID": 8003},
+            {"PlayerID": 202, "OwnerID": 3, "Year": 2023, "WinningBid": "$25", "PositionID": "WR"},
+            {"PlayerID": 202, "OwnerID": 4, "Year": 2024, "WinningBid": "$28", "PositionID": "D/ST"},
+        ])
+
+        rankings = _build_rankings_from_ml_features(draft_results_df, target_season=2025)
+
+        assert not rankings.empty
+        assert set(rankings["player_id"].tolist()) == {201, 202}
+        assert (rankings["predicted_auction_value"] >= 1.0).all()
+        assert (rankings["consistency"] >= 0.0).all()
+        assert (rankings["consistency"] <= 1.0).all()
+        assert "position" in rankings.columns
+
+    def test_target_season_guard_filters_non_prior_rows(self):
+        draft_results_df = pd.DataFrame([
+            {"PlayerID": 301, "OwnerID": 1, "Year": 2025, "WinningBid": "$30", "PositionID": "RB"},
+        ])
+
+        rankings = _build_rankings_from_ml_features(draft_results_df, target_season=2025)
+
+        assert rankings.empty
