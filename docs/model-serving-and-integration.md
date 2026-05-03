@@ -69,6 +69,8 @@ The endpoint supports all owners and enforces league-safe access control. Non-co
     "model_source": "historical-rankings-service",
     "model_version_alias_requested": "current",
     "model_version_alias_resolved": "historical-rankings-v1",
+    "model_route_strategy": "current-alias",
+    "canary_applied": false,
     "feature_contract_version": "issue-106-v1",
     "request_owner_source": "payload",
     "fallback_invoked": false,
@@ -114,6 +116,14 @@ This supports app-personalized responses for whoever is logged in while preservi
 - `current` resolves to `historical-rankings-v1` in the current implementation.
 - Response always echoes both requested and resolved versions.
 
+Routing hooks:
+
+- `MODEL_SERVING_CURRENT_ALIAS` controls the alias behind `current`.
+- `MODEL_SERVING_CANARY_ALIAS` sets the canary alias target.
+- `MODEL_SERVING_CANARY_PERCENT` controls canary traffic when `model_version=canary`.
+
+The response `provenance` block indicates whether canary routing was applied.
+
 ## Error Handling
 
 - `400`: invalid request context (for example, user not in a league)
@@ -139,10 +149,14 @@ Current error codes:
 
 ## Logging
 
-The serving endpoint logs basic request/response metadata:
+The serving endpoint logs request and response metadata with live observability counters:
 
 - owner, season, league, resolved model version, limit
 - recommendation count
+- `request_latency_p95`
+- `prediction_error_rate`
+- `fallback_invocation_rate`
+- `schema_mismatch_count`
 
 This supports debugging and lightweight monitoring without exposing private payload details.
 

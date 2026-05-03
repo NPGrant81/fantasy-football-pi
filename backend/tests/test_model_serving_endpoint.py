@@ -145,6 +145,8 @@ def test_model_predict_returns_budget_aware_recommendations(db_session, monkeypa
     assert response.provenance.model_source == "historical-rankings-service"
     assert response.provenance.model_version_alias_resolved == "historical-rankings-v1"
     assert response.provenance.request_owner_source == "payload"
+    assert response.provenance.model_route_strategy == "current-alias"
+    assert response.provenance.canary_applied is False
     assert response.provenance.fallback_invoked is False
 
     rec = response.recommendations[0]
@@ -230,6 +232,92 @@ def test_model_predict_sets_fallback_provenance_when_no_candidates(db_session, m
     assert response.recommendation_count == 0
     assert response.provenance.fallback_invoked is True
     assert response.provenance.fallback_reason == "no-ranked-candidates"
+
+
+def test_model_version_canary_routing_uses_aliases(monkeypatch):
+    monkeypatch.setenv("MODEL_SERVING_CURRENT_ALIAS", "historical-rankings-v2")
+    monkeypatch.setenv("MODEL_SERVING_CANARY_ALIAS", "historical-rankings-v3")
+    monkeypatch.setenv("MODEL_SERVING_CANARY_PERCENT", "100")
+    monkeypatch.setattr(draft_router.random, "random", lambda: 0.01)
+
+    resolved, strategy, canary_applied = draft_router._resolve_model_version("canary")
+
+    assert resolved == "historical-rankings-v3"
+    assert strategy == "canary"
+    assert canary_applied is True
+
+
+def test_model_serving_observability_snapshot_tracks_rates(db_session, monkeypatch):
+    league, _, owner_a, _ = _create_users(db_session)
+    draft_router._reset_model_serving_observability_for_tests()
+
+    def _empty_rankings_service(db, *, season, limit, league_id, owner_id, position, player_ids=None):
+        return []
+
+    monkeypatch.setattr(draft_router, "get_historical_rankings_service", _empty_rankings_service)
+
+    payload = draft_router.ModelServingPredictionRequest(
+        season=2026,
+        league_id=league.id,
+        model_version="current",
+    )
+
+    response = draft_router.predict_model_recommendations(
+        payload=payload,
+        db=db_session,
+        current_user=owner_a,
+    )
+
+    assert response.recommendation_count == 0
+    snapshot = draft_router._model_serving_observability_snapshot()
+    assert snapshot["request_count"] >= 1
+    assert snapshot["fallback_invocation_rate"] > 0.0
+    assert snapshot["request_latency_p95"] >= 0.0
+
+
+def test_model_predict_response_shape_matches_analyzer_mapping_contract(db_session, monkeypatch):
+    league, commissioner, owner_a, _ = _create_users(db_session)
+
+    def _fake_rankings_service(db, *, season, limit, league_id, owner_id, position, player_ids=None):
+        return [
+            {
+                "player_id": 700,
+                "player_name": "Analyzer Contract Player",
+                "position": "RB",
+                "predicted_auction_value": 33.0,
+                "final_score": 31.5,
+                "consensus_tier": "A",
+                "keeper_scarcity_boost": 1.0,
+                "scoring_consistency_factor": 1.0,
+                "late_start_consistency_factor": 1.0,
+                "injury_split_factor": 1.0,
+                "team_change_factor": 1.0,
+            }
+        ]
+
+    monkeypatch.setattr(draft_router, "get_historical_rankings_service", _fake_rankings_service)
+
+    payload = draft_router.ModelServingPredictionRequest(
+        owner_id=owner_a.id,
+        season=2026,
+        league_id=league.id,
+    )
+
+    response = draft_router.predict_model_recommendations(
+        payload=payload,
+        db=db_session,
+        current_user=commissioner,
+    )
+
+    assert response.recommendation_count == 1
+    rec = response.recommendations[0]
+    assert rec.recommended_bid > 0
+    assert rec.value_score > 0
+    assert rec.tier == "A"
+    assert isinstance(rec.flags, list)
+
+    assert response.provenance.model_version_alias_resolved
+    assert response.provenance.model_route_strategy in {"current-alias", "explicit", "canary"}
 
 
 def test_rankings_blocks_non_commissioner_cross_owner(db_session):

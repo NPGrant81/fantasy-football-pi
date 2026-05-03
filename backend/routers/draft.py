@@ -1,6 +1,11 @@
 from typing import Any, List
 from datetime import datetime, timezone
 import logging
+import os
+import random
+import time
+from collections import deque
+from threading import Lock
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 import pandas as pd
 from sqlalchemy import func, or_
@@ -319,6 +324,8 @@ class ModelServingProvenance(BaseModel):
     model_source: str
     model_version_alias_requested: str
     model_version_alias_resolved: str
+    model_route_strategy: str
+    canary_applied: bool = False
     feature_contract_version: str
     request_owner_source: str
     fallback_invoked: bool = False
@@ -346,17 +353,100 @@ def _model_serving_error(
     message: str,
     retryable: bool = False,
 ) -> HTTPException:
+    _record_model_serving_observability(
+        latency_ms=0.0,
+        success=False,
+        fallback_invoked=False,
+        error_code=code,
+    )
     return HTTPException(
         status_code=status_code,
         detail=ModelServingErrorDetail(code=code, message=message, retryable=retryable).model_dump(),
     )
 
 
-def _resolve_model_version(requested_version: str | None) -> str:
+_MODEL_SERVING_OBS_LOCK = Lock()
+_MODEL_SERVING_LATENCIES_MS: deque[float] = deque(maxlen=500)
+_MODEL_SERVING_COUNTERS = {
+    "request_count": 0,
+    "error_count": 0,
+    "fallback_count": 0,
+    "schema_mismatch_count": 0,
+}
+
+
+def _reset_model_serving_observability_for_tests() -> None:
+    with _MODEL_SERVING_OBS_LOCK:
+        _MODEL_SERVING_LATENCIES_MS.clear()
+        _MODEL_SERVING_COUNTERS["request_count"] = 0
+        _MODEL_SERVING_COUNTERS["error_count"] = 0
+        _MODEL_SERVING_COUNTERS["fallback_count"] = 0
+        _MODEL_SERVING_COUNTERS["schema_mismatch_count"] = 0
+
+
+def _model_serving_observability_snapshot() -> dict[str, float | int]:
+    with _MODEL_SERVING_OBS_LOCK:
+        request_count = int(_MODEL_SERVING_COUNTERS["request_count"])
+        error_count = int(_MODEL_SERVING_COUNTERS["error_count"])
+        fallback_count = int(_MODEL_SERVING_COUNTERS["fallback_count"])
+        schema_mismatch_count = int(_MODEL_SERVING_COUNTERS["schema_mismatch_count"])
+        latencies = list(_MODEL_SERVING_LATENCIES_MS)
+
+    latency_p95 = 0.0
+    if latencies:
+        sorted_latencies = sorted(latencies)
+        idx = max(0, min(len(sorted_latencies) - 1, int(0.95 * len(sorted_latencies)) - 1))
+        latency_p95 = float(sorted_latencies[idx])
+
+    prediction_error_rate = float(error_count / request_count) if request_count else 0.0
+    fallback_invocation_rate = float(fallback_count / request_count) if request_count else 0.0
+
+    return {
+        "request_count": request_count,
+        "request_latency_p95": latency_p95,
+        "prediction_error_rate": prediction_error_rate,
+        "fallback_invocation_rate": fallback_invocation_rate,
+        "schema_mismatch_count": schema_mismatch_count,
+    }
+
+
+def _record_model_serving_observability(
+    *,
+    latency_ms: float,
+    success: bool,
+    fallback_invoked: bool,
+    error_code: str | None = None,
+) -> None:
+    with _MODEL_SERVING_OBS_LOCK:
+        _MODEL_SERVING_COUNTERS["request_count"] += 1
+        _MODEL_SERVING_LATENCIES_MS.append(float(max(0.0, latency_ms)))
+        if not success:
+            _MODEL_SERVING_COUNTERS["error_count"] += 1
+            if error_code == "SCHEMA_MISMATCH":
+                _MODEL_SERVING_COUNTERS["schema_mismatch_count"] += 1
+        if fallback_invoked:
+            _MODEL_SERVING_COUNTERS["fallback_count"] += 1
+
+
+def _resolve_model_version(requested_version: str | None) -> tuple[str, str, bool]:
     requested = (requested_version or "current").strip().lower()
+    current_alias = os.getenv("MODEL_SERVING_CURRENT_ALIAS", "historical-rankings-v1")
+    canary_alias = os.getenv("MODEL_SERVING_CANARY_ALIAS", current_alias)
+    try:
+        canary_percent = float(os.getenv("MODEL_SERVING_CANARY_PERCENT", "0"))
+    except ValueError:
+        canary_percent = 0.0
+    canary_percent = max(0.0, min(100.0, canary_percent))
+
     if requested in {"", "current", "latest", "default"}:
-        return "historical-rankings-v1"
-    return requested_version or "historical-rankings-v1"
+        return current_alias, "current-alias", False
+
+    if requested in {"canary", "current-canary"}:
+        canary_applied = random.random() < (canary_percent / 100.0)
+        resolved = canary_alias if canary_applied else current_alias
+        return resolved, "canary", canary_applied
+
+    return requested_version or current_alias, "explicit", False
 
 
 def _build_model_recommendations(
@@ -547,6 +637,12 @@ def predict_model_recommendations(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    started_at = time.perf_counter()
+    fallback_invoked = False
+    resolved_model_version = "historical-rankings-v1"
+    route_strategy = "current-alias"
+    canary_applied = False
+
     if not current_user.league_id:
         raise _model_serving_error(
             status_code=400,
@@ -597,7 +693,7 @@ def predict_model_recommendations(
             retryable=False,
         )
 
-    resolved_model_version = _resolve_model_version(payload.model_version)
+    resolved_model_version, route_strategy, canary_applied = _resolve_model_version(payload.model_version)
     safe_limit = max(1, min(int(payload.limit), 200))
 
     logger.info(
@@ -653,13 +749,28 @@ def predict_model_recommendations(
         owner_slots_remaining=owner_slots_remaining,
     )
 
+    latency_ms = (time.perf_counter() - started_at) * 1000.0
+    _record_model_serving_observability(
+        latency_ms=latency_ms,
+        success=True,
+        fallback_invoked=fallback_invoked,
+    )
+    metrics_snapshot = _model_serving_observability_snapshot()
+
     logger.info(
-        "model_predict.response requested_owner_id=%s effective_owner_id=%s season=%s recommendation_count=%s fallback_invoked=%s",
+        "model_predict.response requested_owner_id=%s effective_owner_id=%s season=%s recommendation_count=%s fallback_invoked=%s model_route_strategy=%s canary_applied=%s request_latency_ms=%.2f request_latency_p95=%.2f prediction_error_rate=%.4f fallback_invocation_rate=%.4f schema_mismatch_count=%s",
         requested_owner_id,
         effective_owner_id,
         payload.season,
         len(recommendations),
         fallback_invoked,
+        route_strategy,
+        canary_applied,
+        latency_ms,
+        float(metrics_snapshot["request_latency_p95"]),
+        float(metrics_snapshot["prediction_error_rate"]),
+        float(metrics_snapshot["fallback_invocation_rate"]),
+        int(metrics_snapshot["schema_mismatch_count"]),
     )
 
     return ModelServingPredictionResponse(
@@ -676,6 +787,8 @@ def predict_model_recommendations(
             model_source="historical-rankings-service",
             model_version_alias_requested=payload.model_version or "current",
             model_version_alias_resolved=resolved_model_version,
+            model_route_strategy=route_strategy,
+            canary_applied=canary_applied,
             feature_contract_version="issue-106-v1",
             request_owner_source=owner_source,
             fallback_invoked=fallback_invoked,
