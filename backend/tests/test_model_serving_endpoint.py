@@ -77,6 +77,7 @@ def test_model_predict_blocks_non_commissioner_cross_owner(db_session):
         )
 
     assert exc.value.status_code == 403
+    assert exc.value.detail["code"] == "OWNER_SCOPE_FORBIDDEN"
 
 
 def test_model_predict_returns_budget_aware_recommendations(db_session, monkeypatch):
@@ -139,6 +140,12 @@ def test_model_predict_returns_budget_aware_recommendations(db_session, monkeypa
     assert response.api_version == "v1"
     assert response.model_version_resolved == "historical-rankings-v1"
     assert response.recommendation_count == 1
+    assert response.owner_id == owner_a.id
+    assert response.requested_owner_id == owner_a.id
+    assert response.provenance.model_source == "historical-rankings-service"
+    assert response.provenance.model_version_alias_resolved == "historical-rankings-v1"
+    assert response.provenance.request_owner_source == "payload"
+    assert response.provenance.fallback_invoked is False
 
     rec = response.recommendations[0]
     assert rec.player_id == 10
@@ -146,6 +153,83 @@ def test_model_predict_returns_budget_aware_recommendations(db_session, monkeypa
     assert rec.within_owner_budget is False
     assert "budget-capped" in rec.flags
     assert "scarcity-boost" in rec.flags
+
+
+def test_model_predict_defaults_owner_to_authenticated_user_when_missing(db_session, monkeypatch):
+    league, _, owner_a, _ = _create_users(db_session)
+
+    captured_owner_ids: list[int] = []
+
+    def _fake_rankings_service(db, *, season, limit, league_id, owner_id, position, player_ids=None):
+        captured_owner_ids.append(owner_id)
+        return [
+            {
+                "player_id": 22,
+                "player_name": "Owner Scoped Player",
+                "position": "QB",
+                "predicted_auction_value": 15.0,
+                "final_score": 14.0,
+                "consensus_tier": "B",
+                "keeper_scarcity_boost": 1.0,
+                "scoring_consistency_factor": 1.0,
+                "late_start_consistency_factor": 1.0,
+                "injury_split_factor": 1.0,
+                "team_change_factor": 1.0,
+            }
+        ]
+
+    monkeypatch.setattr(
+        draft_router,
+        "get_historical_rankings_service",
+        _fake_rankings_service,
+    )
+
+    payload = draft_router.ModelServingPredictionRequest(
+        season=2026,
+        league_id=league.id,
+        model_version="current",
+    )
+
+    response = draft_router.predict_model_recommendations(
+        payload=payload,
+        db=db_session,
+        current_user=owner_a,
+    )
+
+    assert captured_owner_ids == [owner_a.id]
+    assert response.requested_owner_id is None
+    assert response.owner_id == owner_a.id
+    assert response.provenance.request_owner_source == "authenticated-default"
+    assert response.recommendation_count == 1
+
+
+def test_model_predict_sets_fallback_provenance_when_no_candidates(db_session, monkeypatch):
+    league, _, owner_a, _ = _create_users(db_session)
+
+    def _empty_rankings_service(db, *, season, limit, league_id, owner_id, position, player_ids=None):
+        return []
+
+    monkeypatch.setattr(
+        draft_router,
+        "get_historical_rankings_service",
+        _empty_rankings_service,
+    )
+
+    payload = draft_router.ModelServingPredictionRequest(
+        season=2026,
+        league_id=league.id,
+        model_version="current",
+    )
+
+    response = draft_router.predict_model_recommendations(
+        payload=payload,
+        db=db_session,
+        current_user=owner_a,
+    )
+
+    assert response.recommendation_count == 0
+    assert response.provenance.fallback_invoked is True
+    assert response.provenance.fallback_reason == "no-ranked-candidates"
 
 
 def test_rankings_blocks_non_commissioner_cross_owner(db_session):

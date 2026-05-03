@@ -286,7 +286,7 @@ class ModelServingDraftState(BaseModel):
 
 
 class ModelServingPredictionRequest(BaseModel):
-    owner_id: int
+    owner_id: int | None = None
     season: int
     league_id: int | None = None
     player_ids: list[int] | None = None
@@ -309,16 +309,47 @@ class ModelServingRecommendation(BaseModel):
     flags: list[str] = Field(default_factory=list)
 
 
+class ModelServingErrorDetail(BaseModel):
+    code: str
+    message: str
+    retryable: bool = False
+
+
+class ModelServingProvenance(BaseModel):
+    model_source: str
+    model_version_alias_requested: str
+    model_version_alias_resolved: str
+    feature_contract_version: str
+    request_owner_source: str
+    fallback_invoked: bool = False
+    fallback_reason: str | None = None
+
+
 class ModelServingPredictionResponse(BaseModel):
     api_version: str
     model_version_requested: str
     model_version_resolved: str
     generated_at: str
+    requested_owner_id: int | None = None
     owner_id: int
     season: int
     league_id: int | None = None
     recommendation_count: int
+    provenance: ModelServingProvenance
     recommendations: list[ModelServingRecommendation]
+
+
+def _model_serving_error(
+    *,
+    status_code: int,
+    code: str,
+    message: str,
+    retryable: bool = False,
+) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail=ModelServingErrorDetail(code=code, message=message, retryable=retryable).model_dump(),
+    )
 
 
 def _resolve_model_version(requested_version: str | None) -> str:
@@ -517,35 +548,63 @@ def predict_model_recommendations(
     current_user: models.User = Depends(get_current_user),
 ):
     if not current_user.league_id:
-        raise HTTPException(status_code=400, detail="User must belong to a league")
+        raise _model_serving_error(
+            status_code=400,
+            code="MODEL_CONTEXT_INVALID",
+            message="User must belong to a league",
+            retryable=False,
+        )
+
+    requested_owner_id = payload.owner_id
+    effective_owner_id = int(payload.owner_id or current_user.id)
+    owner_source = "payload" if payload.owner_id is not None else "authenticated-default"
 
     target_owner = (
         db.query(models.User)
         .filter(
-            models.User.id == payload.owner_id,
+            models.User.id == effective_owner_id,
             models.User.league_id == current_user.league_id,
         )
         .first()
     )
     if not target_owner:
-        raise HTTPException(status_code=404, detail="Owner not found in league")
+        raise _model_serving_error(
+            status_code=404,
+            code="OWNER_NOT_FOUND",
+            message="Owner not found in league",
+            retryable=False,
+        )
 
-    if not current_user.is_superuser and not current_user.is_commissioner and int(payload.owner_id) != int(current_user.id):
-        raise HTTPException(
+    if (
+        payload.owner_id is not None
+        and not current_user.is_superuser
+        and not current_user.is_commissioner
+        and int(payload.owner_id) != int(current_user.id)
+    ):
+        raise _model_serving_error(
             status_code=403,
-            detail="Owners can only request model recommendations for themselves",
+            code="OWNER_SCOPE_FORBIDDEN",
+            message="Owners can only request model recommendations for themselves",
+            retryable=False,
         )
 
     requested_league_id = payload.league_id if payload.league_id is not None else current_user.league_id
     if int(requested_league_id) != int(current_user.league_id):
-        raise HTTPException(status_code=403, detail="Cross-league prediction requests are not allowed")
+        raise _model_serving_error(
+            status_code=403,
+            code="CROSS_LEAGUE_FORBIDDEN",
+            message="Cross-league prediction requests are not allowed",
+            retryable=False,
+        )
 
     resolved_model_version = _resolve_model_version(payload.model_version)
     safe_limit = max(1, min(int(payload.limit), 200))
 
     logger.info(
-        "model_predict.request owner_id=%s season=%s league_id=%s model_version=%s limit=%s",
-        payload.owner_id,
+        "model_predict.request requested_owner_id=%s effective_owner_id=%s auth_user_id=%s season=%s league_id=%s model_version=%s limit=%s",
+        requested_owner_id,
+        effective_owner_id,
+        current_user.id,
         payload.season,
         requested_league_id,
         resolved_model_version,
@@ -560,7 +619,7 @@ def predict_model_recommendations(
         season=int(payload.season),
         limit=max(safe_limit * 2, 100),
         league_id=int(requested_league_id),
-        owner_id=int(payload.owner_id),
+        owner_id=effective_owner_id,
         position=None,
         player_ids=[int(p) for p in payload.player_ids] if payload.player_ids else None,
     )
@@ -581,9 +640,12 @@ def predict_model_recommendations(
     owner_budget_remaining: float | None = None
     owner_slots_remaining: int | None = None
     if payload.draft_state and payload.draft_state.remaining_budget_by_owner:
-        owner_budget_remaining = payload.draft_state.remaining_budget_by_owner.get(int(payload.owner_id))
+        owner_budget_remaining = payload.draft_state.remaining_budget_by_owner.get(effective_owner_id)
     if payload.draft_state and payload.draft_state.remaining_slots_by_owner:
-        owner_slots_remaining = payload.draft_state.remaining_slots_by_owner.get(int(payload.owner_id))
+        owner_slots_remaining = payload.draft_state.remaining_slots_by_owner.get(effective_owner_id)
+
+    fallback_invoked = len(candidate_rows) == 0
+    fallback_reason = "no-ranked-candidates" if fallback_invoked else None
 
     recommendations = _build_model_recommendations(
         candidate_rows[:safe_limit],
@@ -592,10 +654,12 @@ def predict_model_recommendations(
     )
 
     logger.info(
-        "model_predict.response owner_id=%s season=%s recommendation_count=%s",
-        payload.owner_id,
+        "model_predict.response requested_owner_id=%s effective_owner_id=%s season=%s recommendation_count=%s fallback_invoked=%s",
+        requested_owner_id,
+        effective_owner_id,
         payload.season,
         len(recommendations),
+        fallback_invoked,
     )
 
     return ModelServingPredictionResponse(
@@ -603,10 +667,20 @@ def predict_model_recommendations(
         model_version_requested=payload.model_version or "current",
         model_version_resolved=resolved_model_version,
         generated_at=datetime.now(timezone.utc).isoformat(),
-        owner_id=int(payload.owner_id),
+        requested_owner_id=requested_owner_id,
+        owner_id=effective_owner_id,
         season=int(payload.season),
         league_id=int(requested_league_id),
         recommendation_count=len(recommendations),
+        provenance=ModelServingProvenance(
+            model_source="historical-rankings-service",
+            model_version_alias_requested=payload.model_version or "current",
+            model_version_alias_resolved=resolved_model_version,
+            feature_contract_version="issue-106-v1",
+            request_owner_source=owner_source,
+            fallback_invoked=fallback_invoked,
+            fallback_reason=fallback_reason,
+        ),
         recommendations=[ModelServingRecommendation(**row) for row in recommendations],
     )
 

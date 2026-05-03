@@ -46,7 +46,8 @@ The endpoint supports all owners and enforces league-safe access control. Non-co
 
 ### Field Notes
 
-- `owner_id` and `season` are required.
+- `season` is required.
+- `owner_id` is optional. When omitted, the endpoint defaults to the authenticated request owner.
 - `player_ids` is optional; when provided, recommendations are filtered to this candidate pool.
 - `model_version` accepts `current` (default) or explicit version identifiers.
 - `draft_state` is optional and enables budget-aware bid capping.
@@ -59,10 +60,20 @@ The endpoint supports all owners and enforces league-safe access control. Non-co
   "model_version_requested": "current",
   "model_version_resolved": "historical-rankings-v1",
   "generated_at": "2026-03-02T19:45:00.000000",
+  "requested_owner_id": 1,
   "owner_id": 1,
   "season": 2026,
   "league_id": 1,
   "recommendation_count": 3,
+  "provenance": {
+    "model_source": "historical-rankings-service",
+    "model_version_alias_requested": "current",
+    "model_version_alias_resolved": "historical-rankings-v1",
+    "feature_contract_version": "issue-106-v1",
+    "request_owner_source": "payload",
+    "fallback_invoked": false,
+    "fallback_reason": null
+  },
   "recommendations": [
     {
       "player_id": 1068,
@@ -79,6 +90,14 @@ The endpoint supports all owners and enforces league-safe access control. Non-co
   ]
 }
 ```
+
+### Owner Context Resolution
+
+- If `owner_id` is provided, that owner is used (commissioner or superuser may request other owners).
+- If `owner_id` is omitted, the authenticated user id is used automatically.
+- Non-commissioners cannot request another owner explicitly.
+
+This supports app-personalized responses for whoever is logged in while preserving commissioner workflows.
 
 ### Recommendation Semantics
 
@@ -101,7 +120,22 @@ The endpoint supports all owners and enforces league-safe access control. Non-co
 - `403`: cross-owner or cross-league access violation
 - `404`: target owner not found in league
 
-Errors are returned as standard FastAPI HTTP errors with `detail`.
+Errors are returned as typed `detail` payloads:
+
+```json
+{
+  "code": "OWNER_SCOPE_FORBIDDEN",
+  "message": "Owners can only request model recommendations for themselves",
+  "retryable": false
+}
+```
+
+Current error codes:
+
+- `MODEL_CONTEXT_INVALID`
+- `OWNER_NOT_FOUND`
+- `OWNER_SCOPE_FORBIDDEN`
+- `CROSS_LEAGUE_FORBIDDEN`
 
 ## Logging
 
