@@ -1,13 +1,96 @@
 ---
 name: ml-ops
-description: 'Analytics feature development, ML modeling patterns, player/manager metrics, historical data pipelines, consistency scoring, luck index, waiver wire opportunity analysis, and ETL conventions for Fantasy Football PI. Use when: building analytics endpoints, adding new metrics, ETL data pipelines, ML feature engineering, or working with player_weekly_stats.'
-argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-engineering | scoring | modeling)'
+description: 'Analytics feature development and MLOps lifecycle for Fantasy Football PI: feature engineering, model training and evaluation, champion or challenger promotion, drift detection, simulation impact measurement, and ETL conventions. Use when: building analytics endpoints, training models, defining evaluation gates, adding drift monitoring, or tuning model cadence.'
+argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-engineering | training-eval | drift | champion-challenger | scoring | modeling)'
 ---
 
 # ML Ops / Analytics Engineering
 
 ## Why This Exists
 Fantasy Football PI is evolving toward ML-informed recommendations (lineup advice, breakout detection, trade valuation). All analytics features share common patterns — consistent endpoints, standardized response shapes, shared helpers — so new metrics can be added quickly and reliably.
+
+This skill also defines the required MLOps process for Issue #108 and later model iterations.
+
+## Standard MLOps Lifecycle (Required)
+
+1. Target and label definition
+    - Define target variables and business interpretation.
+    - Use strict time-based train, validation, and test splits.
+2. Dataset and feature assembly
+    - Consume feature contracts from Issue #106 outputs.
+    - Persist dataset version and feature schema hash.
+3. Candidate training
+    - Train baseline and advanced models using identical splits.
+    - Persist params, seed, and environment metadata.
+4. Offline evaluation
+    - Regression: MAE, RMSE, median AE.
+    - Ranking quality: NDCG at K, MAP at K.
+    - Calibration: bucket error or calibration curve stats where applicable.
+5. Simulation impact evaluation
+    - Route candidate outputs through the Issue #107 bridge path.
+    - Compare OwnerID=1 and required slice outcomes vs champion.
+6. Champion or challenger decision
+    - Promote only when all gates pass.
+    - Store auditable decision record and model card.
+7. Post-promotion monitoring
+    - Monitor drift and performance degradation.
+    - Trigger retraining when thresholds are breached.
+
+## Required MLOps Artifacts
+
+Every training run must produce:
+
+- model artifact URI
+- dataset version and feature schema hash
+- training config and split definition
+- evaluation report with slice metrics
+- simulation impact report
+- model card
+- champion or challenger decision record
+
+## Recommended Model Portfolio
+
+Train and compare the following candidates by default:
+
+1. Baseline: historical averages by season and position with inflation adjustments.
+2. Interpretable benchmark: Elastic Net.
+3. Tabular performance models: Random Forest, LightGBM, CatBoost.
+4. Ranking objective model when relevant: pairwise ranking or LambdaMART.
+5. Optional uncertainty model: quantile regression for bid ranges.
+
+Select winners using a composite score that includes predictive metrics and simulation outcome impact.
+
+## Promotion Gates (Minimum)
+
+- no more than 10 percent regression on primary error metrics versus champion
+- no more than 5 percent regression on ranking metrics
+- no significant degradation on required slices, including OwnerID=1
+- reproducible rerun within tolerance
+- neutral or positive simulation impact on required owner slices
+
+## Drift Detection and Response
+
+Track three drift categories:
+
+- data drift
+  - PSI on key numeric features (warn above 0.2, critical above 0.3)
+  - categorical distribution shifts by position and owner slice
+- concept and performance drift
+  - rolling MAE and RMSE deltas vs champion
+  - rolling ranking metric deltas
+  - calibration drift over prediction buckets
+- decision-impact drift
+  - simulation uplift degradation vs champion
+
+Critical drift or sustained degradation requires immediate challenger retraining.
+
+## Tuning and Evaluation Cadence
+
+- every data refresh: data-contract checks and drift checks
+- weekly during active draft prep: score-only evaluation against champion
+- monthly: full challenger retrain and evaluation cycle
+- preseason mandatory refresh: full retrain and model card update
+- event-driven retrain: any critical drift or repeated quality gate failure
 
 ## Implemented Analytics Features
 
@@ -146,6 +229,17 @@ These patterns are specifically designed to enable:
 - **Trade valuation**: Combine avg, trend slope, and ceiling for buy/sell ratings
 - **Breakout detection**: Trend slope + opportunity score + snap% for waiver pickups
 - **Monte Carlo simulation**: Weekly score distributions → season outcome probability
+
+## Issue #108 Implementation Checklist
+
+When implementing Issue #108 work items, ensure the change includes:
+
+1. Defined targets, labels, and split policy in docs.
+2. Baseline and at least one advanced model candidate.
+3. Evaluation report with regression, ranking, and slice metrics.
+4. Simulation impact comparison versus current champion.
+5. Drift thresholds and monitoring hooks.
+6. Model card and promotion decision record.
 
 ## Related Skills
 - [API Patterns](../api-patterns/SKILL.md) — analytics endpoint conventions
