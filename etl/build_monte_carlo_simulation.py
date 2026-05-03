@@ -9,6 +9,7 @@ from etl.transform.monte_carlo_simulation import (
     run_monte_carlo_from_db,
     summarize_team_distribution,
 )
+from etl.transform.ml_feature_bridge import build_simulation_rankings
 
 
 def parse_args() -> argparse.Namespace:
@@ -31,6 +32,23 @@ def parse_args() -> argparse.Namespace:
         default="backend/data/simulation",
         help="Output directory for simulation artifacts.",
     )
+    parser.add_argument(
+        "--use-ml-features",
+        action="store_true",
+        default=False,
+        help=(
+            "Build historical_rankings_df from the ML feature pipeline (Issue #106) "
+            "instead of the legacy draft_values table.  Requires the ML feature "
+            "outputs to be available in the database."
+        ),
+    )
+    parser.add_argument(
+        "--target-season",
+        type=int,
+        default=None,
+        help="Target draft season year for ML feature bridge (e.g. 2026).  "
+             "Only relevant when --use-ml-features is set.",
+    )
     return parser.parse_args()
 
 
@@ -52,7 +70,13 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        result = run_monte_carlo_from_db(db, league_id=args.league_id, config=config)
+        result = run_monte_carlo_from_db(
+            db,
+            league_id=args.league_id,
+            config=config,
+            use_ml_features=args.use_ml_features,
+            target_season=args.target_season,
+        )
     finally:
         db.close()
 

@@ -721,11 +721,71 @@ _POSITION_IDS: dict[str, int] = {v: k for k, v in POSITION_LABELS.items()}
 _POSITION_IDS.update({"DST": 8006, "D/ST": 8006})
 
 
+def _build_rankings_from_ml_features(
+    draft_results_df: pd.DataFrame,
+    target_season: int | None,
+) -> pd.DataFrame:
+    """Derive historical_rankings_df from the ML feature pipeline (Issue #106).
+
+    Runs ``compute_player_draft_features`` and ``compute_draft_season_features``
+    on the normalised draft results DataFrame and converts the output through
+    :func:`~etl.transform.ml_feature_bridge.build_simulation_rankings`.
+
+    Parameters
+    ----------
+    draft_results_df:
+        Normalised draft results with columns: player_id, owner_id, year,
+        winning_bid, is_keeper (or position).
+    target_season:
+        Target season for the temporal leakage guard.  If None, all data is used.
+
+    Returns
+    -------
+    pd.DataFrame suitable for ``historical_rankings_df`` in the simulation engine.
+    """
+    from etl.transform.ml_features import (
+        compute_draft_season_features,
+        compute_player_draft_features,
+    )
+    from etl.transform.ml_feature_bridge import build_simulation_rankings
+
+    # Build a normalised draft DataFrame with the column names ml_features expects.
+    picks = draft_results_df.copy()
+    col_map = {
+        "PlayerID": "player_id",
+        "OwnerID": "owner_id",
+        "Year": "season_year",
+        "WinningBid": "winning_bid",
+        "PositionID": "position_id",
+    }
+    picks = picks.rename(columns={k: v for k, v in col_map.items() if k in picks.columns})
+    picks["winning_bid"] = pd.to_numeric(
+        picks["winning_bid"].astype(str).str.replace("$", "", regex=False).str.replace(",", "", regex=False),
+        errors="coerce",
+    ).fillna(0.0)
+    if "is_keeper" not in picks.columns:
+        picks["is_keeper"] = False
+
+    player_feats = compute_player_draft_features(picks, reference_season=target_season)
+    try:
+        season_feats = compute_draft_season_features(picks)
+    except Exception:
+        season_feats = pd.DataFrame()
+
+    return build_simulation_rankings(
+        player_features=player_feats,
+        draft_season_features=season_feats if not season_feats.empty else None,
+        target_season=target_season,
+    )
+
+
 def run_monte_carlo_from_db(
     db: "Session",
     *,
     league_id: int | None = None,
     config: SimulationConfig | None = None,
+    use_ml_features: bool = False,
+    target_season: int | None = None,
 ) -> MonteCarloSimulationResult:
     """Run Monte Carlo simulation using live database data instead of CSV files.
 
@@ -743,13 +803,28 @@ def run_monte_carlo_from_db(
         that league are included.
     config:
         Simulation configuration.  Defaults to ``SimulationConfig()``.
+    use_ml_features:
+        When ``True``, build ``historical_rankings_df`` from the ML feature
+        pipeline (Issue #106) via :func:`~etl.transform.ml_feature_bridge.build_simulation_rankings`
+        instead of the legacy ``draft_values`` table.  Requires that
+        ``draft_picks`` contains sufficient historical data.
+    target_season:
+        Target draft season passed to the ML feature bridge.  Only prior-season
+        rows are used.  Ignored when ``use_ml_features=False``.
     """
     inputs = build_monte_carlo_inputs_from_db(db, league_id=league_id)
+
+    historical_rankings_df = inputs.historical_rankings_df
+    if use_ml_features:
+        historical_rankings_df = _build_rankings_from_ml_features(
+            draft_results_df=inputs.draft_results_df,
+            target_season=target_season,
+        )
 
     return run_monte_carlo_draft_simulation(
         draft_results_df=inputs.draft_results_df,
         players_df=inputs.players_df,
-        historical_rankings_df=inputs.historical_rankings_df,
+        historical_rankings_df=historical_rankings_df,
         budget_df=inputs.budget_df,
         yearly_results_df=pd.DataFrame(),
         config=config,
