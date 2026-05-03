@@ -1,6 +1,7 @@
 from typing import Any, List
 from datetime import datetime, timezone
 import logging
+import math
 import os
 import random
 import time
@@ -15,7 +16,7 @@ from jose import JWTError, jwt
 
 try:
     from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     CONTENT_TYPE_LATEST = "text/plain; version=0.0.4"
     Counter = None  # type: ignore[assignment]
     Histogram = None  # type: ignore[assignment]
@@ -360,12 +361,18 @@ def _model_serving_error(
     code: str,
     message: str,
     retryable: bool = False,
+    latency_ms: float = 0.0,
+    fallback_invoked: bool = False,
+    route_strategy: str = "unknown",
+    fallback_reason: str | None = None,
 ) -> HTTPException:
     _record_model_serving_observability(
-        latency_ms=0.0,
+        latency_ms=latency_ms,
         success=False,
-        fallback_invoked=False,
+        fallback_invoked=fallback_invoked,
         error_code=code,
+        route_strategy=route_strategy,
+        fallback_reason=fallback_reason,
     )
     return HTTPException(
         status_code=status_code,
@@ -379,7 +386,6 @@ _MODEL_SERVING_COUNTERS = {
     "request_count": 0,
     "error_count": 0,
     "fallback_count": 0,
-    "schema_mismatch_count": 0,
 }
 
 _PROMETHEUS_ENABLED = Counter is not None and Histogram is not None and generate_latest is not None
@@ -399,10 +405,6 @@ if _PROMETHEUS_ENABLED:
         "Total number of model serving fallback invocations.",
         ["reason"],
     )
-    _MODEL_SERVING_SCHEMA_MISMATCH_TOTAL = Counter(
-        "ffpi_model_serving_schema_mismatch_total",
-        "Total number of schema mismatch events for model serving.",
-    )
     _MODEL_SERVING_LATENCY_SECONDS = Histogram(
         "ffpi_model_serving_request_latency_seconds",
         "Model serving request latency in seconds.",
@@ -416,7 +418,6 @@ def _reset_model_serving_observability_for_tests() -> None:
         _MODEL_SERVING_COUNTERS["request_count"] = 0
         _MODEL_SERVING_COUNTERS["error_count"] = 0
         _MODEL_SERVING_COUNTERS["fallback_count"] = 0
-        _MODEL_SERVING_COUNTERS["schema_mismatch_count"] = 0
 
 
 def _model_serving_observability_snapshot() -> dict[str, float | int]:
@@ -424,13 +425,12 @@ def _model_serving_observability_snapshot() -> dict[str, float | int]:
         request_count = int(_MODEL_SERVING_COUNTERS["request_count"])
         error_count = int(_MODEL_SERVING_COUNTERS["error_count"])
         fallback_count = int(_MODEL_SERVING_COUNTERS["fallback_count"])
-        schema_mismatch_count = int(_MODEL_SERVING_COUNTERS["schema_mismatch_count"])
         latencies = list(_MODEL_SERVING_LATENCIES_MS)
 
     latency_p95 = 0.0
     if latencies:
         sorted_latencies = sorted(latencies)
-        idx = max(0, min(len(sorted_latencies) - 1, int(0.95 * len(sorted_latencies)) - 1))
+        idx = max(0, min(len(sorted_latencies) - 1, math.ceil(0.95 * len(sorted_latencies)) - 1))
         latency_p95 = float(sorted_latencies[idx])
 
     prediction_error_rate = float(error_count / request_count) if request_count else 0.0
@@ -441,7 +441,6 @@ def _model_serving_observability_snapshot() -> dict[str, float | int]:
         "request_latency_p95": latency_p95,
         "prediction_error_rate": prediction_error_rate,
         "fallback_invocation_rate": fallback_invocation_rate,
-        "schema_mismatch_count": schema_mismatch_count,
     }
 
 
@@ -459,8 +458,6 @@ def _record_model_serving_observability(
         _MODEL_SERVING_LATENCIES_MS.append(float(max(0.0, latency_ms)))
         if not success:
             _MODEL_SERVING_COUNTERS["error_count"] += 1
-            if error_code == "SCHEMA_MISMATCH":
-                _MODEL_SERVING_COUNTERS["schema_mismatch_count"] += 1
         if fallback_invoked:
             _MODEL_SERVING_COUNTERS["fallback_count"] += 1
 
@@ -472,8 +469,6 @@ def _record_model_serving_observability(
         _MODEL_SERVING_LATENCY_SECONDS.observe(float(max(0.0, latency_ms)) / 1000.0)
         if not success and error_code:
             _MODEL_SERVING_ERRORS_TOTAL.labels(code=error_code).inc()
-            if error_code == "SCHEMA_MISMATCH":
-                _MODEL_SERVING_SCHEMA_MISMATCH_TOTAL.inc()
         if fallback_invoked:
             _MODEL_SERVING_FALLBACK_TOTAL.labels(
                 reason=(fallback_reason or "unknown"),
@@ -718,17 +713,39 @@ def predict_model_recommendations(
     route_strategy = "current-alias"
     canary_applied = False
 
+    def _elapsed_ms() -> float:
+        return (time.perf_counter() - started_at) * 1000.0
+
     if not current_user.league_id:
         raise _model_serving_error(
             status_code=400,
             code="MODEL_CONTEXT_INVALID",
             message="User must belong to a league",
             retryable=False,
+            latency_ms=_elapsed_ms(),
+            fallback_invoked=fallback_invoked,
+            route_strategy=route_strategy,
         )
 
     requested_owner_id = payload.owner_id
-    effective_owner_id = int(payload.owner_id or current_user.id)
+    effective_owner_id = int(payload.owner_id) if payload.owner_id is not None else int(current_user.id)
     owner_source = "payload" if payload.owner_id is not None else "authenticated-default"
+
+    if (
+        payload.owner_id is not None
+        and not current_user.is_superuser
+        and not current_user.is_commissioner
+        and int(payload.owner_id) != int(current_user.id)
+    ):
+        raise _model_serving_error(
+            status_code=403,
+            code="OWNER_SCOPE_FORBIDDEN",
+            message="Owners can only request model recommendations for themselves",
+            retryable=False,
+            latency_ms=_elapsed_ms(),
+            fallback_invoked=fallback_invoked,
+            route_strategy=route_strategy,
+        )
 
     target_owner = (
         db.query(models.User)
@@ -744,19 +761,9 @@ def predict_model_recommendations(
             code="OWNER_NOT_FOUND",
             message="Owner not found in league",
             retryable=False,
-        )
-
-    if (
-        payload.owner_id is not None
-        and not current_user.is_superuser
-        and not current_user.is_commissioner
-        and int(payload.owner_id) != int(current_user.id)
-    ):
-        raise _model_serving_error(
-            status_code=403,
-            code="OWNER_SCOPE_FORBIDDEN",
-            message="Owners can only request model recommendations for themselves",
-            retryable=False,
+            latency_ms=_elapsed_ms(),
+            fallback_invoked=fallback_invoked,
+            route_strategy=route_strategy,
         )
 
     requested_league_id = payload.league_id if payload.league_id is not None else current_user.league_id
@@ -766,6 +773,9 @@ def predict_model_recommendations(
             code="CROSS_LEAGUE_FORBIDDEN",
             message="Cross-league prediction requests are not allowed",
             retryable=False,
+            latency_ms=_elapsed_ms(),
+            fallback_invoked=fallback_invoked,
+            route_strategy=route_strategy,
         )
 
     resolved_model_version, route_strategy, canary_applied = _resolve_model_version(payload.model_version)
@@ -835,7 +845,7 @@ def predict_model_recommendations(
     metrics_snapshot = _model_serving_observability_snapshot()
 
     logger.info(
-        "model_predict.response requested_owner_id=%s effective_owner_id=%s season=%s recommendation_count=%s fallback_invoked=%s model_route_strategy=%s canary_applied=%s request_latency_ms=%.2f request_latency_p95=%.2f prediction_error_rate=%.4f fallback_invocation_rate=%.4f schema_mismatch_count=%s",
+        "model_predict.response requested_owner_id=%s effective_owner_id=%s season=%s recommendation_count=%s fallback_invoked=%s model_route_strategy=%s canary_applied=%s request_latency_ms=%.2f request_latency_p95=%.2f prediction_error_rate=%.4f fallback_invocation_rate=%.4f",
         requested_owner_id,
         effective_owner_id,
         payload.season,
@@ -847,7 +857,6 @@ def predict_model_recommendations(
         float(metrics_snapshot["request_latency_p95"]),
         float(metrics_snapshot["prediction_error_rate"]),
         float(metrics_snapshot["fallback_invocation_rate"]),
-        int(metrics_snapshot["schema_mismatch_count"]),
     )
 
     return ModelServingPredictionResponse(

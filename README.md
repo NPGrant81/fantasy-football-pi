@@ -198,14 +198,14 @@ python -m pip freeze > requirements-lock.txt
 
 - Model-serving observability and routing hooks:
 
-	- `prometheus_client` is required for serving observability instrumentation.
-	- Optional model routing env vars:
-		- `MODEL_SERVING_CURRENT_ALIAS`
-		- `MODEL_SERVING_CANARY_ALIAS`
-		- `MODEL_SERVING_CANARY_PERCENT`
+  - `prometheus_client` is required for serving observability instrumentation.
+  - Optional model routing env vars:
+    - `MODEL_SERVING_CURRENT_ALIAS`
+    - `MODEL_SERVING_CANARY_ALIAS`
+    - `MODEL_SERVING_CANARY_PERCENT`
 
-	These control alias resolution for `POST /draft/model/predict` and enable canary routing
-	behavior described in [docs/model-serving-and-integration.md](docs/model-serving-and-integration.md).
+  These control alias resolution for `POST /draft/model/predict` and enable canary routing
+  behavior described in [docs/model-serving-and-integration.md](docs/model-serving-and-integration.md).
 
 - Audit player duplicate bleed-over (dry run):
 

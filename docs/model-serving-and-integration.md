@@ -113,7 +113,7 @@ This supports app-personalized responses for whoever is logged in while preservi
 ## Model Versioning
 
 - Request-level `model_version` is accepted for future explicit routing.
-- `current` resolves to `historical-rankings-v1` in the current implementation.
+- `current` resolves via `MODEL_SERVING_CURRENT_ALIAS` (defaults to `historical-rankings-v1`).
 - Response always echoes both requested and resolved versions.
 
 Routing hooks:
@@ -156,7 +156,6 @@ The serving endpoint logs request and response metadata with live observability 
 - `request_latency_p95`
 - `prediction_error_rate`
 - `fallback_invocation_rate`
-- `schema_mismatch_count`
 
 This supports debugging and lightweight monitoring without exposing private payload details.
 
@@ -210,7 +209,6 @@ Use this checklist before and during model-serving rollout windows.
   - `request_latency_p95`
   - `prediction_error_rate`
   - `fallback_invocation_rate`
-  - `schema_mismatch_count`
 4. Hold or rollback if latency/error/fallback regress beyond accepted thresholds.
 
 ### Rollback
