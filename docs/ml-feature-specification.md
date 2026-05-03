@@ -120,7 +120,6 @@ following rules are enforced at computation time:
 - **Formula:** `MEAN(winning_bid)` for this player across all seasons in history
 - **Temporal leakage:** `reference_season` parameter gates which seasons count
 - **Online:** **no** — full draft history required
-- **Null threshold:** 15 %
 - **Null threshold:** 20 %
 
 #### `draft_max_cost`
@@ -226,7 +225,6 @@ following rules are enforced at computation time:
 ### 5.3 Draft-Season Features
 
 #### `total_league_spend`
-- **Formula:** `SUM(winning_bid)` for all picks in season (including keepers)
 - **Formula:** `SUM(winning_bid)` for all non-keeper picks in season
 - **Online:** yes
 

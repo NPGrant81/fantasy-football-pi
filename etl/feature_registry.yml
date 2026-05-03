@@ -1,7 +1,7 @@
 # Fantasy Football PI — ML Feature Registry
 # Single source of truth for all ML features.
 # Consumed by: ml_features.py (computation), ml-feature-specification.md (docs),
-#              test_ml_features.py (parity checks).
+#              test_ml_features.py (schema + selected parity checks).
 #
 # Schema per entry:
 #   name                  – machine-readable identifier (snake_case)

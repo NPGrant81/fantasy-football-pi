@@ -70,8 +70,21 @@ class TestComputePlayerDraftFeatures:
     def test_returns_one_row_per_player_season(self, simple_draft_df):
         result = compute_player_draft_features(simple_draft_df)
         assert not result.empty
-        # Each row in input → one row in output
-        assert len(result) == len(simple_draft_df)
+        unique_player_season = simple_draft_df[["player_id", "season_year"]].drop_duplicates()
+        assert len(result) == len(unique_player_season)
+
+    def test_duplicate_player_season_rows_are_consolidated(self):
+        draft_df = _make_draft([
+            {"player_id": 101, "owner_id": 1, "season_year": 2023, "position_id": 3, "winning_bid": 50.0, "is_keeper": False},
+            {"player_id": 101, "owner_id": 2, "season_year": 2023, "position_id": 3, "winning_bid": 70.0, "is_keeper": False},
+            {"player_id": 101, "owner_id": 1, "season_year": 2024, "position_id": 3, "winning_bid": 65.0, "is_keeper": False},
+        ])
+        result = compute_player_draft_features(draft_df)
+        assert len(result) == 2
+        row_2023 = result[(result["player_id"] == 101) & (result["season_year"] == 2023)].iloc[0]
+        assert pd.isna(row_2023["draft_avg_cost"])
+        row_2024 = result[(result["player_id"] == 101) & (result["season_year"] == 2024)].iloc[0]
+        assert row_2024["draft_avg_cost"] == pytest.approx(60.0, abs=0.01)
 
     def test_required_columns_present(self, simple_draft_df):
         result = compute_player_draft_features(simple_draft_df)
@@ -141,7 +154,7 @@ class TestComputePlayerDraftFeatures:
         assert row["is_keeper"] == True  # noqa: E712 — np.True_ != True via `is`
 
     def test_empty_input_returns_empty_df(self):
-        empty = pd.DataFrame(columns=["player_id", "season_year", "winning_bid", "is_keeper"])
+        empty = pd.DataFrame(columns=["player_id", "season_year", "position_id", "winning_bid", "is_keeper"])
         result = compute_player_draft_features(empty)
         assert result.empty
 

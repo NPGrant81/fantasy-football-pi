@@ -1,13 +1,17 @@
 """
 ML Feature Computation Module — Issue #106
 ==========================================
-Implements offline training features for all three levels defined in
-``etl/feature_registry.yml``:
+Implements a draft-centric subset of offline training features across all
+three levels in ``etl/feature_registry.yml``:
 
   - Player-season features  (draft cost history, scarcity, bargain, volatility)
   - Owner-season features   (budget drift, vs-league-avg delta, keeper metrics)
   - Draft-season features   (inflation, budget distribution, scarcity curve,
                              replacement-level value, positional demand)
+
+Player weekly scoring features from the registry (`points_*`, reliability,
+trend metrics) are computed in analytics paths and are not produced by this
+module yet.
 
 Owner-season *behavioral* features (aggressiveness_index, positional_bias_index,
 spend_by_position, etc.) are computed by
@@ -110,8 +114,12 @@ def compute_player_draft_features(
     the same completed draft.  However, this feature is still marked
     ``online: false`` in the registry because the full position average is only
     knowable after the draft completes.
+
+    Output grain is one row per (player_id, season_year). If duplicate pick rows
+    exist for the same player-season, they are consolidated before feature
+    calculation to preserve player-season semantics.
     """
-    required = {"player_id", "season_year", "winning_bid", "is_keeper"}
+    required = {"player_id", "season_year", "position_id", "winning_bid", "is_keeper"}
     missing = required - set(validated_draft_df.columns)
     if missing:
         raise ValueError(f"compute_player_draft_features: missing columns {sorted(missing)}")
@@ -128,46 +136,53 @@ def compute_player_draft_features(
     df = validated_draft_df.copy()
     df["player_id"] = pd.to_numeric(df["player_id"], errors="coerce")
     df["season_year"] = pd.to_numeric(df["season_year"], errors="coerce")
+    df["position_id"] = pd.to_numeric(df["position_id"], errors="coerce")
     df["winning_bid"] = pd.to_numeric(df["winning_bid"], errors="coerce")
-    df = df.dropna(subset=["player_id", "season_year", "winning_bid"]).copy()
+    df = df.dropna(subset=["player_id", "season_year", "position_id", "winning_bid"]).copy()
     df["player_id"] = df["player_id"].astype(int)
     df["season_year"] = df["season_year"].astype(int)
+    df["position_id"] = df["position_id"].astype(int)
+
+    grain_df = (
+        df.groupby(["player_id", "season_year"], as_index=False)
+        .agg(
+            position_id=("position_id", "first"),
+            winning_bid=("winning_bid", "mean"),
+            is_keeper=("is_keeper", "max"),
+        )
+        .sort_values(["player_id", "season_year"], kind="mergesort")
+        .reset_index(drop=True)
+    )
 
     # --- Position average cost per season (for bargain_score) ---
     pos_avg: dict[tuple[int, int], float] = {}  # (season_year, position_id) → avg cost
-    if "position_id" in df.columns:
-        pos_df = df.dropna(subset=["position_id"]).copy()
-        pos_df["position_id"] = pos_df["position_id"].astype(int)
-        for (yr, pos), grp in pos_df.groupby(["season_year", "position_id"]):
-            bids = grp["winning_bid"].dropna().tolist()
-            avg = _safe_mean(bids)
-            if avg is not None:
-                pos_avg[(int(yr), int(pos))] = avg
+    for (yr, pos), grp in grain_df.groupby(["season_year", "position_id"]):
+        bids = grp["winning_bid"].dropna().tolist()
+        avg = _safe_mean(bids)
+        if avg is not None:
+            pos_avg[(int(yr), int(pos))] = avg
 
     # --- Positional pick counts per season (for scarcity index) ---
     pos_pick_count: dict[tuple[int, int], int] = {}
     total_pick_count: dict[int, int] = {}
-    if "position_id" in df.columns:
-        pos_df2 = df.dropna(subset=["position_id"]).copy()
-        pos_df2["position_id"] = pos_df2["position_id"].astype(int)
-        for yr, yr_grp in pos_df2.groupby("season_year"):
-            total_pick_count[int(yr)] = len(yr_grp)
-            for pos, pos_grp in yr_grp.groupby("position_id"):
-                pos_pick_count[(int(yr), int(pos))] = len(pos_grp)
+    for yr, yr_grp in grain_df.groupby("season_year"):
+        total_pick_count[int(yr)] = len(yr_grp)
+        for pos, pos_grp in yr_grp.groupby("position_id"):
+            pos_pick_count[(int(yr), int(pos))] = len(pos_grp)
 
     # --- Historical cost lookup per player (for avg/max/median/cv) ---
     # Maps player_id → sorted list of (season_year, winning_bid)
     player_history: dict[int, list[tuple[int, float]]] = {}
-    for _, row in df.iterrows():
+    for _, row in grain_df.iterrows():
         pid = int(row["player_id"])
         player_history.setdefault(pid, []).append((int(row["season_year"]), float(row["winning_bid"])))
 
     rows: list[dict[str, Any]] = []
-    for _, row in df.iterrows():
+    for _, row in grain_df.iterrows():
         pid = int(row["player_id"])
         season = int(row["season_year"])
         bid = float(row["winning_bid"])
-        pos_id = int(row["position_id"]) if "position_id" in row and not pd.isna(row.get("position_id")) else None
+        pos_id = int(row["position_id"])
 
         # Historical bids: all seasons < reference_season (or all if None)
         # Historical bids: strictly prior seasons (temporal leakage guard).
