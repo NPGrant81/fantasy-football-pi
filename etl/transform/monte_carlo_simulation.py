@@ -737,6 +737,7 @@ def _fallback_compute_player_draft_features(
                 "draft_avg_cost",
                 "bargain_score",
                 "bidding_war_likelihood",
+                "position",
             ]
         )
 
@@ -753,6 +754,7 @@ def _fallback_compute_player_draft_features(
                 "draft_avg_cost",
                 "bargain_score",
                 "bidding_war_likelihood",
+                "position",
             ]
         )
     df["player_id"] = df["player_id"].astype(int)
@@ -824,6 +826,7 @@ def _fallback_compute_player_draft_features(
                 "draft_avg_cost": round(draft_avg, 4) if draft_avg is not None else None,
                 "bargain_score": round(float(bargain), 6) if bargain is not None else None,
                 "bidding_war_likelihood": round(float(cv), 6) if cv is not None else None,
+                "position": POSITION_LABELS.get(int(row["position_id"]), None) if not pd.isna(row.get("position_id")) else None,
             }
         )
 
@@ -878,11 +881,12 @@ def _build_rankings_from_ml_features(
     draft_results_df: pd.DataFrame,
     target_season: int | None,
 ) -> pd.DataFrame:
-    """Derive historical_rankings_df from the ML feature pipeline (Issue #106).
+    """Derive historical_rankings_df from ML-style feature outputs.
 
-    Runs ``compute_player_draft_features`` and ``compute_draft_season_features``
-    on the normalised draft results DataFrame and converts the output through
-    :func:`~etl.transform.ml_feature_bridge.build_simulation_rankings`.
+    Tries to import and run the Issue #106 feature functions
+    (``etl.transform.ml_features``).  If unavailable, uses local fallback
+    computations with the same output contract, then converts the output
+    through :func:`~etl.transform.ml_feature_bridge.build_simulation_rankings`.
 
     Parameters
     ----------
@@ -922,6 +926,25 @@ def _build_rankings_from_ml_features(
             picks["winning_bid"].astype(str).str.replace("$", "", regex=False).str.replace(",", "", regex=False),
             errors="coerce",
         ).fillna(0.0)
+
+    if "position_id" in picks.columns:
+        def _coerce_position_id(value: object) -> int | None:
+            if value is None or pd.isna(value):
+                return None
+            if isinstance(value, (int, float)):
+                if isinstance(value, float) and math.isnan(value):
+                    return None
+                return int(value)
+            text = str(value).strip().upper()
+            if not text:
+                return None
+            if text.isdigit():
+                return int(text)
+            return _POSITION_IDS.get(text)
+
+        picks["position_id"] = picks["position_id"].apply(_coerce_position_id)
+        picks["position"] = picks["position_id"].apply(lambda pid: POSITION_LABELS.get(int(pid), None) if pid is not None else None)
+
     if "is_keeper" not in picks.columns:
         picks["is_keeper"] = False
 
@@ -960,10 +983,11 @@ def run_monte_carlo_from_db(
     config:
         Simulation configuration.  Defaults to ``SimulationConfig()``.
     use_ml_features:
-        When ``True``, build ``historical_rankings_df`` from the ML feature
-        pipeline (Issue #106) via :func:`~etl.transform.ml_feature_bridge.build_simulation_rankings`
-        instead of the legacy ``draft_values`` table.  Requires that
-        ``draft_picks`` contains sufficient historical data.
+        When ``True``, build ``historical_rankings_df`` via
+        :func:`~etl.transform.ml_feature_bridge.build_simulation_rankings`
+        from ML-style feature outputs.  Uses the Issue #106 feature module
+        when available, otherwise local fallback feature computations.
+        Requires sufficient historical draft pick data.
     target_season:
         Target draft season passed to the ML feature bridge.  Only prior-season
         rows are used.  Ignored when ``use_ml_features=False``.

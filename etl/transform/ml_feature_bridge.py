@@ -4,8 +4,12 @@ Converts compute_player_draft_features() and compute_draft_season_features()
 outputs (Issue #106) into the ``historical_rankings_df`` format consumed by
 ``run_monte_carlo_draft_simulation()`` (Issue #107).
 
-This module is the seam between the offline ML feature pipeline and the
-Monte Carlo simulation engine so that each can evolve independently.
+This module is the seam between ML-style feature computations and the Monte
+Carlo simulation engine so that each can evolve independently.
+
+When ``etl.transform.ml_features`` is available (Issue #106), its outputs can
+be passed directly.  When unavailable, fallback feature outputs with the same
+contract can be used.
 
 Typical usage::
 
@@ -81,6 +85,7 @@ def build_simulation_rankings(
         - ``predicted_auction_value`` (float ≥ 1.0) — inflation-adjusted avg cost
         - ``model_score`` (float ≥ 0.0) — absolute bargain signal
         - ``consistency`` (float in [0, 1]) — bid stability (1 = very consistent)
+        - ``position`` (str | int | None) — optional position metadata
         - ``season`` (int | None) — source season for provenance
 
     Raises
@@ -151,7 +156,16 @@ def build_simulation_rankings(
     # --- source season for provenance ---
     df["season"] = df["season_year"].astype(int)
 
-    return df[["player_id", "predicted_auction_value", "model_score", "consistency", "season"]].copy()
+    # Preserve position metadata when available so downstream joins do not
+    # default ranked rows to UNK and accidentally filter valid players.
+    if "position" in df.columns:
+        df["position"] = df["position"]
+    elif "position_id" in df.columns:
+        df["position"] = df["position_id"]
+    else:
+        df["position"] = pd.NA
+
+    return df[["player_id", "predicted_auction_value", "model_score", "consistency", "position", "season"]].copy()
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +174,7 @@ def build_simulation_rankings(
 
 def _empty_rankings() -> pd.DataFrame:
     return pd.DataFrame(
-        columns=["player_id", "predicted_auction_value", "model_score", "consistency", "season"]
+        columns=["player_id", "predicted_auction_value", "model_score", "consistency", "position", "season"]
     )
 
 

@@ -36,8 +36,9 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         default=False,
         help=(
-            "Build historical_rankings_df from the ML feature pipeline (Issue #106) "
-            "instead of the legacy draft_values table. Requires sufficient "
+            "Build historical_rankings_df from ML-style feature outputs instead of "
+            "the legacy draft_values table. Uses Issue #106 feature functions when "
+            "available, otherwise local fallback computations. Requires sufficient "
             "historical draft pick data in draft_picks."
         ),
     )

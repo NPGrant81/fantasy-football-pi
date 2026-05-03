@@ -176,12 +176,14 @@ python -m etl.build_monte_carlo_simulation \
 ## ML Feature Bridge (Issue #107)
 
 The simulation engine now accepts rankings derived from the ML feature pipeline
-(Issue #106) instead of the legacy `draft_values` table.
+(Issue #106) when available, with a local fallback feature computation path,
+instead of the legacy `draft_values` table.
 
 ### Integration Module
 
 `etl/transform/ml_feature_bridge.py` — converts outputs of
-`compute_player_draft_features()` and `compute_draft_season_features()` into
+`compute_player_draft_features()` and `compute_draft_season_features()` (or the
+local fallback feature implementations when Issue #106 modules are unavailable) into
 the `historical_rankings_df` format required by `run_monte_carlo_draft_simulation()`.
 
 #### Feature mapping
