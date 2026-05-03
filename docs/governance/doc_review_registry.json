@@ -402,6 +402,12 @@
     "last_reviewed": "2026-04-27"
   },
   {
+    "path": "docs/model-training-eval.md",
+    "owner": "backend",
+    "cadence_days": 30,
+    "last_reviewed": "2026-05-03"
+  },
+  {
     "path": "docs/monte-carlo-simulation.md",
     "owner": "data",
     "cadence_days": 45,
