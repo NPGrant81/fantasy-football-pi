@@ -580,5 +580,11 @@
     "owner": "qa",
     "cadence_days": 30,
     "last_reviewed": "2026-04-27"
+  },
+  {
+    "path": "docs/ml-feature-specification.md",
+    "owner": "data",
+    "cadence_days": 14,
+    "last_reviewed": "2026-05-02"
   }
 ]
