@@ -159,11 +159,12 @@ def build_simulation_rankings(
     # Preserve position metadata when available so downstream joins do not
     # default ranked rows to UNK and accidentally filter valid players.
     if "position" in df.columns:
-        df["position"] = df["position"]
+        position_series = df["position"].astype("string").str.strip().replace("", pd.NA)
     elif "position_id" in df.columns:
-        df["position"] = df["position_id"]
+        position_series = df["position_id"]
     else:
-        df["position"] = pd.NA
+        position_series = pd.Series(pd.NA, index=df.index)
+    df["position"] = position_series
 
     return df[["player_id", "predicted_auction_value", "model_score", "consistency", "position", "season"]].copy()
 

@@ -928,7 +928,9 @@ def _build_rankings_from_ml_features(
         picks["winning_bid"] = pd.to_numeric(
             picks["winning_bid"].astype(str).str.replace("$", "", regex=False).str.replace(",", "", regex=False),
             errors="coerce",
-        ).fillna(0.0)
+        )
+        # Invalid/zero bids are not meaningful auction outcomes for feature computation.
+        picks = picks[picks["winning_bid"] > 0].copy()
 
     if "position_id" in picks.columns:
         def _coerce_position_id(value: object) -> int | None:
