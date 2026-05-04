@@ -2,6 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { FiSearch, FiUser, FiX } from 'react-icons/fi';
 import FloatingLayer from '@components/overlay/FloatingLayer';
+import { getJson } from '@api/fetching';
 
 export default function GlobalSearch({ onPlayerSelect }) {
   const [query, setQuery] = useState('');
@@ -12,15 +13,15 @@ export default function GlobalSearch({ onPlayerSelect }) {
     setQuery(val);
     if (val.length < 2) return setResults([]);
 
-    // In test mode, this pings your existing player endpoint
     try {
-      const response = await fetch(
-        `http://localhost:8000/players/search?q=${val}`
-      );
-      const data = await response.json();
-      setResults(data);
+      const data = await getJson('/players/search', {
+        params: { q: val, pos: 'ALL' },
+        retries: 0,
+      });
+      setResults(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Global Search Failed', err);
+      setResults([]);
     }
   };
 

@@ -287,3 +287,88 @@ def test_simulation_endpoint_handles_missing_team_metrics_gracefully(db_session,
     assert response["league_context"]["focal_avg_projected_points"] == 0.0
     assert response["league_context"]["league_avg_projected_points"] == 0.0
     assert response["league_context"]["delta_vs_league_avg"] == 0.0
+
+
+def test_simulation_uses_commissioner_league_position_limits(db_session, monkeypatch):
+    league, commissioner, owner_a, _ = _create_league_and_users(db_session)
+
+    db_session.add(
+        models.LeagueSettings(
+            league_id=league.id,
+            roster_size=13,
+            starting_slots={
+                "OWNER_LIMIT": 10,
+                "MAX_QB": 1,
+                "MAX_RB": 4,
+                "MAX_WR": 4,
+                "MAX_TE": 2,
+                "MAX_K": 0,
+                "MAX_DEF": 1,
+            },
+        )
+    )
+    db_session.commit()
+
+    player = models.Player(id=401, name="Player Four", position="RB", nfl_team="SEA")
+    db_session.add(player)
+    db_session.commit()
+    db_session.add(
+        models.DraftPick(
+            owner_id=owner_a.id,
+            player_id=player.id,
+            league_id=league.id,
+            amount=20.0,
+            year=2026,
+            current_status="BENCH",
+        )
+    )
+    db_session.commit()
+
+    captured = {}
+
+    def _fake_run_monte_carlo_simulation(**kwargs):
+        captured["config"] = kwargs["config"]
+        return MonteCarloSimulationResult(
+            draft_picks=pd.DataFrame(
+                [
+                    {
+                        "iteration": 1,
+                        "owner_id": owner_a.id,
+                        "player_id": 401,
+                        "player_name": "Player Four",
+                        "predicted_auction_value": 20.0,
+                        "position": "RB",
+                    }
+                ]
+            ),
+            team_metrics=pd.DataFrame(),
+            owner_summary=pd.DataFrame(),
+            assumptions={"ok": True},
+        )
+
+    monkeypatch.setattr(draft_router, "run_monte_carlo_draft_simulation", _fake_run_monte_carlo_simulation)
+
+    payload = draft_router.DraftSimulationRequest(
+        perspective_owner_id=owner_a.id,
+        iterations=100,
+        teams_count=12,
+        roster_size=16,
+    )
+
+    draft_router.run_draft_simulation(
+        payload=payload,
+        db=db_session,
+        current_user=commissioner,
+    )
+
+    config = captured["config"]
+    assert config.teams_count == 10
+    assert config.roster_size == 13
+    assert config.resolved_position_limits() == {
+        "QB": 1,
+        "RB": 4,
+        "WR": 4,
+        "TE": 2,
+        "DEF": 1,
+        "K": 0,
+    }
