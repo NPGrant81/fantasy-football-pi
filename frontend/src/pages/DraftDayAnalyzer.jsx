@@ -1194,7 +1194,12 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         ) : null}
 
         <div className="grid gap-3 xl:grid-cols-3">
-          <PlayerInsightCard recommendation={selectedInsightRecommendation} bidAmount={0} />
+          <PlayerInsightCard
+            recommendation={selectedInsightRecommendation}
+            bidAmount={0}
+            scarcityByPosition={draftDynamics.byPositionDemand}
+            ownerContext={{ budget: ownerStrategyInsights?.ownerStats?.budget }}
+          />
           <OwnerStrategyPanel
             insightOwnerId={Number(simulationPerspectiveOwnerId || 0)}
             insightOwnerLabel={activeInsightOwnerLabel}

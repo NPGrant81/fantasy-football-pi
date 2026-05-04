@@ -6,6 +6,55 @@ This spec defines how model-serving outputs are presented as actionable draft in
 
 Primary objective: convert raw model numbers into decisions (`bid`, `pass`, `pivot`) with clear tradeoff and risk context.
 
+All insight surfaces work for **any authenticated owner**, not a specific owner ID. The Owner Strategy panel adapts to the signed-in user or commissioner-selected perspective owner automatically.
+
+## UX Decision Hierarchy
+
+Insights are classified by how essential they are for time-sensitive decisions:
+
+| Priority | Classification | Display rule |
+|---|---|---|
+| `MUST_KNOW` | RecommendedBid, ConfidenceBand, BargainFlag | Always visible, prominent |
+| `SHOULD_KNOW` | ValueTier, RiskScore, Scarcity, BiddingPressure, StrategyAlignment | Visible by default, collapsible |
+| `COULD_KNOW` | ValueScore, InflationIndex | Available via tooltip / expand |
+
+## Severity Semantics
+
+Alert callouts use four severity levels, each with a distinct visual treatment:
+
+| Level | Color | When used |
+|---|---|---|
+| `CRITICAL` | Rose | Strategy break — exceeds position max spend |
+| `WARNING` | Amber | Risk signal — positional balance, low model confidence |
+| `INFO` | Cyan | Contextual notes — inflation trend, roster context |
+| `NEUTRAL` | Slate | No action required |
+
+## Confidence-Aware Rendering
+
+The confidence tier governs how assertive the UI language is:
+
+| Tier | Risk score range | Language style |
+|---|---|---|
+| `high` | < 30 | Assertive: "strong signal", show values prominently |
+| `moderate` | 30–54 | Measured: "solid value", note uncertainty |
+| `low` | 55–79 | Cautious: "high volatility", amber callout, widen bid tolerance |
+| `degraded` | ≥ 80 | Suppressed: "confidence too low", rose callout, defer to market price |
+
+Low and degraded tiers show an explicit caution callout in the PlayerInsightCard and
+suppress assertive bid language in explainability snippets.
+
+## Explainability Snippets
+
+Every player recommendation includes a one-sentence plain-language snippet that explains
+*why* the bid is recommended.  Snippets are confidence-tier-aware:
+
+- `high`: "Strong RB value signal — recommended bid of $42 with high model confidence."
+- `moderate`: "Solid WR value at $36; model sees moderate risk — stay near the recommendation."
+- `low`: "High volatility at WR; recommended bid of $29 carries meaningful uncertainty — widen your bid tolerance."
+- `degraded`: "Model confidence is too low to make a reliable bid recommendation — consider market price only."
+
+Snippets include a budget context note (% of remaining budget) when owner context is available.
+
 ## Insight Vocabulary
 
 | Term | Source | User Meaning | Visual |
@@ -76,7 +125,7 @@ Wireframe:
 +------------------------------------------------------+
 ```
 
-## 2) OwnerID=1 Strategy Panel
+## 2) Owner Strategy Panel (authenticated owner)
 Contains:
 - Budget vs league average
 - Aggressiveness index
@@ -88,7 +137,7 @@ Wireframe:
 
 ```text
 +------------------------------------------------------+
-| Owner Strategy (OwnerID=1)                           |
+| Owner Strategy (Owner Name — You)                    |
 | Budget vs League: $91 / $104                         |
 | Aggressiveness: Balanced   StrategyAlignment: 78     |
 | Positional Balance: WR -1.4 vs league                |
