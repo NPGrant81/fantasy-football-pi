@@ -7,6 +7,9 @@ import {
   FiList,
   FiX,
   FiBarChart2,
+  FiZap,
+  FiChevronDown,
+  FiChevronRight,
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 // --- Commissioner Modal Imports ---
@@ -28,6 +31,7 @@ import {
 
 // Professional Imports
 import apiClient from '@api/client';
+import { fetchInSeasonInsights } from '@api/analyticsApi';
 import Toast from '../../components/Toast';
 import {
   buttonPrimary,
@@ -324,6 +328,11 @@ export default function YourLockerRoom({ activeOwnerId }) {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [toast, setToast] = useState(null);
   const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
+
+  // --- IN-SEASON INSIGHTS STATE ---
+  const [inSeasonInsights, setInSeasonInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(true);
   const [showLineupValidationModal, setShowLineupValidationModal] =
     useState(false);
   const [draggingPlayerId, setDraggingPlayerId] = useState(null);
@@ -515,6 +524,19 @@ export default function YourLockerRoom({ activeOwnerId }) {
       window.clearInterval(intervalId);
     };
   }, [loadLeagueSettings, userInfo.leagueId]);
+
+  // --- IN-SEASON INSIGHTS FETCH ---
+  useEffect(() => {
+    const leagueId = userInfo.leagueId;
+    const ownerId = focusedOwnerId;
+    if (!leagueId || !ownerId || userInfo.draftStatus === 'ACTIVE' || userInfo.draftStatus === 'PRE_DRAFT') return;
+    setInsightsLoading(true);
+    const currentSeason = new Date().getFullYear();
+    fetchInSeasonInsights(leagueId, ownerId, currentSeason)
+      .then((res) => setInSeasonInsights(res.data ?? res))
+      .catch(() => setInSeasonInsights(null))
+      .finally(() => setInsightsLoading(false));
+  }, [userInfo.leagueId, userInfo.draftStatus, focusedOwnerId]);
 
   // --- 1.2 STATE MANAGEMENT ---
   const [teamData, setTeamData] = useState(null);
@@ -1286,9 +1308,148 @@ export default function YourLockerRoom({ activeOwnerId }) {
         </div>
       </div>
 
+      {/* ── WEEKLY INSIGHTS PANEL ─────────────────────────────────────── */}
+      {(insightsLoading || inSeasonInsights) && userInfo.draftStatus !== 'ACTIVE' && userInfo.draftStatus !== 'PRE_DRAFT' && (
+        <div className="mb-6 rounded-xl border border-indigo-400/40 bg-indigo-50/60 dark:border-indigo-800/60 dark:bg-indigo-900/10" data-testid="weekly-insights-panel">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-left"
+            onClick={() => setInsightsOpen((v) => !v)}
+          >
+            <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+              <FiZap /> Weekly Insights
+              {inSeasonInsights?.meta?.week && (
+                <span className="ml-1 rounded bg-indigo-200 px-2 py-0.5 text-[10px] text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200">
+                  Week {inSeasonInsights.meta.week}
+                </span>
+              )}
+            </span>
+            {insightsOpen ? <FiChevronDown className="text-indigo-500" /> : <FiChevronRight className="text-indigo-500" />}
+          </button>
+
+          {insightsOpen && (
+            <div className="space-y-4 px-4 pb-4">
+              {insightsLoading && (
+                <div className="py-4 text-center text-xs font-bold uppercase tracking-wider text-indigo-400 animate-pulse">
+                  Loading weekly insights…
+                </div>
+              )}
+
+              {!insightsLoading && inSeasonInsights && (
+                <>
+                  {/* Alerts */}
+                  {(inSeasonInsights.alerts ?? []).length > 0 && (
+                    <div className="rounded-lg border border-yellow-400/50 bg-yellow-50 p-3 dark:border-yellow-700/50 dark:bg-yellow-900/10">
+                      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-300 flex items-center gap-1">
+                        <FiAlertTriangle /> Alerts
+                      </div>
+                      <ul className="space-y-1 text-xs text-yellow-800 dark:text-yellow-200">
+                        {inSeasonInsights.alerts.map((alert, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span>•</span><span>{alert}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Roster Needs */}
+                  {(inSeasonInsights.roster_needs ?? []).length > 0 && (
+                    <div>
+                      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <FiList /> Roster Needs
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {inSeasonInsights.roster_needs.map((pos) => (
+                          <span key={pos} className="rounded-full border border-rose-400/60 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700 dark:border-rose-700/60 dark:bg-rose-900/10 dark:text-rose-300">
+                            {pos}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Waiver Targets */}
+                  {(inSeasonInsights.waiver_targets ?? []).length > 0 && (
+                    <div>
+                      <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <FiTrendingUp /> Top Waiver Targets
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {inSeasonInsights.waiver_targets.slice(0, 6).map((target) => (
+                          <div key={target.player_id} className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/60">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{target.name}</span>
+                              <span className="ml-2 shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                {target.position}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                              <span>Score: <span className="font-bold text-indigo-600 dark:text-indigo-300">{Number(target.personalized_score ?? 0).toFixed(1)}</span></span>
+                              {target.faab_bid_pct != null && (
+                                <span>FAAB: <span className="font-bold">{Math.round((target.faab_bid_pct ?? 0) * 100)}%</span></span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Start / Sit */}
+                  {((inSeasonInsights.start_sit?.start ?? []).length > 0 || (inSeasonInsights.start_sit?.bench ?? []).length > 0) && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-lg border border-green-400/40 bg-green-50/60 p-3 dark:border-green-800/60 dark:bg-green-900/10">
+                        <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-green-700 dark:text-green-300">Start</div>
+                        <div className="space-y-1">
+                          {(inSeasonInsights.start_sit.start ?? []).map((rec, i) => (
+                            <div key={i} className="flex items-start gap-2 text-xs text-slate-800 dark:text-slate-200">
+                              <span className="mt-0.5 shrink-0 rounded bg-green-200 px-1.5 py-0.5 text-[10px] font-bold text-green-800 dark:bg-green-900/30 dark:text-green-200">START</span>
+                              <span>{rec.explanation ?? rec.name ?? JSON.stringify(rec)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/30">
+                        <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bench</div>
+                        <div className="space-y-1">
+                          {(inSeasonInsights.start_sit.bench ?? []).map((rec, i) => (
+                            <div key={i} className="flex items-start gap-2 text-xs text-slate-800 dark:text-slate-200">
+                              <span className="mt-0.5 shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-300">BENCH</span>
+                              <span>{rec.explanation ?? rec.name ?? JSON.stringify(rec)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Trade Leverage */}
+                  {inSeasonInsights.trade_leverage && Object.keys(inSeasonInsights.trade_leverage).length > 0 && (
+                    <div>
+                      <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <FiRepeat /> Trade Leverage (Position Delta vs League)
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(inSeasonInsights.trade_leverage).map(([pos, delta]) => (
+                          <div key={pos} className="rounded border border-slate-200 bg-white px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900/60">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{pos}</span>
+                            <span className={`ml-2 text-xs font-mono font-bold ${Number(delta) >= 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
+                              {Number(delta) >= 0 ? '+' : ''}{Number(delta).toFixed(1)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
 
-      {showPlayerPerformance && (
         <div className={modalOverlay}>
           <div className={`${modalSurface} max-w-4xl p-6`}>
             <div className="mb-5 flex items-center justify-between">

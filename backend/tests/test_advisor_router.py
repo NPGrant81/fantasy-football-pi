@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import models
-from backend.routers.advisor import ask_gemini, get_advisor_status, AdvisorRequest
+from backend.routers.advisor import ask_gemini, get_advisor_status, AdvisorRequest, in_season_query, InSeasonQueryRequest, InSeasonContext
 
 
 @pytest.fixture
@@ -158,3 +158,66 @@ def test_ask_history_query_uses_deterministic_history_answer(monkeypatch, db_ses
     assert "Champion Charlie" in resp["response"]
 
 
+# ---------------------------------------------------------------------------
+# in_season_query tests
+# ---------------------------------------------------------------------------
+
+def test_in_season_query_waiver_no_gemini(db_session, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr("backend.routers.advisor.genai", None)
+
+    ctx = InSeasonContext(
+        roster_needs=["RB"],
+        waiver_targets=[{"player_id": 99, "name": "Hot RB", "position": "RB"}],
+        start_sit={},
+        trade_leverage={},
+        alerts=[],
+    )
+    req = InSeasonQueryRequest(user_query="Who should I add on waivers?", in_season_context=ctx)
+    resp = in_season_query(req, db=db_session)
+
+    assert "Hot RB" in resp["response"]
+
+
+def test_in_season_query_start_sit_no_gemini(db_session, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr("backend.routers.advisor.genai", None)
+
+    ctx = InSeasonContext(
+        roster_needs=[],
+        waiver_targets=[],
+        start_sit={"start": [{"player_id": 10, "name": "Top QB", "explanation": "Great matchup."}]},
+        trade_leverage={},
+        alerts=[],
+    )
+    req = InSeasonQueryRequest(user_query="Who should I start this week?", in_season_context=ctx)
+    resp = in_season_query(req, db=db_session)
+
+    assert "Great matchup." in resp["response"]
+
+
+def test_in_season_query_alerts_fallback(db_session, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr("backend.routers.advisor.genai", None)
+
+    ctx = InSeasonContext(
+        roster_needs=[],
+        waiver_targets=[],
+        start_sit={},
+        trade_leverage={},
+        alerts=["WR2 is questionable."],
+    )
+    req = InSeasonQueryRequest(user_query="Any news this week?", in_season_context=ctx)
+    resp = in_season_query(req, db=db_session)
+
+    assert "WR2 is questionable." in resp["response"]
+
+
+def test_in_season_query_no_context_fallback(db_session, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr("backend.routers.advisor.genai", None)
+
+    req = InSeasonQueryRequest(user_query="What should I do?")
+    resp = in_season_query(req, db=db_session)
+
+    assert "context" in resp["response"].lower() or "waivers" in resp["response"].lower()

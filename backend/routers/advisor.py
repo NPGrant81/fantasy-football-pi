@@ -496,3 +496,133 @@ def ask_gemini(request: AdvisorRequest, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Gemini Error: {e}")
         return {"response": "I'm having trouble connecting to the league office. Try again later."}
+
+
+# ---------------------------------------------------------------------------
+# In-Season Mode advisor
+# ---------------------------------------------------------------------------
+
+class InSeasonContext(BaseModel):
+    roster_needs: list[str] = Field(default_factory=list)
+    waiver_targets: list[dict] = Field(default_factory=list)
+    start_sit: dict = Field(default_factory=dict)
+    trade_leverage: dict = Field(default_factory=dict)
+    alerts: list[str] = Field(default_factory=list)
+
+
+class InSeasonQueryRequest(BaseModel):
+    user_query: str
+    username: Optional[str] = None
+    league_id: Optional[int] = None
+    owner_id: Optional[int] = None
+    season: Optional[int] = None
+    in_season_context: Optional[InSeasonContext] = None
+
+
+def _in_season_rule_based_response(query: str, ctx: InSeasonContext | None) -> str:
+    """Produce a context-aware answer without Gemini."""
+    q = query.lower()
+
+    if ctx and any(kw in q for kw in ("waiver", "add", "pickup", "drop", "wire")):
+        targets = ctx.waiver_targets[:3]
+        if targets:
+            names = ", ".join(
+                str(t.get("name") or t.get("player_name") or "Unknown") for t in targets
+            )
+            return f"Based on your roster needs ({', '.join(ctx.roster_needs) or 'none flagged'}), your top waiver targets this week are: {names}."
+        return "No waiver targets are available for your roster right now."
+
+    if ctx and any(kw in q for kw in ("start", "sit", "lineup", "start/sit")):
+        starts = ctx.start_sit.get("start") or []
+        if starts:
+            first = starts[0]
+            explanation = first.get("explanation") or first.get("name") or str(first)
+            return f"Start recommendation: {explanation}"
+        return "No start/sit data is available for this week yet."
+
+    if ctx and any(kw in q for kw in ("trade", "sell", "buy", "leverage")):
+        leverage = ctx.trade_leverage
+        if leverage:
+            surplus = [pos for pos, delta in leverage.items() if float(delta or 0) > 0]
+            deficit = [pos for pos, delta in leverage.items() if float(delta or 0) < 0]
+            parts = []
+            if surplus:
+                parts.append(f"sell-high positions: {', '.join(surplus)}")
+            if deficit:
+                parts.append(f"target positions: {', '.join(deficit)}")
+            if parts:
+                return "Trade leverage this week — " + "; ".join(parts) + "."
+        return "No trade leverage data is available right now."
+
+    if ctx and ctx.alerts:
+        return "Active alerts this week: " + "; ".join(ctx.alerts[:3]) + "."
+
+    return (
+        "I don't have enough in-season context to answer that right now. "
+        "Try asking about waivers, your lineup, or trade leverage."
+    )
+
+
+@router.post("/in-season/query")
+def in_season_query(request: InSeasonQueryRequest, db: Session = Depends(get_db)):
+    ctx = request.in_season_context
+
+    # History-flavoured queries fall through to the league history handler
+    if request.league_id and _looks_like_history_query(request.user_query):
+        history_result = _answer_history_question(
+            db=db,
+            league_id=int(request.league_id),
+            question=request.user_query,
+        )
+        if history_result.get("intent") != "unsupported":
+            return {"response": str(history_result.get("answer") or "No answer available.")}
+
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not api_key or not genai:
+        return {"response": _in_season_rule_based_response(request.user_query, ctx)}
+
+    # Build Gemini prompt enriched with in-season context
+    context_block = ""
+    if ctx:
+        waiver_names = ", ".join(
+            str(t.get("name") or t.get("player_name") or "") for t in (ctx.waiver_targets or [])[:5]
+        )
+        start_names = ", ".join(
+            str(r.get("name") or r.get("explanation") or "") for r in (ctx.start_sit.get("start") or [])[:3]
+        )
+        context_block = (
+            f"ROSTER NEEDS: {', '.join(ctx.roster_needs) or 'none'}\n"
+            f"TOP WAIVER TARGETS: {waiver_names or 'none'}\n"
+            f"RECOMMENDED STARTS: {start_names or 'none'}\n"
+            f"ALERTS: {'; '.join(ctx.alerts) or 'none'}\n"
+        )
+
+    league_name = "your league"
+    if request.league_id:
+        league = db.query(models.League).filter(models.League.id == request.league_id).first()
+        if league:
+            league_name = league.name
+
+    prompt = f"""
+You are an in-season Fantasy Football Assistant for the '{league_name}'.
+
+WEEKLY IN-SEASON CONTEXT:
+{context_block or '(no context provided)'}
+
+USER: {request.username or 'A user'}
+QUESTION:
+{request.user_query}
+
+Answer briefly and specifically using the weekly context above.
+"""
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=prompt,
+        )
+        return {"response": response.text}
+    except Exception as exc:
+        logger.error("Gemini in-season query error: %s", exc)
+        return {"response": _in_season_rule_based_response(request.user_query, ctx)}
