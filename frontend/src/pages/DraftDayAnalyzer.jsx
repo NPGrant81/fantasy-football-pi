@@ -17,6 +17,7 @@ import PlayerInsightCard from '@components/draft/insights/PlayerInsightCard';
 import OwnerStrategyPanel from '@components/draft/insights/OwnerStrategyPanel';
 import DraftDynamicsPanel from '@components/draft/insights/DraftDynamicsPanel';
 import DraftDayChatPanel from '@components/draft/insights/DraftDayChatPanel';
+import PostDraftOutlookPanel from '@components/draft/insights/PostDraftOutlookPanel';
 import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
 import PageTemplate from '@components/layout/PageTemplate';
 import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
@@ -815,6 +816,111 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     leaguePositionCaps,
   ]);
 
+  const postDraftOutlook = useMemo(() => {
+    const focalOwnerId = Number(
+      simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
+    );
+    if (!focalOwnerId || !owners.length) return null;
+
+    const focalOwner = owners.find((owner) => Number(owner.id) === focalOwnerId);
+    if (!focalOwner) return null;
+
+    const focalPicks = history.filter((pick) => Number(pick.owner_id) === focalOwnerId);
+    const focalSpent = focalPicks.reduce((sum, pick) => sum + parseNumber(pick.amount, 0), 0);
+    const focalBudget = parseNumber(focalOwner.initial_budget || 200, 200);
+    const focalRemaining = Math.max(0, focalBudget - focalSpent);
+
+    const leagueRemaining = owners.length
+      ? owners
+          .map((owner) => {
+            const spent = ownerStatsById[owner.id]?.spent || 0;
+            const budget = parseNumber(owner.initial_budget || 200, 200);
+            return Math.max(0, budget - spent);
+          })
+          .reduce((sum, value) => sum + value, 0) / owners.length
+      : 0;
+
+    const positionCountsMap = {};
+    focalPicks.forEach((pick) => {
+      const pos = normalizePos(
+        pick.position || rankingByPlayerId.get(Number(pick.player_id))?.position
+      );
+      if (!pos) return;
+      positionCountsMap[pos] = (positionCountsMap[pos] || 0) + 1;
+    });
+
+    const positionCounts = Object.keys(leaguePositionCaps)
+      .map((position) => ({
+        position,
+        count: Number(positionCountsMap[position] || 0),
+        cap: Number(leaguePositionCaps[position] || 0),
+      }))
+      .sort((a, b) => a.position.localeCompare(b.position));
+
+    const strongestPositions = [...positionCounts]
+      .filter((row) => row.cap > 0 && row.count >= Math.max(1, Math.floor(row.cap * 0.6)))
+      .sort((a, b) => b.count / Math.max(1, b.cap) - a.count / Math.max(1, a.cap))
+      .slice(0, 3);
+
+    const thinnestPositions = [...positionCounts]
+      .filter((row) => row.cap > 0)
+      .sort((a, b) => a.count / Math.max(1, a.cap) - b.count / Math.max(1, b.cap))
+      .slice(0, 3);
+
+    const highRiskPlayers = focalPicks
+      .map((pick) => {
+        const ranking = rankingByPlayerId.get(Number(pick.player_id));
+        if (!ranking) return null;
+        const consistency = parseNumber(ranking.scoring_consistency_factor, 1);
+        const lateStart = parseNumber(ranking.late_start_consistency_factor, 1);
+        const injury = parseNumber(ranking.injury_split_factor, 1);
+        const teamChange = parseNumber(ranking.team_change_factor, 1);
+        const reliability = consistency * lateStart * injury * teamChange;
+        const risk = Math.max(0, Math.min(100, (1 - Math.min(Math.max(reliability, 0), 1.5) / 1.5) * 100));
+        if (risk < 65) return null;
+        return {
+          player_id: Number(pick.player_id),
+          name: ranking.player_name || pick.player_name || `Player ${pick.player_id}`,
+          position: normalizePos(ranking.position || pick.position),
+          risk,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.risk - a.risk)
+      .slice(0, 4);
+
+    const projectedStarterValue = focalPicks
+      .map((pick) => parseNumber(rankingByPlayerId.get(Number(pick.player_id))?.predicted_auction_value, 0))
+      .sort((a, b) => b - a)
+      .slice(0, Number(draftDynamics?.byPositionDemand?.length || 9))
+      .reduce((sum, value) => sum + value, 0);
+
+    const rosterStrengthScore = projectedStarterValue + parseNumber(ownerStrategyInsights?.strategyAlignmentScore, 0);
+
+    return {
+      rosterStrengthScore,
+      projectedStarterValue,
+      budgetDeltaVsLeague: focalRemaining - leagueRemaining,
+      strongestPositions,
+      thinnestPositions,
+      highRiskPlayers,
+      simulationDelta: parseNumber(simulationResult?.league_context?.delta_vs_league_avg, null),
+      positionCounts,
+    };
+  }, [
+    simulationPerspectiveOwnerId,
+    currentUserId,
+    activeOwnerId,
+    owners,
+    history,
+    ownerStatsById,
+    rankingByPlayerId,
+    leaguePositionCaps,
+    simulationResult,
+    draftDynamics?.byPositionDemand?.length,
+    ownerStrategyInsights?.strategyAlignmentScore,
+  ]);
+
   const virtualMeta = useMemo(() => {
     const total = sortedPlayers.length;
     const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - 3);
@@ -1350,6 +1456,19 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           />
           <DraftDynamicsPanel draftDynamics={draftDynamics} />
         </div>
+      </section>
+
+      <section className={`${cardSurface} space-y-3`}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+            Post-Draft Analysis &amp; Season Outlook
+          </h2>
+          <span className="text-xs text-slate-500">Issue #112 foundation</span>
+        </div>
+        <PostDraftOutlookPanel
+          outlook={postDraftOutlook}
+          ownerLabel={activeInsightOwnerLabel}
+        />
       </section>
 
       <section className={`${cardSurface} space-y-3`}>
