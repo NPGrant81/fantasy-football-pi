@@ -1,3 +1,6 @@
 *.sh text eol=lf
 *.xlsx binary
 *.pptx binary
+
+# UAT Cypress spec: always prefer main's CI-resilient version during merges
+frontend/cypress/e2e/uat_capture_pages.spec.js merge=ours

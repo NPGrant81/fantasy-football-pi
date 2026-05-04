@@ -521,8 +521,6 @@ describe('UAT deck screenshot capture', () => {
       captureStable('uat_player_identity_card_modal');
     });
 
-    cy.get('body').type('{esc}');
-
     cy.intercept('GET', '**/players/waiver-wire*', {
       statusCode: 200,
       body: [

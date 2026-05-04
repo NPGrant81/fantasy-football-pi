@@ -1,7 +1,7 @@
 ---
 name: ml-ops
-description: 'Analytics feature development and MLOps lifecycle for Fantasy Football PI: feature engineering, model training and evaluation, champion or challenger promotion, drift detection, simulation impact measurement, and ETL conventions. Use when: building analytics endpoints, training models, defining evaluation gates, adding drift monitoring, or tuning model cadence.'
-argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-engineering | training-eval | drift | champion-challenger | scoring | modeling)'
+description: 'Analytics feature development and MLOps lifecycle for Fantasy Football PI: feature engineering, model training and evaluation, champion or challenger promotion, drift detection, simulation impact measurement, serving integration, and ETL conventions. Use when: building analytics endpoints, training models, defining evaluation gates, adding drift monitoring, integrating serving contracts, or hardening model operations.'
+argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-engineering | training-eval | drift | champion-challenger | scoring | serving | observability | modeling)'
 ---
 
 # ML Ops / Analytics Engineering
@@ -91,6 +91,21 @@ Critical drift or sustained degradation requires immediate challenger retraining
 - monthly: full challenger retrain and evaluation cycle
 - preseason mandatory refresh: full retrain and model card update
 - event-driven retrain: any critical drift or repeated quality gate failure
+
+## Serving Integration Guardrails (Issue #109)
+
+- Serving contract must support authenticated-owner default context (owner-specific personalization).
+- Response must include model provenance metadata (requested alias, resolved alias, route strategy).
+- Error detail should use typed codes for reliable client handling.
+- Serving logs/metrics should track latency, error rate, and fallback rate.
+- Canary routing should be alias-controlled and reversible.
+
+Operational hooks currently used:
+
+- `MODEL_SERVING_CURRENT_ALIAS`
+- `MODEL_SERVING_CANARY_ALIAS`
+- `MODEL_SERVING_CANARY_PERCENT`
+- `prometheus_client` dependency for serving observability instrumentation
 
 ## Implemented Analytics Features
 

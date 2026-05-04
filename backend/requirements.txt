@@ -60,6 +60,7 @@ pandas==2.2.3
 passlib==1.7.4
 proto-plus==1.27.1
 protobuf==5.29.6
+prometheus_client==0.22.1
 psycopg2-binary==2.9.11
 pyasn1==0.6.2
 pyasn1_modules==0.4.2

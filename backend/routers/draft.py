@@ -1,12 +1,26 @@
 from typing import Any, List
 from datetime import datetime, timezone
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+import math
+import os
+import random
+import time
+from collections import deque
+from threading import Lock
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 import pandas as pd
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from jose import JWTError, jwt
+
+try:
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+except ImportError:  # pragma: no cover
+    CONTENT_TYPE_LATEST = "text/plain; version=0.0.4"
+    Counter = None  # type: ignore[assignment]
+    Histogram = None  # type: ignore[assignment]
+    generate_latest = None  # type: ignore[assignment]
 
 # Internal Imports
 from ..database import SessionLocal, get_db
@@ -286,7 +300,7 @@ class ModelServingDraftState(BaseModel):
 
 
 class ModelServingPredictionRequest(BaseModel):
-    owner_id: int
+    owner_id: int | None = None
     season: int
     league_id: int | None = None
     player_ids: list[int] | None = None
@@ -309,23 +323,200 @@ class ModelServingRecommendation(BaseModel):
     flags: list[str] = Field(default_factory=list)
 
 
+class ModelServingErrorDetail(BaseModel):
+    code: str
+    message: str
+    retryable: bool = False
+
+
+class ModelServingProvenance(BaseModel):
+    model_source: str
+    model_version_alias_requested: str
+    model_version_alias_resolved: str
+    model_route_strategy: str
+    canary_applied: bool = False
+    feature_contract_version: str
+    request_owner_source: str
+    fallback_invoked: bool = False
+    fallback_reason: str | None = None
+
+
 class ModelServingPredictionResponse(BaseModel):
     api_version: str
     model_version_requested: str
     model_version_resolved: str
     generated_at: str
+    requested_owner_id: int | None = None
     owner_id: int
     season: int
     league_id: int | None = None
     recommendation_count: int
+    provenance: ModelServingProvenance
     recommendations: list[ModelServingRecommendation]
 
 
-def _resolve_model_version(requested_version: str | None) -> str:
+def _model_serving_error(
+    *,
+    status_code: int,
+    code: str,
+    message: str,
+    retryable: bool = False,
+    latency_ms: float = 0.0,
+    fallback_invoked: bool = False,
+    route_strategy: str = "unknown",
+    fallback_reason: str | None = None,
+) -> HTTPException:
+    _record_model_serving_observability(
+        latency_ms=latency_ms,
+        success=False,
+        fallback_invoked=fallback_invoked,
+        error_code=code,
+        route_strategy=route_strategy,
+        fallback_reason=fallback_reason,
+    )
+    return HTTPException(
+        status_code=status_code,
+        detail=ModelServingErrorDetail(code=code, message=message, retryable=retryable).model_dump(),
+    )
+
+
+_MODEL_SERVING_OBS_LOCK = Lock()
+_MODEL_SERVING_LATENCIES_MS: deque[float] = deque(maxlen=500)
+_MODEL_SERVING_COUNTERS = {
+    "request_count": 0,
+    "error_count": 0,
+    "fallback_count": 0,
+}
+
+_PROMETHEUS_ENABLED = Counter is not None and Histogram is not None and generate_latest is not None
+if _PROMETHEUS_ENABLED:
+    _MODEL_SERVING_REQUESTS_TOTAL = Counter(
+        "ffpi_model_serving_requests_total",
+        "Total number of model serving requests.",
+        ["status", "route_strategy"],
+    )
+    _MODEL_SERVING_ERRORS_TOTAL = Counter(
+        "ffpi_model_serving_errors_total",
+        "Total number of model serving errors by code.",
+        ["code"],
+    )
+    _MODEL_SERVING_FALLBACK_TOTAL = Counter(
+        "ffpi_model_serving_fallback_invocations_total",
+        "Total number of model serving fallback invocations.",
+        ["reason"],
+    )
+    _MODEL_SERVING_LATENCY_SECONDS = Histogram(
+        "ffpi_model_serving_request_latency_seconds",
+        "Model serving request latency in seconds.",
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5, 1, 2, 5),
+    )
+
+
+def _reset_model_serving_observability_for_tests() -> None:
+    with _MODEL_SERVING_OBS_LOCK:
+        _MODEL_SERVING_LATENCIES_MS.clear()
+        _MODEL_SERVING_COUNTERS["request_count"] = 0
+        _MODEL_SERVING_COUNTERS["error_count"] = 0
+        _MODEL_SERVING_COUNTERS["fallback_count"] = 0
+
+
+def _model_serving_observability_snapshot() -> dict[str, float | int]:
+    with _MODEL_SERVING_OBS_LOCK:
+        request_count = int(_MODEL_SERVING_COUNTERS["request_count"])
+        error_count = int(_MODEL_SERVING_COUNTERS["error_count"])
+        fallback_count = int(_MODEL_SERVING_COUNTERS["fallback_count"])
+        latencies = list(_MODEL_SERVING_LATENCIES_MS)
+
+    latency_p95 = 0.0
+    if latencies:
+        sorted_latencies = sorted(latencies)
+        idx = max(0, min(len(sorted_latencies) - 1, math.ceil(0.95 * len(sorted_latencies)) - 1))
+        latency_p95 = float(sorted_latencies[idx])
+
+    prediction_error_rate = float(error_count / request_count) if request_count else 0.0
+    fallback_invocation_rate = float(fallback_count / request_count) if request_count else 0.0
+
+    return {
+        "request_count": request_count,
+        "request_latency_p95": latency_p95,
+        "prediction_error_rate": prediction_error_rate,
+        "fallback_invocation_rate": fallback_invocation_rate,
+    }
+
+
+def _record_model_serving_observability(
+    *,
+    latency_ms: float,
+    success: bool,
+    fallback_invoked: bool,
+    error_code: str | None = None,
+    route_strategy: str = "unknown",
+    fallback_reason: str | None = None,
+) -> None:
+    with _MODEL_SERVING_OBS_LOCK:
+        _MODEL_SERVING_COUNTERS["request_count"] += 1
+        _MODEL_SERVING_LATENCIES_MS.append(float(max(0.0, latency_ms)))
+        if not success:
+            _MODEL_SERVING_COUNTERS["error_count"] += 1
+        if fallback_invoked:
+            _MODEL_SERVING_COUNTERS["fallback_count"] += 1
+
+    if _PROMETHEUS_ENABLED:
+        _MODEL_SERVING_REQUESTS_TOTAL.labels(
+            status="success" if success else "error",
+            route_strategy=(route_strategy or "unknown"),
+        ).inc()
+        _MODEL_SERVING_LATENCY_SECONDS.observe(float(max(0.0, latency_ms)) / 1000.0)
+        if not success and error_code:
+            _MODEL_SERVING_ERRORS_TOTAL.labels(code=error_code).inc()
+        if fallback_invoked:
+            _MODEL_SERVING_FALLBACK_TOTAL.labels(
+                reason=(fallback_reason or "unknown"),
+            ).inc()
+
+
+def _resolve_model_version(requested_version: str | None) -> tuple[str, str, bool]:
     requested = (requested_version or "current").strip().lower()
+    current_alias = os.getenv("MODEL_SERVING_CURRENT_ALIAS", "historical-rankings-v1")
+    canary_alias = os.getenv("MODEL_SERVING_CANARY_ALIAS", current_alias)
+    try:
+        canary_percent = float(os.getenv("MODEL_SERVING_CANARY_PERCENT", "0"))
+    except ValueError:
+        canary_percent = 0.0
+    canary_percent = max(0.0, min(100.0, canary_percent))
+
     if requested in {"", "current", "latest", "default"}:
-        return "historical-rankings-v1"
-    return requested_version or "historical-rankings-v1"
+        return current_alias, "current-alias", False
+
+    if requested in {"canary", "current-canary"}:
+        canary_applied = random.random() < (canary_percent / 100.0)
+        resolved = canary_alias if canary_applied else current_alias
+        return resolved, "canary", canary_applied
+
+    return requested_version or current_alias, "explicit", False
+
+
+@router.get("/draft/model/metrics")
+def get_model_serving_metrics(
+    current_user: models.User = Depends(get_current_user),
+):
+    if not current_user.is_superuser and not current_user.is_commissioner:
+        raise _model_serving_error(
+            status_code=403,
+            code="MODEL_METRICS_FORBIDDEN",
+            message="Only commissioner or superuser can access model serving metrics",
+            retryable=False,
+        )
+
+    if not _PROMETHEUS_ENABLED:
+        raise _model_serving_error(
+            status_code=503,
+            code="MODEL_METRICS_UNAVAILABLE",
+            message="Prometheus exporter is unavailable in this runtime",
+            retryable=True,
+        )
+
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 def _build_model_recommendations(
@@ -516,36 +707,85 @@ def predict_model_recommendations(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    started_at = time.perf_counter()
+    fallback_invoked = False
+    resolved_model_version = "historical-rankings-v1"
+    route_strategy = "current-alias"
+    canary_applied = False
+
+    def _elapsed_ms() -> float:
+        return (time.perf_counter() - started_at) * 1000.0
+
     if not current_user.league_id:
-        raise HTTPException(status_code=400, detail="User must belong to a league")
+        raise _model_serving_error(
+            status_code=400,
+            code="MODEL_CONTEXT_INVALID",
+            message="User must belong to a league",
+            retryable=False,
+            latency_ms=_elapsed_ms(),
+            fallback_invoked=fallback_invoked,
+            route_strategy=route_strategy,
+        )
+
+    requested_owner_id = payload.owner_id
+    effective_owner_id = int(payload.owner_id) if payload.owner_id is not None else int(current_user.id)
+    owner_source = "payload" if payload.owner_id is not None else "authenticated-default"
+
+    if (
+        payload.owner_id is not None
+        and not current_user.is_superuser
+        and not current_user.is_commissioner
+        and int(payload.owner_id) != int(current_user.id)
+    ):
+        raise _model_serving_error(
+            status_code=403,
+            code="OWNER_SCOPE_FORBIDDEN",
+            message="Owners can only request model recommendations for themselves",
+            retryable=False,
+            latency_ms=_elapsed_ms(),
+            fallback_invoked=fallback_invoked,
+            route_strategy=route_strategy,
+        )
 
     target_owner = (
         db.query(models.User)
         .filter(
-            models.User.id == payload.owner_id,
+            models.User.id == effective_owner_id,
             models.User.league_id == current_user.league_id,
         )
         .first()
     )
     if not target_owner:
-        raise HTTPException(status_code=404, detail="Owner not found in league")
-
-    if not current_user.is_superuser and not current_user.is_commissioner and int(payload.owner_id) != int(current_user.id):
-        raise HTTPException(
-            status_code=403,
-            detail="Owners can only request model recommendations for themselves",
+        raise _model_serving_error(
+            status_code=404,
+            code="OWNER_NOT_FOUND",
+            message="Owner not found in league",
+            retryable=False,
+            latency_ms=_elapsed_ms(),
+            fallback_invoked=fallback_invoked,
+            route_strategy=route_strategy,
         )
 
     requested_league_id = payload.league_id if payload.league_id is not None else current_user.league_id
     if int(requested_league_id) != int(current_user.league_id):
-        raise HTTPException(status_code=403, detail="Cross-league prediction requests are not allowed")
+        raise _model_serving_error(
+            status_code=403,
+            code="CROSS_LEAGUE_FORBIDDEN",
+            message="Cross-league prediction requests are not allowed",
+            retryable=False,
+            latency_ms=_elapsed_ms(),
+            fallback_invoked=fallback_invoked,
+            route_strategy=route_strategy,
+        )
 
-    resolved_model_version = _resolve_model_version(payload.model_version)
+    resolved_model_version, route_strategy, canary_applied = _resolve_model_version(payload.model_version)
     safe_limit = max(1, min(int(payload.limit), 200))
 
     logger.info(
-        "model_predict.request owner_id=%s season=%s league_id=%s model_version=%s limit=%s",
-        payload.owner_id,
+        "model_predict.request requested_owner_id=%s effective_owner_id=%s auth_user_id=%s season=%s league_id=%s model_version=%s limit=%s",
+        requested_owner_id,
+        effective_owner_id,
+        current_user.id,
         payload.season,
         requested_league_id,
         resolved_model_version,
@@ -560,7 +800,7 @@ def predict_model_recommendations(
         season=int(payload.season),
         limit=max(safe_limit * 2, 100),
         league_id=int(requested_league_id),
-        owner_id=int(payload.owner_id),
+        owner_id=effective_owner_id,
         position=None,
         player_ids=[int(p) for p in payload.player_ids] if payload.player_ids else None,
     )
@@ -581,9 +821,12 @@ def predict_model_recommendations(
     owner_budget_remaining: float | None = None
     owner_slots_remaining: int | None = None
     if payload.draft_state and payload.draft_state.remaining_budget_by_owner:
-        owner_budget_remaining = payload.draft_state.remaining_budget_by_owner.get(int(payload.owner_id))
+        owner_budget_remaining = payload.draft_state.remaining_budget_by_owner.get(effective_owner_id)
     if payload.draft_state and payload.draft_state.remaining_slots_by_owner:
-        owner_slots_remaining = payload.draft_state.remaining_slots_by_owner.get(int(payload.owner_id))
+        owner_slots_remaining = payload.draft_state.remaining_slots_by_owner.get(effective_owner_id)
+
+    fallback_invoked = len(candidate_rows) == 0
+    fallback_reason = "no-ranked-candidates" if fallback_invoked else None
 
     recommendations = _build_model_recommendations(
         candidate_rows[:safe_limit],
@@ -591,11 +834,29 @@ def predict_model_recommendations(
         owner_slots_remaining=owner_slots_remaining,
     )
 
+    latency_ms = (time.perf_counter() - started_at) * 1000.0
+    _record_model_serving_observability(
+        latency_ms=latency_ms,
+        success=True,
+        fallback_invoked=fallback_invoked,
+        route_strategy=route_strategy,
+        fallback_reason=fallback_reason,
+    )
+    metrics_snapshot = _model_serving_observability_snapshot()
+
     logger.info(
-        "model_predict.response owner_id=%s season=%s recommendation_count=%s",
-        payload.owner_id,
+        "model_predict.response requested_owner_id=%s effective_owner_id=%s season=%s recommendation_count=%s fallback_invoked=%s model_route_strategy=%s canary_applied=%s request_latency_ms=%.2f request_latency_p95=%.2f prediction_error_rate=%.4f fallback_invocation_rate=%.4f",
+        requested_owner_id,
+        effective_owner_id,
         payload.season,
         len(recommendations),
+        fallback_invoked,
+        route_strategy,
+        canary_applied,
+        latency_ms,
+        float(metrics_snapshot["request_latency_p95"]),
+        float(metrics_snapshot["prediction_error_rate"]),
+        float(metrics_snapshot["fallback_invocation_rate"]),
     )
 
     return ModelServingPredictionResponse(
@@ -603,10 +864,22 @@ def predict_model_recommendations(
         model_version_requested=payload.model_version or "current",
         model_version_resolved=resolved_model_version,
         generated_at=datetime.now(timezone.utc).isoformat(),
-        owner_id=int(payload.owner_id),
+        requested_owner_id=requested_owner_id,
+        owner_id=effective_owner_id,
         season=int(payload.season),
         league_id=int(requested_league_id),
         recommendation_count=len(recommendations),
+        provenance=ModelServingProvenance(
+            model_source="historical-rankings-service",
+            model_version_alias_requested=payload.model_version or "current",
+            model_version_alias_resolved=resolved_model_version,
+            model_route_strategy=route_strategy,
+            canary_applied=canary_applied,
+            feature_contract_version="issue-106-v1",
+            request_owner_source=owner_source,
+            fallback_invoked=fallback_invoked,
+            fallback_reason=fallback_reason,
+        ),
         recommendations=[ModelServingRecommendation(**row) for row in recommendations],
     )
 
