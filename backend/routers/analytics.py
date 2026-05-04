@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 import sqlalchemy as sa
 from typing import List
 from datetime import datetime, timezone
+from collections import defaultdict
 import requests
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -1661,6 +1662,399 @@ def get_waiver_opportunities(
         "all_weeks": sorted(
             {int(w) for r in rows for w in r["weekly_opportunity"].keys()},
         ),
+    }
+
+
+@router.get('/league/{league_id}/in-season-insights')
+def get_in_season_insights(
+    league_id: int,
+    owner_id: int,
+    season: int = Query(None, description="Season year (defaults to current year)"),
+    waiver_limit: int = Query(8, ge=3, le=20),
+    start_sit_limit: int = Query(10, ge=3, le=25),
+    db: Session = Depends(get_db),
+):
+    """Unified in-season intelligence feed for waivers, trades, start/sit, and alerts.
+
+    This endpoint composes existing analytics with owner-level personalization to
+    provide a single payload for weekly decision surfaces.
+    """
+    resolved_season = _resolved_season(season)
+
+    owner = (
+        db.query(models.User)
+        .filter(models.User.id == owner_id, models.User.league_id == league_id)
+        .first()
+    )
+    if owner is None:
+        raise HTTPException(status_code=404, detail="Owner not found for league")
+
+    owners_in_league = (
+        db.query(models.User.id)
+        .filter(
+            models.User.league_id == league_id,
+            models.User.is_superuser.is_(False),
+            ~models.User.username.like("hist_%"),
+        )
+        .all()
+    )
+    league_owner_ids = [int(row[0]) for row in owners_in_league if row and row[0] is not None]
+
+    active_status_exclusions = {"DROPPED", "WAIVER", "TRADED_AWAY"}
+    owner_picks = (
+        db.query(models.DraftPick)
+        .options(joinedload(models.DraftPick.player))
+        .filter(
+            models.DraftPick.league_id == league_id,
+            models.DraftPick.owner_id == owner_id,
+        )
+        .all()
+    )
+    owner_picks = [
+        pick
+        for pick in owner_picks
+        if (pick.current_status or "").upper() not in active_status_exclusions
+    ]
+
+    owner_players = [pick.player for pick in owner_picks if pick.player is not None]
+
+    def _normalize_pos(pos: str | None) -> str:
+        raw = (pos or "").upper().strip()
+        return "DEF" if raw == "DST" else raw
+
+    def _slot_targets() -> dict[str, int]:
+        defaults = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
+        settings = (
+            db.query(models.LeagueSettings)
+            .filter(models.LeagueSettings.league_id == league_id)
+            .first()
+        )
+        slots = settings.starting_slots if settings and isinstance(settings.starting_slots, dict) else {}
+        if not slots:
+            return defaults
+
+        out = dict(defaults)
+        for pos in defaults:
+            raw = slots.get(f"MAX_{pos}", slots.get(pos))
+            if raw is None:
+                continue
+            try:
+                out[pos] = max(0, int(raw))
+            except (TypeError, ValueError):
+                continue
+        return out
+
+    slot_targets = _slot_targets()
+
+    position_counts = {key: 0 for key in slot_targets.keys()}
+    for player in owner_players:
+        pos = _normalize_pos(player.position)
+        if pos in position_counts:
+            position_counts[pos] += 1
+
+    roster_needs = []
+    for pos, target in slot_targets.items():
+        current = position_counts.get(pos, 0)
+        deficit = max(0, target - current)
+        roster_needs.append(
+            {
+                "position": pos,
+                "target_count": target,
+                "current_count": current,
+                "deficit": deficit,
+                "surplus": max(0, current - target),
+            }
+        )
+    roster_needs.sort(key=lambda row: (-row["deficit"], row["position"]))
+    deficit_positions = {row["position"] for row in roster_needs if row["deficit"] > 0}
+
+    waiver_payload = get_waiver_opportunities(
+        league_id=league_id,
+        season=resolved_season,
+        limit=max(waiver_limit * 3, 24),
+        position=None,
+        db=db,
+    )
+    waiver_rows = waiver_payload.get("rows", [])
+
+    waiver_targets = []
+    for row in waiver_rows:
+        pos = _normalize_pos(row.get("position"))
+        opportunity_score = float(row.get("opportunity_score") or 0.0)
+        trend = float(row.get("trend") or 0.0)
+        breakout_probability = min(
+            0.95,
+            max(
+                0.05,
+                0.5 + (trend / 6.0) + (0.1 if row.get("breakout_flag") else 0.0),
+            ),
+        )
+        need_boost = 2.0 if pos in deficit_positions else 0.0
+        personalized_score = round(opportunity_score + (breakout_probability * 4.0) + need_boost, 2)
+        faab_bid_pct = int(
+            max(
+                1,
+                min(
+                    30,
+                    round(3 + (opportunity_score / 5.0) + (breakout_probability * 8.0) + (need_boost * 2.0)),
+                ),
+            )
+        )
+        waiver_targets.append(
+            {
+                "player_id": row.get("player_id"),
+                "player_name": row.get("player_name"),
+                "position": pos,
+                "nfl_team": row.get("nfl_team"),
+                "opportunity_score": round(opportunity_score, 2),
+                "trend": round(trend, 3),
+                "breakout_probability": round(breakout_probability, 3),
+                "breakout_flag": bool(row.get("breakout_flag")),
+                "recommended_faab_bid_pct": faab_bid_pct,
+                "personalized_score": personalized_score,
+            }
+        )
+    waiver_targets.sort(key=lambda row: (-row["personalized_score"], -row["opportunity_score"]))
+    waiver_targets = waiver_targets[:waiver_limit]
+
+    # Start/sit recommendations derived from projections + recent trend + volatility.
+    import statistics as _stats
+
+    owner_player_ids = [player.id for player in owner_players if player.id is not None]
+    weekly_rows = []
+    if owner_player_ids:
+        weekly_rows = (
+            db.query(models.PlayerWeeklyStat)
+            .filter(
+                models.PlayerWeeklyStat.season == resolved_season,
+                models.PlayerWeeklyStat.player_id.in_(owner_player_ids),
+            )
+            .order_by(models.PlayerWeeklyStat.player_id.asc(), models.PlayerWeeklyStat.week.asc())
+            .all()
+        )
+
+    points_by_player: dict[int, list[float]] = defaultdict(list)
+    for stat in weekly_rows:
+        if stat.fantasy_points is not None:
+            points_by_player[int(stat.player_id)].append(float(stat.fantasy_points))
+
+    starter_rows = []
+    bench_rows = []
+    for pick in owner_picks:
+        player = pick.player
+        if player is None:
+            continue
+
+        pid = int(player.id)
+        display_name = getattr(player, "full_name", None) or getattr(player, "name", None) or f"Player {pid}"
+        pos = _normalize_pos(player.position)
+        series = points_by_player.get(pid, [])
+        season_avg = _stats.mean(series) if series else 0.0
+        recent_avg = _stats.mean(series[-3:]) if series else season_avg
+        volatility = _stats.pstdev(series) if len(series) > 1 else 0.0
+        projection = float(player.projected_points or 0.0)
+        per_week_projection = projection / 17.0 if projection > 0 else season_avg
+        start_score = round((per_week_projection * 0.55) + (recent_avg * 0.35) - (volatility * 0.1), 2)
+
+        row = {
+            "player_id": pid,
+            "player_name": display_name,
+            "position": pos,
+            "nfl_team": player.nfl_team,
+            "start_score": start_score,
+            "projected_weekly_points": round(per_week_projection, 2),
+            "recent_avg_points": round(recent_avg, 2),
+            "season_avg_points": round(season_avg, 2),
+            "volatility_index": round(volatility, 2),
+        }
+
+        if (pick.current_status or "").upper() == "STARTER":
+            starter_rows.append(row)
+        else:
+            bench_rows.append(row)
+
+    bench_by_position: dict[str, list[dict]] = defaultdict(list)
+    for row in bench_rows:
+        bench_by_position[row["position"]].append(row)
+    for pos in bench_by_position:
+        bench_by_position[pos].sort(key=lambda item: item["start_score"], reverse=True)
+
+    start_sit_recommendations = []
+    for starter in sorted(starter_rows, key=lambda item: item["start_score"], reverse=True):
+        pos = starter["position"]
+        alternatives = list(bench_by_position.get(pos, []))
+        if pos in {"RB", "WR", "TE"}:
+            alternatives.extend(bench_by_position.get("RB", []))
+            alternatives.extend(bench_by_position.get("WR", []))
+            alternatives.extend(bench_by_position.get("TE", []))
+        alternatives = sorted(
+            [alt for alt in alternatives if alt["player_id"] != starter["player_id"]],
+            key=lambda item: item["start_score"],
+            reverse=True,
+        )
+        top_alt = alternatives[0] if alternatives else None
+        alt_delta = round((top_alt["start_score"] - starter["start_score"]), 2) if top_alt else None
+
+        if top_alt and alt_delta is not None and alt_delta > 0.8:
+            recommendation = "consider_bench"
+            rationale = f"{top_alt['player_name']} projects +{alt_delta:.2f} above current starter score."
+        else:
+            recommendation = "start"
+            rationale = "Starter projection remains ahead of available alternatives."
+
+        matchup_difficulty_score = int(
+            max(
+                1,
+                min(
+                    10,
+                    round(5 + ((starter["recent_avg_points"] - starter["season_avg_points"]) / 2.5) - (starter["volatility_index"] / 4.0)),
+                ),
+            )
+        )
+
+        start_sit_recommendations.append(
+            {
+                **starter,
+                "matchup_difficulty_score": matchup_difficulty_score,
+                "recommendation": recommendation,
+                "alternative": {
+                    "player_id": top_alt["player_id"],
+                    "player_name": top_alt["player_name"],
+                    "start_score": top_alt["start_score"],
+                } if top_alt else None,
+                "explanation": rationale,
+            }
+        )
+
+    start_sit_recommendations = sorted(
+        start_sit_recommendations,
+        key=lambda row: (
+            row["recommendation"] != "consider_bench",
+            row["start_score"],
+        ),
+    )[:start_sit_limit]
+
+    # Trade leverage by position: compare owner projected totals to league positional averages.
+    league_picks = (
+        db.query(models.DraftPick)
+        .options(joinedload(models.DraftPick.player))
+        .filter(models.DraftPick.league_id == league_id)
+        .all()
+    )
+    league_picks = [
+        pick
+        for pick in league_picks
+        if (pick.current_status or "").upper() not in active_status_exclusions and pick.player is not None
+    ]
+
+    totals_by_owner: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    for pick in league_picks:
+        oid = int(pick.owner_id) if pick.owner_id is not None else None
+        if oid is None:
+            continue
+        pos = _normalize_pos(pick.player.position)
+        if pos not in slot_targets:
+            continue
+        totals_by_owner[oid][pos] += float(pick.player.projected_points or 0.0)
+
+    for oid in league_owner_ids:
+        _ = totals_by_owner[oid]
+
+    trade_leverage = []
+    owner_totals = totals_by_owner.get(owner_id, {})
+    for pos in slot_targets.keys():
+        all_owner_values = [float(totals_by_owner[oid].get(pos, 0.0)) for oid in league_owner_ids] or [0.0]
+        league_avg = sum(all_owner_values) / len(all_owner_values)
+        owner_value = float(owner_totals.get(pos, 0.0))
+        delta = round(owner_value - league_avg, 2)
+
+        if delta >= 25:
+            action = "sell_high"
+        elif delta <= -25:
+            action = "buy_help"
+        else:
+            action = "hold"
+
+        trade_leverage.append(
+            {
+                "position": pos,
+                "owner_projected_total": round(owner_value, 2),
+                "league_avg_projected_total": round(league_avg, 2),
+                "delta_vs_league": delta,
+                "recommended_action": action,
+                "confidence": round(min(0.95, 0.55 + (abs(delta) / 120.0)), 3),
+            }
+        )
+
+    trade_leverage.sort(key=lambda row: abs(row["delta_vs_league"]), reverse=True)
+
+    alerts = []
+    healthy_tokens = {"", "healthy", "active", "none", "n/a"}
+    for player in owner_players:
+        display_name = getattr(player, "full_name", None) or getattr(player, "name", None) or f"Player {player.id}"
+        status = str(getattr(player, "injury_status", "") or "").strip().lower()
+        if status and status not in healthy_tokens:
+            alerts.append(
+                {
+                    "type": "injury",
+                    "severity": "high",
+                    "player_id": player.id,
+                    "player_name": display_name,
+                    "message": f"{display_name} carries injury tag: {status}.",
+                }
+            )
+
+    for row in start_sit_recommendations:
+        if row["recommendation"] == "consider_bench":
+            alerts.append(
+                {
+                    "type": "start_sit",
+                    "severity": "medium",
+                    "player_id": row["player_id"],
+                    "player_name": row["player_name"],
+                    "message": row["explanation"],
+                }
+            )
+
+    available_by_position: dict[str, int] = defaultdict(int)
+    for target in waiver_targets:
+        available_by_position[target["position"]] += 1
+    for need in roster_needs:
+        if need["deficit"] > 0 and available_by_position.get(need["position"], 0) < 2:
+            alerts.append(
+                {
+                    "type": "scarcity",
+                    "severity": "medium",
+                    "player_id": None,
+                    "player_name": None,
+                    "message": (
+                        f"{need['position']} remains a roster deficit with limited waiver depth "
+                        f"({available_by_position.get(need['position'], 0)} priority targets)."
+                    ),
+                }
+            )
+
+    return {
+        "owner_id": owner_id,
+        "season": resolved_season,
+        "roster_needs": roster_needs,
+        "waiver_targets": waiver_targets,
+        "trade_leverage": trade_leverage,
+        "start_sit_recommendations": start_sit_recommendations,
+        "alerts": alerts[:20],
+        "meta": {
+            **_analytics_meta(
+                db,
+                metric="in_season_weekly_insights",
+                league_id=league_id,
+                season=resolved_season,
+            ),
+            "personalized_owner_id": owner_id,
+            "includes_waivers": True,
+            "includes_trades": True,
+            "includes_start_sit": True,
+            "includes_alerts": True,
+        },
     }
 
 

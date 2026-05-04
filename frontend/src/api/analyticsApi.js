@@ -1,4 +1,4 @@
-import { getJson } from '@api/fetching';
+import { getJson, postJson } from '@api/fetching';
 
 export function resolveRows(payload) {
   if (payload && !Array.isArray(payload) && Array.isArray(payload.rows)) {
@@ -81,5 +81,28 @@ export function fetchWaiverOpportunitiesAnalytics(leagueId, season, position = n
   return getJson(`/analytics/league/${leagueId}/waiver-opportunities`, {
     params,
     retries: 1,
+  });
+}
+
+export function fetchInSeasonInsights(leagueId, ownerId, season, waiverLimit = 8, startSitLimit = 10) {
+  return getJson(`/analytics/league/${leagueId}/in-season-insights`, {
+    params: {
+      owner_id: ownerId,
+      season,
+      waiver_limit: waiverLimit,
+      start_sit_limit: startSitLimit,
+    },
+    retries: 1,
+  });
+}
+
+export function askInSeasonAdvisor({ userQuery, username, leagueId, ownerId, season, inSeasonContext }) {
+  return postJson('/advisor/in-season/query', {
+    user_query: userQuery,
+    username: username ?? null,
+    league_id: leagueId ?? null,
+    owner_id: ownerId ?? null,
+    season: season ?? null,
+    in_season_context: inSeasonContext ?? null,
   });
 }
