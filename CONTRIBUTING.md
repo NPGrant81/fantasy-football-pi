@@ -179,6 +179,27 @@ SKIP_ETL=1 bash tests/local_pre_pr_check.sh changed       # skip ETL pytest
 
 ---
 
+## System Hardening Documentation Gate (Issue #113)
+
+Changes that affect Draft Analyzer features, model behavior, or season
+operations must update the corresponding hardening docs in the same PR.
+
+Required doc surfaces:
+
+- `docs/feature-dictionary.md` for feature contract and naming changes.
+- `docs/model-versioning.md` for model versioning/promotion and rollback impacts.
+- `docs/architecture-overview.md` for cross-layer architectural boundary changes.
+- `docs/season-reset.md` for season bootstrapping/reset process changes.
+
+Minimum PR evidence (add this in your PR body):
+
+- Which hardening docs were updated (or explicit justification when none apply).
+- Which quality gates were executed (unit, integration, E2E as applicable).
+- If model behavior changed: resolved model version, dataset/version context, and rollback target.
+- If commissioner settings or simulation behavior changed: league-specific validation evidence.
+
+---
+
 ## Current Action Items
 
 1. **Run the local pre-PR gate before every push.**
