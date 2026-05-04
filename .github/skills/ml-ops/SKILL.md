@@ -1,7 +1,7 @@
 ---
 name: ml-ops
-description: 'Analytics feature development and ML Ops lifecycle for Fantasy Football PI, including feature engineering, model training/evaluation, serving integration, observability, and drift-aware iteration. Use when: building analytics endpoints, training/evaluating models, integrating serving contracts, or hardening model operations.'
-argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-engineering | training-eval | serving | observability | drift | modeling)'
+description: 'Analytics feature development and MLOps lifecycle for Fantasy Football PI: feature engineering, model training and evaluation, champion or challenger promotion, drift detection, simulation impact measurement, serving integration, and ETL conventions. Use when: building analytics endpoints, training models, defining evaluation gates, adding drift monitoring, integrating serving contracts, or hardening model operations.'
+argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-engineering | training-eval | drift | champion-challenger | scoring | serving | observability | modeling)'
 ---
 
 # ML Ops / Analytics Engineering
@@ -9,22 +9,95 @@ argument-hint: 'Optional: focus area (analytics-endpoint | etl | feature-enginee
 ## Why This Exists
 Fantasy Football PI is evolving toward ML-informed recommendations (lineup advice, breakout detection, trade valuation). All analytics features share common patterns — consistent endpoints, standardized response shapes, shared helpers — so new metrics can be added quickly and reliably.
 
-Serving and integration hardening (Issue #109) extends this skill to include:
+This skill also defines the required MLOps process for Issue #108 and later model iterations.
 
-- authenticated-owner default behavior for personalized recommendations
-- explicit model provenance metadata in serving responses
-- typed error taxonomy for caller reliability
-- observability metrics for latency, error, fallback, and schema mismatch
-- alias/canary routing controls via environment variables
+## Standard MLOps Lifecycle (Required)
 
-Issue #108 and #109 extend this scope to include end-to-end training/evaluation and serving integration hardening.
+1. Target and label definition
+    - Define target variables and business interpretation.
+    - Use strict time-based train, validation, and test splits.
+2. Dataset and feature assembly
+    - Consume feature contracts from Issue #106 outputs.
+    - Persist dataset version and feature schema hash.
+3. Candidate training
+    - Train baseline and advanced models using identical splits.
+    - Persist params, seed, and environment metadata.
+4. Offline evaluation
+    - Regression: MAE, RMSE, median AE.
+    - Ranking quality: NDCG at K, MAP at K.
+    - Calibration: bucket error or calibration curve stats where applicable.
+5. Simulation impact evaluation
+    - Route candidate outputs through the Issue #107 bridge path.
+    - Compare authenticated-owner slice outcomes and required slices vs champion.
+6. Champion or challenger decision
+    - Promote only when all gates pass.
+    - Store auditable decision record and model card.
+7. Post-promotion monitoring
+    - Monitor drift and performance degradation.
+    - Trigger retraining when thresholds are breached.
+
+## Required MLOps Artifacts
+
+Every training run must produce:
+
+- model artifact URI
+- dataset version and feature schema hash
+- training config and split definition
+- evaluation report with slice metrics
+- simulation impact report
+- model card
+- champion or challenger decision record
+
+## Recommended Model Portfolio
+
+Train and compare the following candidates by default:
+
+1. Baseline: historical averages by season and position with inflation adjustments.
+2. Interpretable benchmark: Elastic Net.
+3. Tabular performance models: Random Forest, LightGBM, CatBoost.
+4. Ranking objective model when relevant: pairwise ranking or LambdaMART.
+5. Optional uncertainty model: quantile regression for bid ranges.
+
+Select winners using a composite score that includes predictive metrics and simulation outcome impact.
+
+## Promotion Gates (Minimum)
+
+- no more than 10 percent regression on primary error metrics versus champion
+- no more than 5 percent regression on ranking metrics
+- no significant degradation on required slices, including authenticated-owner context
+- reproducible rerun within tolerance
+- neutral or positive simulation impact on required owner slices
+
+## Drift Detection and Response
+
+Track three drift categories:
+
+- data drift
+  - PSI on key numeric features (warn above 0.2, critical above 0.3)
+  - categorical distribution shifts by position and owner slice
+- concept and performance drift
+  - rolling MAE and RMSE deltas vs champion
+  - rolling ranking metric deltas
+  - calibration drift over prediction buckets
+- decision-impact drift
+  - simulation uplift degradation vs champion
+
+Critical drift or sustained degradation requires immediate challenger retraining.
+
+## Tuning and Evaluation Cadence
+
+- every data refresh: data-contract checks and drift checks
+- weekly during active draft prep: score-only evaluation against champion
+- monthly: full challenger retrain and evaluation cycle
+- preseason mandatory refresh: full retrain and model card update
+- event-driven retrain: any critical drift or repeated quality gate failure
 
 ## Serving Integration Guardrails (Issue #109)
 
 - Serving contract must support authenticated-owner default context (owner-specific personalization).
 - Response must include model provenance metadata (requested alias, resolved alias, route strategy).
 - Error detail should use typed codes for reliable client handling.
-- Serving logs/metrics should track latency, error rate, fallback rate, and schema mismatch count.
+- Serving logs/metrics should track latency, error rate, and fallback rate.
 - Canary routing should be alias-controlled and reversible.
 
 Operational hooks currently used:
@@ -171,6 +244,17 @@ These patterns are specifically designed to enable:
 - **Trade valuation**: Combine avg, trend slope, and ceiling for buy/sell ratings
 - **Breakout detection**: Trend slope + opportunity score + snap% for waiver pickups
 - **Monte Carlo simulation**: Weekly score distributions → season outcome probability
+
+## Issue #108 Implementation Checklist
+
+When implementing Issue #108 work items, ensure the change includes:
+
+1. Defined targets, labels, and split policy in docs.
+2. Baseline and at least one advanced model candidate.
+3. Evaluation report with regression, ranking, and slice metrics.
+4. Simulation impact comparison versus current champion.
+5. Drift thresholds and monitoring hooks.
+6. Model card and promotion decision record.
 
 ## Related Skills
 - [API Patterns](../api-patterns/SKILL.md) — analytics endpoint conventions

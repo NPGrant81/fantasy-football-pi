@@ -89,7 +89,7 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("product", "tracking")
 
     name = Path(rel).name
-    if any(token in name for token in ["api_", "draft_day_advisor", "player_api_filtering", "model-serving", "backend_ci_pipeline"]):
+    if any(token in name for token in ["api_", "draft_day_advisor", "player_api_filtering", "model-serving", "model-training", "backend_ci_pipeline"]):
         return ("backend", "api-or-service")
     if any(token in name for token in ["frontend", "ui_", "ux-", "responsive", "ui_reference"]):
         return ("frontend", "ui-or-ux")
@@ -97,7 +97,7 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("platform", "operations")
     if any(token in name for token in ["security", "permissions"]):
         return ("security", "policy")
-    if any(token in name for token in ["data", "scoring", "validation", "dictionary", "monte-carlo", "mfl_", "cross_module_edge_case", "db_migration_phase1", "owner_backfill"]):
+    if any(token in name for token in ["data", "scoring", "validation", "dictionary", "monte-carlo", "mfl_", "cross_module_edge_case", "db_migration_phase1", "owner_backfill", "ml-feature"]):
         return ("data", "data-contract-or-quality")
     if any(token in name for token in ["pattern", "governance", "doc_issue", "documentation_update", "testing_session_summary", "dependency_maintenance", "dev-environment"]):
         return ("governance", "process")

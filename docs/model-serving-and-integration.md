@@ -217,3 +217,102 @@ Use this checklist before and during model-serving rollout windows.
 2. Point `MODEL_SERVING_CURRENT_ALIAS` to last known-good alias.
 3. Re-run contract smoke checks and verify metrics return to baseline.
 4. Record incident notes with root-cause and follow-up actions.
+
+## ML Ops Pipeline Process and Methodology (Issue #108 Alignment)
+
+This section defines the standard process for training, evaluating, promoting, and monitoring model versions used by the Draft Analyzer.
+
+### Pipeline Stages
+
+1. Define targets and labels
+  - Primary targets can include winning bid regression, surplus value regression, and ranking quality.
+  - Labels must be generated from historical finalized draft outcomes only.
+  - Train, validation, and test splits must be time-based to prevent leakage.
+2. Build feature matrix
+  - Use the feature contracts from Issue #106 outputs.
+  - Persist feature schema hash and dataset version with every run.
+3. Train champion and challenger candidates
+  - Train baseline and advanced candidates under the same split policy.
+  - Record hyperparameters and random seed in run metadata.
+4. Evaluate offline quality
+  - Regression metrics: MAE, RMSE, median AE.
+  - Ranking metrics: NDCG at K, MAP at K.
+  - Calibration metrics for bid confidence buckets when probabilities or intervals are emitted.
+5. Evaluate decision impact in simulation
+  - Run Monte Carlo with candidate outputs via the ML bridge path.
+  - Compare owner-specific outcome deltas for the authenticated request owner against current champion.
+6. Promote or reject
+  - Promote only if all quality gates pass and no required slice regresses beyond threshold.
+  - Store a decision record with rationale, metrics, and artifact references.
+7. Serve and observe
+  - Update serving resolution only after promotion gates pass.
+  - If alias hooks are configured, rotate the current alias. Otherwise, promote via code/config deployment for the champion model selection.
+  - Monitor post-promotion drift and degradation signals.
+
+### Required Run Artifacts
+
+Every training run should publish:
+
+- model artifact URI
+- dataset version and feature schema hash
+- training configuration (params, seed, split definition)
+- evaluation report (global and slice metrics)
+- simulation impact report
+- model card (scope, assumptions, limitations, monitoring plan)
+- champion or challenger decision record
+
+### Candidate Model Ladder
+
+Use a consistent progression when searching for a better outcome:
+
+1. Baseline: seasonal and positional historical averages with inflation adjustments.
+2. Interpretable benchmark: Elastic Net.
+3. Tree ensembles for tabular features: Random Forest, LightGBM, CatBoost.
+4. Ranking-focused objective (if ranking quality is primary): pairwise ranking or LambdaMART.
+5. Optional uncertainty-aware candidate: quantile regression for bid ranges.
+
+Selection should be based on a composite score that includes both predictive error and simulation outcome uplift.
+
+### Accuracy and Promotion Gates
+
+Define and enforce minimum gates before any promotion:
+
+- no regression greater than 10 percent on primary error metrics versus champion
+- no regression greater than 5 percent on ranking quality metrics
+- no significant degradation on required slices (authenticated request owner and key positions)
+- reproducible rerun within accepted tolerance band
+- simulation impact must be neutral or positive for required owner slices
+
+### Drift Detection Policy
+
+Monitor both data drift and performance drift:
+
+- data drift
+  - PSI on key numeric features (warn above 0.2, critical above 0.3)
+  - distribution checks by position and owner slice
+- concept and performance drift
+  - rolling MAE and RMSE against champion baseline
+  - rolling ranking metric deltas
+  - calibration drift for predicted value buckets
+- decision-impact drift
+  - rolling simulation delta vs champion in projected team outcomes
+
+Critical drift or sustained degradation should trigger challenger retraining and gate re-evaluation.
+
+### Evaluation and Tuning Cadence
+
+- on every data refresh: run data-contract validation and drift checks
+- weekly in active draft-prep windows: run score-only evaluation against champion
+- monthly: run full challenger training and evaluation cycle
+- mandatory preseason refresh: full retrain, gate evaluation, model card update
+- trigger-based retrain: immediate cycle on critical drift or persistent quality degradation
+
+### Integration Contract with the Simulation Bridge
+
+Candidates must output fields that can be translated by the existing bridge and serving contracts:
+
+- predicted auction value
+- model score or ranking signal
+- consistency or reliability proxy
+
+The bridge and serving schemas remain stable so model internals can evolve without breaking downstream consumers.
