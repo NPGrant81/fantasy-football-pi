@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const ports = [process.env.E2E_PORT, '5173', '5174', '4173'].filter(Boolean);
+const host = process.env.E2E_HOST || '127.0.0.1';
 
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const useShell = process.platform === 'win32';
@@ -31,8 +32,8 @@ async function waitForServer(url, timeoutMs, isDevAlive) {
 }
 
 async function runForPort(port) {
-  const baseUrl = `http://localhost:${port}`;
-  const devArgs = ['run', 'dev', '--', '--port', String(port), '--strictPort'];
+  const baseUrl = `http://${host}:${port}`;
+  const devArgs = ['run', 'dev', '--', '--host', host, '--port', String(port), '--strictPort'];
 
   const devProcess = spawn(npmCmd, devArgs, {
     stdio: 'inherit',

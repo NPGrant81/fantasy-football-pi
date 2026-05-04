@@ -12,6 +12,10 @@ permissions:
 jobs:
   ui-ux-automation:
     runs-on: ubuntu-latest
+    env:
+      UI_HOST: 127.0.0.1
+      UI_PORT_A11Y: 5173
+      UI_PORT_VISUAL: 5174
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,10 +129,10 @@ jobs:
         with:
           working-directory: frontend
           install: false
-          start: npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
-          wait-on: http://127.0.0.1:5173
+          start: npm run dev -- --host ${{ env.UI_HOST }} --port ${{ env.UI_PORT_A11Y }} --strictPort
+          wait-on: http://${{ env.UI_HOST }}:${{ env.UI_PORT_A11Y }}
           wait-on-timeout: 120
-          config: baseUrl=http://127.0.0.1:5173
+          config: baseUrl=http://${{ env.UI_HOST }}:${{ env.UI_PORT_A11Y }}
           browser: chrome
           spec: cypress/e2e/accessibility_smoke.spec.js
 
@@ -137,10 +141,10 @@ jobs:
         with:
           working-directory: frontend
           install: false
-          start: npm run dev -- --host 127.0.0.1 --port 5174 --strictPort
-          wait-on: http://127.0.0.1:5174
+          start: npm run dev -- --host ${{ env.UI_HOST }} --port ${{ env.UI_PORT_VISUAL }} --strictPort
+          wait-on: http://${{ env.UI_HOST }}:${{ env.UI_PORT_VISUAL }}
           wait-on-timeout: 120
-          config: baseUrl=http://127.0.0.1:5174
+          config: baseUrl=http://${{ env.UI_HOST }}:${{ env.UI_PORT_VISUAL }}
           browser: chrome
           spec: cypress/e2e/uat_capture_pages.spec.js
 
