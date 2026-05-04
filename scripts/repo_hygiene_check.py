@@ -89,7 +89,7 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("product", "tracking")
 
     name = Path(rel).name
-    if any(token in name for token in ["api_", "draft_day_advisor", "player_api_filtering", "model-serving", "backend_ci_pipeline"]):
+    if any(token in name for token in ["api_", "draft_day_advisor", "player_api_filtering", "model-serving", "model-training", "backend_ci_pipeline"]):
         return ("backend", "api-or-service")
     if any(token in name for token in ["frontend", "ui_", "ux-", "responsive", "ui_reference"]):
         return ("frontend", "ui-or-ux")

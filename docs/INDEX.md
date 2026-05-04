@@ -52,6 +52,7 @@ Refer to the appropriate file for more information.
 - [Dev-Environment](dev-environment.md)
 - [Ml-Feature-Specification](ml-feature-specification.md)
 - [Model-Serving-And-Integration](model-serving-and-integration.md)
+- [Model-Training-Eval](model-training-eval.md)
 - [Monte-Carlo-Simulation](monte-carlo-simulation.md)
 - [Permissions](permissions.md)
 - [Player-Metadata-Rules](player-metadata-rules.md)
