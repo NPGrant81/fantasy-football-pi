@@ -13,10 +13,14 @@ export default function OwnerStrategyPanel({
   ownerStrategyInsights,
   recommendation,
 }) {
+  const ownerLabel = insightOwnerLabel || `Owner ${insightOwnerId || '-'}`;
+  const ownerPossessive = isCurrentUserOwner ? 'your' : `${ownerLabel}'s`;
+  const ownerSubject = isCurrentUserOwner ? 'You are' : `${ownerLabel} is`;
+
   return (
     <div className="rounded-md border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-3">
       <div className="text-[11px] uppercase tracking-wide text-slate-400">
-        Owner Strategy ({insightOwnerLabel || `Owner ${insightOwnerId || '-'}`}
+        Owner Strategy ({ownerLabel}
         {isCurrentUserOwner ? ' — You' : ''})
       </div>
       {!ownerStrategyInsights ? (
@@ -64,7 +68,9 @@ export default function OwnerStrategyPanel({
             <div className="mb-1 text-slate-500 dark:text-slate-500">Budget Impact</div>
             {recommendation ? (
               <div>
-                If you win at ${Number(recommendation.recommended_bid || 0).toFixed(2)}, you keep ${Math.max(
+                If {isCurrentUserOwner ? 'you win' : `${ownerLabel} wins`} at ${Number(
+                  recommendation.recommended_bid || 0
+                ).toFixed(2)}, {isCurrentUserOwner ? 'you keep' : `${ownerLabel} keeps`} ${Math.max(
                   0,
                   Number(ownerStrategyInsights.ownerStats.budget || 0) -
                     Number(recommendation.recommended_bid || 0)
@@ -81,7 +87,7 @@ export default function OwnerStrategyPanel({
             if (severity === INSIGHT_SEVERITY.CRITICAL) {
               return (
                 <div className={`mt-2 rounded border px-2 py-1 text-xs ${severityClasses(INSIGHT_SEVERITY.CRITICAL)}`}>
-                  Strategy alert: this bid exceeds your {ownerStrategyInsights.selectedPos} max spend plan (${Number(
+                  Strategy alert: this bid exceeds {ownerPossessive} {ownerStrategyInsights.selectedPos} max spend plan (${Number(
                     ownerStrategyInsights.posMaxSpend || 0
                   ).toFixed(0)}).
                 </div>
@@ -90,7 +96,7 @@ export default function OwnerStrategyPanel({
             if (severity === INSIGHT_SEVERITY.WARNING) {
               return (
                 <div className={`mt-2 rounded border px-2 py-1 text-xs ${severityClasses(INSIGHT_SEVERITY.WARNING)}`}>
-                  You are behind league average at {ownerStrategyInsights.mostBehindPosition.position}.
+                  {ownerSubject} behind league average at {ownerStrategyInsights.mostBehindPosition.position}.
                 </div>
               );
             }
