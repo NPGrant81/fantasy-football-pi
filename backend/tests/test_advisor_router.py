@@ -170,7 +170,7 @@ def test_in_season_query_waiver_no_gemini(db_session, monkeypatch):
         roster_needs=["RB"],
         waiver_targets=[{"player_id": 99, "name": "Hot RB", "position": "RB"}],
         start_sit={},
-        trade_leverage={},
+        trade_leverage=[],
         alerts=[],
     )
     req = InSeasonQueryRequest(user_query="Who should I add on waivers?", in_season_context=ctx)
@@ -186,8 +186,8 @@ def test_in_season_query_start_sit_no_gemini(db_session, monkeypatch):
     ctx = InSeasonContext(
         roster_needs=[],
         waiver_targets=[],
-        start_sit={"start": [{"player_id": 10, "name": "Top QB", "explanation": "Great matchup."}]},
-        trade_leverage={},
+        start_sit_recommendations=[{"player_id": 10, "name": "Top QB", "recommendation": "start", "explanation": "Great matchup."}],
+        trade_leverage=[],
         alerts=[],
     )
     req = InSeasonQueryRequest(user_query="Who should I start this week?", in_season_context=ctx)
@@ -204,7 +204,7 @@ def test_in_season_query_alerts_fallback(db_session, monkeypatch):
         roster_needs=[],
         waiver_targets=[],
         start_sit={},
-        trade_leverage={},
+        trade_leverage=[],
         alerts=["WR2 is questionable."],
     )
     req = InSeasonQueryRequest(user_query="Any news this week?", in_season_context=ctx)
