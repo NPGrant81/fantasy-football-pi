@@ -503,11 +503,15 @@ def ask_gemini(request: AdvisorRequest, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 class InSeasonContext(BaseModel):
-    roster_needs: list[str] = Field(default_factory=list)
-    waiver_targets: list[dict] = Field(default_factory=list)
-    start_sit: dict = Field(default_factory=dict)
-    trade_leverage: dict = Field(default_factory=dict)
-    alerts: list[str] = Field(default_factory=list)
+    # roster_needs: list of position strings OR dicts {position, deficit, ...}
+    roster_needs: list = Field(default_factory=list)
+    waiver_targets: list = Field(default_factory=list)
+    # start_sit_recommendations: flat list from the in-season insights endpoint
+    start_sit_recommendations: list = Field(default_factory=list)
+    # trade_leverage: list of {position, delta_vs_league, recommended_action, ...}
+    trade_leverage: list = Field(default_factory=list)
+    # alerts: list of dicts {type, severity, player_id, player_name, message} OR strings
+    alerts: list = Field(default_factory=list)
 
 
 class InSeasonQueryRequest(BaseModel):
@@ -519,6 +523,30 @@ class InSeasonQueryRequest(BaseModel):
     in_season_context: Optional[InSeasonContext] = None
 
 
+def _extract_roster_needs_labels(roster_needs: list) -> list[str]:
+    """Normalize roster_needs to simple position strings."""
+    result = []
+    for item in roster_needs:
+        if isinstance(item, str):
+            result.append(item)
+        elif isinstance(item, dict):
+            pos = item.get("position") or str(item)
+            result.append(str(pos))
+    return result
+
+
+def _extract_alert_messages(alerts: list) -> list[str]:
+    """Normalize alerts list to message strings."""
+    result = []
+    for item in alerts:
+        if isinstance(item, str):
+            result.append(item)
+        elif isinstance(item, dict):
+            msg = item.get("message") or str(item)
+            result.append(str(msg))
+    return result
+
+
 def _in_season_rule_based_response(query: str, ctx: InSeasonContext | None) -> str:
     """Produce a context-aware answer without Gemini."""
     q = query.lower()
@@ -527,35 +555,43 @@ def _in_season_rule_based_response(query: str, ctx: InSeasonContext | None) -> s
         targets = ctx.waiver_targets[:3]
         if targets:
             names = ", ".join(
-                str(t.get("name") or t.get("player_name") or "Unknown") for t in targets
+                str(t.get("player_name") or t.get("name") or "Unknown") for t in targets
             )
-            return f"Based on your roster needs ({', '.join(ctx.roster_needs) or 'none flagged'}), your top waiver targets this week are: {names}."
+            needs = _extract_roster_needs_labels(ctx.roster_needs)
+            return f"Based on your roster needs ({', '.join(needs) or 'none flagged'}), your top waiver targets this week are: {names}."
         return "No waiver targets are available for your roster right now."
 
     if ctx and any(kw in q for kw in ("start", "sit", "lineup", "start/sit")):
-        starts = ctx.start_sit.get("start") or []
+        recs = ctx.start_sit_recommendations[:3]
+        starts = [r for r in recs if r.get("recommendation") == "start"]
         if starts:
             first = starts[0]
-            explanation = first.get("explanation") or first.get("name") or str(first)
+            explanation = first.get("explanation") or first.get("player_name") or str(first)
             return f"Start recommendation: {explanation}"
+        benchers = [r for r in recs if r.get("recommendation") == "consider_bench"]
+        if benchers:
+            first = benchers[0]
+            explanation = first.get("explanation") or first.get("player_name") or str(first)
+            return f"Consider benching: {explanation}"
         return "No start/sit data is available for this week yet."
 
     if ctx and any(kw in q for kw in ("trade", "sell", "buy", "leverage")):
         leverage = ctx.trade_leverage
         if leverage:
-            surplus = [pos for pos, delta in leverage.items() if float(delta or 0) > 0]
-            deficit = [pos for pos, delta in leverage.items() if float(delta or 0) < 0]
+            sell = [item["position"] for item in leverage if item.get("recommended_action") == "sell_high"]
+            buy = [item["position"] for item in leverage if item.get("recommended_action") == "buy_help"]
             parts = []
-            if surplus:
-                parts.append(f"sell-high positions: {', '.join(surplus)}")
-            if deficit:
-                parts.append(f"target positions: {', '.join(deficit)}")
+            if sell:
+                parts.append(f"sell-high positions: {', '.join(sell)}")
+            if buy:
+                parts.append(f"target positions: {', '.join(buy)}")
             if parts:
                 return "Trade leverage this week — " + "; ".join(parts) + "."
         return "No trade leverage data is available right now."
 
-    if ctx and ctx.alerts:
-        return "Active alerts this week: " + "; ".join(ctx.alerts[:3]) + "."
+    alert_msgs = _extract_alert_messages(ctx.alerts) if ctx else []
+    if alert_msgs:
+        return "Active alerts this week: " + "; ".join(alert_msgs[:3]) + "."
 
     return (
         "I don't have enough in-season context to answer that right now. "
@@ -585,16 +621,24 @@ def in_season_query(request: InSeasonQueryRequest, db: Session = Depends(get_db)
     context_block = ""
     if ctx:
         waiver_names = ", ".join(
-            str(t.get("name") or t.get("player_name") or "") for t in (ctx.waiver_targets or [])[:5]
+            str(t.get("player_name") or t.get("name") or "") for t in (ctx.waiver_targets or [])[:5]
         )
+        starts = [r for r in (ctx.start_sit_recommendations or []) if r.get("recommendation") == "start"][:3]
         start_names = ", ".join(
-            str(r.get("name") or r.get("explanation") or "") for r in (ctx.start_sit.get("start") or [])[:3]
+            str(r.get("player_name") or r.get("explanation") or "") for r in starts
+        )
+        needs = _extract_roster_needs_labels(ctx.roster_needs)
+        alert_msgs = _extract_alert_messages(ctx.alerts)
+        leverage_summary = "; ".join(
+            f"{item['position']} ({item.get('recommended_action', 'hold')}, Δ{item.get('delta_vs_league', 0):+.1f})"
+            for item in (ctx.trade_leverage or [])[:4]
         )
         context_block = (
-            f"ROSTER NEEDS: {', '.join(ctx.roster_needs) or 'none'}\n"
+            f"ROSTER NEEDS: {', '.join(needs) or 'none'}\n"
             f"TOP WAIVER TARGETS: {waiver_names or 'none'}\n"
             f"RECOMMENDED STARTS: {start_names or 'none'}\n"
-            f"ALERTS: {'; '.join(ctx.alerts) or 'none'}\n"
+            f"TRADE LEVERAGE: {leverage_summary or 'none'}\n"
+            f"ALERTS: {'; '.join(alert_msgs) or 'none'}\n"
         )
 
     league_name = "your league"

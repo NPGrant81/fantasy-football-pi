@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GlobalSearch from '../components/GlobalSearch';
 import apiClient from '@api/client';
@@ -15,6 +15,7 @@ import {
   cardSurface,
   layerModal,
 } from '../utils/uiStandards';
+import { fetchInSeasonInsights } from '@api/analyticsApi';
 
 const PLAYER_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 
@@ -59,6 +60,9 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   // show back button when possible (history stack length > 1)
   const [showBack, setShowBack] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [personalizedTargets, setPersonalizedTargets] = useState([]);
+  const [personalizedTargetsLoading, setPersonalizedTargetsLoading] = useState(false);
+  const leagueIdRef = useRef(null);
 
   // Modal State
   const [isDropModalOpen, setIsDropModalOpen] = useState(false);
@@ -116,6 +120,20 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
       }
     };
     fetchWaiverDeadline();
+
+    // Fetch personalized waiver targets from in-season insights
+    if (ownerId && leagueName) {
+      leagueIdRef.current = leagueName;
+      setPersonalizedTargetsLoading(true);
+      const currentYear = new Date().getFullYear();
+      fetchInSeasonInsights(leagueName, ownerId, currentYear)
+        .then((res) => {
+          const data = res.data ?? res;
+          setPersonalizedTargets(data.waiver_targets ?? []);
+        })
+        .catch(() => setPersonalizedTargets([]))
+        .finally(() => setPersonalizedTargetsLoading(false));
+    }
     // Timeout loading state after 10 seconds
     const timeout = setTimeout(() => {
       setLoading(false);
@@ -303,6 +321,40 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
           }}
         />
       </div>
+
+      {/* 2.3 UI: PERSONALIZED WAIVER TARGETS */}
+      {draftStatus !== 'ACTIVE' && (ownerId) && (personalizedTargetsLoading || personalizedTargets.length > 0) && (
+        <div className="mb-6 rounded-xl border border-indigo-400/40 bg-indigo-50/60 p-4 dark:border-indigo-800/60 dark:bg-indigo-900/10" data-testid="personalized-targets-panel">
+          <div className="mb-3 text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+            ⚡ Personalized Targets for You
+          </div>
+          {personalizedTargetsLoading ? (
+            <div className="py-2 text-center text-xs text-indigo-400 animate-pulse">Loading recommendations…</div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {personalizedTargets.slice(0, 8).map((target) => (
+                <div key={target.player_id} className="rounded-lg border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900/60">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{target.player_name}</span>
+                    <span className="shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">{target.position}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                    <span>Score: <span className="font-bold text-indigo-600 dark:text-indigo-300">{Number(target.personalized_score ?? 0).toFixed(1)}</span></span>
+                    {target.recommended_faab_bid_pct != null && (
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-300">Bid ~{target.recommended_faab_bid_pct}%</span>
+                    )}
+                  </div>
+                  {target.breakout_probability != null && (
+                    <div className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+                      Breakout: {Math.round(target.breakout_probability * 100)}%
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2.4 UI: TABS & TABLE */}
       {draftStatus === 'ACTIVE' ? (
