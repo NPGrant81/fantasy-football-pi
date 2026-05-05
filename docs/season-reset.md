@@ -1,77 +1,253 @@
-# Season Reset and New-League Year Runbook (Issue #113)
+# Season Reset Workflow — Fantasy Football PI
 
-## Purpose
+**Version:** 1.0
+**Effective date:** 2026-05-04
+**Issue:** #113
+**Milestone:** M8 — ML Draft Analyzer and In-Season Intelligence
+**Owner:** platform-ops
 
-This runbook defines the minimum safe process for starting a new fantasy season
-while preserving historical integrity and model reproducibility.
+---
 
-Related references:
+## 1. Purpose
 
-- `docs/restore.md`
-- `docs/MFL_HISTORICAL_DATA_OPERATIONS.md`
-- `docs/model-versioning.md`
-- `docs/DATA_QUALITY_RUNBOOK.md`
+This document defines the end-of-season and start-of-season reset workflow.
+Following this runbook each season ensures:
 
-## Preconditions
+- Historical data is archived cleanly
+- Keeper selections are reset and re-opened on schedule
+- Draft configuration is ready for the new season
+- ML feature pipelines are rebased on fresh data
+- No stale state from the prior season leaks into the new season
 
-Before reset:
+---
 
-- Production backup completed and restorable.
-- Current season data refresh and reconciliation complete.
-- Champion model version and dataset hash recorded.
-- Open issues related to in-season data integrity triaged.
+## 2. Season Calendar Reference
 
-## Reset Workflow
+| Event | Typical timing | System action |
+|---|---|---|
+| Season end (playoffs complete) | February | Archive weekly stats; finalize standings |
+| Keeper window opens | March | Reset keeper locks; open keeper selection |
+| Keeper window closes | April | Lock keepers; compute adjusted budgets |
+| Draft prep | April–May | Build draft model artifacts; ingest player pool |
+| Auction draft | May | Draft Day Mode enabled |
+| In-season (Weeks 1–13) | September–December | Live scoring; weekly stats ingestion |
+| Playoffs (Weeks 14–16) | December–January | Playoff bracket active |
 
-1. Freeze window
-- Announce maintenance window and freeze write-heavy commissioner operations.
+---
 
-2. Snapshot and archive
-- Capture DB backup and ETL artifact snapshot.
-- Archive prior season derived outputs with season label.
+## 3. Post-Season Archive (Phase 1 — End of Season)
 
-3. New season configuration
-- Set/verify new season year in environment/config.
-- Confirm league settings import includes roster/slot limits.
-- Validate owner/team mapping consistency.
+Run after playoffs are finalized and scores are locked.
 
-4. Re-seed and baseline refresh
-- Run required seed/refresh scripts for season bootstrapping.
-- Rebuild draft-value and related baseline datasets as needed.
+### 3.1 Archive MFL exports
 
-5. Validation gates
-- Execute data quality runbook checks.
-- Execute backend and frontend regression suites for critical flows.
-- Validate draft simulation returns league-configured caps and roster size.
+```bash
+# Archive CSV exports for the completed season
+python backend/scripts/archive_mfl_csv_exports.py --season {YEAR}
 
-6. Model and simulation readiness
-- Confirm active champion model version remains valid for new season context.
-- Trigger challenger training cycle if drift or schema shifts are detected.
+# Archive HTML exports
+python backend/scripts/archive_mfl_html_exports.py --season {YEAR}
 
-7. Post-reset verification
-- Smoke test commissioner pages, draft analyzer, and advisor/chatbot endpoints.
-- Record reset completion notes and any follow-up actions.
+# Archive JSON exports
+python backend/scripts/archive_mfl_json_exports.py --season {YEAR}
+```
 
-## Required Evidence for Completion
+### 3.2 Archive weekly stats
 
-A reset is complete only when all evidence is captured:
+```bash
+python backend/scripts/archive_weekly_stats.py --season {YEAR}
+```
 
-- backup artifact id or path
-- executed command log summary
-- validation gate results
-- model version + feature schema hash
-- known-risk list with owners and due dates
+### 3.3 Validate archive completeness
 
-## Rollback Criteria
+- Confirm all 16 regular-season weeks are present in `player_weekly_stats` for season `{YEAR}`.
+- Confirm final standings match league records.
+- Run data quality guardrails:
+  ```bash
+  python -m pytest backend/tests/test_data_quality_guardrails.py -v
+  python -m pytest backend/tests/test_data_quality_seasonal_guardrails.py -v
+  python -m pytest backend/tests/test_data_quality_volume_guardrails.py -v
+  ```
 
-Trigger rollback to pre-reset snapshot if any of the following occurs:
+### 3.4 Finalize the season record
 
-- critical data-contract validation failures
-- unrecoverable owner/team mapping mismatches
-- draft simulation or recommendation flows fail smoke tests
-- authentication/authorization regressions block commissioner operations
+- Mark season `{YEAR}` as completed in the `leagues` table (if applicable).
+- Confirm `scoring_week` is at the final week — do not leave it mid-season.
 
-## Ownership
+---
 
-- Primary owner: platform/commissioner operations maintainer
-- Secondary owners: backend and ML maintainers for validation and model readiness
+## 4. Keeper Window (Phase 2 — Pre-Draft)
+
+### 4.1 Reset keeper selections
+
+Run **before** notifying owners that the new keeper window is open:
+
+```python
+# Via Python or FastAPI admin endpoint
+from backend.services.keeper_service import reset_keepers
+reset_keepers(db=db, league_id=1, season={NEW_YEAR})
+```
+
+Or via the admin API if available:
+```
+DELETE /keeper/reset?league_id=1&season={NEW_YEAR}
+```
+
+### 4.2 Open keeper window
+
+```python
+from backend.services.keeper_service import notify_keeper_window_open
+notify_keeper_window_open(db=db, league_id=1)
+```
+
+Owners now receive an email notification to make keeper selections.
+
+### 4.3 Close keeper window
+
+Once the deadline passes, lock all keeper selections:
+
+```python
+# Keepers are locked per-owner as they submit; commissioner locks stragglers
+# via the keeper management API or admin UI
+```
+
+Verify adjusted budgets are correct:
+```
+GET /keeper/budget?owner_id={id}&league_id=1&season={NEW_YEAR}
+```
+
+---
+
+## 5. Draft Preparation (Phase 3 — Draft Setup)
+
+### 5.1 Ingest new player pool
+
+```bash
+# Import current NFL player list
+python backend/scripts/import_espn_players.py --season {NEW_YEAR}
+# or
+python backend/scripts/import_nfl_data.py --season {NEW_YEAR}
+
+# Import NFL schedule
+python backend/scripts/import_nfl_schedule.py --season {NEW_YEAR}
+```
+
+### 5.2 Rebuild ML feature artifacts
+
+```bash
+# Recompute player and season features using all completed history
+python etl/build_historical_rankings.py --target-season {NEW_YEAR}
+```
+
+Confirm the feature registry passes schema validation:
+```bash
+python -m pytest backend/tests/test_data_quality_guardrails.py -k "feature" -v
+```
+
+### 5.3 Evaluate challenger model (if applicable)
+
+If a new model version is being promoted this season, complete the full
+promotion workflow per `docs/model-versioning.md` before the draft date.
+
+### 5.4 Smoke test Draft Day Mode
+
+```bash
+python -m pytest backend/tests/test_advisor_draft_day.py -v
+python -m pytest backend/tests/test_draft_simulation_endpoint.py -v
+```
+
+### 5.5 Initialize league configuration for new season
+
+```bash
+python backend/scripts/init_league.py --season {NEW_YEAR}
+```
+
+Confirm league settings (roster slots, scoring rules, salary cap) in the admin UI
+or via `GET /league/settings`.
+
+---
+
+## 6. In-Season Setup (Phase 4 — Season Start)
+
+### 6.1 Enable live scoring
+
+Confirm the live scoring watchdog service is running:
+```bash
+systemctl status ffpi-live-scoring
+# or check the watchdog endpoint
+GET /live-scoring/status
+```
+
+### 6.2 Verify weekly ingestion schedule
+
+Confirm that the ETL daily sync job is scheduled and healthy:
+```bash
+python -m pytest backend/tests/test_live_scoring_watchdog_service.py -v
+```
+
+### 6.3 Verify in-season analytics
+
+Smoke test in-season endpoints:
+```bash
+python -m pytest backend/tests/test_analytics.py -k "in_season" -v
+python -m pytest backend/tests/test_advisor_router.py -k "in_season" -v
+```
+
+---
+
+## 7. Season Reset Checklist
+
+Use this checklist at each season boundary. Check off each item before
+proceeding to the next phase.
+
+### End of season
+
+- [ ] All playoff scores locked and finalized
+- [ ] MFL CSV/HTML/JSON exports archived for season `{YEAR}`
+- [ ] Weekly stats archived for season `{YEAR}`
+- [ ] Data quality guardrail tests pass
+- [ ] Final standings confirmed accurate
+
+### Keeper window
+
+- [ ] `reset_keepers()` called for the new season
+- [ ] Keeper window-open notification sent to all owners
+- [ ] All owners have submitted keeper selections (or commissioner has closed stragglers)
+- [ ] Adjusted budgets verified for all owners
+
+### Draft prep
+
+- [ ] New player pool ingested
+- [ ] NFL schedule imported
+- [ ] ML feature artifacts rebuilt with new history
+- [ ] Model version confirmed (no challenger pending) or new model promoted per `docs/model-versioning.md`
+- [ ] Draft Day Mode smoke tests pass
+- [ ] League configuration initialized for new season
+
+### Season start
+
+- [ ] Live scoring watchdog running
+- [ ] Weekly ETL ingestion job scheduled
+- [ ] In-season analytics smoke tests pass
+- [ ] All owners can access their locker room
+
+---
+
+## 8. Rollback Notes
+
+If any phase fails partway through:
+
+- **Archive scripts**: re-running is safe; they are idempotent for completed seasons.
+- **Keeper reset**: `reset_keepers()` is idempotent; safe to re-run.
+- **ML rebuild**: re-run `build_historical_rankings.py`; does not affect production until model is promoted.
+- **Live scoring**: restart the watchdog service; weekly stats are ingested incrementally.
+
+---
+
+## 9. Related Documents
+
+- [Model Versioning and Promotion Rules](model-versioning.md)
+- [Deployment Workflows](DEPLOYMENT_WORKFLOWS.md)
+- [Data Quality Runbook](DATA_QUALITY_RUNBOOK.md)
+- [Draft Day Advisor Mode](DRAFT_DAY_ADVISOR_MODE.md)
+- [Raspberry Pi Deployment](RASPBERRY_PI_DEPLOYMENT.md)

@@ -1,82 +1,210 @@
-# Model Versioning and Promotion Policy (Issue #113)
+# Model Versioning and Promotion Rules — Fantasy Football PI
 
-## Purpose
+**Version:** 1.0
+**Effective date:** 2026-05-04
+**Issue:** #113
+**Milestone:** M8 — ML Draft Analyzer and In-Season Intelligence
+**Owner:** ml-ops
 
-This document standardizes model lifecycle controls for Draft Day recommendations
-and post-draft outlook workflows.
+---
 
-It builds on the detailed MLOps process in `docs/model-serving-and-integration.md`
-and the evaluation template in `docs/model-training-eval.md`.
+## 1. Purpose
 
-## Version Format
+This document defines:
 
-Use semantic model versions:
+- The versioning scheme for all ML models in the platform
+- The promotion criteria that a challenger model must satisfy before replacing the champion
+- The artifact storage layout and retention policy
+- The rollback procedure if a promoted model regresses
 
-- `major.minor.patch` (example: `2.3.1`)
+These rules apply to all models that are served via `POST /draft/model/predict`
+and any future prediction endpoints.
 
-Interpretation:
+---
 
-- Major: breaking input/output or objective changes.
-- Minor: additive capability or materially new feature set with compatible API.
-- Patch: bug fix or calibration update with same feature contract.
+## 2. Versioning Scheme
 
-## Required Artifacts Per Version
+Models use a **semantic slug** of the form:
 
-Each promoted version must have:
+```
+{family}-v{major}
+```
 
-- dataset version identifier and feature registry hash
-- training configuration (seed, split, hyperparameters)
-- offline evaluation report (global + required slices)
-- simulation impact comparison versus champion
-- promotion decision record (approve/reject + rationale)
-- rollback target (previous stable champion)
+Examples: `historical-rankings-v1`, `historical-rankings-v2`, `gradient-boost-v1`
 
-## Promotion Gates
+### Rules
 
-Promotion is allowed only when all gates pass:
+| Component | Rule |
+|---|---|
+| `family` | Short kebab-case descriptor matching the training approach (e.g. `historical-rankings`, `gradient-boost`, `rf-regressor`) |
+| `major` | Increment on any breaking change: new feature set, new target definition, architecture change |
+| No minor/patch | Minor improvements do not change the slug; document in run log only |
 
-- No primary metric regression beyond allowed threshold.
-- No required-slice degradation beyond threshold.
-- Reproducible rerun within tolerance band.
-- Simulation impact neutral or positive for required owner slices.
-- Data-contract validation passes for serving payload schema.
+### "current" alias
 
-See `docs/model-serving-and-integration.md` for baseline thresholds and drift policy.
+The string `"current"` (and synonyms `"latest"`, `"default"`) always resolves
+to the promoted champion via `_resolve_model_version()` in
+`backend/routers/draft.py`. At time of writing this resolves to
+`historical-rankings-v1`.
 
-## Serving Resolution Rules
+To change the champion, update the return value of `_resolve_model_version()`
+**after** all promotion gates pass (see §4).
 
-- Serving must resolve to one explicit champion version.
-- Challenger versions must not be default without gate approval.
-- API responses should expose resolved model version for traceability.
-- Any model default change must include release notes in the PR.
+---
 
-## Deprecation Policy
+## 3. Artifact Storage
 
-A model version can be deprecated when:
+All trained model artifacts are stored under:
 
-- superseded by a promoted champion
-- drift or reliability incidents exceed defined tolerance
-- required data contract can no longer be satisfied safely
+```
+backend/data/models/{family}-v{major}/
+  model.pkl              # serialized estimator (joblib or pickle)
+  feature_schema.yml     # list of input features at training time
+  metrics.json           # offline evaluation metrics from training run
+  model_card.md          # human-readable summary (see §6)
+  run_log.md             # link to completed training-eval template
+```
 
-Deprecation requires:
+### Retention policy
 
-- status update in release notes/PR
-- rollback confirmation path
-- retention of artifacts for auditability
+| Status | Artifact kept? | Duration |
+|---|---|---|
+| Champion | Yes | Until 2 seasons after demotion |
+| Demoted | Yes | 1 full season after demotion, then archive |
+| Rejected challenger | Yes (metrics only) | 1 season |
+| Experimental / scratch | No | Delete after run review |
 
-## Incident and Rollback Protocol
+Archive path: `backend/data/models/archive/{family}-v{major}/`
 
-On critical drift or production degradation:
+---
 
-1. Freeze automatic promotion.
-2. Roll back serving resolution to last stable champion.
-3. Log incident summary with impacted slices and metrics.
-4. Schedule challenger retraining with corrected data/features.
+## 4. Promotion Gates
 
-## Pull Request Checklist
+A challenger must pass **all** gates before it can replace the champion.
 
-- Version bump rationale included.
-- Artifact links included in PR body.
-- Promotion gate evidence included.
-- Rollback target and validation steps included.
-- Consumer docs updated if API behavior changed.
+### 4.1 Offline metric gates
+
+Run metrics are computed on the held-out test split (latest N seasons held
+out; see `docs/model-training-eval.md` for split policy).
+
+| Metric | Gate |
+|---|---|
+| MAE vs champion | Challenger MAE ≤ champion MAE + 0.5 |
+| RMSE vs champion | Challenger RMSE ≤ champion RMSE + 1.0 |
+| NDCG@10 vs champion | Challenger NDCG@10 ≥ champion NDCG@10 − 0.01 |
+| Calibration bucket error | ≤ 10 % worst-bucket error |
+
+### 4.2 Slice gates
+
+No position slice (QB / RB / WR / TE / DEF / K) may degrade by more than
+**5 % MAE** vs the champion on the same slice.
+
+### 4.3 Reproducibility gate
+
+Two independent training runs on the same data version and seed must produce
+MAE within **0.2** of each other.
+
+### 4.4 Simulation impact gate
+
+Run the Monte Carlo simulation (Issue #107 bridge path) with:
+- Champion model → record average simulated finish distribution
+- Challenger model → record average simulated finish distribution
+
+Challenger passes if the simulated outcome distribution does not degrade the
+**top-6 finish rate** by more than **2 percentage points** vs champion.
+
+### 4.5 Schema compatibility gate
+
+The challenger's `feature_schema.yml` must be a **superset** of the champion's.
+All features the champion consumed must be present and identically typed.
+New features in the challenger are allowed.
+
+---
+
+## 5. Promotion Workflow
+
+1. Complete a training run using `docs/model-training-eval.md` template.
+2. Fill in all promotion gate results in the template's "Promotion Gates" section.
+3. Open a PR with the following changes:
+   - New artifact directory `backend/data/models/{family}-v{major}/`
+   - Updated `_resolve_model_version()` return value in `backend/routers/draft.py`
+   - Completed run log linked in `model_card.md`
+4. PR requires approval from at least one reviewer who has reviewed the gate results.
+5. Merge to `main` triggers CI; CI must include `test_model_serving_endpoint.py`.
+6. After merge, tag the commit: `model/{family}-v{major}-promoted`.
+
+---
+
+## 6. Model Card Template
+
+Every promoted model must include `backend/data/models/{family}-v{major}/model_card.md`:
+
+```markdown
+# Model Card: {family}-v{major}
+
+**Promoted:** {date}
+**Training commit:** {SHA}
+**Feature schema hash:** {hash}
+**Champion as of:** {date}
+**Demoted:** {date or "active"}
+
+## Intended Use
+{description of what the model predicts and what it is used for}
+
+## Training Data
+- Season range: {min}–{max}
+- Holdout: {last N seasons}
+- Row count: {N players × seasons}
+
+## Offline Metrics (test split)
+| Metric | Value |
+|---|---|
+| MAE | |
+| RMSE | |
+| NDCG@10 | |
+
+## Known Limitations
+{list any edge cases or known failure modes}
+
+## Promotion Gate Summary
+| Gate | Result |
+|---|---|
+| MAE | pass/fail |
+| RMSE | pass/fail |
+| Slice degradation | pass/fail |
+| Reproducibility | pass/fail |
+| Simulation impact | pass/fail |
+| Schema compatibility | pass/fail |
+```
+
+---
+
+## 7. Rollback Procedure
+
+If a promoted model produces degraded results in production:
+
+1. Revert `_resolve_model_version()` to the prior version string.
+2. Open an emergency PR; single reviewer approval is sufficient.
+3. File a post-mortem issue documenting what was missed in promotion gates.
+4. Do not delete the regressed artifact — keep for post-mortem analysis.
+
+---
+
+## 8. Naming Conventions
+
+| Entity | Convention | Example |
+|---|---|---|
+| Model family slug | `kebab-case`, describes training approach | `historical-rankings` |
+| Version tag | `v{integer}`, no leading zeros | `v2` |
+| Full slug | `{family}-v{major}` | `historical-rankings-v2` |
+| Git tag | `model/{slug}-promoted` | `model/historical-rankings-v2-promoted` |
+| Artifact directory | matches full slug | `backend/data/models/historical-rankings-v2/` |
+
+---
+
+## 9. Related Documents
+
+- [Model Training and Evaluation](model-training-eval.md) — per-run template
+- [Model Serving and Integration](model-serving-and-integration.md) — API contract
+- [ML Feature Specification](ml-feature-specification.md) — feature contracts
+- [Feature Dictionary](feature-dictionary.md) — authoritative feature definitions
