@@ -637,3 +637,60 @@ features:
     owner: ml-ops
     version: "1"
     deprecation_policy: "1-season notice"
+
+  # =====================================================================
+  # PLAYER-SEASON SENTIMENT FEATURES
+  # Source: player_news_items + player_news_sentiment_trends
+  # Online only — populated by news ingest pipeline.
+  # Missing = 0.0 (neutral); never blocks scoring.
+  # =====================================================================
+
+  - name: sentiment_score_7d
+    level: player_season
+    formula: "MEAN(sentiment_score) for all PlayerNewsItems linked to player in last 168 hours"
+    inputs:
+      - player_news_items.sentiment_score
+      - player_news_links.player_id
+      - player_news_items.published_at
+    output_type: float
+    tier: optional
+    null_rate_threshold: 0.80
+    offline: false
+    online: true
+    temporal_leakage_guard: "Only items published before request time; rolling 7-day window"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice; remove if mention_count_7d consistently < 1"
+
+  - name: sentiment_velocity_7d
+    level: player_season
+    formula: "sentiment_score_7d minus sentiment_score from 8-14 day lookback window; positive = improving"
+    inputs:
+      - player_news_items.sentiment_score
+      - player_news_links.player_id
+      - player_news_items.published_at
+    output_type: float
+    tier: optional
+    null_rate_threshold: 0.80
+    offline: false
+    online: true
+    temporal_leakage_guard: "Both windows use only items published before request time"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"
+
+  - name: mention_count_7d
+    level: player_season
+    formula: "COUNT(distinct PlayerNewsItems) linked to player in last 168 hours"
+    inputs:
+      - player_news_links.player_id
+      - player_news_items.published_at
+    output_type: int
+    tier: optional
+    null_rate_threshold: 0.80
+    offline: false
+    online: true
+    temporal_leakage_guard: "Only items published before request time"
+    owner: ml-ops
+    version: "1"
+    deprecation_policy: "1-season notice"

@@ -551,3 +551,77 @@ def compute_draft_season_features(
     result_df["inflation_index"] = inflation_rows
 
     return result_df
+
+
+# ---------------------------------------------------------------------------
+# Player-season sentiment features
+# Source: player_news_sentiment_trends table (populated by news ingest pipeline)
+# ---------------------------------------------------------------------------
+
+def compute_player_sentiment_features(
+    sentiment_trends_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compute per-player sentiment features from pre-aggregated trend rows.
+
+    Parameters
+    ----------
+    sentiment_trends_df:
+        DataFrame with columns: player_id, window_hours, average_score, mention_count.
+        Typically sourced from the ``player_news_sentiment_trends`` table via
+        ``GET /news/sentiment/trends``.  May be empty if no news has been ingested.
+
+    Returns
+    -------
+    DataFrame with one row per player_id containing:
+        player_id, sentiment_score_7d, sentiment_velocity_7d, mention_count_7d.
+
+    Rules
+    -----
+    - sentiment_score_7d  : average_score for window_hours == 168 (7 days).
+      Missing → 0.0 (neutral; no news = no signal).
+    - sentiment_velocity_7d: score_7d minus score_14d where available.
+      14-day window = window_hours == 336.  Missing either side → 0.0.
+    - mention_count_7d    : mention_count for window_hours == 168. Missing → 0.
+    - All three features are bounded: scores clamped to [-1, 1], velocity to [-1, 1].
+    """
+    required_cols = {"player_id", "window_hours", "average_score", "mention_count"}
+    if sentiment_trends_df is None or sentiment_trends_df.empty:
+        return pd.DataFrame(columns=["player_id", "sentiment_score_7d", "sentiment_velocity_7d", "mention_count_7d"])
+
+    missing = required_cols - set(sentiment_trends_df.columns)
+    if missing:
+        raise ValueError(f"compute_player_sentiment_features: missing columns {missing}")
+
+    df = sentiment_trends_df.copy()
+    df["average_score"] = pd.to_numeric(df["average_score"], errors="coerce").fillna(0.0).clip(-1.0, 1.0)
+    df["mention_count"] = pd.to_numeric(df["mention_count"], errors="coerce").fillna(0).astype(int)
+    df["window_hours"] = pd.to_numeric(df["window_hours"], errors="coerce")
+
+    # 7-day window (168h)
+    w7 = df[df["window_hours"] == 168][["player_id", "average_score", "mention_count"]].copy()
+    w7 = w7.rename(columns={"average_score": "sentiment_score_7d", "mention_count": "mention_count_7d"})
+
+    # 14-day window (336h) — used for velocity; may not always exist
+    w14 = df[df["window_hours"] == 336][["player_id", "average_score"]].copy()
+    w14 = w14.rename(columns={"average_score": "sentiment_score_14d"})
+
+    all_players = pd.DataFrame({"player_id": df["player_id"].unique()})
+    result = (
+        all_players
+        .merge(w7, on="player_id", how="left")
+        .merge(w14, on="player_id", how="left")
+    )
+
+    result["sentiment_score_7d"] = result["sentiment_score_7d"].fillna(0.0)
+    result["mention_count_7d"] = result["mention_count_7d"].fillna(0).astype(int)
+    result["sentiment_score_14d"] = result["sentiment_score_14d"].fillna(float("nan"))
+
+    result["sentiment_velocity_7d"] = (
+        (result["sentiment_score_7d"] - result["sentiment_score_14d"])
+        .fillna(0.0)
+        .clip(-1.0, 1.0)
+        .round(4)
+    )
+    result["sentiment_score_7d"] = result["sentiment_score_7d"].round(4)
+
+    return result[["player_id", "sentiment_score_7d", "sentiment_velocity_7d", "mention_count_7d"]].reset_index(drop=True)
