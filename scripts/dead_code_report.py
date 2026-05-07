@@ -30,6 +30,29 @@ SCRIPTS_DIR = ROOT / "scripts"
 FRONTEND_DIR = ROOT / "frontend"
 FRONTEND_SRC = FRONTEND_DIR / "src"
 
+JS_ALIAS_PREFIXES = {
+    "@": FRONTEND_SRC,
+    "@components": FRONTEND_SRC / "components",
+    "@api": FRONTEND_SRC / "api",
+    "@context": FRONTEND_SRC / "context",
+    "@hooks": FRONTEND_SRC / "hooks",
+    "@utils": FRONTEND_SRC / "utils",
+}
+
+NON_SOURCE_IMPORT_SUFFIXES = (
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".svg",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".json",
+)
+
 PY_EXCLUDE_FRAGMENTS = (
     "__pycache__",
     ".venv",
@@ -361,7 +384,6 @@ def build_js_dependency_graph(js_files: list[Path]) -> dict:
     inbound = {module: 0 for module in module_to_file}
 
     for source_path in js_files:
-        source_module = _module_name_for_js(source_path)
         text = source_path.read_text(encoding="utf-8")
         imports = JS_IMPORT_RE.findall(text)
 
@@ -393,10 +415,39 @@ def build_js_dependency_graph(js_files: list[Path]) -> dict:
 
 
 def _resolve_js_import(source_path: Path, raw_import: str, known_modules: dict[str, Path]) -> str | None:
-    if not raw_import.startswith("."):
+    if raw_import.endswith(NON_SOURCE_IMPORT_SUFFIXES):
         return None
 
-    base = (source_path.parent / raw_import).resolve()
+    if raw_import.startswith("."):
+        base = (source_path.parent / raw_import).resolve()
+        return _resolve_js_candidate_base(base, known_modules)
+
+    alias_resolved = _resolve_alias_import(raw_import)
+    if alias_resolved is not None:
+        return _resolve_js_candidate_base(alias_resolved, known_modules)
+
+    return None
+
+
+def _resolve_alias_import(raw_import: str) -> Path | None:
+    if raw_import == "@":
+        return JS_ALIAS_PREFIXES["@"]
+
+    for alias, alias_path in JS_ALIAS_PREFIXES.items():
+        if alias == "@":
+            if raw_import.startswith("@/"):
+                return alias_path / raw_import[2:]
+            continue
+
+        if raw_import == alias:
+            return alias_path
+        if raw_import.startswith(alias + "/"):
+            return alias_path / raw_import[len(alias) + 1 :]
+
+    return None
+
+
+def _resolve_js_candidate_base(base: Path, known_modules: dict[str, Path]) -> str | None:
     candidates = [base]
 
     for ext in (".js", ".jsx", ".ts", ".tsx"):
