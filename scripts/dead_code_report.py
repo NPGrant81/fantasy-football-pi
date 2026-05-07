@@ -29,6 +29,7 @@ ETL_DIR = ROOT / "etl"
 SCRIPTS_DIR = ROOT / "scripts"
 FRONTEND_DIR = ROOT / "frontend"
 FRONTEND_SRC = FRONTEND_DIR / "src"
+FRONTEND_TESTS = FRONTEND_DIR / "tests"
 
 JS_ALIAS_PREFIXES = {
     "@": FRONTEND_SRC,
@@ -63,7 +64,12 @@ PY_EXCLUDE_FRAGMENTS = (
 )
 
 JS_IMPORT_RE = re.compile(
-    r"(?:import\s+(?:[^'\"\n]+?\s+from\s+)?|import\s*\()\s*['\"]([^'\"\n]+)['\"]"
+    r"(?:"
+    r"import\s+(?:[\s\S]*?\s+from\s+)?"
+    r"|import\s*\("
+    r"|export\s+(?:[\s\S]*?\s+from\s+)"
+    r")\s*['\"]([^'\"\n]+)['\"]",
+    re.MULTILINE,
 )
 
 
@@ -379,11 +385,21 @@ def _module_name_for_js(path: Path) -> str:
     return path.relative_to(FRONTEND_SRC).with_suffix("").as_posix()
 
 
+def _find_js_reference_files(js_files: list[Path]) -> list[Path]:
+    # Source files plus test files can legitimately reference modules.
+    references = set(js_files)
+    if FRONTEND_TESTS.exists():
+        for ext in ("*.js", "*.jsx", "*.ts", "*.tsx"):
+            references.update(FRONTEND_TESTS.rglob(ext))
+    return sorted(references)
+
+
 def build_js_dependency_graph(js_files: list[Path]) -> dict:
     module_to_file = {_module_name_for_js(path): path for path in js_files}
     inbound = {module: 0 for module in module_to_file}
+    reference_files = _find_js_reference_files(js_files)
 
-    for source_path in js_files:
+    for source_path in reference_files:
         text = source_path.read_text(encoding="utf-8")
         imports = JS_IMPORT_RE.findall(text)
 
