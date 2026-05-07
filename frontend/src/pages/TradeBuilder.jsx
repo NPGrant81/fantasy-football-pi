@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FiChevronLeft, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useActiveLeague } from '@context/LeagueContext';
 import PageTemplate from '@components/layout/PageTemplate';
 import { LoadingState, EmptyState } from '@components/common/AsyncState';
+import InlineError from '@components/common/InlineError';
 import {
   buttonPrimary,
   buttonSecondary,
@@ -28,8 +29,14 @@ function assetLabel(a) {
 
 // ── Asset Picker ─────────────────────────────────────────────────────────────
 
-function AssetRow({ asset, roster, onRemove, onChange }) {
-  const players = roster.filter((p) => p.player_id || p.id);
+function AssetRow({ asset, roster, selectedPlayerIds, onRemove, onChange }) {
+  const players = roster
+    .filter((p) => p.player_id || p.id)
+    .filter((p) => {
+      const pid = Number(p.player_id || p.id);
+      const current = Number(asset.player_id || 0);
+      return !selectedPlayerIds.includes(pid) || pid === current;
+    });
 
   return (
     <div className="flex items-start gap-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
@@ -88,7 +95,8 @@ function AssetRow({ asset, roster, onRemove, onChange }) {
             placeholder="Amount"
             className="flex-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
             value={asset.amount || ''}
-            min="1"
+            min="0"
+            step="1"
             onChange={(e) => onChange({ ...asset, amount: e.target.value ? Number(e.target.value) : '' })}
           />
         </div>
@@ -109,6 +117,10 @@ function AssetRow({ asset, roster, onRemove, onChange }) {
 // ── Asset Panel (one side of the trade) ──────────────────────────────────────
 
 function AssetPanel({ title, teamId, roster, assets, onAddAsset, onRemoveAsset, onChangeAsset }) {
+  const selectedPlayerIds = assets
+    .filter((a) => a.asset_type === 'PLAYER' && a.player_id)
+    .map((a) => Number(a.player_id));
+
   return (
     <div className={cardSurface}>
       <h3 className="text-base font-bold text-slate-900 dark:text-white mb-3">{title}</h3>
@@ -118,6 +130,7 @@ function AssetPanel({ title, teamId, roster, assets, onAddAsset, onRemoveAsset, 
             key={i}
             asset={a}
             roster={roster}
+            selectedPlayerIds={selectedPlayerIds}
             onRemove={() => onRemoveAsset(i)}
             onChange={(updated) => onChangeAsset(i, updated)}
           />
@@ -143,6 +156,7 @@ function AssetPanel({ title, teamId, roster, assets, onAddAsset, onRemoveAsset, 
 const newAsset = () => ({ asset_type: 'PLAYER', player_id: null, draft_pick_id: null, season_year: null, amount: '' });
 
 export default function TradeBuilder() {
+  const navigate = useNavigate();
   const leagueId = useActiveLeague();
 
   const [teams, setTeams] = useState([]);
@@ -167,6 +181,14 @@ export default function TradeBuilder() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const offeredPlayerIds = assetsFromA
+    .filter((a) => a.asset_type === 'PLAYER' && a.player_id)
+    .map((a) => Number(a.player_id));
+
+  const requestedPlayerIds = assetsFromB
+    .filter((a) => a.asset_type === 'PLAYER' && a.player_id)
+    .map((a) => Number(a.player_id));
 
   // Load teams
   useEffect(() => {
@@ -221,17 +243,71 @@ export default function TradeBuilder() {
     if (assetsFromA.length === 0 || assetsFromB.length === 0) {
       return 'Add at least one asset on both sides of the trade.';
     }
+    if (offeredPlayerIds.length === 0 || requestedPlayerIds.length === 0) {
+      return 'Select at least one player on both sides of the trade.';
+    }
+
+    if (new Set(offeredPlayerIds).size !== offeredPlayerIds.length) {
+      return 'Duplicate players are not allowed in assets you offer.';
+    }
+
+    if (new Set(requestedPlayerIds).size !== requestedPlayerIds.length) {
+      return 'Duplicate players are not allowed in assets you request.';
+    }
+
+    const rosterAIds = new Set(rosterA.map((p) => Number(p.player_id || p.id)));
+    const rosterBIds = new Set(rosterB.map((p) => Number(p.player_id || p.id)));
+
+    if (offeredPlayerIds.some((pid) => !rosterAIds.has(Number(pid)))) {
+      return 'One or more offered players are invalid for your roster.';
+    }
+
+    if (requestedPlayerIds.some((pid) => !rosterBIds.has(Number(pid)))) {
+      return 'One or more requested players are invalid for the selected opponent.';
+    }
+
     for (const a of assetsFromA) {
       if (a.asset_type === 'PLAYER' && !a.player_id) return 'Select a player for all your player assets.';
       if (a.asset_type === 'DRAFT_PICK' && !a.draft_pick_id) return 'Enter a pick ID for all draft pick assets.';
-      if (a.asset_type === 'DRAFT_DOLLARS' && !a.amount) return 'Enter an amount for all draft dollar assets.';
+      if (a.asset_type === 'DRAFT_DOLLARS' && (a.amount === '' || a.amount == null)) return 'Enter an amount for all draft dollar assets.';
+      if (a.asset_type === 'DRAFT_DOLLARS' && (!Number.isInteger(Number(a.amount)) || Number(a.amount) < 0)) {
+        return 'Draft cash values must be non-negative integers.';
+      }
     }
     for (const a of assetsFromB) {
       if (a.asset_type === 'PLAYER' && !a.player_id) return 'Select a player for all opponent player assets.';
       if (a.asset_type === 'DRAFT_PICK' && !a.draft_pick_id) return 'Enter a pick ID for all opponent draft pick assets.';
-      if (a.asset_type === 'DRAFT_DOLLARS' && !a.amount) return 'Enter an amount for all opponent draft dollar assets.';
+      if (a.asset_type === 'DRAFT_DOLLARS' && (a.amount === '' || a.amount == null)) return 'Enter an amount for all opponent draft dollar assets.';
+      if (a.asset_type === 'DRAFT_DOLLARS' && (!Number.isInteger(Number(a.amount)) || Number(a.amount) < 0)) {
+        return 'Draft cash values must be non-negative integers.';
+      }
     }
     return null;
+  };
+
+  const canAnalyzeTrade = Boolean(teamBId) && offeredPlayerIds.length > 0 && requestedPlayerIds.length > 0;
+  const analyzeTooltip = (offeredPlayerIds.length > 0 && requestedPlayerIds.length === 0) || (offeredPlayerIds.length === 0 && requestedPlayerIds.length > 0)
+    ? 'Select players for both sides to analyze the trade.'
+    : '';
+
+  const handleAnalyzeTrade = () => {
+    if (!canAnalyzeTrade) return;
+    const teamARecord = teams.find((t) => String(t.owner_id || t.id) === String(myTeamId));
+    const teamBRecord = teams.find((t) => String(t.owner_id || t.id) === String(teamBId));
+
+    navigate('/analytics', {
+      state: {
+        selectedChart: 'trade',
+        tradeAnalyzerContext: {
+          teamAId: Number(myTeamId),
+          teamBId: Number(teamBId),
+          teamAName: teamARecord?.team_name || teamARecord?.owner_name || teamARecord?.username || '',
+          teamBName: teamBRecord?.team_name || teamBRecord?.owner_name || teamBRecord?.username || '',
+          selectedAIds: offeredPlayerIds,
+          selectedBIds: requestedPlayerIds,
+        },
+      },
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -347,6 +423,18 @@ export default function TradeBuilder() {
           </div>
         </div>
 
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className={buttonSecondary}
+            onClick={handleAnalyzeTrade}
+            disabled={!canAnalyzeTrade}
+            title={!canAnalyzeTrade ? analyzeTooltip : 'Open in Trade Analyzer'}
+          >
+            Open in Trade Analyzer
+          </button>
+        </div>
+
         {/* Trade summary */}
         {(assetsFromA.length > 0 || assetsFromB.length > 0) && (
           <div className={cardSurface}>
@@ -377,11 +465,7 @@ export default function TradeBuilder() {
         )}
 
         {/* Feedback */}
-        {error && (
-          <div className="rounded-lg border border-red-400/30 bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
-            {error}
-          </div>
-        )}
+        {error ? <InlineError title="Trade proposal error" message={error} /> : null}
         {success && (
           <div className="rounded-lg border border-green-400/30 bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-500/10 dark:text-green-300">
             {success}

@@ -116,8 +116,8 @@ export default function Home({ username }) {
       .catch(() => setStandings([]));
 
     apiClient
-      .get(`/leagues/${leagueId}/news`)
-      .then((res) => setNews(res.data))
+      .get(`/news/global?league_id=${leagueId}&limit=20`)
+      .then((res) => setNews(Array.isArray(res.data) ? res.data : []))
       .catch(() => setNews([]));
 
     apiClient
@@ -249,15 +249,31 @@ export default function Home({ username }) {
           </div>
           <div className="space-y-3">
             {news.length > 0 ? (
-              news.map((item, idx) => (
-                <FeedPill
-                  key={idx}
-                  className={`w-full justify-between gap-3 ${item.type === 'info' ? 'border-l-2 border-green-500' : 'border-l-2 border-yellow-500'}`}
-                >
-                  <span className="text-slate-300 font-bold truncate">{item.title}</span>
-                  <span className="text-slate-500 text-xs shrink-0">{item.timestamp}</span>
-                </FeedPill>
-              ))
+              news.map((item, idx) => {
+                const borderColor =
+                  item.sentiment_label === 'positive'
+                    ? 'border-l-2 border-green-500'
+                    : item.sentiment_label === 'negative'
+                    ? 'border-l-2 border-red-500'
+                    : 'border-l-2 border-yellow-500';
+                const publishedDate = item.published_at
+                  ? new Date(item.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                  : null;
+                const inner = (
+                  <FeedPill
+                    key={idx}
+                    className={`w-full justify-between gap-3 ${borderColor}`}
+                  >
+                    <span className="text-slate-300 font-bold truncate">{item.title}</span>
+                    <span className="text-slate-500 text-xs shrink-0 whitespace-nowrap">{publishedDate}</span>
+                  </FeedPill>
+                );
+                return item.url ? (
+                  <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer" className="block hover:opacity-80 transition-opacity">
+                    {inner}
+                  </a>
+                ) : inner;
+              })
             ) : (
               <div className="mt-4 text-center text-xs italic text-slate-500 dark:text-slate-400">End of feed</div>
             )}

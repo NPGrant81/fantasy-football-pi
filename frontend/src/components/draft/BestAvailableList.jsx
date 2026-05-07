@@ -129,6 +129,37 @@ export default function BestAvailableList({
                 <td className="p-2 font-semibold text-slate-900 dark:text-white">
                   <span className="text-cyan-700 mr-2 dark:text-cyan-500">{p.pos}</span>
                   {p.name}
+                  {p.injury_status && (
+                    <span
+                      title={p.injury_notes || p.injury_status}
+                      className={`ml-1.5 inline-flex items-center rounded px-1 py-0 text-[9px] font-bold uppercase tracking-wide ${
+                        p.injury_status === 'IR' || p.injury_status === 'OUT'
+                          ? 'bg-red-600 text-white'
+                          : p.injury_status === 'DOUBTFUL'
+                          ? 'bg-orange-500 text-white'
+                          : p.injury_status === 'QUESTIONABLE'
+                          ? 'bg-yellow-400 text-black'
+                          : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {p.injury_status}
+                    </span>
+                  )}
+                  {p.projected_return_date && (p.injury_status === 'IR' || p.injury_status === 'OUT') && (
+                    <span className="ml-1 text-[9px] text-slate-400 dark:text-slate-500" title="Projected return">
+                      &nbsp;↩{p.projected_return_date}
+                    </span>
+                  )}
+                  {p.sentiment_label && p.sentiment_label !== 'neutral' && (
+                    <span
+                      title={`Sentiment: ${p.sentiment_label}${p.mention_count_7d ? ` (${p.mention_count_7d} mentions)` : ''}`}
+                      className={`ml-1.5 inline-block h-2 w-2 rounded-full align-middle ${
+                        p.sentiment_label === 'positive'
+                          ? 'bg-green-500'
+                          : 'bg-red-500'
+                      }`}
+                    />
+                  )}
                 </td>
                 <td className="p-2 text-right text-green-700 font-mono dark:text-green-400">
                   ${p.projectedValue}

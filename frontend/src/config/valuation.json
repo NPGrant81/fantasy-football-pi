@@ -1,0 +1,38 @@
+{
+  "_comment": "Deterministic valuation model coefficients — source of truth for issue #153. Do not hardcode these values in logic files.",
+  "trend_coefficient": 0.35,
+  "volatility_coefficient": 0.20,
+  "risk_coefficient": 1.5,
+  "bench_multiplier": 0.6,
+  "bye_penalty": 0.15,
+  "cash_tiers": [
+    {
+      "label": "Balanced",
+      "min_diff": 0,
+      "max_diff": 10,
+      "scale": null,
+      "explanation": null
+    },
+    {
+      "label": "Slightly Unbalanced",
+      "min_diff": 10,
+      "max_diff": 15,
+      "scale": 0.45,
+      "explanation": "Adjustment recommended because value swing is above 10 points."
+    },
+    {
+      "label": "Moderately Unbalanced",
+      "min_diff": 15,
+      "max_diff": 25,
+      "scale": 0.60,
+      "explanation": "Cash can rebalance immediate starter impact and depth tradeoff."
+    },
+    {
+      "label": "Highly Unbalanced",
+      "min_diff": 25,
+      "max_diff": null,
+      "scale": 0.75,
+      "explanation": "Large imbalance: strong recommendation to include draft cash."
+    }
+  ]
+}

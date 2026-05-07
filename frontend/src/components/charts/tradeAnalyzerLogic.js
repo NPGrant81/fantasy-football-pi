@@ -1,4 +1,11 @@
-export const BENCH_MULTIPLIER = 0.6;
+import VALUATION_CONFIG from '@/config/valuation.json';
+
+const T = VALUATION_CONFIG.trend_coefficient;       // 0.35
+const V = VALUATION_CONFIG.volatility_coefficient;  // 0.20
+const R = VALUATION_CONFIG.risk_coefficient;        // 1.5
+export const BENCH_MULTIPLIER = VALUATION_CONFIG.bench_multiplier;
+const BYE_PENALTY = VALUATION_CONFIG.bye_penalty;
+const CASH_TIERS = VALUATION_CONFIG.cash_tiers;
 
 export function toNumber(value, fallback = 0) {
   const parsed = Number(value);
@@ -17,7 +24,7 @@ export function deriveTrendAdjustment(player) {
   const recent = toNumber(player?.last_3_avg_points, NaN);
   const baseline = toNumber(player?.season_avg_points, NaN);
   if (Number.isFinite(recent) && Number.isFinite(baseline)) {
-    return (recent - baseline) * 0.35;
+    return (recent - baseline) * T;
   }
 
   return 0;
@@ -28,7 +35,7 @@ export function deriveVolatilityPenalty(player) {
   if (Number.isFinite(volatilityDirect)) return Math.max(0, volatilityDirect);
 
   const stdDev = toNumber(player?.points_stddev, toNumber(player?.volatility_index, 0));
-  return Math.max(0, stdDev * 0.25);
+  return Math.max(0, stdDev * V);
 }
 
 export function deriveRiskPenalty(player) {
@@ -36,7 +43,7 @@ export function deriveRiskPenalty(player) {
   if (Number.isFinite(riskDirect)) return Math.max(0, riskDirect);
 
   const riskScore = toNumber(player?.risk_score, toNumber(player?.injury_risk, 0));
-  return Math.max(0, riskScore * 0.4);
+  return Math.max(0, riskScore * R);
 }
 
 export function computePlayerValue(player) {
@@ -44,9 +51,22 @@ export function computePlayerValue(player) {
   const trend = deriveTrendAdjustment(player);
   const volatilityPenalty = deriveVolatilityPenalty(player);
   const riskPenalty = deriveRiskPenalty(player);
-  const byePenalty = player?.bye_week ? 0.15 : 0;
+  const byePenalty = player?.bye_week ? BYE_PENALTY : 0;
+  const value = Number((ros + trend - volatilityPenalty - riskPenalty - byePenalty).toFixed(2));
 
-  return Number((ros + trend - volatilityPenalty - riskPenalty - byePenalty).toFixed(2));
+  if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+    console.debug('[valuation]', {
+      player: player?.player_name ?? player?.name ?? '(unknown)',
+      ros,
+      trend,
+      volatilityPenalty,
+      riskPenalty,
+      byePenalty,
+      value,
+    });
+  }
+
+  return value;
 }
 
 export function computeLineupAdjustedValue(player) {
@@ -128,25 +148,15 @@ export function gradeForDelta(delta) {
 
 export function buildCashRecommendation(delta) {
   const abs = Math.abs(delta);
-  if (abs <= 10) return null;
-
-  if (abs <= 15) {
-    return {
-      amount: Math.round(abs * 0.45),
-      tier: 'Slightly Unbalanced',
-      explanation: 'Adjustment recommended because value swing is above 10 points.',
-    };
+  for (const tier of CASH_TIERS) {
+    if (tier.scale === null) continue;
+    if (abs > tier.min_diff && (tier.max_diff === null || abs <= tier.max_diff)) {
+      return {
+        amount: Math.round(abs * tier.scale),
+        tier: tier.label,
+        explanation: tier.explanation,
+      };
+    }
   }
-  if (abs <= 25) {
-    return {
-      amount: Math.round(abs * 0.6),
-      tier: 'Moderately Unbalanced',
-      explanation: 'Cash can rebalance immediate starter impact and depth tradeoff.',
-    };
-  }
-  return {
-    amount: Math.round(abs * 0.75),
-    tier: 'Highly Unbalanced',
-    explanation: 'Large imbalance: strong recommendation to include draft cash.',
-  };
+  return null;
 }

@@ -4,18 +4,20 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 export function useDraftTimer(initialTime = 5, onTimeUp) {
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [isActive, setIsActive] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false); // prevent race when clock hits zero
   const timerRef = useRef(null);
+  // Guard: prevents double-fire if the effect runs twice or the timer ticks past 0
+  const firedRef = useRef(false);
 
-  // 1.1.1 Store onTimeUp in a Ref to prevent interval restarts
-  // This is a "Pro" move to stop the timer from flickering if the parent re-renders
+  // 1.1.1 Keep onTimeUp in a ref so the interval never needs to restart when the
+  //        parent re-renders (e.g. handleDraft changes deps mid-countdown).
   const onTimeUpRef = useRef(onTimeUp);
   useEffect(() => {
     onTimeUpRef.current = onTimeUp;
   }, [onTimeUp]);
 
-  // --- 1.2 THE ACTIONS (Stable Functions) ---
+  // --- 1.2 ACTIONS ---
   const reset = useCallback(() => {
+    firedRef.current = false;
     setIsActive(false);
     setTimeLeft(initialTime);
     if (timerRef.current) {
@@ -24,47 +26,48 @@ export function useDraftTimer(initialTime = 5, onTimeUp) {
     }
   }, [initialTime]);
 
+  // start() always resets the counter so subsequent auctions get a fresh countdown.
   const start = useCallback(() => {
+    firedRef.current = false;
+    setTimeLeft(initialTime);
     setIsActive(true);
-  }, []);
+  }, [initialTime]);
 
-  // --- 1.3 THE HEARTBEAT (The Effect) ---
+  // --- 1.3 THE HEARTBEAT: only ticks; no side-effects inside the updater ---
   useEffect(() => {
-    // 1.3.1 Only start interval if active
-    if (isActive) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            // 1.3.2 Logic for Expiration
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-            setIsActive(false);
+    if (!isActive) return;
 
-            // if already processing, ignore
-            if (!isProcessing) {
-              setIsProcessing(true);
-              // grace period before firing the callback; avoids race with "sold" event
-              setTimeout(() => {
-                if (onTimeUpRef.current) onTimeUpRef.current(true);
-                setIsProcessing(false);
-              }, 500);
-            }
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
 
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    // 1.3.3 Cleanup: Important to prevent memory leaks on the Pi
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
     };
-  }, [isActive, isProcessing]); // Only depend on isActive (and isProcessing to avoid stale state)
+  }, [isActive]);
+
+  // --- 1.4 EXPIRY WATCHER: fires callback when timeLeft reaches 0 ---
+  useEffect(() => {
+    if (timeLeft !== 0 || !isActive || firedRef.current) return;
+
+    firedRef.current = true;
+    // Stop the interval and mark inactive
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsActive(false);
+
+    // Small grace period so any in-flight bid state settles before auto-draft fires
+    const t = setTimeout(() => {
+      if (onTimeUpRef.current) onTimeUpRef.current();
+    }, 300);
+
+    return () => clearTimeout(t);
+  }, [timeLeft, isActive]);
 
   return { timeLeft, start, reset, isActive };
 }
