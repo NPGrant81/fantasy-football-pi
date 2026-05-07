@@ -29,30 +29,6 @@ ETL_DIR = ROOT / "etl"
 SCRIPTS_DIR = ROOT / "scripts"
 FRONTEND_DIR = ROOT / "frontend"
 FRONTEND_SRC = FRONTEND_DIR / "src"
-FRONTEND_TESTS = FRONTEND_DIR / "tests"
-
-DEFAULT_JS_ALIAS_PREFIXES = {
-    "@": FRONTEND_SRC,
-    "@components": FRONTEND_SRC / "components",
-    "@api": FRONTEND_SRC / "api",
-    "@context": FRONTEND_SRC / "context",
-    "@hooks": FRONTEND_SRC / "hooks",
-    "@utils": FRONTEND_SRC / "utils",
-}
-
-NON_SOURCE_IMPORT_SUFFIXES = (
-    ".css",
-    ".scss",
-    ".sass",
-    ".less",
-    ".svg",
-    ".png",
-    ".jpg",
-    ".jpeg",
-    ".gif",
-    ".webp",
-    ".json",
-)
 
 PY_EXCLUDE_FRAGMENTS = (
     "__pycache__",
@@ -64,54 +40,8 @@ PY_EXCLUDE_FRAGMENTS = (
 )
 
 JS_IMPORT_RE = re.compile(
-    r"(?:"
-    r"import\s+(?:[\s\S]*?\s+from\s+)?"
-    r"|import\s*\("
-    r"|export\s+(?:[\s\S]*?\s+from\s+)"
-    r")\s*['\"]([^'\"\n]+)['\"]",
-    re.MULTILINE,
+    r"(?:import\s+(?:[^'\"\n]+?\s+from\s+)?|import\s*\()\s*['\"]([^'\"\n]+)['\"]"
 )
-
-
-def _load_js_alias_prefixes() -> dict[str, Path]:
-    alias_map: dict[str, Path] = dict(DEFAULT_JS_ALIAS_PREFIXES)
-    for config_name in ("tsconfig.typecheck.json", "tsconfig.json"):
-        config_path = FRONTEND_DIR / config_name
-        if not config_path.exists():
-            continue
-        try:
-            payload = json.loads(config_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-
-        compiler_options = payload.get("compilerOptions", {})
-        if not isinstance(compiler_options, dict):
-            continue
-
-        paths = compiler_options.get("paths", {})
-        if not isinstance(paths, dict):
-            continue
-
-        base_url = compiler_options.get("baseUrl", ".")
-        base_dir = (FRONTEND_DIR / str(base_url)).resolve()
-
-        for alias_pattern, targets in paths.items():
-            if not isinstance(alias_pattern, str) or not isinstance(targets, list) or not targets:
-                continue
-            first_target = targets[0]
-            if not isinstance(first_target, str):
-                continue
-
-            alias = alias_pattern.rstrip("/*")
-            target = first_target.rstrip("/*")
-            if not alias:
-                continue
-            alias_map[alias] = (base_dir / target).resolve()
-
-    return alias_map
-
-
-JS_ALIAS_PREFIXES = _load_js_alias_prefixes()
 
 
 @dataclass
@@ -236,6 +166,10 @@ def run_eslint_unused() -> dict:
         ".js,.jsx,.ts,.tsx",
         "--format",
         "json",
+        "--rule",
+        "no-unused-vars:error",
+        "--rule",
+        "no-unused-private-class-members:error",
     ]
     result = _run_command(cmd, cwd=FRONTEND_DIR)
 
@@ -294,15 +228,7 @@ def parse_backend_coverage(coverage_xml: Path | None) -> dict:
     if not coverage_xml or not coverage_xml.exists():
         return {"status": "missing", "zero_coverage_files": []}
 
-    try:
-        root = ET.parse(coverage_xml).getroot()
-    except (ET.ParseError, OSError) as exc:
-        return {
-            "status": "error",
-            "zero_coverage_files": [],
-            "errors": [f"Failed to parse backend coverage XML: {exc}"],
-        }
-
+    root = ET.parse(coverage_xml).getroot()
     zero_files: list[str] = []
 
     for class_node in root.findall(".//class"):
@@ -325,15 +251,7 @@ def parse_frontend_coverage(coverage_json: Path | None) -> dict:
     if not coverage_json or not coverage_json.exists():
         return {"status": "missing", "zero_coverage_files": []}
 
-    try:
-        payload = json.loads(coverage_json.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        return {
-            "status": "error",
-            "zero_coverage_files": [],
-            "errors": [f"Failed to parse frontend coverage JSON: {exc}"],
-        }
-
+    payload = json.loads(coverage_json.read_text(encoding="utf-8"))
     zero_files: list[str] = []
 
     for path, file_data in payload.items():
@@ -438,21 +356,12 @@ def _module_name_for_js(path: Path) -> str:
     return path.relative_to(FRONTEND_SRC).with_suffix("").as_posix()
 
 
-def _find_js_reference_files(js_files: list[Path]) -> list[Path]:
-    # Source files plus test files can legitimately reference modules.
-    references = set(js_files)
-    if FRONTEND_TESTS.exists():
-        for ext in ("*.js", "*.jsx", "*.ts", "*.tsx"):
-            references.update(FRONTEND_TESTS.rglob(ext))
-    return sorted(references)
-
-
 def build_js_dependency_graph(js_files: list[Path]) -> dict:
     module_to_file = {_module_name_for_js(path): path for path in js_files}
     inbound = {module: 0 for module in module_to_file}
-    reference_files = _find_js_reference_files(js_files)
 
-    for source_path in reference_files:
+    for source_path in js_files:
+        source_module = _module_name_for_js(source_path)
         text = source_path.read_text(encoding="utf-8")
         imports = JS_IMPORT_RE.findall(text)
 
@@ -484,31 +393,10 @@ def build_js_dependency_graph(js_files: list[Path]) -> dict:
 
 
 def _resolve_js_import(source_path: Path, raw_import: str, known_modules: dict[str, Path]) -> str | None:
-    if raw_import.endswith(NON_SOURCE_IMPORT_SUFFIXES):
+    if not raw_import.startswith("."):
         return None
 
-    if raw_import.startswith("."):
-        base = (source_path.parent / raw_import).resolve()
-        return _resolve_js_candidate_base(base, known_modules)
-
-    alias_resolved = _resolve_alias_import(raw_import)
-    if alias_resolved is not None:
-        return _resolve_js_candidate_base(alias_resolved, known_modules)
-
-    return None
-
-
-def _resolve_alias_import(raw_import: str) -> Path | None:
-    for alias, alias_path in JS_ALIAS_PREFIXES.items():
-        if raw_import == alias:
-            return alias_path
-        if raw_import.startswith(alias + "/"):
-            return alias_path / raw_import[len(alias) + 1 :]
-
-    return None
-
-
-def _resolve_js_candidate_base(base: Path, known_modules: dict[str, Path]) -> str | None:
+    base = (source_path.parent / raw_import).resolve()
     candidates = [base]
 
     for ext in (".js", ".jsx", ".ts", ".tsx"):
