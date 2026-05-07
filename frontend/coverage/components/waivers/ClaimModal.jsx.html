@@ -313,13 +313,13 @@ const ClaimModal = <span class="fstat-no" title="function not covered" >({</span
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return (</span>
     &lt;div className={`${modalOverlay} backdrop-blur-sm bg-black/70`}&gt;
-      &lt;div className="bg-slate-900 border border-slate-700 rounded-xl w-full sm:max-w-md shadow-2xl overflow-hidden"&gt;
+      &lt;div className="bg-white border border-slate-200 rounded-xl w-full sm:max-w-md shadow-2xl overflow-hidden dark:bg-slate-900 dark:border-slate-700"&gt;
         {/* Header */}
-        &lt;div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-800/50"&gt;
-          &lt;h3 className="text-xl font-bold text-white"&gt;Place Waiver Claim&lt;/h3&gt;
+        &lt;div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50"&gt;
+          &lt;h3 className="text-xl font-bold text-slate-900 dark:text-white"&gt;Place Waiver Claim&lt;/h3&gt;
           &lt;button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-slate-500 hover:text-slate-700 transition-colors dark:text-slate-400 dark:hover:text-white"
           &gt;
             &lt;FiX size={24} /&gt;
           &lt;/button&gt;
@@ -327,11 +327,11 @@ const ClaimModal = <span class="fstat-no" title="function not covered" >({</span
 &nbsp;
         &lt;form onSubmit={handleSubmit} className="p-6 space-y-6"&gt;
           {/* Player Info Summary */}
-          &lt;div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50"&gt;
-            &lt;p className="text-sm text-slate-400"&gt;Targeting:&lt;/p&gt;
-            &lt;p className="text-lg font-bold text-blue-400"&gt;
+          &lt;div className="bg-slate-100 p-3 rounded-lg border border-slate-300 dark:bg-slate-800/50 dark:border-slate-700/50"&gt;
+            &lt;p className="text-sm text-slate-600 dark:text-slate-400"&gt;Targeting:&lt;/p&gt;
+            &lt;p className="text-lg font-bold text-blue-600 dark:text-blue-400"&gt;
               {player.name}{' '}
-              &lt;span className="text-sm font-normal text-slate-500"&gt;
+              &lt;span className="text-sm font-normal text-slate-500 dark:text-slate-500"&gt;
                 ({player.position} - {player.nfl_team})
               &lt;/span&gt;
             &lt;/p&gt;
@@ -339,7 +339,7 @@ const ClaimModal = <span class="fstat-no" title="function not covered" >({</span
 &nbsp;
           {/* Bid Input */}
           &lt;div&gt;
-            &lt;label className="block text-sm font-medium text-slate-300 mb-2"&gt;
+            &lt;label className="block text-sm font-medium text-slate-700 mb-2 dark:text-slate-300"&gt;
               Bid Amount ($)
             &lt;/label&gt;
             &lt;input
@@ -347,22 +347,22 @@ const ClaimModal = <span class="fstat-no" title="function not covered" >({</span
               min="0"
               value={bid}
               onChange={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setBid(parseInt(e.target.value) || 0)}</span>
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:bg-slate-950 dark:border-slate-700 dark:text-white"
             /&gt;
-            &lt;p className="text-xs text-slate-500 mt-2 flex items-center gap-1"&gt;
+            &lt;p className="text-xs text-slate-600 mt-2 flex items-center gap-1 dark:text-slate-500"&gt;
               &lt;FiInfo size={12} /&gt; Claims are processed based on highest bid.
             &lt;/p&gt;
           &lt;/div&gt;
 &nbsp;
           {/* Drop Selection */}
           &lt;div&gt;
-            &lt;label className="block text-sm font-medium text-slate-300 mb-2"&gt;
+            &lt;label className="block text-sm font-medium text-slate-700 mb-2 dark:text-slate-300"&gt;
               Player to Drop (Optional)
             &lt;/label&gt;
             &lt;select
               value={playerToDrop}
               onChange={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; <span class="cstat-no" title="statement not covered" >setPlayerToDrop(e.target.value)}</span>
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
+              className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none dark:bg-slate-950 dark:border-slate-700 dark:text-white"
             &gt;
               &lt;option value=""&gt;-- Select a player --&lt;/option&gt;
               {userRoster.map(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; (
@@ -378,7 +378,7 @@ const ClaimModal = <span class="fstat-no" title="function not covered" >({</span
             &lt;button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-all"
+              className="flex-1 px-4 py-3 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             &gt;
               Cancel
             &lt;/button&gt;
@@ -403,7 +403,7 @@ export default ClaimModal;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-25T11:26:52.950Z
+                at 2026-05-04T13:14:29.757Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
