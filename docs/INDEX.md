@@ -68,6 +68,7 @@ Refer to the appropriate file for more information.
 
 ### Archive
 
+- [Markdown Governance Sweep Report 2026-05-05](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md)
 - [Markdown Governance Sweep Report 2026-03-08](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-03-08.md)
 - [Session Completion 2026-03-21](archive/SESSION_COMPLETION_2026-03-21.md)
 
@@ -113,6 +114,10 @@ Refer to the appropriate file for more information.
 - [Milestone-5-Gameplay-Logic](milestones/milestone-5-gameplay-logic.md)
 - [Milestone-6-Production-Readiness](milestones/milestone-6-production-readiness.md)
 - [Milestone-7-Release-1.0](milestones/milestone-7-release-1.0.md)
+
+### Live-Scoring
+
+- [Espn-Contract](live-scoring/espn-contract.md)
 
 ### Ml
 

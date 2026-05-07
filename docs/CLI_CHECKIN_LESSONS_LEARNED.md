@@ -2,6 +2,7 @@
 
 Date: 2026-03-08
 Scope: Recent implementation and debugging sessions on `feature/scoring-integration-analytics`
+Governance Tracker: [Issue #156](https://github.com/NPGrant81/fantasy-football-pi/issues/156)
 
 ## Why this file exists
 This file records concrete break/fix learnings from CLI-driven check-ins so future build-outs can avoid repeat regressions.

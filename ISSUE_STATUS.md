@@ -5,6 +5,12 @@
 
 ---
 
+## Documentation Governance Sweep Updates
+
+- **Issue #156 pass 3 (2026-05-05):** Completed docs freshness sweep for API/deployment/process governance docs.
+- **Key outputs:** Updated API base URL guidance, added governance tracker links in operational docs, expanded doc-to-issue map, and archived pass-3 sweep report at `docs/archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md`.
+- **Guardrail confirmation:** Documentation-only changes; no architecture change and no regression to March baseline behavior.
+
 ## Resolved Issue Closure Queue (March 2026)
 
 - **Issue #186**: `Bug Report System Cannot Create GitHub Issues (GitHub App Credentials Not Configured)`
