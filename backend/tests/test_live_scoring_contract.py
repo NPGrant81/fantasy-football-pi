@@ -1,5 +1,7 @@
 from backend.services.live_scoring_contract import (
+    inspect_play_by_play_contract,
     inspect_scoreboard_contract,
+    inspect_summary_contract,
     map_scoreboard_payload,
     to_nfl_game_upsert_rows,
 )
@@ -150,3 +152,63 @@ def test_map_scoreboard_payload_extracts_player_stats_from_leaders():
     away_qb = next(item for item in normalized.player_stats if item.player_espn_id == "2001")
     assert away_qb.team_abbr == "LAR"
     assert away_qb.fantasy_points == 14.5
+
+
+def test_inspect_summary_contract_happy_path():
+    payload = {
+        "header": {
+            "id": "401772001",
+            "season": {"year": 2026},
+            "competitions": [
+                {
+                    "competitors": [
+                        {"team": {"id": "2", "abbreviation": "BUF"}},
+                        {"team": {"id": "9", "abbreviation": "LAR"}},
+                    ]
+                }
+            ],
+        }
+    }
+    report = inspect_summary_contract(payload)
+    assert report.event_count == 1
+    assert report.missing_paths == []
+    assert all(report.required_paths.values())
+
+
+def test_inspect_summary_contract_reports_missing_paths():
+    payload = {"header": {"id": "401772001", "competitions": []}}
+    report = inspect_summary_contract(payload)
+    assert "header.season.year" in report.missing_paths
+    assert "header.competitions[].competitors[].team.id" in report.missing_paths
+
+
+def test_inspect_play_by_play_contract_happy_path():
+    payload = {
+        "gamepackageJSON": {
+            "header": {"id": "401772001"},
+            "drives": {
+                "previous": [
+                    {
+                        "id": "13",
+                        "plays": [
+                            {
+                                "id": "401772001_3421",
+                                "text": "QB complete to WR for 12 yards",
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+    }
+    report = inspect_play_by_play_contract(payload)
+    assert report.event_count == 1
+    assert report.missing_paths == []
+    assert all(report.required_paths.values())
+
+
+def test_inspect_play_by_play_contract_reports_missing_paths():
+    payload = {"gamepackageJSON": {"header": {"id": "401772001"}, "drives": {"previous": []}}}
+    report = inspect_play_by_play_contract(payload)
+    assert "gamepackageJSON.drives.previous[].id" in report.missing_paths
+    assert "gamepackageJSON.drives.previous[].plays[].id" in report.missing_paths

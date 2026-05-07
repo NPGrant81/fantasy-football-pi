@@ -51,6 +51,13 @@ def _serialize_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         sources = fields.List(fields.String(), allow_none=True)
         adp = fields.Float(allow_none=True)
         confidence_score = fields.Float(allow_none=True)
+        sentiment_score_7d = fields.Float(load_default=0.0)
+        sentiment_label = fields.String(allow_none=True, load_default=None)
+        mention_count_7d = fields.Integer(load_default=0)
+        injury_status = fields.String(allow_none=True, load_default=None)
+        injury_notes = fields.String(allow_none=True, load_default=None)
+        projected_return_date = fields.String(allow_none=True, load_default=None)
+        projected_return_week = fields.Integer(allow_none=True, load_default=None)
 
     schema = HistoricalRankingSchema(many=True)
     return schema.dump(rows)
@@ -600,6 +607,31 @@ def get_historical_rankings(
     consistency_factors = _build_consistency_factors(db, season=season)
     source_price_stats = _build_source_price_stats(db, season=season)
 
+    # --- Sentiment trends (optional; neutral pass-through if no news ingested) ---
+    sentiment_map: dict[int, dict[str, Any]] = {}
+    if league_id is not None:
+        trend_rows = (
+            db.query(
+                models.PlayerNewsSentimentTrend.player_id,
+                models.PlayerNewsSentimentTrend.window_hours,
+                models.PlayerNewsSentimentTrend.average_score,
+                models.PlayerNewsSentimentTrend.mention_count,
+            )
+            .filter(
+                models.PlayerNewsSentimentTrend.league_id == league_id,
+                models.PlayerNewsSentimentTrend.window_hours.in_([168, 336]),
+            )
+            .all()
+        )
+        for row in trend_rows:
+            pid = int(row.player_id)
+            entry = sentiment_map.setdefault(pid, {"score_7d": 0.0, "score_14d": None, "count_7d": 0})
+            if row.window_hours == 168:
+                entry["score_7d"] = float(row.average_score or 0.0)
+                entry["count_7d"] = int(row.mention_count or 0)
+            elif row.window_hours == 336:
+                entry["score_14d"] = float(row.average_score or 0.0)
+
     scored_payload: list[dict[str, Any]] = []
     for draft_value, player in query_rows:
         pos = (player.position or "UNK").upper()
@@ -646,6 +678,43 @@ def get_historical_rankings(
         risk_score_derived = max(0.0, min(100.0, (1.0 - min(max(reliability_blend, 0.0), 1.5) / 1.5) * 100.0))
         confidence_score = round(100.0 - risk_score_derived, 2)
 
+        # --- Sentiment modifier (bounded ±15%; neutral when no news coverage) ---
+        snt = sentiment_map.get(int(player.id), {})
+        sentiment_score_7d = float(snt.get("score_7d", 0.0))
+        mention_count_7d = int(snt.get("count_7d", 0))
+        score_14d = snt.get("score_14d")
+        sentiment_velocity = 0.0
+        if score_14d is not None:
+            sentiment_velocity = max(-1.0, min(1.0, sentiment_score_7d - score_14d))
+
+        base_mod = max(-0.10, min(0.10, sentiment_score_7d * 0.10))
+        vel_mod = max(-0.05, min(0.05, sentiment_velocity * 0.05))
+        combined_mod = max(-0.15, min(0.15, base_mod + vel_mod))
+        final_score = final_score * (1.0 + combined_mod)
+
+        if sentiment_score_7d >= 0.15:
+            sentiment_label = "positive"
+        elif sentiment_score_7d <= -0.15:
+            sentiment_label = "negative"
+        else:
+            sentiment_label = "neutral"
+
+        # --- Injury designation penalty ----------------------------------------
+        # Applied as a multiplicative factor on top of the sentiment-adjusted score.
+        # IR / OUT effectively remove the player from consideration this week.
+        _INJURY_MULTIPLIER = {
+            "IR": 0.0,
+            "OUT": 0.05,
+            "DOUBTFUL": 0.55,
+            "QUESTIONABLE": 0.85,
+            "LIMITED": 0.95,
+        }
+        injury_status: str | None = getattr(player, "injury_status", None)
+        if injury_status:
+            injury_status = injury_status.upper().strip()
+        injury_multiplier = _INJURY_MULTIPLIER.get(injury_status or "", 1.0)
+        final_score = final_score * injury_multiplier
+
         scored_payload.append(
             {
                 "player_id": int(player.id),
@@ -672,6 +741,13 @@ def get_historical_rankings(
                 "source_count": price_stats.get("source_count", 0),
                 "sources": price_stats.get("sources", []),
                 "adp": float(player.adp) if player.adp is not None else None,
+                "sentiment_score_7d": round(sentiment_score_7d, 4),
+                "sentiment_label": sentiment_label,
+                "mention_count_7d": mention_count_7d,
+                "injury_status": injury_status,
+                "injury_notes": getattr(player, "injury_notes", None),
+                "projected_return_date": getattr(player, "projected_return_date", None),
+                "projected_return_week": getattr(player, "projected_return_week", None),
             }
         )
 

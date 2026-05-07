@@ -60,7 +60,10 @@ if __name__ == "__main__" or __package__ in (None, ""):
     get_password_hash = secmod.get_password_hash
     check_is_commissioner = secmod.check_is_commissioner
     watchdog_service = importlib.import_module("backend.services.live_scoring_watchdog_service")
+    polling_service = importlib.import_module("backend.services.live_scoring_polling_service")
     player_news_scheduler_service = importlib.import_module("backend.services.player_news_scheduler_service")
+    live_scoring_event_bus = importlib.import_module("backend.services.live_scoring_event_bus")
+    live_scoring_sse = importlib.import_module("backend.routers.live_scoring_sse")
     run_seeder = importlib.import_module("backend.scripts.seed").run_seeder
 else:
     # normal package imports
@@ -68,7 +71,10 @@ else:
     from .database import engine, SessionLocal
     from .core.security import get_password_hash, check_is_commissioner
     from .services import live_scoring_watchdog_service as watchdog_service
+    from .services import live_scoring_polling_service as polling_service
     from .services import player_news_scheduler_service
+    from .services import live_scoring_event_bus
+    from .routers import live_scoring_sse
     from .scripts.seed import run_seeder
     from .routers import (
         admin,
@@ -162,9 +168,20 @@ async def lifespan(app: FastAPI):
         )
 
     try:
+        import asyncio as _asyncio
+        live_scoring_event_bus.set_event_loop(_asyncio.get_event_loop())
+    except Exception as e:
+        print(f"Warning: Could not register event loop with live scoring event bus: {e}")
+
+    try:
         watchdog_service.start_live_scoring_watchdog_scheduler()
     except Exception as e:
         print(f"Warning: Could not start live scoring watchdog scheduler: {e}")
+
+    try:
+        polling_service.start_live_scoring_polling_scheduler()
+    except Exception as e:
+        print(f"Warning: Could not start live scoring polling scheduler: {e}")
 
     try:
         player_news_scheduler_service.start_player_news_ingest_scheduler()
@@ -179,6 +196,11 @@ async def lifespan(app: FastAPI):
         watchdog_service.stop_live_scoring_watchdog_scheduler()
     except Exception as e:
         print(f"Warning: Could not stop live scoring watchdog scheduler: {e}")
+
+    try:
+        polling_service.stop_live_scoring_polling_scheduler()
+    except Exception as e:
+        print(f"Warning: Could not stop live scoring polling scheduler: {e}")
 
     try:
         player_news_scheduler_service.stop_player_news_ingest_scheduler()
@@ -374,6 +396,7 @@ app.include_router(news.router)
 # Domain-scoped admin maintenance routers.
 app.include_router(admin_nfl.router)
 app.include_router(admin_live_scoring.router)
+app.include_router(live_scoring_sse.router)
 app.include_router(admin_drafts.router)
 app.include_router(admin_config.router)
 

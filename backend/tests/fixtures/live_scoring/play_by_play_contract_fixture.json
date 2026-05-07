@@ -1,0 +1,20 @@
+{
+  "gamepackageJSON": {
+    "header": {
+      "id": "401772001"
+    },
+    "drives": {
+      "previous": [
+        {
+          "id": "13",
+          "plays": [
+            {
+              "id": "401772001_3421",
+              "text": "QB complete to WR for 12 yards"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

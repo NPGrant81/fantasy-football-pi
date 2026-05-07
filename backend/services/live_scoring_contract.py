@@ -23,18 +23,52 @@ REQUIRED_SCOREBOARD_PATHS: tuple[str, ...] = (
     "events[].competitions[].competitors[].score",
 )
 
+REQUIRED_SUMMARY_PATHS: tuple[str, ...] = (
+    "header.id",
+    "header.competitions",
+    "header.competitions[].competitors",
+    "header.competitions[].competitors[].team.id",
+    "header.competitions[].competitors[].team.abbreviation",
+    "header.season.year",
+)
+
+REQUIRED_PLAY_BY_PLAY_PATHS: tuple[str, ...] = (
+    "gamepackageJSON.header.id",
+    "gamepackageJSON.drives.previous",
+    "gamepackageJSON.drives.previous[].id",
+    "gamepackageJSON.drives.previous[].plays",
+    "gamepackageJSON.drives.previous[].plays[].id",
+    "gamepackageJSON.drives.previous[].plays[].text",
+)
+
 
 def inspect_scoreboard_contract(payload: dict[str, Any]) -> ContractInspectionResult:
     events = payload.get("events")
-    required_paths = {
-        path: _path_exists(payload, path)
-        for path in REQUIRED_SCOREBOARD_PATHS
-    }
-    missing_paths = [path for path, present in required_paths.items() if not present]
+    required_paths, missing_paths = _inspect_required_paths(payload, REQUIRED_SCOREBOARD_PATHS)
     return ContractInspectionResult(
         required_paths=required_paths,
         missing_paths=missing_paths,
         event_count=len(events) if isinstance(events, list) else 0,
+    )
+
+
+def inspect_summary_contract(payload: dict[str, Any]) -> ContractInspectionResult:
+    competitions = _read_path(payload, "header.competitions")
+    required_paths, missing_paths = _inspect_required_paths(payload, REQUIRED_SUMMARY_PATHS)
+    return ContractInspectionResult(
+        required_paths=required_paths,
+        missing_paths=missing_paths,
+        event_count=len(competitions) if isinstance(competitions, list) else 0,
+    )
+
+
+def inspect_play_by_play_contract(payload: dict[str, Any]) -> ContractInspectionResult:
+    plays = _read_path(payload, "gamepackageJSON.drives.previous")
+    required_paths, missing_paths = _inspect_required_paths(payload, REQUIRED_PLAY_BY_PLAY_PATHS)
+    return ContractInspectionResult(
+        required_paths=required_paths,
+        missing_paths=missing_paths,
+        event_count=len(plays) if isinstance(plays, list) else 0,
     )
 
 
@@ -282,6 +316,15 @@ def _resolve_home_away(competitors: list[dict[str, Any]]) -> tuple[dict[str, Any
 def _path_exists(payload: dict[str, Any], path: str) -> bool:
     tokens = path.split(".")
     return _path_exists_from(payload, tokens)
+
+
+def _inspect_required_paths(
+    payload: dict[str, Any],
+    required_paths: tuple[str, ...],
+) -> tuple[dict[str, bool], list[str]]:
+    path_map = {path: _path_exists(payload, path) for path in required_paths}
+    missing_paths = [path for path, present in path_map.items() if not present]
+    return path_map, missing_paths
 
 
 def _path_exists_from(current: Any, tokens: list[str]) -> bool:

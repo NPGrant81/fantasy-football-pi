@@ -1,0 +1,26 @@
+{
+  "header": {
+    "id": "401772001",
+    "season": {
+      "year": 2026
+    },
+    "competitions": [
+      {
+        "competitors": [
+          {
+            "team": {
+              "id": "2",
+              "abbreviation": "BUF"
+            }
+          },
+          {
+            "team": {
+              "id": "9",
+              "abbreviation": "LAR"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

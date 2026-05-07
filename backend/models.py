@@ -290,6 +290,17 @@ class Player(Base):
     gsis_id = Column(String, nullable=True, unique=True)
     espn_id = Column(String, nullable=True, unique=True)
     bye_week = Column(Integer, nullable=True)
+
+    # Injury & availability fields
+    # injury_status: OUT | IR | DOUBTFUL | QUESTIONABLE | LIMITED | None (healthy)
+    injury_status = Column(String, nullable=True)
+    # Free-text note from news/beat reporters, e.g. "Hamstring — week-to-week"
+    injury_notes = Column(String, nullable=True)
+    # Projected return expressed as an ISO-8601 date string, e.g. "2026-09-14"
+    # or a plain label like "Week 3".  Populated by the injury update pipeline.
+    projected_return_date = Column(String, nullable=True)
+    # Season week number of projected return (1-18); NULL = unknown / healthy
+    projected_return_week = Column(Integer, nullable=True)
     
     draft_pick = relationship("DraftPick", back_populates="player", uselist=False)
     seasons = relationship("PlayerSeason", back_populates="player")
@@ -500,6 +511,32 @@ class NFLGame(Base):
     home_score = Column(Integer, default=0)
     away_score = Column(Integer, default=0)
     # additional fields (odds, venue, etc.) can be added later
+
+
+class LiveScoringIngestEvent(Base):
+    __tablename__ = "live_scoring_ingest_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "source",
+            "season",
+            "week",
+            "scoreboard_fingerprint",
+            name="uq_live_scoring_ingest_event_scope",
+        ),
+        Index("ix_live_scoring_ingest_events_scope", "source", "season", "week"),
+        Index("ix_live_scoring_ingest_events_fingerprint", "scoreboard_fingerprint"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String(64), nullable=False, index=True)
+    season = Column(Integer, nullable=False, index=True)
+    week = Column(Integer, nullable=True, index=True)
+    scoreboard_fingerprint = Column(String(64), nullable=False, index=True)
+    event_count = Column(Integer, nullable=False, default=0)
+    game_states = Column(JSON, nullable=True)
+    fetch_diagnostics = Column(JSON, nullable=True)
+    raw_response_path = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 # --- 6. MATCHUP TABLE ---
 class Matchup(Base):

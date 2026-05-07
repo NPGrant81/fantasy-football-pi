@@ -8,6 +8,7 @@ from collections import defaultdict, deque
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -138,8 +139,8 @@ def login_for_access_token(
             detail="Too many login attempts. Please try again later.",
         )
 
-    # 1.2.3 RETRIEVAL: Find the user
-    user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    # 1.2.3 RETRIEVAL: Find the user (case-insensitive username match)
+    user = db.query(models.User).filter(func.lower(models.User.username) == form_data.username.strip().lower()).first()
     
     # 1.2.4 VALIDATION: Verify password
     if not user or not security.verify_password(form_data.password, user.hashed_password):

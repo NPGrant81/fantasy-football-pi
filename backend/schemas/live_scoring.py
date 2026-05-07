@@ -30,8 +30,8 @@ class NormalizedPlayerStat(BaseModel):
 
 
 class NormalizedLiveScoringPayload(BaseModel):
-    source: str = "espn_site_api_v2"
-    schema_version: str = "2026-03-14"
+    source: str = "espn_scoreboard_primary"
+    schema_version: str = "2026-05-06"
     generated_at_utc: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     games: list[NormalizedGame] = Field(default_factory=list)
     player_stats: list[NormalizedPlayerStat] = Field(default_factory=list)
