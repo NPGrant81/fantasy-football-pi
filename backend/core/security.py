@@ -2,6 +2,7 @@
 import os
 from datetime import datetime, timedelta, timezone # 1.1.1 Use timezone-aware datetime
 from typing import Optional
+from uuid import uuid4
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, Request, status
@@ -34,6 +35,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 ACCESS_TOKEN_COOKIE_NAME = os.environ.get("ACCESS_TOKEN_COOKIE_NAME", "ffpi_access_token")
 ALLOW_BEARER_AUTH = os.environ.get("ALLOW_BEARER_AUTH", "0") == "1"
+REVOCATION_PRUNE_INTERVAL_SECONDS = int(os.environ.get("REVOCATION_PRUNE_INTERVAL_SECONDS", "300"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # 1.1.3 IMPORTANT: Point this to your new auth router path
@@ -45,6 +47,8 @@ credentials_exception = HTTPException(
     detail="Could not validate credentials",
     headers={"WWW-Authenticate": "Bearer"},
 )
+
+_last_revocation_prune_at: datetime | None = None
 
 # --- 1.2 UTILITY FUNCTIONS (THE TOOLS) ---
 def verify_password(plain_password, hashed_password):
@@ -86,8 +90,81 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
+    if not to_encode.get("jti"):
+        to_encode["jti"] = uuid4().hex
+
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def choose_auth_token(cookie_token: Optional[str], bearer_token: Optional[str]) -> Optional[str]:
+    candidate_bearer = bearer_token if ALLOW_BEARER_AUTH else None
+    return cookie_token or candidate_bearer
+
+
+def decode_access_token(auth_token: str) -> dict:
+    return jwt.decode(auth_token, SECRET_KEY, algorithms=[ALGORITHM])
+
+
+def prune_expired_revoked_tokens(db: Session, force: bool = False) -> int:
+    global _last_revocation_prune_at
+
+    now = datetime.now(timezone.utc)
+    if not force and _last_revocation_prune_at is not None:
+        elapsed = (now - _last_revocation_prune_at).total_seconds()
+        if elapsed < REVOCATION_PRUNE_INTERVAL_SECONDS:
+            return 0
+
+    deleted = (
+        db.query(models.RevokedToken)
+        .filter(models.RevokedToken.expires_at <= now)
+        .delete(synchronize_session=False)
+    )
+    _last_revocation_prune_at = now
+    if deleted:
+        db.commit()
+    return int(deleted)
+
+
+def is_token_revoked(db: Session, jti: Optional[str]) -> bool:
+    if not jti:
+        return False
+    return (
+        db.query(models.RevokedToken.id)
+        .filter(models.RevokedToken.jti == jti)
+        .first()
+        is not None
+    )
+
+
+def revoke_access_token(db: Session, auth_token: str) -> bool:
+    try:
+        payload = decode_access_token(auth_token)
+    except JWTError:
+        return False
+
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    subject = payload.get("sub")
+    if not jti or exp is None:
+        return False
+
+    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+    if expires_at <= datetime.now(timezone.utc):
+        return False
+
+    if is_token_revoked(db, jti):
+        return True
+
+    db.add(
+        models.RevokedToken(
+            jti=str(jti),
+            token_subject=str(subject) if subject is not None else None,
+            expires_at=expires_at,
+        )
+    )
+    db.commit()
+    return True
 
 # --- 2.1 THE BOUNCERS (REFACTORED) ---
 
@@ -100,17 +177,21 @@ async def get_current_user(
     db: Session = Depends(get_db),
 ):
     cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
-    bearer_token = token if ALLOW_BEARER_AUTH else None
-    auth_token = cookie_token or bearer_token
+    auth_token = choose_auth_token(cookie_token, token)
     if not auth_token:
         raise credentials_exception
 
     try:
-        payload = jwt.decode(auth_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode_access_token(auth_token)
         username: str = payload.get("sub")
-        if username is None:
+        jti: str | None = payload.get("jti")
+        if username is None or jti is None:
             raise credentials_exception
     except JWTError:
+        raise credentials_exception
+
+    prune_expired_revoked_tokens(db)
+    if is_token_revoked(db, jti):
         raise credentials_exception
 
     user = db.query(models.User).filter(models.User.username == username).first()

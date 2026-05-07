@@ -1,10 +1,13 @@
 import sys
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from fastapi.testclient import TestClient
+from jose import jwt
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -132,3 +135,98 @@ def test_login_with_malformed_hash_returns_401_not_500(client, api_db):
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Incorrect username or password"
+
+
+def test_logout_revokes_token_and_blocks_reuse(client, api_db, monkeypatch):
+    monkeypatch.setattr(
+        security,
+        "verify_password",
+        lambda plain_password, hashed_password: plain_password == "secret"
+        and hashed_password == "test-hash",
+    )
+
+    user = models.User(
+        username="revocation-user",
+        email="revocation-user@test.com",
+        hashed_password="test-hash",
+        league_id=1,
+    )
+    api_db.add(user)
+    api_db.commit()
+
+    login = client.post(
+        "/auth/token",
+        data={"username": "revocation-user", "password": "secret"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert login.status_code == 200
+
+    access_token = login.json()["access_token"]
+    csrf_token = login.cookies.get("ffpi_csrf_token")
+    assert csrf_token
+
+    logout = client.post("/auth/logout", headers={"X-CSRF-Token": csrf_token})
+    assert logout.status_code == 200
+
+    # Re-inject the previously issued token; revocation should block it.
+    client.cookies.set("ffpi_access_token", access_token)
+    blocked = client.get("/auth/me")
+    assert blocked.status_code == 401
+
+
+def test_revocation_survives_fresh_client_session(client, api_db, monkeypatch):
+    monkeypatch.setattr(
+        security,
+        "verify_password",
+        lambda plain_password, hashed_password: plain_password == "secret"
+        and hashed_password == "test-hash",
+    )
+
+    user = models.User(
+        username="revocation-persist-user",
+        email="revocation-persist-user@test.com",
+        hashed_password="test-hash",
+        league_id=1,
+    )
+    api_db.add(user)
+    api_db.commit()
+
+    login = client.post(
+        "/auth/token",
+        data={"username": "revocation-persist-user", "password": "secret"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert login.status_code == 200
+
+    access_token = login.json()["access_token"]
+    payload = jwt.decode(
+        access_token,
+        security.SECRET_KEY,
+        algorithms=[security.ALGORITHM],
+        options={"verify_exp": False},
+    )
+    jti = payload.get("jti")
+    assert jti
+
+    csrf_token = login.cookies.get("ffpi_csrf_token")
+    assert csrf_token
+    logout = client.post("/auth/logout", headers={"X-CSRF-Token": csrf_token})
+    assert logout.status_code == 200
+
+    assert api_db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first() is not None
+
+    # Simulate a fresh process/client using the same persisted database rows.
+    original = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def noop_lifespan(_app):
+        yield
+
+    app.router.lifespan_context = noop_lifespan
+    try:
+        with TestClient(app) as fresh_client:
+            fresh_client.cookies.set("ffpi_access_token", access_token)
+            blocked = fresh_client.get("/auth/me")
+            assert blocked.status_code == 401
+    finally:
+        app.router.lifespan_context = original

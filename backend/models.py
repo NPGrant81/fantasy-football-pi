@@ -41,6 +41,20 @@ class User(Base):
     scoring_rule_proposals = relationship("ScoringRuleProposal", foreign_keys="ScoringRuleProposal.proposed_by_user_id", back_populates="proposed_by_user")
     scoring_rule_votes = relationship("ScoringRuleVote", foreign_keys="ScoringRuleVote.voter_user_id", back_populates="voter_user")
 
+
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+    __table_args__ = (
+        UniqueConstraint("jti", name="uq_revoked_tokens_jti"),
+        Index("ix_revoked_tokens_expires_at", "expires_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    jti = Column(String(64), nullable=False, index=True)
+    token_subject = Column(String(255), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
 # --- 2. LEAGUE TABLE ---
 class League(Base):
     __tablename__ = "leagues"
