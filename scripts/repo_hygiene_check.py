@@ -180,6 +180,8 @@ def check_frontend_component_naming() -> list[str]:
         if not base.exists():
             continue
         for file in base.rglob("*.jsx"):
+            if "__tests__" in file.parts or file.name.endswith((".test.jsx", ".spec.jsx")):
+                continue
             basename = file.stem
             if basename in ALLOW_REACT_BASENAMES:
                 continue
@@ -189,6 +191,8 @@ def check_frontend_component_naming() -> list[str]:
                     f"{file.relative_to(ROOT).as_posix()}"
                 )
         for file in base.rglob("*.tsx"):
+            if "__tests__" in file.parts or file.name.endswith((".test.tsx", ".spec.tsx")):
+                continue
             basename = file.stem
             if basename in ALLOW_REACT_BASENAMES:
                 continue

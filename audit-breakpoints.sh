@@ -17,7 +17,7 @@ while IFS= read -r -d '' file; do
     fi
   fi
 done < <(find src -type f -name "*.jsx" \
-    | grep -vE '/context/|/tests/|/api/|/hooks/|/utils/|setupTests\.jsx$|main\.jsx$|App\.jsx$' \
+  | grep -vE '/context/|/tests/|/__tests__/|/api/|/hooks/|/utils/|\.test\.jsx$|\.spec\.jsx$|setupTests\.jsx$|main\.jsx$|App\.jsx$' \
     | tr '\n' '\0')
 
 # drop empty lines
