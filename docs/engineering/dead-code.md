@@ -10,19 +10,19 @@ Signals are merged from static analysis, runtime coverage, and local dependency 
 ## Report Sources
 
 1. Python static analysis
-- `vulture` for unused functions, classes, and symbols.
-- `pyflakes` for unused imports/variables and unreachable-style findings.
+  - `vulture` for unused functions, classes, and symbols.
+  - `pyflakes` for unused imports/variables and unreachable-style findings.
 
 2. Frontend static analysis
-- ESLint `no-unused-vars` and `no-unused-private-class-members` rule output.
+  - ESLint `no-unused-vars` and `no-unused-private-class-members` rule output.
 
 3. Runtime coverage hotspots
-- Backend from `backend-coverage.xml`.
-- Frontend from `coverage-final.json`.
+  - Backend from `backend-coverage.xml`.
+  - Frontend from `coverage-final.json`.
 
 4. Dependency graph orphan scan
-- Python local import graph over `backend/`, `etl/`, and `scripts/`.
-- Frontend import graph over `frontend/src`.
+  - Python local import graph over `backend/`, `etl/`, and `scripts/`.
+  - Frontend import graph over `frontend/src`.
 
 ## CI Behavior
 
@@ -39,24 +39,24 @@ Artifacts produced:
 Use this checklist before deleting any candidate:
 
 1. Confirm reference safety
-- Search for dynamic imports (`importlib`, `__import__`, `import()`), reflection, plugin registration, or string-based dispatch.
-- Confirm route registration, background schedulers, and startup hooks do not reference the candidate.
+  - Search for dynamic imports (`importlib`, `__import__`, `import()`), reflection, plugin registration, or string-based dispatch.
+  - Confirm route registration, background schedulers, and startup hooks do not reference the candidate.
 
 2. Confirm runtime/config safety
-- Confirm no Docker, systemd, Nginx, shell scripts, or deployment docs depend on the candidate path.
-- Confirm no ETL job or cron workflow references the candidate.
+  - Confirm no Docker, systemd, Nginx, shell scripts, or deployment docs depend on the candidate path.
+  - Confirm no ETL job or cron workflow references the candidate.
 
 3. Validate behavior safety
-- Add/update regression tests that exercise nearby behavior.
-- Run backend tests, frontend tests, and smoke flows relevant to the candidate.
+  - Add/update regression tests that exercise nearby behavior.
+  - Run backend tests, frontend tests, and smoke flows relevant to the candidate.
 
 4. Execute safe deletion
-- Prefer small, isolated PRs for removals.
-- Link each removal to report evidence and reviewer confirmation.
+  - Prefer small, isolated PRs for removals.
+  - Link each removal to report evidence and reviewer confirmation.
 
 5. Post-removal verification
-- Re-run CI and verify no new import/runtime errors.
-- Confirm dead-code report no longer flags removed paths.
+  - Re-run CI and verify no new import/runtime errors.
+  - Confirm dead-code report no longer flags removed paths.
 
 ## Notes On False Positives
 

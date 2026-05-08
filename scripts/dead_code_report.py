@@ -31,7 +31,7 @@ FRONTEND_DIR = ROOT / "frontend"
 FRONTEND_SRC = FRONTEND_DIR / "src"
 FRONTEND_TESTS = FRONTEND_DIR / "tests"
 
-JS_ALIAS_PREFIXES = {
+DEFAULT_JS_ALIAS_PREFIXES = {
     "@": FRONTEND_SRC,
     "@components": FRONTEND_SRC / "components",
     "@api": FRONTEND_SRC / "api",
@@ -71,6 +71,47 @@ JS_IMPORT_RE = re.compile(
     r")\s*['\"]([^'\"\n]+)['\"]",
     re.MULTILINE,
 )
+
+
+def _load_js_alias_prefixes() -> dict[str, Path]:
+    alias_map: dict[str, Path] = dict(DEFAULT_JS_ALIAS_PREFIXES)
+    for config_name in ("tsconfig.typecheck.json", "tsconfig.json"):
+        config_path = FRONTEND_DIR / config_name
+        if not config_path.exists():
+            continue
+        try:
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        compiler_options = payload.get("compilerOptions", {})
+        if not isinstance(compiler_options, dict):
+            continue
+
+        paths = compiler_options.get("paths", {})
+        if not isinstance(paths, dict):
+            continue
+
+        base_url = compiler_options.get("baseUrl", ".")
+        base_dir = (FRONTEND_DIR / str(base_url)).resolve()
+
+        for alias_pattern, targets in paths.items():
+            if not isinstance(alias_pattern, str) or not isinstance(targets, list) or not targets:
+                continue
+            first_target = targets[0]
+            if not isinstance(first_target, str):
+                continue
+
+            alias = alias_pattern.rstrip("/*")
+            target = first_target.rstrip("/*")
+            if not alias:
+                continue
+            alias_map[alias] = (base_dir / target).resolve()
+
+    return alias_map
+
+
+JS_ALIAS_PREFIXES = _load_js_alias_prefixes()
 
 
 @dataclass
@@ -195,10 +236,6 @@ def run_eslint_unused() -> dict:
         ".js,.jsx,.ts,.tsx",
         "--format",
         "json",
-        "--rule",
-        "no-unused-vars:error",
-        "--rule",
-        "no-unused-private-class-members:error",
     ]
     result = _run_command(cmd, cwd=FRONTEND_DIR)
 
@@ -257,7 +294,15 @@ def parse_backend_coverage(coverage_xml: Path | None) -> dict:
     if not coverage_xml or not coverage_xml.exists():
         return {"status": "missing", "zero_coverage_files": []}
 
-    root = ET.parse(coverage_xml).getroot()
+    try:
+        root = ET.parse(coverage_xml).getroot()
+    except (ET.ParseError, OSError) as exc:
+        return {
+            "status": "error",
+            "zero_coverage_files": [],
+            "errors": [f"Failed to parse backend coverage XML: {exc}"],
+        }
+
     zero_files: list[str] = []
 
     for class_node in root.findall(".//class"):
@@ -280,7 +325,15 @@ def parse_frontend_coverage(coverage_json: Path | None) -> dict:
     if not coverage_json or not coverage_json.exists():
         return {"status": "missing", "zero_coverage_files": []}
 
-    payload = json.loads(coverage_json.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(coverage_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "status": "error",
+            "zero_coverage_files": [],
+            "errors": [f"Failed to parse frontend coverage JSON: {exc}"],
+        }
+
     zero_files: list[str] = []
 
     for path, file_data in payload.items():
@@ -446,15 +499,7 @@ def _resolve_js_import(source_path: Path, raw_import: str, known_modules: dict[s
 
 
 def _resolve_alias_import(raw_import: str) -> Path | None:
-    if raw_import == "@":
-        return JS_ALIAS_PREFIXES["@"]
-
     for alias, alias_path in JS_ALIAS_PREFIXES.items():
-        if alias == "@":
-            if raw_import.startswith("@/"):
-                return alias_path / raw_import[2:]
-            continue
-
         if raw_import == alias:
             return alias_path
         if raw_import.startswith(alias + "/"):
