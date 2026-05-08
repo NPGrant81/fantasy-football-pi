@@ -50,3 +50,11 @@ class HistoricalRankingResponse(BaseModel):
     sources: Optional[list[str]] = None
     adp: Optional[float] = None
     confidence_score: Optional[float] = None
+    sentiment_score_7d: float = 0.0
+    sentiment_label: Optional[str] = None
+    mention_count_7d: int = 0
+    # Injury / availability
+    injury_status: Optional[str] = None
+    injury_notes: Optional[str] = None
+    projected_return_date: Optional[str] = None
+    projected_return_week: Optional[int] = None

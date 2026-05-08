@@ -10,6 +10,7 @@
 // Add padding and spacing for clean look
 
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   FiBarChart2,
   FiTrendingUp,
@@ -32,18 +33,27 @@ import LuckIndexChart from '../../components/charts/LuckIndexChart';
 import PlayerConsistencyChart from '../../components/charts/PlayerConsistencyChart';
 import WaiverOpportunityChart from '../../components/charts/WaiverOpportunityChart';
 import { LoadingState } from '@components/common/AsyncState';
+import ActionTile from '@components/common/ActionTile';
 import PageTemplate from '@components/layout/PageTemplate';
 import {
-  buttonPrimary,
-  buttonSecondary,
   cardSurface,
 } from '@utils/uiStandards';
 
 /* ignore-breakpoints */
 
 const AnalyticsDashboard = () => {
+  const location = useLocation();
+  const selectedFromState = location?.state?.selectedChart || null;
+  const preloadedTradeContext = location?.state?.tradeAnalyzerContext || null;
+
   const [selected, setSelected] = React.useState(null); // null, 'draft','manager','luck','consistency','waiver','weekly','heatmap','trade','rivalry'
   const [loadingChart, setLoadingChart] = React.useState(false);
+
+  React.useEffect(() => {
+    if (selectedFromState) {
+      setSelected(selectedFromState);
+    }
+  }, [selectedFromState]);
 
   const charts = [
     {
@@ -149,7 +159,7 @@ const AnalyticsDashboard = () => {
       case 'trade':
         return (
           <div className="chart-card">
-            <TradeAnalyzer />
+            <TradeAnalyzer preloadedContext={preloadedTradeContext} />
           </div>
         );
       case 'luck':
@@ -179,20 +189,17 @@ const AnalyticsDashboard = () => {
       subtitle="Advanced insights and visualizations for your fantasy league."
     >
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3">
         {charts.map((chart) => (
-          <button
+          <ActionTile
             key={chart.key}
-            type="button"
-            className={`${selected === chart.key ? buttonPrimary : buttonSecondary} min-h-[88px] flex-col items-start gap-1 text-left`}
+            icon={chart.icon}
+            title={chart.label}
+            description={chart.description}
+            selected={selected === chart.key}
             onClick={() => handleSelectChart(chart.key)}
             disabled={loadingChart}
-          >
-            <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider">
-              <chart.icon /> {chart.label}
-            </span>
-            <span className="text-xs font-medium normal-case opacity-90">{chart.description}</span>
-          </button>
+          />
         ))}
       </div>
 

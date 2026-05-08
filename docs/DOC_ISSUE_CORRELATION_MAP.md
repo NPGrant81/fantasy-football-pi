@@ -21,7 +21,9 @@ This table links key markdown documents to governing GitHub issues/epics so impl
 | `docs/PATTERN_LIBRARY.md` | Canonical repository for cross-cutting implementation patterns and contracts | #333, #307, #156 |
 | `docs/PATTERN_COMPLIANCE_MATRIX.md` | Short-term and long-term pattern compliance tracking matrix | #334, #333 |
 | `docs/PATTERN_STANDARDIZATION_PLAN.md` | Phased plan for pattern compliance regression checks and convergence | #334, #333 |
-| `docs/DEPENDENCY_MAINTENANCE.md` | Dependency hygiene process | #113 |
+| `docs/DEPENDENCY_MAINTENANCE.md` | Dependency hygiene process | #156, #113 |
+| `docs/DOCUMENTATION_UPDATE_PROCESS_PLAN.md` | Process proposal for stale/conflicting documentation prevention | #156 |
+| `docs/DEPLOYMENT_WORKFLOWS.md` | CI/CD deployment workflow contract and required deployment secrets | #156 |
 | `docs/SECURITY_HARDENING.md` | Security hardening standards | #113 |
 
 ## Maintenance Rule

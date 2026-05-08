@@ -131,6 +131,14 @@ def test_live_score_ingest_dry_run_endpoint(client, api_db):
             "year": kwargs["year"],
             "week": kwargs["week"],
             "degraded": False,
+            "event_contracts": [
+                {
+                    "event_id": "401772001",
+                    "summary": {"status": "success", "missing_required_paths_count": 0},
+                    "play_by_play": {"status": "success", "missing_required_paths_count": 0},
+                    "degraded": False,
+                }
+            ],
             "fetch_diagnostics": {"attempts": [{"status": "success"}]},
         }
 
@@ -145,6 +153,8 @@ def test_live_score_ingest_dry_run_endpoint(client, api_db):
             "timeout_seconds": 15,
             "override_url": "https://mirror.example/scoreboard",
             "enable_failover": False,
+            "inspect_event_contracts_enabled": True,
+            "event_contracts_limit": 2,
         },
     )
 
@@ -153,6 +163,9 @@ def test_live_score_ingest_dry_run_endpoint(client, api_db):
     assert body["status"] == "success"
     assert body["mode"] == "dry_run"
     assert body["degraded"] is False
+    assert body["event_contracts"][0]["event_id"] == "401772001"
+    assert body["event_contracts"][0]["summary"]["status"] == "success"
+    assert body["event_contracts"][0]["play_by_play"]["status"] == "success"
 
     assert len(calls) == 1
     assert calls[0]["year"] == 2026
@@ -161,6 +174,8 @@ def test_live_score_ingest_dry_run_endpoint(client, api_db):
     assert calls[0]["timeout_seconds"] == 15
     assert calls[0]["override_url"] == "https://mirror.example/scoreboard"
     assert calls[0]["enable_failover"] is False
+    assert calls[0]["inspect_event_contracts_enabled"] is True
+    assert calls[0]["event_contracts_limit"] == 2
 
 
 def test_live_score_ingest_endpoint_returns_502_with_diagnostics(client, api_db):
@@ -194,6 +209,48 @@ def test_live_score_ingest_endpoint_returns_502_with_diagnostics(client, api_db)
     detail = response.json()["detail"]
     assert detail["error_signature"] == "IngestFetchError"
     assert detail["fetch_diagnostics"]["degraded"] is True
+
+
+def test_live_score_ingest_defaults_enable_event_contract_inspection(client, api_db):
+    async def allow_commissioner():
+        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+
+    app.dependency_overrides[check_is_commissioner] = allow_commissioner
+
+    import backend.services.live_scoring_ingest_service as ingest
+
+    calls = []
+
+    def fake_run(**kwargs):
+        calls.append(kwargs)
+        return {
+            "status": "success",
+            "mode": "dry_run",
+            "degraded": False,
+            "event_contracts": [],
+            "fetch_diagnostics": {"attempts": [{"status": "success"}]},
+        }
+
+    ingest.run_live_scoreboard_ingest_with_controls = fake_run
+
+    response = client.post("/admin/live-scoring/ingest", json={"year": 2026, "dry_run": True})
+    assert response.status_code == 200
+    assert len(calls) == 1
+    assert calls[0]["inspect_event_contracts_enabled"] is True
+    assert calls[0]["event_contracts_limit"] == 3
+
+
+def test_live_score_ingest_rejects_invalid_event_contract_limit(client, api_db):
+    async def allow_commissioner():
+        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+
+    app.dependency_overrides[check_is_commissioner] = allow_commissioner
+
+    response = client.post(
+        "/admin/live-scoring/ingest",
+        json={"year": 2026, "dry_run": True, "event_contracts_limit": 99},
+    )
+    assert response.status_code == 422
 
 
 def test_live_score_ingest_health_endpoint(client, api_db):
@@ -271,6 +328,87 @@ def test_live_score_watchdog_alerts_endpoint(client, api_db):
     assert body["limit"] == 7
     assert len(body["alerts"]) == 1
     assert body["alerts"][0]["limit_seen"] == 7
+
+
+def test_live_score_polling_status_endpoint(client, api_db):
+    async def allow_commissioner():
+        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+
+    app.dependency_overrides[check_is_commissioner] = allow_commissioner
+
+    import backend.services.live_scoring_polling_service as polling
+
+    def fake_status():
+        return {
+            "scheduler_running": True,
+            "keys": ["2026:1"],
+            "state": {"2026:1": {"last_mode": "apply"}},
+        }
+
+    polling.get_poll_runtime_status = fake_status
+
+    response = client.get("/admin/live-scoring/polling/status")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["scheduler_running"] is True
+    assert body["keys"] == ["2026:1"]
+
+
+def test_live_score_polling_cycles_endpoint(client, api_db):
+    async def allow_commissioner():
+        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+
+    app.dependency_overrides[check_is_commissioner] = allow_commissioner
+
+    import backend.services.live_scoring_polling_service as polling
+
+    def fake_load_cycles(limit: int = 100):
+        return [
+            {
+                "status": "success",
+                "year": 2026,
+                "week": 1,
+                "limit_seen": limit,
+            }
+        ]
+
+    polling.load_recent_poll_cycles = fake_load_cycles
+
+    response = client.get("/admin/live-scoring/polling/cycles?limit=9")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["limit"] == 9
+    assert len(body["cycles"]) == 1
+    assert body["cycles"][0]["limit_seen"] == 9
+
+
+def test_live_score_polling_summary_endpoint(client, api_db):
+    async def allow_commissioner():
+        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+
+    app.dependency_overrides[check_is_commissioner] = allow_commissioner
+
+    import backend.services.live_scoring_polling_service as polling
+
+    def fake_summary(limit: int = 100):
+        return {
+            "cycles_considered": 3,
+            "status_counts": {"success": 1, "skipped": 1, "failed": 1},
+            "mode_counts": {"apply": 1},
+            "last_cycle": {"status": "failed"},
+            "cycles": [{"status": "success"}],
+            "limit_seen": limit,
+        }
+
+    polling.summarize_poll_cycles = fake_summary
+
+    response = client.get("/admin/live-scoring/polling/summary?limit=11")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["limit"] == 11
+    assert body["cycles_considered"] == 3
+    assert body["status_counts"]["failed"] == 1
+    assert body["limit_seen"] == 11
 
 
 def test_refresh_draft_values_enqueues_background_task(client, api_db, monkeypatch):

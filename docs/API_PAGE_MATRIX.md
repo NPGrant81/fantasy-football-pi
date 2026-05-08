@@ -14,7 +14,7 @@ This document maps:
 
 ## Internal APIs (application-owned)
 
-Base URL (frontend client): `http://127.0.0.1:8000`
+Base URL (frontend client): `http://127.0.0.1:8010` (default dev port; override with `BACKEND_PORT` when needed)
 
 | Area                 | Endpoint(s)                                                                                                                                                                                                         | Used by                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |

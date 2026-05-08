@@ -22,7 +22,7 @@ import {
   summarizeTradeSide,
 } from './tradeAnalyzerLogic';
 
-export default function TradeAnalyzer() {
+export default function TradeAnalyzer({ preloadedContext = null }) {
   const [owners, setOwners] = useState([]);
   const [teamA, setTeamA] = useState(null);
   const [teamB, setTeamB] = useState(null);
@@ -44,12 +44,16 @@ export default function TradeAnalyzer() {
 
   const [analysisError, setAnalysisError] = useState('');
 
+  const [preloadedTeamsApplied, setPreloadedTeamsApplied] = useState(false);
+  const [preloadedPlayersAppliedA, setPreloadedPlayersAppliedA] = useState(false);
+  const [preloadedPlayersAppliedB, setPreloadedPlayersAppliedB] = useState(false);
+
   const positions = ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'DST', 'K'];
 
   const gradeTone = (grade) => {
     if (grade.startsWith('A')) return 'text-emerald-600 dark:text-emerald-300';
-    if (grade.startsWith('B')) return 'text-cyan-600 dark:text-cyan-300';
-    if (grade.startsWith('C')) return 'text-amber-600 dark:text-amber-300';
+    if (grade.startsWith('B')) return 'text-blue-600 dark:text-blue-300';
+    if (grade.startsWith('C')) return 'text-yellow-600 dark:text-yellow-300';
     return 'text-rose-600 dark:text-rose-300';
   };
 
@@ -65,8 +69,12 @@ export default function TradeAnalyzer() {
       const ownersPayload = await fetchLeagueOwners(lid);
       const nextOwners = Array.isArray(ownersPayload) ? ownersPayload : [];
       setOwners(nextOwners);
-      if (!teamA && nextOwners.length) setTeamA(nextOwners[0].id);
-      if (!teamB && nextOwners.length > 1) setTeamB(nextOwners[1].id);
+      if (nextOwners.length) {
+        setTeamA((prev) => prev ?? Number(nextOwners[0].id));
+      }
+      if (nextOwners.length > 1) {
+        setTeamB((prev) => prev ?? Number(nextOwners[1].id));
+      }
     } catch (err) {
       console.error(err);
       setAnalysisError(normalizeApiError(err, 'Failed to load team selectors.'));
@@ -78,6 +86,28 @@ export default function TradeAnalyzer() {
   useEffect(() => {
     loadOwners();
   }, [loadOwners]);
+
+  useEffect(() => {
+    if (!preloadedContext || preloadedTeamsApplied) return;
+    if (!owners.length) return;
+    const normalizeName = (value) => String(value || '').trim().toLowerCase();
+    const byName = (targetName) => {
+      const needle = normalizeName(targetName);
+      if (!needle || !owners.length) return null;
+      const match = owners.find((owner) => (
+        normalizeName(owner.team_name) === needle
+        || normalizeName(owner.owner_name) === needle
+        || normalizeName(owner.username) === needle
+      ));
+      return match ? Number(match.id) : null;
+    };
+
+    const nextA = byName(preloadedContext.teamAName) || Number(preloadedContext.teamAId || 0);
+    const nextB = byName(preloadedContext.teamBName) || Number(preloadedContext.teamBId || 0);
+    if (nextA) setTeamA(nextA);
+    if (nextB) setTeamB(nextB);
+    setPreloadedTeamsApplied(true);
+  }, [owners, preloadedContext, preloadedTeamsApplied]);
 
   useEffect(() => {
     if (!teamA) return;
@@ -102,6 +132,15 @@ export default function TradeAnalyzer() {
   }, [teamA]);
 
   useEffect(() => {
+    if (!preloadedContext || preloadedPlayersAppliedA || !rosterA.length) return;
+    const ids = Array.isArray(preloadedContext.selectedAIds) ? preloadedContext.selectedAIds : [];
+    const rosterIds = new Set(rosterA.map((player) => Number(player.player_id)));
+    const nextIds = ids.map((id) => Number(id)).filter((id) => rosterIds.has(id));
+    if (nextIds.length) setSelectedAIds(nextIds);
+    setPreloadedPlayersAppliedA(true);
+  }, [preloadedContext, preloadedPlayersAppliedA, rosterA]);
+
+  useEffect(() => {
     if (!teamB) return;
     let isMounted = true;
     setLoadingRosterB(true);
@@ -122,6 +161,15 @@ export default function TradeAnalyzer() {
       isMounted = false;
     };
   }, [teamB]);
+
+  useEffect(() => {
+    if (!preloadedContext || preloadedPlayersAppliedB || !rosterB.length) return;
+    const ids = Array.isArray(preloadedContext.selectedBIds) ? preloadedContext.selectedBIds : [];
+    const rosterIds = new Set(rosterB.map((player) => Number(player.player_id)));
+    const nextIds = ids.map((id) => Number(id)).filter((id) => rosterIds.has(id));
+    if (nextIds.length) setSelectedBIds(nextIds);
+    setPreloadedPlayersAppliedB(true);
+  }, [preloadedContext, preloadedPlayersAppliedB, rosterB]);
 
   useEffect(() => {
     if (teamA && teamB && Number(teamA) === Number(teamB)) {
@@ -296,6 +344,30 @@ export default function TradeAnalyzer() {
     || owners.find((owner) => Number(owner.id) === Number(ownerId))?.username
     || `Owner ${ownerId}`;
 
+  const playerValuationTooltip = (player) => {
+    const ros = Number(player.ros_projection ?? player.projected_points ?? 0);
+    const trend = deriveTrendAdjustment(player);
+    const volatilityPenalty = deriveVolatilityPenalty(player);
+    const riskPenalty = deriveRiskPenalty(player);
+    const byePenalty = player.bye_week ? 0.15 : 0;
+    const rawValue = computePlayerValue(player);
+    const lineupValue = computeLineupAdjustedValue(player);
+    const role = player.is_starter ? 'Starter' : 'Bench';
+    const position = normalizePosition(player.position);
+
+    return [
+      `${player.name || 'Player'} (${position})`,
+      `Role: ${role}`,
+      `ROS: ${ros.toFixed(2)}`,
+      `Trend: +${trend.toFixed(2)}`,
+      `Volatility: -${volatilityPenalty.toFixed(2)}`,
+      `Risk: -${riskPenalty.toFixed(2)}`,
+      `Bye: -${byePenalty.toFixed(2)}`,
+      `Raw Value: ${rawValue.toFixed(2)}`,
+      `Lineup Value: ${lineupValue.toFixed(2)}`,
+    ].join('\n');
+  };
+
   const selectorPanel = ({
     side,
     team,
@@ -317,6 +389,7 @@ export default function TradeAnalyzer() {
           onChange={(event) => setTeam(Number(event.target.value) || null)}
           className={`${inputBase} mt-1`}
           aria-label={`Team ${side} selector`}
+          title={teamError || ''}
         >
           <option value="">Select team</option>
           {owners.map((owner) => (
@@ -325,6 +398,11 @@ export default function TradeAnalyzer() {
             </option>
           ))}
         </select>
+        {teamError ? (
+          <span className="mt-1 block text-[11px] font-semibold text-rose-600 dark:text-rose-300" role="alert" title={teamError}>
+            {teamError}
+          </span>
+        ) : null}
       </label>
 
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -365,6 +443,7 @@ export default function TradeAnalyzer() {
             <label
               key={player.player_id}
               className="flex cursor-pointer items-center justify-between gap-2 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-400 dark:border-slate-800 dark:text-slate-300 dark:hover:border-slate-700"
+              title={playerValuationTooltip(player)}
             >
               <span className="min-w-0 truncate">
                 {player.name} ({normalizePosition(player.position)})
@@ -391,6 +470,7 @@ export default function TradeAnalyzer() {
           <div
             key={`${side}-${player.player_id}`}
             className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 px-2 py-1 text-xs"
+            title={playerValuationTooltip(player)}
           >
             <div className="min-w-0">
               <div className="truncate text-slate-900 dark:text-slate-100">{player.name}</div>
@@ -424,6 +504,7 @@ export default function TradeAnalyzer() {
             <div
               key={`mobile-${side}-${player.player_id}`}
               className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40 px-2 py-1 text-xs"
+              title={playerValuationTooltip(player)}
             >
               <div className="min-w-0">
                 <div className="truncate text-slate-900 dark:text-slate-100">{player.name}</div>
@@ -490,7 +571,7 @@ export default function TradeAnalyzer() {
         })}
       </div>
 
-      <section className={`${cardSurface} mx-auto w-full max-w-5xl space-y-4`}>
+      <section className={`${cardSurface} mx-auto w-full md:w-[70%] xl:w-[80%] space-y-4`}>
         <div className="flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300">
           <FiRepeat /> Total Trade Value Comparison
         </div>
@@ -552,6 +633,12 @@ export default function TradeAnalyzer() {
       <div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-4 md:grid-cols-2">
         <section className={`${cardSurface} space-y-2`}>
           <h4 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Trade Summary</h4>
+          <div className="text-xs text-slate-600 dark:text-slate-400">
+            Total A/B: {totalA.toFixed(2)} / {totalB.toFixed(2)}
+          </div>
+          <div className="text-xs text-slate-600 dark:text-slate-400">
+            Net Difference: {delta >= 0 ? '+' : ''}{delta.toFixed(2)}
+          </div>
           <div className="text-sm text-slate-700 dark:text-slate-300">{ownerName(teamA)}: <span className={gradeTone(gradeA)}>{gradeA}</span></div>
           <div className="text-sm text-slate-700 dark:text-slate-300">{ownerName(teamB)}: <span className={gradeTone(gradeB)}>{gradeB}</span></div>
           <div

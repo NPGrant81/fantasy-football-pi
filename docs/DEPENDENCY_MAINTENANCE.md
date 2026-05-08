@@ -3,6 +3,8 @@
 This document describes the process for keeping the project's Python (and
 JavaScript) dependencies up to date and secure over the long term.
 
+Governance Tracker: [Issue #156](https://github.com/NPGrant81/fantasy-football-pi/issues/156) (documentation alignment), [Issue #113](https://github.com/NPGrant81/fantasy-football-pi/issues/113) (system hardening)
+
 ## Tools
 
 - **backend/scripts/check_dependencies.py** – a small helper that lists

@@ -252,3 +252,10 @@ backend/exports/restore/
 
 # Root-level exports directory (generated exports, CSVs, HTML)
 exports/
+
+# Local live-scoring runtime captures
+backend/data/ingest_health/
+backend/data/ingest_raw/
+
+# Local nested workspace copy
+fantasy-football-pi-issue-114/

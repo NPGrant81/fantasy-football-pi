@@ -5,6 +5,9 @@ import {
   computeLineupAdjustedValue,
   computeOutgoingLossWithReplacement,
   computePlayerValue,
+  deriveTrendAdjustment,
+  deriveVolatilityPenalty,
+  deriveRiskPenalty,
   gradeForDelta,
   normalizePosition,
   summarizeTradeSide,
@@ -143,6 +146,74 @@ describe('tradeAnalyzerLogic', () => {
     const high = buildCashRecommendation(30);
     expect(moderate.tier).toBe('Moderately Unbalanced');
     expect(high.tier).toBe('Highly Unbalanced');
+    expect(high.amount).toBe(Math.round(30 * 0.75));
+  });
+});
+
+// ─── Issue #153: Valuation Model Spec Compliance ────────────────────────────
+describe('valuation model spec compliance (issue #153)', () => {
+  test('trend coefficient T=0.35 applied to raw last_3/season_avg inputs', () => {
+    const adj = deriveTrendAdjustment({
+      last_3_avg_points: 18,
+      season_avg_points: 14,
+    });
+    expect(adj).toBeCloseTo((18 - 14) * 0.35, 5);
+  });
+
+  test('trend passes through pre-computed trend_adjustment', () => {
+    expect(deriveTrendAdjustment({ trend_adjustment: 2.5 })).toBeCloseTo(2.5, 5);
+  });
+
+  test('volatility coefficient V=0.20 applied to points_stddev', () => {
+    const penalty = deriveVolatilityPenalty({ points_stddev: 5 });
+    expect(penalty).toBeCloseTo(5 * 0.20, 5);
+  });
+
+  test('volatility passes through pre-computed volatility_penalty', () => {
+    expect(deriveVolatilityPenalty({ volatility_penalty: 1.2 })).toBeCloseTo(1.2, 5);
+  });
+
+  test('risk coefficient R=1.5 applied to risk_score', () => {
+    const penalty = deriveRiskPenalty({ risk_score: 3 });
+    expect(penalty).toBeCloseTo(3 * 1.5, 5);
+  });
+
+  test('risk passes through pre-computed risk_penalty', () => {
+    expect(deriveRiskPenalty({ risk_penalty: 4.5 })).toBeCloseTo(4.5, 5);
+  });
+
+  test('combined formula: ROS + trend - volatility - risk', () => {
+    const value = computePlayerValue({
+      ros_projection: 20,
+      last_3_avg_points: 18,
+      season_avg_points: 14,
+      points_stddev: 5,
+      risk_score: 2,
+    });
+    const expectedTrend = (18 - 14) * 0.35;
+    const expectedVol = 5 * 0.20;
+    const expectedRisk = 2 * 1.5;
+    expect(value).toBeCloseTo(20 + expectedTrend - expectedVol - expectedRisk, 2);
+  });
+
+  test('bench multiplier is 0.6 (spec §6)', () => {
+    expect(BENCH_MULTIPLIER).toBe(0.6);
+  });
+
+  test('balanced trade produces no cash recommendation (delta ≤ 10)', () => {
+    expect(buildCashRecommendation(10)).toBeNull();
+    expect(buildCashRecommendation(-10)).toBeNull();
+  });
+
+  test('cash tiers driven from config — amounts scale correctly', () => {
+    const slight = buildCashRecommendation(13);
+    const moderate = buildCashRecommendation(20);
+    const high = buildCashRecommendation(30);
+    expect(slight.tier).toBe('Slightly Unbalanced');
+    expect(moderate.tier).toBe('Moderately Unbalanced');
+    expect(high.tier).toBe('Highly Unbalanced');
+    expect(slight.amount).toBe(Math.round(13 * 0.45));
+    expect(moderate.amount).toBe(Math.round(20 * 0.60));
     expect(high.amount).toBe(Math.round(30 * 0.75));
   });
 });

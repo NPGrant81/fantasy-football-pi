@@ -85,6 +85,8 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("product", "gap-analysis")
     if rel.startswith("docs/ml/"):
         return ("data", "ml-artifact")
+    if rel.startswith("docs/live-scoring/"):
+        return ("data", "data-contract-or-quality")
     if rel.startswith("docs/issue_"):
         return ("product", "tracking")
 

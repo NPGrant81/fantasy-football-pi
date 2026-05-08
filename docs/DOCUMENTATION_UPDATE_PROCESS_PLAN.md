@@ -1,5 +1,7 @@
 # Documentation Update Process Plan
 
+Governance Tracker: [Issue #156](https://github.com/NPGrant81/fantasy-football-pi/issues/156)
+
 ## Problem Statement
 
 Documentation has grown quickly and now includes overlapping guidance across root docs, docs/ references, runbooks, and generated status notes. This creates stale or conflicting instructions during future updates.

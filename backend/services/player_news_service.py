@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 import ipaddress
 import json
 import logging
@@ -10,6 +11,11 @@ import socket
 from typing import Any
 from urllib.parse import urlparse
 import requests
+try:
+    from bs4 import BeautifulSoup as _BeautifulSoup
+    _BS4_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _BS4_AVAILABLE = False
 
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
@@ -108,10 +114,66 @@ class IngestSummary:
 def parse_iso_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
+    cleaned = value.strip()
+    # Try ISO 8601 first
     try:
-        return datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        return datetime.fromisoformat(cleaned.replace("Z", "+00:00"))
     except ValueError:
+        pass
+    # Fall back to RFC 2822 (used by RSS pubDate, e.g. "Mon, 05 May 2026 10:00:00 +0000")
+    try:
+        return parsedate_to_datetime(cleaned)
+    except Exception:
         return None
+
+
+def _parse_rss_response(content: bytes, *, source: str, league_id: int | None) -> list[dict[str, Any]]:
+    """Parse an RSS/Atom XML response into normalised item dicts."""
+    if not _BS4_AVAILABLE:
+        return []
+    try:
+        soup = _BeautifulSoup(content, "xml")
+    except Exception:
+        return []
+
+    items: list[dict[str, Any]] = []
+    for entry in soup.find_all("item"):
+        title_tag = entry.find("title")
+        desc_tag = entry.find("description")
+        link_tag = entry.find("link")
+        pub_tag = entry.find("pubDate")
+        guid_tag = entry.find("guid")
+
+        title = title_tag.get_text(strip=True) if title_tag else ""
+        if not title:
+            continue
+
+        # RSS <link> may be a text node or a sibling NavigableString after the tag
+        url: str | None = None
+        if link_tag:
+            url = link_tag.get_text(strip=True) or link_tag.get("href") or None
+
+        summary_raw = desc_tag.get_text(strip=True) if desc_tag else ""
+        # Strip residual HTML tags from description
+        summary = _BeautifulSoup(summary_raw, "html.parser").get_text(strip=True) or None
+
+        pub_raw = pub_tag.get_text(strip=True) if pub_tag else None
+        guid_raw = guid_tag.get_text(strip=True) if guid_tag else None
+
+        normalized = _normalize_external_item(
+            {
+                "title": title,
+                "summary": summary,
+                "url": url,
+                "published_at": pub_raw,
+                "id": guid_raw or url or title,
+            },
+            source=source,
+            league_id=league_id,
+        )
+        if normalized:
+            items.append(normalized)
+    return items
 
 
 def sentiment_from_text(
@@ -230,7 +292,6 @@ def load_external_news_items(*, league_id: int | None = None) -> list[dict[str, 
                 timeout=timeout_seconds,
             )
             response.raise_for_status()
-            payload = response.json()
         except Exception as exc:
             LOGGER.warning(
                 "player_news.external_fetch_failed",
@@ -238,25 +299,42 @@ def load_external_news_items(*, league_id: int | None = None) -> list[dict[str, 
             )
             continue
 
-        raw_items = (
-            payload
-            if isinstance(payload, list)
-            else payload.get("items", []) if isinstance(payload, dict)
-            else []
-        )
-        if not isinstance(raw_items, list):
-            continue
+        content_type = response.headers.get("Content-Type", "")
+        is_xml = "xml" in content_type or "rss" in content_type
 
-        for raw_item in raw_items:
-            if not isinstance(raw_item, dict):
-                continue
-            normalized = _normalize_external_item(
-                raw_item,
-                source="external",
-                league_id=league_id,
+        # Try JSON first; fall back to RSS/XML parsing
+        if not is_xml:
+            try:
+                payload = response.json()
+                raw_items = (
+                    payload
+                    if isinstance(payload, list)
+                    else payload.get("items", []) if isinstance(payload, dict)
+                    else []
+                )
+                if isinstance(raw_items, list):
+                    for raw_item in raw_items:
+                        if not isinstance(raw_item, dict):
+                            continue
+                        normalized = _normalize_external_item(
+                            raw_item,
+                            source="external",
+                            league_id=league_id,
+                        )
+                        if normalized:
+                            items.append(normalized)
+                    continue
+            except Exception:
+                pass  # Not JSON — fall through to RSS parser
+
+        rss_items = _parse_rss_response(response.content, source="rss", league_id=league_id)
+        if rss_items:
+            items.extend(rss_items)
+        else:
+            LOGGER.warning(
+                "player_news.unrecognised_format",
+                extra={"url": raw_url, "content_type": content_type},
             )
-            if normalized:
-                items.append(normalized)
 
     return items
 
@@ -532,7 +610,7 @@ def rebuild_sentiment_trends(
     db: Session,
     *,
     league_id: int,
-    windows_hours: tuple[int, ...] = (24, 72, 168),
+    windows_hours: tuple[int, ...] = (24, 72, 168, 336),
 ) -> int:
     now = datetime.now(timezone.utc)
     updated = 0

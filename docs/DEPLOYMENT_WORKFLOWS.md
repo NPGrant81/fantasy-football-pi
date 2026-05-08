@@ -2,6 +2,8 @@
 
 This project now uses dedicated GitHub Actions workflows for deployment operations.
 
+Governance Tracker: [Issue #156](https://github.com/NPGrant81/fantasy-football-pi/issues/156)
+
 ## Workflow separation
 
 - PR validation: `.github/workflows/ci.yml` and `.github/workflows/ci-contributor.yml`

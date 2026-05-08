@@ -116,13 +116,13 @@ export function confidenceTier(riskScore) {
 export function severityClasses(severity) {
   switch (severity) {
     case INSIGHT_SEVERITY.CRITICAL:
-      return 'border-rose-900 bg-rose-950/40 text-rose-300';
+      return 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300';
     case INSIGHT_SEVERITY.WARNING:
-      return 'border-amber-900 bg-amber-950/40 text-amber-300';
+      return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300';
     case INSIGHT_SEVERITY.INFO:
-      return 'border-cyan-900 bg-cyan-950/30 text-cyan-300';
+      return 'border-cyan-200 bg-cyan-50 text-cyan-800 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-300';
     default:
-      return 'border-slate-800 bg-slate-950/30 text-slate-400';
+      return 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-400';
   }
 }
 
@@ -153,7 +153,9 @@ export function explainRecommendation(recommendation, ownerContext = {}) {
 
   const budgetNote =
     ownerContext.budget != null && rec > 0
-      ? ` (${Math.round((rec / Math.max(1, ownerContext.budget)) * 100)}% of remaining budget)`
+      ? ownerContext.budget > 0
+        ? ` (${Math.round((rec / ownerContext.budget) * 100)}% of remaining budget)`
+        : ' (remaining budget exhausted)'
       : '';
 
   if (tier === 'degraded') {

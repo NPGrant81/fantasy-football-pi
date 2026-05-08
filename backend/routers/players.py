@@ -31,18 +31,11 @@ class PlayerSearchResult(BaseModel):
     gsis_id: Optional[str] = None
     espn_id: Optional[str] = None
     bye_week: Optional[int] = None
-
-
-class PlayerSearchResult(BaseModel):
-    id: int
-    name: str
-    position: Optional[str] = None
-    nfl_team: Optional[str] = None
-    adp: Optional[float] = None
-    projected_points: Optional[float] = None
-    gsis_id: Optional[str] = None
-    espn_id: Optional[str] = None
-    bye_week: Optional[int] = None
+    # Injury / availability
+    injury_status: Optional[str] = None
+    injury_notes: Optional[str] = None
+    projected_return_date: Optional[str] = None
+    projected_return_week: Optional[int] = None
 
 
 def _build_headshot_url(espn_id: Optional[str]) -> Optional[str]:
@@ -89,6 +82,10 @@ def search_players(
             "gsis_id": p.gsis_id,
             "espn_id": p.espn_id,
             "bye_week": p.bye_week,
+            "injury_status": p.injury_status,
+            "injury_notes": p.injury_notes,
+            "projected_return_date": p.projected_return_date,
+            "projected_return_week": p.projected_return_week,
         }
         for p in results
     ]
@@ -245,6 +242,10 @@ def get_all_players(
             "gsis_id": p.gsis_id,
             "espn_id": p.espn_id,
             "bye_week": p.bye_week,
+            "injury_status": p.injury_status,
+            "injury_notes": p.injury_notes,
+            "projected_return_date": p.projected_return_date,
+            "projected_return_week": p.projected_return_week,
         }
         for p in deduped
     ]

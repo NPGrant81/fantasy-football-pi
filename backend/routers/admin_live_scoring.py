@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..core.security import check_is_commissioner
 
@@ -10,9 +10,11 @@ class LiveScoreIngestPayload(BaseModel):
     year: int
     week: int | None = None
     dry_run: bool = False
-    timeout_seconds: int = 30
+    timeout_seconds: int = Field(default=30, ge=5, le=120)
     override_url: str | None = None
     enable_failover: bool = True
+    inspect_event_contracts_enabled: bool = True
+    event_contracts_limit: int = Field(default=3, ge=0, le=10)
 
 
 class LiveScoreWatchdogPayload(BaseModel):
@@ -38,6 +40,8 @@ def run_live_score_ingest(
             timeout_seconds=payload.timeout_seconds,
             override_url=payload.override_url,
             enable_failover=payload.enable_failover,
+            inspect_event_contracts_enabled=payload.inspect_event_contracts_enabled,
+            event_contracts_limit=payload.event_contracts_limit,
         )
     except IngestFetchError as exc:
         raise HTTPException(
@@ -82,5 +86,43 @@ def live_score_watchdog_alerts(
 
     return {
         "alerts": load_recent_watchdog_alerts(limit=limit),
+        "limit": limit,
+    }
+
+
+@router.get("/polling/status")
+def live_score_polling_status(
+    current_user=Depends(check_is_commissioner),
+):
+    """Return in-memory polling scheduler/runtime state."""
+    from backend.services.live_scoring_polling_service import get_poll_runtime_status
+
+    return get_poll_runtime_status()
+
+
+@router.get("/polling/cycles")
+def live_score_polling_cycles(
+    limit: int = Query(default=50, ge=1, le=500),
+    current_user=Depends(check_is_commissioner),
+):
+    """Return recent polling cycle records from durable JSONL logs."""
+    from backend.services.live_scoring_polling_service import load_recent_poll_cycles
+
+    return {
+        "cycles": load_recent_poll_cycles(limit=limit),
+        "limit": limit,
+    }
+
+
+@router.get("/polling/summary")
+def live_score_polling_summary(
+    limit: int = Query(default=50, ge=1, le=500),
+    current_user=Depends(check_is_commissioner),
+):
+    """Return aggregate status counts for recent polling cycles."""
+    from backend.services.live_scoring_polling_service import summarize_poll_cycles
+
+    return {
+        **summarize_poll_cycles(limit=limit),
         "limit": limit,
     }

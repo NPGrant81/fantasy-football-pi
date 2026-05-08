@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">14.28% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>1/7</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>1/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">14.28% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>1/7</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -153,7 +153,25 @@
 <a name='L88'></a><a href='#L88'>88</a>
 <a name='L89'></a><a href='#L89'>89</a>
 <a name='L90'></a><a href='#L90'>90</a>
-<a name='L91'></a><a href='#L91'>91</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -227,6 +245,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -234,9 +255,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -244,6 +270,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { EmptyState } from '@components/common/AsyncState';
+import {
+  INSIGHT_SEVERITY,
+  severityClasses,
+  strategyBreakSeverity,
+} from './insightVocabulary';
 &nbsp;
 /* ignore-breakpoints */
 export default function OwnerStrategyPanel({
@@ -254,20 +285,20 @@ export default function OwnerStrategyPanel({
   recommendation,
 }) {
   return (
-    &lt;div className="rounded-md border border-slate-800 bg-slate-950/60 p-3"&gt;
+    &lt;div className="rounded-md border border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-3"&gt;
       &lt;div className="text-[11px] uppercase tracking-wide text-slate-400"&gt;
-        Owner Strategy Panel ({insightOwnerLabel || `Owner ${insightOwnerId || '-'}`}
-        {isCurrentUserOwner ? <span class="branch-0 cbranch-no" title="branch not covered" >' - You' : '</span>'})
+        Owner Strategy ({insightOwnerLabel || `Owner ${insightOwnerId || '-'}`}
+        {isCurrentUserOwner ? <span class="branch-0 cbranch-no" title="branch not covered" >' — You' : '</span>'})
       &lt;/div&gt;
       {!ownerStrategyInsights ? (
-        &lt;div className="mt-2 text-xs text-slate-500"&gt;
+        &lt;div className="mt-2 text-xs text-slate-500 dark:text-slate-500"&gt;
           Strategy guidance is unavailable until owner and budget context load.
         &lt;/div&gt;
       ) : (
 <span class="branch-1 cbranch-no" title="branch not covered" >        &lt;&gt;</span>
-          &lt;div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300"&gt;
+          &lt;div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-700 dark:text-slate-300"&gt;
             &lt;div title="Remaining budget compared to league mean."&gt;
-              &lt;div className="text-slate-500"&gt;Budget vs League&lt;/div&gt;
+              &lt;div className="text-slate-500 dark:text-slate-500"&gt;Budget vs League&lt;/div&gt;
               &lt;div className="font-semibold"&gt;
                 ${Number(ownerStrategyInsights.ownerStats.budget || 0).toFixed(0)} / ${Number(
                   ownerStrategyInsights.leagueAvgBudget || 0
@@ -275,7 +306,7 @@ export default function OwnerStrategyPanel({
               &lt;/div&gt;
             &lt;/div&gt;
             &lt;div title="Spend velocity versus league spend/slot pace."&gt;
-              &lt;div className="text-slate-500"&gt;Aggressiveness&lt;/div&gt;
+              &lt;div className="text-slate-500 dark:text-slate-500"&gt;Aggressiveness&lt;/div&gt;
               &lt;div className="font-semibold"&gt;
                 {ownerStrategyInsights.aggressivenessIndex &gt;= 1.15
                   ? 'Aggressive'
@@ -285,13 +316,13 @@ export default function OwnerStrategyPanel({
               &lt;/div&gt;
             &lt;/div&gt;
             &lt;div title="Composite signal of bid discipline + roster balance + budget safety."&gt;
-              &lt;div className="text-slate-500"&gt;Strategy Alignment&lt;/div&gt;
-              &lt;div className="font-semibold text-emerald-300"&gt;
+              &lt;div className="text-slate-500 dark:text-slate-500"&gt;Strategy Alignment&lt;/div&gt;
+              &lt;div className="font-semibold text-emerald-700 dark:text-emerald-300"&gt;
                 {ownerStrategyInsights.strategyAlignmentScore}
               &lt;/div&gt;
             &lt;/div&gt;
             &lt;div title="Biggest roster gap versus league average by position."&gt;
-              &lt;div className="text-slate-500"&gt;Positional Balance&lt;/div&gt;
+              &lt;div className="text-slate-500 dark:text-slate-500"&gt;Positional Balance&lt;/div&gt;
               &lt;div className="font-semibold"&gt;
                 {ownerStrategyInsights.mostBehindPosition
                   ? `${ownerStrategyInsights.mostBehindPosition.position} ${ownerStrategyInsights.mostBehindPosition.delta.toFixed(1)}`
@@ -300,8 +331,8 @@ export default function OwnerStrategyPanel({
             &lt;/div&gt;
           &lt;/div&gt;
 &nbsp;
-          &lt;div className="mt-3 rounded border border-slate-800 p-2 text-xs text-slate-300"&gt;
-            &lt;div className="mb-1 text-slate-500"&gt;Budget Impact&lt;/div&gt;
+          &lt;div className="mt-3 rounded border border-slate-300 dark:border-slate-800 p-2 text-xs text-slate-700 dark:text-slate-300"&gt;
+            &lt;div className="mb-1 text-slate-500 dark:text-slate-500"&gt;Budget Impact&lt;/div&gt;
             {recommendation ? (
               &lt;div&gt;
                 If you win at ${Number(recommendation.recommended_bid || 0).toFixed(2)}, you keep ${Math.max(
@@ -315,19 +346,27 @@ export default function OwnerStrategyPanel({
             )}
           &lt;/div&gt;
 &nbsp;
-          {ownerStrategyInsights.exceedsPosCap ? (
-            &lt;div className="mt-2 rounded border border-rose-900 bg-rose-950/40 px-2 py-1 text-xs text-rose-300"&gt;
-              Strategy alert: this bid exceeds your {ownerStrategyInsights.selectedPos} max spend plan (${Number(
-                ownerStrategyInsights.posMaxSpend || 0
-              ).toFixed(0)}).
-            &lt;/div&gt;
-          ) : null}
-&nbsp;
-          {ownerStrategyInsights.mostBehindPosition?.delta &lt; -1 ? (
-            &lt;div className="mt-2 rounded border border-amber-900 bg-amber-950/40 px-2 py-1 text-xs text-amber-300"&gt;
-              You are behind league average at {ownerStrategyInsights.mostBehindPosition.position}.
-            &lt;/div&gt;
-          ) : null}
+          {/* Strategy-break alerts — severity-aware */}
+          {(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+            const <span class="cstat-no" title="statement not covered" >severity = strategyBreakSeverity(ownerStrategyInsights);</span>
+<span class="cstat-no" title="statement not covered" >            if (severity === INSIGHT_SEVERITY.CRITICAL) {</span>
+<span class="cstat-no" title="statement not covered" >              return (</span>
+                &lt;div className={`mt-2 rounded border px-2 py-1 text-xs ${severityClasses(INSIGHT_SEVERITY.CRITICAL)}`}&gt;
+                  Strategy alert: this bid exceeds your {ownerStrategyInsights.selectedPos} max spend plan (${Number(
+                    ownerStrategyInsights.posMaxSpend || 0
+                  ).toFixed(0)}).
+                &lt;/div&gt;
+              );
+            }
+<span class="cstat-no" title="statement not covered" >            if (severity === INSIGHT_SEVERITY.WARNING) {</span>
+<span class="cstat-no" title="statement not covered" >              return (</span>
+                &lt;div className={`mt-2 rounded border px-2 py-1 text-xs ${severityClasses(INSIGHT_SEVERITY.WARNING)}`}&gt;
+                  You are behind league average at {ownerStrategyInsights.mostBehindPosition.position}.
+                &lt;/div&gt;
+              );
+            }
+<span class="cstat-no" title="statement not covered" >            return null;</span>
+          })()}
         &lt;/&gt;
       )}
     &lt;/div&gt;
@@ -340,7 +379,7 @@ export default function OwnerStrategyPanel({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-25T11:26:53.073Z
+                at 2026-05-04T13:14:30.002Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

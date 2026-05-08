@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- ball body -->
+  <ellipse cx="32" cy="32" rx="28" ry="18" fill="white"/>
+  <!-- outline -->
+  <ellipse cx="32" cy="32" rx="28" ry="18" stroke="white" stroke-width="2.5"/>
+  <!-- horizontal seam line -->
+  <line x1="4" y1="32" x2="60" y2="32" stroke="#ccc" stroke-width="1.5"/>
+  <!-- laces vertical bar -->
+  <line x1="32" y1="22" x2="32" y2="42" stroke="#ccc" stroke-width="2"/>
+  <!-- laces horizontal stitches -->
+  <line x1="28" y1="25" x2="36" y2="25" stroke="#ccc" stroke-width="1.5"/>
+  <line x1="28" y1="29" x2="36" y2="29" stroke="#ccc" stroke-width="1.5"/>
+  <line x1="28" y1="33" x2="36" y2="33" stroke="#ccc" stroke-width="1.5"/>
+  <line x1="28" y1="37" x2="36" y2="37" stroke="#ccc" stroke-width="1.5"/>
+</svg>

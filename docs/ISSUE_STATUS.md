@@ -1,14 +1,14 @@
----
-
-## Draft Value Database & API Integration
-
-- [x] Issue #56: Create draft value database for fantasy football draft purposes
-- [x] Issue #57: Create APIs to pull in draft value information from ESPN, Yahoo, Draftsharks
 # GitHub Issues Status Report
 **Date:** April 26, 2026  
 **Branch:** main
 
 ---
+
+## Documentation Governance Sweep Updates
+
+- **Issue #156 pass 3 (2026-05-05):** Completed docs freshness sweep for API/deployment/process governance docs.
+- **Key outputs:** Updated API base URL guidance, added governance tracker links in operational docs, expanded doc-to-issue map, and archived pass-3 sweep report at `docs/archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md`.
+- **Guardrail confirmation:** Documentation-only changes; no architecture change and no regression to March baseline behavior.
 
 ## Resolved Issue Closure Queue (New Standard)
 

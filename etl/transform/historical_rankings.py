@@ -162,7 +162,28 @@ def build_historical_features(draft_results_df: pd.DataFrame, players_df: pd.Dat
     return features
 
 
-def score_historical_rankings(features_df: pd.DataFrame, target_season: int) -> pd.DataFrame:
+def score_historical_rankings(
+    features_df: pd.DataFrame,
+    target_season: int,
+    sentiment_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Score players using historical draft features with optional sentiment adjustment.
+
+    Parameters
+    ----------
+    features_df:
+        Output of ``build_historical_features()``.
+    target_season:
+        The season year for the ranking snapshot.
+    sentiment_df:
+        Optional DataFrame from ``compute_player_sentiment_features()`` with
+        columns: player_id, sentiment_score_7d, sentiment_velocity_7d, mention_count_7d.
+        When provided, a bounded multiplicative modifier is applied to model_score:
+          - Base modifier  : ±10 % max  (from sentiment_score_7d)
+          - Velocity boost : ±5 %  max  (from sentiment_velocity_7d)
+          - Combined cap   : ±15 % max after both modifiers
+        Players with no news coverage receive a 0.0 modifier (neutral pass-through).
+    """
     scored = features_df.copy()
     scored["model_score"] = (
         0.35 * scored["recent_3yr_avg"]
@@ -171,6 +192,43 @@ def score_historical_rankings(features_df: pd.DataFrame, target_season: int) -> 
         + 0.10 * scored["consistency"] * 10
         + 0.15 * scored["position_scarcity_boost"] * 10
     )
+
+    # --- Optional sentiment modifier -------------------------------------------
+    # Applied as a bounded multiplicative adjustment to model_score.
+    # Rule: total modification is capped at ±15% of the raw score.
+    scored["sentiment_score_7d"] = 0.0
+    scored["sentiment_velocity_7d"] = 0.0
+    scored["mention_count_7d"] = 0
+
+    if sentiment_df is not None and not sentiment_df.empty:
+        import numpy as np  # noqa: PLC0415 — lazy import; numpy already in stack
+
+        scored = scored.merge(
+            sentiment_df[["player_id", "sentiment_score_7d", "sentiment_velocity_7d", "mention_count_7d"]],
+            on="player_id",
+            how="left",
+            suffixes=("", "_snt"),
+        )
+        # Overwrite the zero-fill columns with merged values; keep 0.0 for non-matches
+        for col in ("sentiment_score_7d", "sentiment_velocity_7d"):
+            merge_col = f"{col}_snt" if f"{col}_snt" in scored.columns else col
+            if merge_col in scored.columns:
+                scored[col] = scored[merge_col].fillna(0.0)
+                if merge_col != col:
+                    scored = scored.drop(columns=[merge_col])
+        if "mention_count_7d_snt" in scored.columns:
+            scored["mention_count_7d"] = scored["mention_count_7d_snt"].fillna(0).astype(int)
+            scored = scored.drop(columns=["mention_count_7d_snt"])
+        else:
+            scored["mention_count_7d"] = scored["mention_count_7d"].fillna(0).astype(int)
+
+        # Clamp individual modifiers before applying
+        base_mod = np.clip(scored["sentiment_score_7d"] * 0.10, -0.10, 0.10)
+        vel_mod = np.clip(scored["sentiment_velocity_7d"] * 0.05, -0.05, 0.05)
+        # Combined modifier must not exceed ±15%
+        combined_mod = np.clip(base_mod + vel_mod, -0.15, 0.15)
+        scored["model_score"] = scored["model_score"] * (1.0 + combined_mod)
+    # ---------------------------------------------------------------------------
 
     scored["predicted_auction_value"] = (
         0.55 * scored["recent_3yr_avg"]
@@ -222,6 +280,9 @@ def score_historical_rankings(features_df: pd.DataFrame, target_season: int) -> 
             "recent_3yr_avg",
             "trend_slope",
             "appearances",
+            "sentiment_score_7d",
+            "sentiment_velocity_7d",
+            "mention_count_7d",
         ]
     ]
 
@@ -309,6 +370,28 @@ def build_rankings_from_db(db: "Session", target_season: int) -> HistoricalRanki
             "Run load_ppl_history.py (or the MFL import pipeline) to populate "
             "the draft_picks table before running historical rankings."
         )
-    rankings = score_historical_rankings(features, target_season=target_season)
+
+    # --- Fetch sentiment trends from DB -----------------------------------
+    from etl.transform.ml_features import compute_player_sentiment_features  # noqa: PLC0415
+
+    trend_rows = (
+        db.query(
+            models.PlayerNewsSentimentTrend.player_id,
+            models.PlayerNewsSentimentTrend.window_hours,
+            models.PlayerNewsSentimentTrend.average_score,
+            models.PlayerNewsSentimentTrend.mention_count,
+        )
+        .filter(models.PlayerNewsSentimentTrend.window_hours.in_([168, 336]))
+        .all()
+    )
+    sentiment_df: pd.DataFrame | None = None
+    if trend_rows:
+        sentiment_raw = pd.DataFrame(
+            [dict(r._mapping) for r in trend_rows],
+            columns=["player_id", "window_hours", "average_score", "mention_count"],
+        )
+        sentiment_df = compute_player_sentiment_features(sentiment_raw)
+
+    rankings = score_historical_rankings(features, target_season=target_season, sentiment_df=sentiment_df)
     return HistoricalRankingResult(rankings=rankings, features=features)
 
