@@ -257,7 +257,15 @@ def parse_backend_coverage(coverage_xml: Path | None) -> dict:
     if not coverage_xml or not coverage_xml.exists():
         return {"status": "missing", "zero_coverage_files": []}
 
-    root = ET.parse(coverage_xml).getroot()
+    try:
+        root = ET.parse(coverage_xml).getroot()
+    except (ET.ParseError, OSError) as exc:
+        return {
+            "status": "error",
+            "zero_coverage_files": [],
+            "errors": [f"Failed to parse backend coverage XML: {exc}"],
+        }
+
     zero_files: list[str] = []
 
     for class_node in root.findall(".//class"):
@@ -280,7 +288,15 @@ def parse_frontend_coverage(coverage_json: Path | None) -> dict:
     if not coverage_json or not coverage_json.exists():
         return {"status": "missing", "zero_coverage_files": []}
 
-    payload = json.loads(coverage_json.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(coverage_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "status": "error",
+            "zero_coverage_files": [],
+            "errors": [f"Failed to parse frontend coverage JSON: {exc}"],
+        }
+
     zero_files: list[str] = []
 
     for path, file_data in payload.items():
