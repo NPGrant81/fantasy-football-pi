@@ -13,6 +13,8 @@ def send_invite_email(to_email, username, temp_password, league_id=None):
     smtp_port = 587
     sender_email = os.getenv("MAIL_USERNAME")
     sender_password = os.getenv("MAIL_PASSWORD")
+    frontend_base_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
+    login_url = f"{frontend_base_url}/login"
 
     # 2. Construct the Email
     subject = "You've been drafted! 🏈"
@@ -31,7 +33,7 @@ def send_invite_email(to_email, username, temp_password, league_id=None):
         </div>
         
         <p>Please log in and change your password immediately.</p>
-        <p><a href="http://localhost:5173/login" style="background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login Now</a></p>
+        <p><a href="{login_url}" style="background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Login Now</a></p>
     </div>
     """
 

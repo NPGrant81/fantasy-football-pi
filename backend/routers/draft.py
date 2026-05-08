@@ -149,6 +149,49 @@ def _get_league_settings(db: Session, league_id: int | None):
     )
 
 
+def _read_slot_limit(starting_slots: dict[str, Any], max_key: str, base_key: str, default: int) -> int:
+    value = starting_slots.get(max_key, starting_slots.get(base_key, default))
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _resolve_simulation_league_config(db: Session, league_id: int) -> dict[str, Any]:
+    """Resolve simulation roster constraints from commissioner-managed league settings."""
+    settings = _get_league_settings(db, league_id)
+    starting_slots = dict((settings.starting_slots or {}) if settings else {})
+
+    owner_count = (
+        db.query(func.count(models.User.id))
+        .filter(
+            models.User.league_id == league_id,
+            models.User.is_superuser == False,
+        )
+        .scalar()
+        or 0
+    )
+    owner_limit = _read_slot_limit(starting_slots, "OWNER_LIMIT", "OWNER_LIMIT", 0)
+
+    teams_count = int(owner_limit) if owner_limit > 0 else int(owner_count or 0)
+    roster_size = int(settings.roster_size) if settings and settings.roster_size else 16
+
+    position_limits = {
+        "QB": max(0, _read_slot_limit(starting_slots, "MAX_QB", "QB", 2)),
+        "RB": max(0, _read_slot_limit(starting_slots, "MAX_RB", "RB", 5)),
+        "WR": max(0, _read_slot_limit(starting_slots, "MAX_WR", "WR", 5)),
+        "TE": max(0, _read_slot_limit(starting_slots, "MAX_TE", "TE", 2)),
+        "DEF": max(0, _read_slot_limit(starting_slots, "MAX_DEF", "DEF", 1)),
+        "K": max(0, _read_slot_limit(starting_slots, "MAX_K", "K", 1)),
+    }
+
+    return {
+        "teams_count": teams_count,
+        "roster_size": roster_size,
+        "position_limits": position_limits,
+    }
+
+
 def _get_owner_total_budget(
     db: Session,
     *,
@@ -928,9 +971,14 @@ def run_draft_simulation(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    league_sim_config = _resolve_simulation_league_config(db, int(current_user.league_id))
+
     safe_iterations = max(50, min(int(payload.iterations), 10000))
-    safe_teams_count = max(2, min(int(payload.teams_count), 20))
-    safe_roster_size = max(4, min(int(payload.roster_size), 30))
+    # League-level constraints come from commissioner settings; payload values are fallback only.
+    resolved_teams_count = int(league_sim_config.get("teams_count") or payload.teams_count)
+    resolved_roster_size = int(league_sim_config.get("roster_size") or payload.roster_size)
+    safe_teams_count = max(2, min(resolved_teams_count, 20))
+    safe_roster_size = max(4, min(resolved_roster_size, 30))
     safe_target_key_players = max(5, min(int(payload.target_key_players), 50))
 
     strategy = payload.strategy
@@ -941,6 +989,7 @@ def run_draft_simulation(
         teams_count=safe_teams_count,
         roster_size=safe_roster_size,
         target_key_players=safe_target_key_players,
+        position_limits=league_sim_config.get("position_limits") or None,
         focal_owner_id=perspective_owner_id,
         focal_aggressiveness_multiplier=float(strategy.aggressiveness_multiplier),
         focal_position_weights=strategy.position_weights,

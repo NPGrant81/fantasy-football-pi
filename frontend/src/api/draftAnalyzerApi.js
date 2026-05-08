@@ -137,3 +137,7 @@ export function fetchPlayerSeasonDetails(playerId, season) {
 export function queryDraftAdvisor(payload) {
   return postJson('/advisor/draft-day/query', payload, { retries: 0 });
 }
+
+export function postDraftDayEvent(payload) {
+  return postJson('/advisor/draft-day/event', payload, { retries: 0 });
+}

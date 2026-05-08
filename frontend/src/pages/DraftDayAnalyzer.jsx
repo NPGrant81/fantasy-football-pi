@@ -8,6 +8,7 @@ import {
   fetchLeagueSettings,
   fetchModelPredictions,
   fetchPlayerSeasonDetails,
+  postDraftDayEvent,
   queryDraftAdvisor,
   runDraftSimulation,
 } from '@api/draftAnalyzerApi';
@@ -15,6 +16,8 @@ import { normalizeApiError } from '@api/fetching';
 import PlayerInsightCard from '@components/draft/insights/PlayerInsightCard';
 import OwnerStrategyPanel from '@components/draft/insights/OwnerStrategyPanel';
 import DraftDynamicsPanel from '@components/draft/insights/DraftDynamicsPanel';
+import DraftDayChatPanel from '@components/draft/insights/DraftDayChatPanel';
+import PostDraftOutlookPanel from '@components/draft/insights/PostDraftOutlookPanel';
 import PlayerIdentityCard from '@components/player/PlayerIdentityCard';
 import PageTemplate from '@components/layout/PageTemplate';
 import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
@@ -186,6 +189,12 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
   const [advisorMessage, setAdvisorMessage] = useState(null);
   const [advisorError, setAdvisorError] = useState('');
   const [advisorLoading, setAdvisorLoading] = useState(false);
+
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
+
+  const draftDayModeEnabled = import.meta.env.VITE_DRAFT_DAY_MODE_ENABLED !== 'false';
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTitle, setDrawerTitle] = useState('');
@@ -807,6 +816,111 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     leaguePositionCaps,
   ]);
 
+  const postDraftOutlook = useMemo(() => {
+    const focalOwnerId = Number(
+      simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
+    );
+    if (!focalOwnerId || !owners.length) return null;
+
+    const focalOwner = owners.find((owner) => Number(owner.id) === focalOwnerId);
+    if (!focalOwner) return null;
+
+    const focalPicks = history.filter((pick) => Number(pick.owner_id) === focalOwnerId);
+    const focalSpent = focalPicks.reduce((sum, pick) => sum + parseNumber(pick.amount, 0), 0);
+    const focalBudget = parseNumber(focalOwner.initial_budget || 200, 200);
+    const focalRemaining = Math.max(0, focalBudget - focalSpent);
+
+    const leagueRemaining = owners.length
+      ? owners
+          .map((owner) => {
+            const spent = ownerStatsById[owner.id]?.spent || 0;
+            const budget = parseNumber(owner.initial_budget || 200, 200);
+            return Math.max(0, budget - spent);
+          })
+          .reduce((sum, value) => sum + value, 0) / owners.length
+      : 0;
+
+    const positionCountsMap = {};
+    focalPicks.forEach((pick) => {
+      const pos = normalizePos(
+        pick.position || rankingByPlayerId.get(Number(pick.player_id))?.position
+      );
+      if (!pos) return;
+      positionCountsMap[pos] = (positionCountsMap[pos] || 0) + 1;
+    });
+
+    const positionCounts = Object.keys(leaguePositionCaps)
+      .map((position) => ({
+        position,
+        count: Number(positionCountsMap[position] || 0),
+        cap: Number(leaguePositionCaps[position] || 0),
+      }))
+      .sort((a, b) => a.position.localeCompare(b.position));
+
+    const strongestPositions = [...positionCounts]
+      .filter((row) => row.cap > 0 && row.count >= Math.max(1, Math.floor(row.cap * 0.6)))
+      .sort((a, b) => b.count / Math.max(1, b.cap) - a.count / Math.max(1, a.cap))
+      .slice(0, 3);
+
+    const thinnestPositions = [...positionCounts]
+      .filter((row) => row.cap > 0)
+      .sort((a, b) => a.count / Math.max(1, a.cap) - b.count / Math.max(1, b.cap))
+      .slice(0, 3);
+
+    const highRiskPlayers = focalPicks
+      .map((pick) => {
+        const ranking = rankingByPlayerId.get(Number(pick.player_id));
+        if (!ranking) return null;
+        const consistency = parseNumber(ranking.scoring_consistency_factor, 1);
+        const lateStart = parseNumber(ranking.late_start_consistency_factor, 1);
+        const injury = parseNumber(ranking.injury_split_factor, 1);
+        const teamChange = parseNumber(ranking.team_change_factor, 1);
+        const reliability = consistency * lateStart * injury * teamChange;
+        const risk = Math.max(0, Math.min(100, (1 - Math.min(Math.max(reliability, 0), 1.5) / 1.5) * 100));
+        if (risk < 65) return null;
+        return {
+          player_id: Number(pick.player_id),
+          name: ranking.player_name || pick.player_name || `Player ${pick.player_id}`,
+          position: normalizePos(ranking.position || pick.position),
+          risk,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.risk - a.risk)
+      .slice(0, 4);
+
+    const projectedStarterValue = focalPicks
+      .map((pick) => parseNumber(rankingByPlayerId.get(Number(pick.player_id))?.predicted_auction_value, 0))
+      .sort((a, b) => b - a)
+      .slice(0, Number(draftDynamics?.byPositionDemand?.length || 9))
+      .reduce((sum, value) => sum + value, 0);
+
+    const rosterStrengthScore = projectedStarterValue + parseNumber(ownerStrategyInsights?.strategyAlignmentScore, 0);
+
+    return {
+      rosterStrengthScore,
+      projectedStarterValue,
+      budgetDeltaVsLeague: focalRemaining - leagueRemaining,
+      strongestPositions,
+      thinnestPositions,
+      highRiskPlayers,
+      simulationDelta: parseNumber(simulationResult?.league_context?.delta_vs_league_avg, null),
+      positionCounts,
+    };
+  }, [
+    simulationPerspectiveOwnerId,
+    currentUserId,
+    activeOwnerId,
+    owners,
+    history,
+    ownerStatsById,
+    rankingByPlayerId,
+    leaguePositionCaps,
+    simulationResult,
+    draftDynamics?.byPositionDemand?.length,
+    ownerStrategyInsights?.strategyAlignmentScore,
+  ]);
+
   const virtualMeta = useMemo(() => {
     const total = sortedPlayers.length;
     const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - 3);
@@ -911,6 +1025,11 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       setPlayerInfoError('');
       setPlayerInfoSeason(null);
 
+      // Auto-fire nomination event when Draft Day Mode is enabled.
+      if (draftDayModeEnabled) {
+        fireNominationEvent(player);
+      }
+
       try {
         const data = await fetchPlayerSeasonDetails(player.id, rankingSeason);
         setPlayerInfoSeason(data || null);
@@ -998,6 +1117,134 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     setSortColumn(column);
     setSortDirection(column === 'name' ? 'asc' : 'desc');
   };
+
+  /** Build draft state snapshot for advisor requests. */
+  const buildDraftState = useCallback(() => {
+    const budgetByOwner = {};
+    const slotsByOwner = {};
+    const posCountByOwner = {};
+    owners.forEach((owner) => {
+      const spent = ownerStatsById[owner.id]?.spent || 0;
+      const budget = parseNumber(owner.initial_budget || 200, 200);
+      budgetByOwner[owner.id] = Math.max(0, budget - spent);
+      const picks = history.filter((p) => Number(p.owner_id) === owner.id).length;
+      const totalSlots = Object.values(leaguePositionCaps).reduce((a, b) => a + b, 12);
+      slotsByOwner[owner.id] = Math.max(1, totalSlots - picks);
+      posCountByOwner[owner.id] = {};
+      history
+        .filter((p) => Number(p.owner_id) === owner.id)
+        .forEach((p) => {
+          const pos = normalizePos(
+            p.position || rankingByPlayerId.get(Number(p.player_id))?.position
+          );
+          if (pos) posCountByOwner[owner.id][pos] = (posCountByOwner[owner.id][pos] || 0) + 1;
+        });
+    });
+    const recentPositions = history
+      .slice(-8)
+      .map((p) => normalizePos(p.position || rankingByPlayerId.get(Number(p.player_id))?.position))
+      .filter(Boolean);
+    return {
+      drafted_player_ids: [...draftedPlayerIds],
+      remaining_budget_by_owner: budgetByOwner,
+      remaining_slots_by_owner: slotsByOwner,
+      position_counts_by_owner: posCountByOwner,
+      recent_nominations: recentPositions,
+    };
+  }, [owners, ownerStatsById, history, leaguePositionCaps, rankingByPlayerId, draftedPlayerIds]);
+
+  /** Send a user chat query to the advisor. */
+  const sendChatQuery = useCallback(
+    async (queryText) => {
+      const ownerId = Number(
+        simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
+      );
+      if (!ownerId || !activeLeagueId) return;
+
+      setChatMessages((prev) => [...prev, { type: 'user', text: queryText }]);
+      setChatLoading(true);
+      setChatError('');
+
+      try {
+        const data = await queryDraftAdvisor({
+          owner_id: ownerId,
+          season: Number(draftYear),
+          league_id: Number(activeLeagueId),
+          player_id: Number(selectedPlayer?.id || 0) || null,
+          question: queryText,
+          draft_state: buildDraftState(),
+        });
+        if (data) {
+          setChatMessages((prev) => [...prev, { type: 'advisor', ...data }]);
+        }
+      } catch (error) {
+        const detail = normalizeApiError(error, 'Advisor request failed. Please retry.');
+        setChatError(detail);
+      } finally {
+        setChatLoading(false);
+      }
+    },
+    [
+      simulationPerspectiveOwnerId,
+      currentUserId,
+      activeOwnerId,
+      activeLeagueId,
+      draftYear,
+      selectedPlayer,
+      buildDraftState,
+    ]
+  );
+
+  /** Fire a nomination event when a player is selected and chat mode is enabled. */
+  const fireNominationEvent = useCallback(
+    async (player) => {
+      const ownerId = Number(
+        simulationPerspectiveOwnerId || currentUserId || activeOwnerId || 0
+      );
+      if (!ownerId || !activeLeagueId || !player?.id) return;
+
+      setChatLoading(true);
+      setChatError('');
+
+      try {
+        const data = await postDraftDayEvent({
+          owner_id: ownerId,
+          season: Number(draftYear),
+          league_id: Number(activeLeagueId),
+          event_type: 'nomination',
+          player_id: Number(player.id),
+          draft_state: buildDraftState(),
+        });
+        if (data) {
+          setChatMessages((prev) => [...prev, { type: 'advisor', ...data }]);
+        }
+      } catch {
+        // Nomination guidance is best-effort — don't surface errors for auto-triggers.
+      } finally {
+        setChatLoading(false);
+      }
+    },
+    [
+      simulationPerspectiveOwnerId,
+      currentUserId,
+      activeOwnerId,
+      activeLeagueId,
+      draftYear,
+      buildDraftState,
+    ]
+  );
+
+  /** Handle quick-action buttons inside chat messages. */
+  const handleChatQuickAction = useCallback(
+    (action) => {
+      if (action === 'Simulate') {
+        runSimulation();
+        return;
+      }
+      callAdvisorAction(action);
+    },
+    [runSimulation, callAdvisorAction]
+  );
 
   const handleSearchChange = useCallback((event) => {
     const nextQuery = event.target.value;
@@ -1194,7 +1441,12 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
         ) : null}
 
         <div className="grid gap-3 xl:grid-cols-3">
-          <PlayerInsightCard recommendation={selectedInsightRecommendation} bidAmount={0} />
+          <PlayerInsightCard
+            recommendation={selectedInsightRecommendation}
+            bidAmount={0}
+            scarcityByPosition={draftDynamics.byPositionDemand}
+            ownerContext={{ budget: ownerStrategyInsights?.ownerStats?.budget }}
+          />
           <OwnerStrategyPanel
             insightOwnerId={Number(simulationPerspectiveOwnerId || 0)}
             insightOwnerLabel={activeInsightOwnerLabel}
@@ -1208,17 +1460,37 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
 
       <section className={`${cardSurface} space-y-3`}>
         <div className="flex items-center justify-between">
+          <h2 className="text-sm font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+            Post-Draft Analysis &amp; Season Outlook
+          </h2>
+          <span className="text-xs text-slate-500">Issue #112 foundation</span>
+        </div>
+        <PostDraftOutlookPanel
+          outlook={postDraftOutlook}
+          ownerLabel={activeInsightOwnerLabel}
+        />
+      </section>
+
+      <section className={`${cardSurface} space-y-3`}>
+        <div className="flex items-center justify-between">
           <h2 className="text-sm font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
             Draft Day Advisor
           </h2>
-          <span className="text-xs text-slate-500">Alerts &amp; Simulation</span>
+          <span className="text-xs text-slate-500">Copilot &amp; Simulation</span>
         </div>
 
-        {advisorError ? <ErrorState message={advisorError} className="text-xs" /> : null}
-        {advisorLoading ? (
-          <LoadingState message="Updating advisor..." className="text-xs" />
-        ) : null}
+        {/* Chat panel — Draft Day Mode */}
+        <DraftDayChatPanel
+          messages={chatMessages}
+          onSendQuery={sendChatQuery}
+          onQuickAction={handleChatQuickAction}
+          loading={chatLoading}
+          error={chatError}
+          disabled={!selectedPlayer || !activeLeagueId}
+          featureEnabled={draftDayModeEnabled}
+        />
 
+        {/* Legacy quick-action buttons (kept for keyboard / accessibility fallback) */}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -1251,19 +1523,9 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
           </button>
         </div>
 
-        {advisorMessage?.alerts?.length ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-amber-300">
-            {advisorMessage.alerts.map((alert, index) => (
-              <div key={`${alert}-${index}`} className="border-t border-slate-800 py-1 first:border-t-0">
-                {alert}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState message="No active alerts." className="text-xs" />
-        )}
+        {advisorError ? <ErrorState message={advisorError} className="text-xs" /> : null}
 
-        <div className="border-t border-slate-800 pt-3">
+        <div className="border-t border-slate-200 pt-3 dark:border-slate-800">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-400">Perspective Simulation</p>
           <div className="grid gap-2 md:grid-cols-3">
             <label className="text-xs text-slate-400">
