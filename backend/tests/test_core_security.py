@@ -36,6 +36,7 @@ def test_create_access_token_and_decode():
     from jose import jwt
     payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM], options={"verify_exp": False})
     assert payload.get("sub") == "alice"
+    assert payload.get("jti")
 
 
 def test_verify_password_with_unknown_hash_format_returns_false():

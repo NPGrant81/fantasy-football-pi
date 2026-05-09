@@ -154,6 +154,7 @@ def login_for_access_token(
 
     _clear_failed_attempts(attempt_key)
     logger.info("Successful login user_id=%s username=%s ip=%s", user.id, user.username, client_ip)
+    security.prune_expired_revoked_tokens(db)
 
     # 2.2.1 TOKEN GEN: Create JWT Access Token
     access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -177,7 +178,18 @@ def login_for_access_token(
 
 
 @router.post("/logout")
-def logout(response: Response):
+def logout(
+    request: Request,
+    response: Response,
+    token: str = Depends(security.oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
+    auth_token = security.choose_auth_token(cookie_token, token)
+    if auth_token:
+        security.revoke_access_token(db, auth_token)
+        security.prune_expired_revoked_tokens(db)
+
     _clear_auth_cookies(response)
     return {"message": "Logged out"}
 

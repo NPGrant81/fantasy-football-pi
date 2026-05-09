@@ -12,7 +12,6 @@ import pandas as pd
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-from jose import JWTError, jwt
 
 try:
     from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
@@ -98,17 +97,21 @@ def _parse_session_context(session_id: str) -> tuple[int | None, int | None]:
 
 def _get_websocket_user(websocket: WebSocket, db: Session):
     cookie_token = websocket.cookies.get(security.ACCESS_TOKEN_COOKIE_NAME)
-    bearer_token = websocket.query_params.get("token") if security.ALLOW_BEARER_AUTH else None
-    auth_token = cookie_token or bearer_token
+    bearer_token = websocket.query_params.get("token")
+    auth_token = security.choose_auth_token(cookie_token, bearer_token)
     if not auth_token:
         return None
 
     try:
-        payload = jwt.decode(auth_token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        payload = security.decode_access_token(auth_token)
         username = payload.get("sub")
-        if not username:
+        jti = payload.get("jti")
+        if not username or not jti:
             return None
-    except JWTError:
+    except Exception:
+        return None
+
+    if security.is_token_revoked(db, jti):
         return None
 
     return db.query(models.User).filter(models.User.username == username).first()
