@@ -594,6 +594,12 @@
     "last_reviewed": "2026-05-02"
   },
   {
+    "path": "docs/engineering/dead-code.md",
+    "owner": "engineering",
+    "cadence_days": 30,
+    "last_reviewed": "2026-05-08"
+  },
+  {
     "path": "docs/archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md",
     "owner": "engineering",
     "cadence_days": 180,

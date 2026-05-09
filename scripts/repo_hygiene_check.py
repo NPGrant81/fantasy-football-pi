@@ -75,6 +75,8 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("qa", "uat")
     if rel.startswith("docs/diagrams/"):
         return ("engineering", "diagram")
+    if rel.startswith("docs/engineering/"):
+        return ("engineering", "implementation-guide")
     if rel.startswith("docs/data-migration/"):
         return ("data", "migration")
     if rel.startswith("docs/pi-setup/"):
