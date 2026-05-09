@@ -24,13 +24,21 @@ This document captures the current security baseline implemented for issue #77 a
   - Configurable max failures: `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`
   - Per-IP/per-username attempt tracking with `429` on lockout
   - Failed and rate-limited attempts are logged
-  - Distributed backend support: in-memory fallback (Redis backend planned — see roadmap)
+  - Distributed backend support: Redis-backed rate limiter with in-memory fallback (`RATE_LIMITER_BACKEND`)
 - Cookie-based sessions are issued at login:
   - HTTP-only access token cookie (`ffpi_access_token` by default)
   - CSRF cookie (`ffpi_csrf_token`) for double-submit verification
 - CSRF protection is enforced for `POST`/`PUT`/`PATCH`/`DELETE` requests when cookie auth is used.
-- `POST /auth/logout` clears auth cookies.
-- JWT token revocation via JTI blocklist and refresh token rotation with `RevokedToken`/`RefreshToken` tables are in progress — see roadmap.
+- JWT token revocation is enforced via JTI blocklist:
+  - Each JWT includes a unique ID (`jti`) for revocation tracking
+  - Revoked JTI tokens are stored in `RevokedToken` table with expiration
+  - `GET_current_user()` checks blocklist before accepting tokens
+- Refresh token rotation is implemented:
+  - Refresh tokens are persisted in `RefreshToken` table with secure hashing
+  - Token rotation on each refresh creates family chain for replay detection
+  - `rotated_from_token_hash` tracks rotation lineage for revocation on suspected breach
+  - Soft deletion via `revoked_at` timestamp enables audit trail
+- `POST /auth/logout` clears auth cookies and revokes all user refresh tokens
 - Frontend is now cookie-session first and no longer stores bearer access tokens in browser storage.
 - Bearer header auth is now opt-in (`ALLOW_BEARER_AUTH=1`) for controlled interoperability.
 
@@ -42,18 +50,21 @@ This document captures the current security baseline implemented for issue #77 a
 - Frontend checks include:
   - `npm audit --audit-level=high`
 - `secrets-scan.yml` runs gitleaks on push/PR to `main` with repository-specific allowlist tuning in `.gitleaks.toml`.
-- `security-test-lane.yml` runs a dedicated backend security suite on push/PR to `main`, covering:
-  - Auth/token validation
-  - Session and CSRF guardrails
-  - Runtime security guardrails (DB credential leakage and sqlite runtime drift)
-  - Token expiry behavior
-
-### Required merge check
-- Protect `main` by requiring the `security-backend-suite` status check in branch protection rules.
-- This blocks merges when security-lane tests fail and keeps security regressions out of `main`.
 
 ### Admin and privileged operation audit logging
-- Admin audit logging via `AdminAuditLog` table is in progress — see roadmap.
+- All administrative actions are recorded in `AdminAuditLog` immutable table:
+  - Captures actor identity (user_id, username, role flags)
+  - Records action type, scope, and target (type/id)
+  - Includes optional metadata (JSON) for audit context
+  - Immutable timestamps enable audit trail reconstruction
+- Audit logging covers all 6 admin router modules:
+  - `admin.py` (user/league management)
+  - `platform_tools.py` (system utilities)
+  - `admin_nfl.py` (NFL metadata)
+  - `admin_drafts.py` (draft operations)
+  - `admin_live_scoring.py` (scoring rule management)
+  - `admin_config.py` (configuration)
+- Superuser-only read endpoint available for audit review and compliance investigation
 
 ## Environment variables
 
@@ -72,7 +83,9 @@ Recommended runtime settings:
 - `FRONTEND_ALLOWED_ORIGINS=https://your.domain.com`
 - `LOGIN_RATE_LIMIT_WINDOW_SECONDS=300`
 - `LOGIN_RATE_LIMIT_MAX_ATTEMPTS=10`
-- `ALLOW_BEARER_AUTH=0` (set to `1` only for trusted service integrations)
+- `RATE_LIMITER_BACKEND=memory` (or `redis` for distributed deployments)
+- `REDIS_URL=redis://localhost:6379/0` (if using Redis backend)
+- `REDIS_POOL_SIZE=10` (connection pool size for Redis backend)
 
 ## Remaining roadmap (Phase 3+)
 
@@ -88,16 +101,6 @@ Recommended runtime settings:
 - Enforce HTTPS-only at Nginx with HSTS preload decision review.
 - Add incident response runbook and backup restoration drills.
 
-### HTTPS/HSTS decision record (Issue #413)
-- Decision: enforce HTTPS-only and ship HSTS without `preload` for now.
-- Current HSTS policy: `max-age=31536000; includeSubDomains`.
-- Rationale:
-  - HSTS is enforced immediately for browsers that have already connected over HTTPS.
-  - Preload is intentionally deferred until all present and planned subdomains are confirmed HTTPS-only and long-lived.
-  - This avoids irreversible preload-list risk during active infrastructure evolution.
-- Revisit trigger:
-  - If all production subdomains are HTTPS-only for at least one release cycle, promote to preload in a follow-up issue/ADR.
-
 ### Nginx hardening template
 - A deploy-ready starter config for Raspberry Pi is available at:
   - `deploy/nginx/fantasy-football-pi.conf.example`
@@ -107,8 +110,6 @@ Recommended runtime settings:
   - HSTS and defensive headers
   - Request/connection rate limiting
   - Safe proxy timeouts and forwarded headers
-- Deployment verification command:
-  - `bash scripts/check_https_headers.sh YOUR_DOMAIN`
 
 ## Incident response quick-start
 
