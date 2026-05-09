@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from backend.core import security
 from datetime import timedelta
 from fastapi import HTTPException
+from jose import JWTError, jwt
 
 
 def test_password_hash_and_verify():
@@ -33,10 +34,15 @@ def test_password_hash_and_verify():
 
 def test_create_access_token_and_decode():
     token = security.create_access_token({"sub": "alice"}, expires_delta=timedelta(minutes=5))
-    from jose import jwt
     payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM], options={"verify_exp": False})
     assert payload.get("sub") == "alice"
     assert payload.get("jti")
+
+
+def test_create_access_token_expired_token_rejected():
+    token = security.create_access_token({"sub": "alice"}, expires_delta=timedelta(minutes=-1))
+    with pytest.raises(JWTError):
+        jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
 
 
 def test_verify_password_with_unknown_hash_format_returns_false():

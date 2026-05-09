@@ -50,6 +50,15 @@ This document captures the current security baseline implemented for issue #77 a
 - Frontend checks include:
   - `npm audit --audit-level=high`
 - `secrets-scan.yml` runs gitleaks on push/PR to `main` with repository-specific allowlist tuning in `.gitleaks.toml`.
+- `security-test-lane.yml` runs a dedicated backend security suite on push/PR to `main`, covering:
+  - Auth/token validation
+  - Session and CSRF guardrails
+  - Runtime security guardrails (DB credential leakage and sqlite runtime drift)
+  - Token expiry behavior
+
+### Required merge check
+- Protect `main` by requiring the `security-backend-suite` status check in branch protection rules.
+- This blocks merges when security-lane tests fail and keeps security regressions out of `main`.
 
 ### Admin and privileged operation audit logging
 - All administrative actions are recorded in `AdminAuditLog` immutable table:
