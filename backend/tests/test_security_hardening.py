@@ -36,6 +36,18 @@ def test_hsts_is_added_for_https_requests():
     assert "preload" not in hsts_header.lower()
 
 
+def test_cors_allow_headers_are_explicit_and_include_auth_and_csrf():
+    cors_middleware = next(
+        m for m in app.user_middleware if m.cls.__name__ == "CORSMiddleware"
+    )
+    allow_headers = set(cors_middleware.kwargs.get("allow_headers") or [])
+
+    assert "*" not in allow_headers
+    assert "Authorization" in allow_headers
+    assert "Content-Type" in allow_headers
+    assert "X-CSRF-Token" in allow_headers
+
+
 def test_login_rate_limiter_records_and_clears_attempts():
     key = "127.0.0.1:demo-user"
     auth_router.failed_login_attempts.clear()

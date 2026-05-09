@@ -348,12 +348,21 @@ allowed = ["*"] if os.getenv("ALLOW_ALL_ORIGINS") == "1" else _parse_csv_env(
         "http://127.0.0.1:5173",
     ],
 )
+cors_csrf_header = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
+cors_allow_headers = [
+    "Authorization",
+    "Content-Type",
+    "Accept",
+    "Origin",
+    "X-Requested-With",
+    cors_csrf_header,
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=cors_allow_headers,
 )
 
 
