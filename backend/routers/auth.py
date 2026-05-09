@@ -15,6 +15,7 @@ from .. import models
 from ..schemas import User, UserCreate
 from ..database import get_db
 from ..services import rate_limiter_service
+from ..services import password_reset_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -122,9 +123,8 @@ def login_for_access_token(
 ):
     client_ip = request.client.host if request.client else "unknown"
     attempt_key = _login_attempt_key(form_data.username, client_ip)
-
     if _is_rate_limited(attempt_key):
-        logger.warning("Rate-limited login attempt for user=%s ip=%s", form_data.username, client_ip)
+        logger.warning("Rate limited login attempt for user=%s ip=%s", form_data.username, client_ip)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Please try again later.",
@@ -216,5 +216,135 @@ def update_email(
     current_user.email = email
     db.commit()
     db.refresh(current_user)
-
     return {"email": current_user.email}
+
+
+# --- 2.4 ENDPOINT: PASSWORD RESET ---
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/password-reset-request")
+def request_password_reset(
+    payload: PasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Request a password reset token.
+    
+    Anti-enumeration: Returns 200 OK regardless of whether email exists.
+    Only sends reset email if user account with that email exists.
+    
+    Returns: { "message": "If an account exists with this email, a reset link has been sent" }
+    """
+    email = payload.email.strip().lower() if payload.email else ""
+    client_ip = request.client.host if request.client else None
+    
+    # Find user by email (case-insensitive)
+    user = db.query(models.User).filter(
+        func.lower(models.User.email) == email
+    ).first()
+    
+    if user:
+        try:
+            # Generate reset token
+            reset_token = password_reset_service.create_password_reset_request(
+                db,
+                user,
+                client_ip=client_ip,
+                expiry_minutes=15,
+            )
+            
+            # TODO: Send email with reset link
+            # reset_url = f"{os.getenv('FRONTEND_URL')}/reset-password?token={reset_token}&email={email}"
+            # send_password_reset_email(user.email, reset_url)
+            
+            logger.info(
+                "Password reset requested for user_id=%s email=%s ip=%s",
+                user.id, email, client_ip,
+            )
+        except Exception as e:
+            logger.error("Failed to create reset token for email=%s: %s", email, e)
+    else:
+        # Log non-existent email attempt (security monitoring)
+        logger.warning("Password reset requested for non-existent email=%s ip=%s", email, client_ip)
+    
+    # Always return success (anti-enumeration)
+    return {"message": "If an account exists with this email, a reset link has been sent"}
+
+
+@router.post("/password-reset-confirm")
+def confirm_password_reset(
+    payload: PasswordResetConfirm,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Confirm password reset and set new password.
+    
+    Validates:
+    - Token exists and hasn't expired
+    - Token hasn't been used (single-use enforcement)
+    - New password meets minimum requirements
+    
+    Returns: { "message": "Password reset successfully" }
+    """
+    token = payload.token.strip() if payload.token else ""
+    new_password = payload.new_password.strip() if payload.new_password else ""
+    client_ip = request.client.host if request.client else None
+    
+    if not token or not new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token and new password are required",
+        )
+    
+    # Validate password strength
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long",
+        )
+    
+    # Find token in database
+    token_hash = password_reset_service.hash_reset_token(token)
+    reset_token = db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.token_hash == token_hash
+    ).first()
+    
+    if not reset_token:
+        logger.warning("Invalid password reset token attempted from ip=%s", client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+    
+    # Validate token
+    try:
+        password_reset_service.validate_and_use_reset_token(
+            db, reset_token.user_id, token
+        )
+    except ValueError as e:
+        logger.warning("Invalid reset token usage for user_id=%s: %s", reset_token.user_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+    
+    # Update user password
+    user = reset_token.user
+    user.hashed_password = security.get_password_hash(new_password)
+    db.commit()
+    
+    logger.info(
+        "Password reset confirmed for user_id=%s email=%s ip=%s",
+        user.id, user.email, client_ip,
+    )
+    
+    return {"message": "Password reset successfully"}
