@@ -1306,4 +1306,3 @@ class CanonicalPlayerSnapshot(Base):
     source = Column(String(32), nullable=False, default="etl_build")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-
