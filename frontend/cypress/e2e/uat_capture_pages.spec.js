@@ -59,7 +59,6 @@ describe('UAT deck screenshot capture', () => {
   }));
 
   function seedAuth(win) {
-    win.localStorage.setItem('fantasyToken', 'uat-token');
     win.localStorage.setItem('user_id', '5');
     win.localStorage.setItem('fantasyLeagueId', '1');
   }

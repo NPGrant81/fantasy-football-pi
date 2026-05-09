@@ -68,13 +68,13 @@ describe('DraftBoard smoke', () => {
 
     cy.visit('/draft', {
       onBeforeLoad(win) {
-        win.localStorage.setItem('fantasyToken', 'e2e-token');
         win.localStorage.setItem('user_id', '5');
         win.localStorage.setItem('fantasyLeagueId', '1');
       },
     });
 
     cy.wait('@authMe');
+    cy.window().its('localStorage.fantasyToken').should('be.undefined');
     cy.wait('@owners');
     cy.wait('@players');
     cy.wait('@history');
