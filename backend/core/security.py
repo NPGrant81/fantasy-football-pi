@@ -1,5 +1,7 @@
 # backend/core/security.py
 import os
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone # 1.1.1 Use timezone-aware datetime
 from typing import Optional
 from uuid import uuid4
@@ -36,6 +38,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 
 ACCESS_TOKEN_COOKIE_NAME = os.environ.get("ACCESS_TOKEN_COOKIE_NAME", "ffpi_access_token")
 ALLOW_BEARER_AUTH = os.environ.get("ALLOW_BEARER_AUTH", "0") == "1"
 REVOCATION_PRUNE_INTERVAL_SECONDS = int(os.environ.get("REVOCATION_PRUNE_INTERVAL_SECONDS", "300"))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "14"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # 1.1.3 IMPORTANT: Point this to your new auth router path
@@ -95,6 +98,70 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def generate_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def create_refresh_token_record(
+    db: Session,
+    user_id: int,
+    refresh_token: str,
+    expires_at: datetime,
+    rotated_from_token_hash: Optional[str] = None,
+) -> models.RefreshToken:
+    token_hash = hash_refresh_token(refresh_token)
+    record = models.RefreshToken(
+        user_id=user_id,
+        token_hash=token_hash,
+        expires_at=expires_at,
+        rotated_from_token_hash=rotated_from_token_hash,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def get_refresh_token_record(db: Session, refresh_token: str) -> Optional[models.RefreshToken]:
+    token_hash = hash_refresh_token(refresh_token)
+    return (
+        db.query(models.RefreshToken)
+        .filter(models.RefreshToken.token_hash == token_hash)
+        .first()
+    )
+
+
+def revoke_refresh_token(db: Session, refresh_token: str) -> bool:
+    record = get_refresh_token_record(db, refresh_token)
+    if record is None:
+        return False
+    if record.revoked_at is not None:
+        return True
+
+    record.revoked_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
+
+def revoke_all_user_refresh_tokens(db: Session, user_id: int) -> int:
+    now = datetime.now(timezone.utc)
+    updated = (
+        db.query(models.RefreshToken)
+        .filter(
+            models.RefreshToken.user_id == user_id,
+            models.RefreshToken.revoked_at.is_(None),
+        )
+        .update({models.RefreshToken.revoked_at: now}, synchronize_session=False)
+    )
+    if updated:
+        db.commit()
+    return int(updated)
 
 
 def choose_auth_token(cookie_token: Optional[str], bearer_token: Optional[str]) -> Optional[str]:
