@@ -55,6 +55,44 @@ class RevokedToken(Base):
     revoked_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
 
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    __table_args__ = (
+        UniqueConstraint("token_hash", name="uq_refresh_tokens_token_hash"),
+        Index("ix_refresh_tokens_user_id", "user_id"),
+        Index("ix_refresh_tokens_expires_at", "expires_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String(128), nullable=False, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    rotated_from_token_hash = Column(String(128), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+    __table_args__ = (
+        Index("ix_admin_audit_logs_created_at", "created_at"),
+        Index("ix_admin_audit_logs_actor_user_id", "actor_user_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    actor_username = Column(String(255), nullable=False)
+    actor_is_superuser = Column(Boolean, nullable=False, default=False)
+    actor_is_commissioner = Column(Boolean, nullable=False, default=False)
+    action = Column(String(128), nullable=False)
+    scope = Column(String(64), nullable=False)
+    target_type = Column(String(64), nullable=True)
+    target_id = Column(String(128), nullable=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
 # --- 2. LEAGUE TABLE ---
 class League(Base):
     __tablename__ = "leagues"

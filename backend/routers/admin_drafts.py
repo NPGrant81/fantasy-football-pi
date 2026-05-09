@@ -5,8 +5,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from ..core.security import check_is_commissioner
+from ..database import get_db
+from ..services import admin_audit_service
 
 router = APIRouter(prefix="/admin/drafts", tags=["Admin Drafts"])
 
@@ -35,9 +38,17 @@ class RefreshDraftValuesPayload(BaseModel):
 def refresh_draft_values(
     payload: RefreshDraftValuesPayload,
     background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
     current_user=Depends(check_is_commissioner),
 ):
     background_tasks.add_task(_run_draft_values_refresh, payload)
+    admin_audit_service.record_privileged_action(
+        db,
+        current_user,
+        "refresh_draft_values",
+        "commissioner",
+        metadata_json={"route": "admin_drafts.refresh_values", "season": payload.season, "sources": payload.sources},
+    )
     return {
         "message": "Draft values refresh started in the background.",
         "season": payload.season,
