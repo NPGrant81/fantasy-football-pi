@@ -187,3 +187,23 @@ def test_remove_commissioner_blocks_superuser_and_allows_normal_commissioner(cli
 
     db.refresh(normal_commish)
     assert normal_commish.is_commissioner is False
+
+
+def test_platform_internal_errors_are_sanitized_in_production(client, api_db, monkeypatch):
+    async def allow_superuser():
+        return models.User(id=1002, username='root', is_superuser=True)
+
+    app.dependency_overrides[get_current_active_superuser] = allow_superuser
+    monkeypatch.setenv('APP_ENV', 'production')
+
+    def _boom(_db):
+        raise RuntimeError('sensitive-db-password-leak')
+
+    for modname in ('routers.platform_tools', 'backend.routers.platform_tools'):
+        monkeypatch.setattr(f"{modname}.admin_service.uat_team_reset", _boom, raising=False)
+
+    response = client.post('/admin/tools/uat-team-reset')
+
+    assert response.status_code == 500
+    assert response.json().get('detail') == 'Internal server error'
+    assert 'sensitive' not in str(response.json())
