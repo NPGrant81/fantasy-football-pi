@@ -2,10 +2,8 @@
 import logging
 import os
 import secrets
-import threading
 import time
-from collections import defaultdict, deque
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
@@ -17,6 +15,7 @@ from ..core import security
 from .. import models
 from ..schemas import User, UserCreate
 from ..database import get_db
+from ..services import rate_limiter_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -29,39 +28,32 @@ COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "0") == "1"
 ACCESS_TOKEN_COOKIE_NAME = security.ACCESS_TOKEN_COOKIE_NAME
 CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "ffpi_csrf_token")
 CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
-failed_login_attempts: dict[str, deque[float]] = defaultdict(deque)
-failed_login_lock = threading.Lock()
 
 
 def _login_attempt_key(username: str, client_ip: str) -> str:
     return f"{client_ip}:{username.strip().lower()}"
 
 
-def _trim_old_attempts(attempts: deque[float], now: float) -> None:
-    cutoff = now - LOGIN_RATE_LIMIT_WINDOW_SECONDS
-    while attempts and attempts[0] < cutoff:
-        attempts.popleft()
-
-
 def _is_rate_limited(key: str) -> bool:
-    now = time.monotonic()
-    with failed_login_lock:
-        attempts = failed_login_attempts[key]
-        _trim_old_attempts(attempts, now)
-        return len(attempts) >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS
+    """Check if login attempt key is rate limited."""
+    return rate_limiter_service.is_rate_limited(
+        key,
+        max_attempts=LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+        window_seconds=LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+    )
 
 
 def _record_failed_attempt(key: str) -> None:
-    now = time.monotonic()
-    with failed_login_lock:
-        attempts = failed_login_attempts[key]
-        _trim_old_attempts(attempts, now)
-        attempts.append(now)
+    """Record a failed login attempt."""
+    rate_limiter_service.record_attempt(
+        key,
+        window_seconds=LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+    )
 
 
 def _clear_failed_attempts(key: str) -> None:
-    with failed_login_lock:
-        failed_login_attempts.pop(key, None)
+    """Clear failed login attempts for a key (called on successful login)."""
+    rate_limiter_service.clear_attempts(key)
 
 
 def _is_secure_request(request: Request) -> bool:
