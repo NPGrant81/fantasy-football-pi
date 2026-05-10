@@ -2,7 +2,7 @@
 Password reset service for secure account recovery.
 
 Implements secure password reset token generation, validation, and redemption
-with anti-enumeration, single-use enforcement, and audit logging.
+with anti-enumeration and single-use enforcement.
 """
 
 import hashlib
@@ -72,6 +72,9 @@ def create_password_reset_request(
     """
     if not user or not user.id:
         raise ValueError("Invalid user")
+
+    # Serialize reset-token issuance per user to avoid concurrent multi-token races.
+    db.query(User).filter(User.id == user.id).with_for_update().first()
     
     # Generate token
     token = generate_reset_token()
@@ -114,7 +117,7 @@ def validate_and_use_reset_token(
         token: Plain-text reset token from user
     
     Returns:
-        True if token is valid and marked used; False otherwise
+        True if token is valid and marked used
     
     Raises:
         ValueError: If token is invalid or already used
@@ -125,33 +128,41 @@ def validate_and_use_reset_token(
     token_hash = hash_reset_token(token)
     now = datetime.now(timezone.utc)
     
-    # Find token record
+    # Atomically mark token as used only if still valid and unused.
+    updated = db.query(PasswordResetToken).filter(
+        and_(
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.user_id == user_id,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at >= now,
+        )
+    ).update({PasswordResetToken.used_at: now}, synchronize_session=False)
+
+    if updated == 1:
+        db.commit()
+        return True
+
+    # Resolve precise error for caller while preserving single-use semantics.
     reset_token = db.query(PasswordResetToken).filter(
         and_(
             PasswordResetToken.token_hash == token_hash,
             PasswordResetToken.user_id == user_id,
         )
     ).first()
-    
+
     if not reset_token:
         raise ValueError("Token not found")
-    
-    # Check if expired
+
     expires_at = reset_token.expires_at
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < now:
         raise ValueError("Token expired")
-    
-    # Check if already used (single-use enforcement)
+
     if reset_token.used_at is not None:
         raise ValueError("Token already used")
-    
-    # Mark as used
-    reset_token.used_at = now
-    db.commit()
-    
-    return True
+
+    raise ValueError("Token not found")
 
 
 def cleanup_expired_reset_tokens(db: Session) -> int:
