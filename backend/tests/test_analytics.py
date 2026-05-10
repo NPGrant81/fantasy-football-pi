@@ -12,6 +12,7 @@ import models
 from backend.routers.analytics import (
     get_draft_value_data,
     get_efficiency_leaderboard,
+    get_in_season_insights,
     get_post_draft_outlook,
     get_player_heatmap_data,
     get_positional_heatmap_data,
@@ -800,3 +801,288 @@ def test_waiver_opportunities_exposes_usage_metrics_and_heatmap_volume(db_sessio
     assert first["weekly_opportunity"]["2"] > first["weekly_opportunity"]["1"]
     assert first["weekly_scores"] == first["weekly_opportunity"]
     assert payload["heatmap_max"] >= first["weekly_opportunity"]["2"]
+
+
+def test_in_season_insights_returns_owner_personalized_bundle(db_session):
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="InsightOwner", team_name="Insight Team")
+    other = make_user(db_session, league.id, username="OtherOwner", team_name="Other Team")
+
+    # Owner roster intentionally thin at RB to verify personalization.
+    qb = models.Player(name="Owner QB", position="QB", nfl_team="AAA", projected_points=272.0)
+    wr = models.Player(name="Owner WR", position="WR", nfl_team="BBB", projected_points=238.0)
+    bench_wr = models.Player(name="Bench WR", position="WR", nfl_team="CCC", projected_points=205.0)
+    rb_other = models.Player(name="Other RB", position="RB", nfl_team="DDD", projected_points=250.0)
+    free_agent_rb = models.Player(name="Waiver RB", position="RB", nfl_team="EEE", projected_points=145.0)
+    db_session.add_all([qb, wr, bench_wr, rb_other, free_agent_rb])
+    db_session.commit()
+    for player in [qb, wr, bench_wr, rb_other, free_agent_rb]:
+        db_session.refresh(player)
+
+    db_session.add(
+        models.LeagueSettings(
+            league_id=league.id,
+            roster_size=14,
+            starting_slots={"MAX_QB": 1, "MAX_RB": 2, "MAX_WR": 2, "MAX_TE": 1, "MAX_K": 1, "MAX_DEF": 1},
+        )
+    )
+
+    db_session.add_all(
+        [
+            models.DraftPick(owner_id=owner.id, league_id=league.id, year=2026, player_id=qb.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner.id, league_id=league.id, year=2026, player_id=wr.id, current_status="STARTER", amount=10),
+            models.DraftPick(owner_id=owner.id, league_id=league.id, year=2026, player_id=bench_wr.id, current_status="BENCH", amount=10),
+            models.DraftPick(owner_id=other.id, league_id=league.id, year=2026, player_id=rb_other.id, current_status="STARTER", amount=10),
+        ]
+    )
+
+    db_session.add_all(
+        [
+            models.PlayerWeeklyStat(
+                player_id=free_agent_rb.id,
+                season=2026,
+                week=1,
+                fantasy_points=7.0,
+                stats={"targets": 3, "carries": 7, "RZTGTS": 0, "SNAP%": 41, "ROUTE%": 36},
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=free_agent_rb.id,
+                season=2026,
+                week=2,
+                fantasy_points=13.0,
+                stats={"targets": 6, "carries": 11, "RZTGTS": 1, "SNAP%": 63, "ROUTE%": 52},
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=wr.id,
+                season=2026,
+                week=1,
+                fantasy_points=11.0,
+                stats={},
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=wr.id,
+                season=2026,
+                week=2,
+                fantasy_points=9.5,
+                stats={},
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=bench_wr.id,
+                season=2026,
+                week=1,
+                fantasy_points=15.0,
+                stats={},
+                source="test",
+            ),
+            models.PlayerWeeklyStat(
+                player_id=bench_wr.id,
+                season=2026,
+                week=2,
+                fantasy_points=16.5,
+                stats={},
+                source="test",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = get_in_season_insights(
+        league_id=league.id,
+        owner_id=owner.id,
+        season=2026,
+        waiver_limit=5,
+        start_sit_limit=5,
+        db=db_session,
+    )
+
+    assert payload["meta"]["metric"] == "in_season_weekly_insights"
+    assert payload["meta"]["personalized_owner_id"] == owner.id
+    assert payload["owner_id"] == owner.id
+    assert payload["roster_needs"]
+    assert payload["waiver_targets"]
+    assert payload["trade_leverage"]
+    assert payload["start_sit_recommendations"]
+
+    rb_need = next(row for row in payload["roster_needs"] if row["position"] == "RB")
+    assert rb_need["deficit"] >= 1
+
+    top_target = payload["waiver_targets"][0]
+    assert top_target["position"] == "RB"
+    assert top_target["recommended_faab_bid_pct"] >= 1
+
+    assert any(rec["recommendation"] in {"start", "consider_bench"} for rec in payload["start_sit_recommendations"])
+
+def test_in_season_insights_empty_roster_returns_valid_bundle(db_session):
+    """An owner with no draft picks should still return a valid response shape."""
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="EmptyOwner", team_name="Empty Team")
+    db_session.add(
+        models.LeagueSettings(
+            league_id=league.id,
+            roster_size=14,
+            starting_slots={"MAX_QB": 1, "MAX_RB": 2, "MAX_WR": 2},
+        )
+    )
+    db_session.commit()
+
+    payload = get_in_season_insights(
+        league_id=league.id,
+        owner_id=owner.id,
+        season=2026,
+        waiver_limit=8,
+        start_sit_limit=10,
+        db=db_session,
+    )
+
+    assert payload["owner_id"] == owner.id
+    # All lists must be present and serializable even when empty
+    assert isinstance(payload["roster_needs"], list)
+    assert isinstance(payload["waiver_targets"], list)
+    assert isinstance(payload["trade_leverage"], list)
+    assert isinstance(payload["start_sit_recommendations"], list)
+    assert isinstance(payload["alerts"], list)
+    assert payload["meta"]["includes_waivers"] is True
+
+
+def test_in_season_insights_consider_bench_generates_alert(db_session):
+    """A starter who is clearly outperformed by a bench player should generate a start_sit alert."""
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="AlertOwner", team_name="Alert Team")
+    db_session.add(
+        models.LeagueSettings(
+            league_id=league.id,
+            roster_size=14,
+            starting_slots={"MAX_QB": 1, "MAX_RB": 2, "MAX_WR": 2},
+        )
+    )
+    weak_starter = models.Player(name="Weak Starter", position="RB", nfl_team="WW1", projected_points=60.0)
+    strong_bench = models.Player(name="Bench Star", position="RB", nfl_team="WW2", projected_points=300.0)
+    db_session.add_all([weak_starter, strong_bench])
+    db_session.commit()
+    db_session.refresh(weak_starter)
+    db_session.refresh(strong_bench)
+
+    db_session.add_all([
+        models.DraftPick(owner_id=owner.id, league_id=league.id, year=2026, player_id=weak_starter.id, current_status="STARTER", amount=5),
+        models.DraftPick(owner_id=owner.id, league_id=league.id, year=2026, player_id=strong_bench.id, current_status="BENCH", amount=20),
+    ])
+    # Give strong_bench much better recent performance to trigger consider_bench
+    for week, pts in [(1, 3.0), (2, 4.0)]:
+        db_session.add(models.PlayerWeeklyStat(player_id=weak_starter.id, season=2026, week=week, fantasy_points=pts, stats={}, source="test"))
+    for week, pts in [(1, 18.0), (2, 22.0)]:
+        db_session.add(models.PlayerWeeklyStat(player_id=strong_bench.id, season=2026, week=week, fantasy_points=pts, stats={}, source="test"))
+    db_session.commit()
+
+    payload = get_in_season_insights(
+        league_id=league.id,
+        owner_id=owner.id,
+        season=2026,
+        waiver_limit=8,
+        start_sit_limit=10,
+        db=db_session,
+    )
+
+    # At least one start_sit recommendation should suggest benching the weak starter
+    bench_recs = [r for r in payload["start_sit_recommendations"] if r["recommendation"] == "consider_bench"]
+    assert bench_recs, "Expected at least one consider_bench recommendation"
+    # Alerts list should be a list of dicts (not strings)
+    for alert in payload["alerts"]:
+        assert isinstance(alert, dict)
+        assert "type" in alert
+        assert "severity" in alert
+        assert "message" in alert
+
+
+def test_in_season_insights_trade_leverage_shape(db_session):
+    """Trade leverage items must have position, delta_vs_league, and recommended_action keys."""
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="TradeOwner", team_name="Trade Team")
+    db_session.add(
+        models.LeagueSettings(
+            league_id=league.id,
+            roster_size=14,
+            starting_slots={"MAX_QB": 1, "MAX_RB": 2, "MAX_WR": 2},
+        )
+    )
+    elite_rb = models.Player(name="Elite RB", position="RB", nfl_team="TTT", projected_points=420.0)
+    db_session.add(elite_rb)
+    db_session.commit()
+    db_session.refresh(elite_rb)
+    db_session.add(
+        models.DraftPick(
+            owner_id=owner.id,
+            league_id=league.id,
+            year=2026,
+            player_id=elite_rb.id,
+            current_status="STARTER",
+            amount=10,
+        )
+    )
+    db_session.commit()
+
+    payload = get_in_season_insights(
+        league_id=league.id,
+        owner_id=owner.id,
+        season=2026,
+        waiver_limit=8,
+        start_sit_limit=10,
+        db=db_session,
+    )
+
+    leverage = payload["trade_leverage"]
+    assert isinstance(leverage, list)
+    for item in leverage:
+        assert "position" in item
+        assert "delta_vs_league" in item
+        assert "recommended_action" in item
+        assert item["recommended_action"] in {"sell_high", "buy_help", "hold"}
+        assert "confidence" in item
+
+
+def test_in_season_insights_waiver_limit_caps_targets(db_session):
+    """waiver_limit=3 should return at most 3 waiver targets."""
+    league = make_league(db_session)
+    owner = make_user(db_session, league.id, username="LimitOwner", team_name="Limit Team")
+    db_session.add(
+        models.LeagueSettings(
+            league_id=league.id,
+            roster_size=14,
+            starting_slots={"MAX_QB": 1, "MAX_RB": 2, "MAX_WR": 2},
+        )
+    )
+    # Add 10 free agents with weekly stats to populate waiver pool
+    players = []
+    for i in range(10):
+        p = models.Player(name=f"FA_{i}", position="RB", nfl_team=f"T{i}", projected_points=float(100 + i * 10))
+        db_session.add(p)
+        players.append(p)
+    db_session.commit()
+    for p in players:
+        db_session.refresh(p)
+    for i, p in enumerate(players):
+        db_session.add(
+            models.PlayerWeeklyStat(
+                player_id=p.id,
+                season=2026,
+                week=1,
+                fantasy_points=float(5 + i),
+                stats={"targets": i, "carries": i + 2, "RZTGTS": 0, "SNAP%": 40, "ROUTE%": 35},
+                source="test",
+            )
+        )
+    db_session.commit()
+
+    payload = get_in_season_insights(
+        league_id=league.id,
+        owner_id=owner.id,
+        season=2026,
+        waiver_limit=3,
+        start_sit_limit=10,
+        db=db_session,
+    )
+
+    assert len(payload["waiver_targets"]) <= 3

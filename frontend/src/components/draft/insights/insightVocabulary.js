@@ -64,11 +64,11 @@ export function normalizePos(value) {
 
 export function tierTone(tier) {
   const normalized = String(tier || 'C').toUpperCase();
-  if (normalized === 'S') return 'text-emerald-300';
-  if (normalized === 'A') return 'text-cyan-300';
-  if (normalized === 'B') return 'text-blue-300';
-  if (normalized === 'C') return 'text-amber-300';
-  return 'text-rose-300';
+  if (normalized === 'S') return 'text-emerald-700 dark:text-emerald-300';
+  if (normalized === 'A') return 'text-cyan-700 dark:text-cyan-300';
+  if (normalized === 'B') return 'text-blue-700 dark:text-blue-300';
+  if (normalized === 'C') return 'text-amber-700 dark:text-amber-300';
+  return 'text-rose-700 dark:text-rose-300';
 }
 
 export function riskLabel(riskScore) {

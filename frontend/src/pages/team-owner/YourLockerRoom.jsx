@@ -7,6 +7,9 @@ import {
   FiList,
   FiX,
   FiBarChart2,
+  FiZap,
+  FiChevronDown,
+  FiChevronRight,
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 // --- Commissioner Modal Imports ---
@@ -28,6 +31,8 @@ import {
 
 // Professional Imports
 import apiClient from '@api/client';
+import { fetchInSeasonInsights } from '@api/analyticsApi';
+import InSeasonAdvisorPanel from '@components/analytics/InSeasonAdvisorPanel';
 import Toast from '../../components/Toast';
 import {
   buttonPrimary,
@@ -324,6 +329,11 @@ export default function YourLockerRoom({ activeOwnerId }) {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [toast, setToast] = useState(null);
   const [showPlayerPerformance, setShowPlayerPerformance] = useState(false);
+
+  // --- IN-SEASON INSIGHTS STATE ---
+  const [inSeasonInsights, setInSeasonInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(true);
   const [showLineupValidationModal, setShowLineupValidationModal] =
     useState(false);
   const [draggingPlayerId, setDraggingPlayerId] = useState(null);
@@ -515,6 +525,19 @@ export default function YourLockerRoom({ activeOwnerId }) {
       window.clearInterval(intervalId);
     };
   }, [loadLeagueSettings, userInfo.leagueId]);
+
+  // --- IN-SEASON INSIGHTS FETCH ---
+  useEffect(() => {
+    const leagueId = userInfo.leagueId;
+    const ownerId = focusedOwnerId;
+    if (!leagueId || !ownerId || userInfo.draftStatus === 'ACTIVE' || userInfo.draftStatus === 'PRE_DRAFT') return;
+    setInsightsLoading(true);
+    const currentSeason = new Date().getFullYear();
+    fetchInSeasonInsights(leagueId, ownerId, currentSeason)
+      .then((res) => setInSeasonInsights(res.data ?? res))
+      .catch(() => setInSeasonInsights(null))
+      .finally(() => setInsightsLoading(false));
+  }, [userInfo.leagueId, userInfo.draftStatus, focusedOwnerId]);
 
   // --- 1.2 STATE MANAGEMENT ---
   const [teamData, setTeamData] = useState(null);
@@ -1286,7 +1309,179 @@ export default function YourLockerRoom({ activeOwnerId }) {
         </div>
       </div>
 
+      {/* ── WEEKLY INSIGHTS PANEL ─────────────────────────────────────── */}
+      {(insightsLoading || inSeasonInsights) && userInfo.draftStatus !== 'ACTIVE' && userInfo.draftStatus !== 'PRE_DRAFT' && (
+        <div className="mb-6 rounded-xl border border-indigo-400/40 bg-indigo-50/60 dark:border-indigo-800/60 dark:bg-indigo-900/10" data-testid="weekly-insights-panel">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between px-4 py-3 text-left"
+            onClick={() => setInsightsOpen((v) => !v)}
+          >
+            <span className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+              <FiZap /> Weekly Insights
+              {inSeasonInsights?.meta?.week && (
+                <span className="ml-1 rounded bg-indigo-200 px-2 py-0.5 text-[10px] text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200">
+                  Week {inSeasonInsights.meta.week}
+                </span>
+              )}
+            </span>
+            {insightsOpen ? <FiChevronDown className="text-indigo-500" /> : <FiChevronRight className="text-indigo-500" />}
+          </button>
 
+          {insightsOpen && (
+            <div className="space-y-4 px-4 pb-4">
+              {insightsLoading && (
+                <div className="py-4 text-center text-xs font-bold uppercase tracking-wider text-indigo-400 animate-pulse">
+                  Loading weekly insights…
+                </div>
+              )}
+
+              {!insightsLoading && inSeasonInsights && (
+                <>
+                  {/* Alerts */}
+                  {(inSeasonInsights.alerts ?? []).length > 0 && (
+                    <div className="rounded-lg border border-yellow-400/50 bg-yellow-50 p-3 dark:border-yellow-700/50 dark:bg-yellow-900/10">
+                      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-yellow-700 dark:text-yellow-300 flex items-center gap-1">
+                        <FiAlertTriangle /> Alerts
+                      </div>
+                      <ul className="space-y-1">
+                        {inSeasonInsights.alerts.map((alert, i) => {
+                          const isHigh = alert.severity === 'high';
+                          return (
+                            <li key={i} className={`flex items-start gap-2 rounded px-2 py-1 text-xs ${isHigh ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200' : 'bg-yellow-50 text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-200'}`}>
+                              <span className="mt-0.5 shrink-0">{isHigh ? '🔴' : '⚠'}</span>
+                              <span>{alert.message}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Roster Needs */}
+                  {(inSeasonInsights.roster_needs ?? []).length > 0 && (
+                    <div>
+                      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <FiList /> Roster Needs
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {inSeasonInsights.roster_needs.map((need) => (
+                          <span key={need.position} className="rounded-full border border-rose-400/60 bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700 dark:border-rose-700/60 dark:bg-rose-900/10 dark:text-rose-300" title={`Deficit: ${need.deficit}`}>
+                            {need.position}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Waiver Targets */}
+                  {(inSeasonInsights.waiver_targets ?? []).length > 0 && (
+                    <div>
+                      <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <FiTrendingUp /> Top Waiver Targets
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {inSeasonInsights.waiver_targets.slice(0, 6).map((target) => (
+                          <div key={target.player_id} className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/60">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{target.player_name}</span>
+                              <span className="ml-2 shrink-0 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                {target.position}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                              <span>Score: <span className="font-bold text-indigo-600 dark:text-indigo-300">{Number(target.personalized_score ?? 0).toFixed(1)}</span></span>
+                              {target.recommended_faab_bid_pct != null && (
+                                <span>FAAB: <span className="font-bold">{target.recommended_faab_bid_pct}%</span></span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Start / Sit */}
+                  {(inSeasonInsights.start_sit_recommendations ?? []).length > 0 && (() => {
+                    const starters = (inSeasonInsights.start_sit_recommendations ?? []).filter((r) => r.recommendation === 'start');
+                    const benchers = (inSeasonInsights.start_sit_recommendations ?? []).filter((r) => r.recommendation === 'consider_bench');
+                    return (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-lg border border-green-400/40 bg-green-50/60 p-3 dark:border-green-800/60 dark:bg-green-900/10">
+                          <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-green-700 dark:text-green-300">Start</div>
+                          <div className="space-y-1">
+                            {starters.length === 0 ? (
+                              <p className="text-xs text-slate-400">No strong start locks this week.</p>
+                            ) : starters.map((rec) => (
+                              <div key={rec.player_id} className="flex items-start gap-2 text-xs text-slate-800 dark:text-slate-200">
+                                <span className="mt-0.5 shrink-0 rounded bg-green-200 px-1.5 py-0.5 text-[10px] font-bold text-green-800 dark:bg-green-900/30 dark:text-green-200">START</span>
+                                <span><span className="font-semibold">{rec.player_name}</span>{rec.explanation ? ` — ${rec.explanation}` : ''}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-amber-400/40 bg-amber-50/60 p-3 dark:border-amber-800/60 dark:bg-amber-900/10">
+                          <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">Consider Benching</div>
+                          <div className="space-y-1">
+                            {benchers.length === 0 ? (
+                              <p className="text-xs text-slate-400">No urgent bench decisions this week.</p>
+                            ) : benchers.map((rec) => (
+                              <div key={rec.player_id} className="flex items-start gap-2 text-xs text-slate-800 dark:text-slate-200">
+                                <span className="mt-0.5 shrink-0 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">BENCH?</span>
+                                <span><span className="font-semibold">{rec.player_name}</span>{rec.explanation ? ` — ${rec.explanation}` : ''}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Trade Leverage */}
+                  {(inSeasonInsights.trade_leverage ?? []).length > 0 && (
+                    <div>
+                      <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <FiRepeat /> Trade Leverage (Position Delta vs League)
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {inSeasonInsights.trade_leverage.map((item) => {
+                          const actionColour =
+                            item.recommended_action === 'sell_high'
+                              ? 'border-emerald-400/60 bg-emerald-50 dark:border-emerald-700/60 dark:bg-emerald-900/10'
+                              : item.recommended_action === 'buy_help'
+                              ? 'border-rose-400/60 bg-rose-50 dark:border-rose-700/60 dark:bg-rose-900/10'
+                              : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/60';
+                          return (
+                            <div key={item.position} className={`rounded border px-3 py-1.5 ${actionColour}`} title={item.recommended_action}>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{item.position}</span>
+                              <span className={`ml-2 text-xs font-mono font-bold ${item.delta_vs_league >= 0 ? 'text-emerald-600 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300'}`}>
+                                {item.delta_vs_league >= 0 ? '+' : ''}{Number(item.delta_vs_league).toFixed(1)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── IN-SEASON ADVISOR ──────────────────────────────────────────── */}
+      {inSeasonInsights && userInfo.draftStatus !== 'ACTIVE' && userInfo.draftStatus !== 'PRE_DRAFT' && (
+        <div className="mb-6">
+          <InSeasonAdvisorPanel
+            leagueId={userInfo.leagueId}
+            ownerId={focusedOwnerId}
+            season={new Date().getFullYear()}
+            username={userInfo.username}
+            inSeasonContext={inSeasonInsights}
+          />
+        </div>
+      )}
 
       {showPlayerPerformance && (
         <div className={modalOverlay}>
