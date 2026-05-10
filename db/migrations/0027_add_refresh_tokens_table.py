@@ -10,8 +10,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0026_add_refresh_tokens_table"
-down_revision = "0025_add_revoked_tokens_table"
+revision = "0027_add_refresh_tokens_table"
+down_revision = "0026_add_live_scoring_ingest_events"
 branch_labels = None
 depends_on = None
 
@@ -40,7 +40,6 @@ def upgrade() -> None:
     )
 
     op.create_unique_constraint("uq_refresh_tokens_token_hash", "refresh_tokens", ["token_hash"])
-    op.create_index("ix_refresh_tokens_token_hash", "refresh_tokens", ["token_hash"])
     op.create_index("ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"])
     op.create_index("ix_refresh_tokens_expires_at", "refresh_tokens", ["expires_at"])
 
@@ -53,6 +52,5 @@ def downgrade() -> None:
 
     op.drop_index("ix_refresh_tokens_expires_at", table_name="refresh_tokens")
     op.drop_index("ix_refresh_tokens_user_id", table_name="refresh_tokens")
-    op.drop_index("ix_refresh_tokens_token_hash", table_name="refresh_tokens")
     op.drop_constraint("uq_refresh_tokens_token_hash", "refresh_tokens", type_="unique")
     op.drop_table("refresh_tokens")

@@ -307,6 +307,38 @@ def test_refresh_rotates_refresh_token_and_issues_new_access_token(client, api_d
     assert new_record.rotated_from_token_hash == old_hash
 
 
+def test_refresh_requires_csrf_when_access_cookie_missing(client, api_db, monkeypatch):
+    monkeypatch.setattr(
+        security,
+        "verify_password",
+        lambda plain_password, hashed_password: plain_password == "secret"
+        and hashed_password == "test-hash",
+    )
+
+    user = models.User(
+        username="refresh-csrf-user",
+        email="refresh-csrf-user@test.com",
+        hashed_password="test-hash",
+        league_id=1,
+    )
+    api_db.add(user)
+    api_db.commit()
+
+    login = client.post(
+        "/auth/token",
+        data={"username": "refresh-csrf-user", "password": "secret"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert login.status_code == 200
+
+    # Simulate expired access cookie while refresh cookie still exists.
+    client.cookies.delete("ffpi_access_token")
+
+    refresh = client.post("/auth/refresh")
+    assert refresh.status_code == 403
+    assert refresh.json()["detail"] == "CSRF token validation failed"
+
+
 def test_refresh_replay_revokes_all_refresh_tokens(client, api_db, monkeypatch):
     monkeypatch.setattr(
         security,

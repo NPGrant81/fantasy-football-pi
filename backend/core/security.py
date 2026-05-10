@@ -9,6 +9,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 # regardless of execution context, load backend modules explicitly to avoid
 # duplicate metadata objects when SQLAlchemy reflects them under two names
@@ -369,6 +370,9 @@ def revoke_access_token(db: Session, access_token: str) -> None:
         if jti and exp:
             # Convert exp timestamp to datetime
             expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+            existing = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
+            if existing:
+                return
             # Record the revocation
             revoked = models.RevokedToken(
                 jti=jti,
@@ -376,7 +380,11 @@ def revoke_access_token(db: Session, access_token: str) -> None:
                 expires_at=expires_at,
             )
             db.add(revoked)
-            db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                # Duplicate revoke attempts are safe to ignore.
+                db.rollback()
     except (JWTError, ValueError):
         # Token is malformed or already expired, skip revocation
         pass
