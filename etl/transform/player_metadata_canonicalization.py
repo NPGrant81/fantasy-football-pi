@@ -166,7 +166,6 @@ def write_canonicalization_outputs(
     accepts DataFrames directly and is the active code path in
     ``etl/build_phase1_artifacts.py``.
     """
-    import sys as _sys
     import warnings
     warnings.warn(
         "write_canonicalization_outputs() reads from CSV files and is a legacy interface. "
