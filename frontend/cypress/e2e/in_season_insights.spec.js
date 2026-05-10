@@ -13,40 +13,51 @@ describe('In-Season Insights panel', () => {
   };
 
   const insightsPayload = {
-    roster_needs: ['RB', 'TE'],
+    roster_needs: [
+      { position: 'RB', deficit: 1.2 },
+      { position: 'TE', deficit: 0.7 },
+    ],
     waiver_targets: [
       {
         player_id: 201,
-        name: 'Rookie RB',
+        player_name: 'Rookie RB',
         position: 'RB',
         nfl_team: 'LAR',
         personalized_score: 7.4,
-        faab_bid_pct: 0.18,
+        recommended_faab_bid_pct: 18,
         breakout_probability: 0.42,
       },
       {
         player_id: 202,
-        name: 'Slot WR',
+        player_name: 'Slot WR',
         position: 'WR',
         nfl_team: 'DAL',
         personalized_score: 5.1,
-        faab_bid_pct: 0.08,
+        recommended_faab_bid_pct: 8,
         breakout_probability: 0.3,
       },
     ],
-    start_sit: {
-      start: [
-        { player_id: 11, name: 'QB Starter', explanation: 'Great matchup vs weak secondary.' },
-      ],
-      bench: [
-        { player_id: 22, name: 'WR Bench', explanation: 'Tough CB shadow this week.' },
-      ],
-    },
-    trade_leverage: {
-      QB: 1.5,
-      RB: -2.1,
-    },
-    alerts: ['WR2 is questionable — monitor practice reports.'],
+    start_sit_recommendations: [
+      {
+        player_id: 11,
+        player_name: 'QB Starter',
+        recommendation: 'start',
+        explanation: 'Great matchup vs weak secondary.',
+      },
+      {
+        player_id: 22,
+        player_name: 'WR Bench',
+        recommendation: 'consider_bench',
+        explanation: 'Tough CB shadow this week.',
+      },
+    ],
+    trade_leverage: [
+      { position: 'QB', delta_vs_league: 1.5, recommended_action: 'sell_high' },
+      { position: 'RB', delta_vs_league: -2.1, recommended_action: 'buy_help' },
+    ],
+    alerts: [
+      { message: 'WR2 is questionable - monitor practice reports.', severity: 'medium' },
+    ],
     meta: { owner_id: 5, season: 2026, week: 9 },
   };
 

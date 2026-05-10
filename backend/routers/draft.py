@@ -169,7 +169,8 @@ def _resolve_simulation_league_config(db: Session, league_id: int) -> dict[str, 
         db.query(func.count(models.User.id))
         .filter(
             models.User.league_id == league_id,
-            models.User.is_superuser == False,
+            models.User.is_superuser.is_(False),
+            ~models.User.username.like("hist_%"),
         )
         .scalar()
         or 0

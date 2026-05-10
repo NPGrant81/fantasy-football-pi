@@ -1017,34 +1017,6 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     owners.length,
   ]);
 
-  const openPlayerInfo = useCallback(
-    async (player) => {
-      setSelectedPlayerId(player.id);
-      setShowPlayerInfoCard(true);
-      setPlayerInfoLoading(true);
-      setPlayerInfoError('');
-      setPlayerInfoSeason(null);
-
-      // Auto-fire nomination event when Draft Day Mode is enabled.
-      if (draftDayModeEnabled) {
-        fireNominationEvent(player);
-      }
-
-      try {
-        const data = await fetchPlayerSeasonDetails(player.id, rankingSeason);
-        setPlayerInfoSeason(data || null);
-      } catch (error) {
-        setPlayerInfoSeason(null);
-        setPlayerInfoError(
-          normalizeApiError(error, 'Unable to load player details right now.')
-        );
-      } finally {
-        setPlayerInfoLoading(false);
-      }
-    },
-    [rankingSeason]
-  );
-
   const callAdvisorAction = useCallback(
     async (action) => {
       const playerId = Number(selectedPlayer?.id || 0) || null;
@@ -1123,22 +1095,36 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
     const budgetByOwner = {};
     const slotsByOwner = {};
     const posCountByOwner = {};
+    const picksByOwnerId = {};
+
+    history.forEach((pick) => {
+      const ownerId = Number(pick.owner_id);
+      if (!picksByOwnerId[ownerId]) {
+        picksByOwnerId[ownerId] = [];
+      }
+      picksByOwnerId[ownerId].push(pick);
+    });
+
+    const totalSlots = Object.values(leaguePositionCaps).reduce((a, b) => a + b, 0);
+
     owners.forEach((owner) => {
-      const spent = ownerStatsById[owner.id]?.spent || 0;
+      const ownerId = Number(owner.id);
+      const spent = ownerStatsById[ownerId]?.spent || 0;
       const budget = parseNumber(owner.initial_budget || 200, 200);
-      budgetByOwner[owner.id] = Math.max(0, budget - spent);
-      const picks = history.filter((p) => Number(p.owner_id) === owner.id).length;
-      const totalSlots = Object.values(leaguePositionCaps).reduce((a, b) => a + b, 12);
-      slotsByOwner[owner.id] = Math.max(1, totalSlots - picks);
-      posCountByOwner[owner.id] = {};
-      history
-        .filter((p) => Number(p.owner_id) === owner.id)
-        .forEach((p) => {
-          const pos = normalizePos(
-            p.position || rankingByPlayerId.get(Number(p.player_id))?.position
-          );
-          if (pos) posCountByOwner[owner.id][pos] = (posCountByOwner[owner.id][pos] || 0) + 1;
-        });
+      const ownerPicks = picksByOwnerId[ownerId] || [];
+
+      budgetByOwner[ownerId] = Math.max(0, budget - spent);
+      slotsByOwner[ownerId] = Math.max(0, totalSlots - ownerPicks.length);
+      posCountByOwner[ownerId] = {};
+
+      ownerPicks.forEach((pick) => {
+        const pos = normalizePos(
+          pick.position || rankingByPlayerId.get(Number(pick.player_id))?.position
+        );
+        if (pos) {
+          posCountByOwner[ownerId][pos] = (posCountByOwner[ownerId][pos] || 0) + 1;
+        }
+      });
     });
     const recentPositions = history
       .slice(-8)
@@ -1232,6 +1218,34 @@ export default function DraftDayAnalyzer({ activeOwnerId, activeLeagueId }) {
       draftYear,
       buildDraftState,
     ]
+  );
+
+  const openPlayerInfo = useCallback(
+    async (player) => {
+      setSelectedPlayerId(player.id);
+      setShowPlayerInfoCard(true);
+      setPlayerInfoLoading(true);
+      setPlayerInfoError('');
+      setPlayerInfoSeason(null);
+
+      // Auto-fire nomination event when Draft Day Mode is enabled.
+      if (draftDayModeEnabled) {
+        fireNominationEvent(player);
+      }
+
+      try {
+        const data = await fetchPlayerSeasonDetails(player.id, rankingSeason);
+        setPlayerInfoSeason(data || null);
+      } catch (error) {
+        setPlayerInfoSeason(null);
+        setPlayerInfoError(
+          normalizeApiError(error, 'Unable to load player details right now.')
+        );
+      } finally {
+        setPlayerInfoLoading(false);
+      }
+    },
+    [rankingSeason, draftDayModeEnabled, fireNominationEvent]
   );
 
   /** Handle quick-action buttons inside chat messages. */

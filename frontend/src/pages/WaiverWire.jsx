@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GlobalSearch from '../components/GlobalSearch';
 import apiClient from '@api/client';
@@ -62,7 +62,6 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
   const [confirmAction, setConfirmAction] = useState(null);
   const [personalizedTargets, setPersonalizedTargets] = useState([]);
   const [personalizedTargetsLoading, setPersonalizedTargetsLoading] = useState(false);
-  const leagueIdRef = useRef(null);
 
   // Modal State
   const [isDropModalOpen, setIsDropModalOpen] = useState(false);
@@ -123,8 +122,7 @@ export default function WaiverWire({ ownerId, username, leagueName }) {
 
     // Fetch personalized waiver targets from in-season insights
     if (ownerId && leagueName) {
-      leagueIdRef.current = leagueName;
-      setPersonalizedTargetsLoading(true);
+        setPersonalizedTargetsLoading(true);
       const currentYear = new Date().getFullYear();
       fetchInSeasonInsights(leagueName, ownerId, currentYear)
         .then((res) => {
