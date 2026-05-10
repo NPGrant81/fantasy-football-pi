@@ -24,11 +24,13 @@ This document captures the current security baseline implemented for issue #77 a
   - Configurable max failures: `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`
   - Per-IP/per-username attempt tracking with `429` on lockout
   - Failed and rate-limited attempts are logged
+  - Distributed backend support: in-memory fallback (Redis backend planned — see roadmap)
 - Cookie-based sessions are issued at login:
   - HTTP-only access token cookie (`ffpi_access_token` by default)
   - CSRF cookie (`ffpi_csrf_token`) for double-submit verification
 - CSRF protection is enforced for `POST`/`PUT`/`PATCH`/`DELETE` requests when cookie auth is used.
-- `POST /auth/logout` clears auth and CSRF cookies.
+- `POST /auth/logout` clears auth cookies.
+- JWT token revocation via JTI blocklist and refresh token rotation with `RevokedToken`/`RefreshToken` tables are in progress — see roadmap.
 - Frontend is now cookie-session first and no longer stores bearer access tokens in browser storage.
 - Bearer header auth is now opt-in (`ALLOW_BEARER_AUTH=1`) for controlled interoperability.
 
@@ -40,6 +42,18 @@ This document captures the current security baseline implemented for issue #77 a
 - Frontend checks include:
   - `npm audit --audit-level=high`
 - `secrets-scan.yml` runs gitleaks on push/PR to `main` with repository-specific allowlist tuning in `.gitleaks.toml`.
+- `security-test-lane.yml` runs a dedicated backend security suite on push/PR to `main`, covering:
+  - Auth/token validation
+  - Session and CSRF guardrails
+  - Runtime security guardrails (DB credential leakage and sqlite runtime drift)
+  - Token expiry behavior
+
+### Required merge check
+- Protect `main` by requiring the `security-backend-suite` status check in branch protection rules.
+- This blocks merges when security-lane tests fail and keeps security regressions out of `main`.
+
+### Admin and privileged operation audit logging
+- Admin audit logging via `AdminAuditLog` table is in progress — see roadmap.
 
 ## Environment variables
 
@@ -58,8 +72,9 @@ Recommended runtime settings:
 - `FRONTEND_ALLOWED_ORIGINS=https://your.domain.com`
 - `LOGIN_RATE_LIMIT_WINDOW_SECONDS=300`
 - `LOGIN_RATE_LIMIT_MAX_ATTEMPTS=10`
+- `ALLOW_BEARER_AUTH=0` (set to `1` only for trusted service integrations)
 
-## Remaining roadmap (Phase 2+)
+## Remaining roadmap (Phase 3+)
 
 ### User/account security
 - Add password reset and email verification token flows.
@@ -67,7 +82,7 @@ Recommended runtime settings:
 
 ### Backend authorization and abuse controls
 - Add endpoint-level scope enforcement for commissioner/admin actions.
-- Add distributed rate limiter (Redis-backed) for multi-instance scalability.
+- Enhance rate limiter with request-type specific thresholds (e.g., login vs. API calls).
 
 ### Infrastructure and operations
 - Enforce HTTPS-only at Nginx with HSTS preload decision review.
