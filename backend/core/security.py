@@ -240,7 +240,7 @@ def revoke_access_token(db: Session, auth_token: str) -> bool:
 # 2.1.1 Standard User: Verifies token and returns the User object
 async def get_current_user(
     request: Request,
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
     cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
@@ -252,13 +252,13 @@ async def get_current_user(
         payload = decode_access_token(auth_token)
         username: str = payload.get("sub")
         jti: str | None = payload.get("jti")
-        if username is None or jti is None:
+        if username is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
     prune_expired_revoked_tokens(db)
-    if is_token_revoked(db, jti):
+    if jti and is_token_revoked(db, jti):
         raise credentials_exception
 
     user = db.query(models.User).filter(models.User.username == username).first()

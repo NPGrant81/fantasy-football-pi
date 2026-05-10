@@ -8,6 +8,7 @@ import time
 from collections import deque
 from threading import Lock
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
+from jose import JWTError
 import pandas as pd
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -108,7 +109,12 @@ def _get_websocket_user(websocket: WebSocket, db: Session):
         jti = payload.get("jti")
         if not username or not jti:
             return None
+    except JWTError:
+        return None
+    except ValueError:
+        return None
     except Exception:
+        logger.exception("Unexpected websocket auth token decode failure")
         return None
 
     if security.is_token_revoked(db, jti):
