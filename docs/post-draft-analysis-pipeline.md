@@ -191,8 +191,8 @@ GET /analytics/league/{league_id}/post-draft-outlook
 | Response schemas | `backend/schemas/season_outlook.py` |
 | Router endpoint | `backend/routers/analytics.py` → `get_post_draft_outlook` |
 | Tests | `backend/tests/test_analytics.py` → `test_post_draft_outlook_*` |
-| Frontend panel | `frontend/src/components/draft/insights/PostDraftOutlookPanel.jsx` |
-| Frontend tests | `frontend/src/components/draft/insights/__tests__/PostDraftOutlookPanel.test.jsx` |
+| Frontend panel | Planned (not yet implemented). Current owner-facing analytics surface is `frontend/src/pages/team-owner/YourLockerRoom.jsx`. |
+| Frontend tests | Planned alongside panel implementation. |
 
 ---
 

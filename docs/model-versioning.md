@@ -42,13 +42,13 @@ Examples: `historical-rankings-v1`, `historical-rankings-v2`, `gradient-boost-v1
 
 ### "current" alias
 
-The string `"current"` (and synonyms `"latest"`, `"default"`) always resolves
-to the promoted champion via `_resolve_model_version()` in
-`backend/routers/draft.py`. At time of writing this resolves to
-`historical-rankings-v1`.
+The string `"current"` (and synonyms `"latest"`, `"default"`) resolves via
+`MODEL_SERVING_CURRENT_ALIAS` in `backend/routers/draft.py`
+(default: `historical-rankings-v1`).
 
-To change the champion, update the return value of `_resolve_model_version()`
-**after** all promotion gates pass (see §4).
+To change the champion in production, update `MODEL_SERVING_CURRENT_ALIAS`
+after all promotion gates pass (see §4). Code-level defaults should only be
+changed when resetting platform-wide defaults.
 
 ---
 
