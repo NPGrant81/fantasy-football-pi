@@ -20,7 +20,6 @@ Exit codes:
 import os
 import sys
 import subprocess
-import re
 from pathlib import Path
 
 
@@ -35,27 +34,19 @@ class ValidationWarning(Exception):
 
 
 def check_no_secrets_in_git() -> None:
-    """Verify no secrets are committed to git history."""
-    print("Checking git history for committed secrets...")
-    
-    # Check for common secret patterns in git history
-    patterns = [
-        r"SECRET_KEY\s*=\s*['\"](.+?)['\"]",
-        r"password\s*=\s*['\"](.+?)['\"]",
-        r"API_KEY\s*=\s*['\"](.+?)['\"]",
-        r"STRIPE_SECRET\s*=\s*['\"](.+?)['\"]",
-        r"DATABASE_PASSWORD\s*=\s*['\"](.+?)['\"]",
-    ]
-    
+    """Verify sensitive env files are not tracked by git."""
+    print("Checking git-tracked env files...")
+
+    repo_root = Path(__file__).resolve().parents[2]
+
     try:
-        # Check for .env file in git
         result = subprocess.run(
-            ["git", "ls-files", "--", ".env", "backend/.env"],
+            ["git", "-C", str(repo_root), "ls-files", "--", ".env", "backend/.env"],
             capture_output=True,
             text=True,
-            cwd=os.path.dirname(os.path.abspath(__file__))
+            check=False,
         )
-        
+
         if result.stdout.strip():
             raise ValidationWarning(
                 "⚠️  WARNING: .env file is tracked in git. "
