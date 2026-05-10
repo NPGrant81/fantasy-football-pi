@@ -205,37 +205,6 @@ def is_token_revoked(db: Session, jti: Optional[str]) -> bool:
     )
 
 
-def revoke_access_token(db: Session, auth_token: str) -> bool:
-    try:
-        payload = decode_access_token(auth_token)
-    except JWTError:
-        return False
-
-    jti = payload.get("jti")
-    exp = payload.get("exp")
-    subject = payload.get("sub")
-    if not jti or exp is None:
-        return False
-
-    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-    if expires_at <= datetime.now(timezone.utc):
-        return False
-
-    if is_token_revoked(db, jti):
-        return True
-
-    db.add(
-        models.RevokedToken(
-            jti=str(jti),
-            token_subject=str(subject) if subject is not None else None,
-            expires_at=expires_at,
-        )
-    )
-    db.commit()
-    return True
-
-# --- 2.1 THE BOUNCERS (REFACTORED) ---
-
 # --- 2.1 THE BOUNCERS (FIXED) ---
 
 # 2.1.1 Standard User: Verifies token and returns the User object
