@@ -24,21 +24,13 @@ This document captures the current security baseline implemented for issue #77 a
   - Configurable max failures: `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`
   - Per-IP/per-username attempt tracking with `429` on lockout
   - Failed and rate-limited attempts are logged
-  - Distributed backend support: Redis-backed rate limiter with in-memory fallback (`RATE_LIMITER_BACKEND`)
+  - Distributed backend support: in-memory fallback (Redis backend planned — see roadmap)
 - Cookie-based sessions are issued at login:
   - HTTP-only access token cookie (`ffpi_access_token` by default)
   - CSRF cookie (`ffpi_csrf_token`) for double-submit verification
 - CSRF protection is enforced for `POST`/`PUT`/`PATCH`/`DELETE` requests when cookie auth is used.
-- JWT token revocation is enforced via JTI blocklist:
-  - Each JWT includes a unique ID (`jti`) for revocation tracking
-  - Revoked JTI tokens are stored in `RevokedToken` table with expiration
-  - `GET_current_user()` checks blocklist before accepting tokens
-- Refresh token rotation is implemented:
-  - Refresh tokens are persisted in `RefreshToken` table with secure hashing
-  - Token rotation on each refresh creates family chain for replay detection
-  - `rotated_from_token_hash` tracks rotation lineage for revocation on suspected breach
-  - Soft deletion via `revoked_at` timestamp enables audit trail
-- `POST /auth/logout` clears auth cookies and revokes all user refresh tokens
+- `POST /auth/logout` clears auth cookies.
+- JWT token revocation via JTI blocklist and refresh token rotation with `RevokedToken`/`RefreshToken` tables are in progress — see roadmap.
 - Frontend is now cookie-session first and no longer stores bearer access tokens in browser storage.
 - Bearer header auth is now opt-in (`ALLOW_BEARER_AUTH=1`) for controlled interoperability.
 
@@ -61,19 +53,7 @@ This document captures the current security baseline implemented for issue #77 a
 - This blocks merges when security-lane tests fail and keeps security regressions out of `main`.
 
 ### Admin and privileged operation audit logging
-- All administrative actions are recorded in `AdminAuditLog` immutable table:
-  - Captures actor identity (user_id, username, role flags)
-  - Records action type, scope, and target (type/id)
-  - Includes optional metadata (JSON) for audit context
-  - Immutable timestamps enable audit trail reconstruction
-- Audit logging covers all 6 admin router modules:
-  - `admin.py` (user/league management)
-  - `platform_tools.py` (system utilities)
-  - `admin_nfl.py` (NFL metadata)
-  - `admin_drafts.py` (draft operations)
-  - `admin_live_scoring.py` (scoring rule management)
-  - `admin_config.py` (configuration)
-- Superuser-only read endpoint available for audit review and compliance investigation
+- Admin audit logging via `AdminAuditLog` table is in progress — see roadmap.
 
 ## Environment variables
 
@@ -92,9 +72,7 @@ Recommended runtime settings:
 - `FRONTEND_ALLOWED_ORIGINS=https://your.domain.com`
 - `LOGIN_RATE_LIMIT_WINDOW_SECONDS=300`
 - `LOGIN_RATE_LIMIT_MAX_ATTEMPTS=10`
-- `RATE_LIMITER_BACKEND=memory` (or `redis` for distributed deployments)
-- `REDIS_URL=redis://localhost:6379/0` (if using Redis backend)
-- `REDIS_POOL_SIZE=10` (connection pool size for Redis backend)
+- `ALLOW_BEARER_AUTH=0` (set to `1` only for trusted service integrations)
 
 ## Remaining roadmap (Phase 3+)
 
