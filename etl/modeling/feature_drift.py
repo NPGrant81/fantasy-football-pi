@@ -142,11 +142,11 @@ class DriftReport:
                     "name": r.name,
                     "tier": r.tier,
                     "online": r.online,
-                    "psi": r.psi,
+                    "psi": _json_number(r.psi),
                     "status": r.status,
-                    "ref_null_rate": r.ref_null_rate,
-                    "cur_null_rate": r.cur_null_rate,
-                    "null_rate_delta": r.null_rate_delta,
+                    "ref_null_rate": _json_number(r.ref_null_rate),
+                    "cur_null_rate": _json_number(r.cur_null_rate),
+                    "null_rate_delta": _json_number(r.null_rate_delta),
                 }
                 for r in self.results
             ],
@@ -155,6 +155,15 @@ class DriftReport:
 
 def _fmt(v: Optional[float]) -> str:
     return f"{v:.4f}" if v is not None else "n/a"
+
+
+def _json_number(v: Optional[float]) -> Optional[float]:
+    """Convert non-finite floats to None for strict JSON compatibility."""
+    if v is None:
+        return None
+    if isinstance(v, float) and not math.isfinite(v):
+        return None
+    return float(v)
 
 
 def _compute_psi(ref_series: pd.Series, cur_series: pd.Series, bins: int = PSI_BINS) -> float:
@@ -178,6 +187,9 @@ def _compute_psi(ref_series: pd.Series, cur_series: pd.Series, bins: int = PSI_B
         # Zero-variance feature — PSI is 0 if cur matches, else very high
         cur_unique = float(np.unique(cur_vals[~np.isnan(cur_vals)]).size)
         return 0.0 if cur_unique <= 1 else PSI_MODERATE
+
+    ref_vals = np.clip(ref_vals, min_val, max_val)
+    cur_vals = np.clip(cur_vals, min_val, max_val)
 
     bin_edges = np.linspace(min_val, max_val, bins + 1)
     bin_edges[0] -= _EPSILON
@@ -250,11 +262,26 @@ def check_feature_drift(
 
     # Determine feature list
     registry_entries: dict[str, dict] = {}
+    loaded_registry_entries: list[dict] = []
+
+    if registry_path is not None and Path(registry_path).exists():
+        loaded_registry_entries = _load_registry(Path(registry_path))
+
     if feature_names is not None:
+        wanted = {name for name in feature_names}
+        for entry in loaded_registry_entries:
+            entry_name = entry.get("name")
+            if entry_name in wanted:
+                registry_entries[entry_name] = entry
         for name in feature_names:
-            registry_entries[name] = {"name": name, "tier": "standard", "online": True}
+            registry_entries.setdefault(name, {"name": name, "tier": "standard", "online": True})
     elif registry_path is not None and Path(registry_path).exists():
-        for entry in _load_registry(Path(registry_path)):
+        if not loaded_registry_entries:
+            raise ValueError(
+                f"No feature entries loaded from registry: {registry_path}. "
+                "Refusing to produce an empty drift report."
+            )
+        for entry in loaded_registry_entries:
             registry_entries[entry["name"]] = entry
     else:
         # Fall back: all shared numeric columns
@@ -311,9 +338,19 @@ def check_feature_drift(
         psi = _compute_psi(ref_col, cur_col)
         status = _psi_status(psi)
 
-        # Upgrade status if null rate explodes even when PSI looks stable
-        null_threshold = 0.20 if tier == "critical" else 0.30
-        if null_rate_delta >= null_threshold and status == "stable":
+        # Respect per-feature null thresholds from registry when available.
+        configured_null_threshold = entry.get("null_rate_threshold")
+        try:
+            null_threshold = float(configured_null_threshold)
+        except (TypeError, ValueError):
+            null_threshold = 0.20 if tier == "critical" else 0.30
+
+        if cur_null_rate >= null_threshold:
+            if tier == "critical":
+                status = "high"
+            elif status == "stable":
+                status = "moderate"
+        elif null_rate_delta >= (0.20 if tier == "critical" else 0.30) and status == "stable":
             status = "moderate"
 
         report.results.append(FeatureDriftResult(

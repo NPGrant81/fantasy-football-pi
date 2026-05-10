@@ -16,8 +16,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from etl.modeling.feature_drift import (
     PSI_MODERATE,
     PSI_STABLE,
-    DriftReport,
-    FeatureDriftResult,
     _compute_psi,
     check_feature_drift,
 )
@@ -125,6 +123,7 @@ class TestCheckFeatureDrift:
             if r.name == "points_total":
                 object.__setattr__(r, "tier", "critical")
         assert any(r.name == "points_total" and r.status == "missing" for r in report.results)
+        assert report.has_critical_drift
 
     def test_null_rate_spike_upgrades_stable_to_moderate(self):
         rng = np.random.default_rng(20)
@@ -167,13 +166,12 @@ class TestCheckFeatureDrift:
         cur = ref.copy()
         cur["points_total"] = rng.normal(500.0, 5.0, 300)
         report = check_feature_drift(ref, cur, feature_names=["points_total"])
-        # Manually mark as critical to exercise blocking path
         for r in report.results:
             if r.name == "points_total":
-                r.__class__ = r.__class__  # no-op to allow mutation
-        # Use to_dict to confirm high drift is captured
-        d = report.to_dict()
-        assert any(f["status"] == "high" for f in d["features"])
+                object.__setattr__(r, "tier", "critical")
+        summary = report.summary()
+        assert report.has_critical_drift
+        assert "BLOCK" in summary
 
     def test_to_dict_is_json_serialisable(self):
         import json
@@ -181,6 +179,13 @@ class TestCheckFeatureDrift:
         report = check_feature_drift(df, df, feature_names=["points_avg"])
         serialised = json.dumps(report.to_dict())
         assert '"points_avg"' in serialised
+
+    def test_empty_registry_raises_when_registry_path_provided(self, tmp_path):
+        registry = tmp_path / "empty_registry.yml"
+        registry.write_text("features: []\n", encoding="utf-8")
+        df = _make_df(n=100)
+        with pytest.raises(ValueError, match="No feature entries loaded"):
+            check_feature_drift(df, df, registry_path=registry)
 
     def test_season_labels_appear_in_summary(self):
         df = _make_df(n=100)

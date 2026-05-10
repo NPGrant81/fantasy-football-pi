@@ -88,16 +88,19 @@ from backend.services.keeper_service import reset_keepers
 reset_keepers(db=db, league_id=1, season={NEW_YEAR})
 ```
 
-Or via the admin API if available:
+Or via the admin API:
 ```
-DELETE /keeper/reset?league_id=1&season={NEW_YEAR}
+POST /keepers/admin/reset
+{
+  "season": {NEW_YEAR}
+}
 ```
 
 ### 4.2 Open keeper window
 
 ```python
-from backend.services.keeper_service import notify_keeper_window_open
-notify_keeper_window_open(db=db, league_id=1)
+from backend.services.keeper_service import send_window_open_notifications
+send_window_open_notifications(db=db, league_id=1)
 ```
 
 Owners now receive an email notification to make keeper selections.
@@ -113,7 +116,11 @@ Once the deadline passes, lock all keeper selections:
 
 Verify adjusted budgets are correct:
 ```
-GET /keeper/budget?owner_id={id}&league_id=1&season={NEW_YEAR}
+GET /leagues/1/budgets
+```
+And spot-check owner keeper economics via:
+```
+GET /keepers/mine?season={NEW_YEAR}
 ```
 
 ---
