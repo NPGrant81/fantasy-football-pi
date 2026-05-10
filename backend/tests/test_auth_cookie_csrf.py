@@ -137,6 +137,12 @@ def test_login_with_malformed_hash_returns_401_not_500(client, api_db):
     assert response.json()["detail"] == "Incorrect username or password"
 
 
+def test_unauthenticated_auth_me_preserves_www_authenticate_header(client):
+    response = client.get("/auth/me")
+    assert response.status_code == 401
+    assert response.headers.get("www-authenticate") == "Bearer"
+
+
 def test_logout_revokes_token_and_blocks_reuse(client, api_db, monkeypatch):
     monkeypatch.setattr(
         security,

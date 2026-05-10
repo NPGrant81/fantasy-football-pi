@@ -218,8 +218,16 @@ def _is_production_env() -> bool:
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_request: Request, exc: HTTPException):
     if exc.status_code >= 500 and _is_production_env():
-        return JSONResponse(status_code=exc.status_code, content={"detail": "Internal server error"})
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": "Internal server error"},
+            headers=exc.headers,
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
 
 
 @app.exception_handler(Exception)
