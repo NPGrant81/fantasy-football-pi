@@ -1,12 +1,20 @@
 """
 Tests for the distributed rate limiter service.
 
-Validates both in-memory and Redis-backed implementations.
+Validates in-memory behavior and the public module API.
 """
 
 import pytest
 import time
 from backend.services import rate_limiter_service
+
+
+@pytest.fixture(autouse=True)
+def reset_global_rate_limiter():
+    """Reset module-global limiter state between tests."""
+    rate_limiter_service._rate_limiter = None
+    yield
+    rate_limiter_service._rate_limiter = None
 
 
 @pytest.fixture
