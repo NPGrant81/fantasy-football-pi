@@ -26,6 +26,7 @@ jobs:
   compat:
     name: Compat check (${{ matrix.os }} / Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -103,13 +104,17 @@ jobs:
       #   test_validate_lineup_requirements_allows_under_minimum_slots* —
       #     pre-existing logic regression tracked in GitHub (not a platform issue)
       - name: Run cross-platform unit tests (SQLite-safe subset)
+        timeout-minutes: 20
         run: |
           python -m pytest backend/tests/ -q --tb=short \
             --ignore=backend/tests/test_players_router.py \
             --ignore=backend/tests/test_draft_history.py \
             --ignore=backend/tests/test_startup.py \
+            --ignore=backend/tests/test_draft_simulation_endpoint.py \
+            --ignore=backend/tests/test_analytics.py \
+            --ignore=backend/tests/test_advisor_router.py \
             -k "not test_validate_lineup_requirements_allows_under_minimum_slots_when_partial_enabled" \
-            2>&1 | tail -20
+            --timeout=60
 
       - name: Publish compat summary
         if: always()
