@@ -95,6 +95,10 @@ Refer to the appropriate file for more information.
 - [Simulation-Pipeline](diagrams/simulation-pipeline.md)
 - [Waiver-Flow](diagrams/waiver-flow.md)
 
+### Engineering
+
+- [Dead-Code](engineering/dead-code.md)
+
 ### Gaps
 
 - [Overview](gaps/overview.md)

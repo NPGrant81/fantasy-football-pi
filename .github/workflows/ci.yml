@@ -601,10 +601,119 @@ jobs:
           DURATION=$((NOW_EPOCH - START_EPOCH))
           echo "duration_seconds=$DURATION" >> "$GITHUB_OUTPUT"
 
+  dead-code-report:
+    runs-on: ubuntu-latest
+    needs: [test, frontend-test]
+    if: always()
+    outputs:
+      duration_seconds: ${{ steps.timing_end.outputs.duration_seconds }}
+      failure_category: ${{ steps.result_category.outputs.category }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Record dead-code job start time
+        id: timing_start
+        run: |
+          echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dead-code tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install vulture==2.11 pyflakes==3.4.0
+
+      - name: Install frontend deps for ESLint analysis
+        working-directory: frontend
+        env:
+          CYPRESS_INSTALL_BINARY: "0"
+        run: |
+          npm ci --legacy-peer-deps
+
+      - name: Download backend coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage
+          path: artifacts/backend-coverage
+        continue-on-error: true
+
+      - name: Download frontend coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: artifacts/frontend-coverage
+        continue-on-error: true
+
+      - name: Generate dead-code report
+        run: |
+          BACKEND_COVERAGE=$(find artifacts -name backend-coverage.xml | head -n 1 || true)
+          FRONTEND_COVERAGE=$(find artifacts -name coverage-final.json | head -n 1 || true)
+
+          python scripts/dead_code_report.py \
+            --backend-coverage "$BACKEND_COVERAGE" \
+            --frontend-coverage "$FRONTEND_COVERAGE" \
+            --output-json artifacts/dead-code/dead-code-report.json \
+            --output-md artifacts/dead-code/dead-code-report.md
+
+      - name: Publish dead-code report summary
+        if: always()
+        run: |
+          {
+            echo "## Dead Code Report"
+            echo ""
+            if [ -f artifacts/dead-code/dead-code-report.md ]; then
+              cat artifacts/dead-code/dead-code-report.md
+            else
+              echo "Dead-code report was not generated."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload dead-code report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dead-code-report
+          if-no-files-found: ignore
+          path: artifacts/dead-code
+
+      - name: Categorize dead-code failure
+        if: always()
+        id: result_category
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "category=none" >> "$GITHUB_OUTPUT"
+          else
+            echo "category=dead_code" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Record dead-code job duration
+        if: always()
+        id: timing_end
+        env:
+          START_EPOCH: ${{ steps.timing_start.outputs.epoch }}
+        run: |
+          NOW_EPOCH=$(date +%s)
+          if [ -z "$START_EPOCH" ]; then
+            START_EPOCH=$NOW_EPOCH
+          fi
+          DURATION=$((NOW_EPOCH - START_EPOCH))
+          echo "duration_seconds=$DURATION" >> "$GITHUB_OUTPUT"
+
   observability:
     name: CI Observability Report
     runs-on: ubuntu-latest
-    needs: [test, api-integration, frontend-test, e2e]
+    needs: [test, api-integration, frontend-test, e2e, dead-code-report]
     if: always()
     steps:
       - name: Build CI dashboard summary
@@ -614,14 +723,17 @@ jobs:
           FRONTEND_RESULT: ${{ needs['frontend-test'].result }}
           API_CONTRACT_RESULT: ${{ needs['api-integration'].result }}
           API_RESULT: ${{ needs.e2e.result }}
+          DEAD_CODE_RESULT: ${{ needs['dead-code-report'].result }}
           BACKEND_DURATION: ${{ needs.test.outputs.duration_seconds }}
           API_CONTRACT_DURATION: ${{ needs['api-integration'].outputs.duration_seconds }}
           FRONTEND_DURATION: ${{ needs['frontend-test'].outputs.duration_seconds }}
           API_DURATION: ${{ needs.e2e.outputs.duration_seconds }}
+          DEAD_CODE_DURATION: ${{ needs['dead-code-report'].outputs.duration_seconds }}
           BACKEND_CATEGORY: ${{ needs.test.outputs.failure_category }}
           API_CONTRACT_CATEGORY: ${{ needs['api-integration'].outputs.failure_category }}
           FRONTEND_CATEGORY: ${{ needs['frontend-test'].outputs.failure_category }}
           API_CATEGORY: ${{ needs.e2e.outputs.failure_category }}
+          DEAD_CODE_CATEGORY: ${{ needs['dead-code-report'].outputs.failure_category }}
         run: |
           status_icon() {
             case "$1" in
@@ -637,13 +749,15 @@ jobs:
           API_CONTRACT_DURATION=${API_CONTRACT_DURATION:-0}
           FRONTEND_DURATION=${FRONTEND_DURATION:-0}
           API_DURATION=${API_DURATION:-0}
-          TOTAL_DURATION=$((BACKEND_DURATION + API_CONTRACT_DURATION + FRONTEND_DURATION + API_DURATION))
+          DEAD_CODE_DURATION=${DEAD_CODE_DURATION:-0}
+          TOTAL_DURATION=$((BACKEND_DURATION + API_CONTRACT_DURATION + FRONTEND_DURATION + API_DURATION + DEAD_CODE_DURATION))
 
           FAILED_CATEGORIES=""
           [ "$BACKEND_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES backend"
           [ "$API_CONTRACT_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES api_contract"
           [ "$FRONTEND_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES frontend"
           [ "$API_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES api"
+          [ "$DEAD_CODE_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES dead_code"
 
           if [ -z "$FAILED_CATEGORIES" ]; then
             FAILED_CATEGORIES="none"
@@ -660,6 +774,7 @@ jobs:
             echo "| API Contract & Smoke | $(status_icon "$API_CONTRACT_RESULT") | $API_CONTRACT_DURATION | ${API_CONTRACT_CATEGORY:-none} |"
             echo "| Frontend | $(status_icon "$FRONTEND_RESULT") | $FRONTEND_DURATION | ${FRONTEND_CATEGORY:-none} |"
             echo "| API / E2E | $(status_icon "$API_RESULT") | $API_DURATION | ${API_CATEGORY:-none} |"
+            echo "| Dead Code Report | $(status_icon "$DEAD_CODE_RESULT") | $DEAD_CODE_DURATION | ${DEAD_CODE_CATEGORY:-none} |"
             echo "| Deployment | NOT RUN | 0 | deployment_not_in_scope |"
             echo ""
             echo "- Total build time (tracked jobs): ${TOTAL_DURATION}s"
