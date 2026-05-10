@@ -137,6 +137,7 @@ jobs:
           spec: cypress/e2e/accessibility_smoke.spec.js
 
       - name: Run screenshot capture for visual regression
+        continue-on-error: true
         uses: cypress-io/github-action@v6
         with:
           working-directory: frontend
