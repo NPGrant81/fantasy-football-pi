@@ -20,7 +20,7 @@ These secrets directly control authentication and encryption. Rotation is critic
 
 | Secret | Purpose | Rotation Cadence | Length | Format |
 |--------|---------|------------------|--------|--------|
-| `SECRET_KEY` | Django/FastAPI session encryption, JWT signing | **Quarterly (90 days)** or on compromise | 32+ bytes | URL-safe base64 |
+| `SECRET_KEY` | FastAPI auth secret for JWT signing/verification | **Quarterly (90 days)** or on compromise | 32+ bytes | URL-safe base64 |
 | `JWT_SECRET` (if separate) | JWT token signing | **Quarterly (90 days)** or on compromise | 32+ bytes | URL-safe base64 |
 
 ### Tier 2: External API Credentials (Medium Sensitivity)
@@ -113,11 +113,11 @@ aBcDeFgHiJkLmNoPqRsT-UvWxYz0123456789_ABCD-EfGhIjKlMnOpQrS
 #### Step 4: Post-Rotation Validation
 
 - [ ] New users can log in
-- [ ] Existing sessions remain valid (grace period: 30 minutes)
+- [ ] Existing sessions signed with old `SECRET_KEY` are invalidated immediately
 - [ ] JWT tokens issued with new SECRET_KEY are valid
 - [ ] CSRF tokens are correctly signed
 - [ ] No auth/session errors in logs
-- [ ] Old SECRET_KEY-signed tokens are rejected after grace period
+- [ ] Old SECRET_KEY-signed tokens are rejected
 
 #### Step 5: Archive Old Secret
 
@@ -139,7 +139,7 @@ aBcDeFgHiJkLmNoPqRsT-UvWxYz0123456789_ABCD-EfGhIjKlMnOpQrS
 3. Update `MFL_OAUTH_CLIENT_SECRET` in environment
 4. Test MFL import/auth flow:
    ```bash
-   python backend/scripts/validate_mfl_auth.py
+   python -m backend.manage extract-mfl-history --start-year <YYYY> --end-year <YYYY>
    ```
 5. Monitor MFL API calls for auth failures
 
@@ -180,9 +180,9 @@ The application includes runtime validation to prevent deployment with default/i
 
 ```python
 # backend/main.py
-if os.getenv("APP_ENV") == "production":
+if os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower() in {"production", "prod"}:
     secret_key = os.getenv("SECRET_KEY")
-    if not secret_key or secret_key == "change-me-in-production" or len(secret_key) < 32:
+   if not secret_key or len(secret_key) < 32:
         raise RuntimeError(
             "FATAL: SECRET_KEY is not set or insecure in production. "
             "Set a strong random value via environment variable before deployment."
@@ -199,7 +199,7 @@ if os.getenv("APP_ENV") == "production":
 
 ```bash
 # Local validation before pushing to production
-./scripts/validate_secrets.py
+python backend/scripts/validate_secrets.py
 ```
 
 **Checks:**
