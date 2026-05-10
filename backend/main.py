@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -209,6 +209,34 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
 
+
+def _is_production_env() -> bool:
+    app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
+    return app_env in {"production", "prod"}
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_request: Request, exc: HTTPException):
+    if exc.status_code >= 500 and _is_production_env():
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": "Internal server error"},
+            headers=exc.headers,
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_request: Request, exc: Exception):
+    logger.exception("Unhandled server exception")
+    if _is_production_env():
+        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
+
 ACCESS_TOKEN_COOKIE_NAME = os.getenv("ACCESS_TOKEN_COOKIE_NAME", "ffpi_access_token")
 CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "ffpi_csrf_token")
 CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
@@ -328,12 +356,21 @@ allowed = ["*"] if os.getenv("ALLOW_ALL_ORIGINS") == "1" else _parse_csv_env(
         "http://127.0.0.1:5173",
     ],
 )
+cors_csrf_header = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
+cors_allow_headers = [
+    "Authorization",
+    "Content-Type",
+    "Accept",
+    "Origin",
+    "X-Requested-With",
+    cors_csrf_header,
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=cors_allow_headers,
 )
 
 

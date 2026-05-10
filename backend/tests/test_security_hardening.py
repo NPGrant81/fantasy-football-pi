@@ -1,3 +1,6 @@
+from fastapi.testclient import TestClient
+
+from backend.main import app
 from backend.routers import auth as auth_router
 from backend.services import rate_limiter_service
 
@@ -12,6 +15,38 @@ def test_root_includes_security_headers(client):
     assert response.headers.get("permissions-policy") is not None
     assert response.headers.get("cross-origin-opener-policy") == "same-origin"
     assert response.headers.get("content-security-policy") is not None
+
+
+def test_hsts_is_not_added_for_plain_http_requests(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.headers.get("strict-transport-security") is None
+
+
+def test_hsts_is_added_for_https_requests():
+    with TestClient(app, base_url="https://testserver") as https_client:
+        response = https_client.get("/")
+
+    hsts_header = response.headers.get("strict-transport-security")
+
+    assert response.status_code == 200
+    assert hsts_header is not None
+    assert "max-age=31536000" in hsts_header
+    assert "includeSubDomains" in hsts_header
+    assert "preload" not in hsts_header.lower()
+
+
+def test_cors_allow_headers_are_explicit_and_include_auth_and_csrf():
+    cors_middleware = next(
+        m for m in app.user_middleware if m.cls.__name__ == "CORSMiddleware"
+    )
+    allow_headers = set(cors_middleware.kwargs.get("allow_headers") or [])
+
+    assert "*" not in allow_headers
+    assert "Authorization" in allow_headers
+    assert "Content-Type" in allow_headers
+    assert "X-CSRF-Token" in allow_headers
 
 
 def test_login_rate_limiter_records_and_clears_attempts():

@@ -396,7 +396,12 @@ def get_leagues(db: Session = Depends(get_db)):
 # This is a GET endpoint to match the frontend call, but is defined here for convenience.
 
 
-def fetch_league_owners_data(league_id: int, db: Session, group_by_division: bool = False) -> List[Dict[str, Any]]:
+def fetch_league_owners_data(
+    league_id: int,
+    db: Session,
+    group_by_division: bool = False,
+    include_owner_emails: bool = False,
+) -> List[Dict[str, Any]]:
     """
     Internal helper: fetch league owner stats without auth checks.
     Used by the /leagues/owners endpoint (after auth) and by playoffs.py directly.
@@ -479,7 +484,7 @@ def fetch_league_owners_data(league_id: int, db: Session, group_by_division: boo
             {
                 "id": o.id,
                 "username": o.username,
-                "email": o.email,
+                "email": o.email if include_owner_emails else None,
                 "team_name": o.team_name,
                 "division_id": o.division_id,
                 "division_name": o.division_obj.name if o.division_obj else None,
@@ -540,7 +545,13 @@ def get_league_owners(league_id: int = Query(...),
                 "requested_league_id": league_id,
             },
         )
-    return fetch_league_owners_data(league_id=league_id, db=db, group_by_division=group_by_division)
+    include_owner_emails = bool(current_user.is_superuser or current_user.is_commissioner)
+    return fetch_league_owners_data(
+        league_id=league_id,
+        db=db,
+        group_by_division=group_by_division,
+        include_owner_emails=include_owner_emails,
+    )
 
 # --- NEW: GET /leagues/{league_id} ---
 @router.get("/{league_id}", response_model=LeagueSummary)

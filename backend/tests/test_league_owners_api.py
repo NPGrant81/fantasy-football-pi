@@ -331,3 +331,54 @@ def test_get_league_owners_returns_403_for_league_mapping_mismatch(client, api_d
     assert detail.get("error_code") == "LEAGUE_MAPPING_MISMATCH"
     assert detail.get("user_league_id") == league_one.id
     assert detail.get("requested_league_id") == league_two.id
+
+
+def test_get_league_owners_hides_emails_for_non_privileged_users(client, api_db, monkeypatch):
+    monkeypatch.setattr(security, 'verify_password', lambda plain, hashed: plain == "secret" and hashed == "h")
+
+    league = models.League(name="PII Hidden League")
+    api_db.add(league)
+    api_db.commit()
+    api_db.refresh(league)
+
+    viewer = models.User(username="viewer", email="viewer@test.com", hashed_password="h", league_id=league.id)
+    owner_b = models.User(username="owner-b", email="owner-b@test.com", hashed_password="h", league_id=league.id)
+    api_db.add_all([viewer, owner_b])
+    api_db.commit()
+
+    _login(client, "viewer", "secret")
+    response = client.get(f"/leagues/owners?league_id={league.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload
+    assert all(row.get("email") is None for row in payload)
+
+
+def test_get_league_owners_exposes_emails_for_commissioner(client, api_db, monkeypatch):
+    monkeypatch.setattr(security, 'verify_password', lambda plain, hashed: plain == "secret" and hashed == "h")
+
+    league = models.League(name="PII Visible League")
+    api_db.add(league)
+    api_db.commit()
+    api_db.refresh(league)
+
+    commissioner = models.User(
+        username="commish",
+        email="commish@test.com",
+        hashed_password="h",
+        league_id=league.id,
+        is_commissioner=True,
+    )
+    owner = models.User(username="owner-c", email="owner-c@test.com", hashed_password="h", league_id=league.id)
+    api_db.add_all([commissioner, owner])
+    api_db.commit()
+
+    _login(client, "commish", "secret")
+    response = client.get(f"/leagues/owners?league_id={league.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload
+    by_username = {row["username"]: row for row in payload}
+    assert by_username["owner-c"]["email"] == "owner-c@test.com"

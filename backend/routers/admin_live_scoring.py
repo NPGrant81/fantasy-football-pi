@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from ..core.security import check_is_commissioner
+from ..database import get_db
+from ..services import admin_audit_service
 
 router = APIRouter(prefix="/admin/live-scoring", tags=["Admin Live Scoring"])
 
@@ -24,6 +27,7 @@ class LiveScoreWatchdogPayload(BaseModel):
 @router.post("/ingest")
 def run_live_score_ingest(
     payload: LiveScoreIngestPayload,
+    db: Session = Depends(get_db),
     current_user=Depends(check_is_commissioner),
 ):
     """Run live scoring ingest with optional dry-run and failover controls."""
@@ -33,7 +37,7 @@ def run_live_score_ingest(
     )
 
     try:
-        return run_live_scoreboard_ingest_with_controls(
+        result = run_live_scoreboard_ingest_with_controls(
             year=payload.year,
             week=payload.week,
             dry_run=payload.dry_run,
@@ -43,6 +47,19 @@ def run_live_score_ingest(
             inspect_event_contracts_enabled=payload.inspect_event_contracts_enabled,
             event_contracts_limit=payload.event_contracts_limit,
         )
+        admin_audit_service.record_privileged_action(
+            db,
+            current_user,
+            "run_live_score_ingest",
+            "commissioner",
+            metadata_json={
+                "route": "admin_live_scoring.ingest",
+                "year": payload.year,
+                "week": payload.week,
+                "dry_run": payload.dry_run,
+            },
+        )
+        return result
     except IngestFetchError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -68,12 +85,21 @@ def live_score_ingest_health(
 @router.post("/watchdog")
 def run_live_score_ingest_watchdog(
     payload: LiveScoreWatchdogPayload,
+    db: Session = Depends(get_db),
     current_user=Depends(check_is_commissioner),
 ):
     """Run watchdog alert evaluation over recent ingest history."""
     from backend.services.live_scoring_watchdog_service import run_watchdog_check
 
-    return run_watchdog_check(limit=payload.limit)
+    result = run_watchdog_check(limit=payload.limit)
+    admin_audit_service.record_privileged_action(
+        db,
+        current_user,
+        "run_live_score_watchdog",
+        "commissioner",
+        metadata_json={"route": "admin_live_scoring.watchdog", "limit": payload.limit},
+    )
+    return result
 
 
 @router.get("/watchdog/alerts")

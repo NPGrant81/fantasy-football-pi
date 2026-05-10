@@ -152,18 +152,23 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-If you are not ready for TLS yet, temporarily use only the HTTP server block.
-
 ## 6. Verify
 
 ```bash
 curl -I http://YOUR_DOMAIN
 curl -I http://YOUR_DOMAIN/auth/me
+curl -I https://YOUR_DOMAIN/health
+bash scripts/check_https_headers.sh YOUR_DOMAIN
 ```
 
 Expected:
-- Frontend returns `200`/`304`.
-- Backend route reaches FastAPI (may return `401` when unauthenticated, which is fine).
+- HTTP endpoints redirect to HTTPS (`301` or `308`).
+- `https://YOUR_DOMAIN/health` returns `200`.
+- Security headers are present on HTTPS responses, including:
+    - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+    - `X-Content-Type-Options: nosniff`
+    - `X-Frame-Options: DENY`
+    - `Referrer-Policy: strict-origin-when-cross-origin`
 
 ## 7. Deploy Update Routine
 

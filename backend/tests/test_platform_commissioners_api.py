@@ -71,6 +71,21 @@ def test_commissioner_list_returns_403_for_non_superuser(client):
     assert response.json()['detail'] == 'Superuser privileges required'
 
 
+def test_audit_log_list_returns_403_for_non_superuser(client):
+    async def deny_superuser():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Superuser privileges required",
+        )
+
+    app.dependency_overrides[get_current_active_superuser] = deny_superuser
+
+    response = client.get('/admin/tools/audit-logs')
+
+    assert response.status_code == 403
+    assert response.json()['detail'] == 'Superuser privileges required'
+
+
 def test_create_and_list_commissioner_for_superuser(client, api_db, monkeypatch):
     db, _ = api_db
 
@@ -187,3 +202,59 @@ def test_remove_commissioner_blocks_superuser_and_allows_normal_commissioner(cli
 
     db.refresh(normal_commish)
     assert normal_commish.is_commissioner is False
+
+
+def test_create_commissioner_emits_audit_log_entry(client, api_db, monkeypatch):
+    db, _ = api_db
+
+    league = models.League(name='Audit League')
+    db.add(league)
+    db.commit()
+    db.refresh(league)
+
+    async def allow_superuser():
+        return models.User(id=2001, username='root-audit', is_superuser=True)
+
+    app.dependency_overrides[get_current_active_superuser] = allow_superuser
+
+    for modname in ('routers.platform_tools', 'backend.routers.platform_tools'):
+        monkeypatch.setattr(f"{modname}.get_password_hash", lambda _value: 'hashed-test-password', raising=False)
+        monkeypatch.setattr(f"{modname}.send_invite_email", lambda *args, **kwargs: True, raising=False)
+
+    create_res = client.post(
+        '/admin/tools/commissioners',
+        json={
+            'username': 'audit-comm',
+            'email': 'audit-comm@test.com',
+            'league_id': league.id,
+        },
+    )
+    assert create_res.status_code == 200
+
+    logs_res = client.get('/admin/tools/audit-logs?limit=10')
+    assert logs_res.status_code == 200
+    logs = logs_res.json()
+    assert logs
+    assert logs[0]['action'] == 'create_commissioner'
+    assert logs[0]['scope'] == 'superuser'
+    assert logs[0]['actor_username'] == 'root-audit'
+
+
+def test_platform_internal_errors_are_sanitized_in_production(client, api_db, monkeypatch):
+    async def allow_superuser():
+        return models.User(id=1002, username='root', is_superuser=True)
+
+    app.dependency_overrides[get_current_active_superuser] = allow_superuser
+    monkeypatch.setenv('APP_ENV', 'production')
+
+    def _boom(_db):
+        raise RuntimeError('sensitive-db-password-leak')
+
+    for modname in ('routers.platform_tools', 'backend.routers.platform_tools'):
+        monkeypatch.setattr(f"{modname}.admin_service.uat_team_reset", _boom, raising=False)
+
+    response = client.post('/admin/tools/uat-team-reset')
+
+    assert response.status_code == 500
+    assert response.json().get('detail') == 'Internal server error'
+    assert 'sensitive' not in str(response.json())

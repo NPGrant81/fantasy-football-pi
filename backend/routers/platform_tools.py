@@ -15,6 +15,7 @@ from database import get_db
 from core.security import get_current_active_superuser, get_password_hash
 import models
 import services.admin_service as admin_service
+import services.admin_audit_service as admin_audit_service
 from utils.email_sender import send_invite_email
 
 # all endpoints in this file are mounted under /admin/tools
@@ -25,6 +26,38 @@ from utils.email_sender import send_invite_email
 # (e.g. @router.get("/commissioner") or forgetting the prefix in
 # main.py) will result in a 404 from the tests.
 router = APIRouter(prefix="/admin/tools", tags=["Platform Tools"])
+
+
+@router.get("/audit-logs")
+def list_audit_logs(
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_active_superuser),
+):
+    safe_limit = max(1, min(int(limit), 500))
+    rows = (
+        db.query(models.AdminAuditLog)
+        .order_by(models.AdminAuditLog.created_at.desc(), models.AdminAuditLog.id.desc())
+        .limit(safe_limit)
+        .all()
+    )
+    return [
+        {
+            "id": row.id,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "actor_user_id": row.actor_user_id,
+            "actor_username": row.actor_username,
+            "actor_is_superuser": row.actor_is_superuser,
+            "actor_is_commissioner": row.actor_is_commissioner,
+            "action": row.action,
+            "scope": row.scope,
+            "target_type": row.target_type,
+            "target_id": row.target_id,
+            "league_id": row.league_id,
+            "metadata": row.metadata_json or {},
+        }
+        for row in rows
+    ]
 
 
 class CommissionerRequest(BaseModel):
@@ -98,6 +131,17 @@ def create_commissioner(
             request.league_id,
         )
 
+    admin_audit_service.record_privileged_action(
+        db,
+        _current_user,
+        "create_commissioner",
+        "superuser",
+        target_type="user",
+        target_id=str(new_commissioner.id),
+        league_id=new_commissioner.league_id,
+        metadata_json={"route": "create_commissioner"},
+    )
+
     return {
         "message": "Commissioner invited.",
         "league_id": request.league_id,
@@ -146,6 +190,17 @@ def update_commissioner(
     db.commit()
     db.refresh(commissioner)
 
+    admin_audit_service.record_privileged_action(
+        db,
+        _current_user,
+        "update_commissioner",
+        "superuser",
+        target_type="user",
+        target_id=str(commissioner.id),
+        league_id=commissioner.league_id,
+        metadata_json={"route": "update_commissioner"},
+    )
+
     return {
         "message": "Commissioner updated.",
         "commissioner": {
@@ -174,6 +229,17 @@ def remove_commissioner(
     commissioner.is_commissioner = False
     db.commit()
 
+    admin_audit_service.record_privileged_action(
+        db,
+        _current_user,
+        "remove_commissioner",
+        "superuser",
+        target_type="user",
+        target_id=str(commissioner.id),
+        league_id=commissioner.league_id,
+        metadata_json={"route": "remove_commissioner"},
+    )
+
     return {"message": "Commissioner access removed."}
 
 
@@ -189,6 +255,13 @@ def sync_nfl(
     """
     try:
         admin_service.sync_initial_nfl_data(db)
+        admin_audit_service.record_privileged_action(
+            db,
+            _current_user,
+            "sync_nfl",
+            "superuser",
+            metadata_json={"route": "sync_nfl"},
+        )
         return {
             "message": "NFL player data synced successfully!",
             "detail": "Players, positions, and defenses updated from ESPN API."
@@ -204,6 +277,14 @@ def uat_draft_reset(
 ):
     try:
         result = admin_service.uat_draft_reset(db)
+        admin_audit_service.record_privileged_action(
+            db,
+            _current_user,
+            "uat_draft_reset",
+            "superuser",
+            league_id=int(result.get("league_id")) if result.get("league_id") is not None else None,
+            metadata_json={"route": "uat_draft_reset"},
+        )
         return {
             "message": "UAT Draft Reset complete",
             "detail": f"Draft cleared for {result['league']} ({result['draft_picks_deleted']} picks removed).",
@@ -220,6 +301,14 @@ def uat_team_reset(
 ):
     try:
         result = admin_service.uat_team_reset(db)
+        admin_audit_service.record_privileged_action(
+            db,
+            _current_user,
+            "uat_team_reset",
+            "superuser",
+            league_id=int(result.get("league_id")) if result.get("league_id") is not None else None,
+            metadata_json={"route": "uat_team_reset"},
+        )
         return {
             "message": "UAT Team Reset complete",
             "detail": f"Teams reseeded for {result['league']} with {result['seed']['picks_created']} draft picks.",

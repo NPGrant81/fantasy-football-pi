@@ -88,6 +88,16 @@ Recommended runtime settings:
 - Enforce HTTPS-only at Nginx with HSTS preload decision review.
 - Add incident response runbook and backup restoration drills.
 
+### HTTPS/HSTS decision record (Issue #413)
+- Decision: enforce HTTPS-only and ship HSTS without `preload` for now.
+- Current HSTS policy: `max-age=31536000; includeSubDomains`.
+- Rationale:
+  - HSTS is enforced immediately for browsers that have already connected over HTTPS.
+  - Preload is intentionally deferred until all present and planned subdomains are confirmed HTTPS-only and long-lived.
+  - This avoids irreversible preload-list risk during active infrastructure evolution.
+- Revisit trigger:
+  - If all production subdomains are HTTPS-only for at least one release cycle, promote to preload in a follow-up issue/ADR.
+
 ### Nginx hardening template
 - A deploy-ready starter config for Raspberry Pi is available at:
   - `deploy/nginx/fantasy-football-pi.conf.example`
@@ -97,6 +107,8 @@ Recommended runtime settings:
   - HSTS and defensive headers
   - Request/connection rate limiting
   - Safe proxy timeouts and forwarded headers
+- Deployment verification command:
+  - `bash scripts/check_https_headers.sh YOUR_DOMAIN`
 
 ## Incident response quick-start
 

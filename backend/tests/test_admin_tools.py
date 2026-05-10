@@ -22,6 +22,19 @@ from backend.database import get_db
 from backend.main import app
 
 
+def _create_commissioner_actor(db, username: str = "commissioner-actor"):
+    actor = models.User(
+        username=username,
+        email=f"{username}@test.com",
+        hashed_password="hashed",
+        is_commissioner=True,
+    )
+    db.add(actor)
+    db.commit()
+    db.refresh(actor)
+    return actor
+
+
 @pytest.fixture
 def api_db():
     engine = create_engine(
@@ -68,10 +81,11 @@ def test_import_schedule_denied_for_non_commissioner(client, api_db):
 
 
 def test_import_schedule_runs_upsert(client, api_db):
+    db, _ = api_db
+
     # allow commission
     async def allow_commissioner():
-        # dummy user object
-        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+        return _create_commissioner_actor(db, "schedule-comm")
 
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
@@ -95,9 +109,11 @@ def test_import_schedule_runs_upsert(client, api_db):
 
 
 def test_reload_config_endpoint(client, api_db):
+    db, _ = api_db
+
     # allow commissioner
     async def allow_commissioner():
-        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+        return _create_commissioner_actor(db, "reload-comm")
 
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
@@ -111,11 +127,15 @@ def test_reload_config_endpoint(client, api_db):
     assert response.status_code == 200
     assert response.json()["reloaded"] is True
     assert os.environ.get("TEST_RELOAD_KEY") == "hello"
+    audit_logs = db.query(models.AdminAuditLog).filter(models.AdminAuditLog.action == "reload_config").all()
+    assert len(audit_logs) == 1
 
 
 def test_live_score_ingest_dry_run_endpoint(client, api_db):
+    db, _ = api_db
+
     async def allow_commissioner():
-        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+        return _create_commissioner_actor(db, "ingest-comm")
 
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
@@ -179,8 +199,10 @@ def test_live_score_ingest_dry_run_endpoint(client, api_db):
 
 
 def test_live_score_ingest_endpoint_returns_502_with_diagnostics(client, api_db):
+    db, _ = api_db
+
     async def allow_commissioner():
-        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+        return _create_commissioner_actor(db, "ingest-error-comm")
 
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
@@ -212,8 +234,10 @@ def test_live_score_ingest_endpoint_returns_502_with_diagnostics(client, api_db)
 
 
 def test_live_score_ingest_defaults_enable_event_contract_inspection(client, api_db):
+    db, _ = api_db
+
     async def allow_commissioner():
-        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+        return _create_commissioner_actor(db, "ingest-defaults-comm")
 
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
@@ -285,8 +309,10 @@ def test_live_score_ingest_health_endpoint(client, api_db):
 
 
 def test_live_score_watchdog_run_endpoint(client, api_db):
+    db, _ = api_db
+
     async def allow_commissioner():
-        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+        return _create_commissioner_actor(db, "watchdog-comm")
 
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
@@ -412,8 +438,10 @@ def test_live_score_polling_summary_endpoint(client, api_db):
 
 
 def test_refresh_draft_values_enqueues_background_task(client, api_db, monkeypatch):
+    db, _ = api_db
+
     async def allow_commissioner():
-        return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
+        return _create_commissioner_actor(db, "draft-refresh-comm")
 
     app.dependency_overrides[check_is_commissioner] = allow_commissioner
 
