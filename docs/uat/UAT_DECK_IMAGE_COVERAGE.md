@@ -13,7 +13,7 @@ Use these references when adding or changing screenshot coverage:
 - `docs/ARCHITECTURE.md`
 - `docs/API_PAGE_MATRIX.md`
 - `docs/UI_REFERENCE.md`
-- `docs/FRONTEND_UI_STANDARDS.md`
+- `frontend/README.md`
 - `frontend/src/App.jsx`
 
 ## Automation Flow

@@ -38,7 +38,7 @@ Use this table as the immediate remediation backlog for the current cycle.
 
 | Document | Domain | Criticality | Status | Target Window | Owner | Why this level | Verification |
 |---|---|---|---|---|---|---|---|
-| `docs/API_INTEGRATION_PIPELINE.md` | API/contract | Critical | complete | 2026-04-05 | backend | Can misalign integration behavior if stale | Verified against `.github/workflows/ci.yml` (`api-integration`, `CI Observability Report`) and `backend/tests/test_api_integration_pipeline.py` references |
+| `backend/README.md` | API/contract | Critical | complete | 2026-04-05 | backend | Can misalign integration behavior if stale | Verified against `.github/workflows/ci.yml` (`api-integration`, `CI Observability Report`) and `backend/tests/test_api_integration_pipeline.py` references |
 | `docs/API_PAGE_MATRIX.md` | API/contract | Critical | complete | 2026-04-05 | backend | Debug/reference matrix used for API-page coupling | Spot-checked endpoint mappings (`/trades/propose`, `/trades/pending`, `/waivers/claim`, `/players/waiver-wire`) against current routers |
 | `docs/DEPLOYMENT_WORKFLOWS.md` | operations | High | complete | 2026-04-12 | platform | Used in deploy paths; drift can cause failed rollout | Verified workflow files and secret keys in `.github/workflows/deploy-staging.yml`, `.github/workflows/deploy-production.yml`, `.github/workflows/source-prechecks.yml` |
 | `docs/RASPBERRY_PI_DEPLOYMENT.md` | operations | High | complete | 2026-04-12 | platform | Host setup/maintenance impact on production-like env | Verified referenced helper path `scripts/pi_update_plan.sh` and deploy/systemd/nginx/cloudflared artifact paths exist |
@@ -88,10 +88,10 @@ Third onboarding wave focused on data contracts, MFL migration verification docs
 | `docs/data-migration/mfl-hardening-verification-gates.md` | data migration | High | complete | 2026-04-19 | qa + data | Verification gates protect import hardening quality | Verified validation/reconciliation command set in `backend/manage.py` |
 | `docs/data-migration/mfl-html-records-normalization-plan.md` | data migration | Medium | complete | 2026-04-19 | data | Normalization guidance supports stable long-run ingestion quality | Verified HTML record export artifacts and normalization-plan references |
 | `docs/data-migration/mfl-test-results-log.md` | migration QA | Medium | complete | 2026-04-19 | qa | Test outcome ledger is important for migration confidence trend | Verified command and export evidence path references |
-| `docs/player-metadata-rules.md` | backend data contract | Medium | complete | 2026-04-26 | backend | Metadata contract drift affects player identity consistency | Verified player models/services and Alembic references |
+| `etl/player_metadata/README.md` | backend data contract | Medium | complete | 2026-04-26 | backend | Metadata contract drift affects player identity consistency | Verified player models/services and Alembic references |
 | `docs/restore.md` | operations reliability | High | complete | 2026-04-26 | platform | Restore runbook drift increases recovery-time risk | Verified backup scripts, systemd deployment assets, and health endpoint references |
 | `docs/pi-setup/docker.md` | platform setup | Medium | complete | 2026-04-26 | platform | Setup baseline for Pi environment consistency | Verified procedural steps remain aligned with current deployment layout |
-| `docs/data-dictionary.md` | data contract | High | complete | 2026-04-26 | data | Canonical schema/legacy import field scope needed tightening to avoid confusion | Completed doc correction: explicitly separated legacy CSV ingestion contracts from canonical ORM runtime entities and clarified naming expectations |
+| `db/README.md` | data contract | High | complete | 2026-04-26 | data | Canonical schema/legacy import field scope needed tightening to avoid confusion | Completed doc correction: explicitly separated legacy CSV ingestion contracts from canonical ORM runtime entities and clarified naming expectations |
 
 ### Ungoverned Operational Docs Triage (wave 4)
 
@@ -119,7 +119,7 @@ Sixth onboarding wave focused on active UX/model docs plus UAT coverage docs and
 | `docs/UI_REFERENCE.md` | frontend standards | Medium | complete | 2026-04-12 | frontend | Canonical UI implementation reference affects consistency | Verified active standards content and implementation guidance alignment |
 | `docs/ux-insights-spec.md` | product/UX | Medium | complete | 2026-04-12 | frontend | Insights vocabulary and thresholds guide analyzer UX behavior | Verified scope, issue linkage, and contract sections are current |
 | `docs/model-serving-and-integration.md` | backend/model integration | High | complete | 2026-04-12 | backend | API/model serving contracts impact feature correctness | Verified request/response contracts, versioning, and fallback guidance |
-| `docs/monte-carlo-simulation.md` | analytics/modeling | Medium | complete | 2026-04-12 | data | Simulation assumptions influence recommendation quality | Verified implementation paths and simulation constraints |
+| `etl/monte_carlo/README.md` | analytics/modeling | Medium | complete | 2026-04-12 | data | Simulation assumptions influence recommendation quality | Verified implementation paths and simulation constraints |
 | `docs/permissions.md` | authorization policy | High | complete | 2026-04-12 | product | Permissions matrix governs critical access boundaries | Verified role matrix and testing guidance coverage |
 | `docs/DRAFT_DAY_ADVISOR_MODE.md` | backend advisor behavior | Medium | complete | 2026-04-19 | backend | Advisor-mode contract guides endpoint and workflow behavior | Verified endpoint/event contract and operational constraints |
 | `docs/RESPONSIVE_AUDIT_ENVIRONMENT.md` | frontend testing ops | Medium | complete | 2026-04-19 | frontend | Responsive audit setup impacts CI/dev parity quality | Verified environment instructions and CI runner alignment |

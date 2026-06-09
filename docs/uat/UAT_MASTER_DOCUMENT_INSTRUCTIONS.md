@@ -112,7 +112,7 @@ Use these project references when maintaining presentation screenshot coverage:
 - `docs/ARCHITECTURE.md`
 - `docs/API_PAGE_MATRIX.md`
 - `docs/UI_REFERENCE.md`
-- `docs/FRONTEND_UI_STANDARDS.md`
+- `frontend/README.md`
 - `docs/uat/UAT_DECK_IMAGE_COVERAGE.md`
 
 ## Mapping to Feature Areas
