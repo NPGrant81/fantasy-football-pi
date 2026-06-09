@@ -66,7 +66,7 @@ def test_yahoo_etl(season=2025):
     norm_df = pd.DataFrame(transform_yahoo_players(players))
     # --- Manual Mapping Integration ---
     from etl.transform.fetch_manual_mappings import fetch_manual_mappings_from_db
-    from etl.transform.manual_mapping import apply_manual_mappings
+    from etl.player_metadata.manual_mapping import apply_manual_mappings
     manual_mappings_df = fetch_manual_mappings_from_db()
     if not manual_mappings_df.empty:
         norm_df = apply_manual_mappings(norm_df, manual_mappings_df)
@@ -89,7 +89,7 @@ def test_draftsharks_etl(season=2025):
         norm_df = transform_draftsharks_adp(df)
         # --- Manual Mapping Integration ---
         from etl.transform.fetch_manual_mappings import fetch_manual_mappings_from_db
-        from etl.transform.manual_mapping import apply_manual_mappings
+        from etl.player_metadata.manual_mapping import apply_manual_mappings
         manual_mappings_df = fetch_manual_mappings_from_db()
         if not manual_mappings_df.empty:
             norm_df = apply_manual_mappings(norm_df, manual_mappings_df)
@@ -119,12 +119,12 @@ def test_draftsharks_etl(season=2025):
         if "bye_week" not in espn_df.columns:
             espn_df["bye_week"] = None
         # Ensure position_rank is always integer for DB
-        from etl.transform.normalize import extract_position_rank
+        from etl.player_metadata.normalize import extract_position_rank
         if "position_rank" in espn_df.columns:
             espn_df["position_rank"] = espn_df["position_rank"].apply(extract_position_rank)
         # --- Manual Mapping Integration ---
         from etl.transform.fetch_manual_mappings import fetch_manual_mappings_from_db
-        from etl.transform.manual_mapping import apply_manual_mappings
+        from etl.player_metadata.manual_mapping import apply_manual_mappings
         manual_mappings_df = fetch_manual_mappings_from_db()
         if not manual_mappings_df.empty:
             espn_df = apply_manual_mappings(espn_df, manual_mappings_df)

@@ -21,7 +21,7 @@ Two approaches are supported:
 import requests
 import json
 import pandas as pd
-from etl.transform.normalize import normalize_player_name, extract_position_rank
+from etl.player_metadata.normalize import normalize_player_name, extract_position_rank
 
 # ESPN uses integer position IDs on the v3 REST API
 ESPN_POSITION_MAP = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF"}

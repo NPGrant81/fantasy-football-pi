@@ -24,7 +24,7 @@ if str(repo_root) not in sys.path:
 from backend.models import Player
 from backend.models_draft_value import DraftValue, PlayerIDMapping, PlatformProjection
 from backend.db_config import load_backend_env_file, resolve_database_url
-from etl.transform.normalize import extract_position_rank, normalize_player_name
+from etl.player_metadata.normalize import extract_position_rank, normalize_player_name
 from etl.validation.dataframe_validation import validate_normalized_players_dataframe
 from etl.validation.great_expectations_runner import run_normalized_players_expectations
 

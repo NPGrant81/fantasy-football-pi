@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 import yaml
-from etl.transform.normalize import normalize_player_name
+from etl.player_metadata.normalize import normalize_player_name
 
 
 def _normalize_name(value: str) -> str:

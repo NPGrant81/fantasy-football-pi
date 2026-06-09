@@ -12,12 +12,13 @@ Primary tracker: GitHub Issue #256 (Define Data Requirements & Schemas)
 - `mfl-year-status-matrix.md`: Year-by-year extraction readiness and failure tracking.
 - `mfl-test-results-log.md`: Test protocol, commands, artifacts, and observed outcomes.
 - `mfl-html-records-normalization-plan.md`: Field mapping and transform contract for HTML champions/awards/records sources.
+- `csv-source-of-truth-retirement-matrix.md`: Execution tracker for issue #365 tiered retirement of CSV runtime dependencies.
 
 ## Legacy Host Fallback
 
 - For 2002-2003 seasons, do not assume API export is blocked. Public history/stat pages are reachable on `www47` and `www44`, and should be tested via HTML `options?O=` extraction before manual transcription fallback.
 - Template scaffolding command:
-  - `python -m backend.manage scaffold-mfl-manual-csv --start-year 2002 --end-year 2003`
+  - `python -m backend.manage scaffold-mfl-manual-csv --start-year 2002 --end-year 2003 --allow-legacy-csv-source`
 
 ## Scope
 

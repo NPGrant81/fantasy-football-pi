@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import models
 from backend.routers import draft as draft_router
-from etl.transform.monte_carlo_simulation import MonteCarloSimulationResult, build_monte_carlo_inputs_from_db
+from etl.monte_carlo.simulation import MonteCarloSimulationResult, build_monte_carlo_inputs_from_db
 
 
 @pytest.fixture

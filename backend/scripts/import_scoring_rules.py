@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import csv
 import json
 import sys
@@ -15,6 +16,15 @@ from backend.services.scoring_import_service import (
     parse_csv_rows_to_rules,
     sanitize_external_row,
 )
+
+
+LEGACY_CSV_ARCHIVE_ENV_FLAG = "FFPI_ALLOW_LEGACY_CSV_ARCHIVE"
+LEGACY_CSV_ARCHIVE_CLI_FLAG = "--allow-legacy-csv-archive"
+
+
+def legacy_csv_archive_opted_in(cli_flag_enabled: bool) -> bool:
+    env_enabled = os.getenv(LEGACY_CSV_ARCHIVE_ENV_FLAG, "0") == "1"
+    return bool(cli_flag_enabled and env_enabled)
 
 
 def sanitize_row(row: dict) -> dict:
@@ -69,14 +79,28 @@ def parse_file(path: str, source_platform: str = "imported") -> list[dict]:
     return [rule.model_dump() for rule in rules]
 
 
-def main() -> None:
-    if len(sys.argv) < 2:
+def main(argv: list[str] | None = None) -> None:
+    args = list(argv) if argv is not None else sys.argv[1:]
+
+    allow_legacy_csv_archive = LEGACY_CSV_ARCHIVE_CLI_FLAG in args
+    args = [arg for arg in args if arg != LEGACY_CSV_ARCHIVE_CLI_FLAG]
+
+    if not legacy_csv_archive_opted_in(allow_legacy_csv_archive):
+        print(
+            "ERROR: import_scoring_rules.py is ARCHIVAL-ONLY and disabled by default.\n"
+            "       Use DB-first scoring workflows instead.\n"
+            f"       To run intentionally, set {LEGACY_CSV_ARCHIVE_ENV_FLAG}=1 and pass {LEGACY_CSV_ARCHIVE_CLI_FLAG}.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if len(args) < 1:
         print("Usage: python import_scoring_rules.py file.csv [league_id] [source_platform]", file=sys.stderr)
         sys.exit(1)
 
-    path = sys.argv[1]
-    league_id = int(sys.argv[2]) if len(sys.argv) >= 3 and sys.argv[2] else None
-    source_platform = sys.argv[3] if len(sys.argv) >= 4 else "imported"
+    path = args[0]
+    league_id = int(args[1]) if len(args) >= 2 and args[1] else None
+    source_platform = args[2] if len(args) >= 3 else "imported"
 
     try:
         records = parse_file(path, source_platform=source_platform)

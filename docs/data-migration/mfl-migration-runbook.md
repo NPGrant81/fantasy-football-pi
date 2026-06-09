@@ -62,10 +62,24 @@ python -m backend.manage import-mfl-csv \
   --apply
 ```
 
-4. Reconcile source CSV vs imported rows:
+4. Reconcile source vs imported rows (DB-first):
 
 ```bash
 python -m backend.manage reconcile-mfl-import \
+  --source-mode db \
+  --source-league-id <MFL_LEAGUE_ID> \
+  --target-league-id <APP_LEAGUE_ID> \
+  --start-year 2004 \
+  --end-year 2026 \
+  --output-json reports/mfl-reconciliation-2004-2026.json
+```
+
+Legacy CSV reconcile mode (when needed):
+
+```bash
+python -m backend.manage reconcile-mfl-import \
+  --source-mode csv \
+  --allow-legacy-csv-source \
   --input-root exports/history \
   --target-league-id <APP_LEAGUE_ID> \
   --start-year 2004 \
@@ -89,6 +103,7 @@ Use this when extraction fails due unresolved legacy host redirects.
 python -m backend.manage scaffold-mfl-manual-csv \
   --start-year 2002 \
   --end-year 2003 \
+  --allow-legacy-csv-source \
   --output-root exports/history_manual
 ```
 
@@ -111,6 +126,8 @@ Required metadata conventions:
 
 ```bash
 python -m backend.manage import-mfl-csv \
+  --source-mode csv \
+  --allow-legacy-csv-source \
   --input-root exports/history_manual \
   --target-league-id <APP_LEAGUE_ID> \
   --start-year 2002 \
@@ -121,6 +138,8 @@ python -m backend.manage import-mfl-csv \
 
 ```bash
 python -m backend.manage import-mfl-csv \
+  --source-mode csv \
+  --allow-legacy-csv-source \
   --input-root exports/history_manual \
   --target-league-id <APP_LEAGUE_ID> \
   --start-year 2002 \
@@ -132,12 +151,79 @@ python -m backend.manage import-mfl-csv \
 
 ```bash
 python -m backend.manage reconcile-mfl-import \
+  --source-mode csv \
+  --allow-legacy-csv-source \
   --input-root exports/history_manual \
   --target-league-id <APP_LEAGUE_ID> \
   --start-year 2002 \
   --end-year 2003 \
   --output-json reports/mfl-reconciliation-2002-2003.json
 ```
+
+## DB-First Backfill Workflow (Current Medium Track)
+
+Use this path for historical draft backfill processing without requiring staged players/franchises CSV roots.
+
+1. Stage required import CSVs from DB facts:
+
+```bash
+python -m backend.manage stage-mfl-html-for-import \
+  --source-mode db \
+  --source-league-id <MFL_LEAGUE_ID> \
+  --start-year 2009 \
+  --end-year 2011 \
+  --output-root exports/history_staged_db
+```
+
+2. Prepare draft backfill sheets from DB facts:
+
+```bash
+python -m backend.manage prepare-mfl-draft-backfill-sheet \
+  --source-mode db \
+  --source-league-id <MFL_LEAGUE_ID> \
+  --start-year 2009 \
+  --end-year 2011 \
+  --output-root exports/history_staged_db/manual_overrides/draft_backfill_sheets
+```
+
+3. Resolve manual player names using DB player snapshots:
+
+```bash
+python -m backend.manage resolve-mfl-draft-backfill-names \
+  --source-mode db \
+  --source-league-id <MFL_LEAGUE_ID> \
+  --start-year 2009 \
+  --end-year 2011 \
+  --sheet-root exports/history_staged_db/manual_overrides/draft_backfill_sheets \
+  --apply
+```
+
+4. Apply completed backfill sheets into DB draft facts:
+
+```bash
+python -m backend.manage apply-mfl-draft-backfill-sheet \
+  --source-mode db \
+  --source-league-id <MFL_LEAGUE_ID> \
+  --start-year 2009 \
+  --end-year 2011 \
+  --sheet-root exports/history_staged_db/manual_overrides/draft_backfill_sheets \
+  --apply
+```
+
+## Optional DB-First HTML Normalize+Load Handoff
+
+When loading HTML record families, normalized CSV directories are now optional.
+
+Use one command to normalize extracted HTML CSVs and load into Postgres via a temporary intermediate workspace:
+
+```bash
+python -m backend.manage normalize-load-mfl-html-records \
+  --input-root exports/history_html \
+  --apply \
+  --target-league-id <APP_LEAGUE_ID>
+```
+
+Optional: provide `--output-root` to keep normalized CSVs on disk for inspection.
 
 ## Rerun And Backfill Strategy
 
@@ -153,9 +239,9 @@ Recommended narrow-scope rerun examples:
 
 ```bash
 python -m backend.manage extract-mfl-history --start-year 2014 --end-year 2014 --report-types players,draftResults --output-root exports/history
-python -m backend.manage import-mfl-csv --input-root exports/history --target-league-id <APP_LEAGUE_ID> --start-year 2014 --end-year 2014
-python -m backend.manage import-mfl-csv --input-root exports/history --target-league-id <APP_LEAGUE_ID> --start-year 2014 --end-year 2014 --apply
-python -m backend.manage reconcile-mfl-import --input-root exports/history --target-league-id <APP_LEAGUE_ID> --start-year 2014 --end-year 2014 --output-json reports/mfl-reconciliation-2014.json
+python -m backend.manage import-mfl-csv --source-mode csv --allow-legacy-csv-source --input-root exports/history --target-league-id <APP_LEAGUE_ID> --start-year 2014 --end-year 2014
+python -m backend.manage import-mfl-csv --source-mode csv --allow-legacy-csv-source --input-root exports/history --target-league-id <APP_LEAGUE_ID> --start-year 2014 --end-year 2014 --apply
+python -m backend.manage reconcile-mfl-import --source-mode db --source-league-id <MFL_LEAGUE_ID> --target-league-id <APP_LEAGUE_ID> --start-year 2014 --end-year 2014 --output-json reports/mfl-reconciliation-2014.json
 ```
 
 ## Artifacts To Retain

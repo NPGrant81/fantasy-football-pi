@@ -574,5 +574,11 @@
     "owner": "qa",
     "cadence_days": 30,
     "last_reviewed": "2026-03-30"
+  },
+  {
+    "path": "docs/data-migration/csv-source-of-truth-retirement-matrix.md",
+    "owner": "data",
+    "cadence_days": 60,
+    "last_reviewed": "2026-06-09"
   }
 ]

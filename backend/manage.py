@@ -6,6 +6,7 @@ handler, eliminating the need for every test to trigger the seeder.
 """
 
 from datetime import datetime, timezone
+from tempfile import TemporaryDirectory
 
 import click
 
@@ -33,13 +34,40 @@ from .scripts.stage_mfl_html_for_import import run_stage_mfl_html_for_import
 from .scripts.validation.validate_mfl_import import run_validate_mfl_import, format_validation_output
 from .scripts.validation.validate_season_hierarchy import run_validate_season_hierarchy, format_season_hierarchy_output
 from .scripts.validation.validate_league_readiness import run_validate_league_readiness, format_league_readiness_output
-import csv as _csv
 from . import models
+
+
+FRANCHISE_FACT_DATASET_KEYS = {"franchises", "html_franchises_normalized"}
 
 
 @click.group()
 def cli():
     pass
+
+
+def _resolve_bootstrap_source_season(
+    db,
+    *,
+    source_season: int | None,
+    source_league_id: str | None,
+) -> tuple[int | None, bool]:
+    if source_season is not None:
+        return source_season, False
+
+    season_query = db.query(models.MflHtmlRecordFact.season).filter(
+        models.MflHtmlRecordFact.dataset_key.in_(FRANCHISE_FACT_DATASET_KEYS)
+    )
+    if source_league_id:
+        season_query = season_query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
+
+    season_row = (
+        season_query
+        .order_by(models.MflHtmlRecordFact.season.desc())
+        .first()
+    )
+    if not season_row or season_row[0] is None:
+        return None, True
+    return int(season_row[0]), True
 
 
 @cli.command()
@@ -288,7 +316,7 @@ def extract_mfl_html_reports(
     click.echo(f"- Output root: {summary['output_root']}")
 
 
-@cli.command("normalize-mfl-html-records")
+@cli.command("normalize-load-mfl-html-records")
 @click.option(
     "--input-root",
     type=click.Path(file_okay=False, dir_okay=True, exists=True),
@@ -299,7 +327,7 @@ def extract_mfl_html_reports(
     "--output-root",
     type=click.Path(file_okay=False, dir_okay=True),
     default=None,
-    help="Destination root for normalized CSV outputs (defaults to <input-root>_normalized).",
+    help="Optional destination root for normalized CSV outputs (default: temporary workspace, auto-cleaned).",
 )
 @click.option("--start-year", type=int, default=None, help="Optional minimum season year filter.")
 @click.option("--end-year", type=int, default=None, help="Optional maximum season year filter.")
@@ -309,44 +337,6 @@ def extract_mfl_html_reports(
     default="league_champions,league_awards,franchise_records,player_records,matchup_records,all_time_series_records,season_records,career_records,record_streaks",
     show_default=True,
     help="Comma-separated HTML report keys to normalize.",
-)
-def normalize_mfl_html_records(
-    input_root: str,
-    output_root: str | None,
-    start_year: int | None,
-    end_year: int | None,
-    report_keys: str,
-):
-    """Normalize extracted MFL HTML record-family CSVs into stable schemas."""
-    if start_year is not None and end_year is not None and end_year < start_year:
-        raise click.UsageError("--end-year must be greater than or equal to --start-year")
-
-    selected_keys = [part.strip() for part in report_keys.split(",") if part.strip()]
-    summary = run_normalize_mfl_html_records(
-        input_root=input_root,
-        output_root=output_root,
-        start_year=start_year,
-        end_year=end_year,
-        report_keys=selected_keys,
-    )
-
-    click.echo("MFL HTML normalization summary")
-    click.echo(f"- Input root: {summary['input_root']}")
-    click.echo(f"- Output root: {summary['output_root']}")
-    click.echo(f"- Files processed: {summary['files_processed']}")
-    click.echo(f"- Files skipped: {summary['files_skipped']}")
-    for dataset, rows in summary["rows_written_by_dataset"].items():
-        click.echo(f"- {dataset}: {rows} rows")
-    if summary["warnings"]:
-        click.echo(f"- Warnings: {len(summary['warnings'])}")
-
-
-@cli.command("load-mfl-html-normalized")
-@click.option(
-    "--input-roots",
-    type=str,
-    required=True,
-    help="Comma-separated normalized roots (for example 2002_2003 + 2004_2026 outputs).",
 )
 @click.option(
     "--apply",
@@ -367,39 +357,66 @@ def normalize_mfl_html_records(
     default=None,
     help="App league_id to associate with imported HTML fact rows.",
 )
-def load_mfl_html_normalized(
-    input_roots: str,
+def normalize_load_mfl_html_records(
+    input_root: str,
+    output_root: str | None,
+    start_year: int | None,
+    end_year: int | None,
+    report_keys: str,
     apply_changes: bool,
     truncate_before_load: bool,
     target_league_id: int | None,
 ):
-    """Load normalized MFL HTML record datasets into Postgres."""
-    roots = [part.strip() for part in input_roots.split(",") if part.strip()]
-    if not roots:
-        raise click.UsageError("--input-roots must contain at least one path")
-
+    """Normalize HTML record CSVs and load them into Postgres in one command."""
+    if start_year is not None and end_year is not None and end_year < start_year:
+        raise click.UsageError("--end-year must be greater than or equal to --start-year")
     if truncate_before_load and not apply_changes:
         raise click.UsageError("--truncate-before-load requires --apply")
 
-    summary = run_load_mfl_html_normalized(
-        input_roots=roots,
-        dry_run=not apply_changes,
-        truncate_before_load=truncate_before_load,
-        target_league_id=target_league_id,
-    )
+    selected_keys = [part.strip() for part in report_keys.split(",") if part.strip()]
 
-    click.echo("MFL HTML normalized load summary")
+    def _run_with_output_root(normalized_root: str) -> tuple[dict, dict]:
+        normalize_summary = run_normalize_mfl_html_records(
+            input_root=input_root,
+            output_root=normalized_root,
+            start_year=start_year,
+            end_year=end_year,
+            report_keys=selected_keys,
+        )
+        load_summary = run_load_mfl_html_normalized(
+            input_roots=[normalized_root],
+            dry_run=not apply_changes,
+            truncate_before_load=truncate_before_load,
+            target_league_id=target_league_id,
+        )
+        return normalize_summary, load_summary
+
+    temp_used = output_root is None
+    if temp_used:
+        with TemporaryDirectory(prefix="ffpi_html_normalized_") as temp_root:
+            normalize_summary, load_summary = _run_with_output_root(temp_root)
+            normalized_root_display = temp_root
+    else:
+        normalize_summary, load_summary = _run_with_output_root(output_root)
+        normalized_root_display = output_root
+
+    click.echo("MFL HTML normalize+load summary")
     click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
-    click.echo(f"- Run id: {summary['run_id']}")
-    click.echo(f"- Input roots: {', '.join(summary['input_roots'])}")
-    click.echo(f"- Target league id: {summary['target_league_id']}")
-    click.echo(f"- Files seen: {summary['files_seen']}")
-    click.echo(f"- Files loaded: {summary['files_loaded']}")
-    click.echo(f"- Rows seen: {summary['rows_seen']}")
-    click.echo(f"- Rows inserted: {summary['rows_inserted']}")
-    click.echo(f"- Rows skipped (existing): {summary['rows_skipped_existing']}")
-    if summary["warnings"]:
-        click.echo(f"- Warnings: {len(summary['warnings'])}")
+    click.echo(f"- Input root: {input_root}")
+    click.echo(f"- Normalized root: {normalized_root_display}")
+    click.echo(f"- Temporary normalized root used: {temp_used}")
+    click.echo(f"- Normalize files processed: {normalize_summary['files_processed']}")
+    click.echo(f"- Normalize files skipped: {normalize_summary['files_skipped']}")
+    click.echo(f"- Load run id: {load_summary['run_id']}")
+    click.echo(f"- Load files seen: {load_summary['files_seen']}")
+    click.echo(f"- Load files loaded: {load_summary['files_loaded']}")
+    click.echo(f"- Load rows seen: {load_summary['rows_seen']}")
+    click.echo(f"- Load rows inserted: {load_summary['rows_inserted']}")
+    click.echo(f"- Load rows skipped (existing): {load_summary['rows_skipped_existing']}")
+    if normalize_summary["warnings"]:
+        click.echo(f"- Normalize warnings: {len(normalize_summary['warnings'])}")
+    if load_summary["warnings"]:
+        click.echo(f"- Load warnings: {len(load_summary['warnings'])}")
 
 
 @cli.command("archive-mfl-html-exports")
@@ -537,6 +554,12 @@ def archive_mfl_json_exports(
     help="Delete the original CSV files after they have been archived (apply mode only).",
 )
 @click.option(
+    "--allow-legacy-csv-source",
+    is_flag=True,
+    default=False,
+    help="Required acknowledgment for legacy CSV archive/prune operations.",
+)
+@click.option(
     "--overwrite-existing",
     is_flag=True,
     default=False,
@@ -546,9 +569,12 @@ def archive_mfl_csv_exports(
     input_root: str,
     apply_changes: bool,
     prune_csv: bool,
+    allow_legacy_csv_source: bool,
     overwrite_existing: bool,
 ):
     """Archive recursive CSV artifacts from an MFL export root."""
+    if not allow_legacy_csv_source:
+        raise click.UsageError("--allow-legacy-csv-source is required for archive-mfl-csv-exports")
     if prune_csv and not apply_changes:
         raise click.UsageError("--prune-csv requires --apply")
 
@@ -644,8 +670,7 @@ def restore_mfl_archive(
 
 
 @cli.command("import-mfl-csv")
-@click.option("--source-mode", type=click.Choice(["db", "csv"]), default="db", show_default=True, help="Import source mode. Use db (recommended) to read from mfl_html_record_facts.")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default=None, help="Legacy CSV mode: extraction root folder (required when --source-mode=csv).")
+@click.option("--source-mode", type=click.Choice(["db"]), default="db", show_default=True, help="Import source mode. DB is the canonical source via mfl_html_record_facts.")
 @click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id receiving imported rows.")
 @click.option("--start-year", type=int, required=True, help="First season year to import.")
@@ -653,7 +678,6 @@ def restore_mfl_archive(
 @click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write changes (default dry-run).")
 def import_mfl_csv(
     source_mode: str,
-    input_root: str | None,
     source_league_id: str | None,
     target_league_id: int,
     start_year: int,
@@ -661,11 +685,8 @@ def import_mfl_csv(
     apply_changes: bool,
 ):
     """Import normalized MFL CSV files into app tables with validation."""
-    if source_mode == "csv" and not input_root:
-        raise click.UsageError("--input-root is required when --source-mode=csv")
-
     summary = run_import_mfl_csv(
-        input_root=input_root,
+        input_root=None,
         target_league_id=target_league_id,
         start_year=start_year,
         end_year=end_year,
@@ -677,9 +698,7 @@ def import_mfl_csv(
     click.echo("MFL import summary")
     click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
     click.echo(f"- Source mode: {source_mode}")
-    if source_mode == "csv":
-        click.echo(f"- Input root: {input_root}")
-    elif source_league_id:
+    if source_league_id:
         click.echo(f"- Source league id: {source_league_id}")
     click.echo(f"- Files checked: {summary['files_checked']}")
     click.echo(f"- Files missing: {summary['files_missing']}")
@@ -697,67 +716,69 @@ def import_mfl_csv(
 
 
 @cli.command("bootstrap-mfl-franchise-users")
-@click.option("--franchises-csv", type=click.Path(file_okay=True, dir_okay=False, exists=True), default=None, help="Legacy mode: path to a staged franchises CSV (e.g. exports/history_staged_2003/franchises/2003.csv).")
 @click.option("--source-season", type=int, default=None, help="DB mode: season year to pull franchises from mfl_html_record_facts.")
 @click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when using --source-season.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id to create stub users in.")
 @click.option("--apply", "apply_changes", is_flag=True, default=False, help="Write users to DB (default dry-run).")
 def bootstrap_mfl_franchise_users(
-    franchises_csv: str | None,
     source_season: int | None,
     source_league_id: str | None,
     target_league_id: int,
     apply_changes: bool,
 ):
     """Create locked stub user accounts for historical MFL franchises not yet in the league."""
-    if franchises_csv and source_season is not None:
-        raise click.UsageError("Choose one input source: either --franchises-csv (legacy) or --source-season (DB mode), not both.")
-    if not franchises_csv and source_season is None:
-        raise click.UsageError("Provide an input source: --source-season for DB mode (recommended) or --franchises-csv for legacy CSV mode.")
-
     db = SessionLocal()
     try:
         rows: list[dict] = []
-        source_label = ""
-        if franchises_csv:
-            with open(franchises_csv, newline="", encoding="utf-8") as fh:
-                rows = list(_csv.DictReader(fh))
-            source_label = f"csv:{franchises_csv}"
-        else:
-            facts_query = (
-                db.query(models.MflHtmlRecordFact)
-                .filter(models.MflHtmlRecordFact.season == source_season)
+        source_season, source_season_auto = _resolve_bootstrap_source_season(
+            db,
+            source_season=source_season,
+            source_league_id=source_league_id,
+        )
+        if source_season is None:
+            league_hint = f" (source_league_id={source_league_id})" if source_league_id else ""
+            raise click.ClickException(
+                "No DB franchise rows found to bootstrap"
+                f"{league_hint}. Provide --source-season with matching DB facts."
             )
-            if source_league_id:
-                facts_query = facts_query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
 
-            facts = facts_query.all()
-            for fact in facts:
-                record = fact.record_json or {}
-                if not isinstance(record, dict):
-                    continue
-                franchise_id = str(record.get("franchise_id") or "").strip()
-                franchise_name = str(record.get("franchise_name") or "").strip()
-                if not franchise_id or not franchise_name:
-                    continue
-                row_season = record.get("season") if record.get("season") is not None else source_season
-                row_league_id = str(record.get("league_id") or fact.league_id or "").strip()
-                if source_league_id and row_league_id and row_league_id != source_league_id:
-                    continue
-                rows.append(
-                    {
-                        "season": str(row_season or "").strip(),
-                        "franchise_id": franchise_id,
-                        "franchise_name": franchise_name,
-                        "owner_name": str(record.get("owner_name") or "").strip(),
-                        "league_id": row_league_id,
-                    }
-                )
+        facts_query = (
+            db.query(models.MflHtmlRecordFact)
+            .filter(models.MflHtmlRecordFact.season == source_season)
+            .filter(models.MflHtmlRecordFact.dataset_key.in_(FRANCHISE_FACT_DATASET_KEYS))
+        )
+        if source_league_id:
+            facts_query = facts_query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
 
-            source_label = f"db:season={source_season}" + (f",league_id={source_league_id}" if source_league_id else "")
+        facts = facts_query.all()
+        for fact in facts:
+            record = fact.record_json or {}
+            if not isinstance(record, dict):
+                continue
+            franchise_id = str(record.get("franchise_id") or "").strip()
+            franchise_name = str(record.get("franchise_name") or "").strip()
+            if not franchise_id or not franchise_name:
+                continue
+            row_season = record.get("season") if record.get("season") is not None else source_season
+            row_league_id = str(record.get("league_id") or fact.league_id or "").strip()
+            if source_league_id and row_league_id and row_league_id != source_league_id:
+                continue
+            rows.append(
+                {
+                    "season": str(row_season or "").strip(),
+                    "franchise_id": franchise_id,
+                    "franchise_name": franchise_name,
+                    "owner_name": str(record.get("owner_name") or "").strip(),
+                    "league_id": row_league_id,
+                }
+            )
+
+        source_label = f"db:season={source_season}" + (f",league_id={source_league_id}" if source_league_id else "")
+        if source_season_auto:
+            source_label += " (auto-latest)"
 
         if not rows:
-            raise click.ClickException("No franchise rows found for the selected source. Verify season/league filters or provide a valid CSV.")
+            raise click.ClickException("No franchise rows found for the selected DB source. Verify season/league filters.")
 
         existing_in_league = db.query(models.User).filter(models.User.league_id == target_league_id).all()
         existing_team_lower = {(u.team_name or "").strip().lower() for u in existing_in_league}
@@ -855,6 +876,7 @@ def bootstrap_mfl_franchise_users(
 @cli.command("scaffold-mfl-manual-csv")
 @click.option("--start-year", type=int, required=True, help="First season year to scaffold.")
 @click.option("--end-year", type=int, required=True, help="Last season year to scaffold.")
+@click.option("--allow-legacy-csv-source", is_flag=True, default=False, help="Required acknowledgment for legacy manual CSV scaffold generation.")
 @click.option(
     "--output-root",
     type=click.Path(file_okay=False, dir_okay=True),
@@ -872,10 +894,13 @@ def bootstrap_mfl_franchise_users(
 def scaffold_mfl_manual_csv(
     start_year: int,
     end_year: int,
+    allow_legacy_csv_source: bool,
     output_root: str,
     report_types: str,
 ):
     """Create header-only CSV templates for manual legacy-season ingestion."""
+    if not allow_legacy_csv_source:
+        raise click.UsageError("--allow-legacy-csv-source is required for scaffold-mfl-manual-csv")
     if end_year < start_year:
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
@@ -897,17 +922,12 @@ def scaffold_mfl_manual_csv(
 @cli.command("stage-mfl-html-for-import")
 @click.option("--start-year", type=int, required=True, help="First season year to stage.")
 @click.option("--end-year", type=int, required=True, help="Last season year to stage.")
+@click.option("--source-mode", type=click.Choice(["db"]), default="db", show_default=True, help="Staging source mode. DB is the canonical source via mfl_html_record_facts.")
 @click.option(
-    "--api-root",
-    type=click.Path(file_okay=False, dir_okay=True, exists=True),
-    required=True,
-    help="Root containing canonical API extraction CSVs.",
-)
-@click.option(
-    "--html-root",
-    type=click.Path(file_okay=False, dir_okay=True, exists=True),
-    required=True,
-    help="Root containing HTML report extraction CSVs.",
+    "--source-league-id",
+    type=str,
+    default=None,
+    help="Optional MFL league_id filter when --source-mode=db.",
 )
 @click.option(
     "--output-root",
@@ -928,8 +948,8 @@ def scaffold_mfl_manual_csv(
 def stage_mfl_html_for_import(
     start_year: int,
     end_year: int,
-    api_root: str,
-    html_root: str,
+    source_mode: str,
+    source_league_id: str | None,
     output_root: str,
     overwrite: bool,
 ):
@@ -940,13 +960,18 @@ def stage_mfl_html_for_import(
     summary = run_stage_mfl_html_for_import(
         start_year=start_year,
         end_year=end_year,
-        api_root=api_root,
-        html_root=html_root,
+        api_root=None,
+        html_root=None,
         output_root=output_root,
+        source_mode=source_mode,
+        source_league_id=source_league_id,
         overwrite=overwrite,
     )
 
     click.echo("MFL staging summary")
+    click.echo(f"- Source mode: {source_mode}")
+    if source_league_id:
+        click.echo(f"- Source league id: {source_league_id}")
     click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
     click.echo(f"- Required CSVs copied: {summary['copied_required_files']}")
     click.echo(f"- Required CSVs scaffolded: {summary['scaffolded_required_files']}")
@@ -959,7 +984,8 @@ def stage_mfl_html_for_import(
 
 
 @cli.command("prepare-mfl-draft-backfill-sheet")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing draft/manual CSVs.")
+@click.option("--source-mode", type=click.Choice(["db"]), default="db", show_default=True, help="Backfill preparation source mode. DB is the canonical source via mfl_html_record_facts.")
+@click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--start-year", type=int, required=True, help="First season year to prepare.")
 @click.option("--end-year", type=int, required=True, help="Last season year to prepare.")
 @click.option(
@@ -975,7 +1001,8 @@ def stage_mfl_html_for_import(
     help="Include rows that already have player_mfl_id values.",
 )
 def prepare_mfl_draft_backfill_sheet(
-    input_root: str,
+    source_mode: str,
+    source_league_id: str | None,
     start_year: int,
     end_year: int,
     output_root: str | None,
@@ -986,14 +1013,19 @@ def prepare_mfl_draft_backfill_sheet(
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
     summary = run_prepare_mfl_draft_backfill_sheet(
-        input_root=input_root,
+        input_root=None,
         start_year=start_year,
         end_year=end_year,
+        source_mode=source_mode,
+        source_league_id=source_league_id,
         output_root=output_root,
         include_filled=include_filled,
     )
 
     click.echo("MFL draft backfill sheet summary")
+    click.echo(f"- Source mode: {source_mode}")
+    if source_league_id:
+        click.echo(f"- Source league id: {source_league_id}")
     click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
     click.echo(f"- Sheets written: {summary['sheets_written']}")
     click.echo(f"- Rows written: {summary['rows_written']}")
@@ -1005,7 +1037,8 @@ def prepare_mfl_draft_backfill_sheet(
 
 
 @cli.command("apply-mfl-draft-backfill-sheet")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing manual override CSVs.")
+@click.option("--source-mode", type=click.Choice(["db"]), default="db", show_default=True, help="Backfill apply source mode. DB is the canonical source via mfl_html_record_facts.")
+@click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--start-year", type=int, required=True, help="First season year to apply.")
 @click.option("--end-year", type=int, required=True, help="Last season year to apply.")
 @click.option(
@@ -1033,7 +1066,8 @@ def prepare_mfl_draft_backfill_sheet(
     help="Enforce policy that blocks known invalid 2002 draft sources and requires source URL evidence.",
 )
 def apply_mfl_draft_backfill_sheet(
-    input_root: str,
+    source_mode: str,
+    source_league_id: str | None,
     start_year: int,
     end_year: int,
     sheet_root: str | None,
@@ -1046,9 +1080,11 @@ def apply_mfl_draft_backfill_sheet(
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
     summary = run_apply_mfl_draft_backfill_sheet(
-        input_root=input_root,
+        input_root=None,
         start_year=start_year,
         end_year=end_year,
+        source_mode=source_mode,
+        source_league_id=source_league_id,
         sheet_root=sheet_root,
         apply_changes=apply_changes,
         require_source_url=require_source_url,
@@ -1057,6 +1093,9 @@ def apply_mfl_draft_backfill_sheet(
 
     click.echo("MFL backfill sheet apply summary")
     click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Source mode: {source_mode}")
+    if source_league_id:
+        click.echo(f"- Source league id: {source_league_id}")
     click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
     click.echo(f"- Sheets missing: {summary['sheets_missing']}")
     click.echo(f"- Candidate rows: {summary['candidate_rows']}")
@@ -1071,7 +1110,8 @@ def apply_mfl_draft_backfill_sheet(
 
 
 @cli.command("resolve-mfl-draft-backfill-names")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), required=True, help="Staged import root containing player snapshots and backfill sheets.")
+@click.option("--source-mode", type=click.Choice(["db"]), default="db", show_default=True, help="Name-resolution source mode. DB is the canonical source via mfl_html_record_facts.")
+@click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--start-year", type=int, required=True, help="First season year to resolve.")
 @click.option("--end-year", type=int, required=True, help="Last season year to resolve.")
 @click.option(
@@ -1088,7 +1128,8 @@ def apply_mfl_draft_backfill_sheet(
     help="Write resolved player_mfl_id values back into sheet CSVs (default: report-only dry-run).",
 )
 def resolve_mfl_draft_backfill_names(
-    input_root: str,
+    source_mode: str,
+    source_league_id: str | None,
     start_year: int,
     end_year: int,
     sheet_root: str | None,
@@ -1099,15 +1140,20 @@ def resolve_mfl_draft_backfill_names(
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
     summary = run_resolve_mfl_draft_backfill_names(
-        input_root=input_root,
+        input_root=None,
         start_year=start_year,
         end_year=end_year,
+        source_mode=source_mode,
+        source_league_id=source_league_id,
         sheet_root=sheet_root,
         apply_changes=apply_changes,
     )
 
     click.echo("MFL draft backfill name resolve summary")
     click.echo(f"- Mode: {'apply' if apply_changes else 'dry-run'}")
+    click.echo(f"- Source mode: {source_mode}")
+    if source_league_id:
+        click.echo(f"- Source league id: {source_league_id}")
     click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
     click.echo(f"- Rows seen: {summary['rows_seen']}")
     click.echo(f"- Rows matched: {summary['rows_matched']}")
@@ -1121,31 +1167,38 @@ def resolve_mfl_draft_backfill_names(
 
 
 @cli.command("reconcile-mfl-import")
-@click.option("--input-root", type=click.Path(file_okay=False, dir_okay=True, exists=True), default="exports/history", show_default=True, help="CSV extraction root folder.")
+@click.option("--source-mode", type=click.Choice(["db"]), default="db", show_default=True, help="Reconciliation source mode. DB is the canonical source via mfl_html_record_facts.")
+@click.option("--source-league-id", type=str, default=None, help="Optional MFL league_id filter when --source-mode=db.")
 @click.option("--target-league-id", type=int, required=True, help="App league_id to reconcile against imported rows.")
 @click.option("--start-year", type=int, required=True, help="First season year to reconcile.")
 @click.option("--end-year", type=int, required=True, help="Last season year to reconcile.")
 @click.option("--output-json", type=click.Path(file_okay=True, dir_okay=False), default=None, help="Optional JSON output path for machine-readable mismatch report.")
 def reconcile_mfl_import(
-    input_root: str,
+    source_mode: str,
+    source_league_id: str | None,
     target_league_id: int,
     start_year: int,
     end_year: int,
     output_json: str | None,
 ):
-    """Compare MFL CSV source counts against imported DB counts by season."""
+    """Compare MFL source counts against imported DB counts by season."""
     if end_year < start_year:
         raise click.UsageError("--end-year must be greater than or equal to --start-year")
 
     summary = run_reconcile_mfl_import(
-        input_root=input_root,
+        input_root=None,
         target_league_id=target_league_id,
         start_year=start_year,
         end_year=end_year,
+        source_mode=source_mode,
+        source_league_id=source_league_id,
         output_json=output_json,
     )
 
     click.echo("MFL import reconciliation summary")
+    click.echo(f"- Source mode: {source_mode}")
+    if source_league_id:
+        click.echo(f"- Source league id: {source_league_id}")
     click.echo(f"- Seasons: {summary['seasons'][0]}..{summary['seasons'][-1]}")
     click.echo(f"- Mismatch count: {summary['mismatch_count']}")
 

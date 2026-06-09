@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 import requests
 
-from etl.transform.normalize import normalize_player_name
+from etl.player_metadata.normalize import normalize_player_name
 
 FANTASYNERDS_AUCTION_URL = "https://api.fantasynerds.com/v1/nfl/auction/"
 

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from etl.transform.historical_rankings import (
+from etl.historical_rankings.rankings import (
     build_historical_features,
     score_historical_rankings,
 )

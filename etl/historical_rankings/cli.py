@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from etl.load.load_to_postgres import load_historical_rankings_to_db
-from etl.transform.historical_rankings import (
+from etl.historical_rankings.rankings import (
     build_rankings_from_db,
 )
 

@@ -9,6 +9,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from backend import models
+from backend.database import SessionLocal
+
 
 KNOWN_POSITIONS = {
     "QB",
@@ -23,9 +26,16 @@ KNOWN_POSITIONS = {
     "K",
 }
 
+DB_DATASET_KEYS: dict[str, set[str]] = {
+    "players": {"html_players_normalized", "players"},
+}
+
 
 @dataclass
 class ResolveSummary:
+    source_mode: str
+    source_reference: str
+    source_league_id: str | None
     input_root: str
     sheet_root: str
     seasons: list[int]
@@ -40,6 +50,9 @@ class ResolveSummary:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "source_mode": self.source_mode,
+            "source_reference": self.source_reference,
+            "source_league_id": self.source_league_id,
             "input_root": self.input_root,
             "sheet_root": self.sheet_root,
             "seasons": self.seasons,
@@ -67,6 +80,39 @@ def _write_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) 
         writer = csv.DictWriter(handle, fieldnames=headers)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _read_db_player_rows(
+    *,
+    season: int,
+    source_league_id: str | None,
+) -> list[dict[str, str]]:
+    db = SessionLocal()
+    try:
+        query = db.query(models.MflHtmlRecordFact).filter(models.MflHtmlRecordFact.season == season)
+        query = query.filter(models.MflHtmlRecordFact.dataset_key.in_(DB_DATASET_KEYS["players"]))
+        if source_league_id:
+            query = query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
+
+        rows: list[dict[str, str]] = []
+        for fact in query.all():
+            payload = fact.record_json or {}
+            if not isinstance(payload, dict):
+                continue
+
+            payload_season = str(payload.get("season") or "").strip()
+            if payload_season and payload_season != str(season):
+                continue
+
+            payload_league_id = str(payload.get("league_id") or "").strip()
+            if source_league_id and payload_league_id and payload_league_id != source_league_id:
+                continue
+
+            rows.append({k: str(v or "").strip() for k, v in payload.items()})
+
+        return rows
+    finally:
+        db.close()
 
 
 def _clean_manual_player_name(value: str) -> str:
@@ -105,18 +151,33 @@ def _norm(value: str) -> str:
 
 def run_resolve_mfl_draft_backfill_names(
     *,
-    input_root: str,
+    input_root: str | None,
     start_year: int,
     end_year: int,
+    source_mode: str = "csv",
+    source_league_id: str | None = None,
     sheet_root: str | None = None,
     apply_changes: bool = False,
 ) -> dict[str, Any]:
+    if source_mode not in {"csv", "db"}:
+        raise ValueError("source_mode must be either 'csv' or 'db'")
+    if source_mode == "csv" and not input_root:
+        raise ValueError("input_root is required when source_mode='csv'")
+
     seasons = list(range(start_year, end_year + 1))
-    input_base = Path(input_root)
-    sheets_base = Path(sheet_root) if sheet_root else input_base / "manual_overrides" / "draft_backfill_sheets"
+    input_base = Path(input_root) if input_root else None
+    if sheet_root:
+        sheets_base = Path(sheet_root)
+    elif input_base is not None:
+        sheets_base = input_base / "manual_overrides" / "draft_backfill_sheets"
+    else:
+        sheets_base = Path("exports/history_staged/manual_overrides/draft_backfill_sheets")
 
     summary = ResolveSummary(
-        input_root=str(input_base),
+        source_mode=source_mode,
+        source_reference=(str(input_base) if source_mode == "csv" else "db:mfl_html_record_facts"),
+        source_league_id=source_league_id,
+        input_root=(str(input_base) if input_base else ""),
         sheet_root=str(sheets_base),
         seasons=seasons,
         apply_changes=apply_changes,
@@ -140,16 +201,28 @@ def run_resolve_mfl_draft_backfill_names(
 
     for season in seasons:
         sheet_path = sheets_base / f"{season}.csv"
-        players_path = input_base / "players" / f"{season}.csv"
 
         if not sheet_path.exists():
             summary.warnings.append(f"season={season} sheet missing: {sheet_path}")
             continue
 
         sheet_rows = _read_csv_rows(sheet_path)
-        player_rows = _read_csv_rows(players_path)
+        if source_mode == "db":
+            player_rows = _read_db_player_rows(
+                season=season,
+                source_league_id=source_league_id,
+            )
+        else:
+            players_path = input_base / "players" / f"{season}.csv"
+            player_rows = _read_csv_rows(players_path)
         if not player_rows:
-            summary.warnings.append(f"season={season} players snapshot missing/empty: {players_path}")
+            if source_mode == "db":
+                summary.warnings.append(
+                    f"season={season} players source missing/empty from DB"
+                    + (f" (source_league_id={source_league_id})" if source_league_id else "")
+                )
+            else:
+                summary.warnings.append(f"season={season} players snapshot missing/empty: {players_path}")
 
         by_name: dict[str, list[dict[str, str]]] = {}
         by_triplet: dict[tuple[str, str, str], list[dict[str, str]]] = {}

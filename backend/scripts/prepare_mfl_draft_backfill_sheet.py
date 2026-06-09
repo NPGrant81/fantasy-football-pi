@@ -13,9 +13,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from backend import models
+from backend.database import SessionLocal
+
+
+DB_DATASET_KEYS: dict[str, set[str]] = {
+    "franchises": {"html_franchises_normalized", "franchises"},
+    "players": {"html_players_normalized", "players"},
+    "draftResults": {"html_draft_results_normalized", "draftResults"},
+}
+
 
 @dataclass
 class BackfillSheetSummary:
+    source_mode: str
+    source_reference: str
+    source_league_id: str | None
     input_root: str
     output_root: str
     seasons: list[int]
@@ -27,6 +40,9 @@ class BackfillSheetSummary:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "source_mode": self.source_mode,
+            "source_reference": self.source_reference,
+            "source_league_id": self.source_league_id,
             "input_root": self.input_root,
             "output_root": self.output_root,
             "seasons": self.seasons,
@@ -43,6 +59,42 @@ def _read_csv_rows(path: Path) -> list[dict[str, str]]:
         return []
     with path.open("r", encoding="utf-8", newline="") as handle:
         return [dict(row) for row in csv.DictReader(handle)]
+
+
+def _read_db_rows(
+    *,
+    season: int,
+    report_type: str,
+    source_league_id: str | None,
+) -> list[dict[str, str]]:
+    dataset_keys = DB_DATASET_KEYS.get(report_type, set())
+    db = SessionLocal()
+    try:
+        query = db.query(models.MflHtmlRecordFact).filter(models.MflHtmlRecordFact.season == season)
+        if dataset_keys:
+            query = query.filter(models.MflHtmlRecordFact.dataset_key.in_(dataset_keys))
+        if source_league_id:
+            query = query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
+
+        rows: list[dict[str, str]] = []
+        for fact in query.all():
+            payload = fact.record_json or {}
+            if not isinstance(payload, dict):
+                continue
+
+            payload_season = str(payload.get("season") or "").strip()
+            if payload_season and payload_season != str(season):
+                continue
+
+            payload_league_id = str(payload.get("league_id") or "").strip()
+            if source_league_id and payload_league_id and payload_league_id != source_league_id:
+                continue
+
+            rows.append({k: str(v or "").strip() for k, v in payload.items()})
+
+        return rows
+    finally:
+        db.close()
 
 
 def _write_csv_rows(path: Path, headers: list[str], rows: list[dict[str, str]]) -> None:
@@ -96,18 +148,33 @@ def _row_key(row: dict[str, str]) -> tuple[str, str, str, str, str]:
 
 def run_prepare_mfl_draft_backfill_sheet(
     *,
-    input_root: str,
+    input_root: str | None,
     start_year: int,
     end_year: int,
+    source_mode: str = "csv",
+    source_league_id: str | None = None,
     output_root: str | None = None,
     include_filled: bool = False,
 ) -> dict[str, Any]:
+    if source_mode not in {"csv", "db"}:
+        raise ValueError("source_mode must be either 'csv' or 'db'")
+    if source_mode == "csv" and not input_root:
+        raise ValueError("input_root is required when source_mode='csv'")
+
     seasons = list(range(start_year, end_year + 1))
-    input_base = Path(input_root)
-    output_base = Path(output_root) if output_root else input_base / "manual_overrides" / "draft_backfill_sheets"
+    input_base = Path(input_root) if input_root else None
+    if output_root:
+        output_base = Path(output_root)
+    elif input_base is not None:
+        output_base = input_base / "manual_overrides" / "draft_backfill_sheets"
+    else:
+        output_base = Path("exports/history_staged/manual_overrides/draft_backfill_sheets")
 
     summary = BackfillSheetSummary(
-        input_root=str(input_base),
+        source_mode=source_mode,
+        source_reference=(str(input_base) if source_mode == "csv" else "db:mfl_html_record_facts"),
+        source_league_id=source_league_id,
+        input_root=(str(input_base) if input_base else ""),
         output_root=str(output_base),
         seasons=seasons,
     )
@@ -132,15 +199,33 @@ def run_prepare_mfl_draft_backfill_sheet(
     ]
 
     for season in seasons:
-        manual_path = input_base / "manual_overrides" / "draftResults" / f"{season}.csv"
-        draft_path = input_base / "draftResults" / f"{season}.csv"
-        franchises_path = input_base / "franchises" / f"{season}.csv"
-        players_path = input_base / "players" / f"{season}.csv"
+        if source_mode == "db":
+            manual_rows = []
+            draft_rows = _read_db_rows(
+                season=season,
+                report_type="draftResults",
+                source_league_id=source_league_id,
+            )
+            franchise_rows = _read_db_rows(
+                season=season,
+                report_type="franchises",
+                source_league_id=source_league_id,
+            )
+            player_rows = _read_db_rows(
+                season=season,
+                report_type="players",
+                source_league_id=source_league_id,
+            )
+        else:
+            manual_path = input_base / "manual_overrides" / "draftResults" / f"{season}.csv"
+            draft_path = input_base / "draftResults" / f"{season}.csv"
+            franchises_path = input_base / "franchises" / f"{season}.csv"
+            players_path = input_base / "players" / f"{season}.csv"
 
-        manual_rows = _read_csv_rows(manual_path)
-        draft_rows = _read_csv_rows(draft_path)
-        franchise_rows = _read_csv_rows(franchises_path)
-        player_rows = _read_csv_rows(players_path)
+            manual_rows = _read_csv_rows(manual_path)
+            draft_rows = _read_csv_rows(draft_path)
+            franchise_rows = _read_csv_rows(franchises_path)
+            player_rows = _read_csv_rows(players_path)
 
         franchise_name_by_id = {
             str(row.get("franchise_id") or "").strip(): str(row.get("franchise_name") or "").strip()

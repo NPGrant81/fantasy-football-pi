@@ -5,8 +5,6 @@ Refer to the appropriate file for more information.
 
 - [Api Integration Pipeline](API_INTEGRATION_PIPELINE.md)
 - [Api Page Matrix](API_PAGE_MATRIX.md)
-- [Api Page Matrix - Draft Value Source Matrix section](API_PAGE_MATRIX.md#draft-value-source-matrix-pull---store---page-impact)
-- [Api Page Matrix - Page to Data Fields Quick Debug Matrix](API_PAGE_MATRIX.md#2b-page---data-fields-used-quick-debug-matrix)
 - [Architecture](ARCHITECTURE.md)
 - [Backend Ci Pipeline Optimization](BACKEND_CI_PIPELINE_OPTIMIZATION.md)
 - [Backlog Triage 2026-03-14](BACKLOG_TRIAGE_2026-03-14.md)
@@ -38,11 +36,10 @@ Refer to the appropriate file for more information.
 - [Mfl Historical Data Operations](MFL_HISTORICAL_DATA_OPERATIONS.md)
 - [Model-Serving-And-Integration](model-serving-and-integration.md)
 - [Monte-Carlo-Simulation](monte-carlo-simulation.md)
-- [Pattern Library](PATTERN_LIBRARY.md)
 - [Pattern Compliance Matrix](PATTERN_COMPLIANCE_MATRIX.md)
+- [Pattern Library](PATTERN_LIBRARY.md)
 - [Pattern Standardization Plan](PATTERN_STANDARDIZATION_PLAN.md)
 - [Permissions](permissions.md)
-- [Pi Setup Docker](pi-setup/docker.md)
 - [Pi Update Cheatsheet](PI_UPDATE_CHEATSHEET.md)
 - [Player-Metadata-Rules](player-metadata-rules.md)
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
@@ -54,7 +51,7 @@ Refer to the appropriate file for more information.
 - [Scoring Edge Case Test Matrix](SCORING_EDGE_CASE_TEST_MATRIX.md)
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
-- [Trade QA Regression 2026-03-30](TRADE_QA_REGRESSION_2026-03-30.md)
+- [Trade Qa Regression 2026-03-30](TRADE_QA_REGRESSION_2026-03-30.md)
 - [Ui Reference](UI_REFERENCE.md)
 - [Ui Ux Automation Pipeline](UI_UX_AUTOMATION_PIPELINE.md)
 - [Ux-Insights-Spec](ux-insights-spec.md)
@@ -77,6 +74,7 @@ Refer to the appropriate file for more information.
 
 ### Data-Migration
 
+- [Csv-Source-Of-Truth-Retirement-Matrix](data-migration/csv-source-of-truth-retirement-matrix.md)
 - [Mfl-Data-Requirements](data-migration/mfl-data-requirements.md)
 - [Mfl-Extraction-Matrix](data-migration/mfl-extraction-matrix.md)
 - [Mfl-Hardening-Verification-Gates](data-migration/mfl-hardening-verification-gates.md)
@@ -117,20 +115,39 @@ Refer to the appropriate file for more information.
 ### Ml
 
 - [Execution Board 360 Snapshot](ml/EXECUTION_BOARD_360_SNAPSHOT.md)
-- [Ready 103 112 For Pr364](ml/READY_103_112_FOR_PR364.md)
+
+### 103
+
+- [Artifact-01-Canonicalization-Spec](ml/phase1/103/artifact-01-canonicalization-spec.md)
+- [Artifact-01-Quality-Gates](ml/phase1/103/artifact-01-quality-gates.md)
+
+### 104
+
+- [Artifact-01-Budget-Timeline-Spec](ml/phase1/104/artifact-01-budget-timeline-spec.md)
+- [Artifact-01-Reconciliation-Rules](ml/phase1/104/artifact-01-reconciliation-rules.md)
+
+### 105
+
+- [Artifact-01-Correction-Ledger-Schema](ml/phase1/105/artifact-01-correction-ledger-schema.md)
+- [Artifact-01-Draft-Validator-Spec](ml/phase1/105/artifact-01-draft-validator-spec.md)
+
+### Phase1
+
 - [Artifact Pr Checklists 361 363](ml/phase1/ARTIFACT_PR_CHECKLISTS_361_363.md)
-- [Artifact 01 Canonicalization Spec](ml/phase1/103/artifact-01-canonicalization-spec.md)
-- [Artifact 01 Quality Gates](ml/phase1/103/artifact-01-quality-gates.md)
-- [Artifact 01 Budget Timeline Spec](ml/phase1/104/artifact-01-budget-timeline-spec.md)
-- [Artifact 01 Reconciliation Rules](ml/phase1/104/artifact-01-reconciliation-rules.md)
-- [Artifact 01 Correction Ledger Schema](ml/phase1/105/artifact-01-correction-ledger-schema.md)
-- [Artifact 01 Draft Validator Spec](ml/phase1/105/artifact-01-draft-validator-spec.md)
+
+### Ml
+
+- [Ready 103 112 For Pr364](ml/READY_103_112_FOR_PR364.md)
 
 ### Patterns
 
-- [Readme](patterns/README.md)
 - [Pattern Decision Log](patterns/PATTERN_DECISION_LOG.md)
 - [Pattern Proposal Template](patterns/PATTERN_PROPOSAL_TEMPLATE.md)
+- [Readme](patterns/README.md)
+
+### Pi-Setup
+
+- [Docker](pi-setup/docker.md)
 
 ### Uat
 

@@ -6,6 +6,13 @@ Status: Rolling execution log for extraction testing.
 
 Record exact commands, URLs, artifacts, and observed outcomes so extraction behavior can be reproduced and compared over time.
 
+Compatibility note:
+
+- Many historical command entries below predate current CSV guardrails.
+- Current reruns that intentionally use CSV mode should include explicit legacy acknowledgment flags, such as:
+	- `--allow-legacy-csv-source` for CSV-based manage commands.
+	- `FFPI_ALLOW_LEGACY_CSV_ARCHIVE=1` plus `--allow-legacy-csv-archive` for archival-gated legacy scripts.
+
 ## Test Protocol
 
 For each meaningful test run, capture:

@@ -1,6 +1,18 @@
 import csv
 import json
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from backend import models
+from backend.scripts import prepare_mfl_draft_backfill_sheet
+from backend.scripts import apply_mfl_draft_backfill_sheet
+from backend.scripts import resolve_mfl_draft_backfill_names
+from backend.scripts import stage_mfl_html_for_import
+from backend.scripts.prepare_mfl_draft_backfill_sheet import run_prepare_mfl_draft_backfill_sheet
+from backend.scripts.apply_mfl_draft_backfill_sheet import run_apply_mfl_draft_backfill_sheet
+from backend.scripts.resolve_mfl_draft_backfill_names import run_resolve_mfl_draft_backfill_names
 from backend.scripts.stage_mfl_html_for_import import run_stage_mfl_html_for_import
 
 
@@ -480,3 +492,440 @@ def test_stage_mfl_html_for_import_skeleton_infers_league_id_without_league_csv(
 
     assert len(rows) == 1
     assert rows[0]["league_id"] == "29721"
+
+
+def test_stage_mfl_html_for_import_supports_db_source_mode(monkeypatch, tmp_path):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+
+    db = TestingSessionLocal()
+    try:
+        season = 2024
+        source_league_id = "11422"
+        facts = [
+            {
+                "dataset_key": "html_franchises_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "franchise_id": "0001",
+                    "franchise_name": "A",
+                    "owner_name": "Alpha",
+                },
+            },
+            {
+                "dataset_key": "html_players_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "player_mfl_id": "1001",
+                    "player_name": "Player One",
+                    "position": "QB",
+                    "nfl_team": "BUF",
+                },
+            },
+            {
+                "dataset_key": "html_draft_results_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "franchise_id": "0001",
+                    "player_mfl_id": "1001",
+                    "round": "1",
+                    "pick_number": "1",
+                },
+            },
+        ]
+
+        for idx, payload in enumerate(facts, start=1):
+            db.add(
+                models.MflHtmlRecordFact(
+                    dataset_key=payload["dataset_key"],
+                    season=season,
+                    league_id=source_league_id,
+                    normalization_version="v1",
+                    row_fingerprint=f"stage-db-fp-{idx}",
+                    record_json=payload["record_json"],
+                )
+            )
+
+        db.commit()
+    finally:
+        db.close()
+
+    monkeypatch.setattr(stage_mfl_html_for_import, "SessionLocal", TestingSessionLocal)
+
+    output_root = tmp_path / "staged"
+    summary = run_stage_mfl_html_for_import(
+        start_year=2024,
+        end_year=2024,
+        api_root=None,
+        html_root=None,
+        output_root=str(output_root),
+        source_mode="db",
+        source_league_id=source_league_id,
+        overwrite=True,
+    )
+
+    assert summary["source_mode"] == "db"
+    assert summary["copied_required_files"] == 3
+    assert summary["scaffolded_required_files"] == 0
+
+    draft_rows = list(csv.DictReader((output_root / "draftResults" / "2024.csv").open("r", encoding="utf-8", newline="")))
+    assert len(draft_rows) == 1
+    assert draft_rows[0]["player_mfl_id"] == "1001"
+
+
+def test_stage_mfl_html_for_import_db_mode_filters_by_source_league(monkeypatch, tmp_path):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+
+    db = TestingSessionLocal()
+    try:
+        season = 2024
+        db.add(
+            models.MflHtmlRecordFact(
+                dataset_key="html_draft_results_normalized",
+                season=season,
+                league_id="11422",
+                normalization_version="v1",
+                row_fingerprint="stage-db-filter-1",
+                record_json={
+                    "season": "2024",
+                    "league_id": "11422",
+                    "franchise_id": "0001",
+                    "player_mfl_id": "1001",
+                },
+            )
+        )
+        db.add(
+            models.MflHtmlRecordFact(
+                dataset_key="html_draft_results_normalized",
+                season=season,
+                league_id="99999",
+                normalization_version="v1",
+                row_fingerprint="stage-db-filter-2",
+                record_json={
+                    "season": "2024",
+                    "league_id": "99999",
+                    "franchise_id": "0002",
+                    "player_mfl_id": "9999",
+                },
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    monkeypatch.setattr(stage_mfl_html_for_import, "SessionLocal", TestingSessionLocal)
+
+    output_root = tmp_path / "staged"
+    summary = run_stage_mfl_html_for_import(
+        start_year=2024,
+        end_year=2024,
+        api_root=None,
+        html_root=None,
+        output_root=str(output_root),
+        source_mode="db",
+        source_league_id="11422",
+        overwrite=True,
+    )
+
+    draft_rows = list(csv.DictReader((output_root / "draftResults" / "2024.csv").open("r", encoding="utf-8", newline="")))
+    assert len(draft_rows) == 1
+    assert draft_rows[0]["league_id"] == "11422"
+    assert summary["source_league_id"] == "11422"
+
+
+def test_prepare_mfl_draft_backfill_sheet_supports_db_source_mode(monkeypatch, tmp_path):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+
+    db = TestingSessionLocal()
+    try:
+        season = 2024
+        source_league_id = "11422"
+        facts = [
+            {
+                "dataset_key": "html_franchises_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "franchise_id": "0001",
+                    "franchise_name": "A",
+                    "owner_name": "Alpha",
+                },
+            },
+            {
+                "dataset_key": "html_players_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "player_mfl_id": "1001",
+                    "player_name": "Player One",
+                    "position": "QB",
+                    "nfl_team": "BUF",
+                },
+            },
+            {
+                "dataset_key": "html_draft_results_normalized",
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "franchise_id": "0001",
+                    "player_mfl_id": "",
+                    "round": "1",
+                    "pick_number": "1",
+                },
+            },
+        ]
+        for idx, payload in enumerate(facts, start=1):
+            db.add(
+                models.MflHtmlRecordFact(
+                    dataset_key=payload["dataset_key"],
+                    season=season,
+                    league_id=source_league_id,
+                    normalization_version="v1",
+                    row_fingerprint=f"prepare-db-fp-{idx}",
+                    record_json=payload["record_json"],
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
+
+    monkeypatch.setattr(prepare_mfl_draft_backfill_sheet, "SessionLocal", TestingSessionLocal)
+
+    output_root = tmp_path / "backfill"
+    summary = run_prepare_mfl_draft_backfill_sheet(
+        input_root=None,
+        start_year=2024,
+        end_year=2024,
+        source_mode="db",
+        source_league_id="11422",
+        output_root=str(output_root),
+        include_filled=False,
+    )
+
+    assert summary["source_mode"] == "db"
+    assert summary["sheets_written"] == 1
+    assert summary["rows_written"] == 1
+
+    sheet_path = output_root / "2024.csv"
+    assert sheet_path.exists()
+    rows = list(csv.DictReader(sheet_path.open("r", encoding="utf-8", newline="")))
+    assert len(rows) == 1
+    assert rows[0]["franchise_name"] == "A"
+    assert rows[0]["hint_strategy"].startswith("Use season draft board order")
+
+
+def test_resolve_mfl_draft_backfill_names_supports_db_source_mode(monkeypatch, tmp_path):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+
+    db = TestingSessionLocal()
+    try:
+        season = 2024
+        source_league_id = "11422"
+        db.add(
+            models.MflHtmlRecordFact(
+                dataset_key="html_players_normalized",
+                season=season,
+                league_id=source_league_id,
+                normalization_version="v1",
+                row_fingerprint="resolve-db-fp-1",
+                record_json={
+                    "season": "2024",
+                    "league_id": source_league_id,
+                    "player_mfl_id": "1001",
+                    "player_name": "Allen, Josh",
+                    "position": "QB",
+                    "nfl_team": "BUF",
+                },
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    monkeypatch.setattr(resolve_mfl_draft_backfill_names, "SessionLocal", TestingSessionLocal)
+
+    sheet_root = tmp_path / "sheets"
+    sheet_root.mkdir(parents=True, exist_ok=True)
+    _write_csv(
+        sheet_root / "2024.csv",
+        [
+            "season",
+            "league_id",
+            "franchise_id",
+            "draft_style",
+            "round",
+            "pick_number",
+            "winning_bid",
+            "player_mfl_id",
+            "player_name_hint",
+            "position_hint",
+            "nfl_team_hint",
+            "hint_strategy",
+            "manual_player_name",
+            "manual_source_url",
+            "manual_notes",
+        ],
+        [
+            {
+                "season": "2024",
+                "league_id": "11422",
+                "franchise_id": "0001",
+                "draft_style": "snake",
+                "round": "1",
+                "pick_number": "1",
+                "winning_bid": "",
+                "player_mfl_id": "",
+                "player_name_hint": "",
+                "position_hint": "",
+                "nfl_team_hint": "",
+                "hint_strategy": "",
+                "manual_player_name": "Allen, Josh BUF QB",
+                "manual_source_url": "",
+                "manual_notes": "",
+            }
+        ],
+    )
+
+    summary = run_resolve_mfl_draft_backfill_names(
+        input_root=None,
+        start_year=2024,
+        end_year=2024,
+        source_mode="db",
+        source_league_id="11422",
+        sheet_root=str(sheet_root),
+        apply_changes=True,
+    )
+
+    assert summary["source_mode"] == "db"
+    assert summary["rows_matched"] == 1
+
+    rows = list(csv.DictReader((sheet_root / "2024.csv").open("r", encoding="utf-8", newline="")))
+    assert len(rows) == 1
+    assert rows[0]["player_mfl_id"] == "1001"
+
+
+def test_apply_mfl_draft_backfill_sheet_supports_db_source_mode(monkeypatch, tmp_path):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+
+    db = TestingSessionLocal()
+    try:
+        season = 2024
+        source_league_id = "11422"
+        db.add(
+            models.MflHtmlRecordFact(
+                dataset_key="html_draft_results_normalized",
+                season=season,
+                league_id=source_league_id,
+                normalization_version="v1",
+                row_fingerprint="apply-db-fp-1",
+                record_json={
+                    "season": "2024",
+                    "league_id": source_league_id,
+                    "franchise_id": "0001",
+                    "player_mfl_id": "",
+                    "round": "1",
+                    "pick_number": "1",
+                },
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    monkeypatch.setattr(apply_mfl_draft_backfill_sheet, "SessionLocal", TestingSessionLocal)
+
+    sheet_root = tmp_path / "sheets"
+    sheet_root.mkdir(parents=True, exist_ok=True)
+    _write_csv(
+        sheet_root / "2024.csv",
+        [
+            "season",
+            "league_id",
+            "franchise_id",
+            "draft_style",
+            "round",
+            "pick_number",
+            "winning_bid",
+            "player_mfl_id",
+            "player_name_hint",
+            "position_hint",
+            "nfl_team_hint",
+            "hint_strategy",
+            "manual_player_name",
+            "manual_source_url",
+            "manual_notes",
+        ],
+        [
+            {
+                "season": "2024",
+                "league_id": "11422",
+                "franchise_id": "0001",
+                "draft_style": "snake",
+                "round": "1",
+                "pick_number": "1",
+                "winning_bid": "",
+                "player_mfl_id": "1001",
+                "player_name_hint": "",
+                "position_hint": "",
+                "nfl_team_hint": "",
+                "hint_strategy": "",
+                "manual_player_name": "",
+                "manual_source_url": "https://example.test/draft-board",
+                "manual_notes": "",
+            }
+        ],
+    )
+
+    summary = run_apply_mfl_draft_backfill_sheet(
+        input_root=None,
+        start_year=2024,
+        end_year=2024,
+        source_mode="db",
+        source_league_id="11422",
+        sheet_root=str(sheet_root),
+        apply_changes=True,
+        require_source_url=False,
+    )
+
+    assert summary["source_mode"] == "db"
+    assert summary["rows_updated"] == 1
+
+    db = TestingSessionLocal()
+    try:
+        fact = db.query(models.MflHtmlRecordFact).filter_by(row_fingerprint="apply-db-fp-1").one()
+        payload = fact.record_json or {}
+        assert str(payload.get("player_mfl_id") or "") == "1001"
+    finally:
+        db.close()

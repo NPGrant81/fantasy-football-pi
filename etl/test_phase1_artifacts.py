@@ -1,8 +1,8 @@
 import pandas as pd
 
-from etl.transform.historical_draft_validator import validate_historical_draft_results
-from etl.transform.owner_budget_timeline import build_owner_budget_timeline
-from etl.transform.player_metadata_canonicalization import canonicalize_player_metadata
+from etl.draft_validation.validator import validate_historical_draft_results
+from etl.draft_validation.owner_budget_timeline import build_owner_budget_timeline
+from etl.player_metadata.canonicalization import canonicalize_player_metadata
 
 
 def test_player_metadata_canonicalization_is_deterministic_and_normalized():

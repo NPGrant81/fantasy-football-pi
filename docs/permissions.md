@@ -75,7 +75,7 @@ This document outlines the permission levels for the **Fantasy Football Pi** pla
 | :------------------------ | :--: | :----------: | :--------: | :------------------------------------------- |
 | **Create Sandbox**        |  ❌  |      ❌      |     ✅     | Spawns a dummy league with bots for testing. |
 | **View Server Logs**      |  ❌  |      ❌      |     ✅     | Access to backend errors and access logs.    |
-| **Run "Nuclear" Scripts** |  ❌  |      ❌      |     ✅     | `init_league.py`, `seed_draft.py`, etc.      |
+| **Run "Nuclear" Scripts** |  ❌  |      ❌      |     ✅     | Destructive maintenance tooling only (archival/admin workflows). |
 
 ---
 

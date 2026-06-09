@@ -656,3 +656,195 @@ def test_import_mfl_csv_db_mode_filters_by_source_league_and_season(monkeypatch)
         assert sorted(int(p.year) for p in picks) == [season_a, season_b]
     finally:
         verify_session.close()
+
+
+def test_reconcile_mfl_import_supports_db_source_mode(monkeypatch):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+
+    session = TestingSessionLocal()
+    try:
+        league = models.League(name="Legacy League Reconcile DB")
+        session.add(league)
+        session.flush()
+
+        session.add_all(
+            [
+                models.User(
+                    username="alpha-owner",
+                    email="alpha@example.com",
+                    hashed_password="x",
+                    league_id=league.id,
+                    team_name="Alpha Team",
+                ),
+                models.User(
+                    username="beta-owner",
+                    email="beta@example.com",
+                    hashed_password="x",
+                    league_id=league.id,
+                    team_name="Beta Team",
+                ),
+                models.Player(
+                    name="Player One",
+                    position="QB",
+                    nfl_team="BUF",
+                    adp=1.0,
+                    projected_points=10.0,
+                ),
+                models.Player(
+                    name="Player Two",
+                    position="WR",
+                    nfl_team="KC",
+                    adp=2.0,
+                    projected_points=11.0,
+                ),
+            ]
+        )
+
+        season = 2023
+        source_league_id = "11422"
+        other_source_league_id = "99999"
+
+        facts = [
+            {
+                "dataset_key": "html_franchises_normalized",
+                "season": season,
+                "league_id": source_league_id,
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "franchise_id": "A",
+                    "franchise_name": "Alpha Team",
+                    "owner_name": "alpha-owner",
+                },
+            },
+            {
+                "dataset_key": "html_franchises_normalized",
+                "season": season,
+                "league_id": source_league_id,
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "franchise_id": "B",
+                    "franchise_name": "Beta Team",
+                    "owner_name": "beta-owner",
+                },
+            },
+            {
+                "dataset_key": "html_players_normalized",
+                "season": season,
+                "league_id": source_league_id,
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "player_mfl_id": "1001",
+                    "player_name": "Player One",
+                    "position": "QB",
+                    "nfl_team": "BUF",
+                },
+            },
+            {
+                "dataset_key": "html_players_normalized",
+                "season": season,
+                "league_id": source_league_id,
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "player_mfl_id": "1002",
+                    "player_name": "Player Two",
+                    "position": "WR",
+                    "nfl_team": "KC",
+                },
+            },
+            {
+                "dataset_key": "html_draft_results_normalized",
+                "season": season,
+                "league_id": source_league_id,
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "franchise_id": "A",
+                    "player_mfl_id": "1001",
+                    "round": "1",
+                    "pick_number": "1",
+                    "winning_bid": "$20",
+                },
+            },
+            {
+                "dataset_key": "html_draft_results_normalized",
+                "season": season,
+                "league_id": source_league_id,
+                "record_json": {
+                    "season": str(season),
+                    "league_id": source_league_id,
+                    "franchise_id": "B",
+                    "player_mfl_id": "1002",
+                    "round": "1",
+                    "pick_number": "2",
+                    "winning_bid": "$18",
+                },
+            },
+            # Should not be counted due to source_league_id filter.
+            {
+                "dataset_key": "html_draft_results_normalized",
+                "season": season,
+                "league_id": other_source_league_id,
+                "record_json": {
+                    "season": str(season),
+                    "league_id": other_source_league_id,
+                    "franchise_id": "A",
+                    "player_mfl_id": "1001",
+                    "round": "2",
+                    "pick_number": "9",
+                    "winning_bid": "$5",
+                },
+            },
+        ]
+
+        for idx, payload in enumerate(facts, start=1):
+            session.add(
+                models.MflHtmlRecordFact(
+                    dataset_key=payload["dataset_key"],
+                    season=payload["season"],
+                    league_id=payload["league_id"],
+                    normalization_version="v1",
+                    row_fingerprint=f"reconcile-db-fp-{idx}",
+                    record_json=payload["record_json"],
+                )
+            )
+
+        session.commit()
+    finally:
+        session.close()
+
+    monkeypatch.setattr(import_mfl_csv, "SessionLocal", TestingSessionLocal)
+    monkeypatch.setattr(reconcile_mfl_import, "SessionLocal", TestingSessionLocal)
+
+    import_summary = import_mfl_csv.run_import_mfl_csv(
+        input_root=None,
+        target_league_id=1,
+        start_year=season,
+        end_year=season,
+        dry_run=False,
+        source_mode="db",
+        source_league_id=source_league_id,
+    )
+    assert import_summary["draft_picks_inserted"] == 2
+
+    reconcile_summary = reconcile_mfl_import.run_reconcile_mfl_import(
+        input_root=None,
+        target_league_id=1,
+        start_year=season,
+        end_year=season,
+        source_mode="db",
+        source_league_id=source_league_id,
+    )
+
+    assert reconcile_summary["mismatch_count"] == 0
+    assert reconcile_summary["source_mode"] == "db"
+    assert reconcile_summary["source_reference"] == "db:mfl_html_record_facts"

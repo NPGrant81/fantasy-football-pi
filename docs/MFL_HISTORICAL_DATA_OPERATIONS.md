@@ -64,43 +64,34 @@ Guidelines:
 - Do not overwrite historical working folders unless the run is explicitly a replacement run.
 - Keep manual scaffolds and manual probes separate from extracted roots.
 
-### 2. Normalize Before Serving
+### 2. Normalize + Load (Preferred One-Step Flow)
 
-For HTML records:
+For HTML records (preferred):
 
 ```powershell
-python3.13.exe -m backend.manage normalize-mfl-html-records \
+python3.13.exe -m backend.manage normalize-load-mfl-html-records \
   --input-root backend/exports/history_html_records_2004_2026 \
-  --output-root backend/exports/history_html_records_2004_2026_normalized
+  --target-league-id 60
 ```
 
 Guidelines:
 
-- Normalize into a separate `_normalized` root.
-- Treat normalized outputs as the preferred reload source.
-- Keep normalized roots longer than raw/intermediate roots because they are smaller and directly useful.
+- One-step flow uses a temporary normalized workspace by default, so persistent normalized roots are optional.
+- Use `--output-root` only when you intentionally want to keep normalized CSV artifacts on disk.
 
-### 3. Dry-Run The Database Load
-
-For HTML fact loading:
-
-```powershell
-python3.13.exe -m backend.manage load-mfl-html-normalized \
-  --input-roots backend/exports/history_html_records_2002_2003_normalized,backend/exports/history_html_records_2004_2026_normalized \
-  --target-league-id 60
-```
+### 3. Review Dry-Run Output From One-Step Normalize+Load
 
 Expected behavior:
 
-- Dry-run returns a `Run id`.
+- Dry-run returns a load `Run id`.
 - Provenance is still written to `mfl_ingestion_runs` and `mfl_ingestion_files`.
 - No fact-table writes are committed in dry-run mode.
 
 Review before apply:
 
 - warnings count
-- files seen vs files loaded
-- rows seen vs rows inserted vs rows skipped existing
+- load files seen vs files loaded
+- load rows seen vs rows inserted vs rows skipped existing
 - target league id, which should remain `60` for this migration path
 
 ### 3b. Compliance Gate For Draft Backfill Sheets
@@ -109,6 +100,8 @@ Before any `import-mfl-csv --apply` run that depends on manual draft overrides, 
 
 ```powershell
 python3.13.exe -m backend.manage apply-mfl-draft-backfill-sheet \
+  --source-mode csv \
+  --allow-legacy-csv-source \
   --input-root backend/exports/history_staged_2003 \
   --start-year 2003 \
   --end-year 2003 \
@@ -121,6 +114,8 @@ Apply mode for sheet sync should only be used after dry-run summary shows zero p
 
 ```powershell
 python3.13.exe -m backend.manage apply-mfl-draft-backfill-sheet \
+  --source-mode csv \
+  --allow-legacy-csv-source \
   --input-root backend/exports/history_staged_2003 \
   --start-year 2003 \
   --end-year 2003 \
@@ -133,8 +128,8 @@ python3.13.exe -m backend.manage apply-mfl-draft-backfill-sheet \
 Apply only after dry-run looks correct:
 
 ```powershell
-python3.13.exe -m backend.manage load-mfl-html-normalized \
-  --input-roots backend/exports/history_html_records_2002_2003_normalized,backend/exports/history_html_records_2004_2026_normalized \
+python3.13.exe -m backend.manage normalize-load-mfl-html-records \
+  --input-root backend/exports/history_html_records_2004_2026 \
   --target-league-id 60 \
   --apply
 ```
@@ -168,6 +163,7 @@ CSV:
 ```powershell
 python3.13.exe -m backend.manage archive-mfl-csv-exports \
   --input-root backend/exports/history_api_2023_2026 \
+  --allow-legacy-csv-source \
   --apply \
   --prune-csv
 ```
@@ -223,16 +219,11 @@ For HTML or JSON archives, swap the archive and manifest filenames accordingly.
 
 ### 3. Re-run Validation Or Load From The Restored Folder
 
-Examples:
+Example:
 
 ```powershell
-python3.13.exe -m backend.manage normalize-mfl-html-records \
-  --input-root backend/exports/restore/history_html_records_2004_2026
-```
-
-```powershell
-python3.13.exe -m backend.manage load-mfl-html-normalized \
-  --input-roots backend/exports/restore/history_html_records_2004_2026_normalized \
+python3.13.exe -m backend.manage normalize-load-mfl-html-records \
+  --input-root backend/exports/restore/history_html_records_2004_2026 \
   --target-league-id 60
 ```
 

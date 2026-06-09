@@ -17,11 +17,13 @@ backend/
 
 # should live here under `backend/scripts/` rather than the project root.
 
-# \* **Import utilities** – e.g. `import_scoring_rules.py` sanitizes CSVs for
+# \* **Import utilities** – e.g. `import_scoring_rules.py` sanitizes legacy CSVs
 
-# commissioner's scoring rule bulk uploads, handling Excel date quirks,
+# for scoring-rule migration edge cases (Excel date quirks, ranges, position
 
-# ranges, and position mappings.
+# mappings). These scripts are archival-gated and should not be treated as
+
+# default operational workflows.
 
 ├── models.py # 1.6 SQLAlchemy database models
 ├── database.py # 1.7 Database engine and session setup

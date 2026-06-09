@@ -7,7 +7,7 @@ projection data, and saves the raw results for further processing.
 
 import pandas as pd
 from yahoo_oauth import OAuth2
-from etl.transform.normalize import normalize_player_name, standardize_adp, extract_position_rank
+from etl.player_metadata.normalize import normalize_player_name, standardize_adp, extract_position_rank
 
 import os
 import stat

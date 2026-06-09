@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from backend import models
+from backend.database import SessionLocal
+
 
 MANUAL_HEADERS = [
     "season",
@@ -20,6 +23,8 @@ MANUAL_HEADERS = [
     "is_keeper_pick",
 ]
 
+DB_DRAFT_DATASET_KEYS: set[str] = {"html_draft_results_normalized", "draftResults"}
+
 BLOCKED_2002_SOURCE_MARKERS = (
     "myfantasyleague.com/2002/options",
     "api.myfantasyleague.com/2002/export?type=draftresults",
@@ -29,6 +34,9 @@ BLOCKED_2002_SOURCE_MARKERS = (
 
 @dataclass
 class BackfillApplySummary:
+    source_mode: str
+    source_reference: str
+    source_league_id: str | None
     input_root: str
     sheet_root: str
     seasons: list[int]
@@ -45,6 +53,9 @@ class BackfillApplySummary:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "source_mode": self.source_mode,
+            "source_reference": self.source_reference,
+            "source_league_id": self.source_league_id,
             "input_root": self.input_root,
             "sheet_root": self.sheet_root,
             "seasons": self.seasons,
@@ -119,20 +130,35 @@ def _normalize_manual_row(sheet_row: dict[str, str]) -> dict[str, str]:
 
 def run_apply_mfl_draft_backfill_sheet(
     *,
-    input_root: str,
+    input_root: str | None,
     start_year: int,
     end_year: int,
+    source_mode: str = "csv",
+    source_league_id: str | None = None,
     sheet_root: str | None = None,
     apply_changes: bool = False,
     require_source_url: bool = False,
     enforce_2002_source_policy: bool = True,
 ) -> dict[str, Any]:
+    if source_mode not in {"csv", "db"}:
+        raise ValueError("source_mode must be either 'csv' or 'db'")
+    if source_mode == "csv" and not input_root:
+        raise ValueError("input_root is required when source_mode='csv'")
+
     seasons = list(range(start_year, end_year + 1))
-    input_base = Path(input_root)
-    sheets_base = Path(sheet_root) if sheet_root else input_base / "manual_overrides" / "draft_backfill_sheets"
+    input_base = Path(input_root) if input_root else None
+    if sheet_root:
+        sheets_base = Path(sheet_root)
+    elif input_base is not None:
+        sheets_base = input_base / "manual_overrides" / "draft_backfill_sheets"
+    else:
+        sheets_base = Path("exports/history_staged/manual_overrides/draft_backfill_sheets")
 
     summary = BackfillApplySummary(
-        input_root=str(input_base),
+        source_mode=source_mode,
+        source_reference=(str(input_base) if source_mode == "csv" else "db:mfl_html_record_facts"),
+        source_league_id=source_league_id,
+        input_root=(str(input_base) if input_base else ""),
         sheet_root=str(sheets_base),
         seasons=seasons,
         apply_changes=apply_changes,
@@ -141,16 +167,109 @@ def run_apply_mfl_draft_backfill_sheet(
 
     for season in seasons:
         sheet_path = sheets_base / f"{season}.csv"
-        manual_path = input_base / "manual_overrides" / "draftResults" / f"{season}.csv"
         if not sheet_path.exists():
             summary.sheets_missing += 1
             summary.warnings.append(f"season={season} sheet missing: {sheet_path}")
             continue
 
         sheet_rows = _read_csv_rows(sheet_path)
-        manual_rows = _read_csv_rows(manual_path)
 
-        manual_by_key = {_row_key(row): dict(row) for row in manual_rows}
+        manual_by_key: dict[tuple[str, str, str, str, str], dict[str, str]] = {}
+        facts_by_key: dict[tuple[str, str, str, str, str], models.MflHtmlRecordFact] = {}
+        manual_path = None
+
+        if source_mode == "csv":
+            manual_path = input_base / "manual_overrides" / "draftResults" / f"{season}.csv"
+            manual_rows = _read_csv_rows(manual_path)
+            manual_by_key = {_row_key(row): dict(row) for row in manual_rows}
+        else:
+            db = SessionLocal()
+            try:
+                query = db.query(models.MflHtmlRecordFact).filter(
+                    models.MflHtmlRecordFact.season == season,
+                    models.MflHtmlRecordFact.dataset_key.in_(DB_DRAFT_DATASET_KEYS),
+                )
+                if source_league_id:
+                    query = query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
+
+                for fact in query.all():
+                    payload = fact.record_json or {}
+                    if not isinstance(payload, dict):
+                        continue
+
+                    payload_season = str(payload.get("season") or "").strip()
+                    if payload_season and payload_season != str(season):
+                        continue
+
+                    payload_league_id = str(payload.get("league_id") or "").strip()
+                    if source_league_id and payload_league_id and payload_league_id != source_league_id:
+                        continue
+
+                    normalized = {k: str(v or "").strip() for k, v in payload.items()}
+                    facts_by_key[_row_key(normalized)] = fact
+
+                season_updated = 0
+                season_appended = 0
+
+                for row in sheet_rows:
+                    player_id = str(row.get("player_mfl_id") or "").strip()
+                    if not player_id:
+                        summary.rows_skipped_missing_player_id += 1
+                        continue
+
+                    source_url = str(row.get("manual_source_url") or "").strip()
+                    if require_source_url and not source_url:
+                        summary.rows_skipped_missing_source_url += 1
+                        continue
+
+                    if enforce_2002_source_policy and str(row.get("season") or "").strip() == "2002":
+                        if not source_url:
+                            summary.rows_skipped_missing_source_url += 1
+                            summary.warnings.append(
+                                "season=2002 skipped because manual_source_url is required by 2002 source policy"
+                            )
+                            continue
+                        if _is_blocked_2002_source(source_url):
+                            summary.rows_skipped_blocked_source_policy += 1
+                            summary.warnings.append(
+                                "season=2002 skipped because source URL matches known blocked legacy draft feed"
+                            )
+                            continue
+
+                    normalized = _normalize_manual_row(row)
+                    key = _row_key(normalized)
+                    summary.candidate_rows += 1
+
+                    fact = facts_by_key.get(key)
+                    if fact is None:
+                        summary.warnings.append(
+                            f"season={season} no DB draft fact match for key={key}; row skipped"
+                        )
+                        continue
+
+                    payload = dict(fact.record_json or {})
+                    existing_player_id = str(payload.get("player_mfl_id") or "").strip()
+                    if existing_player_id != normalized["player_mfl_id"]:
+                        payload["player_mfl_id"] = normalized["player_mfl_id"]
+                        if normalized["winning_bid"]:
+                            payload["winning_bid"] = normalized["winning_bid"]
+                        if normalized["round"]:
+                            payload["round"] = normalized["round"]
+                        if normalized["pick_number"]:
+                            payload["pick_number"] = normalized["pick_number"]
+                        fact.record_json = payload
+                        season_updated += 1
+
+                if apply_changes and season_updated:
+                    db.commit()
+
+                summary.rows_updated += season_updated
+                summary.rows_appended += season_appended
+            finally:
+                db.close()
+
+            continue
+
         season_updated = 0
         season_appended = 0
 

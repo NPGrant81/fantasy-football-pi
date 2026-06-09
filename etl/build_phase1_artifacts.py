@@ -10,9 +10,9 @@ from typing import Any
 import pandas as pd
 from sqlalchemy import create_engine, inspect
 
-from etl.transform.historical_draft_validator import write_draft_validation_outputs_from_dataframes
-from etl.transform.owner_budget_timeline import write_budget_timeline_outputs_from_dataframes
-from etl.transform.player_metadata_canonicalization import write_canonicalization_outputs_from_dataframes
+from etl.draft_validation.validator import write_draft_validation_outputs_from_dataframes
+from etl.draft_validation.owner_budget_timeline import write_budget_timeline_outputs_from_dataframes
+from etl.player_metadata.canonicalization import write_canonicalization_outputs_from_dataframes
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "backend" / "data"

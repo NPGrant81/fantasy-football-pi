@@ -1,6 +1,6 @@
 import pandas as pd
 
-from etl.transform.monte_carlo_simulation import SimulationConfig, run_monte_carlo_draft_simulation
+from etl.monte_carlo.simulation import SimulationConfig, run_monte_carlo_draft_simulation
 
 
 def _sample_draft_results() -> pd.DataFrame:

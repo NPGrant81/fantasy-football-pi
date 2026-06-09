@@ -20,8 +20,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from backend import models
+from backend.database import SessionLocal
+
 
 REQUIRED_REPORT_TYPES: tuple[str, ...] = ("franchises", "players", "draftResults")
+
+DB_DATASET_KEYS: dict[str, set[str]] = {
+    "franchises": {"html_franchises_normalized", "franchises"},
+    "players": {"html_players_normalized", "players"},
+    "draftResults": {"html_draft_results_normalized", "draftResults"},
+}
 
 REQUIRED_HEADERS: dict[str, list[str]] = {
     "franchises": ["season", "league_id", "franchise_id", "franchise_name", "owner_name"],
@@ -38,6 +47,9 @@ IMPORTER_REQUIRED_HEADERS: dict[str, list[str]] = {
 @dataclass
 class StageSummary:
     seasons: list[int]
+    source_mode: str
+    source_reference: str
+    source_league_id: str | None
     api_root: str
     html_root: str
     output_root: str
@@ -51,6 +63,9 @@ class StageSummary:
     def to_dict(self) -> dict[str, Any]:
         return {
             "seasons": self.seasons,
+            "source_mode": self.source_mode,
+            "source_reference": self.source_reference,
+            "source_league_id": self.source_league_id,
             "api_root": self.api_root,
             "html_root": self.html_root,
             "output_root": self.output_root,
@@ -227,6 +242,64 @@ def _stage_required_csvs(
             summary.warnings.append(f"missing API source for {report_type} season={season}; scaffolded header-only CSV")
 
 
+def _stage_required_from_db(
+    *,
+    output_root: Path,
+    seasons: list[int],
+    summary: StageSummary,
+    source_league_id: str | None,
+    overwrite: bool,
+) -> None:
+    db = SessionLocal()
+    try:
+        for report_type in REQUIRED_REPORT_TYPES:
+            required_headers = REQUIRED_HEADERS[report_type]
+            dataset_keys = DB_DATASET_KEYS.get(report_type, set())
+            for season in seasons:
+                dst = output_root / report_type / f"{season}.csv"
+                if dst.exists() and not overwrite:
+                    continue
+
+                query = db.query(models.MflHtmlRecordFact).filter(models.MflHtmlRecordFact.season == season)
+                if dataset_keys:
+                    query = query.filter(models.MflHtmlRecordFact.dataset_key.in_(dataset_keys))
+                if source_league_id:
+                    query = query.filter(models.MflHtmlRecordFact.league_id == source_league_id)
+
+                rows: list[dict[str, str]] = []
+                for fact in query.all():
+                    payload = fact.record_json or {}
+                    if not isinstance(payload, dict):
+                        continue
+
+                    payload_season = str(payload.get("season") or "").strip()
+                    if payload_season and payload_season != str(season):
+                        continue
+
+                    payload_league_id = str(payload.get("league_id") or "").strip()
+                    if source_league_id and payload_league_id and payload_league_id != source_league_id:
+                        continue
+
+                    normalized_row = {
+                        header: str(payload.get(header) or "").strip()
+                        for header in required_headers
+                    }
+                    rows.append(normalized_row)
+
+                if rows:
+                    _write_csv_rows(dst, required_headers, rows)
+                    summary.copied_required_files += 1
+                else:
+                    _write_header_only_csv(dst, required_headers)
+                    summary.scaffolded_required_files += 1
+                    summary.warnings.append(
+                        f"missing DB source for {report_type} season={season}; scaffolded header-only CSV"
+                        + (f" (source_league_id={source_league_id})" if source_league_id else "")
+                    )
+    finally:
+        db.close()
+
+
 def _stage_html_reports(
     *,
     html_root: Path,
@@ -262,7 +335,7 @@ def _stage_html_reports(
 
 def _ensure_draft_results_manual_fallback(
     *,
-    api_root: Path,
+    api_root: Path | None,
     output_root: Path,
     seasons: list[int],
     summary: StageSummary,
@@ -290,11 +363,13 @@ def _ensure_draft_results_manual_fallback(
         if manual_path.exists():
             continue
 
-        skeleton_count = _enrich_manual_draft_template_from_raw_json(
-            api_root=api_root,
-            template_path=manual_path,
-            season=season,
-        )
+        skeleton_count = 0
+        if api_root is not None:
+            skeleton_count = _enrich_manual_draft_template_from_raw_json(
+                api_root=api_root,
+                template_path=manual_path,
+                season=season,
+            )
         if skeleton_count == 0:
             _write_header_only_csv(manual_path, REQUIRED_HEADERS["draftResults"])
         summary.draft_results_manual_templates += 1
@@ -365,37 +440,65 @@ def run_stage_mfl_html_for_import(
     *,
     start_year: int,
     end_year: int,
-    api_root: str,
-    html_root: str,
+    api_root: str | None,
+    html_root: str | None,
     output_root: str,
+    source_mode: str = "csv",
+    source_league_id: str | None = None,
     overwrite: bool = False,
 ) -> dict[str, Any]:
+    if source_mode not in {"csv", "db"}:
+        raise ValueError("source_mode must be either 'csv' or 'db'")
+    if source_mode == "csv" and (not api_root or not html_root):
+        raise ValueError("api_root and html_root are required when source_mode='csv'")
+
     seasons = list(range(start_year, end_year + 1))
-    api_base = Path(api_root)
-    html_base = Path(html_root)
+    api_base = Path(api_root) if api_root else None
+    html_base = Path(html_root) if html_root else None
     output_base = Path(output_root)
 
     summary = StageSummary(
         seasons=seasons,
-        api_root=str(api_base),
-        html_root=str(html_base),
+        source_mode=source_mode,
+        source_reference=(str(api_base) if source_mode == "csv" else "db:mfl_html_record_facts"),
+        source_league_id=source_league_id,
+        api_root=(str(api_base) if api_base else ""),
+        html_root=(str(html_base) if html_base else ""),
         output_root=str(output_base),
     )
 
-    _stage_required_csvs(
-        api_root=api_base,
-        output_root=output_base,
-        seasons=seasons,
-        summary=summary,
-        overwrite=overwrite,
-    )
-    _stage_html_reports(
-        html_root=html_base,
-        output_root=output_base,
-        seasons=seasons,
-        summary=summary,
-        overwrite=overwrite,
-    )
+    if source_mode == "db":
+        _stage_required_from_db(
+            output_root=output_base,
+            seasons=seasons,
+            summary=summary,
+            source_league_id=source_league_id,
+            overwrite=overwrite,
+        )
+        if html_base is not None:
+            _stage_html_reports(
+                html_root=html_base,
+                output_root=output_base,
+                seasons=seasons,
+                summary=summary,
+                overwrite=overwrite,
+            )
+    else:
+        _stage_required_csvs(
+            api_root=api_base,
+            output_root=output_base,
+            seasons=seasons,
+            summary=summary,
+            overwrite=overwrite,
+        )
+        _stage_html_reports(
+            html_root=html_base,
+            output_root=output_base,
+            seasons=seasons,
+            summary=summary,
+            overwrite=overwrite,
+        )
+
     _ensure_draft_results_manual_fallback(
         api_root=api_base,
         output_root=output_base,

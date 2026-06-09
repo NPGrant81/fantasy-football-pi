@@ -4,6 +4,14 @@ from dataclasses import dataclass
 from typing import Iterable, TYPE_CHECKING
 import math
 import random
+import enum
+import concurrent.futures
+import os
+
+class OwnerArchetype(enum.Enum):
+    BALANCED = "BALANCED"
+    STARS_AND_SCRUBS = "STARS_AND_SCRUBS"
+    VALUE_WAITER = "VALUE_WAITER"
 
 import pandas as pd
 
@@ -51,6 +59,14 @@ class SimulationConfig:
     focal_position_weights: dict[str, float] | None = None
     focal_risk_tolerance: float = 0.5
     focal_player_reliability_weight: float = 1.0
+    points_weight: float = 3.2
+    model_score_weight: float = 0.8
+    desirability_value_weight: float = 0.7
+    desirability_score_weight: float = 0.3
+    position_need_multiplier: float = 0.40
+    position_affinity_multiplier: float = 0.35
+    volatility_band_base: float = 0.12
+    owner_archetypes: dict[int, OwnerArchetype] | None = None
 
     def resolved_position_limits(self) -> dict[str, int]:
         if self.position_limits:
@@ -169,6 +185,10 @@ def _prepare_owners(draft_results_df: pd.DataFrame, budget_df: pd.DataFrame, con
             owners = pd.concat([owners, pd.DataFrame(injected)], ignore_index=True)
 
     owners = owners.sort_values("owner_id").head(config.teams_count).reset_index(drop=True)
+    if config.owner_archetypes:
+        owners["archetype"] = owners["owner_id"].apply(lambda oid: config.owner_archetypes.get(int(oid), OwnerArchetype.BALANCED))
+    else:
+        owners["archetype"] = OwnerArchetype.BALANCED
     return owners
 
 
@@ -232,7 +252,7 @@ def _prepare_players(
 
     if yearly_results_df.empty:
         joined["projected_points"] = (
-            joined["predicted_auction_value"] * 3.2 + joined["model_score"] * 0.8
+            joined["predicted_auction_value"] * config.points_weight + joined["model_score"] * config.model_score_weight
         ).clip(lower=1.0)
         joined["yearly_points_source"] = "derived_from_historical_rankings"
     else:
@@ -257,18 +277,18 @@ def _prepare_players(
             yearly_points = yearly.groupby("player_id", as_index=False).agg(projected_points=("points", "mean"))
             joined = joined.merge(yearly_points, on="player_id", how="left")
             joined["projected_points"] = joined["projected_points"].fillna(
-                joined["predicted_auction_value"] * 3.2 + joined["model_score"] * 0.8
+                joined["predicted_auction_value"] * config.points_weight + joined["model_score"] * config.model_score_weight
             )
             joined["yearly_points_source"] = "yearly_results_or_derived"
         else:
             joined["projected_points"] = (
-                joined["predicted_auction_value"] * 3.2 + joined["model_score"] * 0.8
+                joined["predicted_auction_value"] * config.points_weight + joined["model_score"] * config.model_score_weight
             ).clip(lower=1.0)
             joined["yearly_points_source"] = "derived_from_historical_rankings"
 
     joined = joined[joined["position"] != "UNK"].copy()
     joined["desirability"] = (
-        joined["predicted_auction_value"] * 0.7 + joined["model_score"] * 0.3
+        joined["predicted_auction_value"] * config.desirability_value_weight + joined["model_score"] * config.desirability_score_weight
     ).clip(lower=0.1)
     joined = joined.sort_values(["desirability", "projected_points"], ascending=False).reset_index(drop=True)
     return joined
@@ -336,18 +356,38 @@ def _owner_bid_value(
     volatility_scale: float,
     max_budget: float,
     min_bid: int,
+    archetype: OwnerArchetype,
+    scarcity_multiplier: float,
+    budget_pct_remaining: float,
+    config: SimulationConfig,
 ) -> float:
-    volatility_band = 0.12 * max(0.3, volatility_scale)
+    volatility_band = config.volatility_band_base * max(0.3, volatility_scale)
     volatility = rng.uniform(-volatility_band, volatility_band)
     points_scale = math.log(max(projected_points, 1.0), 10)
     reliability_multiplier = 1.0 + (max(0.0, min(reliability_score, 1.0)) - 0.5) * (reliability_weight - 1.0)
     value = base_value
+    
+    archetype_multiplier = 1.0
+    if archetype == OwnerArchetype.STARS_AND_SCRUBS:
+        if base_value > 30.0:
+            if budget_pct_remaining > 0.4:
+                archetype_multiplier = 1.3
+            else:
+                archetype_multiplier = 0.5
+    elif archetype == OwnerArchetype.VALUE_WAITER:
+        if base_value > 30.0:
+            archetype_multiplier = 0.8
+        elif 10.0 <= base_value <= 30.0:
+            archetype_multiplier = 1.2
+            
     value *= 1.0 + aggressiveness
     value *= max(0.5, position_weight)
-    value *= 1.0 + position_need * 0.40
-    value *= 1.0 + position_affinity * 0.35
+    value *= 1.0 + position_need * config.position_need_multiplier
+    value *= 1.0 + position_affinity * config.position_affinity_multiplier
     value *= 1.0 + repeat_bonus
     value *= max(0.5, reliability_multiplier)
+    value *= archetype_multiplier
+    value *= scarcity_multiplier
     value *= 1.0 + volatility
     value += points_scale
     return float(min(max(value, float(min_bid)), max_budget))
@@ -371,10 +411,13 @@ def _run_single_iteration(
     focal_reliability_weight = max(0.5, min(2.0, float(config.focal_player_reliability_weight)))
 
     owners_state: dict[int, dict[str, object]] = {}
+    total_starting_spots = {pos: 0 for pos in limits}
     for row in owners_df.itertuples(index=False):
         owner_id = int(row.owner_id)
         owners_state[owner_id] = {
             "budget_remaining": float(row.budget),
+            "initial_budget": float(row.budget),
+            "archetype": row.archetype if hasattr(row, "archetype") else OwnerArchetype.BALANCED,
             "roster_count": 0,
             "position_counts": {position: 0 for position in limits},
             "spend_by_position": {position: 0.0 for position in limits},
@@ -382,6 +425,11 @@ def _run_single_iteration(
             "value_captured": 0.0,
             "players": [],
         }
+        for pos, cap in limits.items():
+            if cap > 0:
+                total_starting_spots[pos] += 1
+                
+    remaining_starters = {pos: count for pos, count in total_starting_spots.items()}
 
     affinity_lookup = {
         (int(row.owner_id), str(row.position)): float(row.affinity)
@@ -459,6 +507,13 @@ def _run_single_iteration(
                     volatility_scale = 0.6 + focal_risk_tolerance
                     reliability_weight = focal_reliability_weight
 
+                teams_needing_starter = sum(1 for state in owners_state.values() if state["position_counts"].get(position, 0) == 0)
+                scarcity_multiplier = 1.0
+                if remaining_starters.get(position, 0) > 0 and remaining_starters.get(position, 0) <= teams_needing_starter and need_score > 0:
+                    scarcity_multiplier = 1.5
+
+                budget_pct_remaining = owner_state["budget_remaining"] / owner_state["initial_budget"] if owner_state["initial_budget"] > 0 else 0.0
+
                 owner_bid = _owner_bid_value(
                     rng=rng,
                     base_value=float(candidate_row["predicted_auction_value"]),
@@ -473,6 +528,10 @@ def _run_single_iteration(
                     volatility_scale=volatility_scale,
                     max_budget=max_owner_bid,
                     min_bid=config.min_bid,
+                    archetype=owner_state["archetype"],
+                    scarcity_multiplier=scarcity_multiplier,
+                    budget_pct_remaining=budget_pct_remaining,
+                    config=config,
                 )
                 bids.append((owner_id, owner_bid))
 
@@ -502,6 +561,8 @@ def _run_single_iteration(
             owner_state["projected_points"] += float(candidate_row["projected_points"])
             owner_state["value_captured"] += float(candidate_row["predicted_auction_value"]) - paid
             owner_state["players"].append(player_id)
+            if owner_state["position_counts"][position] == 1:
+                remaining_starters[position] = max(0, remaining_starters[position] - 1)
 
             pick_number += 1
             draft_picks.append(
@@ -578,10 +639,12 @@ def run_monte_carlo_draft_simulation(
 
     all_picks: list[dict[str, object]] = []
     all_team_metrics: list[dict[str, object]] = []
-    for iteration_index in range(1, cfg.iterations + 1):
-        iteration_seed = rng.randint(1, 10_000_000)
-        iteration_rng = random.Random(iteration_seed)
-        picks, metrics = _run_single_iteration(
+    
+    seeds = [rng.randint(1, 10_000_000) for _ in range(cfg.iterations)]
+    
+    def run_wrapper(iteration_index, seed):
+        iteration_rng = random.Random(seed)
+        return _run_single_iteration(
             iteration_index=iteration_index,
             rng=iteration_rng,
             owners_df=owners,
@@ -590,8 +653,17 @@ def run_monte_carlo_draft_simulation(
             repeats_df=repeats,
             config=cfg,
         )
-        all_picks.extend(picks)
-        all_team_metrics.extend(metrics)
+
+    max_workers = max(1, os.cpu_count() - 1) if os.cpu_count() else 4
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(run_wrapper, i + 1, seeds[i])
+            for i in range(cfg.iterations)
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            picks, metrics = future.result()
+            all_picks.extend(picks)
+            all_team_metrics.extend(metrics)
 
     draft_picks_df = pd.DataFrame(
         all_picks,

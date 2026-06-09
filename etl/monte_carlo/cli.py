@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from etl.transform.monte_carlo_simulation import (
+from etl.monte_carlo.simulation import (
     SimulationConfig,
     run_monte_carlo_from_db,
     summarize_team_distribution,

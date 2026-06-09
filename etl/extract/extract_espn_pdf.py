@@ -44,7 +44,7 @@ def scrape_espn_2025_pdf(pdf_url: str) -> pd.DataFrame:
                     position = re.match(r"[A-Z]+", position_rank)
                     position = position.group(0) if position else None
                     # Ensure position_rank is always an integer for DB
-                    from etl.transform.normalize import extract_position_rank
+                    from etl.player_metadata.normalize import extract_position_rank
                     extracted_players.append({
                         'source_name': 'ESPN_PDF',
                         'scraped_player_name': player_name.strip(),

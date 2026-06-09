@@ -61,13 +61,13 @@ Technical extraction risk:
 When API extraction or HTML page scraping is blocked or incomplete, use the manual CSV fallback path.
 
 1. Scaffold templates:
-  - `python -m backend.manage scaffold-mfl-manual-csv --start-year 2002 --end-year 2003`
+  - `python -m backend.manage scaffold-mfl-manual-csv --start-year 2002 --end-year 2003 --allow-legacy-csv-source`
 2. Fill generated files under `exports/history_manual/`:
   - `franchises/{season}.csv`
   - `players/{season}.csv`
   - `draftResults/{season}.csv`
 3. Import with existing importer in dry-run mode first:
-  - `python -m backend.manage import-mfl-csv --input-root exports/history_manual --target-league-id <APP_LEAGUE_ID> --start-year 2002 --end-year 2003`
+  - `python -m backend.manage import-mfl-csv --source-mode csv --allow-legacy-csv-source --input-root exports/history_manual --target-league-id <APP_LEAGUE_ID> --start-year 2002 --end-year 2003`
 4. Apply once dry-run results are clean:
   - Add `--apply` to the command above.
 

@@ -20,7 +20,7 @@ Date: 2026-03-17
 - `apply-mfl-draft-backfill-sheet` dry-run (`2003`): pass (no policy violations, sheet missing warning only)
 - `import-mfl-csv` dry-run (`2003`): pass (`rows_invalid=0`, `files_missing=0`)
 - `reconcile-mfl-import` (`2003`): expected dry-run mismatch (`owners/players not persisted in dry-run`)
-- `load-mfl-html-normalized` dry-run (`2002-2003 normalized root`): pass (`files_loaded=18`, rows skipped existing only)
+- `normalize-load-mfl-html-records` dry-run (`2002-2003 input root`): pass (normalization + load completed in one command)
 
 ## Item Verification Gates
 
@@ -109,7 +109,7 @@ Date: 2026-03-17
 - Verify: output CSV rows and player-id coverage checks.
 
 22. Normalized HTML records datasets
-- Gate: normalize command summary shows `files_processed > 0`, `files_skipped=0` for selected roots.
+- Gate: one-step normalize+load command succeeds.
 - Verify: `_normalize_summary.json` and output datasets.
 
 23. Staged importer roots

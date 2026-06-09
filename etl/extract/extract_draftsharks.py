@@ -16,7 +16,7 @@ Two scrapers are provided:
 
 import requests
 import pandas as pd
-from etl.transform.normalize import normalize_player_name, standardize_adp, extract_position_rank
+from etl.player_metadata.normalize import normalize_player_name, standardize_adp, extract_position_rank
 
 AUCTION_VALUES_URL = "https://www.draftsharks.com/auction-values"
 
