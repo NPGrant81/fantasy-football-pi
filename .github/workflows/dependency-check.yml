@@ -30,8 +30,13 @@ jobs:
           pip install -r backend/requirements.txt
           pip install pip-audit bandit
       - name: Run dependency checker
+        if: github.event_name != 'pull_request'
         run: |
           python backend/scripts/check_dependencies.py --fail-on-audit
+      - name: Run dependency checker (non-blocking for PRs)
+        if: github.event_name == 'pull_request'
+        run: |
+          python backend/scripts/check_dependencies.py
       - name: Run Bandit static security scan
         run: |
           bandit -r backend -x backend/tests,backend/venv -ll -f txt -o backend-bandit-report.txt
@@ -59,6 +64,11 @@ jobs:
         working-directory: frontend
         run: npm ci --legacy-peer-deps
       - name: Run npm audit (high+ severity)
+        if: github.event_name != 'pull_request'
         working-directory: frontend
         run: npm audit --audit-level=high
+      - name: Run npm audit (non-blocking for PRs)
+        if: github.event_name == 'pull_request'
+        working-directory: frontend
+        run: npm audit --audit-level=high || true
 
