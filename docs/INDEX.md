@@ -10,22 +10,16 @@ Refer to the appropriate file for more information.
 - [Backlog Triage 2026-03-14](BACKLOG_TRIAGE_2026-03-14.md)
 - [Ci Cd Observability](CI_CD_OBSERVABILITY.md)
 - [Cli Checkin Lessons Learned](CLI_CHECKIN_LESSONS_LEARNED.md)
-- [Cloudflare-Pi-Handoff-Checklist](cloudflare-pi-handoff-checklist.md)
-- [Cloudflare-Tunnel-Cli](cloudflare-tunnel-cli.md)
-- [Cloudflare-Tunnel-Monitoring](cloudflare-tunnel-monitoring.md)
-- [Cloudflare-Tunnel-Systemd](cloudflare-tunnel-systemd.md)
 - [Cloudflare Tunnel Setup](CLOUDFLARE_TUNNEL_SETUP.md)
 - [Cross Module Edge Case Test Matrix](CROSS_MODULE_EDGE_CASE_TEST_MATRIX.md)
-- [Data-Dictionary](data-dictionary.md)
 - [Data Quality Runbook](DATA_QUALITY_RUNBOOK.md)
 - [Data Source Audit Issue 102](DATA_SOURCE_AUDIT_ISSUE_102.md)
 - [Data Validation Strategy](DATA_VALIDATION_STRATEGY.md)
 - [Db Migration Phase1](DB_MIGRATION_PHASE1.md)
 - [Dependency Maintenance](DEPENDENCY_MAINTENANCE.md)
 - [Deployment Workflows](DEPLOYMENT_WORKFLOWS.md)
-- [Dev-Environment](dev-environment.md)
-- [Doc Issue Correlation Map](DOC_ISSUE_CORRELATION_MAP.md)
 - [Documentation Update Process Plan](DOCUMENTATION_UPDATE_PROCESS_PLAN.md)
+- [Doc Issue Correlation Map](DOC_ISSUE_CORRELATION_MAP.md)
 - [Draft Analyzer Api Audit](DRAFT_ANALYZER_API_AUDIT.md)
 - [Draft Day Advisor Mode](DRAFT_DAY_ADVISOR_MODE.md)
 - [Frontend Ci Pipeline Optimization](FRONTEND_CI_PIPELINE_OPTIMIZATION.md)
@@ -35,28 +29,34 @@ Refer to the appropriate file for more information.
 - [League60 Owner Backfill](LEAGUE60_OWNER_BACKFILL.md)
 - [Live Scoring Reliability Runbook](LIVE_SCORING_RELIABILITY_RUNBOOK.md)
 - [Mfl Historical Data Operations](MFL_HISTORICAL_DATA_OPERATIONS.md)
-- [Ml-Feature-Specification](ml-feature-specification.md)
-- [Model-Serving-And-Integration](model-serving-and-integration.md)
-- [Model-Training-Eval](model-training-eval.md)
-- [Monte-Carlo-Simulation](monte-carlo-simulation.md)
 - [Pattern Compliance Matrix](PATTERN_COMPLIANCE_MATRIX.md)
 - [Pattern Library](PATTERN_LIBRARY.md)
 - [Pattern Standardization Plan](PATTERN_STANDARDIZATION_PLAN.md)
-- [Permissions](permissions.md)
 - [Pi Update Cheatsheet](PI_UPDATE_CHEATSHEET.md)
-- [Player-Metadata-Rules](player-metadata-rules.md)
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
-- [Pr Notes](PR_NOTES.md)
 - [Project Management](PROJECT_MANAGEMENT.md)
+- [Pr Notes](PR_NOTES.md)
 - [Raspberry Pi Deployment](RASPBERRY_PI_DEPLOYMENT.md)
 - [Responsive Audit Environment](RESPONSIVE_AUDIT_ENVIRONMENT.md)
-- [Restore](restore.md)
 - [Scoring Edge Case Test Matrix](SCORING_EDGE_CASE_TEST_MATRIX.md)
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
 - [Trade Qa Regression 2026-03-30](TRADE_QA_REGRESSION_2026-03-30.md)
 - [Ui Reference](UI_REFERENCE.md)
 - [Ui Ux Automation Pipeline](UI_UX_AUTOMATION_PIPELINE.md)
+- [Cloudflare-Pi-Handoff-Checklist](cloudflare-pi-handoff-checklist.md)
+- [Cloudflare-Tunnel-Cli](cloudflare-tunnel-cli.md)
+- [Cloudflare-Tunnel-Monitoring](cloudflare-tunnel-monitoring.md)
+- [Cloudflare-Tunnel-Systemd](cloudflare-tunnel-systemd.md)
+- [Data-Dictionary](data-dictionary.md)
+- [Dev-Environment](dev-environment.md)
+- [Ml-Feature-Specification](ml-feature-specification.md)
+- [Model-Serving-And-Integration](model-serving-and-integration.md)
+- [Model-Training-Eval](model-training-eval.md)
+- [Monte-Carlo-Simulation](monte-carlo-simulation.md)
+- [Permissions](permissions.md)
+- [Player-Metadata-Rules](player-metadata-rules.md)
+- [Restore](restore.md)
 - [Ux-Insights-Spec](ux-insights-spec.md)
 
 ## Sub-directories
@@ -66,18 +66,19 @@ Refer to the appropriate file for more information.
 
 - [Overview](architecture/overview.md)
 
+### Archive
+
+- [Markdown Governance Sweep Report 2026-05-05](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md)
+- [Markdown Governance Sweep Report 2026-03-08](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-03-08.md)
+- [Session Completion 2026-03-21](archive/SESSION_COMPLETION_2026-03-21.md)
+
 ### Commit-Packages
 
 - [2026-03-15-Bundle-Plan](archive/commit-packages/2026-03-15-bundle-plan.md)
 
-### Archive
-
-- [Markdown Governance Sweep Report 2026-03-08](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-03-08.md)
-- [Markdown Governance Sweep Report 2026-05-05](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md)
-- [Session Completion 2026-03-21](archive/SESSION_COMPLETION_2026-03-21.md)
-
 ### Data-Migration
 
+- [Readme](data-migration/README.md)
 - [Mfl-Data-Requirements](data-migration/mfl-data-requirements.md)
 - [Mfl-Extraction-Matrix](data-migration/mfl-extraction-matrix.md)
 - [Mfl-Hardening-Verification-Gates](data-migration/mfl-hardening-verification-gates.md)
@@ -85,13 +86,12 @@ Refer to the appropriate file for more information.
 - [Mfl-Migration-Runbook](data-migration/mfl-migration-runbook.md)
 - [Mfl-Test-Results-Log](data-migration/mfl-test-results-log.md)
 - [Mfl-Year-Status-Matrix](data-migration/mfl-year-status-matrix.md)
-- [Readme](data-migration/README.md)
 
 ### Diagrams
 
+- [Readme](diagrams/README.md)
 - [Draft-Flow](diagrams/draft-flow.md)
 - [Ledger-Model](diagrams/ledger-model.md)
-- [Readme](diagrams/README.md)
 - [Simulation-Pipeline](diagrams/simulation-pipeline.md)
 - [Waiver-Flow](diagrams/waiver-flow.md)
 
@@ -108,12 +108,9 @@ Refer to the appropriate file for more information.
 - [Doc Classification Guardrails](governance/DOC_CLASSIFICATION_GUARDRAILS.md)
 - [Readme](governance/README.md)
 
-### Live-Scoring
-
-- [Espn-Contract](live-scoring/espn-contract.md)
-
 ### Milestones
 
+- [Readme](milestones/README.md)
 - [Milestone-1-Core-Foundation](milestones/milestone-1-core-foundation.md)
 - [Milestone-2-Cross-Platform-Deployment](milestones/milestone-2-cross-platform-deployment.md)
 - [Milestone-3-Security-Hardening](milestones/milestone-3-security-hardening.md)
@@ -121,11 +118,15 @@ Refer to the appropriate file for more information.
 - [Milestone-5-Gameplay-Logic](milestones/milestone-5-gameplay-logic.md)
 - [Milestone-6-Production-Readiness](milestones/milestone-6-production-readiness.md)
 - [Milestone-7-Release-1.0](milestones/milestone-7-release-1.0.md)
-- [Readme](milestones/README.md)
+
+### Live-Scoring
+
+- [Espn-Contract](live-scoring/espn-contract.md)
 
 ### Ml
 
 - [Execution Board 360 Snapshot](ml/EXECUTION_BOARD_360_SNAPSHOT.md)
+- [Ready 103 112 For Pr364](ml/READY_103_112_FOR_PR364.md)
 
 ### 103
 
@@ -145,10 +146,6 @@ Refer to the appropriate file for more information.
 ### Phase1
 
 - [Artifact Pr Checklists 361 363](ml/phase1/ARTIFACT_PR_CHECKLISTS_361_363.md)
-
-### Ml
-
-- [Ready 103 112 For Pr364](ml/READY_103_112_FOR_PR364.md)
 
 ### Patterns
 
