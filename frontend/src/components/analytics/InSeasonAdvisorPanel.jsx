@@ -113,7 +113,7 @@ export default function InSeasonAdvisorPanel({
 
   return (
     <div
-      className="flex flex-col rounded-xl border border-indigo-300/60 bg-white dark:border-indigo-800/60 dark:bg-slate-950/80"
+      className="flex flex-col rounded-xl border border-indigo-300/60 bg-white sm:rounded-xl dark:border-indigo-800/60 dark:bg-slate-950/80"
       data-testid="in-season-advisor-panel"
     >
       {/* Header */}
