@@ -566,6 +566,7 @@ jobs:
       - name: Start backend server
         env:
           BACKEND_SKIP_STARTUP_MIGRATIONS: "1"
+          DATABASE_URL: sqlite:///./e2e.db
         run: |
           python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010 > backend-e2e.log 2>&1 &
           echo $! > backend-e2e.pid
