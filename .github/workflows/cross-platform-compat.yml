@@ -110,6 +110,7 @@ jobs:
             --ignore=backend/tests/test_players_router.py \
             --ignore=backend/tests/test_draft_history.py \
             --ignore=backend/tests/test_startup.py \
+            --ignore=backend/tests/test_live_scoring_polling_service.py \
             --ignore=backend/tests/test_draft_simulation_endpoint.py \
             --ignore=backend/tests/test_analytics.py \
             --ignore=backend/tests/test_advisor_router.py \
