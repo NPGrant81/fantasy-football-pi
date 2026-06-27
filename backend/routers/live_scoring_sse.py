@@ -39,7 +39,6 @@ LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/live-scoring", tags=["live-scoring"])
 
-_QUEUE_WAIT_SECONDS = 1
 _KEEPALIVE_TIMEOUT_SECONDS = 30
 _QUEUE_WAIT_SECONDS = _KEEPALIVE_TIMEOUT_SECONDS
 
