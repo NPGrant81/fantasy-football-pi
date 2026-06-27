@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -107,12 +107,12 @@ jobs:
           echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/backend/requirements.txt', '**/backend/requirements-lock.txt', '**/backend/requirements-validation.txt') }}
@@ -177,14 +177,14 @@ jobs:
 
       - name: Upload backend coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: backend-coverage.xml
 
       - name: Upload backend test log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-log
           if-no-files-found: ignore
@@ -267,7 +267,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:password@localhost:5432/fantasy_pi
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Record API integration job start time
         id: timing_start
@@ -275,7 +275,7 @@ jobs:
           echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.11
 
@@ -334,7 +334,7 @@ jobs:
 
       - name: Upload API smoke logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-smoke-logs
           if-no-files-found: ignore
@@ -373,7 +373,7 @@ jobs:
         node-version: [20]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Record frontend job start time
         id: timing_start
@@ -381,14 +381,14 @@ jobs:
           echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Cache Vite and Vitest artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             frontend/node_modules/.vite
@@ -453,7 +453,7 @@ jobs:
 
       - name: Upload frontend build logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-build-log
           if-no-files-found: ignore
@@ -491,7 +491,7 @@ jobs:
 
       - name: Upload frontend coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage
           path: frontend/coverage
@@ -527,7 +527,7 @@ jobs:
       failure_category: ${{ steps.result_category.outputs.category }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Record API/E2E job start time
         id: timing_start
@@ -535,12 +535,12 @@ jobs:
           echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Cache Cypress binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/Cypress
           key: cypress-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
@@ -564,7 +564,7 @@ jobs:
 
       - name: Upload Cypress screenshots
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cypress-screenshots
           if-no-files-found: ignore
@@ -572,7 +572,7 @@ jobs:
 
       - name: Upload Cypress videos
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cypress-videos
           if-no-files-found: ignore
@@ -610,7 +610,7 @@ jobs:
       failure_category: ${{ steps.result_category.outputs.category }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Record dead-code job start time
         id: timing_start
@@ -618,12 +618,12 @@ jobs:
           echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
@@ -642,14 +642,14 @@ jobs:
           npm ci --legacy-peer-deps
 
       - name: Download backend coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: backend-coverage
           path: artifacts/backend-coverage
         continue-on-error: true
 
       - name: Download frontend coverage artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-coverage
           path: artifacts/frontend-coverage
@@ -681,7 +681,7 @@ jobs:
 
       - name: Upload dead-code report artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dead-code-report
           if-no-files-found: ignore
@@ -827,3 +827,4 @@ jobs:
           EOF
           )
           curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$TEAMS_WEBHOOK_URL"
+

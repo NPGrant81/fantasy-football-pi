@@ -15,10 +15,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -70,14 +70,14 @@ jobs:
 
       - name: Upload governance report artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docs-governance-report
           path: docs_governance_report.txt
 
       - name: Create or update governance issue on failure
         if: ${{ steps.governance.outputs.failed == 'true' || steps.governance.outputs.review_failed == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -134,3 +134,4 @@ jobs:
         run: |
           echo "Docs governance sweep failed. See report artifact and issue details."
           exit 1
+

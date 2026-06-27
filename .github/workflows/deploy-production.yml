@@ -67,7 +67,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout repository metadata
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure SSH key
         env:
@@ -195,3 +195,4 @@ jobs:
           EOF
           )
           curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$TEAMS_WEBHOOK_URL"
+
