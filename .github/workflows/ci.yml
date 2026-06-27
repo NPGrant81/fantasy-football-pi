@@ -539,6 +539,18 @@ jobs:
         with:
           node-version: 20
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install uvicorn
+          pip install -r backend/requirements.txt
+          if [ -f backend/requirements-validation.txt ]; then pip install -r backend/requirements-validation.txt; fi
+
       - name: Cache Cypress binary
         uses: actions/cache@v6
         with:
@@ -551,16 +563,45 @@ jobs:
         working-directory: frontend
         run: npm ci --legacy-peer-deps
 
+      - name: Start backend server
+        run: |
+          python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010 > backend-e2e.log 2>&1 &
+          echo $! > backend-e2e.pid
+
+      - name: Start frontend server
+        working-directory: frontend
+        env:
+          VITE_API_PROXY_TARGET: http://127.0.0.1:8010
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 5173 --strictPort > ../frontend-e2e.log 2>&1 &
+          echo $! > ../frontend-e2e.pid
+
+      - name: Wait for backend and frontend
+        run: npx wait-on http://127.0.0.1:8010/health http://127.0.0.1:5173 --timeout 120000
+
       - name: Run Cypress E2E
         uses: cypress-io/github-action@v6
         with:
           working-directory: frontend
           install: false
-          start: npm run dev
-          wait-on: http://localhost:5173
-          wait-on-timeout: 120
           browser: chrome
           spec: cypress/e2e/**/*.spec.js
+
+      - name: Stop E2E services
+        if: always()
+        run: |
+          if [ -f backend-e2e.pid ]; then kill "$(cat backend-e2e.pid)" 2>/dev/null || true; fi
+          if [ -f frontend-e2e.pid ]; then kill "$(cat frontend-e2e.pid)" 2>/dev/null || true; fi
+
+      - name: Upload E2E service logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-service-logs
+          if-no-files-found: ignore
+          path: |
+            backend-e2e.log
+            frontend-e2e.log
 
       - name: Upload Cypress screenshots
         if: failure()
