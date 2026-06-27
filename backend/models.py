@@ -1307,28 +1307,6 @@ class CanonicalPlayerSnapshot(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
-# --- AUTH: REVOKED TOKENS (JWT JTI Blocklist) ---
-class RevokedToken(Base):
-    """Persistent storage for revoked JWT tokens (e.g., logout, forced expiration).
-    
-    When a token with a specific jti (JWT ID) is revoked, it's recorded here
-    so that the token verification can check against this blocklist.
-    Entries are automatically cleaned up after the token's expiration time.
-    """
-    __tablename__ = "revoked_tokens"
-    __table_args__ = (
-        UniqueConstraint("jti", name="uq_revoked_tokens_jti"),
-        Index("ix_revoked_tokens_jti", "jti"),
-        Index("ix_revoked_tokens_expires_at", "expires_at"),
-    )
-    
-    id = Column(Integer, primary_key=True, index=True)
-    jti = Column(String(64), nullable=False)  # JWT ID claim
-    token_subject = Column(String(255), nullable=True)  # username or context
-    revoked_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    expires_at = Column(DateTime(timezone=True), nullable=False)  # When the original token expired
-
-
 # --- AUTH: REFRESH TOKENS (Session Rotation & Replay Protection) ---
 class RefreshToken(Base):
     """Persistent storage for refresh tokens with family-based replay detection.
