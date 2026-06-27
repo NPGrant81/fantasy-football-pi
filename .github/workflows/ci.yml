@@ -15,7 +15,7 @@ jobs:
       failure_category: ${{ steps.result_category.outputs.category }}
     strategy:
       matrix:
-        python-version: [3.11]
+        python-version: [3.13]
     # spin up a postgres container for backend tests
     services:
       postgres:
@@ -277,7 +277,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: 3.11
+          python-version: 3.13
 
       - name: Install backend dependencies
         run: |
@@ -542,7 +542,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install backend deps
         run: |
@@ -585,7 +585,7 @@ jobs:
           working-directory: frontend
           install: false
           browser: chrome
-          spec: cypress/e2e/**/*.spec.js
+          spec: cypress/e2e/**/*.spec.{js,jsx,ts,tsx}
 
       - name: Stop E2E services
         if: always()
@@ -661,7 +661,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6

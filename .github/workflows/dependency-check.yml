@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - name: Validate backend requirements lock sync
         run: |
           python backend/scripts/validate_requirements_lock.py --strict-lock

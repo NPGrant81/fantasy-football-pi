@@ -31,7 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ['3.11']
+        python-version: ['3.13']
 
     # Use bash explicitly so Linux-style commands work on Windows (Git Bash)
     defaults:
