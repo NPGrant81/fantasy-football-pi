@@ -367,25 +367,3 @@ def revoke_refresh_token(db: Session, refresh_token: str) -> None:
         models.RefreshToken.token_hash == token_hash
     ).update({"revoked_at": now})
     db.commit()
-
-
-def prune_expired_revoked_tokens(db: Session) -> None:
-    """Clean up expired entries from both revoked_tokens and refresh_tokens tables."""
-    now = datetime.now(timezone.utc)
-    
-    # Delete expired entries from revoked_tokens table
-    db.query(models.RevokedToken).filter(
-        models.RevokedToken.expires_at <= now
-    ).delete()
-    
-    # Delete expired refresh tokens
-    db.query(models.RefreshToken).filter(
-        models.RefreshToken.expires_at <= now
-    ).delete()
-    
-    db.commit()
-
-
-def choose_auth_token(cookie_token: str, bearer_token: str) -> str:
-    """Choose which token to use: cookie takes precedence over bearer token."""
-    return cookie_token or bearer_token

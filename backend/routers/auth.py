@@ -208,7 +208,8 @@ def refresh_access_token(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    _require_csrf_for_cookie_auth(request)
+    if USE_COOKIE_AUTH:
+        _require_csrf_for_cookie_auth(request)
 
     refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
     if not refresh_token:

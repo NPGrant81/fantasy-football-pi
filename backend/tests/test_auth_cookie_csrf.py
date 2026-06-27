@@ -15,6 +15,7 @@ import models
 from backend.core import security
 from backend.database import get_db
 from backend.main import app
+from backend.routers import auth as auth_router
 
 
 @pytest.fixture
@@ -337,6 +338,44 @@ def test_refresh_requires_csrf_when_access_cookie_missing(client, api_db, monkey
     refresh = client.post("/auth/refresh")
     assert refresh.status_code == 403
     assert refresh.json()["detail"] == "CSRF token validation failed"
+
+
+def test_refresh_skips_csrf_when_cookie_auth_disabled(client, api_db, monkeypatch):
+    monkeypatch.setattr(
+        security,
+        "verify_password",
+        lambda plain_password, hashed_password: plain_password == "secret"
+        and hashed_password == "test-hash",
+    )
+    monkeypatch.setattr(auth_router, "USE_COOKIE_AUTH", False)
+
+    user = models.User(
+        username="refresh-no-cookie-auth-user",
+        email="refresh-no-cookie-auth-user@test.com",
+        hashed_password="test-hash",
+        league_id=1,
+    )
+    api_db.add(user)
+    api_db.commit()
+
+    login = client.post(
+        "/auth/token",
+        data={"username": "refresh-no-cookie-auth-user", "password": "secret"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert login.status_code == 200
+
+    refresh = client.post("/auth/refresh")
+    assert refresh.status_code == 401
+    assert refresh.json()["detail"] == "Refresh token missing"
+
+
+def test_choose_auth_token_respects_allow_bearer_auth(monkeypatch):
+    monkeypatch.setattr(security, "ALLOW_BEARER_AUTH", False)
+    assert security.choose_auth_token(None, "bearer-token") is None
+
+    monkeypatch.setattr(security, "ALLOW_BEARER_AUTH", True)
+    assert security.choose_auth_token(None, "bearer-token") == "bearer-token"
 
 
 def test_refresh_replay_revokes_all_refresh_tokens(client, api_db, monkeypatch):

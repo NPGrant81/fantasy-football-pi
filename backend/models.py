@@ -1320,7 +1320,6 @@ class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
     __table_args__ = (
         UniqueConstraint("token_hash", name="uq_refresh_tokens_token_hash"),
-        Index("ix_refresh_tokens_token_hash", "token_hash"),
         Index("ix_refresh_tokens_user_id", "user_id"),
         Index("ix_refresh_tokens_expires_at", "expires_at"),
     )

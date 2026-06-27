@@ -1,4 +1,4 @@
-"""0026 - add refresh_tokens table for session renewal and rotation
+"""0027 - add refresh_tokens table for session renewal and rotation
 
 Stores hashed refresh tokens to enable rotation, replay rejection, and logout
 invalidation across process restarts.
