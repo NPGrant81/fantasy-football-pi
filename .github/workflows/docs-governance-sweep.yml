@@ -54,10 +54,18 @@ jobs:
             cat docs_index_diff.log
           } > docs_governance_report.txt
 
-          if [ "$REPO_RC" -ne 0 ] || [ "$REVIEW_RC" -ne 0 ] || [ "$REFRESH_RC" -ne 0 ] || [ "$INDEX_RC" -ne 0 ]; then
+          # Stale review cadence should be visible (issue + artifact) but not
+          # block the pipeline. Structural docs integrity checks remain blocking.
+          if [ "$REPO_RC" -ne 0 ] || [ "$REFRESH_RC" -ne 0 ] || [ "$INDEX_RC" -ne 0 ]; then
             echo "failed=true" >> "$GITHUB_OUTPUT"
           else
             echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "$REVIEW_RC" -ne 0 ]; then
+            echo "review_failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "review_failed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload governance report artifact
@@ -68,7 +76,7 @@ jobs:
           path: docs_governance_report.txt
 
       - name: Create or update governance issue on failure
-        if: ${{ steps.governance.outputs.failed == 'true' }}
+        if: ${{ steps.governance.outputs.failed == 'true' || steps.governance.outputs.review_failed == 'true' }}
         uses: actions/github-script@v7
         with:
           script: |
