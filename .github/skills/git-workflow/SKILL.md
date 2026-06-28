@@ -173,6 +173,35 @@ ci: implement dead/stale code detection reporting pipeline (#301)
 
 If the PR is truly feature/bug behavior, keep `feat`/`fix` and include matching test file deltas.
 
+### PR Preflight Skill (Recommended Before Push)
+Run the repository preflight skill/script before opening or updating PRs:
+
+```bash
+python scripts/pr_preflight.py
+```
+
+Optional local smoke lane:
+
+```bash
+python scripts/pr_preflight.py --run-local-checks
+```
+
+This validates:
+- dirty working tree / generated coverage churn
+- branch drift against `origin/main`
+- merge-risk simulation with `git merge-tree`
+- required-check mapping in `.github/required-check-contexts.json`
+- git rerere status
+
+### git rerere (Required for repeated conflict zones)
+Enable once per machine:
+
+```bash
+git config --global rerere.enabled true
+```
+
+This allows Git to auto-apply previously resolved conflicts on subsequent rebases/merges.
+
 ### PR Review Checklist
 See `.github/REVIEW_CHECKLIST.md` for full list. Key gates:
 - All CI checks pass (lint, test, build)
@@ -312,3 +341,4 @@ Issue comment template:
 - [Deployment](../deployment/SKILL.md) — release process
 - [Testing](../testing/SKILL.md) — what CI runs
 - [Security](../security/SKILL.md) — `.gitleaks.toml` secret scanning in pre-commit
+- [PR Preflight](../pr-preflight/SKILL.md) — branch hygiene and required-check alignment

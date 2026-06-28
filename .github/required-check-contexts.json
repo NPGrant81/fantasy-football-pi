@@ -1,0 +1,24 @@
+{
+  "repository": "NPGrant81/fantasy-football-pi",
+  "source_workflow": ".github/workflows/ci.yml",
+  "required_contexts": [
+    {
+      "context": "test (3.13)",
+      "job_id": "test",
+      "note": "Backend lane in ci.yml using Python 3.13 matrix."
+    },
+    {
+      "context": "frontend-test (24)",
+      "job_id": "frontend-test",
+      "note": "Frontend lane in ci.yml using Node 24 matrix."
+    },
+    {
+      "context": "e2e",
+      "job_id": "e2e",
+      "note": "Cypress E2E lane in ci.yml."
+    }
+  ],
+  "local_check_commands": [
+    "python -m pytest backend/tests/test_health_endpoint.py -q"
+  ]
+}

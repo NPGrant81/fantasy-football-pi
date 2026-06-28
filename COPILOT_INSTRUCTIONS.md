@@ -17,6 +17,7 @@ Detailed domain knowledge is organized into skill files. Load a skill when conte
 | [UI/UX](.github/skills/ui-ux/SKILL.md) | Tailwind light-first tokens, component patterns, Chart.js |
 | [Testing](.github/skills/testing/SKILL.md) | pytest, Vitest, fixture/mock patterns, known flaky tests |
 | [Git Workflow](.github/skills/git-workflow/SKILL.md) | Branch naming, conventional commits, PR process, CI |
+| [PR Preflight](.github/skills/pr-preflight/SKILL.md) | Branch hygiene preflight, merge-risk simulation, required-check mapping |
 | [Deployment](.github/skills/deployment/SKILL.md) | Pi + Nginx + Cloudflare Tunnel + systemd release process |
 | [Maintenance](.github/skills/maintenance/SKILL.md) | Dependency audits, backups, logging, ETL, Pi hardware |
 | [ADRs](.github/skills/adrs/SKILL.md) | Architecture Decision Records — why key decisions were made |
@@ -212,6 +213,18 @@ const fetchOwners = async (leagueId) => {
 - Commit messages should follow **Conventional Commits** (e.g. `feat: add playoffs sidebar link`).
 - Add new dependencies only after discussing justification in the PR description.
 - CI pipelines validate backend lint, frontend lint, unit tests, and build steps.
+
+### Branch Hygiene and Preflight (Required)
+
+For long-lived branches and any PR update cycle:
+- Sync from `main` daily (rebase or merge).
+- Keep generated coverage output out of tracked PR changes.
+- Run preflight from repo root before pushing:
+  - `python scripts/pr_preflight.py`
+- Maintain required-check context mapping in:
+  - `.github/required-check-contexts.json`
+- Enable git rerere on local machines:
+  - `git config --global rerere.enabled true`
 
 ### Bug-fix branch and PR workflow (required)
 
