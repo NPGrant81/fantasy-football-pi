@@ -1307,3 +1307,29 @@ class CanonicalPlayerSnapshot(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+# --- ISSUE #416: Password Reset Tokens ---
+class PasswordResetToken(Base):
+    """Secure password reset token with single-use enforcement.
+
+    Stores SHA-256 hashed reset tokens to prevent exposure if database is compromised.
+    Each token is:
+    - One-time use (enforced by used_at timestamp)
+    - Time-limited (15-minute expiry via expires_at)
+    - Linked to a specific user for audit purposes
+    """
+
+    __tablename__ = "password_reset_tokens"
+    __table_args__ = (
+        Index("ix_password_reset_token_user", "user_id"),
+        Index("ix_password_reset_token_expires", "expires_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_ip = Column(String, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
