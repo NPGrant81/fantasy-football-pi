@@ -640,47 +640,5 @@
     "owner": "engineering",
     "cadence_days": 30,
     "last_reviewed": "2026-06-27"
-  },
-  {
-    "path": "docs/archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md",
-    "owner": "engineering",
-    "cadence_days": 180,
-    "last_reviewed": "2026-06-27"
-  },
-  {
-    "path": "docs/live-scoring/espn-contract.md",
-    "owner": "data",
-    "cadence_days": 30,
-    "last_reviewed": "2026-06-27"
-  },
-  {
-    "path": "docs/architecture-overview.md",
-    "owner": "engineering",
-    "cadence_days": 90,
-    "last_reviewed": "2026-06-27"
-  },
-  {
-    "path": "docs/feature-dictionary.md",
-    "owner": "data",
-    "cadence_days": 30,
-    "last_reviewed": "2026-06-27"
-  },
-  {
-    "path": "docs/in-season-analytics-spec.md",
-    "owner": "backend",
-    "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
-  },
-  {
-    "path": "docs/model-versioning.md",
-    "owner": "engineering",
-    "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
-  },
-  {
-    "path": "docs/season-reset.md",
-    "owner": "product",
-    "cadence_days": 30,
-    "last_reviewed": "2026-06-27"
   }
 ]
