@@ -28,11 +28,11 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
       - name: Install backend dependencies (edit as needed)
         run: |
           cd backend
@@ -51,11 +51,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: backend-tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '18'
+          node-version: '20'
       - name: Install frontend dependencies
         run: |
           cd frontend
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: frontend-tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Start dev server and run E2E
         run: |
           cd frontend
@@ -83,3 +83,4 @@ jobs:
           npm start & # runs dev server in background (ensure non-blocking)
           sleep 10
           npm run e2e
+

@@ -2,7 +2,7 @@
 import logging
 import os
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
@@ -26,6 +26,7 @@ USE_COOKIE_AUTH = os.getenv("USE_COOKIE_AUTH", "1") != "0"
 COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax")
 COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "0") == "1"
 ACCESS_TOKEN_COOKIE_NAME = security.ACCESS_TOKEN_COOKIE_NAME
+REFRESH_TOKEN_COOKIE_NAME = os.getenv("REFRESH_TOKEN_COOKIE_NAME", "ffpi_refresh_token")
 CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "ffpi_csrf_token")
 CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
 
@@ -85,9 +86,33 @@ def _set_auth_cookies(response: Response, request: Request, access_token: str) -
     )
 
 
+def _set_refresh_cookie(response: Response, request: Request, refresh_token: str) -> None:
+    secure_cookie = _is_secure_request(request)
+    response.set_cookie(
+        key=REFRESH_TOKEN_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=secure_cookie,
+        samesite=COOKIE_SAMESITE,
+        max_age=security.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/",
+    )
+
+
 def _clear_auth_cookies(response: Response) -> None:
     response.delete_cookie(ACCESS_TOKEN_COOKIE_NAME, path="/")
     response.delete_cookie(CSRF_COOKIE_NAME, path="/")
+    response.delete_cookie(REFRESH_TOKEN_COOKIE_NAME, path="/")
+
+
+def _require_csrf_for_cookie_auth(request: Request) -> None:
+    csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+    csrf_header = request.headers.get(CSRF_HEADER_NAME)
+    if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="CSRF token validation failed",
+        )
 
 # --- 2.1 ENDPOINT: REGISTRATION ---
 @router.post("/register", response_model=User)
@@ -155,6 +180,15 @@ def login_for_access_token(
 
     if USE_COOKIE_AUTH:
         _set_auth_cookies(response, request, access_token)
+        refresh_token = security.generate_refresh_token()
+        refresh_expires_at = datetime.now(timezone.utc) + timedelta(days=security.REFRESH_TOKEN_EXPIRE_DAYS)
+        security.create_refresh_token_record(
+            db=db,
+            user_id=user.id,
+            refresh_token=refresh_token,
+            expires_at=refresh_expires_at,
+        )
+        _set_refresh_cookie(response, request, refresh_token)
     
     return {
         "access_token": access_token, 
@@ -168,11 +202,81 @@ def login_for_access_token(
     }
 
 
+@router.post("/refresh")
+def refresh_access_token(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    if USE_COOKIE_AUTH:
+        _require_csrf_for_cookie_auth(request)
+
+    refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
+    if not refresh_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token missing")
+
+    token_record = security.get_refresh_token_record(db, refresh_token)
+    if token_record is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    if token_record.revoked_at is not None:
+        security.revoke_all_user_refresh_tokens(db, token_record.user_id)
+        _clear_auth_cookies(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token replay detected")
+
+    now = datetime.now(timezone.utc)
+    expires_at = token_record.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if expires_at <= now:
+        token_record.revoked_at = now
+        db.commit()
+        _clear_auth_cookies(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
+    user = db.query(models.User).filter(models.User.id == token_record.user_id).first()
+    if user is None:
+        token_record.revoked_at = now
+        db.commit()
+        _clear_auth_cookies(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User no longer exists")
+
+    rotated_from = token_record.token_hash
+    token_record.revoked_at = now
+    db.commit()
+
+    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        data={"sub": user.username},
+        expires_delta=access_token_expires,
+    )
+
+    new_refresh_token = security.generate_refresh_token()
+    refresh_expires_at = now + timedelta(days=security.REFRESH_TOKEN_EXPIRE_DAYS)
+    security.create_refresh_token_record(
+        db=db,
+        user_id=user.id,
+        refresh_token=new_refresh_token,
+        expires_at=refresh_expires_at,
+        rotated_from_token_hash=rotated_from,
+    )
+
+    if USE_COOKIE_AUTH:
+        _set_auth_cookies(response, request, access_token)
+        _set_refresh_cookie(response, request, new_refresh_token)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
+
+
 @router.post("/logout")
 def logout(
     request: Request,
     response: Response,
-    token: str = Depends(security.oauth2_scheme),
+    token: str | None = Depends(security.oauth2_scheme),
     db: Session = Depends(get_db),
 ):
     cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
@@ -180,6 +284,10 @@ def logout(
     if auth_token:
         security.revoke_access_token(db, auth_token)
         security.prune_expired_revoked_tokens(db)
+
+    refresh_cookie_token = request.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
+    if refresh_cookie_token:
+        security.revoke_refresh_token(db, refresh_cookie_token)
 
     _clear_auth_cookies(response)
     return {"message": "Logged out"}

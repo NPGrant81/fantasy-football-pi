@@ -9,6 +9,7 @@ Governance Tracker: [Issue #156](https://github.com/NPGrant81/fantasy-football-p
 - PR validation: `.github/workflows/ci.yml` and `.github/workflows/ci-contributor.yml`
 - Staging deployment: `.github/workflows/deploy-staging.yml`
 - Production deployment: `.github/workflows/deploy-production.yml`
+- Deployment secret drift precheck: `.github/workflows/deployment-secrets-precheck.yml`
 
 Deployment workflows are manual (`workflow_dispatch`) and isolated from PR validation.
 
@@ -20,6 +21,7 @@ Staging:
 - `STAGING_DEPLOY_USER`
 - `STAGING_DEPLOY_SSH_KEY`
 - `STAGING_DEPLOY_APP_DIR`
+- `STAGING_DEPLOY_KNOWN_HOST` (single `known_hosts` line for the staging host)
 
 Production:
 
@@ -27,6 +29,10 @@ Production:
 - `PROD_DEPLOY_USER`
 - `PROD_DEPLOY_SSH_KEY`
 - `PROD_DEPLOY_APP_DIR`
+- `PROD_DEPLOY_KNOWN_HOST` (single `known_hosts` line for the production host)
+
+Roster sync workflow (`.github/workflows/sync-rosters.yml`) uses the production deploy secrets above,
+including `PROD_DEPLOY_KNOWN_HOST`.
 
 Optional notifications:
 
@@ -40,6 +46,12 @@ Weekly source precheck workflow (`.github/workflows/source-prechecks.yml`):
 - `YAHOO_CLIENT_SECRET`
 - `YAHOO_ACCESS_TOKEN`
 - `YAHOO_REFRESH_TOKEN`
+
+Deployment secrets precheck workflow (`.github/workflows/deployment-secrets-precheck.yml`):
+
+- Runs daily on a schedule and on manual dispatch
+- Verifies required staging and production deploy secrets exist
+- Fails fast with a summary listing missing secret names per environment
 
 ## Deploy action
 
@@ -82,6 +94,32 @@ Each run publishes a deployment summary in `GITHUB_STEP_SUMMARY` including:
 - Direct run URL
 
 If webhook secrets are configured, Slack and Teams notifications are sent for every run.
+
+## SSH security hardening (host key pinning)
+
+Deployment and roster-sync workflows use pinned host keys and strict host validation.
+
+- `ssh-keyscan` trust-on-first-use is not used during workflow runs.
+- Workflows require `*_DEPLOY_KNOWN_HOST` to be present.
+- SSH connections enforce strict host key checking.
+
+Generate each host secret value from a trusted machine:
+
+```bash
+ssh-keyscan -H YOUR_HOSTNAME 2>/dev/null | head -n 1
+```
+
+Store the full output line as the matching GitHub environment secret:
+
+- staging host line -> `STAGING_DEPLOY_KNOWN_HOST`
+- production host line -> `PROD_DEPLOY_KNOWN_HOST`
+
+Rotation guidance:
+
+1. Rotate server SSH host keys on target host.
+2. Re-capture host key line with `ssh-keyscan -H`.
+3. Update corresponding `*_DEPLOY_KNOWN_HOST` secret.
+4. Trigger a manual workflow_dispatch deploy to validate connectivity.
 
 ## Reproducibility notes
 

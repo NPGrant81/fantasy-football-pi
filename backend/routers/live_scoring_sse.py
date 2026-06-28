@@ -40,22 +40,30 @@ LOGGER = logging.getLogger(__name__)
 router = APIRouter(prefix="/live-scoring", tags=["live-scoring"])
 
 _KEEPALIVE_TIMEOUT_SECONDS = 30
+_QUEUE_WAIT_SECONDS = _KEEPALIVE_TIMEOUT_SECONDS
 
 
 async def _event_stream(q: asyncio.Queue) -> AsyncGenerator[str, None]:
     """Yield SSE-formatted strings from the client queue indefinitely."""
+    idle_seconds = 0
     try:
+        # Flush an initial SSE event so clients do not block waiting for first bytes.
+        yield "event: connected\ndata: {}\n\n"
         while True:
             try:
-                event = await asyncio.wait_for(q.get(), timeout=_KEEPALIVE_TIMEOUT_SECONDS)
+                event = await asyncio.wait_for(q.get(), timeout=_QUEUE_WAIT_SECONDS)
+                idle_seconds = 0
                 payload = json.dumps(event, separators=(",", ":"))
                 yield f"data: {payload}\n\n"
             except asyncio.TimeoutError:
+                idle_seconds += _QUEUE_WAIT_SECONDS
                 # Keep the HTTP connection alive through proxies
-                yield ": keepalive\n\n"
+                if idle_seconds >= _KEEPALIVE_TIMEOUT_SECONDS:
+                    yield ": keepalive\n\n"
+                    idle_seconds = 0
     except asyncio.CancelledError:
-        # Client disconnected — propagate so FastAPI can clean up
-        raise
+        # Client disconnected.
+        return
     finally:
         try:
             from backend.services.live_scoring_event_bus import unsubscribe

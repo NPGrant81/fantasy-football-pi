@@ -371,14 +371,8 @@ function AuthenticatedShell({
 function App() {
   // --- 1.1 GLOBAL STATE ---
   const [token, setToken] = useState(null);
-  const [activeLeagueId, setActiveLeagueId] = useState(
-    localStorage.getItem('fantasyToken')
-      ? localStorage.getItem('fantasyLeagueId')
-      : null
-  );
-  const [activeOwnerId, setActiveOwnerId] = useState(
-    localStorage.getItem('fantasyToken') ? localStorage.getItem('user_id') : null
-  );
+  const [activeLeagueId, setActiveLeagueId] = useState(localStorage.getItem('fantasyLeagueId'));
+  const [activeOwnerId, setActiveOwnerId] = useState(localStorage.getItem('user_id'));
   const [username, setUsername] = useState('');
   const [isCommissioner, setIsCommissioner] = useState(false);
   const [isSuperuser, setIsSuperuser] = useState(false);
@@ -412,7 +406,6 @@ function App() {
     setIsCommissioner(false);
     setIsSuperuser(false);
     setLayoutAlert('');
-    localStorage.removeItem('fantasyToken');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
   }, []);
@@ -514,8 +507,7 @@ function App() {
 
   // --- 1.3 AUTH CHECK (The Guard) ---
   useEffect(() => {
-    const storedToken = localStorage.getItem('fantasyToken');
-    if (!storedToken || isLoggingOutRef.current) return;
+    if (isLoggingOutRef.current) return;
 
     const authCheckId = ++authCheckIdRef.current;
 
@@ -571,7 +563,6 @@ function App() {
 
   useEffect(() => {
     if (token || !isLoggingOutRef.current) return;
-    localStorage.removeItem('fantasyToken');
     localStorage.removeItem('user_id');
     localStorage.removeItem('fantasyLeagueId');
   }, [token]);
@@ -633,7 +624,6 @@ function App() {
       const resolvedLeagueId = typedLeagueId || serverLeagueId;
       isLoggingOutRef.current = false;
 
-      localStorage.setItem('fantasyToken', 'cookie-session');
       localStorage.setItem('user_id', owner_id);
       if (resolvedLeagueId) {
         localStorage.setItem('fantasyLeagueId', resolvedLeagueId);
