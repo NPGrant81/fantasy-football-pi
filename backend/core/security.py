@@ -210,7 +210,7 @@ def is_token_revoked(db: Session, jti: Optional[str]) -> bool:
 # 2.1.1 Standard User: Verifies token and returns the User object
 async def get_current_user(
     request: Request,
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
     cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
@@ -233,7 +233,7 @@ async def get_current_user(
         raise credentials_exception
 
     prune_expired_revoked_tokens(db)
-    if is_token_revoked(db, jti):
+    if jti and is_token_revoked(db, jti):
         raise credentials_exception
 
     user = db.query(models.User).filter(models.User.username == username).first()

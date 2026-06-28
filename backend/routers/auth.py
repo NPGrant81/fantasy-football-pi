@@ -276,7 +276,7 @@ def refresh_access_token(
 def logout(
     request: Request,
     response: Response,
-    token: str = Depends(security.oauth2_scheme),
+    token: str | None = Depends(security.oauth2_scheme),
     db: Session = Depends(get_db),
 ):
     cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
