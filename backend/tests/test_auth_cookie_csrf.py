@@ -79,6 +79,33 @@ def test_login_sets_auth_and_csrf_cookies(client, api_db, monkeypatch):
     assert me.json()["username"] == "cookie-user"
 
 
+def test_login_username_match_is_case_insensitive(client, api_db, monkeypatch):
+    monkeypatch.setattr(
+        security,
+        "verify_password",
+        lambda plain_password, hashed_password: plain_password == "secret"
+        and hashed_password == "test-hash",
+    )
+
+    user = models.User(
+        username="CaseSensitiveUser",
+        email="case-user@test.com",
+        hashed_password="test-hash",
+        league_id=1,
+    )
+    api_db.add(user)
+    api_db.commit()
+
+    response = client.post(
+        "/auth/token",
+        data={"username": "casesensitiveuser", "password": "secret"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["owner_id"] == user.id
+
+
 def test_csrf_required_for_cookie_authenticated_write_requests(client, api_db, monkeypatch):
     monkeypatch.setattr(
         security,
