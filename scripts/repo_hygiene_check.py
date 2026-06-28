@@ -95,19 +95,17 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("product", "tracking")
 
     name = Path(rel).name
+<<<<<<< HEAD
     if any(
-        token in name
-        for token in [
-            "api_",
-            "draft_day_advisor",
-            "player_api_filtering",
-            "model-serving",
-            "model-training",
-            "model-versioning",
-            "backend_ci_pipeline",
-            "in-season-analytics-spec",
-        ]
-    ):
+    if name == "in-season-analytics-spec.md":
+        return ("backend", "api-or-service")
+    if name == "model-versioning.md":
+        return ("data", "data-contract-or-quality")
+    if name == "post-draft-analysis-pipeline.md":
+        return ("data", "data-contract-or-quality")
+    if name == "season-reset.md":
+        return ("platform", "operations")
+    if any(token in name for token in ["api_", "draft_day_advisor", "player_api_filtering", "model-serving", "model-training", "backend_ci_pipeline"]):
         return ("backend", "api-or-service")
     if any(token in name for token in ["in-season-analytics", "model-versioning", "season-reset"]):
         return ("engineering", "process")
