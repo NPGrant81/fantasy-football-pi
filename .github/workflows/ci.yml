@@ -8,6 +8,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  preflight-advisory:
+    name: PR Preflight Advisory
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Run preflight checks (advisory)
+        continue-on-error: true
+        run: |
+          python scripts/pr_preflight.py
+
   test:
     runs-on: ubuntu-latest
     outputs:
