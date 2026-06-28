@@ -403,8 +403,6 @@ def test_choose_auth_token_respects_allow_bearer_auth(monkeypatch):
 
     monkeypatch.setattr(security, "ALLOW_BEARER_AUTH", True)
     assert security.choose_auth_token(None, "bearer-token") == "bearer-token"
-
-
 def test_refresh_replay_revokes_all_refresh_tokens(client, api_db, monkeypatch):
     monkeypatch.setattr(
         security,
