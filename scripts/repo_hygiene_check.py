@@ -83,6 +83,8 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("platform", "setup")
     if rel.startswith("docs/architecture/"):
         return ("engineering", "architecture")
+    if rel == "docs/architecture-overview.md":
+        return ("engineering", "architecture")
     if rel.startswith("docs/gaps/"):
         return ("product", "gap-analysis")
     if rel.startswith("docs/ml/"):
@@ -93,6 +95,14 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("product", "tracking")
 
     name = Path(rel).name
+    if name == "in-season-analytics-spec.md":
+        return ("backend", "api-or-service")
+    if name == "model-versioning.md":
+        return ("data", "data-contract-or-quality")
+    if name == "post-draft-analysis-pipeline.md":
+        return ("data", "data-contract-or-quality")
+    if name == "season-reset.md":
+        return ("platform", "operations")
     if any(token in name for token in ["api_", "draft_day_advisor", "player_api_filtering", "model-serving", "model-training", "backend_ci_pipeline"]):
         return ("backend", "api-or-service")
     if any(token in name for token in ["frontend", "ui_", "ux-", "responsive", "ui_reference"]):
