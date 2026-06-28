@@ -9,6 +9,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 # regardless of execution context, load backend modules explicitly to avoid
 # duplicate metadata objects when SQLAlchemy reflects them under two names
@@ -204,37 +205,6 @@ def is_token_revoked(db: Session, jti: Optional[str]) -> bool:
     )
 
 
-def revoke_access_token(db: Session, auth_token: str) -> bool:
-    try:
-        payload = decode_access_token(auth_token)
-    except JWTError:
-        return False
-
-    jti = payload.get("jti")
-    exp = payload.get("exp")
-    subject = payload.get("sub")
-    if not jti or exp is None:
-        return False
-
-    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-    if expires_at <= datetime.now(timezone.utc):
-        return False
-
-    if is_token_revoked(db, jti):
-        return True
-
-    db.add(
-        models.RevokedToken(
-            jti=str(jti),
-            token_subject=str(subject) if subject is not None else None,
-            expires_at=expires_at,
-        )
-    )
-    db.commit()
-    return True
-
-# --- 2.1 THE BOUNCERS (REFACTORED) ---
-
 # --- 2.1 THE BOUNCERS (FIXED) ---
 
 # 2.1.1 Standard User: Verifies token and returns the User object
@@ -252,8 +222,13 @@ async def get_current_user(
         payload = decode_access_token(auth_token)
         username: str = payload.get("sub")
         jti: str | None = payload.get("jti")
-        if username is None or jti is None:
+        if username is None:
             raise credentials_exception
+        # Check if token has been revoked (via logout or forced expiration)
+        if jti:
+            revoked = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
+            if revoked:
+                raise credentials_exception
     except JWTError:
         raise credentials_exception
 
@@ -292,3 +267,103 @@ async def get_current_active_admin(current_user: models.User = Depends(get_curre
             detail="Access denied: Commissioner privileges required."
         )
     return current_user
+
+
+# --- 3.0 REFRESH TOKEN MANAGEMENT ---
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+
+
+def _hash_token(token: str) -> str:
+    """Hash a refresh token for secure storage."""
+    import hashlib
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+# Expose as public function for tests and external use
+def hash_refresh_token(token: str) -> str:
+    """Hash a refresh token for secure storage (public interface)."""
+    return _hash_token(token)
+
+
+def generate_refresh_token() -> str:
+    """Generate a secure refresh token."""
+    import secrets
+    return secrets.token_urlsafe(32)
+
+
+def create_refresh_token_record(
+    db: Session,
+    user_id: int,
+    refresh_token: str,
+    expires_at: datetime,
+    rotated_from_token_hash: str = None,
+) -> models.RefreshToken:
+    """Create a new refresh token record with optional rotation chain tracking."""
+    token_hash = _hash_token(refresh_token)
+    record = models.RefreshToken(
+        user_id=user_id,
+        token_hash=token_hash,
+        expires_at=expires_at,
+        rotated_from_token_hash=rotated_from_token_hash,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def get_refresh_token_record(db: Session, refresh_token: str) -> models.RefreshToken:
+    """Retrieve a refresh token record by plain token (hashes it internally)."""
+    token_hash = _hash_token(refresh_token)
+    return db.query(models.RefreshToken).filter(
+        models.RefreshToken.token_hash == token_hash
+    ).first()
+
+
+def revoke_all_user_refresh_tokens(db: Session, user_id: int) -> None:
+    """Revoke all refresh tokens for a user (used during logout)."""
+    now = datetime.now(timezone.utc)
+    db.query(models.RefreshToken).filter(
+        models.RefreshToken.user_id == user_id,
+        models.RefreshToken.revoked_at.is_(None),
+    ).update({"revoked_at": now})
+    db.commit()
+
+
+def revoke_access_token(db: Session, access_token: str) -> None:
+    """Revoke an access token by storing its JTI in the blocklist."""
+    try:
+        payload = jwt.decode(access_token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti and exp:
+            # Convert exp timestamp to datetime
+            expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+            existing = db.query(models.RevokedToken).filter(models.RevokedToken.jti == jti).first()
+            if existing:
+                return
+            # Record the revocation
+            revoked = models.RevokedToken(
+                jti=jti,
+                token_subject=payload.get("sub"),
+                expires_at=expires_at,
+            )
+            db.add(revoked)
+            try:
+                db.commit()
+            except IntegrityError:
+                # Duplicate revoke attempts are safe to ignore.
+                db.rollback()
+    except (JWTError, ValueError):
+        # Token is malformed or already expired, skip revocation
+        pass
+
+
+def revoke_refresh_token(db: Session, refresh_token: str) -> None:
+    """Revoke a specific refresh token (mark as revoked)."""
+    token_hash = _hash_token(refresh_token)
+    now = datetime.now(timezone.utc)
+    db.query(models.RefreshToken).filter(
+        models.RefreshToken.token_hash == token_hash
+    ).update({"revoked_at": now})
+    db.commit()

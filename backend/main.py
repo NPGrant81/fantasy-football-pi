@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from dotenv import load_dotenv
@@ -126,13 +126,15 @@ async def lifespan(app: FastAPI):
     """
     # --- startup portion ---
     try:
-        # run any pending alembic migrations on startup so the schema stays
-        # up‑to‑date even if somebody applied a migration externally (e.g. via
-        # a cron job or manual `alembic upgrade`).  this is lightweight and
-        # idempotent.
-        from alembic import command, config as alembic_config
-        cfg = alembic_config.Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
-        command.upgrade(cfg, "heads")
+        skip_startup_migrations = os.getenv("BACKEND_SKIP_STARTUP_MIGRATIONS", "0") == "1"
+        if not skip_startup_migrations:
+            # run any pending alembic migrations on startup so the schema stays
+            # up‑to‑date even if somebody applied a migration externally (e.g. via
+            # a cron job or manual `alembic upgrade`).  this is lightweight and
+            # idempotent.
+            from alembic import command, config as alembic_config
+            cfg = alembic_config.Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+            command.upgrade(cfg, "heads")
     except Exception as e:
         # if the DB isn't reachable or alembic isn't configured, we just
         # log and continue.  the runtime schema function will still patch
@@ -476,8 +478,8 @@ def read_root():
     return {"message": "Fantasy Football API is Running!"}
 
 
-@app.get("/health")
-def health_check():
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health_check(request: Request):
     db_ok = True
     try:
         with engine.connect() as connection:
@@ -492,6 +494,8 @@ def health_check():
         "service": "fantasy-football-backend",
         "database": "ok" if db_ok else "error",
     }
+    if request.method == "HEAD":
+        return Response(status_code=200 if db_ok else 503)
     if db_ok:
         return payload
     return JSONResponse(status_code=503, content=payload)

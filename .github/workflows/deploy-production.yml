@@ -36,10 +36,11 @@ jobs:
           DEPLOY_USER: ${{ secrets.PROD_DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
           DEPLOY_APP_DIR: ${{ secrets.PROD_DEPLOY_APP_DIR }}
+          DEPLOY_KNOWN_HOST: ${{ secrets.PROD_DEPLOY_KNOWN_HOST }}
         run: |
           set -euo pipefail
           missing=0
-          for var in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_APP_DIR; do
+          for var in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_APP_DIR DEPLOY_KNOWN_HOST; do
             if [ -z "${!var:-}" ]; then
               echo "Missing required secret: $var"
               missing=1
@@ -66,19 +67,29 @@ jobs:
     environment: production
     steps:
       - name: Checkout repository metadata
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_ed25519
 
       - name: Trust production host
         env:
-          DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOST: ${{ secrets.PROD_DEPLOY_KNOWN_HOST }}
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KNOWN_HOST" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Execute production deploy or rollback
         env:
@@ -90,7 +101,7 @@ jobs:
           ROLLBACK_REF: ${{ inputs.rollback_ref }}
         run: |
           set -euo pipefail
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+          ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -o IdentitiesOnly=yes "$DEPLOY_USER@$DEPLOY_HOST" \
             "APP_DIR='$DEPLOY_APP_DIR' ACTION='$ACTION' RELEASE_REF='$RELEASE_REF' ROLLBACK_REF='$ROLLBACK_REF' bash -s" <<'REMOTE_SCRIPT'
           set -euo pipefail
           cd "$APP_DIR"
@@ -184,3 +195,4 @@ jobs:
           EOF
           )
           curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$TEAMS_WEBHOOK_URL"
+

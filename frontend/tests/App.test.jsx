@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
@@ -82,7 +82,6 @@ describe('App (basic)', () => {
   });
 
   test('uses token to fetch /auth/me and shows app when valid', async () => {
-    localStorage.setItem('fantasyToken', 'fake-token');
     localStorage.setItem('fantasyLeagueId', '1');
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me')
@@ -98,7 +97,6 @@ describe('App (basic)', () => {
 
     // Wait for primary effect
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/auth/me'));
-    expect(localStorage.getItem('fantasyToken')).toBe('fake-token');
     expect(screen.getByTestId('layout')).toBeInTheDocument();
 
     // since league settings were fetched, Layout.alert should include our deadlines
@@ -114,8 +112,13 @@ describe('App (basic)', () => {
       data: { access_token: 'new-token', owner_id: 42 },
       // Note: No league_id in response - App must use form input instead
     });
-    apiClient.get.mockResolvedValue({
-      data: { user_id: 42, username: 'testuser' },
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.reject(new Error('unauthorized'));
+      }
+      return Promise.resolve({
+        data: { user_id: 42, username: 'testuser' },
+      });
     });
 
     render(<App />);
@@ -128,8 +131,7 @@ describe('App (basic)', () => {
 
     await user.type(usernameInput, 'testuser');
     await user.type(passwordInput, 'password');
-    await user.clear(leagueIdInput);
-    await user.type(leagueIdInput, '5'); // Change from default (1) to 5
+    fireEvent.change(leagueIdInput, { target: { value: '5' } }); // Change from default (1) to 5
 
     // Submit form
     const submitButton = screen.getByRole('button', { name: /ENTER/i });
@@ -147,16 +149,49 @@ describe('App (basic)', () => {
     // Verify typed league ID is used when server omits league_id.
     await waitFor(() => {
       expect(localStorage.getItem('fantasyLeagueId')).toBe('5');
-      // Verify fantasyToken is set so auth persists across refresh
-      expect(localStorage.getItem('fantasyToken')).toBe('cookie-session');
+      expect(localStorage.getItem('user_id')).toBe('42');
     });
 
     // With an active league, app should render authenticated layout.
     expect(screen.getByTestId('layout')).toBeInTheDocument();
   });
 
-  test('logout clears fantasyToken so auth check is not re-triggered', async () => {
-    localStorage.setItem('fantasyToken', 'cookie-session');
+  test('login does not write auth token values to localStorage', async () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    apiClient.post.mockResolvedValue({
+      data: { access_token: 'new-token', owner_id: 42, league_id: 5 },
+    });
+    apiClient.get.mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.reject(new Error('unauthorized'));
+      }
+      return Promise.resolve({
+        data: { user_id: 42, username: 'testuser', league_id: 5 },
+      });
+    });
+
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByPlaceholderText(/Enter username/i), 'testuser');
+    await user.type(screen.getByPlaceholderText(/Enter password/i), 'password');
+    await user.click(screen.getByRole('button', { name: /ENTER/i }));
+
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(
+      '/auth/token',
+      expect.any(Object),
+      expect.any(Object)
+    ));
+
+    const fantasyTokenWrites = setItemSpy.mock.calls.filter(
+      ([key]) => key === 'fantasyToken'
+    );
+    expect(fantasyTokenWrites).toHaveLength(0);
+    expect(localStorage.getItem('fantasyToken')).toBeNull();
+    setItemSpy.mockRestore();
+  });
+
+  test('logout clears stored user context', async () => {
     localStorage.setItem('fantasyLeagueId', '1');
     localStorage.setItem('user_id', '7');
     apiClient.get.mockImplementation((url) => {
@@ -176,14 +211,13 @@ describe('App (basic)', () => {
     });
 
     await waitFor(() => {
-      expect(localStorage.getItem('fantasyToken')).toBeNull();
       expect(localStorage.getItem('user_id')).toBeNull();
+      expect(localStorage.getItem('fantasyLeagueId')).toBeNull();
     });
     expect(screen.getByText(/PPL Insight Hub Login/i)).toBeInTheDocument();
   });
 
   test('logout deduplicates in-flight /auth/logout requests', async () => {
-    localStorage.setItem('fantasyToken', 'cookie-session');
     localStorage.setItem('fantasyLeagueId', '1');
     localStorage.setItem('user_id', '7');
 
@@ -224,7 +258,6 @@ describe('App (basic)', () => {
   });
 
   test('login aborts pending logout before requesting /auth/token', async () => {
-    localStorage.setItem('fantasyToken', 'cookie-session');
     localStorage.setItem('fantasyLeagueId', '1');
     localStorage.setItem('user_id', '7');
 
@@ -290,7 +323,6 @@ describe('App (basic)', () => {
   });
 
   test('token-present users without a mapped league can select one and enter the app', async () => {
-    localStorage.setItem('fantasyToken', 'cookie-session');
     localStorage.setItem('user_id', '7');
 
     apiClient.get.mockImplementation((url) => {
@@ -334,7 +366,6 @@ describe('App (basic)', () => {
   });
 
   test('visiting /playoffs renders playoff bracket', async () => {
-    localStorage.setItem('fantasyToken', 'fake-token');
     localStorage.setItem('fantasyLeagueId', '1');
     apiClient.get.mockResolvedValue({ data: { user_id: 1, username: 'bob', league_id: 1 } });
     // pre-set url before render (router will pick it up)
@@ -364,7 +395,6 @@ describe('App idle session timeout', () => {
   });
 
   function setupAuthenticatedApp() {
-    localStorage.setItem('fantasyToken', 'fake-token');
     localStorage.setItem('fantasyLeagueId', '1');
     apiClient.get.mockImplementation((url) => {
       if (url === '/auth/me')

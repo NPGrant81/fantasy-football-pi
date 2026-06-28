@@ -5,6 +5,7 @@ Refer to the appropriate file for more information.
 
 - [Api Integration Pipeline](API_INTEGRATION_PIPELINE.md)
 - [Api Page Matrix](API_PAGE_MATRIX.md)
+- [Architecture-Overview](architecture-overview.md)
 - [Architecture](ARCHITECTURE.md)
 - [Backend Ci Pipeline Optimization](BACKEND_CI_PIPELINE_OPTIMIZATION.md)
 - [Backlog Triage 2026-03-14](BACKLOG_TRIAGE_2026-03-14.md)
@@ -22,12 +23,12 @@ Refer to the appropriate file for more information.
 - [Doc Issue Correlation Map](DOC_ISSUE_CORRELATION_MAP.md)
 - [Draft Analyzer Api Audit](DRAFT_ANALYZER_API_AUDIT.md)
 - [Draft Day Advisor Mode](DRAFT_DAY_ADVISOR_MODE.md)
-- [Feature Dictionary](feature-dictionary.md)
+- [Feature-Dictionary](feature-dictionary.md)
 - [Frontend Ci Pipeline Optimization](FRONTEND_CI_PIPELINE_OPTIMIZATION.md)
 - [Frontend Ui Standards](FRONTEND_UI_STANDARDS.md)
+- [In-Season-Analytics-Spec](in-season-analytics-spec.md)
 - [Issue 112 Execution Plan](ISSUE_112_EXECUTION_PLAN.md)
 - [Issue Status](ISSUE_STATUS.md)
-- [In-Season-Analytics-Spec](in-season-analytics-spec.md)
 - [League60 Owner Backfill](LEAGUE60_OWNER_BACKFILL.md)
 - [Live Scoring Reliability Runbook](LIVE_SCORING_RELIABILITY_RUNBOOK.md)
 - [Mfl Historical Data Operations](MFL_HISTORICAL_DATA_OPERATIONS.md)
@@ -41,6 +42,7 @@ Refer to the appropriate file for more information.
 - [Raspberry Pi Deployment](RASPBERRY_PI_DEPLOYMENT.md)
 - [Responsive Audit Environment](RESPONSIVE_AUDIT_ENVIRONMENT.md)
 - [Scoring Edge Case Test Matrix](SCORING_EDGE_CASE_TEST_MATRIX.md)
+- [Season-Reset](season-reset.md)
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
 - [Trade Qa Regression 2026-03-30](TRADE_QA_REGRESSION_2026-03-30.md)
@@ -60,9 +62,7 @@ Refer to the appropriate file for more information.
 - [Permissions](permissions.md)
 - [Player-Metadata-Rules](player-metadata-rules.md)
 - [Restore](restore.md)
-- [Season-Reset](season-reset.md)
 - [Ux-Insights-Spec](ux-insights-spec.md)
-- [Architecture-Overview](architecture-overview.md)
 
 ## Sub-directories
 
@@ -73,8 +73,8 @@ Refer to the appropriate file for more information.
 
 ### Archive
 
-- [Markdown Governance Sweep Report 2026-03-08](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-03-08.md)
 - [Markdown Governance Sweep Report 2026-05-05](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md)
+- [Markdown Governance Sweep Report 2026-03-08](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-03-08.md)
 - [Session Completion 2026-03-21](archive/SESSION_COMPLETION_2026-03-21.md)
 
 ### Commit-Packages
@@ -113,10 +113,6 @@ Refer to the appropriate file for more information.
 - [Doc Classification Guardrails](governance/DOC_CLASSIFICATION_GUARDRAILS.md)
 - [Readme](governance/README.md)
 
-### Live-Scoring
-
-- [Espn-Contract](live-scoring/espn-contract.md)
-
 ### Milestones
 
 - [Readme](milestones/README.md)
@@ -127,6 +123,10 @@ Refer to the appropriate file for more information.
 - [Milestone-5-Gameplay-Logic](milestones/milestone-5-gameplay-logic.md)
 - [Milestone-6-Production-Readiness](milestones/milestone-6-production-readiness.md)
 - [Milestone-7-Release-1.0](milestones/milestone-7-release-1.0.md)
+
+### Live-Scoring
+
+- [Espn-Contract](live-scoring/espn-contract.md)
 
 ### Ml
 
