@@ -3,6 +3,9 @@ import axios from 'axios';
 
 const CSRF_COOKIE_NAME = 'ffpi_csrf_token';
 const CSRF_HEADER_NAME = 'X-CSRF-Token';
+const REFRESH_ENDPOINT = '/auth/refresh';
+
+let refreshPromise = null;
 
 function getCookieValue(name) {
   if (typeof document === 'undefined') return null;
@@ -30,6 +33,47 @@ const apiClient = axios.create({
   },
 });
 
+function normalizePath(url) {
+  if (!url) return '';
+  if (typeof url !== 'string') return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      return new URL(url).pathname;
+    } catch {
+      return url;
+    }
+  }
+  return url;
+}
+
+function shouldAttemptRefresh(error) {
+  const status = Number(error?.response?.status || 0);
+  if (status !== 401) return false;
+
+  const config = error?.config || {};
+  if (config._skipAuthRefresh || config._authRetryAttempted) return false;
+
+  const requestPath = normalizePath(config.url);
+  if (requestPath === REFRESH_ENDPOINT || requestPath === '/auth/token' || requestPath === '/auth/logout') {
+    return false;
+  }
+
+  return true;
+}
+
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = apiClient.post(
+      REFRESH_ENDPOINT,
+      {},
+      { _skipAuthRefresh: true }
+    ).finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
 // --- 2.1 REQUEST INTERCEPTOR (Cookie + CSRF) ---
 apiClient.interceptors.request.use(
   (config) => {
@@ -50,10 +94,19 @@ apiClient.interceptors.request.use(
 // --- 2.2 RESPONSE INTERCEPTOR ---
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // 2.2.1 401 errors are handled at the component / App level.
-    // Do NOT perform a full-page redirect here — that causes a black screen
-    // when navigating between pages that fire requests before auth resolves.
+  async (error) => {
+    if (shouldAttemptRefresh(error)) {
+      const originalConfig = error.config;
+      originalConfig._authRetryAttempted = true;
+
+      try {
+        await refreshAccessToken();
+        return apiClient.request(originalConfig);
+      } catch (_refreshError) {
+        // Fall through to component/App-level auth handling if refresh fails.
+      }
+    }
+
     return Promise.reject(error);
   }
 );

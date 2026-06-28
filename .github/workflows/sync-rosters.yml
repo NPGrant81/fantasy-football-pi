@@ -24,26 +24,66 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - name: Preflight required secrets
+        id: preflight
+        env:
+          PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          PROD_DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_USER: ${{ secrets.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_APP_DIR: ${{ secrets.PROD_DEPLOY_APP_DIR }}
+          PROD_DEPLOY_KNOWN_HOST: ${{ secrets.PROD_DEPLOY_KNOWN_HOST }}
+        run: |
+          set -euo pipefail
+          missing=()
+
+          [ -n "${PROD_DEPLOY_SSH_KEY:-}" ] || missing+=("PROD_DEPLOY_SSH_KEY")
+          [ -n "${PROD_DEPLOY_HOST:-}" ] || missing+=("PROD_DEPLOY_HOST")
+          [ -n "${PROD_DEPLOY_USER:-}" ] || missing+=("PROD_DEPLOY_USER")
+          [ -n "${PROD_DEPLOY_APP_DIR:-}" ] || missing+=("PROD_DEPLOY_APP_DIR")
+          [ -n "${PROD_DEPLOY_KNOWN_HOST:-}" ] || missing+=("PROD_DEPLOY_KNOWN_HOST")
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "can_run=false" >> "$GITHUB_OUTPUT"
+            printf "missing_csv=%s\n" "$(IFS=,; echo "${missing[*]}")" >> "$GITHUB_OUTPUT"
+            echo "Roster sync preflight: missing required secrets: ${missing[*]}"
+          else
+            echo "can_run=true" >> "$GITHUB_OUTPUT"
+            echo "missing_csv=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+        if: steps.preflight.outputs.can_run == 'true'
+        env:
+          PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$PROD_DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_ed25519
 
       - name: Trust production host
+        if: steps.preflight.outputs.can_run == 'true'
         env:
-          DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOST: ${{ secrets.PROD_DEPLOY_KNOWN_HOST }}
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KNOWN_HOST" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Run roster sync on Pi
+        if: steps.preflight.outputs.can_run == 'true'
         env:
           DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.PROD_DEPLOY_USER }}
           DEPLOY_APP_DIR: ${{ secrets.PROD_DEPLOY_APP_DIR }}
         run: |
           set -euo pipefail
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+          ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -o IdentitiesOnly=yes "$DEPLOY_USER@$DEPLOY_HOST" \
             "APP_DIR='$DEPLOY_APP_DIR' bash -s" <<'REMOTE_SCRIPT'
           set -euo pipefail
           cd "$APP_DIR/backend"
@@ -72,7 +112,11 @@ jobs:
       - name: Report sync summary
         if: always()
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
+          if [ "${{ steps.preflight.outputs.can_run }}" != "true" ]; then
+            echo "## ⚠️ NFL Roster Sync Skipped (Configuration Required)" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Missing required secrets: ${{ steps.preflight.outputs.missing_csv }}" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ job.status }}" = "success" ]; then
             echo "## ✅ NFL Roster Sync Succeeded" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "## ❌ NFL Roster Sync Failed" >> "$GITHUB_STEP_SUMMARY"

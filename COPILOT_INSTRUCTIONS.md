@@ -258,6 +258,25 @@ These guidelines are meant to keep the codebase consistent, maintainable, and ea
 - Do not generate synchronous engine/session code or patterns unless explicitly requested.
 - Use `await session.execute(...)` and `await session.commit()` consistently.
 
+### VS Code / Copilot Release Alignment (1.118, 1.119)
+To keep agent behavior consistent with recent VS Code/Copilot changes:
+
+- Integrated browser access is explicit:
+  - If browser interaction is needed, prefer reusing already-open tabs and request sharing when prompted.
+  - Do not assume implicit browser access.
+
+- Skills and customizations remain first-class:
+  - Keep repository guidance in skill files and instruction files current.
+  - Prefer linking operational runbooks (for example, git sync/rebase procedures) from both skills and this file.
+
+- Observability and cost-awareness:
+  - Keep CI/agent workflows concise and deterministic to reduce unnecessary token/tool churn.
+  - Prefer targeted checks and minimal reruns when fixing PR blockers.
+
+- Security/sandbox awareness:
+  - Do not rely on unrestricted filesystem/network assumptions in automation scripts.
+  - Keep workflows compatible with stricter sandbox defaults and organization policies.
+
 ### Cross‑layer type generation
 - Copilot may generate TypeScript types/interfaces based on Pydantic models when helpful.
 - Generated types must be placed in `frontend/src/types/` unless another location is specified.

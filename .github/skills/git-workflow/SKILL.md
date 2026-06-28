@@ -73,6 +73,65 @@ updated some stuff
 
 ## PR Process
 
+## Repeatable Branch Sync Procedure (Required When Prompted)
+When asked to "sync with main", "rebase current branch", or close out merge blockers caused by branch drift, run this exact safe flow.
+
+### Goal
+- Update local `main` from `origin/main`
+- Rebase the current feature branch on top of latest `main`
+- Preserve and restore any local tracked or untracked work
+
+### Safe Rebase Flow
+1. Confirm branch and working tree state:
+```bash
+git status --short --branch
+git branch --show-current
+```
+2. If working tree is dirty, stash tracked and untracked changes:
+```bash
+git stash push -u -m "autostash-before-main-sync-$(date +%Y%m%d-%H%M%S)"
+```
+3. Update `main` safely:
+```bash
+git fetch origin --prune
+git checkout main
+git pull --ff-only origin main
+```
+4. Return to original feature branch and rebase:
+```bash
+git checkout -
+git rebase main
+```
+5. If a stash was created, restore it:
+```bash
+git stash pop
+```
+6. Verify final state:
+```bash
+git status --short --branch
+```
+
+### Push Rules After Rebase
+- If branch has never been pushed:
+```bash
+git push -u origin <branch>
+```
+- If branch was previously pushed and history changed due to rebase:
+```bash
+git push --force-with-lease
+```
+
+### Conflict Handling
+- Rebase conflicts:
+   - Resolve files
+   - `git add <resolved-files>`
+   - `git rebase --continue`
+- Abort only if requested or necessary:
+```bash
+git rebase --abort
+```
+- Stash pop conflicts are handled the same way (resolve, stage, continue normal workflow).
+
 ### Opening a PR
 1. Push branch: `git push origin feat/issue-48-waiver-tracker`
 2. GitHub prints PR URL — open it and fill in the template
@@ -94,6 +153,25 @@ updated some stuff
    - [ ] Build: `npm run build`
    ```
 5. Assign yourself; add label matching issue type
+
+### Test-Delta Title Gate (CI)
+Some PR validation checks require test-file deltas for feature/fix PRs. If a change is operational/non-behavioral (for example CI-only, docs-only, refactor-only), use an exempt PR title prefix so the gate can skip test-delta enforcement.
+
+Accepted exempt prefixes at title start:
+- `chore:` / `chore(` / `chore `
+- `docs:` / `docs(` / `docs `
+- `refactor:` / `refactor(` / `refactor `
+- `ci:` / `ci(` / `ci `
+- `build:` / `build(` / `build `
+- `style:` / `style(` / `style `
+- `test:` / `test(` / `test `
+
+Example:
+```text
+ci: implement dead/stale code detection reporting pipeline (#301)
+```
+
+If the PR is truly feature/bug behavior, keep `feat`/`fix` and include matching test file deltas.
 
 ### PR Review Checklist
 See `.github/REVIEW_CHECKLIST.md` for full list. Key gates:
@@ -216,6 +294,7 @@ Issue comment template:
 - Create a branch for every change — never commit directly to `main`
 - Include `Closes #N` in the PR body for every issue being addressed
 - Run the local test suite before pushing
+- When prompted to sync/rebase, use the safe stash -> update main -> rebase -> restore flow above
 - Reference the parent issue when working on sub-stories
 - Keep commits atomic — one logical change per commit
 - Post close-out notes on each related issue when work merges (and update after deploy)

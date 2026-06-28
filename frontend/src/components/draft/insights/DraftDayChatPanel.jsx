@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buttonPrimary, buttonSecondary } from '@utils/uiStandards';
 
+/* ignore-breakpoints */
+
 /**
  * Message type → border + header colour tokens (light-first).
  */

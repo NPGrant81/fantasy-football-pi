@@ -96,7 +96,7 @@ def publish_from_thread(event: dict[str, Any]) -> None:
         return
 
     loop = _loop
-    if loop is None or not loop.is_running():
+    if loop is None or loop.is_closed():
         LOGGER.debug(
             "live_scoring.event_bus no_loop_available clients=%s event_dropped",
             len(clients),

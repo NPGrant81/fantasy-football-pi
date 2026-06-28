@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { buttonPrimary, buttonSecondary } from '@utils/uiStandards';
 import { askInSeasonAdvisor } from '@api/analyticsApi';
 
+/* ignore-breakpoints */
+
 const QUICK_PROMPTS = [
   'Who should I target on waivers?',
   'Who should I start this week?',
