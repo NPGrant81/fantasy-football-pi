@@ -141,6 +141,7 @@ jobs:
         run: |
           python -m pytest backend/tests/test_validation_service.py -q
           python -m pytest etl/test_validation_framework.py -q
+          python -m pytest etl/test_feature_drift.py -q
 
       - name: Lint backend with flake8
         id: backend_lint
