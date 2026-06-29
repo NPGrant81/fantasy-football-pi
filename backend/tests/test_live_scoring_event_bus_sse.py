@@ -4,10 +4,8 @@ Tests for live_scoring_event_bus and the live_scoring_sse router.
 
 import asyncio
 import json
-import types
 
 import pytest
-from fastapi.testclient import TestClient
 
 from backend.services import live_scoring_event_bus as bus
 
@@ -149,40 +147,37 @@ def test_build_score_update_event_none_snapshots_defaults_to_empty_list():
 
 
 # ---------------------------------------------------------------------------
-# SSE router integration tests
+# SSE router tests (generator-level, avoids TestClient stream deadlocks)
 # ---------------------------------------------------------------------------
 
 
-def _make_test_client():
-    """Build a minimal FastAPI app with just the SSE router."""
-    from fastapi import FastAPI
-    from backend.routers.live_scoring_sse import router
-
-    app = FastAPI()
-    app.include_router(router)
-    return TestClient(app, raise_server_exceptions=True)
-
-
 def test_sse_stream_returns_event_stream_content_type():
-    client = _make_test_client()
-    # Open the stream with a short timeout so the test doesn't hang
-    with client.stream("GET", "/live-scoring/stream") as resp:
-        assert resp.status_code == 200
-        assert "text/event-stream" in resp.headers["content-type"]
+    from backend.routers.live_scoring_sse import live_scoring_stream
+
+    resp = asyncio.run(live_scoring_stream())
+    assert "text/event-stream" in resp.media_type
+    assert resp.headers["Cache-Control"] == "no-cache, no-transform"
 
 
 def test_sse_stream_registers_and_unregisters_client():
+    from backend.routers.live_scoring_sse import _event_stream
+
     before = bus.get_client_count()
-    client = _make_test_client()
-    with client.stream("GET", "/live-scoring/stream"):
-        during = bus.get_client_count()
-        assert during == before + 1
-    # After closing the stream the client should be unsubscribed
+    q = bus.subscribe()
+    stream = _event_stream(q)
+    # Prime the generator so it enters active loop.
+    asyncio.run(stream.__anext__())
+    during = bus.get_client_count()
+    assert during == before + 1
+
+    asyncio.run(stream.aclose())
     after = bus.get_client_count()
     assert after == before
 
 
 def test_sse_stream_delivers_published_event():
+    from backend.routers.live_scoring_sse import _event_stream
+
     loop = asyncio.new_event_loop()
     bus.set_event_loop(loop)
 
@@ -196,35 +191,20 @@ def test_sse_stream_delivers_published_event():
         matchup_projection_snapshots=[],
     )
 
-    client = _make_test_client()
+    q = bus.subscribe()
+    stream = _event_stream(q)
 
-    received_lines = []
+    # Initial connected event frame.
+    loop.run_until_complete(stream.__anext__())
+    bus.publish_from_thread(event)
+    loop.run_until_complete(asyncio.sleep(0.05))
 
-    # We need to publish after the client has subscribed, so we use a
-    # background thread triggered by the streaming iterator.
-    import threading
-
-    def _publish_after_subscribe():
-        # Wait briefly for the SSE connection to open and subscribe
-        import time
-        time.sleep(0.1)
-        bus.publish_from_thread(event)
-        loop.run_until_complete(asyncio.sleep(0.05))
-
-    publisher = threading.Thread(target=_publish_after_subscribe, daemon=True)
-    publisher.start()
-
-    with client.stream("GET", "/live-scoring/stream") as resp:
-        for raw_line in resp.iter_lines():
-            if raw_line.startswith("data:"):
-                received_lines.append(raw_line)
-                break  # stop after first data line
-
-    publisher.join(timeout=2)
+    received_line = loop.run_until_complete(stream.__anext__())
+    loop.run_until_complete(stream.aclose())
     loop.close()
 
-    assert len(received_lines) == 1
-    payload = json.loads(received_lines[0].removeprefix("data:").strip())
+    assert received_line.startswith("data:")
+    payload = json.loads(received_line.removeprefix("data:").strip())
     assert payload["event"] == "score_update"
     assert payload["week"] == 5
     assert payload["scoreboard_fingerprint"] == "fp99"
@@ -306,6 +286,9 @@ def test_poll_cycle_does_not_publish_when_no_change(monkeypatch):
         }
 
     import unittest.mock as mock
+
+    with polling._runtime_lock:
+        polling._RUNTIME_STATE.clear()
 
     monkeypatch.setenv("LIVE_SCORING_POLL_YEAR", "2026")
     monkeypatch.setenv("LIVE_SCORING_POLL_WEEK", "14")

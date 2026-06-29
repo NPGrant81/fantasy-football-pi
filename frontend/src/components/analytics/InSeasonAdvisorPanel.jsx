@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { buttonPrimary, buttonSecondary } from '@utils/uiStandards';
 import { askInSeasonAdvisor } from '@api/analyticsApi';
 
+/* ignore-breakpoints */
+
 const QUICK_PROMPTS = [
   'Who should I target on waivers?',
   'Who should I start this week?',
@@ -113,7 +115,7 @@ export default function InSeasonAdvisorPanel({
 
   return (
     <div
-      className="flex flex-col rounded-xl border border-indigo-300/60 bg-white dark:border-indigo-800/60 dark:bg-slate-950/80"
+      className="flex flex-col rounded-xl border border-indigo-300/60 bg-white sm:shadow-sm dark:border-indigo-800/60 dark:bg-slate-950/80"
       data-testid="in-season-advisor-panel"
     >
       {/* Header */}

@@ -39,6 +39,7 @@ This document captures the current security baseline implemented for issue #77 a
   - `rotated_from_token_hash` tracks rotation lineage for revocation on suspected breach
   - Soft deletion via `revoked_at` timestamp enables audit trail
 - `POST /auth/logout` clears auth cookies and revokes all user refresh tokens
+- `POST /auth/logout` clears auth cookies.
 - Frontend is now cookie-session first and no longer stores bearer access tokens in browser storage.
 - Bearer header auth is now opt-in (`ALLOW_BEARER_AUTH=1`) for controlled interoperability.
 

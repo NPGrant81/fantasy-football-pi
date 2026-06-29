@@ -31,7 +31,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ['3.11']
+        python-version: ['3.13']
 
     # Use bash explicitly so Linux-style commands work on Windows (Git Bash)
     defaults:
@@ -44,15 +44,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('backend/requirements.txt', 'backend/requirements-validation.txt') }}
@@ -110,6 +110,7 @@ jobs:
             --ignore=backend/tests/test_players_router.py \
             --ignore=backend/tests/test_draft_history.py \
             --ignore=backend/tests/test_startup.py \
+            --ignore=backend/tests/test_live_scoring_polling_service.py \
             --ignore=backend/tests/test_draft_simulation_endpoint.py \
             --ignore=backend/tests/test_analytics.py \
             --ignore=backend/tests/test_advisor_router.py \
@@ -127,3 +128,4 @@ jobs:
             echo "- Lint: fatal-errors-only check"
             echo "- Tests: SQLite-safe subset (Postgres-specific tests run in main CI)"
           } >> "$GITHUB_STEP_SUMMARY"
+

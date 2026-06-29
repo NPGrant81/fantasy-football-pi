@@ -2,7 +2,7 @@
 import logging
 import os
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
@@ -15,6 +15,7 @@ from .. import models
 from ..schemas import User, UserCreate
 from ..database import get_db
 from ..services import rate_limiter_service
+from ..services import password_reset_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -25,6 +26,7 @@ USE_COOKIE_AUTH = os.getenv("USE_COOKIE_AUTH", "1") != "0"
 COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax")
 COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "0") == "1"
 ACCESS_TOKEN_COOKIE_NAME = security.ACCESS_TOKEN_COOKIE_NAME
+REFRESH_TOKEN_COOKIE_NAME = os.getenv("REFRESH_TOKEN_COOKIE_NAME", "ffpi_refresh_token")
 CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "ffpi_csrf_token")
 CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
 
@@ -84,9 +86,33 @@ def _set_auth_cookies(response: Response, request: Request, access_token: str) -
     )
 
 
+def _set_refresh_cookie(response: Response, request: Request, refresh_token: str) -> None:
+    secure_cookie = _is_secure_request(request)
+    response.set_cookie(
+        key=REFRESH_TOKEN_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=secure_cookie,
+        samesite=COOKIE_SAMESITE,
+        max_age=security.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/",
+    )
+
+
 def _clear_auth_cookies(response: Response) -> None:
     response.delete_cookie(ACCESS_TOKEN_COOKIE_NAME, path="/")
     response.delete_cookie(CSRF_COOKIE_NAME, path="/")
+    response.delete_cookie(REFRESH_TOKEN_COOKIE_NAME, path="/")
+
+
+def _require_csrf_for_cookie_auth(request: Request) -> None:
+    csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+    csrf_header = request.headers.get(CSRF_HEADER_NAME)
+    if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="CSRF token validation failed",
+        )
 
 # --- 2.1 ENDPOINT: REGISTRATION ---
 @router.post("/register", response_model=User)
@@ -122,9 +148,8 @@ def login_for_access_token(
 ):
     client_ip = request.client.host if request.client else "unknown"
     attempt_key = _login_attempt_key(form_data.username, client_ip)
-
     if _is_rate_limited(attempt_key):
-        logger.warning("Rate-limited login attempt for user=%s ip=%s", form_data.username, client_ip)
+        logger.warning("Rate limited login attempt for user=%s ip=%s", form_data.username, client_ip)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Please try again later.",
@@ -155,6 +180,15 @@ def login_for_access_token(
 
     if USE_COOKIE_AUTH:
         _set_auth_cookies(response, request, access_token)
+        refresh_token = security.generate_refresh_token()
+        refresh_expires_at = datetime.now(timezone.utc) + timedelta(days=security.REFRESH_TOKEN_EXPIRE_DAYS)
+        security.create_refresh_token_record(
+            db=db,
+            user_id=user.id,
+            refresh_token=refresh_token,
+            expires_at=refresh_expires_at,
+        )
+        _set_refresh_cookie(response, request, refresh_token)
     
     return {
         "access_token": access_token, 
@@ -168,11 +202,81 @@ def login_for_access_token(
     }
 
 
+@router.post("/refresh")
+def refresh_access_token(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    if USE_COOKIE_AUTH:
+        _require_csrf_for_cookie_auth(request)
+
+    refresh_token = request.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
+    if not refresh_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token missing")
+
+    token_record = security.get_refresh_token_record(db, refresh_token)
+    if token_record is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    if token_record.revoked_at is not None:
+        security.revoke_all_user_refresh_tokens(db, token_record.user_id)
+        _clear_auth_cookies(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token replay detected")
+
+    now = datetime.now(timezone.utc)
+    expires_at = token_record.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if expires_at <= now:
+        token_record.revoked_at = now
+        db.commit()
+        _clear_auth_cookies(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
+    user = db.query(models.User).filter(models.User.id == token_record.user_id).first()
+    if user is None:
+        token_record.revoked_at = now
+        db.commit()
+        _clear_auth_cookies(response)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User no longer exists")
+
+    rotated_from = token_record.token_hash
+    token_record.revoked_at = now
+    db.commit()
+
+    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        data={"sub": user.username},
+        expires_delta=access_token_expires,
+    )
+
+    new_refresh_token = security.generate_refresh_token()
+    refresh_expires_at = now + timedelta(days=security.REFRESH_TOKEN_EXPIRE_DAYS)
+    security.create_refresh_token_record(
+        db=db,
+        user_id=user.id,
+        refresh_token=new_refresh_token,
+        expires_at=refresh_expires_at,
+        rotated_from_token_hash=rotated_from,
+    )
+
+    if USE_COOKIE_AUTH:
+        _set_auth_cookies(response, request, access_token)
+        _set_refresh_cookie(response, request, new_refresh_token)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
+
+
 @router.post("/logout")
 def logout(
     request: Request,
     response: Response,
-    token: str = Depends(security.oauth2_scheme),
+    token: str | None = Depends(security.oauth2_scheme),
     db: Session = Depends(get_db),
 ):
     cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)
@@ -180,6 +284,10 @@ def logout(
     if auth_token:
         security.revoke_access_token(db, auth_token)
         security.prune_expired_revoked_tokens(db)
+
+    refresh_cookie_token = request.cookies.get(REFRESH_TOKEN_COOKIE_NAME)
+    if refresh_cookie_token:
+        security.revoke_refresh_token(db, refresh_cookie_token)
 
     _clear_auth_cookies(response)
     return {"message": "Logged out"}
@@ -216,5 +324,135 @@ def update_email(
     current_user.email = email
     db.commit()
     db.refresh(current_user)
-
     return {"email": current_user.email}
+
+
+# --- 2.4 ENDPOINT: PASSWORD RESET ---
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/password-reset-request")
+def request_password_reset(
+    payload: PasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Request a password reset token.
+    
+    Anti-enumeration: Returns 200 OK regardless of whether email exists.
+    Only sends reset email if user account with that email exists.
+    
+    Returns: { "message": "If an account exists with this email, a reset link has been sent" }
+    """
+    email = payload.email.strip().lower() if payload.email else ""
+    client_ip = request.client.host if request.client else None
+    
+    # Find user by email (case-insensitive)
+    user = db.query(models.User).filter(
+        func.lower(models.User.email) == email
+    ).first()
+    
+    if user:
+        try:
+            # Generate reset token
+            reset_token = password_reset_service.create_password_reset_request(
+                db,
+                user,
+                client_ip=client_ip,
+                expiry_minutes=15,
+            )
+            
+            # TODO: Send email with reset link
+            # reset_url = f"{os.getenv('FRONTEND_URL')}/reset-password?token={reset_token}&email={email}"
+            # send_password_reset_email(user.email, reset_url)
+            
+            logger.info(
+                "Password reset requested for user_id=%s email=%s ip=%s",
+                user.id, email, client_ip,
+            )
+        except Exception as e:
+            logger.error("Failed to create reset token for email=%s: %s", email, e)
+    else:
+        # Log non-existent email attempt (security monitoring)
+        logger.warning("Password reset requested for non-existent email=%s ip=%s", email, client_ip)
+    
+    # Always return success (anti-enumeration)
+    return {"message": "If an account exists with this email, a reset link has been sent"}
+
+
+@router.post("/password-reset-confirm")
+def confirm_password_reset(
+    payload: PasswordResetConfirm,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Confirm password reset and set new password.
+    
+    Validates:
+    - Token exists and hasn't expired
+    - Token hasn't been used (single-use enforcement)
+    - New password meets minimum requirements
+    
+    Returns: { "message": "Password reset successfully" }
+    """
+    token = payload.token.strip() if payload.token else ""
+    new_password = payload.new_password.strip() if payload.new_password else ""
+    client_ip = request.client.host if request.client else None
+    
+    if not token or not new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token and new password are required",
+        )
+    
+    # Validate password strength
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long",
+        )
+    
+    # Find token in database
+    token_hash = password_reset_service.hash_reset_token(token)
+    reset_token = db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.token_hash == token_hash
+    ).first()
+    
+    if not reset_token:
+        logger.warning("Invalid password reset token attempted from ip=%s", client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+    
+    # Validate token
+    try:
+        password_reset_service.validate_and_use_reset_token(
+            db, reset_token.user_id, token
+        )
+    except ValueError as e:
+        logger.warning("Invalid reset token usage for user_id=%s: %s", reset_token.user_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+    
+    # Update user password
+    user = reset_token.user
+    user.hashed_password = security.get_password_hash(new_password)
+    db.commit()
+    
+    logger.info(
+        "Password reset confirmed for user_id=%s email=%s ip=%s",
+        user.id, user.email, client_ip,
+    )
+    
+    return {"message": "Password reset successfully"}

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Scans src for JSX files that lack Tailwind responsive prefixes
+# Scans src for React view files that lack Tailwind responsive prefixes
 
 set -euo pipefail
 
-echo "Checking for missing breakpoints in .jsx files..."
-# find all jsx files excluding non‑UI locations (context, tests, setup, entrypoint, api/hook/helper modules)
+echo "Checking for missing breakpoints in .jsx/.tsx files..."
+# find all jsx/tsx files excluding non-UI locations (context, tests, setup, entrypoint, api/hook/helper modules)
 # use NUL-delimited output so filenames with spaces/newlines are handled safely
 
 final_missing=""
@@ -16,8 +16,8 @@ while IFS= read -r -d '' file; do
       final_missing="$final_missing$file\n"
     fi
   fi
-done < <(find src -type f -name "*.jsx" \
-  | grep -vE '/context/|/tests/|/__tests__/|/api/|/hooks/|/utils/|\.test\.jsx$|\.spec\.jsx$|setupTests\.jsx$|main\.jsx$|App\.jsx$' \
+done < <(find src -type f \( -name "*.jsx" -o -name "*.tsx" \) \
+  | grep -vE '/context/|/tests/|/__tests__/|/api/|/hooks/|/utils/|\.test\.(jsx|tsx)$|\.spec\.(jsx|tsx)$|setupTests\.(jsx|tsx)$|main\.(jsx|tsx)$|App\.(jsx|tsx)$' \
     | tr '\n' '\0')
 
 # drop empty lines

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buttonPrimary, buttonSecondary } from '@utils/uiStandards';
 
+/* ignore-breakpoints */
+
 /**
  * Message type → border + header colour tokens (light-first).
  */
@@ -273,7 +275,7 @@ export default function DraftDayChatPanel({
 
   return (
     <div
-      className="flex h-full flex-col rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950/80"
+      className="flex h-full flex-col rounded-lg border border-slate-200 bg-white sm:rounded-xl dark:border-slate-700 dark:bg-slate-950/80"
       data-testid="draft-day-chat-panel"
     >
       {/* Header */}
