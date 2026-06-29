@@ -246,6 +246,9 @@ lanes:
       - file: backend/tests/test_sqlite_runtime_guardrail.py
         domain: security
         status: active
+      - file: backend/tests/test_validate_secrets.py
+        domain: security
+        status: active
 
   backend-data-quality:
     description: Data quality guardrails, ingestion validation, and audit tests

@@ -209,6 +209,67 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Warning: Could not stop player news ingest scheduler: {e}")
 
+
+def _validate_production_secrets() -> None:
+    """
+    Validate that production deployments have strong, non-default secrets.
+    
+    This is a security guardrail to prevent accidental deployment with
+    insecure or default credentials (Issue #415: Secrets Rotation Policy).
+    
+    Raises:
+        RuntimeError: If running in production with weak or missing secrets.
+    """
+    app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
+    
+    # Only enforce in production environments
+    if app_env not in {"production", "prod"}:
+        return
+    
+    secret_key = os.getenv("SECRET_KEY", "")
+    
+    # Check 1: SECRET_KEY must be set
+    if not secret_key:
+        raise RuntimeError(
+            "FATAL: SECRET_KEY is not set in production environment. "
+            "Set a strong random value via environment variable before deployment. "
+            "Generate with: python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
+        )
+    
+    # Check 2: SECRET_KEY must not be a common default/weak value
+    weak_patterns = [
+        "change-me-in-production",
+        "your-secret-key-here",
+        "secret",
+        "test",
+        "debug",
+        "default",
+        "insecure",
+    ]
+    
+    secret_lower = secret_key.lower()
+    for pattern in weak_patterns:
+        if pattern in secret_lower:
+            raise RuntimeError(
+                f"FATAL: SECRET_KEY contains weak pattern '{pattern}' in production. "
+                "This is not secure. Generate a strong random secret with: "
+                "python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
+            )
+    
+    # Check 3: SECRET_KEY must be sufficiently long (32+ bytes for URL-safe base64)
+    if len(secret_key) < 32:
+        raise RuntimeError(
+            f"FATAL: SECRET_KEY is too short ({len(secret_key)} bytes). "
+            "Minimum 32 bytes required for production. "
+            "Generate with: python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
+        )
+    
+    logger.info("✓ Production secrets validation passed")
+
+
+# Validate secrets before app creation
+_validate_production_secrets()
+
 app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
 
 
