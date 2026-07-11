@@ -95,8 +95,6 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         return ("product", "tracking")
 
     name = Path(rel).name
-<<<<<<< HEAD
-    if any(
     if name == "in-season-analytics-spec.md":
         return ("backend", "api-or-service")
     if name == "model-versioning.md":
