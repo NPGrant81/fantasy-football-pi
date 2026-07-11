@@ -126,7 +126,7 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         ]
     ):
         return ("platform", "operations")
-    if any(token in name for token in ["security", "permissions"]):
+    if any(token in name for token in ["security", "permissions", "incident_response", "secrets_rotation"]):
         return ("security", "policy")
     if any(token in name for token in ["data", "scoring", "validation", "dictionary", "monte-carlo", "mfl_", "cross_module_edge_case", "db_migration_phase1", "owner_backfill", "ml-feature"]):
         return ("data", "data-contract-or-quality")
