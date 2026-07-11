@@ -1,0 +1,84 @@
+name: Agent Catalog Guard
+
+on:
+  pull_request:
+    paths:
+      - agent_catalog.lock.json
+      - sync_agents.ps1
+      - AGENT_CATALOG_PLAN.md
+      - .github/workflows/agent-catalog-guard.yml
+  push:
+    branches:
+      - main
+    paths:
+      - agent_catalog.lock.json
+      - sync_agents.ps1
+      - AGENT_CATALOG_PLAN.md
+      - .github/workflows/agent-catalog-guard.yml
+  workflow_dispatch:
+
+jobs:
+  agent-catalog-guard:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate lock file schema
+        shell: pwsh
+        run: |
+          $lockPath = Join-Path $PWD "agent_catalog.lock.json"
+          if (-not (Test-Path $lockPath)) {
+            throw "Missing agent_catalog.lock.json"
+          }
+
+          $lock = Get-Content -Path $lockPath -Raw | ConvertFrom-Json
+          $required = @(
+            "schemaVersion",
+            "sourceRepo",
+            "ref",
+            "deferred",
+            "enabled",
+            "managedAgents",
+            "notes"
+          )
+
+          foreach ($key in $required) {
+            if (-not ($lock.PSObject.Properties.Name -contains $key)) {
+              throw "Lock file missing required key: $key"
+            }
+          }
+
+          if ($lock.sourceRepo -ne "NPGrant81/agent-catalog") {
+            throw "Unexpected sourceRepo: $($lock.sourceRepo)"
+          }
+
+          if ($lock.ref -ne "v0.1.0") {
+            throw "Unexpected ref: $($lock.ref)"
+          }
+
+      - name: Validate sync mode path
+        shell: pwsh
+        run: |
+          $lock = Get-Content -Path (Join-Path $PWD "agent_catalog.lock.json") -Raw | ConvertFrom-Json
+          $catalogRoot = Join-Path (Split-Path -Parent (Split-Path -Parent $PWD)) "agent-catalog"
+
+          if (-not (Test-Path $catalogRoot)) {
+            git clone https://github.com/NPGrant81/agent-catalog.git $catalogRoot
+          }
+
+          git -C $catalogRoot fetch --tags
+          git -C $catalogRoot checkout $lock.ref
+
+          ./sync_agents.ps1 -Check -CatalogRoot $catalogRoot
+
+          if (-not $lock.deferred -and $lock.enabled) {
+            ./sync_agents.ps1 -CatalogRoot $catalogRoot
+          }
+
+      - name: Validate plan file exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path (Join-Path $PWD "AGENT_CATALOG_PLAN.md"))) {
+            throw "Missing AGENT_CATALOG_PLAN.md"
+          }
