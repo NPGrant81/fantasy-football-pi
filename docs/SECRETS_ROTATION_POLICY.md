@@ -83,7 +83,7 @@ aBcDeFgHiJkLmNoPqRsT-UvWxYz0123456789_ABCD-EfGhIjKlMnOpQrS
    - Login creates valid session
    - JWT tokens are correctly signed/verified
    - CSRF protection still functional
-   - Existing sessions from old SECRET_KEY fail gracefully
+   - Existing sessions from old SECRET_KEY are invalidated immediately after rotation
 
 3. **Verify no hard-coded secrets:**
    ```bash
@@ -141,7 +141,10 @@ aBcDeFgHiJkLmNoPqRsT-UvWxYz0123456789_ABCD-EfGhIjKlMnOpQrS
    ```bash
    python -m backend.manage extract-mfl-history --start-year <YYYY> --end-year <YYYY>
    ```
-5. Monitor MFL API calls for auth failures
+5. Monitor MFL API calls for auth failures:
+   ```bash
+   python -m backend.manage extract-mfl-history --start-year <YYYY> --end-year <YYYY>
+   ```
 
 #### Cloudflare API Token (Tunnel)
 
@@ -219,19 +222,14 @@ python backend/scripts/validate_secrets.py
 
 **Immediate Actions (< 5 minutes):**
 
-1. **Revoke all existing sessions:**
-   ```sql
-   TRUNCATE TABLE revoked_tokens;
-   UPDATE user_sessions SET revoked_at = NOW();
-   ```
-
-2. **Force user logout:**
-   - All cookies/JWT tokens become invalid
-   - Users must log in again with new credentials
-
-3. **Generate and deploy new SECRET_KEY:**
+1. **Generate and deploy new SECRET_KEY immediately:**
    - Follow rotation procedure above
    - Deploy to production immediately
+
+2. **Force user logout operationally:**
+   - Restart the application after updating `SECRET_KEY`
+   - Existing cookies/JWT tokens signed with the old key become invalid immediately
+   - Users must log in again with new credentials
 
 4. **Notify users:**
    - Email all league commissioners and owners
@@ -241,12 +239,7 @@ python backend/scripts/validate_secrets.py
 **Follow-up Actions (< 1 hour):**
 
 5. **Audit logs for unauthorized access:**
-   ```sql
-   SELECT * FROM admin_audit_logs 
-   WHERE created_at > NOW() - INTERVAL '24 hours' 
-   AND action NOT IN ('login', 'view_league')
-   ORDER BY created_at DESC;
-   ```
+   - Review application and reverse-proxy logs for unusual login or privileged API activity
 
 6. **Check for suspicious API activity:**
    - Unusual player trades

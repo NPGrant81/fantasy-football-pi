@@ -43,31 +43,15 @@ This runbook provides step-by-step procedures for responding to security inciden
 
 1. **If committed to git:**
    ```bash
-   # Remove from history (if private repo)
-   git filter-branch --force --index-filter \
-     'git rm --cached --ignore-unmatch .env' \
-     --prune-empty --tag-name-filter cat -- --all
+   # Preferred: git-filter-repo or GitHub's secret-removal guidance
+   git filter-repo --path .env --invert-paths
    
-   # Force push (WARNING: destructive)
-   git push origin --force-all
-   
-   # Notify all developers to re-clone
+   # Then rotate the exposed secret and coordinate any required force-pushes
    ```
 
 2. **Revoke all existing sessions:**
-   ```sql
-   -- Connect to production database
-   psql -d fantasy_football_pi
-   
-   -- Invalidate all access tokens
-   TRUNCATE TABLE revoked_tokens;
-   
-   -- Invalidate all refresh tokens
-   UPDATE refresh_tokens SET revoked_at = NOW() WHERE revoked_at IS NULL;
-   
-   -- Clear any cached auth in Redis (if applicable)
-   FLUSHDB;
-   ```
+   - Deploy a newly generated `SECRET_KEY`
+   - Restart application services so old signed sessions are rejected immediately
 
 3. **Generate new SECRET_KEY:**
    ```bash
@@ -108,31 +92,14 @@ This runbook provides step-by-step procedures for responding to security inciden
 ### Short-term Actions (< 1 hour)
 
 6. **Audit access logs for unauthorized activity:**
-   ```sql
-   -- Check for unusual login patterns
-   SELECT user_id, COUNT(*) as login_attempts, 
-          MIN(created_at) as first_login, MAX(created_at) as last_login
-   FROM auth_logs
-   WHERE created_at > NOW() - INTERVAL '24 hours'
-   GROUP BY user_id
-   HAVING COUNT(*) > 10
-   ORDER BY login_attempts DESC;
-   ```
+   - Review application and proxy logs for unusual login bursts or repeated authentication failures
 
 7. **Check for privileged action abuse:**
-   ```sql
-   -- Look for suspicious admin/commissioner actions
-   SELECT * FROM admin_audit_logs
-   WHERE created_at > NOW() - INTERVAL '24 hours'
-   AND action IN ('update_league_settings', 'force_trade_approval', 'reset_draft')
-   ORDER BY created_at DESC;
-   ```
+   - Review recent commissioner/admin-visible changes in the application and operational logs
 
-8. **Force password reset for all users (optional, if high confidence):**
-   ```sql
-   -- Requires password_reset_required table
-   UPDATE users SET password_reset_required = TRUE;
-   ```
+8. **Force password reset for all users (optional):**
+   - Use an application-supported password reset flow if enabled
+   - Otherwise coordinate manual reset instructions with users
 
 ### Communication (< 2 hours)
 

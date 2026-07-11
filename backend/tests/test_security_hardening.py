@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
+import pytest
 
+from backend import main as backend_main
 from backend.main import app
 from backend.routers import auth as auth_router
 from backend.services import rate_limiter_service
@@ -71,3 +73,28 @@ def test_login_rate_limiter_records_and_clears_attempts():
     
     # Cleanup
     rate_limiter_service._rate_limiter = None
+
+
+def test_validate_production_secrets_requires_secret_in_production(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY is not set"):
+        backend_main._validate_production_secrets()
+
+
+def test_validate_production_secrets_rejects_weak_secret(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "prod")
+    monkeypatch.setenv("SECRET_KEY", "default-secret-value-that-is-long-enough-123")
+
+    with pytest.raises(RuntimeError, match="contains weak pattern"):
+        backend_main._validate_production_secrets()
+
+
+def test_validate_production_secrets_skips_non_production(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+
+    backend_main._validate_production_secrets()

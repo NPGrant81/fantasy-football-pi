@@ -8,6 +8,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from dotenv import load_dotenv
 from sqlalchemy import text
 
+load_dotenv()
+
 # fix package context when running from backend/ directory
 # (e.g. `uvicorn main:app` instead of `uvicorn backend.main:app`).
 # We also handle script mode by importing every symbol via importlib so that
@@ -88,8 +90,6 @@ else:
         advisor,
         dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, news, keepers, divisions, scoring
     )
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
