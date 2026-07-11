@@ -159,32 +159,15 @@ This runbook provides step-by-step procedures for responding to security inciden
 ### Immediate Response (< 30 minutes)
 
 1. **Verify the claim:**
-   ```sql
-   -- Check recent admin audit logs
-   SELECT * FROM admin_audit_logs
-   WHERE league_id = <affected_league_id>
-   AND created_at > NOW() - INTERVAL '48 hours'
-   ORDER BY created_at DESC;
-   ```
+   - Review recent commissioner/admin-visible changes in the application
+   - Check backend and reverse-proxy logs around the reported time window
 
 2. **Identify the actor:**
-   ```sql
-   -- Get actor details
-   SELECT actor_user_id, actor_username, actor_is_commissioner, 
-          action, scope, metadata_json, created_at
-   FROM admin_audit_logs
-   WHERE league_id = <affected_league_id>
-   AND id = <suspicious_audit_id>;
-   ```
+   - Correlate the reported action with request logs, commissioner notifications, and recent user activity
 
 3. **Check if actor's session was compromised:**
-   ```sql
-   -- Get all sessions for that user in the timeframe
-   SELECT * FROM user_sessions
-   WHERE user_id = <actor_id>
-   AND created_at > NOW() - INTERVAL '72 hours'
-   ORDER BY created_at DESC;
-   ```
+   - Review recent login behavior for the affected account in application logs
+   - If compromise is suspected, rotate `SECRET_KEY` to invalidate active sessions immediately
 
 4. **Assess damage:**
    - Was league data corrupted?
@@ -194,10 +177,8 @@ This runbook provides step-by-step procedures for responding to security inciden
 ### Remediation (< 1 hour)
 
 5. **Revoke user session if compromised:**
-   ```sql
-   UPDATE user_sessions SET revoked_at = NOW()
-   WHERE user_id = <actor_id> AND created_at > NOW() - INTERVAL '2 hours';
-   ```
+   - Rotate `SECRET_KEY` and restart services to invalidate active sessions
+   - Require the affected user to log in again
 
 6. **Undo the unauthorized action:**
    - Contact the commissioner
@@ -221,13 +202,8 @@ This runbook provides step-by-step procedures for responding to security inciden
    - [ ] Malware on their device?
 
 9. **Update audit log:**
-   ```sql
-   INSERT INTO admin_audit_logs (actor_user_id, actor_username, 
-     actor_is_superuser, action, scope, metadata_json, created_at)
-   VALUES (NULL, 'system', TRUE, 'incident_response', 'security', 
-     '{"type": "unauthorized_action_remediated", 
-       "league_id": <id>, "original_actor": "<user>", "action_reverted": true}', NOW());
-   ```
+    - Record the remediation in the incident notes, deployment log, or issue tracker
+    - Include affected league, suspected actor, actions reverted, and follow-up steps
 
 ---
 
