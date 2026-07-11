@@ -1,0 +1,131 @@
+name: Agent Catalog Guard
+
+on:
+  pull_request:
+    paths:
+      - agent_catalog.lock.json
+      - sync_agents.ps1
+      - AGENT_CATALOG_PLAN.md
+      - .github/workflows/agent-catalog-guard.yml
+  push:
+    branches:
+      - main
+    paths:
+      - agent_catalog.lock.json
+      - sync_agents.ps1
+      - AGENT_CATALOG_PLAN.md
+      - .github/workflows/agent-catalog-guard.yml
+  workflow_dispatch:
+
+jobs:
+  agent-catalog-guard:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate lock file schema
+        shell: pwsh
+        run: |
+          $lockPath = Join-Path $PWD "agent_catalog.lock.json"
+          if (-not (Test-Path $lockPath)) {
+            throw "Missing agent_catalog.lock.json"
+          }
+
+          $lock = Get-Content -Path $lockPath -Raw | ConvertFrom-Json
+          $required = @(
+            "schemaVersion",
+            "sourceRepo",
+            "ref",
+            "deferred",
+            "enabled",
+            "managedAgents",
+            "notes"
+          )
+
+          foreach ($key in $required) {
+            if (-not ($lock.PSObject.Properties.Name -contains $key)) {
+              throw "Lock file missing required key: $key"
+            }
+          }
+
+          if ($lock.sourceRepo -ne "NPGrant81/agent-catalog") {
+            throw "Unexpected sourceRepo: $($lock.sourceRepo)"
+          }
+
+          if ($lock.ref -ne "v0.1.0") {
+            throw "Unexpected ref: $($lock.ref)"
+          }
+
+      - name: Validate sync mode path
+        shell: pwsh
+        env:
+          AGENT_CATALOG_READ_TOKEN: ${{ secrets['AGENT_CATALOG_READ_TOKEN'] }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $lock = Get-Content -Path (Join-Path $PWD "agent_catalog.lock.json") -Raw | ConvertFrom-Json
+
+          if ($lock.deferred -or -not $lock.enabled) {
+            ./sync_agents.ps1 -Check
+            exit 0
+          }
+
+          $catalogToken = $env:AGENT_CATALOG_READ_TOKEN
+          if ([string]::IsNullOrWhiteSpace($catalogToken)) {
+            $catalogToken = $env:GITHUB_TOKEN
+          }
+
+          if ([string]::IsNullOrWhiteSpace($catalogToken)) {
+            throw "No token available for cross-repo checkout. Provide AGENT_CATALOG_READ_TOKEN or ensure github.token is available."
+          }
+
+          $catalogRoot = Join-Path $env:RUNNER_TEMP "agent-catalog"
+          if (Test-Path -LiteralPath $catalogRoot) {
+            Remove-Item -LiteralPath $catalogRoot -Recurse -Force
+          }
+
+          $authHeader = "AUTHORIZATION: bearer $catalogToken"
+          git -c credential.interactive=never -c "http.https://github.com/.extraheader=$authHeader" clone https://github.com/NPGrant81/agent-catalog.git $catalogRoot
+          if ($LASTEXITCODE -ne 0) {
+            if ([string]::IsNullOrWhiteSpace($env:AGENT_CATALOG_READ_TOKEN)) {
+              Write-Warning "Catalog checkout failed with github.token; AGENT_CATALOG_READ_TOKEN is not configured. Falling back to local managed-agent integrity checks only."
+
+              $agentPattern = '^[A-Za-z0-9][A-Za-z0-9._-]*\.agent\.md$'
+              $managed = @($lock.managedAgents | ForEach-Object { [string]$_ } | Sort-Object)
+              foreach ($name in $managed) {
+                if ($name -notmatch $agentPattern) {
+                  throw "Invalid managed agent filename in lock: $name"
+                }
+              }
+
+              $agentsDir = Join-Path $PWD ".github/agents"
+              if (-not (Test-Path -LiteralPath $agentsDir)) {
+                throw "Missing .github/agents directory for local fallback validation"
+              }
+
+              $actual = @(Get-ChildItem -LiteralPath $agentsDir -File -Filter "*.agent.md" | Select-Object -ExpandProperty Name | Sort-Object)
+              $managedJoin = $managed -join "|"
+              $actualJoin = $actual -join "|"
+              if ($managedJoin -ne $actualJoin) {
+                throw "Fallback validation failed: .github/agents does not exactly match managedAgents list"
+              }
+
+              Write-Output "fallback validation: lock-managed local agent set is consistent"
+              exit 0
+            }
+
+            throw "Catalog checkout failed even with AGENT_CATALOG_READ_TOKEN. Verify token scope/repository access."
+          }
+
+          git -c credential.interactive=never -C $catalogRoot -c "http.https://github.com/.extraheader=$authHeader" fetch --tags
+          git -C $catalogRoot checkout $lock.ref
+
+          ./sync_agents.ps1 -Check -CatalogRoot $catalogRoot
+          ./sync_agents.ps1 -CatalogRoot $catalogRoot
+
+      - name: Validate plan file exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path (Join-Path $PWD "AGENT_CATALOG_PLAN.md"))) {
+            throw "Missing AGENT_CATALOG_PLAN.md"
+          }
