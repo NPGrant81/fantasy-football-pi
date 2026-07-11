@@ -183,13 +183,24 @@ The application includes runtime validation to prevent deployment with default/i
 
 ```python
 # backend/main.py
-if os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower() in {"production", "prod"}:
-    secret_key = os.getenv("SECRET_KEY")
+app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
+if app_env in {"production", "prod"}:
+   secret_key = os.getenv("SECRET_KEY", "")
+   weak_patterns = [
+      "change-me-in-production",
+      "your-secret-key-here",
+      "secret",
+      "test",
+      "debug",
+      "default",
+      "insecure",
+   ]
+
    if not secret_key or len(secret_key) < 32:
-        raise RuntimeError(
-            "FATAL: SECRET_KEY is not set or insecure in production. "
-            "Set a strong random value via environment variable before deployment."
-        )
+      raise RuntimeError("FATAL: SECRET_KEY is not set or too short in production")
+
+   if any(pattern in secret_key.lower() for pattern in weak_patterns):
+      raise RuntimeError("FATAL: SECRET_KEY contains a weak pattern in production")
 ```
 
 **When this check triggers:**
