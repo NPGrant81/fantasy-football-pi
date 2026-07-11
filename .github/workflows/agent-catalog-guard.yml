@@ -53,7 +53,7 @@ jobs:
             throw "Unexpected sourceRepo: $($lock.sourceRepo)"
           }
 
-          if ($lock.ref -ne "v0.1.0") {
+          if ($lock.ref -ne "v0.1.1") {
             throw "Unexpected ref: $($lock.ref)"
           }
 
