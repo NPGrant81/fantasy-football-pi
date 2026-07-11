@@ -61,6 +61,7 @@ jobs:
         shell: pwsh
         env:
           AGENT_CATALOG_READ_TOKEN: ${{ secrets['AGENT_CATALOG_READ_TOKEN'] }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           $lock = Get-Content -Path (Join-Path $PWD "agent_catalog.lock.json") -Raw | ConvertFrom-Json
 
@@ -69,8 +70,13 @@ jobs:
             exit 0
           }
 
-          if ([string]::IsNullOrWhiteSpace($env:AGENT_CATALOG_READ_TOKEN)) {
-            throw "Missing required secret AGENT_CATALOG_READ_TOKEN for private cross-repo checkout of NPGrant81/agent-catalog. Configure this secret and re-run the workflow."
+          $catalogToken = $env:AGENT_CATALOG_READ_TOKEN
+          if ([string]::IsNullOrWhiteSpace($catalogToken)) {
+            $catalogToken = $env:GITHUB_TOKEN
+          }
+
+          if ([string]::IsNullOrWhiteSpace($catalogToken)) {
+            throw "No token available for cross-repo checkout. Provide AGENT_CATALOG_READ_TOKEN or ensure github.token is available."
           }
 
           $catalogRoot = Join-Path $env:RUNNER_TEMP "agent-catalog"
@@ -78,9 +84,17 @@ jobs:
             Remove-Item -LiteralPath $catalogRoot -Recurse -Force
           }
 
-          $authHeader = "AUTHORIZATION: bearer $($env:AGENT_CATALOG_READ_TOKEN)"
-          git -c "http.https://github.com/.extraheader=$authHeader" clone https://github.com/NPGrant81/agent-catalog.git $catalogRoot
-          git -C $catalogRoot -c "http.https://github.com/.extraheader=$authHeader" fetch --tags
+          $authHeader = "AUTHORIZATION: bearer $catalogToken"
+          git -c credential.interactive=never -c "http.https://github.com/.extraheader=$authHeader" clone https://github.com/NPGrant81/agent-catalog.git $catalogRoot
+          if ($LASTEXITCODE -ne 0) {
+            if ([string]::IsNullOrWhiteSpace($env:AGENT_CATALOG_READ_TOKEN)) {
+              throw "Catalog checkout failed with github.token. Configure AGENT_CATALOG_READ_TOKEN with private read access to NPGrant81/agent-catalog and re-run."
+            }
+
+            throw "Catalog checkout failed even with AGENT_CATALOG_READ_TOKEN. Verify token scope/repository access."
+          }
+
+          git -c credential.interactive=never -C $catalogRoot -c "http.https://github.com/.extraheader=$authHeader" fetch --tags
           git -C $catalogRoot checkout $lock.ref
 
           ./sync_agents.ps1 -Check -CatalogRoot $catalogRoot
