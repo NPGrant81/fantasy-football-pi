@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sourceRepo": "NPGrant81/agent-catalog",
+  "ref": "v0.1.0",
+  "deferred": false,
+  "enabled": true,
+  "status": "active-synced-from-approved-source",
+  "managedAgents": [
+    "architecture-drift-auditor.agent.md",
+    "governance-cadence.agent.md",
+    "quality-integrity-checker.agent.md",
+    "scope-triage.agent.md"
+  ],
+  "notes": [
+    "Consumer sync is enabled from approved source NPGrant81/agent-catalog@v0.1.0.",
+    "Only managed payloads listed in managedAgents are materialized into .github/agents.",
+    "Managed payloads are copied from catalog source without local fabrication."
+  ]
+}
