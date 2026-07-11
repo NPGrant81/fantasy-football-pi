@@ -59,22 +59,32 @@ jobs:
 
       - name: Validate sync mode path
         shell: pwsh
+        env:
+          AGENT_CATALOG_READ_TOKEN: ${{ secrets['AGENT_CATALOG_READ_TOKEN'] }}
         run: |
           $lock = Get-Content -Path (Join-Path $PWD "agent_catalog.lock.json") -Raw | ConvertFrom-Json
-          $catalogRoot = Join-Path (Split-Path -Parent (Split-Path -Parent $PWD)) "agent-catalog"
 
-          if (-not (Test-Path $catalogRoot)) {
-            git clone https://github.com/NPGrant81/agent-catalog.git $catalogRoot
+          if ($lock.deferred -or -not $lock.enabled) {
+            ./sync_agents.ps1 -Check
+            exit 0
           }
 
-          git -C $catalogRoot fetch --tags
+          if ([string]::IsNullOrWhiteSpace($env:AGENT_CATALOG_READ_TOKEN)) {
+            throw "Missing required secret AGENT_CATALOG_READ_TOKEN for private cross-repo checkout of NPGrant81/agent-catalog. Configure this secret and re-run the workflow."
+          }
+
+          $catalogRoot = Join-Path $env:RUNNER_TEMP "agent-catalog"
+          if (Test-Path -LiteralPath $catalogRoot) {
+            Remove-Item -LiteralPath $catalogRoot -Recurse -Force
+          }
+
+          $authHeader = "AUTHORIZATION: bearer $($env:AGENT_CATALOG_READ_TOKEN)"
+          git -c "http.https://github.com/.extraheader=$authHeader" clone https://github.com/NPGrant81/agent-catalog.git $catalogRoot
+          git -C $catalogRoot -c "http.https://github.com/.extraheader=$authHeader" fetch --tags
           git -C $catalogRoot checkout $lock.ref
 
           ./sync_agents.ps1 -Check -CatalogRoot $catalogRoot
-
-          if (-not $lock.deferred -and $lock.enabled) {
-            ./sync_agents.ps1 -CatalogRoot $catalogRoot
-          }
+          ./sync_agents.ps1 -CatalogRoot $catalogRoot
 
       - name: Validate plan file exists
         shell: pwsh

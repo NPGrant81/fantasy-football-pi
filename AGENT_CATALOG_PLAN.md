@@ -25,6 +25,13 @@ The repo is enrolled with non-deferred sync enabled.
 - Local sync validates configuration and materializes only lock-managed payloads.
 - Managed payloads are copied from source and not fabricated locally.
 
+## Ownership Policy
+
+Catalog owns `.github/agents/*.agent.md` in active mode.
+
+- Check mode reports unmanaged `.agent.md` files as a contract violation.
+- Active sync removes unmanaged `.agent.md` files before copying lock-managed payloads.
+
 ## Unlock Condition
 
 Unlock condition is satisfied.
