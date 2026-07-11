@@ -68,6 +68,11 @@ Recommended runtime settings:
 ### Backend authorization and abuse controls
 - Add endpoint-level scope enforcement for commissioner/admin actions.
 - Enhance rate limiter with request-type specific thresholds (e.g., login vs. API calls).
+- Consider Redis-backed rate limiting for distributed deployments.
+
+### Token lifecycle and audit roadmap
+- Add JWT revocation and refresh-token rotation support.
+- Add immutable admin audit logging for privileged operations.
 
 ### Infrastructure and operations
 - Enforce HTTPS-only at Nginx with HSTS preload decision review.

@@ -640,5 +640,17 @@
     "owner": "engineering",
     "cadence_days": 30,
     "last_reviewed": "2026-06-27"
+  },
+  {
+    "path": "docs/INCIDENT_RESPONSE_RUNBOOK.md",
+    "owner": "security",
+    "cadence_days": 45,
+    "last_reviewed": "2026-07-11"
+  },
+  {
+    "path": "docs/SECRETS_ROTATION_POLICY.md",
+    "owner": "security",
+    "cadence_days": 45,
+    "last_reviewed": "2026-07-11"
   }
 ]
