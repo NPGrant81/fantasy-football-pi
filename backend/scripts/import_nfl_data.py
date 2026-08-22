@@ -13,8 +13,6 @@ from backend.services import player_service  # noqa: E402
 from backend.services.nfl_roster_provider_service import fetch_rosters_for_seasons  # noqa: E402
 from backend.services.schema_readiness_service import assert_schema_ready  # noqa: E402
 
-db = SessionLocal()
-
 
 def import_fresh_data():
     assert_schema_ready(engine, models.Base.metadata)
@@ -62,6 +60,12 @@ def import_fresh_data():
     active_players = pd.DataFrame(deduped_rows)
     
     print(f"   - Fantasy Eligible: {len(active_players)} players (QB/RB/WR/TE/K)")
+
+    with SessionLocal() as db:
+        _replace_players(db, active_players)
+
+
+def _replace_players(db, active_players):
 
     # --- C. WIPE OLD DATA (Order Matters!) ---
     print("🗑️  Cleaning Database...")
