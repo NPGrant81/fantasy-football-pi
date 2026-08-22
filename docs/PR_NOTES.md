@@ -12,7 +12,7 @@ This branch was created to trigger CI for backend and frontend tests.
 - Review requested: 2026-08-22
 - Threads opened: 3
 - Threads resolved: 3
-- Follow-up commits: `422db87`, `7ab581b`, `55e47b7`, `e79a649`
+- Follow-up commits: `422db87`, `7ab581b`, `55e47b7`, `e79a649`, `552f7b8`
 - Independent security audit: fail-open configuration findings resolved and re-reviewed.
 - Residual risk: None identified; CI remains the merge gate.
 
