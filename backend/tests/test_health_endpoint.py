@@ -38,3 +38,16 @@ def test_health_endpoint_returns_503_when_db_probe_fails(client, monkeypatch):
     assert payload['status'] == 'degraded'
     assert payload['database'] == 'error'
     assert 'error' not in payload
+
+
+def test_health_head_returns_bodyless_503_when_db_probe_fails(client, monkeypatch):
+    class FailingEngine:
+        def connect(self):
+            raise RuntimeError('simulated db failure should not leak')
+
+    monkeypatch.setattr(backend_main, 'engine', FailingEngine())
+
+    response = client.head('/health')
+
+    assert response.status_code == 503
+    assert response.content == b''
