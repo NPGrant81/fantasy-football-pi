@@ -17,8 +17,10 @@ This branch was created to trigger CI for backend and frontend tests.
 - Latest review round: dual package/top-level database imports and direct/module script entrypoints fixed with subprocess regression coverage.
 - Additional hardening: polling mocks now restore automatically, defense dedupe tests are seed-independent, health GET/HEAD operation IDs are unique, and pytest-asyncio loop scope is explicit.
 - Latest suppressed findings: production error handling now uses the validated settings snapshot, and unrelated database tables no longer block empty FFPI bootstrap.
+- Security follow-up: populated Alembic history without FFPI core tables now blocks bootstrap before DDL, preventing foreign migration metadata from being purged.
 - Latest broad backend validation: `779 passed, 1 skipped`.
 - PostgreSQL proof: bootstrap preserved an unrelated `monitoring_events` table and stamped `0028_reconcile_runtime_schema`.
+- Foreign-history proof: bootstrap aborted without creating FFPI tables and preserved both `monitoring_events` and `foreign_revision`.
 - Independent security audit: fail-open configuration findings resolved and re-reviewed.
 - Residual risk: None identified; CI remains the merge gate.
 

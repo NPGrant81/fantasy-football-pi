@@ -9,9 +9,7 @@ from backend import apply_migrations as migration_runner
     ("table_names", "expected"),
     [
         ([], True),
-        (["alembic_version"], True),
         (["monitoring_events"], True),
-        (["alembic_version", "monitoring_events"], True),
         (["users"], False),
         (["monitoring_events", "players"], False),
     ],
@@ -28,6 +26,50 @@ def test_database_is_empty_ignores_unrelated_tables(monkeypatch, table_names, ex
     )
 
     assert migration_runner._database_is_empty(object()) is expected
+
+
+@pytest.mark.parametrize("existing_revisions", [[], ["foreign_revision"]])
+def test_database_is_empty_handles_existing_alembic_history(
+    monkeypatch,
+    existing_revisions,
+):
+    class FakeScalars:
+        def all(self):
+            return existing_revisions
+
+    class FakeResult:
+        def scalars(self):
+            return FakeScalars()
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def execute(self, _statement):
+            return FakeResult()
+
+    class FakeEngine:
+        def connect(self):
+            return FakeConnection()
+
+    class FakeInspector:
+        def get_table_names(self):
+            return ["alembic_version", "monitoring_events"]
+
+    monkeypatch.setattr(
+        migration_runner,
+        "inspect",
+        lambda _engine: FakeInspector(),
+    )
+
+    if existing_revisions:
+        with pytest.raises(RuntimeError, match="database has Alembic history"):
+            migration_runner._database_is_empty(FakeEngine())
+    else:
+        assert migration_runner._database_is_empty(FakeEngine()) is True
 
 
 def test_apply_migrations_upgrades_all_heads_for_established_database(monkeypatch, tmp_path):

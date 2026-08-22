@@ -6,7 +6,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 
 from backend.db_config import load_backend_env_file, resolve_database_url
 
@@ -19,7 +19,20 @@ CORE_APPLICATION_TABLES = frozenset({"leagues", "players", "users"})
 
 def _database_is_empty(database_engine) -> bool:
     table_names = set(inspect(database_engine).get_table_names())
-    return table_names.isdisjoint(CORE_APPLICATION_TABLES)
+    if not table_names.isdisjoint(CORE_APPLICATION_TABLES):
+        return False
+    if "alembic_version" not in table_names:
+        return True
+
+    with database_engine.connect() as connection:
+        existing_revisions = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalars().all()
+    if existing_revisions:
+        raise RuntimeError(
+            "Refusing FFPI bootstrap: database has Alembic history but no FFPI core tables"
+        )
+    return True
 
 
 def _bootstrap_config(config_path: Path) -> Config:
