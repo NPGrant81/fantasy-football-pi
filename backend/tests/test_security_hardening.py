@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi.testclient import TestClient
 import pytest
 
@@ -26,7 +28,13 @@ def test_hsts_is_not_added_for_plain_http_requests(client):
     assert response.headers.get("strict-transport-security") is None
 
 
-def test_hsts_is_added_for_https_requests():
+def test_hsts_is_added_for_https_requests(monkeypatch):
+    @asynccontextmanager
+    async def noop_lifespan(_app):
+        yield
+
+    monkeypatch.setattr(app.router, "lifespan_context", noop_lifespan)
+
     with TestClient(app, base_url="https://testserver") as https_client:
         response = https_client.get("/")
 
@@ -54,7 +62,7 @@ def test_cors_allow_headers_are_explicit_and_include_auth_and_csrf():
 def test_login_rate_limiter_records_and_clears_attempts():
     """Test that rate limiter records and clears attempts correctly."""
     key = "127.0.0.1:demo-user"
-    
+
     # Use in-memory backend for testing
     rate_limiter_service._rate_limiter = rate_limiter_service.InMemoryRateLimiter()
 
@@ -70,7 +78,7 @@ def test_login_rate_limiter_records_and_clears_attempts():
 
     # Should no longer be rate limited
     assert not auth_router._is_rate_limited(key)
-    
+
     # Cleanup
     rate_limiter_service._rate_limiter = None
 
