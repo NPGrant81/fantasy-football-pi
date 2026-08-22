@@ -63,7 +63,6 @@ if __name__ == "__main__" or __package__ in (None, ""):
     SessionLocal = dbmod.SessionLocal
     probe_database = dbmod.probe_database
     RuntimeSettings = configmod.RuntimeSettings
-    current_app_env = configmod.current_app_env
     get_settings = configmod.get_settings
     get_password_hash = secmod.get_password_hash
     check_is_commissioner = secmod.check_is_commissioner
@@ -79,7 +78,7 @@ else:
     # normal package imports
     from . import models
     from .database import engine, SessionLocal, probe_database
-    from .core.config import RuntimeSettings, current_app_env, get_settings
+    from .core.config import RuntimeSettings, get_settings
     from .core.security import get_password_hash, check_is_commissioner
     from .services import live_scoring_watchdog_service as watchdog_service
     from .services import live_scoring_polling_service as polling_service
@@ -224,7 +223,7 @@ app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
 
 
 def _is_production_env() -> bool:
-    return current_app_env(settings.app_env) in {"production", "prod"}
+    return settings.is_production
 
 
 @app.exception_handler(HTTPException)

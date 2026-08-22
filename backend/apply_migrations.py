@@ -14,11 +14,12 @@ from backend.db_config import load_backend_env_file, resolve_database_url
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().with_name("alembic.ini")
 BOOTSTRAP_SCRIPT_PATH = Path(__file__).resolve().parents[1] / "db" / "bootstrap"
 BOOTSTRAP_MAIN_REVISION = "0028_reconcile_runtime_schema"
+CORE_APPLICATION_TABLES = frozenset({"leagues", "players", "users"})
 
 
 def _database_is_empty(database_engine) -> bool:
     table_names = set(inspect(database_engine).get_table_names())
-    return not table_names or table_names == {"alembic_version"}
+    return table_names.isdisjoint(CORE_APPLICATION_TABLES)
 
 
 def _bootstrap_config(config_path: Path) -> Config:

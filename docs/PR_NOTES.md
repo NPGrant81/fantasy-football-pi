@@ -12,11 +12,13 @@ This branch was created to trigger CI for backend and frontend tests.
 - Review requested: 2026-08-22
 - Threads opened: 8
 - Threads resolved: 8
-- Suppressed findings reviewed: 3
+- Suppressed findings reviewed: 5
 - Follow-up commits: `422db87`, `7ab581b`, `55e47b7`, `e79a649`, `552f7b8`, `79bb8e8`
 - Latest review round: dual package/top-level database imports and direct/module script entrypoints fixed with subprocess regression coverage.
 - Additional hardening: polling mocks now restore automatically, defense dedupe tests are seed-independent, health GET/HEAD operation IDs are unique, and pytest-asyncio loop scope is explicit.
-- Latest broad backend validation: `772 passed, 1 skipped`.
+- Latest suppressed findings: production error handling now uses the validated settings snapshot, and unrelated database tables no longer block empty FFPI bootstrap.
+- Latest broad backend validation: `779 passed, 1 skipped`.
+- PostgreSQL proof: bootstrap preserved an unrelated `monitoring_events` table and stamped `0028_reconcile_runtime_schema`.
 - Independent security audit: fail-open configuration findings resolved and re-reviewed.
 - Residual risk: None identified; CI remains the merge gate.
 

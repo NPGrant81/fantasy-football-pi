@@ -1,6 +1,33 @@
 from pathlib import Path
 
+import pytest
+
 from backend import apply_migrations as migration_runner
+
+
+@pytest.mark.parametrize(
+    ("table_names", "expected"),
+    [
+        ([], True),
+        (["alembic_version"], True),
+        (["monitoring_events"], True),
+        (["alembic_version", "monitoring_events"], True),
+        (["users"], False),
+        (["monitoring_events", "players"], False),
+    ],
+)
+def test_database_is_empty_ignores_unrelated_tables(monkeypatch, table_names, expected):
+    class FakeInspector:
+        def get_table_names(self):
+            return table_names
+
+    monkeypatch.setattr(
+        migration_runner,
+        "inspect",
+        lambda _engine: FakeInspector(),
+    )
+
+    assert migration_runner._database_is_empty(object()) is expected
 
 
 def test_apply_migrations_upgrades_all_heads_for_established_database(monkeypatch, tmp_path):
