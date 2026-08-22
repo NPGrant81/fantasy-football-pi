@@ -15,10 +15,11 @@ import models
 import time
 import requests
 from backend.services.player_identity_service import current_season, ensure_primary_alias, upsert_player_season
+from backend.services.schema_readiness_service import assert_schema_ready
 
 def run_uat_sync():
     """Complete UAT reset and sync of player data."""
-    models.Base.metadata.create_all(bind=engine)
+    assert_schema_ready(engine, models.Base.metadata)
     db = SessionLocal()
     
     try:

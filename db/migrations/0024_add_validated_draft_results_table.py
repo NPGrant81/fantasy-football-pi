@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # Alembic revision identifiers
 revision = "0024_add_validated_draft_results_table"
-down_revision = "0021_add_league_settings_trade_governance_columns"
+down_revision = "0021"
 branch_labels = None
 depends_on = None
 

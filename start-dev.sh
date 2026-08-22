@@ -122,6 +122,12 @@ if [[ -z "${BACKEND_PYTHON}" ]]; then
 fi
 log "Using backend Python: ${BACKEND_PYTHON}"
 
+log "Applying database migrations"
+if ! "${BACKEND_PYTHON}" -m backend.apply_migrations; then
+  log "Database migrations failed; backend startup aborted."
+  exit 1
+fi
+
 if port_in_use "${FRONTEND_PORT}"; then
   log "Frontend port ${FRONTEND_PORT} is already in use — killing stale process."
   kill_port "${FRONTEND_PORT}"

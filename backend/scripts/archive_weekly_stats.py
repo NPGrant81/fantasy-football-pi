@@ -6,6 +6,7 @@ import requests
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
+from services.schema_readiness_service import assert_schema_ready
 
 # Add the parent directory (backend) to the system path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -119,7 +120,7 @@ def store_weekly_stat(db: Session, player, season, week, stats_map, source="espn
 
 
 def archive_week(season, week, season_type=2):
-    models.Base.metadata.create_all(bind=engine)
+    assert_schema_ready(engine, models.Base.metadata)
     db = SessionLocal()
 
     try:

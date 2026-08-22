@@ -96,6 +96,11 @@ Set-Location backend
 Copy-Item .env.example .env
 ```
 
+The copied file uses development-safe defaults. Runtime configuration is
+validated by `backend/core/config.py`; keep `APP_ENV=development` locally and
+use comma-separated values for `ALLOWED_HOSTS` and
+`FRONTEND_ALLOWED_ORIGINS`.
+
 Backend:
 ```bash
 cd backend

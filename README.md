@@ -165,16 +165,31 @@ pip install -r requirements.txt
 pytest -q
 ```
 
-- **Schema migrations:** before running the app or tests you can apply
-  Alembic migrations rather than relying solely on the runtime `ALTER TABLE`
-  guards. From the `backend` directory execute:
+- **Schema migrations:** Alembic is the schema-evolution mechanism. Before
+  running the app or operational utilities, apply all migrations from the
+  repository root:
 
   ```bash
-  python -m alembic upgrade head
+  python -m backend.apply_migrations
   ```
 
-  (ensure the `backend` folder is on your `PYTHONPATH` or invoke via
-  `PYTHONPATH=.`).
+  The local start scripts run this command before launching Uvicorn, and the
+  production systemd unit runs it through `ExecStartPre`. Backend startup only
+  validates database connectivity and performs a read-only ORM
+  schema-readiness check before starting schedulers. A migration failure stops
+  deployment before the API process starts; schema drift also stops API startup
+  without mutating the database.
+
+  On a truly empty PostgreSQL database, the runner applies the immutable
+  bootstrap schema in `db/bootstrap`, stamps the equivalent main revision, and
+  then applies all later main migrations. Existing databases bypass bootstrap.
+
+  Background schedulers are disabled by default and enabled independently with
+  `LIVE_SCORING_WATCHDOG_ENABLED`, `LIVE_SCORING_POLLING_ENABLED`, and
+  `PLAYER_NEWS_INGEST_ENABLED`. Enabled schedulers are tracked by the application
+  lifespan and stopped in reverse order, including when lifespan exits through
+  an application exception. A failure in one optional scheduler is logged and
+  does not prevent the remaining schedulers or API from starting.
 
 - **Seeding:** the server startup still auto‑creates an admin user and
   default league for convenience. A more robust setup is to run a standalone

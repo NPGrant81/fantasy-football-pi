@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 # 1.1.1 INFRASTRUCTURE: Use the new Security Core
 from ..core import security
+from ..core.config import get_settings
 from .. import models
 from ..schemas import User, UserCreate
 from ..database import get_db
@@ -20,6 +21,7 @@ from ..services import password_reset_service
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 logger = logging.getLogger(__name__)
+runtime_settings = get_settings()
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "300"))
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("LOGIN_RATE_LIMIT_MAX_ATTEMPTS", "10"))
 USE_COOKIE_AUTH = os.getenv("USE_COOKIE_AUTH", "1") != "0"
@@ -27,8 +29,8 @@ COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax")
 COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "0") == "1"
 ACCESS_TOKEN_COOKIE_NAME = security.ACCESS_TOKEN_COOKIE_NAME
 REFRESH_TOKEN_COOKIE_NAME = os.getenv("REFRESH_TOKEN_COOKIE_NAME", "ffpi_refresh_token")
-CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "ffpi_csrf_token")
-CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
+CSRF_COOKIE_NAME = runtime_settings.csrf_cookie_name
+CSRF_HEADER_NAME = runtime_settings.csrf_header_name
 
 
 def _login_attempt_key(username: str, client_ip: str) -> str:

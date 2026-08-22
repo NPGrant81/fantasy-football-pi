@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from backend.database import SessionLocal, engine
 import models
 from backend.services import player_service
+from backend.services.schema_readiness_service import assert_schema_ready
 from backend.services.player_identity_service import (
     current_season,
     ensure_primary_alias,
@@ -154,7 +155,7 @@ def upsert_defense(db: Session, team_abbr):
 
 
 def import_active_players():
-    models.Base.metadata.create_all(bind=engine)
+    assert_schema_ready(engine, models.Base.metadata)
     db = SessionLocal()
 
     try:

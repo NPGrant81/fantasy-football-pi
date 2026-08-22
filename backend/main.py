@@ -1,12 +1,13 @@
 import os
 import sys
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from dotenv import load_dotenv
-from sqlalchemy import text
+from pydantic import ValidationError
 
 load_dotenv()
 
@@ -25,6 +26,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     backend_pkg = importlib.import_module("backend")
     models = importlib.import_module("backend.models")
     dbmod = importlib.import_module("backend.database")
+    configmod = importlib.import_module("backend.core.config")
     secmod = importlib.import_module("backend.core.security")
     # load routers package and each submodule explicitly
     routers_pkg = importlib.import_module("backend.routers")
@@ -59,22 +61,31 @@ if __name__ == "__main__" or __package__ in (None, ""):
 
     engine = dbmod.engine
     SessionLocal = dbmod.SessionLocal
+    probe_database = dbmod.probe_database
+    RuntimeSettings = configmod.RuntimeSettings
+    current_app_env = configmod.current_app_env
+    get_settings = configmod.get_settings
     get_password_hash = secmod.get_password_hash
     check_is_commissioner = secmod.check_is_commissioner
     watchdog_service = importlib.import_module("backend.services.live_scoring_watchdog_service")
     polling_service = importlib.import_module("backend.services.live_scoring_polling_service")
     player_news_scheduler_service = importlib.import_module("backend.services.player_news_scheduler_service")
+    runtime_scheduler_service = importlib.import_module("backend.services.runtime_scheduler_service")
+    schema_readiness_service = importlib.import_module("backend.services.schema_readiness_service")
     live_scoring_event_bus = importlib.import_module("backend.services.live_scoring_event_bus")
     live_scoring_sse = importlib.import_module("backend.routers.live_scoring_sse")
     run_seeder = importlib.import_module("backend.scripts.seed").run_seeder
 else:
     # normal package imports
     from . import models
-    from .database import engine, SessionLocal
+    from .database import engine, SessionLocal, probe_database
+    from .core.config import RuntimeSettings, current_app_env, get_settings
     from .core.security import get_password_hash, check_is_commissioner
     from .services import live_scoring_watchdog_service as watchdog_service
     from .services import live_scoring_polling_service as polling_service
     from .services import player_news_scheduler_service
+    from .services import runtime_scheduler_service
+    from .services import schema_readiness_service
     from .services import live_scoring_event_bus
     from .routers import live_scoring_sse
     from .scripts.seed import run_seeder
@@ -92,6 +103,25 @@ else:
     )
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
+
+
+def _initialize_database() -> None:
+    logger.info("Database startup phase: connectivity check")
+    try:
+        probe_database(engine)
+    except Exception as exc:
+        logger.exception("Database connectivity check failed during startup")
+        raise RuntimeError("Database connectivity check failed during startup") from exc
+
+    logger.info("Database startup phase: schema readiness check")
+    try:
+        schema_readiness_service.assert_schema_ready(engine, models.Base.metadata)
+    except Exception as exc:
+        logger.exception("Database schema readiness check failed during startup")
+        raise RuntimeError("Database schema readiness check failed during startup") from exc
+
+    logger.info("Database startup phases completed")
 
 
 def _advisor_runtime_status() -> dict[str, bool | str]:
@@ -113,47 +143,43 @@ def _advisor_runtime_status() -> dict[str, bool | str]:
         "key_source": key_source,
     }
 
-from contextlib import asynccontextmanager
+
+def _create_runtime_scheduler_manager():
+    registrations = (
+        runtime_scheduler_service.SchedulerRegistration(
+            "live_scoring_watchdog",
+            watchdog_service.start_live_scoring_watchdog_scheduler,
+            watchdog_service.stop_live_scoring_watchdog_scheduler,
+        ),
+        runtime_scheduler_service.SchedulerRegistration(
+            "live_scoring_polling",
+            polling_service.start_live_scoring_polling_scheduler,
+            polling_service.stop_live_scoring_polling_scheduler,
+        ),
+        runtime_scheduler_service.SchedulerRegistration(
+            "player_news_ingest",
+            player_news_scheduler_service.start_player_news_ingest_scheduler,
+            player_news_scheduler_service.stop_player_news_ingest_scheduler,
+        ),
+    )
+    return runtime_scheduler_service.RuntimeSchedulerManager(registrations, logger)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan manager takes the place of startup/shutdown events.
 
-    Tables are created and runtime schema fixes applied before the
-    application starts accepting requests.  This guarantees ordering and
-    avoids races that were causing intermittent connection errors in CI.
+    Migrations and schema readiness checks complete before the application
+    starts accepting requests.
     """
     # --- startup portion ---
-    try:
-        skip_startup_migrations = os.getenv("BACKEND_SKIP_STARTUP_MIGRATIONS", "0") == "1"
-        if not skip_startup_migrations:
-            # run any pending alembic migrations on startup so the schema stays
-            # up‑to‑date even if somebody applied a migration externally (e.g. via
-            # a cron job or manual `alembic upgrade`).  this is lightweight and
-            # idempotent.
-            from alembic import command, config as alembic_config
-            cfg = alembic_config.Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
-            command.upgrade(cfg, "heads")
-    except Exception as e:
-        # if the DB isn't reachable or alembic isn't configured, we just
-        # log and continue.  the runtime schema function will still patch
-        # whatever it can.
-        print(f"Warning: alembic upgrade step failed: {e}")
+    _initialize_database()
 
     try:
-        models.Base.metadata.create_all(bind=engine)
-        ensure_runtime_schema()
-    except Exception as e:
-        print(f"Warning: Could not initialize database tables: {e}")
-
-    try:
-        auto_seed = os.getenv("AUTO_SEED_ON_STARTUP", "0")
-        app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
-        if auto_seed == "1" and app_env not in {"production", "prod"}:
+        if settings.auto_seed_on_startup:
             run_seeder(SessionLocal, get_password_hash)
-    except Exception as e:
-        print(f"Warning: Could not run startup seeder: {e}")
+    except Exception:
+        logger.exception("Could not run startup seeder")
 
     advisor_status = _advisor_runtime_status()
     logger.info(
@@ -172,99 +198,23 @@ async def lifespan(app: FastAPI):
     try:
         import asyncio as _asyncio
         live_scoring_event_bus.set_event_loop(_asyncio.get_event_loop())
-    except Exception as e:
-        print(f"Warning: Could not register event loop with live scoring event bus: {e}")
+    except Exception:
+        logger.exception("Could not register event loop with live scoring event bus")
 
+    scheduler_manager = _create_runtime_scheduler_manager()
     try:
-        watchdog_service.start_live_scoring_watchdog_scheduler()
-    except Exception as e:
-        print(f"Warning: Could not start live scoring watchdog scheduler: {e}")
-
-    try:
-        polling_service.start_live_scoring_polling_scheduler()
-    except Exception as e:
-        print(f"Warning: Could not start live scoring polling scheduler: {e}")
-
-    try:
-        player_news_scheduler_service.start_player_news_ingest_scheduler()
-    except Exception as e:
-        print(f"Warning: Could not start player news ingest scheduler: {e}")
-
-    yield
-
-    # --- shutdown portion ---
-    # (currently nothing to clean up here; kept for future use)
-    try:
-        watchdog_service.stop_live_scoring_watchdog_scheduler()
-    except Exception as e:
-        print(f"Warning: Could not stop live scoring watchdog scheduler: {e}")
-
-    try:
-        polling_service.stop_live_scoring_polling_scheduler()
-    except Exception as e:
-        print(f"Warning: Could not stop live scoring polling scheduler: {e}")
-
-    try:
-        player_news_scheduler_service.stop_player_news_ingest_scheduler()
-    except Exception as e:
-        print(f"Warning: Could not stop player news ingest scheduler: {e}")
+        scheduler_manager.start()
+        yield
+    finally:
+        scheduler_manager.stop()
 
 
 def _validate_production_secrets() -> None:
-    """
-    Validate that production deployments have strong, non-default secrets.
-    
-    This is a security guardrail to prevent accidental deployment with
-    insecure or default credentials (Issue #415: Secrets Rotation Policy).
-    
-    Raises:
-        RuntimeError: If running in production with weak or missing secrets.
-    """
-    app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
-    
-    # Only enforce in production environments
-    if app_env not in {"production", "prod"}:
-        return
-    
-    secret_key = os.getenv("SECRET_KEY", "")
-    
-    # Check 1: SECRET_KEY must be set
-    if not secret_key:
-        raise RuntimeError(
-            "FATAL: SECRET_KEY is not set in production environment. "
-            "Set a strong random value via environment variable before deployment. "
-            "Generate with: python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
-        )
-    
-    # Check 2: SECRET_KEY must not be a common default/weak value
-    weak_patterns = [
-        "change-me-in-production",
-        "your-secret-key-here",
-        "secret",
-        "test",
-        "debug",
-        "default",
-        "insecure",
-    ]
-    
-    secret_lower = secret_key.lower()
-    for pattern in weak_patterns:
-        if pattern in secret_lower:
-            raise RuntimeError(
-                f"FATAL: SECRET_KEY contains weak pattern '{pattern}' in production. "
-                "This is not secure. Generate a strong random secret with: "
-                "python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
-            )
-    
-    # Check 3: SECRET_KEY must be sufficiently long (32+ bytes for URL-safe base64)
-    if len(secret_key) < 32:
-        raise RuntimeError(
-            f"FATAL: SECRET_KEY is too short ({len(secret_key)} bytes). "
-            "Minimum 32 bytes required for production. "
-            "Generate with: python3 -c \"import secrets; print(secrets.token_urlsafe(32))\""
-        )
-    
-    logger.info("✓ Production secrets validation passed")
+    """Validate a fresh environment snapshot for CLI checks and tests."""
+    try:
+        RuntimeSettings()
+    except ValidationError as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 # Validate secrets before app creation
@@ -274,8 +224,7 @@ app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
 
 
 def _is_production_env() -> bool:
-    app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
-    return app_env in {"production", "prod"}
+    return current_app_env(settings.app_env) in {"production", "prod"}
 
 
 @app.exception_handler(HTTPException)
@@ -300,9 +249,9 @@ async def unhandled_exception_handler(_request: Request, exc: Exception):
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
     return JSONResponse(status_code=500, content={"detail": str(exc)})
 
-ACCESS_TOKEN_COOKIE_NAME = os.getenv("ACCESS_TOKEN_COOKIE_NAME", "ffpi_access_token")
-CSRF_COOKIE_NAME = os.getenv("CSRF_COOKIE_NAME", "ffpi_csrf_token")
-CSRF_HEADER_NAME = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
+ACCESS_TOKEN_COOKIE_NAME = settings.access_token_cookie_name
+CSRF_COOKIE_NAME = settings.csrf_cookie_name
+CSRF_HEADER_NAME = settings.csrf_header_name
 CSRF_EXEMPT_PATHS = {
     "/auth/token",
     "/analytics/visit",
@@ -313,94 +262,6 @@ CSRF_EXEMPT_PATHS = {
 }
 
 
-def _parse_csv_env(env_var: str, default_values: list[str]) -> list[str]:
-    raw = os.getenv(env_var)
-    if not raw:
-        return default_values
-    return [value.strip() for value in raw.split(",") if value.strip()]
-
-
-def ensure_runtime_schema() -> None:
-    """Apply minimal non-destructive schema fixes required by active routes."""
-    # When new columns are added to tables but upstream migrations may not have
-    # been run, we pragmatically add them here so the app can start without
-    # blowing up.  This isn't a substitute for Alembic in production, but it
-    # keeps local dev and UAT scripts from crashing.
-    statements = [
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS draft_year INTEGER",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_deadline VARCHAR",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS starting_waiver_budget INTEGER DEFAULT 100",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS waiver_system VARCHAR",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS waiver_tiebreaker VARCHAR",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_qualifiers INTEGER DEFAULT 6",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_reseed BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_consolation BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS playoff_tiebreakers JSON DEFAULT '[\"overall_record\",\"head_to_head\",\"points_for\",\"points_against\",\"random_draw\"]'",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS future_draft_cap INTEGER DEFAULT 0",  # required by ORM
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS divisions_enabled BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_count INTEGER",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_config_status VARCHAR DEFAULT 'draft'",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_assignment_method VARCHAR",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_random_seed VARCHAR",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_needs_reseed BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS division_history_enabled BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_start_at TIMESTAMPTZ",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_end_at TIMESTAMPTZ",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS allow_playoff_trades BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS require_commissioner_approval BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_veto_enabled BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_veto_threshold INTEGER",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_review_period_hours INTEGER",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_max_players_per_side INTEGER",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_league_vote_enabled BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE league_settings ADD COLUMN IF NOT EXISTS trade_league_vote_threshold INTEGER",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS season_year INTEGER",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS description VARCHAR",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS position_ids JSON DEFAULT '[]'",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS source VARCHAR(32) DEFAULT 'custom'",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS template_id INTEGER",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS updated_by_user_id INTEGER",
-        "ALTER TABLE scoring_rules ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMPTZ",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS division_id INTEGER",  # added for divisions feature
-        "ALTER TABLE divisions ADD COLUMN IF NOT EXISTS season INTEGER",
-        "ALTER TABLE divisions ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0",
-        # new field added in recent schema; seeding logic expects it
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS future_draft_budget INTEGER DEFAULT 0",
-        # taxi support: mark picks that aren’t eligible for starting lineup
-        "ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS is_taxi BOOLEAN DEFAULT FALSE",
-        # keeper feature additions
-        "ALTER TABLE keeper_rules ADD COLUMN IF NOT EXISTS max_years_per_player INTEGER DEFAULT 1",
-        "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS years_kept_count INTEGER DEFAULT 1",
-        "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP WITH TIME ZONE",
-        "ALTER TABLE keepers ADD COLUMN IF NOT EXISTS approved_by_commish BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE matchups ADD COLUMN IF NOT EXISTS is_division_matchup BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE matchups ADD COLUMN IF NOT EXISTS is_rivalry_week BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE matchups ADD COLUMN IF NOT EXISTS rivalry_name VARCHAR",
-        "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_1_seed INTEGER",
-        "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_2_seed INTEGER",
-        "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_1_is_division_winner BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE playoff_matches ADD COLUMN IF NOT EXISTS team_2_is_division_winner BOOLEAN DEFAULT FALSE",
-        # draft_values extended stats — computed from draft_picks (no CSV import)
-        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS avg_bid FLOAT",
-        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS median_bid FLOAT",
-        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS recent_3yr_avg FLOAT",
-        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS trend_slope FLOAT",
-        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS appearances INTEGER",
-        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS model_score FLOAT",
-        "ALTER TABLE draft_values ADD COLUMN IF NOT EXISTS rank INTEGER",
-    ]
-
-    with engine.connect() as connection:
-        for statement in statements:
-            try:
-                connection.execute(text(statement))
-                connection.commit()
-            except Exception as exc:
-                connection.rollback()
-                print(f"Warning: Could not apply runtime schema fix ({statement}): {exc}")
-
 # --- 1. DATABASE SETUP ---
 # The database initialization logic has been moved into the lifespan
 # manager above.  We no longer use an `@app.on_event("startup")` handler
@@ -409,17 +270,9 @@ def ensure_runtime_schema() -> None:
 # --- 2. SECURITY: CORS ---
 # Allow development origins; when running locally we accept any origin to
 # simplify front-end testing.  In production this should be locked down.
-allowed_hosts = _parse_csv_env("ALLOWED_HOSTS", ["localhost", "127.0.0.1", "testserver"])
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 
-allowed = ["*"] if os.getenv("ALLOW_ALL_ORIGINS") == "1" else _parse_csv_env(
-    "FRONTEND_ALLOWED_ORIGINS",
-    [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-)
-cors_csrf_header = os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token")
+cors_csrf_header = settings.csrf_header_name
 cors_allow_headers = [
     "Authorization",
     "Content-Type",
@@ -430,7 +283,7 @@ cors_allow_headers = [
 ]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=cors_allow_headers,
@@ -543,8 +396,7 @@ def read_root():
 def health_check(request: Request):
     db_ok = True
     try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+        probe_database(engine)
     except Exception:
         db_ok = False
         # Keep full exception details in server logs only.

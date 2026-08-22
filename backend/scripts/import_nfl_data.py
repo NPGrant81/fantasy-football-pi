@@ -6,15 +6,17 @@ try:
     # and direct script execution from backend/scripts.
     from backend.services import player_service
     from backend.services.nfl_roster_provider_service import fetch_rosters_for_seasons
+    from backend.services.schema_readiness_service import assert_schema_ready
 except ModuleNotFoundError:
     from services import player_service
     from services.nfl_roster_provider_service import fetch_rosters_for_seasons
+    from services.schema_readiness_service import assert_schema_ready
 
-# 1. Initialize DB
-models.Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
+
 def import_fresh_data():
+    assert_schema_ready(engine, models.Base.metadata)
     print("🏈 Fetching LIVE NFL Data from ESPN (2025 Season snapshot)...")
     
     # --- A. FETCH PLAYERS ---

@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 revision = "0027_add_admin_audit_logs_table"
-down_revision = "0026_add_refresh_tokens_table"
+down_revision = "0027_add_refresh_tokens_table"
 branch_labels = None
 depends_on = None
 

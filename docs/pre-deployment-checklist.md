@@ -58,7 +58,9 @@ If this deploy includes Alembic migrations:
 
 - [ ] Migration has been reviewed for destructive operations (`DROP COLUMN`, `DROP TABLE`, truncates)
 - [ ] Migration is reversible — `downgrade()` is implemented and tested locally
-- [ ] `apply_migrations.py` has been dry-run against a copy of the production database
+- [ ] `python -m backend.apply_migrations` has been dry-run against a copy of the production database
+- [ ] Empty-database bootstrap has passed in CI when the bootstrap snapshot changed
+- [ ] Application startup against a stale schema fails without applying DDL
 - [ ] Backup of the production database taken and stored (see §6)
 
 ---

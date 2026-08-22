@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session
 # duplicate metadata objects when SQLAlchemy reflects them under two names
 import importlib
 
+from .config import get_settings
+
 models = importlib.import_module("backend.models")
 database = importlib.import_module("backend.database")
 
@@ -26,17 +28,14 @@ def _get_bcrypt_module():
 get_db = database.get_db
 
 # --- 1.1 CONFIGURATION ---
-# 1.1.2 Ensure the app fails-fast if no secret key is provided in a real environment
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev_secret_only_not_for_production")
-APP_ENV = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
-IS_PRODUCTION = APP_ENV in {"production", "prod"}
-
-if IS_PRODUCTION and SECRET_KEY == "dev_secret_only_not_for_production":
-    raise RuntimeError("SECRET_KEY must be set to a strong value in production")
+runtime_settings = get_settings()
+SECRET_KEY = runtime_settings.secret_key
+APP_ENV = runtime_settings.app_env
+IS_PRODUCTION = runtime_settings.is_production
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-ACCESS_TOKEN_COOKIE_NAME = os.environ.get("ACCESS_TOKEN_COOKIE_NAME", "ffpi_access_token")
+ACCESS_TOKEN_COOKIE_NAME = runtime_settings.access_token_cookie_name
 ALLOW_BEARER_AUTH = os.environ.get("ALLOW_BEARER_AUTH", "0") == "1"
 REVOCATION_PRUNE_INTERVAL_SECONDS = int(os.environ.get("REVOCATION_PRUNE_INTERVAL_SECONDS", "300"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "14"))

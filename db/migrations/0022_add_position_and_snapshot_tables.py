@@ -3,7 +3,7 @@ issue #103 phase 2: position registry and canonical player snapshot tables
 """
 
 revision = '0022_add_position_and_snapshot_tables'
-down_revision = '0021_add_league_settings_trade_governance_columns'
+down_revision = '0021'
 branch_labels = None
 depends_on = None
 

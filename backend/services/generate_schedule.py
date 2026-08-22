@@ -1,14 +1,14 @@
-from sqlalchemy.orm import Session
 # FIX: Removed "backend." prefix since we are now INSIDE the folder
 from ..database import SessionLocal, engine
 from .. import models
+from .schema_readiness_service import assert_schema_ready
 import random
 
-# 1. Initialize DB
-models.Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 
+
 def generate_schedule():
+    assert_schema_ready(engine, models.Base.metadata)
     print("📅 Generating 14-Week Fantasy Schedule...")
 
     # 2. Get All Owners
@@ -24,7 +24,6 @@ def generate_schedule():
     if len(owners) % 2 != 0:
         owners.append(None)
     
-    num_teams = len(owners)
     weeks = 14 # Standard Fantasy Regular Season
     
     # Clear old schedule
