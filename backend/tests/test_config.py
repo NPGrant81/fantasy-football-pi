@@ -7,8 +7,10 @@ from backend.core.config import DEVELOPMENT_SECRET, RuntimeSettings, current_app
 PRODUCTION_VALUES = {
     "app_env": "production",
     "secret_key": "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8",
+    "database_url": "postgresql://ffpi:password@db.example.com/fantasy_football",
     "allowed_hosts_csv": "api.example.com,localhost",
     "frontend_allowed_origins_csv": "https://app.example.com",
+    "auth_cookie_secure": True,
 }
 
 
@@ -27,6 +29,7 @@ def test_settings_support_legacy_environment_name(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.setenv("ENVIRONMENT", "prod")
     monkeypatch.setenv("SECRET_KEY", PRODUCTION_VALUES["secret_key"])
+    monkeypatch.setenv("AUTH_COOKIE_SECURE", "1")
     monkeypatch.setenv("ALLOWED_HOSTS", PRODUCTION_VALUES["allowed_hosts_csv"])
     monkeypatch.setenv(
         "FRONTEND_ALLOWED_ORIGINS",
@@ -67,6 +70,19 @@ def test_settings_require_secret_in_production():
         )
 
 
+def test_settings_reject_unknown_environment():
+    with pytest.raises(ValidationError, match="APP_ENV must be one of"):
+        RuntimeSettings(app_env="prd", _env_file=None)
+
+
+def test_settings_require_database_url_in_production():
+    with pytest.raises(ValidationError, match="DATABASE_URL is required"):
+        RuntimeSettings(
+            **{**PRODUCTION_VALUES, "database_url": None},
+            _env_file=None,
+        )
+
+
 def test_settings_reject_weak_production_secret():
     with pytest.raises(ValidationError, match="contains weak pattern"):
         RuntimeSettings(
@@ -95,6 +111,25 @@ def test_settings_reject_wildcard_production_cors():
         RuntimeSettings(
             **PRODUCTION_VALUES,
             allow_all_origins=True,
+            _env_file=None,
+        )
+
+
+def test_settings_reject_http_production_origin():
+    with pytest.raises(ValidationError, match="only HTTPS production origins"):
+        RuntimeSettings(
+            **{
+                **PRODUCTION_VALUES,
+                "frontend_allowed_origins_csv": "http://app.example.com",
+            },
+            _env_file=None,
+        )
+
+
+def test_settings_require_secure_production_cookies():
+    with pytest.raises(ValidationError, match="AUTH_COOKIE_SECURE"):
+        RuntimeSettings(
+            **{**PRODUCTION_VALUES, "auth_cookie_secure": False},
             _env_file=None,
         )
 

@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 runtime_settings = get_settings()
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "300"))
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("LOGIN_RATE_LIMIT_MAX_ATTEMPTS", "10"))
-USE_COOKIE_AUTH = os.getenv("USE_COOKIE_AUTH", "1") != "0"
-COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax")
-COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "0") == "1"
+USE_COOKIE_AUTH = runtime_settings.use_cookie_auth
+COOKIE_SAMESITE = runtime_settings.auth_cookie_samesite
+COOKIE_SECURE = runtime_settings.auth_cookie_secure
 ACCESS_TOKEN_COOKIE_NAME = security.ACCESS_TOKEN_COOKIE_NAME
-REFRESH_TOKEN_COOKIE_NAME = os.getenv("REFRESH_TOKEN_COOKIE_NAME", "ffpi_refresh_token")
+REFRESH_TOKEN_COOKIE_NAME = runtime_settings.refresh_token_cookie_name
 CSRF_COOKIE_NAME = runtime_settings.csrf_cookie_name
 CSRF_HEADER_NAME = runtime_settings.csrf_header_name
 

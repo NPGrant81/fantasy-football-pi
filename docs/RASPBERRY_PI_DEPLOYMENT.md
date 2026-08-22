@@ -126,9 +126,11 @@ sudo nano /etc/fantasy-football-pi/backend.env
 Before starting the service, replace every placeholder and verify:
 
 - `APP_ENV=production`
+- `DATABASE_URL` is set explicitly with deployment-specific credentials
 - `SECRET_KEY` is a random value of at least 32 characters
 - `ALLOWED_HOSTS` contains the public backend host
-- `FRONTEND_ALLOWED_ORIGINS` contains the public HTTPS frontend origin
+- `FRONTEND_ALLOWED_ORIGINS` contains only public HTTPS frontend origins
+- `AUTH_COOKIE_SECURE=1`
 - `ALLOW_ALL_ORIGINS=0` and `AUTO_SEED_ON_STARTUP=0`
 
 The backend validates these settings before database or scheduler startup.

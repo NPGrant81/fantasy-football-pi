@@ -1,6 +1,7 @@
 from functools import lru_cache
 import os
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -38,6 +39,7 @@ class RuntimeSettings(BaseSettings):
         validation_alias=AliasChoices("APP_ENV", "ENVIRONMENT"),
     )
     secret_key: str = Field(default=DEVELOPMENT_SECRET, validation_alias="SECRET_KEY")
+    database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     auto_seed_on_startup: bool = Field(default=False, validation_alias="AUTO_SEED_ON_STARTUP")
     allowed_hosts_csv: str = Field(
         default="localhost,127.0.0.1,testserver",
@@ -54,6 +56,16 @@ class RuntimeSettings(BaseSettings):
     )
     csrf_cookie_name: str = Field(default="ffpi_csrf_token", validation_alias="CSRF_COOKIE_NAME")
     csrf_header_name: str = Field(default="X-CSRF-Token", validation_alias="CSRF_HEADER_NAME")
+    use_cookie_auth: bool = Field(default=True, validation_alias="USE_COOKIE_AUTH")
+    auth_cookie_secure: bool = Field(default=False, validation_alias="AUTH_COOKIE_SECURE")
+    auth_cookie_samesite: Literal["lax", "strict", "none"] = Field(
+        default="lax",
+        validation_alias="AUTH_COOKIE_SAMESITE",
+    )
+    refresh_token_cookie_name: str = Field(
+        default="ffpi_refresh_token",
+        validation_alias="REFRESH_TOKEN_COOKIE_NAME",
+    )
 
     @property
     def is_production(self) -> bool:
@@ -79,8 +91,15 @@ class RuntimeSettings(BaseSettings):
     def validate_runtime_contract(self) -> "RuntimeSettings":
         self.app_env = self.app_env.strip().lower()
 
+        supported_environments = {"development", "test", "testing", "production", "prod"}
+        if self.app_env not in supported_environments:
+            raise ValueError(f"APP_ENV must be one of {sorted(supported_environments)}")
+
         if not self.is_production:
             return self
+
+        if not self.database_url:
+            raise ValueError("DATABASE_URL is required in production environment")
 
         if not self.secret_key or self.secret_key == DEVELOPMENT_SECRET:
             raise ValueError("SECRET_KEY is not set in production environment")
@@ -108,10 +127,13 @@ class RuntimeSettings(BaseSettings):
             raise ValueError("ALLOWED_HOSTS must contain explicit production hosts")
 
         if not self.frontend_allowed_origins or any(
-            origin.startswith(("http://localhost", "http://127.0.0.1"))
+            not origin.startswith("https://")
             for origin in self.frontend_allowed_origins
         ):
-            raise ValueError("FRONTEND_ALLOWED_ORIGINS must contain explicit production origins")
+            raise ValueError("FRONTEND_ALLOWED_ORIGINS must contain only HTTPS production origins")
+
+        if not self.auth_cookie_secure:
+            raise ValueError("AUTH_COOKIE_SECURE must be enabled in production")
 
         return self
 
