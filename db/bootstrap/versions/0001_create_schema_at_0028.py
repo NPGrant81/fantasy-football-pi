@@ -1205,7 +1205,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_owner_season_behaviors_id'), table_name='owner_season_behaviors')
     op.drop_index('ix_osb_league_season', table_name='owner_season_behaviors')
     op.drop_table('owner_season_behaviors')
-    op.drop_index('uix_matchups_league_season_week_home_away', table_name='matchups', postgresql_where=sa.text('season IS NOT NULL'))
+    op.drop_index('uix_matchups_league_season_week_home_away', table_name='matchups')
     op.drop_index(op.f('ix_matchups_week'), table_name='matchups')
     op.drop_index(op.f('ix_matchups_season'), table_name='matchups')
     op.drop_index(op.f('ix_matchups_id'), table_name='matchups')

@@ -45,6 +45,11 @@ def test_database_supports_legacy_top_level_import():
             "import runpy; "
             "runpy.run_path('backend/scripts/archive_weekly_stats.py', run_name='import_check')"
         ),
+        "import backend.scripts.import_espn_players",
+        (
+            "import runpy; "
+            "runpy.run_path('backend/scripts/import_espn_players.py', run_name='import_check')"
+        ),
     ],
 )
 def test_data_scripts_support_declared_import_modes(command):

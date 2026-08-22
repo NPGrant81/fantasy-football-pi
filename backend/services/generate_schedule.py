@@ -4,12 +4,15 @@ from .. import models
 from .schema_readiness_service import assert_schema_ready
 import random
 
-db = SessionLocal()
-
 
 def generate_schedule():
     assert_schema_ready(engine, models.Base.metadata)
     print("📅 Generating 14-Week Fantasy Schedule...")
+    with SessionLocal() as db:
+        _generate_schedule(db)
+
+
+def _generate_schedule(db):
 
     # 2. Get All Owners
     owners = db.query(models.User).all()
