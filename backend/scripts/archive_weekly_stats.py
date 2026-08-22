@@ -1,15 +1,17 @@
 import sys
-import os
 from datetime import UTC, datetime
+from pathlib import Path
 import time
-import requests
-from sqlalchemy.orm import Session
-from database import SessionLocal, engine
-import models
-from services.schema_readiness_service import assert_schema_ready
 
-# Add the parent directory (backend) to the system path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+import requests  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+from backend.database import SessionLocal, engine  # noqa: E402
+from backend import models  # noqa: E402
+from backend.services.schema_readiness_service import assert_schema_ready  # noqa: E402
 
 ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 ESPN_SUMMARY_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary"

@@ -1,8 +1,15 @@
 from sqlalchemy import create_engine, text
 # SQLAlchemy 2.0 deprecates the old location of declarative_base
 from sqlalchemy.orm import declarative_base, sessionmaker
-from backend.core.config import get_settings
-from backend.db_config import load_backend_env_file, resolve_database_url
+
+try:
+    from backend.core.config import get_settings
+    from backend.db_config import load_backend_env_file, resolve_database_url
+except ModuleNotFoundError as exc:
+    if exc.name != "backend":
+        raise
+    from core.config import get_settings
+    from db_config import load_backend_env_file, resolve_database_url
 
 load_backend_env_file()
 runtime_settings = get_settings()

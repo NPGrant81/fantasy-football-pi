@@ -1,16 +1,17 @@
+import sys
+from pathlib import Path
+
 import pandas as pd
-from database import SessionLocal, engine
-import models
-try:
-    # Support both module execution (python -m backend.scripts.import_nfl_data)
-    # and direct script execution from backend/scripts.
-    from backend.services import player_service
-    from backend.services.nfl_roster_provider_service import fetch_rosters_for_seasons
-    from backend.services.schema_readiness_service import assert_schema_ready
-except ModuleNotFoundError:
-    from services import player_service
-    from services.nfl_roster_provider_service import fetch_rosters_for_seasons
-    from services.schema_readiness_service import assert_schema_ready
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from backend.database import SessionLocal, engine  # noqa: E402
+from backend import models  # noqa: E402
+from backend.services import player_service  # noqa: E402
+from backend.services.nfl_roster_provider_service import fetch_rosters_for_seasons  # noqa: E402
+from backend.services.schema_readiness_service import assert_schema_ready  # noqa: E402
 
 db = SessionLocal()
 
