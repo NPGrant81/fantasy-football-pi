@@ -25,20 +25,18 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('season', sa.Integer(), nullable=False),
     sa.Column('content_digest', sa.String(length=64), nullable=False),
-    sa.Column('total_rows', sa.Integer(), nullable=False),
-    sa.Column('unique_player_ids', sa.Integer(), nullable=False),
-    sa.Column('deduplicated_rows', sa.Integer(), nullable=False),
-    sa.Column('duplicate_name_keys', sa.JSON(), nullable=False),
-    sa.Column('position_distribution', sa.JSON(), nullable=False),
-    sa.Column('source', sa.String(length=32), nullable=False),
+    sa.Column('total_rows', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('unique_player_ids', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('deduplicated_rows', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('duplicate_name_keys', sa.JSON(), server_default='[]', nullable=False),
+    sa.Column('position_distribution', sa.JSON(), server_default='{}', nullable=False),
+    sa.Column('source', sa.String(length=32), server_default='etl_build', nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('season', 'content_digest', name='uq_snapshot_season_digest')
     )
     op.create_index('ix_canonical_player_snapshot_created', 'canonical_player_snapshots', ['created_at'], unique=False)
     op.create_index('ix_canonical_player_snapshot_season', 'canonical_player_snapshots', ['season'], unique=False)
-    op.create_index(op.f('ix_canonical_player_snapshots_id'), 'canonical_player_snapshots', ['id'], unique=False)
-    op.create_index(op.f('ix_canonical_player_snapshots_season'), 'canonical_player_snapshots', ['season'], unique=False)
     op.create_table('leagues',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(), nullable=True),
@@ -56,7 +54,7 @@ def upgrade() -> None:
     sa.Column('season', sa.Integer(), nullable=False),
     sa.Column('week', sa.Integer(), nullable=True),
     sa.Column('scoreboard_fingerprint', sa.String(length=64), nullable=False),
-    sa.Column('event_count', sa.Integer(), nullable=False),
+    sa.Column('event_count', sa.Integer(), server_default='0', nullable=False),
     sa.Column('game_states', sa.JSON(), nullable=True),
     sa.Column('fetch_diagnostics', sa.JSON(), nullable=True),
     sa.Column('raw_response_path', sa.String(), nullable=True),
@@ -67,10 +65,6 @@ def upgrade() -> None:
     op.create_index('ix_live_scoring_ingest_events_fingerprint', 'live_scoring_ingest_events', ['scoreboard_fingerprint'], unique=False)
     op.create_index(op.f('ix_live_scoring_ingest_events_id'), 'live_scoring_ingest_events', ['id'], unique=False)
     op.create_index('ix_live_scoring_ingest_events_scope', 'live_scoring_ingest_events', ['source', 'season', 'week'], unique=False)
-    op.create_index(op.f('ix_live_scoring_ingest_events_scoreboard_fingerprint'), 'live_scoring_ingest_events', ['scoreboard_fingerprint'], unique=False)
-    op.create_index(op.f('ix_live_scoring_ingest_events_season'), 'live_scoring_ingest_events', ['season'], unique=False)
-    op.create_index(op.f('ix_live_scoring_ingest_events_source'), 'live_scoring_ingest_events', ['source'], unique=False)
-    op.create_index(op.f('ix_live_scoring_ingest_events_week'), 'live_scoring_ingest_events', ['week'], unique=False)
     op.create_table('manager_efficiency',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('league_id', sa.Integer(), nullable=False),
@@ -245,13 +239,13 @@ def upgrade() -> None:
     sa.Column('trade_deadline', sa.String(), nullable=True),
     sa.Column('trade_start_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('trade_end_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('allow_playoff_trades', sa.Boolean(), nullable=False),
-    sa.Column('require_commissioner_approval', sa.Boolean(), nullable=False),
-    sa.Column('trade_veto_enabled', sa.Boolean(), nullable=False),
+    sa.Column('allow_playoff_trades', sa.Boolean(), server_default=sa.text('true'), nullable=False),
+    sa.Column('require_commissioner_approval', sa.Boolean(), server_default=sa.text('true'), nullable=False),
+    sa.Column('trade_veto_enabled', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     sa.Column('trade_veto_threshold', sa.Integer(), nullable=True),
     sa.Column('trade_review_period_hours', sa.Integer(), nullable=True),
     sa.Column('trade_max_players_per_side', sa.Integer(), nullable=True),
-    sa.Column('trade_league_vote_enabled', sa.Boolean(), nullable=False),
+    sa.Column('trade_league_vote_enabled', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     sa.Column('trade_league_vote_threshold', sa.Integer(), nullable=True),
     sa.Column('draft_year', sa.Integer(), nullable=True),
     sa.Column('future_draft_cap', sa.Integer(), nullable=True),
@@ -1359,10 +1353,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_manager_efficiency_league_id'), table_name='manager_efficiency')
     op.drop_index(op.f('ix_manager_efficiency_id'), table_name='manager_efficiency')
     op.drop_table('manager_efficiency')
-    op.drop_index(op.f('ix_live_scoring_ingest_events_week'), table_name='live_scoring_ingest_events')
-    op.drop_index(op.f('ix_live_scoring_ingest_events_source'), table_name='live_scoring_ingest_events')
-    op.drop_index(op.f('ix_live_scoring_ingest_events_season'), table_name='live_scoring_ingest_events')
-    op.drop_index(op.f('ix_live_scoring_ingest_events_scoreboard_fingerprint'), table_name='live_scoring_ingest_events')
     op.drop_index('ix_live_scoring_ingest_events_scope', table_name='live_scoring_ingest_events')
     op.drop_index(op.f('ix_live_scoring_ingest_events_id'), table_name='live_scoring_ingest_events')
     op.drop_index('ix_live_scoring_ingest_events_fingerprint', table_name='live_scoring_ingest_events')
@@ -1371,8 +1361,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_leagues_id'), table_name='leagues')
     op.drop_index(op.f('ix_leagues_current_season'), table_name='leagues')
     op.drop_table('leagues')
-    op.drop_index(op.f('ix_canonical_player_snapshots_season'), table_name='canonical_player_snapshots')
-    op.drop_index(op.f('ix_canonical_player_snapshots_id'), table_name='canonical_player_snapshots')
     op.drop_index('ix_canonical_player_snapshot_season', table_name='canonical_player_snapshots')
     op.drop_index('ix_canonical_player_snapshot_created', table_name='canonical_player_snapshots')
     op.drop_table('canonical_player_snapshots')
