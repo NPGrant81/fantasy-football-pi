@@ -10,8 +10,8 @@ This branch was created to trigger CI for backend and frontend tests.
 ## PR #483 Copilot Feedback
 
 - Review requested: 2026-08-22
-- Threads opened: 8
-- Threads resolved: 8
+- Threads opened: 9
+- Threads resolved: 9
 - Suppressed findings reviewed: 5
 - Follow-up commits: `422db87`, `7ab581b`, `55e47b7`, `e79a649`, `552f7b8`, `79bb8e8`
 - Latest review round: dual package/top-level database imports and direct/module script entrypoints fixed with subprocess regression coverage.
@@ -21,6 +21,7 @@ This branch was created to trigger CI for backend and frontend tests.
 - Latest broad backend validation: `779 passed, 1 skipped`.
 - PostgreSQL proof: bootstrap preserved an unrelated `monitoring_events` table and stamped `0028_reconcile_runtime_schema`.
 - Foreign-history proof: bootstrap aborted without creating FFPI tables and preserved both `monitoring_events` and `foreign_revision`.
+- Partial-index proof: explicit SQLAlchemy predicates passed PostgreSQL bootstrap introspection and full bootstrap downgrade.
 - Independent security audit: fail-open configuration findings resolved and re-reviewed.
 - Residual risk: None identified; CI remains the merge gate.
 
