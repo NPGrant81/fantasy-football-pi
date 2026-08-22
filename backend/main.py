@@ -214,7 +214,7 @@ def _validate_production_secrets() -> None:
     try:
         RuntimeSettings()
     except ValidationError as exc:
-        raise RuntimeError(str(exc)) from exc
+        raise RuntimeError("Runtime configuration validation failed") from exc
 
 
 # Validate secrets before app creation

@@ -78,6 +78,18 @@ def test_settings_reject_weak_production_secret():
         )
 
 
+def test_settings_validation_error_hides_secret_input():
+    secret_value = "default-sensitive-marker-that-must-not-leak-123"
+
+    with pytest.raises(ValidationError) as exc_info:
+        RuntimeSettings(
+            **{**PRODUCTION_VALUES, "secret_key": secret_value},
+            _env_file=None,
+        )
+
+    assert secret_value not in str(exc_info.value)
+
+
 def test_settings_reject_wildcard_production_cors():
     with pytest.raises(ValidationError, match="Wildcard CORS origins"):
         RuntimeSettings(

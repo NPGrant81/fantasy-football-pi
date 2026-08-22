@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.database import Base, SessionLocal, engine
+from backend.database import SessionLocal, engine
 import backend.models as models
 from backend.services.scoring_import_service import (
     ScoringImportError,

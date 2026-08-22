@@ -88,7 +88,7 @@ def test_validate_production_secrets_requires_secret_in_production(monkeypatch):
     monkeypatch.delenv("ENVIRONMENT", raising=False)
     monkeypatch.delenv("SECRET_KEY", raising=False)
 
-    with pytest.raises(RuntimeError, match="SECRET_KEY is not set"):
+    with pytest.raises(RuntimeError, match="Runtime configuration validation failed"):
         backend_main._validate_production_secrets()
 
 
@@ -96,8 +96,10 @@ def test_validate_production_secrets_rejects_weak_secret(monkeypatch):
     monkeypatch.setenv("APP_ENV", "prod")
     monkeypatch.setenv("SECRET_KEY", "default-secret-value-that-is-long-enough-123")
 
-    with pytest.raises(RuntimeError, match="contains weak pattern"):
+    with pytest.raises(RuntimeError, match="Runtime configuration validation failed") as exc_info:
         backend_main._validate_production_secrets()
+
+    assert "default-secret-value-that-is-long-enough-123" not in str(exc_info.value)
 
 
 def test_validate_production_secrets_skips_non_production(monkeypatch):
