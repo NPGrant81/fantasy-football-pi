@@ -15,6 +15,8 @@ This branch was created to trigger CI for backend and frontend tests.
 - Suppressed findings reviewed: 3
 - Follow-up commits: `422db87`, `7ab581b`, `55e47b7`, `e79a649`, `552f7b8`, `79bb8e8`
 - Latest review round: dual package/top-level database imports and direct/module script entrypoints fixed with subprocess regression coverage.
+- Additional hardening: polling mocks now restore automatically, defense dedupe tests are seed-independent, health GET/HEAD operation IDs are unique, and pytest-asyncio loop scope is explicit.
+- Latest broad backend validation: `772 passed, 1 skipped`.
 - Independent security audit: fail-open configuration findings resolved and re-reviewed.
 - Residual risk: None identified; CI remains the merge gate.
 

@@ -392,7 +392,8 @@ def read_root():
     return {"message": "Fantasy Football API is Running!"}
 
 
-@app.api_route("/health", methods=["GET", "HEAD"])
+@app.get("/health", operation_id="health_check_get")
+@app.head("/health", operation_id="health_check_head")
 def health_check(request: Request):
     db_ok = True
     try:

@@ -504,28 +504,28 @@ def test_players_endpoint_dedupes_name_position_team_aliases(client):
                 name=sf_def_name,
                 position="DEF",
                 nfl_team="SFO",
-                gsis_id=None,
+                gsis_id=f"dedupe-sfo-{suffix}",
             ),
             models.Player(
                 id=base_id + 5,
                 name=sf_def_name,
                 position="DEF",
                 nfl_team="SF",
-                gsis_id=None,
+                gsis_id=f"dedupe-sf-{suffix}",
             ),
             models.Player(
                 id=base_id + 6,
                 name=ne_def_name,
                 position="DEF",
                 nfl_team="NWE",
-                gsis_id=None,
+                gsis_id=f"dedupe-nwe-{suffix}",
             ),
             models.Player(
                 id=base_id + 7,
                 name=ne_def_name,
                 position="DEF",
                 nfl_team="NE",
-                gsis_id=None,
+                gsis_id=f"dedupe-ne-{suffix}",
             ),
         ]
 

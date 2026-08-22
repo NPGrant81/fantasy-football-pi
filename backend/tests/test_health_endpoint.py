@@ -16,6 +16,13 @@ def test_health_endpoint_returns_service_status(client):
     assert payload['database'] == 'ok'
 
 
+def test_health_head_returns_status_without_body(client):
+    response = client.head('/health')
+
+    assert response.status_code == 200
+    assert response.content == b''
+
+
 def test_health_endpoint_returns_503_when_db_probe_fails(client, monkeypatch):
     class FailingEngine:
         def connect(self):
