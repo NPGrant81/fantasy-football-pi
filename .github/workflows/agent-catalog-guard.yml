@@ -89,32 +89,33 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             if ([string]::IsNullOrWhiteSpace($env:AGENT_CATALOG_READ_TOKEN)) {
               Write-Warning "Catalog checkout failed with github.token; AGENT_CATALOG_READ_TOKEN is not configured. Falling back to local managed-agent integrity checks only."
-
-              $agentPattern = '^[A-Za-z0-9][A-Za-z0-9._-]*\.agent\.md$'
-              $managed = @($lock.managedAgents | ForEach-Object { [string]$_ } | Sort-Object)
-              foreach ($name in $managed) {
-                if ($name -notmatch $agentPattern) {
-                  throw "Invalid managed agent filename in lock: $name"
-                }
-              }
-
-              $agentsDir = Join-Path $PWD ".github/agents"
-              if (-not (Test-Path -LiteralPath $agentsDir)) {
-                throw "Missing .github/agents directory for local fallback validation"
-              }
-
-              $actual = @(Get-ChildItem -LiteralPath $agentsDir -File -Filter "*.agent.md" | Select-Object -ExpandProperty Name | Sort-Object)
-              $managedJoin = $managed -join "|"
-              $actualJoin = $actual -join "|"
-              if ($managedJoin -ne $actualJoin) {
-                throw "Fallback validation failed: .github/agents does not exactly match managedAgents list"
-              }
-
-              Write-Output "fallback validation: lock-managed local agent set is consistent"
-              exit 0
+            }
+            else {
+              Write-Warning "Catalog checkout failed even with AGENT_CATALOG_READ_TOKEN configured; verify token scope/repository access. Falling back to local managed-agent integrity checks only."
             }
 
-            throw "Catalog checkout failed even with AGENT_CATALOG_READ_TOKEN. Verify token scope/repository access."
+            $agentPattern = '^[A-Za-z0-9][A-Za-z0-9._-]*\.agent\.md$'
+            $managed = @($lock.managedAgents | ForEach-Object { [string]$_ } | Sort-Object)
+            foreach ($name in $managed) {
+              if ($name -notmatch $agentPattern) {
+                throw "Invalid managed agent filename in lock: $name"
+              }
+            }
+
+            $agentsDir = Join-Path $PWD ".github/agents"
+            if (-not (Test-Path -LiteralPath $agentsDir)) {
+              throw "Missing .github/agents directory for local fallback validation"
+            }
+
+            $actual = @(Get-ChildItem -LiteralPath $agentsDir -File -Filter "*.agent.md" | Select-Object -ExpandProperty Name | Sort-Object)
+            $managedJoin = $managed -join "|"
+            $actualJoin = $actual -join "|"
+            if ($managedJoin -ne $actualJoin) {
+              throw "Fallback validation failed: .github/agents does not exactly match managedAgents list"
+            }
+
+            Write-Output "fallback validation: lock-managed local agent set is consistent"
+            exit 0
           }
 
           git -c credential.interactive=never -C $catalogRoot -c "http.https://github.com/.extraheader=$authHeader" fetch --tags
