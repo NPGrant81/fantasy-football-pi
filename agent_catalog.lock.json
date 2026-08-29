@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sourceRepo": "NPGrant81/agent-catalog",
   "ref": "v0.2.1",
-  "deferred": false,
+  "deferred": true,
   "enabled": true,
   "status": "active-synced-from-approved-source",
   "managedAgents": [
