@@ -84,7 +84,8 @@ jobs:
             Remove-Item -LiteralPath $catalogRoot -Recurse -Force
           }
 
-          $authHeader = "AUTHORIZATION: bearer $catalogToken"
+          $basicToken = [Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("x-access-token:$catalogToken"))
+          $authHeader = "AUTHORIZATION: basic $basicToken"
           git -c credential.interactive=never -c "http.https://github.com/.extraheader=$authHeader" clone https://github.com/NPGrant81/agent-catalog.git $catalogRoot
           if ($LASTEXITCODE -ne 0) {
             if ([string]::IsNullOrWhiteSpace($env:AGENT_CATALOG_READ_TOKEN)) {
