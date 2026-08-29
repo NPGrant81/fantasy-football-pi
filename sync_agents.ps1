@@ -93,7 +93,7 @@ function Assert-LockShape($Lock) {
         Fail "Unexpected sourceRepo in lock file: $($Lock.sourceRepo)"
     }
 
-    if ($Lock.ref -ne "v0.1.0") {
+    if ($Lock.ref -ne "v0.2.1") {
         Fail "Unexpected ref in lock file: $($Lock.ref)"
     }
 
