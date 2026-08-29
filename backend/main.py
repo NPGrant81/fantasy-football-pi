@@ -417,20 +417,21 @@ def health_check(request: Request):
             logger.exception("Health check schema readiness failed")
             schema_status = "error"
 
+    checks = {
+        "database": "ok" if db_ok else "error",
+        "schema": schema_status,
+    }
     payload = {
         "status": "ok" if db_ok else "degraded",
         "service": "fantasy-football-backend",
-        "database": "ok" if db_ok else "error",
-        "schema": schema_status,
+        "database": checks["database"],
+        "schema": checks["schema"],
         "version": os.getenv("APP_VERSION", "unknown"),
         "uptime_seconds": round(
             max(0.0, (datetime.now(timezone.utc) - app.state.started_at).total_seconds()),
             2,
         ),
-        "checks": {
-            "database": "ok" if db_ok else "error",
-            "schema": schema_status,
-        },
+        "checks": checks,
     }
     if request.method == "HEAD":
         return Response(status_code=200 if db_ok else 503)

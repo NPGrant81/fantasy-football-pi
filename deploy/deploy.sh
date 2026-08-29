@@ -177,7 +177,7 @@ case "${cmd}" in
   logs) run_logs ;;
   status) run_status ;;
   backup) run_backup ;;
-  restore) shift; run_restore "$*" ;;
+  restore) shift; run_restore "$@" ;;
   help|-h|--help) usage ;;
   *) echo "Unknown command: ${cmd}" >&2; usage >&2; exit 1 ;;
  esac
