@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import click
 
 from .core.security import get_password_hash
-from .database import Base, SessionLocal, engine
+from .database import SessionLocal, engine
 from .scripts.audit_invalid_players import run_invalid_player_audit
 from .scripts.audit_player_duplicates import run_audit as run_player_duplicate_audit
 from .scripts.archive_mfl_csv_exports import run_archive_mfl_csv_exports
@@ -41,6 +41,7 @@ from .services.league_history_enrichment_service import (
     normalize_history_team_key as _normalize_history_team_key,
     owner_label_is_placeholder as _owner_label_is_placeholder,
 )
+from .services.schema_readiness_service import assert_schema_ready
 
 
 @click.group()
@@ -51,8 +52,7 @@ def cli():
 @cli.command()
 def seed():
     """Execute the auto-seeder using the session factory."""
-    print("Creating database tables...")
-    Base.metadata.create_all(bind=engine)
+    assert_schema_ready(engine, models.Base.metadata)
 
     print("Running seeder...")
     run_seeder(SessionLocal, get_password_hash)

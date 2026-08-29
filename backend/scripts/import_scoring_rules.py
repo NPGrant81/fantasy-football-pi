@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.database import Base, SessionLocal, engine
+from backend.database import SessionLocal, engine
+import backend.models as models
 from backend.services.scoring_import_service import (
     ScoringImportError,
     parse_csv_rows_to_rules,
     sanitize_external_row,
 )
+from backend.services.schema_readiness_service import assert_schema_ready
 
 
 def sanitize_row(row: dict) -> dict:
@@ -24,9 +25,7 @@ def sanitize_row(row: dict) -> dict:
 
 def insert_rules(league_id: int, records: list[dict]) -> None:
     db = SessionLocal()
-    Base.metadata.create_all(bind=engine)
-
-    import backend.models as models
+    assert_schema_ready(engine, models.Base.metadata)
 
     try:
         league = db.query(models.League).filter(models.League.id == league_id).first()

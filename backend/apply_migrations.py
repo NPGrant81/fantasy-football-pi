@@ -1,28 +1,66 @@
-"""Run migrations for team visual assets and game status."""
-import sys
+"""Apply all Alembic migration heads before starting the application."""
+
+from __future__ import annotations
+
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
-from backend.database import SQLALCHEMY_DATABASE_URL
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-inspector = inspect(engine)
+from backend.db_config import load_backend_env_file, resolve_database_url
 
-user_cols = {c['name'] for c in inspector.get_columns('users')}
-matchup_cols = {c['name'] for c in inspector.get_columns('matchups')}
 
-with engine.begin() as conn:
-    if 'team_logo_url' not in user_cols:
-        print("Adding team visual fields...")
-        conn.execute(text("ALTER TABLE users ADD COLUMN team_logo_url VARCHAR"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN team_color_primary VARCHAR DEFAULT '#3b82f6'"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN team_color_secondary VARCHAR DEFAULT '#1e40af'"))
-        print("✓ Team visual fields added")
-    
-    if 'game_status' not in matchup_cols:
-        print("Adding game_status field...")
-        conn.execute(text("ALTER TABLE matchups ADD COLUMN game_status VARCHAR NOT NULL DEFAULT 'NOT_STARTED'"))
-        print("✓ game_status field added")
+ALEMBIC_CONFIG_PATH = Path(__file__).resolve().with_name("alembic.ini")
+BOOTSTRAP_SCRIPT_PATH = Path(__file__).resolve().parents[1] / "db" / "bootstrap"
+BOOTSTRAP_MAIN_REVISION = "0028_reconcile_runtime_schema"
+CORE_APPLICATION_TABLES = frozenset({"leagues", "players", "users"})
 
-print("Migrations complete!")
+
+def _database_is_empty(database_engine) -> bool:
+    table_names = set(inspect(database_engine).get_table_names())
+    if not table_names.isdisjoint(CORE_APPLICATION_TABLES):
+        return False
+    if "alembic_version" not in table_names:
+        return True
+
+    with database_engine.connect() as connection:
+        existing_revisions = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalars().all()
+    if existing_revisions:
+        raise RuntimeError(
+            "Refusing FFPI bootstrap: database has Alembic history but no FFPI core tables"
+        )
+    return True
+
+
+def _bootstrap_config(config_path: Path) -> Config:
+    config = Config(str(config_path))
+    config.set_main_option("script_location", str(BOOTSTRAP_SCRIPT_PATH))
+    config.set_main_option(
+        "version_locations",
+        str(BOOTSTRAP_SCRIPT_PATH / "versions"),
+    )
+    return config
+
+
+def apply_migrations(config_path: Path = ALEMBIC_CONFIG_PATH) -> None:
+    load_backend_env_file()
+    database_url = resolve_database_url(
+        require_explicit=True,
+        context="deployment migrations",
+    )
+    migration_engine = create_engine(database_url, pool_pre_ping=True)
+    try:
+        config = Config(str(config_path))
+        if _database_is_empty(migration_engine):
+            command.upgrade(_bootstrap_config(config_path), "head")
+            command.stamp(config, BOOTSTRAP_MAIN_REVISION, purge=True)
+        command.upgrade(config, "heads")
+    finally:
+        migration_engine.dispose()
+
+
+if __name__ == "__main__":
+    apply_migrations()

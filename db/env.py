@@ -11,11 +11,19 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from backend.database import Base  # noqa: E402
+from backend.db_config import load_backend_env_file, resolve_database_url  # noqa: E402
 import backend.models  # noqa: F401,E402
 import backend.models_draft_value  # noqa: F401,E402
 
 
 config = context.config
+
+load_backend_env_file()
+database_url = resolve_database_url(
+    require_explicit=True,
+    context="Alembic migrations",
+)
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

@@ -1,19 +1,25 @@
 {
   "schemaVersion": 1,
   "sourceRepo": "NPGrant81/agent-catalog",
-  "ref": "v0.1.1",
-  "deferred": false,
+  "ref": "v0.2.1",
+  "deferred": true,
   "enabled": true,
   "status": "active-synced-from-approved-source",
   "managedAgents": [
+    "api-contract-enforcer.agent.md",
     "architecture-drift-auditor.agent.md",
+    "deploy-release-orchestrator.agent.md",
     "governance-cadence.agent.md",
+    "ops-maintenance-scheduler.agent.md",
     "pr-closeout-orchestrator.agent.md",
     "quality-integrity-checker.agent.md",
-    "scope-triage.agent.md"
+    "security-rbac-auditor.agent.md",
+    "scope-triage.agent.md",
+    "test-strategy-enforcer.agent.md",
+    "validation-hardening-checker.agent.md"
   ],
   "notes": [
-    "Consumer sync is enabled from approved source NPGrant81/agent-catalog@v0.1.1.",
+    "Consumer sync is enabled from approved source NPGrant81/agent-catalog@v0.2.1.",
     "Only managed payloads listed in managedAgents are materialized into .github/agents.",
     "Managed payloads are copied from catalog source without local fabrication."
   ]

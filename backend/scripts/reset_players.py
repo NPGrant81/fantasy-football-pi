@@ -8,10 +8,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import SessionLocal, engine
 import models
+from services.schema_readiness_service import assert_schema_ready
 
 def reset_players():
     """Delete all players from the database."""
-    models.Base.metadata.create_all(bind=engine)
+    assert_schema_ready(engine, models.Base.metadata)
     db = SessionLocal()
     
     try:

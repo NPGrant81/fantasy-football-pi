@@ -123,6 +123,20 @@ sudo cp /home/pi/fantasy-football-pi/deploy/systemd/backend.env.example /etc/fan
 sudo nano /etc/fantasy-football-pi/backend.env
 ```
 
+Before starting the service, replace every placeholder and verify:
+
+- `APP_ENV=production`
+- `DATABASE_URL` is set explicitly with deployment-specific credentials
+- `SECRET_KEY` is a random value of at least 32 characters
+- `ALLOWED_HOSTS` contains the public backend host
+- `FRONTEND_ALLOWED_ORIGINS` contains only public HTTPS frontend origins
+- `AUTH_COOKIE_SECURE=1`
+- `ALLOW_ALL_ORIGINS=0` and `AUTO_SEED_ON_STARTUP=0`
+
+The backend validates these settings before database or scheduler startup.
+Invalid production configuration prevents the service from starting and is
+reported by `journalctl -u fantasy-football-backend`.
+
 ## 3. Frontend Build
 
 ```bash
@@ -135,11 +149,27 @@ sudo rsync -av --delete dist/ /var/www/fantasy-football-pi/frontend/dist/
 
 ## 4. systemd Backend Service
 
+The service unit runs `python -m backend.apply_migrations` as `ExecStartPre`.
+If Alembic cannot reach the database or apply every head, systemd does not
+start Uvicorn. The application process itself performs read-only schema
+readiness validation and never applies migrations.
+
+For a new empty PostgreSQL database, the runner first applies the immutable
+schema snapshot under `db/bootstrap`, records its equivalent main revision,
+and then applies normal incremental migrations. Existing databases skip this
+bootstrap path.
+
 ```bash
 sudo cp /home/pi/fantasy-football-pi/deploy/systemd/fantasy-football-backend.service.example /etc/systemd/system/fantasy-football-backend.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now fantasy-football-backend
 sudo systemctl status fantasy-football-backend --no-pager
+```
+
+After a migration failure, inspect the pre-start output before retrying:
+
+```bash
+sudo journalctl -u fantasy-football-backend -n 100 --no-pager
 ```
 
 ## 5. Nginx Site

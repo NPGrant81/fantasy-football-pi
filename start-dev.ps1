@@ -98,6 +98,13 @@ if (-not (Test-Path $backendEnv)) {
 $BACKEND_PYTHON = Resolve-BackendPython
 Log "Using backend Python: $BACKEND_PYTHON"
 
+Log "Applying database migrations"
+& $BACKEND_PYTHON -m backend.apply_migrations
+if ($LASTEXITCODE -ne 0) {
+    Log "Database migrations failed; backend startup aborted."
+    exit $LASTEXITCODE
+}
+
 if (Test-PortInUse ([int]$FRONTEND_PORT)) {
     Log "Frontend port $FRONTEND_PORT is already in use."
     Log "Stop the existing frontend process or set FRONTEND_PORT to a different value."

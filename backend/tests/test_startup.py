@@ -1,5 +1,7 @@
 import pytest
+import asyncio
 
+from backend import main as backend_main
 from backend.database import SessionLocal
 from backend.core.security import get_password_hash
 from backend.scripts.seed import run_seeder
@@ -12,11 +14,20 @@ import models
 # should continue to use the lightweight ``client`` fixture.
 
 
-def test_lifespan_creates_tables(integration_client):
-    """The FastAPI lifespan manager should have created the tables."""
+@pytest.fixture(autouse=True)
+def schema_ready_by_default(monkeypatch):
+    """Keep lifespan tests focused unless a test explicitly simulates schema drift."""
+    monkeypatch.setattr(
+        backend_main.schema_readiness_service,
+        "assert_schema_ready",
+        lambda *_args, **_kwargs: None,
+    )
+
+
+def test_lifespan_requires_migrated_tables(integration_client):
+    """The FastAPI lifespan manager should accept a migrated schema."""
     db = SessionLocal()
     try:
-        # metadata.create_all is run in the lifespan; tables should exist
         inspector = inspect(db.bind)
         assert "users" in inspector.get_table_names()
         assert "leagues" in inspector.get_table_names()
@@ -63,3 +74,65 @@ def test_lifespan_teardown_and_restart():
             assert pool.checkedout() == 0
         finally:
             db.close()
+
+
+def test_lifespan_fails_when_database_probe_fails(monkeypatch):
+    """The service must not start when its database is unreachable."""
+    from fastapi.testclient import TestClient
+
+    def fail_probe(_engine):
+        raise ConnectionError("simulated unavailable database")
+
+    monkeypatch.setattr(backend_main, "probe_database", fail_probe)
+
+    with pytest.raises(RuntimeError, match="Database connectivity check failed during startup"):
+        with TestClient(backend_main.app):
+            pass
+
+
+def test_lifespan_fails_when_schema_is_not_ready(monkeypatch):
+    """The service must not start when required migrations are absent."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setattr(backend_main, "probe_database", lambda _engine: None)
+
+    def fail_readiness(*_args, **_kwargs):
+        raise RuntimeError("simulated missing column")
+
+    monkeypatch.setattr(
+        backend_main.schema_readiness_service,
+        "assert_schema_ready",
+        fail_readiness,
+    )
+
+    with pytest.raises(RuntimeError, match="Database schema readiness check failed during startup"):
+        with TestClient(backend_main.app):
+            pass
+
+
+def test_lifespan_stops_runtime_schedulers_when_context_raises(monkeypatch):
+    events: list[str] = []
+
+    class FakeSchedulerManager:
+        def start(self):
+            events.append("start")
+
+        def stop(self):
+            events.append("stop")
+
+    monkeypatch.setattr(backend_main, "_initialize_database", lambda: None)
+    monkeypatch.setattr(
+        backend_main,
+        "_create_runtime_scheduler_manager",
+        lambda: FakeSchedulerManager(),
+    )
+    monkeypatch.setattr(backend_main.live_scoring_event_bus, "set_event_loop", lambda _loop: None)
+
+    async def fail_inside_lifespan():
+        async with backend_main.lifespan(backend_main.app):
+            raise RuntimeError("simulated application failure")
+
+    with pytest.raises(RuntimeError, match="simulated application failure"):
+        asyncio.run(fail_inside_lifespan())
+
+    assert events == ["start", "stop"]
