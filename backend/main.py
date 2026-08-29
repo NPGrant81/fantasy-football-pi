@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -220,6 +221,7 @@ def _validate_production_secrets() -> None:
 _validate_production_secrets()
 
 app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
+app.state.started_at = datetime.now(timezone.utc)
 
 
 def _is_production_env() -> bool:
@@ -394,18 +396,37 @@ def read_root():
 @app.get("/health", operation_id="health_check_get")
 @app.head("/health", operation_id="health_check_head")
 def health_check(request: Request):
-    db_ok = True
+    db_ok = False
+    schema_status = "unknown"
     try:
         probe_database(engine)
+        db_ok = True
     except Exception:
-        db_ok = False
         # Keep full exception details in server logs only.
         logger.exception("Health check DB probe failed")
+
+    if db_ok:
+        try:
+            schema_readiness_service.assert_schema_ready(engine, models.Base.metadata)
+            schema_status = "ok"
+        except Exception:
+            logger.exception("Health check schema readiness failed")
+            schema_status = "error"
 
     payload = {
         "status": "ok" if db_ok else "degraded",
         "service": "fantasy-football-backend",
         "database": "ok" if db_ok else "error",
+        "schema": schema_status,
+        "version": os.getenv("APP_VERSION", "unknown"),
+        "uptime_seconds": round(
+            max(0.0, (datetime.now(timezone.utc) - app.state.started_at).total_seconds()),
+            2,
+        ),
+        "checks": {
+            "database": "ok" if db_ok else "error",
+            "schema": schema_status,
+        },
     }
     if request.method == "HEAD":
         return Response(status_code=200 if db_ok else 503)

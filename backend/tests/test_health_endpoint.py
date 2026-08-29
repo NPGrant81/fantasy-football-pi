@@ -14,6 +14,12 @@ def test_health_endpoint_returns_service_status(client):
     assert payload['service'] == 'fantasy-football-backend'
     assert payload['status'] == 'ok'
     assert payload['database'] == 'ok'
+    assert payload['schema'] in {'ok', 'error', 'unknown'}
+    assert isinstance(payload['version'], str) and payload['version']
+    assert 'checks' in payload
+    assert payload['checks']['database'] == 'ok'
+    assert payload['checks']['schema'] in {'ok', 'error', 'unknown'}
+    assert isinstance(payload['uptime_seconds'], (int, float))
 
 
 def test_health_head_returns_status_without_body(client):
@@ -37,7 +43,10 @@ def test_health_endpoint_returns_503_when_db_probe_fails(client, monkeypatch):
     assert payload['service'] == 'fantasy-football-backend'
     assert payload['status'] == 'degraded'
     assert payload['database'] == 'error'
-    assert 'error' not in payload
+    assert payload['schema'] in {'error', 'unknown'}
+    assert 'checks' in payload
+    assert payload['checks']['database'] == 'error'
+    assert payload['checks']['schema'] in {'error', 'unknown'}
 
 
 def test_health_head_returns_bodyless_503_when_db_probe_fails(client, monkeypatch):

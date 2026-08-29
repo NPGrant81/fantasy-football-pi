@@ -15,6 +15,7 @@ This document captures the current security baseline implemented for issue #77 a
   - `Strict-Transport-Security` (HTTPS requests)
 - Trusted host filtering is enabled via `ALLOWED_HOSTS`.
 - Frontend CORS origins are configurable via `FRONTEND_ALLOWED_ORIGINS`.
+- The application exposes `/health` GET and HEAD checks that report basic service health, DB connectivity, and uptime metadata for load balancers and monitoring tools.
 
 ### Authentication hardening
 - JWT access token lifetime now defaults to 30 minutes (`ACCESS_TOKEN_EXPIRE_MINUTES`).
