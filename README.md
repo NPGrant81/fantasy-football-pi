@@ -17,6 +17,7 @@ or commit it yourself.
 - Testing guide (backend-specific): `backend/TESTING_GUIDE.md`
 - Testing session summary: [TESTING_SESSION_SUMMARY.md](docs/TESTING_SESSION_SUMMARY.md)
 - Issue status tracker: [ISSUE_STATUS.md](docs/ISSUE_STATUS.md)
+- Monitoring stack: [MONITORING.md](docs/MONITORING.md)
 - PR handoff notes: [PR_NOTES.md](docs/PR_NOTES.md)
 - Permissions notes: [permissions.md](docs/permissions.md)
 - API inventory + full page matrix: [API_PAGE_MATRIX.md](docs/API_PAGE_MATRIX.md)

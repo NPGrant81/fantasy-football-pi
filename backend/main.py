@@ -29,6 +29,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     dbmod = importlib.import_module("backend.database")
     configmod = importlib.import_module("backend.core.config")
     secmod = importlib.import_module("backend.core.security")
+    logging_config = importlib.import_module("backend.logging_config")
     # load routers package and each submodule explicitly
     routers_pkg = importlib.import_module("backend.routers")
     # the package itself may not yet have attributes for each router, so import
@@ -67,6 +68,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     get_settings = configmod.get_settings
     get_password_hash = secmod.get_password_hash
     check_is_commissioner = secmod.check_is_commissioner
+    configure_logging = logging_config.configure_logging
     watchdog_service = importlib.import_module("backend.services.live_scoring_watchdog_service")
     polling_service = importlib.import_module("backend.services.live_scoring_polling_service")
     player_news_scheduler_service = importlib.import_module("backend.services.player_news_scheduler_service")
@@ -81,6 +83,7 @@ else:
     from .database import engine, SessionLocal, probe_database
     from .core.config import RuntimeSettings, get_settings
     from .core.security import get_password_hash, check_is_commissioner
+    from .logging_config import configure_logging
     from .services import live_scoring_watchdog_service as watchdog_service
     from .services import live_scoring_polling_service as polling_service
     from .services import player_news_scheduler_service
@@ -102,6 +105,7 @@ else:
         dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, news, keepers, divisions, scoring
     )
 
+configure_logging()
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
