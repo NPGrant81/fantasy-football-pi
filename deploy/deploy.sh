@@ -144,9 +144,15 @@ run_restore() {
   fi
 
   log "Restore requested for ${archive_path}"
-  if [[ "${archive_path}" == *.gz ]]; then
-    gzip -dc "${archive_path}" | tar -xvf - -C "${REPO_ROOT}"
+  if [[ "${archive_path}" == *.tar.gz ]]; then
+    tar -xzf "${archive_path}" -C "${REPO_ROOT}"
+  elif [[ "${archive_path}" == *.gz ]]; then
+    mkdir -p "${REPO_ROOT}/restore"
+    local extracted_path="${REPO_ROOT}/restore/$(basename "${archive_path%.gz}")"
+    gzip -dc "${archive_path}" > "${extracted_path}"
+    log "Decompressed gzip archive to ${extracted_path}"
   else
+    mkdir -p "${REPO_ROOT}/restore"
     cp "${archive_path}" "${REPO_ROOT}/restore/$(basename "${archive_path}")"
   fi
 
