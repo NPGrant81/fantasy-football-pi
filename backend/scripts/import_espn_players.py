@@ -1,20 +1,22 @@
 import sys
-import os
 import time
-from datetime import datetime
-import requests
-from sqlalchemy.orm import Session
-from backend.database import SessionLocal, engine
-import models
-from backend.services import player_service
-from backend.services.player_identity_service import (
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+import requests  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+from backend.database import SessionLocal, engine  # noqa: E402
+from backend import models  # noqa: E402
+from backend.services import player_service  # noqa: E402
+from backend.services.schema_readiness_service import assert_schema_ready  # noqa: E402
+from backend.services.player_identity_service import (  # noqa: E402
     current_season,
     ensure_primary_alias,
     upsert_player_season,
 )
-
-# Add the parent directory (backend) to the system path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ESPN_TEAMS_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"
 ESPN_ROSTER_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/roster"
@@ -154,7 +156,7 @@ def upsert_defense(db: Session, team_abbr):
 
 
 def import_active_players():
-    models.Base.metadata.create_all(bind=engine)
+    assert_schema_ready(engine, models.Base.metadata)
     db = SessionLocal()
 
     try:

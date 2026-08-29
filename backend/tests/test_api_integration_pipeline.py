@@ -94,3 +94,13 @@ def test_openapi_contract_contains_required_paths(client):
     paths = payload.get("paths", {})
     assert "/auth/token" in paths
     assert "/health" in paths
+
+    operation_ids = [
+        operation["operationId"]
+        for path in paths.values()
+        for operation in path.values()
+        if isinstance(operation, dict) and "operationId" in operation
+    ]
+    assert len(operation_ids) == len(set(operation_ids))
+    assert paths["/health"]["get"]["operationId"] == "health_check_get"
+    assert paths["/health"]["head"]["operationId"] == "health_check_head"

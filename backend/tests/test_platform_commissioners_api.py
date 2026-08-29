@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import models
 from routers.platform_tools import get_current_active_superuser
 from backend.database import get_db
+from backend import main as backend_main
 from backend.main import app
 
 
@@ -245,7 +246,8 @@ def test_platform_internal_errors_are_sanitized_in_production(client, api_db, mo
         return models.User(id=1002, username='root', is_superuser=True)
 
     app.dependency_overrides[get_current_active_superuser] = allow_superuser
-    monkeypatch.setenv('APP_ENV', 'production')
+    monkeypatch.setattr(backend_main.settings, 'app_env', 'production')
+    monkeypatch.setenv('APP_ENV', 'development')
 
     def _boom(_db):
         raise RuntimeError('sensitive-db-password-leak')

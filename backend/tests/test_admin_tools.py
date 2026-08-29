@@ -356,7 +356,7 @@ def test_live_score_watchdog_alerts_endpoint(client, api_db):
     assert body["alerts"][0]["limit_seen"] == 7
 
 
-def test_live_score_polling_status_endpoint(client, api_db):
+def test_live_score_polling_status_endpoint(client, api_db, monkeypatch):
     async def allow_commissioner():
         return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
 
@@ -371,7 +371,7 @@ def test_live_score_polling_status_endpoint(client, api_db):
             "state": {"2026:1": {"last_mode": "apply"}},
         }
 
-    polling.get_poll_runtime_status = fake_status
+    monkeypatch.setattr(polling, "get_poll_runtime_status", fake_status)
 
     response = client.get("/admin/live-scoring/polling/status")
     assert response.status_code == 200
@@ -380,7 +380,7 @@ def test_live_score_polling_status_endpoint(client, api_db):
     assert body["keys"] == ["2026:1"]
 
 
-def test_live_score_polling_cycles_endpoint(client, api_db):
+def test_live_score_polling_cycles_endpoint(client, api_db, monkeypatch):
     async def allow_commissioner():
         return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
 
@@ -398,7 +398,7 @@ def test_live_score_polling_cycles_endpoint(client, api_db):
             }
         ]
 
-    polling.load_recent_poll_cycles = fake_load_cycles
+    monkeypatch.setattr(polling, "load_recent_poll_cycles", fake_load_cycles)
 
     response = client.get("/admin/live-scoring/polling/cycles?limit=9")
     assert response.status_code == 200
@@ -408,7 +408,7 @@ def test_live_score_polling_cycles_endpoint(client, api_db):
     assert body["cycles"][0]["limit_seen"] == 9
 
 
-def test_live_score_polling_summary_endpoint(client, api_db):
+def test_live_score_polling_summary_endpoint(client, api_db, monkeypatch):
     async def allow_commissioner():
         return models.User(username="c", email="c@test.com", hashed_password="x", is_commissioner=True)
 
@@ -426,7 +426,7 @@ def test_live_score_polling_summary_endpoint(client, api_db):
             "limit_seen": limit,
         }
 
-    polling.summarize_poll_cycles = fake_summary
+    monkeypatch.setattr(polling, "summarize_poll_cycles", fake_summary)
 
     response = client.get("/admin/live-scoring/polling/summary?limit=11")
     assert response.status_code == 200

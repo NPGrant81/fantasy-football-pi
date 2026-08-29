@@ -1,24 +1,23 @@
-"""Helper script to apply Alembic migrations without using the CLI.
+"""Backward-compatible wrapper for the deployment migration runner.
 
 Usage:
     python backend/scripts/migrate.py
 
-This is useful in environments where `python -m alembic` fails due to
-module path issues; it invokes the Alembic API directly using the
-`alembic.ini` configuration in the backend directory.
+Prefer `python -m backend.apply_migrations` for new automation.
 """
-import os
-from alembic.config import Config
-from alembic import command
+from pathlib import Path
+import sys
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from backend.apply_migrations import apply_migrations  # noqa: E402
 
 
 def upgrade_head():
-    base = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    cfg_path = os.path.join(base, "alembic.ini")
-    cfg = Config(cfg_path)
-    # ensure the script location is relative to backend/ as expected
-    cfg.set_main_option("script_location", "backend/alembic")
-    command.upgrade(cfg, "head")
+    apply_migrations()
 
 
 if __name__ == "__main__":

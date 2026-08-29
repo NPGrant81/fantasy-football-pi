@@ -15,10 +15,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.database import SessionLocal
 import backend.models as models
-from backend.main import ensure_runtime_schema
+from backend.database import engine
 from backend.routers import advisor as advisor_router
 from backend.routers import draft as draft_router
 from backend.routers import players as players_router
+from backend.services.schema_readiness_service import assert_schema_ready
 
 
 @dataclass
@@ -210,7 +211,7 @@ def _endpoint_source_map() -> list[tuple[str, str]]:
 
 def build_report() -> tuple[str, list[CheckResult], list[CheckResult]]:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
-    ensure_runtime_schema()
+    assert_schema_ready(engine, models.Base.metadata)
 
     db = SessionLocal()
     try:

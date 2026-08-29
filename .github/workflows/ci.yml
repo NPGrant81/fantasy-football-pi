@@ -136,6 +136,14 @@ jobs:
           # also install ETL-specific packages (used by upstream tests)
           if [ -f etl/requirements.txt ]; then pip install -r etl/requirements.txt; fi
 
+      - name: Validate Alembic revision graph
+        working-directory: backend
+        run: |
+          python -m alembic heads
+
+      - name: Apply database migrations
+        run: python -m backend.apply_migrations
+
       - name: Run validation architecture checks
         id: validation_stack_tests
         run: |
@@ -285,6 +293,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           if [ -f backend/requirements-validation.txt ]; then pip install -r backend/requirements-validation.txt; fi
+
+      - name: Apply database migrations
+        run: python -m backend.apply_migrations
 
       - name: Seed database
         run: |
@@ -566,9 +577,9 @@ jobs:
 
       - name: Start backend server
         env:
-          BACKEND_SKIP_STARTUP_MIGRATIONS: "1"
           DATABASE_URL: sqlite:///./e2e.db
         run: |
+          python -c "from backend import models; from backend.database import engine; models.Base.metadata.create_all(engine)"
           python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010 > backend-e2e.log 2>&1 &
           echo $! > backend-e2e.pid
 

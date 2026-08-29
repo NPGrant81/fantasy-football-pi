@@ -43,8 +43,8 @@ pip install -r requirements-validation.txt
 # Start PostgreSQL via Docker
 docker-compose up -d db
 
-# Run migrations
-alembic upgrade head
+# Run migrations from the repository root
+python -m backend.apply_migrations
 
 # (Optional) seed reference data
 python scripts/seed_data.py
@@ -67,7 +67,7 @@ npm run dev
 
 ## Always Do
 - Activate the virtualenv before running any backend command
-- Run `alembic upgrade head` after pulling changes that touch `models.py`
+- Run `python -m backend.apply_migrations` after pulling changes that touch `models.py`
 - Use `docker-compose` for the local database; do not install PostgreSQL manually on dev machines
 - Check `requirements.txt` vs `requirements-lock.txt` — lock file pins exact versions for reproducibility
 - Set `PYTHONPATH=backend` when running pytest from the repo root

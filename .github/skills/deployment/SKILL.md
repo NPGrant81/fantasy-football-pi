@@ -75,7 +75,7 @@ git pull origin main
 ```bash
 source .venv/bin/activate
 pip install -r backend/requirements.txt
-cd backend && alembic upgrade head
+python -m backend.apply_migrations
 ```
 
 ### 5. Frontend build
@@ -189,7 +189,7 @@ docker-compose logs db
 ```
 
 ## Always Do
-- Run `alembic upgrade head` after every deployment that includes model changes
+- Run `python -m backend.apply_migrations` before restarting the backend after every deployment
 - Restart `fantasy-backend` after any backend code change
 - Rebuild frontend (`npm run build`) after any frontend code change
 - Check `journalctl -u fantasy-backend -f` for errors after restart

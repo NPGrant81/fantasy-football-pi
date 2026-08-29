@@ -1,5 +1,3 @@
-import os
-import tempfile
 from backend.scripts import import_scoring_rules
 
 
@@ -41,9 +39,9 @@ def test_insert_rules_creates_records(tmp_path, monkeypatch):
     importer.engine = engine
     importer.SessionLocal = SessionLocal
     # ensure tables exist on the new engine
-    importer.Base.metadata.create_all(bind=engine)
+    importer.models.Base.metadata.create_all(bind=engine)
     # debug: show what tables metadata thinks it has
-    print('metadata tables:', importer.Base.metadata.tables.keys())
+    print('metadata tables:', importer.models.Base.metadata.tables.keys())
     # verify table actually exists on disk
     from sqlalchemy import text
     with engine.connect() as conn:

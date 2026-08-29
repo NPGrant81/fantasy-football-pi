@@ -7,6 +7,27 @@ This branch was created to trigger CI for backend and frontend tests.
 
 ---
 
+## PR #483 Copilot Feedback
+
+- Review requested: 2026-08-22
+- Threads opened: 9
+- Threads resolved: 9
+- Suppressed findings reviewed: 9
+- Follow-up commits: `422db87`, `7ab581b`, `55e47b7`, `e79a649`, `552f7b8`, `79bb8e8`
+- Latest review round: dual package/top-level database imports and direct/module script entrypoints fixed with subprocess regression coverage.
+- Additional hardening: polling mocks now restore automatically, defense dedupe tests are seed-independent, health GET/HEAD operation IDs are unique, and pytest-asyncio loop scope is explicit.
+- Latest suppressed findings: production error handling now uses the validated settings snapshot, and unrelated database tables no longer block empty FFPI bootstrap.
+- Security follow-up: populated Alembic history without FFPI core tables now blocks bootstrap before DDL, preventing foreign migration metadata from being purged.
+- Maintenance hardening: ESPN/NFL importers support package/direct execution without import-time sessions, schedule generation owns and closes its session, and partial-index downgrade drops by name only.
+- Latest broad backend validation: `783 passed, 1 skipped`.
+- PostgreSQL proof: bootstrap preserved an unrelated `monitoring_events` table and stamped `0028_reconcile_runtime_schema`.
+- Foreign-history proof: bootstrap aborted without creating FFPI tables and preserved both `monitoring_events` and `foreign_revision`.
+- Partial-index proof: explicit upgrade predicate and predicate-free drop passed PostgreSQL bootstrap introspection and full downgrade.
+- Independent security audit: fail-open configuration findings resolved and re-reviewed.
+- Residual risk: None identified; CI remains the merge gate.
+
+---
+
 ## PR #140 — Corrected scope description
 
 The original PR #140 description ("Refresh UAT deck assets and capture automation") only covered a

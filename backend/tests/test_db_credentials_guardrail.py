@@ -1,4 +1,7 @@
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -38,3 +41,27 @@ def test_no_hardcoded_postgres_passwords_in_runtime_python_files():
         "Hardcoded Postgres credential URL(s) found in runtime code: "
         + ", ".join(sorted(offenders))
     )
+
+
+def test_database_module_requires_explicit_production_url():
+    repo_root = Path(__file__).resolve().parents[2]
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "APP_ENV": "production",
+            "DATABASE_URL": "",
+        }
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import backend.database"],
+        cwd=repo_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "DATABASE_URL is required in production environment" in result.stderr
+    assert "falling back to local Postgres" not in result.stderr

@@ -1,45 +1,35 @@
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from alembic import context
+from pathlib import Path
 import sys
-import os
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_root not in sys.path:
-    sys.path.append(project_root)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.database import Base  # noqa: E402
 from backend.db_config import load_backend_env_file, resolve_database_url  # noqa: E402
-import backend.models  # noqa: F401,E402
-import backend.models_draft_value  # noqa: F401,E402
 
 
 config = context.config
-
 load_backend_env_file()
 database_url = resolve_database_url(
     require_explicit=True,
-    context="Alembic migrations",
+    context="Alembic bootstrap",
 )
 config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = Base.metadata
-
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url,
-        target_metadata=target_metadata,
+        url=config.get_main_option("sqlalchemy.url"),
         literal_binds=True,
-        compare_type=True,
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
@@ -50,14 +40,8 @@ def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            compare_type=True,
-        )
-
+        context.configure(connection=connection)
         with context.begin_transaction():
             context.run_migrations()
 
