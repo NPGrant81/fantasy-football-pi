@@ -20,7 +20,7 @@ The platform has a strong foundation (Dockerization, systemd, Nginx, dead-code d
 | 1 | CI/CD Pipeline for ARM64 Builds | [gap-01-ci-cd-arm64.md](../../issues/gap-01-ci-cd-arm64.md) | High | Open |
 | 2 | Secrets Management | [gap-02-secrets-management.md](../../issues/gap-02-secrets-management.md) | High | Completed |
 | 3 | Logging & Monitoring Stack | [gap-03-logging-monitoring.md](../../issues/gap-03-logging-monitoring.md) | Medium | Completed |
-| 4 | Database Strategy & Backup Plan | [gap-04-database-strategy.md](../../issues/gap-04-database-strategy.md) | High | Open |
+| 4 | Database Strategy & Backup Plan | [gap-04-database-strategy.md](../../issues/gap-04-database-strategy.md) | High | In Progress |
 | 5 | Automated Test Suite | [gap-05-automated-test-suite.md](../../issues/gap-05-automated-test-suite.md) | High | In Progress |
 | 6 | API Documentation & Schema Validation | [gap-06-api-documentation.md](../../issues/gap-06-api-documentation.md) | Medium | Open |
 | 7 | Deployment Automation | [gap-07-deployment-automation.md](../../issues/gap-07-deployment-automation.md) | Medium | Completed |

@@ -17,6 +17,7 @@ Refer to the appropriate file for more information.
 - [Data Source Audit Issue 102](DATA_SOURCE_AUDIT_ISSUE_102.md)
 - [Data Validation Strategy](DATA_VALIDATION_STRATEGY.md)
 - [Db Migration Phase1](DB_MIGRATION_PHASE1.md)
+- [Database](DATABASE.md)
 - [Dependency Maintenance](DEPENDENCY_MAINTENANCE.md)
 - [Deployment](DEPLOYMENT.md)
 - [Deployment Workflows](DEPLOYMENT_WORKFLOWS.md)

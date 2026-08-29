@@ -113,6 +113,7 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         token in name
         for token in [
             "cloudflare",
+            "database",
             "deployment",
             "monitoring",
             "raspberry",
