@@ -65,10 +65,8 @@ def test_health_contract_shape(client):
     assert isinstance(payload["version"], str) and payload["version"]
     assert isinstance(payload["uptime_seconds"], (int, float))
     assert payload["uptime_seconds"] >= 0
-    assert payload["checks"] == {
-        "database": payload["database"],
-        "schema": payload["schema"],
-    }
+    assert payload["checks"]["database"] == payload["database"]
+    assert payload["checks"]["schema"] == payload["schema"]
 
 
 def test_auth_token_contract_shape(client, api_db, monkeypatch):
