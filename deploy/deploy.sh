@@ -60,12 +60,18 @@ run_deploy() {
 
   if [[ -f "${REPO_ROOT}/backend/apply_migrations.py" ]]; then
     log "Applying migrations"
-    (cd "${REPO_ROOT}" && python3 -m backend.apply_migrations)
+    local backend_python="python3"
+    if [[ -x "${REPO_ROOT}/backend/venv/bin/python3" ]]; then
+      backend_python="${REPO_ROOT}/backend/venv/bin/python3"
+    elif [[ -x "${REPO_ROOT}/backend/venv/bin/python" ]]; then
+      backend_python="${REPO_ROOT}/backend/venv/bin/python"
+    fi
+    (cd "${REPO_ROOT}" && "${backend_python}" -m backend.apply_migrations)
   fi
 
   if [[ -d "${REPO_ROOT}/frontend" ]]; then
     log "Ensuring frontend dependencies are present"
-    (cd "${REPO_ROOT}/frontend" && if [[ -d node_modules ]]; then npm install --no-fund --no-audit >/dev/null; else npm ci --no-fund --no-audit >/dev/null; fi)
+    (cd "${REPO_ROOT}/frontend" && npm ci --legacy-peer-deps --no-fund --no-audit >/dev/null)
   fi
 
   log "Restarting ${APP_SERVICE}"

@@ -16,6 +16,8 @@ services:
       - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml:ro
       - /var/log:/var/log:ro
       - /var/log/nginx:/var/log/nginx:ro
+      - /var/log/journal:/var/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
     restart: unless-stopped
 
   prometheus:
