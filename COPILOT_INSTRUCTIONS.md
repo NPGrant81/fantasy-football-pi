@@ -221,8 +221,9 @@ is a reusable workflow that classifies the PR diff into path buckets
 `docs_only`); every other workflow gates its expensive jobs on those outputs via
 `needs.detect.outputs.*`.
 
-- **`ci-gate` is the only required status check** (alongside `gitleaks`). It passes
-  when every lane is `success` **or** `skipped`, so branch protection never needs
+- **`ci-gate` is the intended required status check** (alongside `gitleaks`). It
+  requires every applicable lane to succeed and accepts `skipped` only when the
+  classifier marks that lane inapplicable, so branch protection never needs
   updating as lanes are added.
 - **Always add new path rules to `detect-changes.yml`**, not as per-workflow
   `paths:` filters — a workflow skipped by `paths:` never reports a status and

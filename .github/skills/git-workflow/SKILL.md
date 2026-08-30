@@ -218,14 +218,16 @@ Minimum PR notes block:
 - Delete branch after merge: `git branch -d feat/issue-48-...`
 
 ## CI Pipeline
-On every push/PR, GitHub Actions runs:
+Full-fidelity runs (pushes to `main`, schedules, manual dispatches, and workflow
+changes) execute:
 1. **Backend lint** (`flake8` / `black --check`)
 2. **Backend tests** (`pytest`)
 3. **Frontend lint** (`npm run lint`)
 4. **Frontend tests** (`npm test -- --run`)
 5. **Frontend build** (`npm run build`)
 
-All 5 must pass before merge is allowed.
+On pull requests, the applicable subset of these checks must pass before merge
+is allowed, as described below.
 
 ### Change-aware lane selection
 On **pull requests**, lanes are filtered by what the diff touches.
@@ -240,8 +242,9 @@ PR into path buckets, and each workflow gates its jobs on `needs.detect.outputs.
 | Dependencies | Dependency Check |
 | Docs only | Secrets Scan + `ci-gate` only |
 
-- **`ci-gate` is the single required status check** — it passes when every lane is
-  `success` or `skipped`. A skipped lane is intentional, not a failure.
+- **`ci-gate` is the intended required status check** — it requires every
+   applicable lane to succeed and accepts `skipped` only when the classifier
+   marks that lane inapplicable. An unexpected skip is a pipeline failure.
 - `gitleaks` (Secrets Scan) is never filtered.
 - Pushes to `main`, the nightly schedule, `workflow_dispatch`, and any change to
   `.github/workflows/**` bypass filtering and run everything.

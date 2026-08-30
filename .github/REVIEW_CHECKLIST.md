@@ -10,8 +10,9 @@ Triage (first 5–15 minutes)
 - Label PR as draft / ready / needs-info.
 
 Automated checks
-- `ci-gate` is the single required status check. It passes when every CI lane is
-  either `success` or `skipped`, so a lane that was filtered out is **not** a failure.
+- `ci-gate` is the intended required status check. It requires every applicable
+  CI lane to succeed and accepts `skipped` only when the classifier marks that
+  lane inapplicable; an unexpected skip indicates a pipeline/configuration issue.
 - Confirm the lanes that *should* have run for this change actually ran — see the
   change-type matrix below and the "Change Classification" block in the run summary.
 - Confirm no new dependency vulnerabilities introduced (dependency checks).
