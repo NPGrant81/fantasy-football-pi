@@ -38,7 +38,7 @@ log "Starting backup recovery validation"
 log "Backup directory: ${BACKUP_DIR}"
 log "Database URL: $(redact_db_url "${DB_URL}")"
 
-bash "${REPO_ROOT}/scripts/backup_db.sh"
+BACKUP_DIR="${BACKUP_DIR}" DB_URL="${DB_URL}" bash "${REPO_ROOT}/scripts/backup_db.sh"
 
 latest_backup="$(find "${BACKUP_DIR}" -type f \( -name '*.dump.gz' -o -name '*.sqlite.gz' -o -name '*.dump' -o -name '*.sqlite' \) -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2- || true)"
 if [[ -z "${latest_backup}" ]]; then
