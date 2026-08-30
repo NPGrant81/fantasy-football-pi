@@ -12,13 +12,15 @@ This branch was created to trigger CI for backend and frontend tests.
 - Review requested: 2026-08-30
 - Threads opened: 11
 - Threads resolved: 11
-- Follow-up commits: `b7fd9c5`, `8453125`, `a11603c`
+- Follow-up commits: `b7fd9c5`, `8453125`, `a11603c`, `9531758`
 - Classifier follow-up: root pytest lifecycle files trigger backend and cross-platform lanes, API failures fail open, and draft workflow changes keep heavy lanes disabled.
 - Reliability follow-up: Cypress installs during `npm ci`, label creation has `issues: write`, and PR/push/schedule concurrency keys no longer collide.
 - Gate follow-up: dead-code reporting survives upstream failures, and `ci-gate` rejects applicable lanes that are unexpectedly skipped.
 - Second review follow-up: gate documentation now matches applicability-aware skip semantics, and every scheduled cancellable workflow uses event-aware concurrency.
+- Third review: 16/16 files reviewed with 0 new comments; 2 suppressed findings were reviewed and addressed.
+- Suppressed-finding follow-up: functional image changes cannot report `docs_only=true`, and UI automation caches the Cypress binary by lockfile.
 - Validation: all 17 workflows parsed; `actionlint` and focused classifier/gate scenarios passed; prior-head GitHub Actions passed every applicable workflow and `ci-gate`.
-- Residual risk: Final-head GitHub Actions and Copilot follow-up review remain merge gates.
+- Residual risk: Final-head GitHub Actions remain the merge gate.
 
 ---
 
