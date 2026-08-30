@@ -32,6 +32,44 @@ sudo systemctl restart fantasy-backend
 sudo systemctl status fantasy-backend
 ```
 
+## Startup Classification Contract
+
+Production startup runs `python -m backend.apply_migrations` before starting the
+API. The runner inspects table names and Alembic history before issuing any
+bootstrap, stamp, or upgrade command.
+
+| Database state | Classification and action |
+|---|---|
+| No FFPI tables and no populated Alembic history | Bootstrap the immutable schema snapshot, stamp its equivalent main revision, then upgrade all canonical heads. |
+| Unrelated tables only, with no populated Alembic history | Follow the bootstrap path and preserve the unrelated tables. |
+| Any recognized FFPI table without populated Alembic history | Reject as a partial FFPI schema before DDL or stamping. |
+| Any revision not present in the canonical FFPI Alembic graph | Reject as foreign history before DDL or stamping. |
+| Known FFPI history with no recognized FFPI tables | Reject as damaged or mismatched before DDL or stamping. |
+| Every current Alembic head recorded but one or more FFPI tables missing | Reject as an incomplete current schema before migration commands run. |
+| An older known FFPI revision with recognized FFPI tables | Treat as established, skip bootstrap, and upgrade normally. |
+| Every current Alembic head recorded and the complete FFPI table contract present | Treat as established, skip bootstrap, and run the normal idempotent upgrade check. |
+
+An empty `alembic_version` table does not establish migration history. Table
+names that are not part of the FFPI ORM/bootstrap contract do not by themselves
+make a database an established FFPI database.
+
+### Recovering From Classification Failure
+
+1. Stop the backend service and retain the full `ExecStartPre` error from
+	`journalctl -u fantasy-football-backend`.
+2. Confirm that the configured database is the intended target. Do not paste a
+	connection URL containing credentials into issue or PR comments.
+3. Take a database backup before changing schema objects or migration history.
+4. Record `alembic current`, `alembic heads`, and the database table inventory.
+5. For an incomplete or mismatched FFPI database, restore the expected schema
+	from backup. For a genuinely disposable database, remove the database and
+	recreate it empty before retrying.
+6. For unknown Alembic revisions, deploy the codebase that owns that history or
+	select a separate FFPI database. Do not stamp, purge, or edit
+	`alembic_version` merely to bypass the guard.
+7. Retry `python -m backend.apply_migrations`, then verify `alembic current`
+	reports every canonical head before starting the API.
+
 ## If Migration Fails
 
 ```bash
