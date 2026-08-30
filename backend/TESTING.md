@@ -3,8 +3,7 @@
 1. Install backend dependencies (includes pytest in requirements):
 
 ```powershell
-cd backend
-pip install -r requirements.txt
+python3.13.exe -m pip install -r backend/requirements.txt
 ```
 
 2. From the repository root, run the complete backend suite without setting
@@ -25,9 +24,11 @@ Notes:
 - Pytest selects a unique temporary SQLite database before importing the
   backend package, initializes the ORM schema once per session, and removes the
   database after the run. Repeated local runs cannot reuse a stale schema.
-- An explicitly configured `DATABASE_URL` is preserved for CI and tests that
-  intentionally exercise PostgreSQL. Never point routine local tests at a
-  developer or production database.
+- Routine local runs replace any inherited `DATABASE_URL` with disposable
+  SQLite. CI preserves its migrated PostgreSQL service by setting
+  `FFPI_PYTEST_USE_CONFIGURED_DATABASE=1`; do not set that opt-in for a
+  developer or production database. Configured-database mode is rejected
+  outside CI, and pytest does not copy or log the configured URL.
 
 - The example test calls `main.read_root()` directly to avoid running the FastAPI startup event (which seeds the DB). For most tests you should instead rely on the provided fixtures:
   - `client` – a lightweight `TestClient` that **does not** execute the app's

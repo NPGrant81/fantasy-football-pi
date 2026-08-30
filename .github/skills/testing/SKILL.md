@@ -153,7 +153,7 @@ python3.13 -m pytest backend -q
 python3.13.exe -m pytest backend -q
 
 # Backend — specific file
-python -m pytest tests/test_analytics_router.py -v
+python3.13 -m pytest backend/tests/test_analytics_router.py -v
 
 # Frontend — all tests (one-time run)
 cd frontend && npm test -- --run

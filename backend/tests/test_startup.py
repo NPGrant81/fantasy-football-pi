@@ -40,10 +40,10 @@ def test_lifespan_requires_migrated_tables(integration_client):
 
 
 def test_pytest_database_selection_is_deterministic():
-    configured_url = make_url(os.environ["FFPI_PYTEST_DATABASE_URL"])
+    configured_url = make_url(SQLALCHEMY_DATABASE_URL)
 
-    assert make_url(SQLALCHEMY_DATABASE_URL) == configured_url
-    if configured_url.get_backend_name() == "sqlite":
+    if os.getenv("FFPI_PYTEST_OWNS_DATABASE") == "1":
+        assert configured_url.get_backend_name() == "sqlite"
         database_path = Path(configured_url.database)
         assert database_path.name == "backend.db"
         assert database_path.parent.name.startswith("ffpi-pytest-")

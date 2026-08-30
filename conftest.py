@@ -12,11 +12,22 @@ import pytest
 _test_database_directory: TemporaryDirectory[str] | None = None
 
 os.environ.setdefault("TESTING", "true")
-if "DATABASE_URL" not in os.environ:
+use_configured_database = os.getenv("FFPI_PYTEST_USE_CONFIGURED_DATABASE") == "1"
+if use_configured_database and os.getenv("CI", "").lower() != "true":
+    raise RuntimeError(
+        "FFPI_PYTEST_USE_CONFIGURED_DATABASE=1 is restricted to CI test databases"
+    )
+if use_configured_database and "DATABASE_URL" not in os.environ:
+    raise RuntimeError(
+        "FFPI_PYTEST_USE_CONFIGURED_DATABASE=1 requires an explicit DATABASE_URL"
+    )
+if not use_configured_database:
     _test_database_directory = TemporaryDirectory(prefix="ffpi-pytest-")
     database_path = Path(_test_database_directory.name) / "backend.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{database_path.as_posix()}"
-os.environ["FFPI_PYTEST_DATABASE_URL"] = os.environ["DATABASE_URL"]
+    os.environ["FFPI_PYTEST_OWNS_DATABASE"] = "1"
+else:
+    os.environ.pop("FFPI_PYTEST_OWNS_DATABASE", None)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -29,8 +40,8 @@ def test_database_lifecycle():
     from backend import models, models_draft_value  # noqa: F401
     from backend.database import Base, engine
 
-    Base.metadata.create_all(bind=engine)
     try:
+        Base.metadata.create_all(bind=engine)
         yield
     finally:
         engine.dispose()
