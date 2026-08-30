@@ -13,7 +13,7 @@ make restart
 make logs
 make status
 make backup
-make restore RESTORE_FILE=/path/to/archive.tar.gz
+make restore RESTORE_FILE=/path/to/postgres_20260829T000000Z.dump.gz
 ```
 
 ## What the script does

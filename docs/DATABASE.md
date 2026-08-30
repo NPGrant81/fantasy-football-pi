@@ -31,7 +31,7 @@ The repo provides two helper scripts:
 ### Create a backup
 
 ```bash
-DB_URL="******127.0.0.1:5432/fantasy_pi" \
+DB_URL="postgresql://postgres@127.0.0.1:5432/fantasy_pi" \
 BACKUP_DIR="/var/backups/fantasy-football-pi" \
 ./scripts/backup_db.sh
 ```
@@ -54,7 +54,7 @@ and prunes backups older than the configured retention window (default: 7 days).
 ### Restore a backup
 
 ```bash
-DB_URL="******127.0.0.1:5432/fantasy_pi" \
+DB_URL="postgresql://postgres@127.0.0.1:5432/fantasy_pi" \
 BACKUP_DIR="/var/backups/fantasy-football-pi" \
 ./scripts/restore_db.sh /var/backups/fantasy-football-pi/postgres_20260829T000000Z.dump.gz
 ```
@@ -62,7 +62,7 @@ BACKUP_DIR="/var/backups/fantasy-football-pi" \
 Dry run:
 
 ```bash
-DB_URL="******127.0.0.1:5432/fantasy_pi" \
+DB_URL="postgresql://postgres@127.0.0.1:5432/fantasy_pi" \
 ./scripts/restore_db.sh --dry-run /var/backups/fantasy-football-pi/postgres_20260829T000000Z.dump.gz
 ```
 

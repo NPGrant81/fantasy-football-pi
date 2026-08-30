@@ -16,7 +16,6 @@ services:
       - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml:ro
       - /var/log:/var/log:ro
       - /var/log/nginx:/var/log/nginx:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
 
   prometheus:

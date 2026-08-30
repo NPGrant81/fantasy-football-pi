@@ -23,7 +23,7 @@ or, if you want a service-specific environment file:
 cp backend/.env.example backend/.env
 ```
 
-The backend loader intentionally reads `backend/.env` and not a repo-root `.env`, so the service-specific file remains the canonical local runtime path.
+The backend loader intentionally reads `backend/.env` for database configuration, making the service-specific file the canonical local runtime path. Note that running backend code from the repository root may also load a repo-root `.env` file via `load_dotenv()`, so avoid putting conflicting settings in the repo-root `.env`.
 
 For Raspberry Pi or systemd deployments, keep the runtime file under a protected path such as:
 

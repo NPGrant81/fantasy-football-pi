@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 DB_URL="${DB_URL:-${DATABASE_URL:-}}"
 BACKUP_DIR="${BACKUP_DIR:-${FANTASY_PI_BACKUP_DIR:-${HOME}/.local/share/fantasy-football-pi/backups}}"
 DRY_RUN=0
@@ -44,9 +47,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -f ".env" ]]; then
+if [[ -z "${DB_URL}" && -f "${REPO_ROOT}/backend/.env" ]]; then
   # shellcheck disable=SC1090
-  source ".env"
+  source "${REPO_ROOT}/backend/.env"
+  DB_URL="${DB_URL:-${DATABASE_URL:-}}"
+fi
+
+if [[ -z "${DB_URL}" && -f "${REPO_ROOT}/.env" ]]; then
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/.env"
   DB_URL="${DB_URL:-${DATABASE_URL:-}}"
 fi
 
@@ -70,33 +79,47 @@ log() {
   echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"
 }
 
+CLEANUP_TMP=""
+cleanup() {
+  if [[ -n "${CLEANUP_TMP}" && -f "${CLEANUP_TMP}" ]]; then
+    rm -f "${CLEANUP_TMP}"
+  fi
+}
+trap cleanup EXIT
+
 if [[ "${DB_URL}" =~ ^postgres(ql)?:// ]]; then
+  TARGET_PATH="${ARCHIVE_PATH}"
   if [[ "${ARCHIVE_PATH}" == *.gz ]]; then
     TMP_FILE="$(mktemp /tmp/fantasy-pi-restore.XXXXXX.dump)"
     gzip -dc "${ARCHIVE_PATH}" > "${TMP_FILE}"
-    ARCHIVE_PATH="${TMP_FILE}"
+    TARGET_PATH="${TMP_FILE}"
+    CLEANUP_TMP="${TMP_FILE}"
   fi
 
   if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log "Dry run: would restore Postgres backup ${ARCHIVE_PATH} to ${DB_URL}"
+    log "Dry run: would restore Postgres backup from ${ARCHIVE_PATH}"
     exit 0
   fi
 
   command -v pg_restore >/dev/null 2>&1 || { echo "Error: pg_restore not found in PATH" >&2; exit 1; }
-  log "Restoring PostgreSQL backup from ${ARCHIVE_PATH} to ${DB_URL}"
-  pg_restore --clean --if-exists --no-owner --no-privileges --dbname="${DB_URL}" "${ARCHIVE_PATH}"
-  rm -f "${ARCHIVE_PATH}"
+  log "Restoring PostgreSQL backup from ${ARCHIVE_PATH}"
+  pg_restore --clean --if-exists --no-owner --no-privileges --dbname="${DB_URL}" "${TARGET_PATH}"
   log "PostgreSQL restore complete"
 elif [[ "${DB_URL}" =~ ^sqlite://(/|.*)$ ]]; then
   DB_PATH="${DB_URL#sqlite:///}"
   if [[ "${DB_PATH}" == "${DB_URL}" ]]; then
     DB_PATH="${DB_URL#sqlite://}"
   fi
+  if [[ "${DB_PATH}" != /* && -d "${REPO_ROOT}" ]]; then
+    DB_PATH="${REPO_ROOT}/${DB_PATH}"
+  fi
 
+  TARGET_PATH="${ARCHIVE_PATH}"
   if [[ "${ARCHIVE_PATH}" == *.gz ]]; then
     TMP_FILE="$(mktemp /tmp/fantasy-pi-restore.XXXXXX.sqlite)"
     gzip -dc "${ARCHIVE_PATH}" > "${TMP_FILE}"
-    ARCHIVE_PATH="${TMP_FILE}"
+    TARGET_PATH="${TMP_FILE}"
+    CLEANUP_TMP="${TMP_FILE}"
   fi
 
   if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -105,10 +128,9 @@ elif [[ "${DB_URL}" =~ ^sqlite://(/|.*)$ ]]; then
   fi
 
   mkdir -p "$(dirname "${DB_PATH}")"
-  cp "${ARCHIVE_PATH}" "${DB_PATH}"
-  rm -f "${ARCHIVE_PATH}"
+  cp "${TARGET_PATH}" "${DB_PATH}"
   log "SQLite restore complete -> ${DB_PATH}"
 else
-  echo "Error: Unsupported database URL scheme in '${DB_URL}'" >&2
+  echo "Error: Unsupported database URL scheme" >&2
   exit 1
 fi

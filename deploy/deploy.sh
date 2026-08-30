@@ -143,20 +143,19 @@ run_restore() {
     fail "Backup archive not found: ${archive_path}"
   fi
 
-  log "Restore requested for ${archive_path}"
-  if [[ "${archive_path}" == *.tar.gz ]]; then
-    tar -xzf "${archive_path}" -C "${REPO_ROOT}"
-  elif [[ "${archive_path}" == *.gz ]]; then
-    mkdir -p "${REPO_ROOT}/restore"
-    local extracted_path="${REPO_ROOT}/restore/$(basename "${archive_path%.gz}")"
-    gzip -dc "${archive_path}" > "${extracted_path}"
-    log "Decompressed gzip archive to ${extracted_path}"
-  else
-    mkdir -p "${REPO_ROOT}/restore"
-    cp "${archive_path}" "${REPO_ROOT}/restore/$(basename "${archive_path}")"
+  local restore_script="${REPO_ROOT}/scripts/restore_db.sh"
+  if [[ ! -f "${restore_script}" ]]; then
+    fail "Restore script not found: ${restore_script}"
   fi
 
-  log "Restore command completed. Validate with systemctl status ${APP_SERVICE}"
+  log "Running database restore from ${archive_path}"
+  bash "${restore_script}" "${archive_path}"
+
+  log "Restarting ${APP_SERVICE} after database restore"
+  systemctl daemon-reload
+  systemctl restart "${APP_SERVICE}"
+  wait_for_health
+  log "Restore completed successfully"
 }
 
 usage() {
@@ -170,7 +169,7 @@ Commands:
   logs              tail the backend journald logs
   status            print service status and current health payload
   backup            run the configured database backup script
-  restore <file>     restore an archive into the repo root (or use your backup workflow)
+  restore <file>     restore database from a backup archive and restart service
   help              show this help
 EOF
 }

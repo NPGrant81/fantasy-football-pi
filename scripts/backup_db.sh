@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 BACKUP_DIR="${BACKUP_DIR:-${FANTASY_PI_BACKUP_DIR:-${HOME}/.local/share/fantasy-football-pi/backups}}"
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
 DB_URL="${DB_URL:-${DATABASE_URL:-}}"
 
-if [[ -f ".env" ]]; then
+if [[ -z "${DB_URL}" && -f "${REPO_ROOT}/backend/.env" ]]; then
   # shellcheck disable=SC1090
-  source ".env"
+  source "${REPO_ROOT}/backend/.env"
+  DB_URL="${DB_URL:-${DATABASE_URL:-}}"
+fi
+
+if [[ -z "${DB_URL}" && -f "${REPO_ROOT}/.env" ]]; then
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/.env"
   DB_URL="${DB_URL:-${DATABASE_URL:-}}"
 fi
 
@@ -35,8 +44,11 @@ elif [[ "${DB_URL}" =~ ^sqlite://(/|.*)$ ]]; then
   if [[ "${DB_PATH}" == "${DB_URL}" ]]; then
     DB_PATH="${DB_URL#sqlite://}"
   fi
+  if [[ "${DB_PATH}" != /* && -f "${REPO_ROOT}/${DB_PATH}" ]]; then
+    DB_PATH="${REPO_ROOT}/${DB_PATH}"
+  fi
   if [[ -z "${DB_PATH}" ]]; then
-    echo "Error: SQLite URL did not include a database path: ${DB_URL}" >&2
+    echo "Error: SQLite URL did not include a database path" >&2
     exit 1
   fi
   if [[ ! -f "${DB_PATH}" ]]; then
@@ -50,10 +62,10 @@ elif [[ "${DB_URL}" =~ ^sqlite://(/|.*)$ ]]; then
   gzip -f "${OUT_FILE}"
   log "SQLite backup completed -> ${OUT_FILE}.gz"
 else
-  echo "Error: Unsupported database URL scheme in '${DB_URL}'" >&2
+  echo "Error: Unsupported database URL scheme" >&2
   exit 1
 fi
 
 find "${BACKUP_DIR}" -type f \( -name '*.dump.gz' -o -name '*.sqlite.gz' \) -mtime "+${RETENTION_DAYS}" -delete
 log "Backup retention pruned to ${RETENTION_DAYS} days"
-log "Backup succeeded for ${DB_URL}"
+log "Backup succeeded"
