@@ -13,7 +13,7 @@ on:
 
 # A new push to the same PR/branch supersedes the previous run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 # Least-privilege default for every job, including the `detect` classifier which
@@ -718,7 +718,8 @@ jobs:
     needs: [detect, test, frontend-test]
     # Reports even when upstream lanes fail, but not when nothing was analysed.
     if: >-
-      !cancelled()
+      always()
+      && !cancelled()
       && needs.detect.outputs.run_heavy == 'true'
       && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.frontend == 'true' || needs.detect.outputs.full_run == 'true')
     outputs:
@@ -991,10 +992,23 @@ jobs:
             frontend-test=${{ needs['frontend-test'].result }}
             e2e=${{ needs.e2e.result }}
             dead-code-report=${{ needs['dead-code-report'].result }}
+          APPLICABILITY: |
+            detect=true
+            test=${{ needs.detect.outputs.run_heavy == 'true' && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.full_run == 'true') }}
+            api-integration=${{ needs.detect.outputs.run_heavy == 'true' && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.full_run == 'true') }}
+            frontend-test=${{ needs.detect.outputs.run_heavy == 'true' && (needs.detect.outputs.frontend == 'true' || needs.detect.outputs.full_run == 'true') }}
+            e2e=${{ needs.detect.outputs.run_heavy == 'true' && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.frontend == 'true' || needs.detect.outputs.full_run == 'true') }}
+            dead-code-report=${{ needs.detect.outputs.run_heavy == 'true' && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.frontend == 'true' || needs.detect.outputs.full_run == 'true') }}
         run: |
           set -euo pipefail
 
           failed=0
+          declare -A applicable
+          while IFS='=' read -r lane expected; do
+            [ -n "$lane" ] || continue
+            applicable["$lane"]="$expected"
+          done <<< "$APPLICABILITY"
+
           {
             echo "## CI Gate"
             echo ""
@@ -1006,7 +1020,14 @@ jobs:
             [ -n "$lane" ] || continue
             case "$result" in
               success)  verdict="pass" ;;
-              skipped)  verdict="pass (not applicable to this change)" ;;
+              skipped)
+                if [ "${applicable[$lane]:-false}" = "false" ]; then
+                  verdict="pass (not applicable to this change)"
+                else
+                  verdict="FAIL (applicable lane was skipped)"
+                  failed=1
+                fi
+                ;;
               *)        verdict="FAIL"; failed=1 ;;
             esac
             echo "| \`$lane\` | \`$result\` | $verdict |" >> "$GITHUB_STEP_SUMMARY"

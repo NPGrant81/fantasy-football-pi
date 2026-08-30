@@ -88,11 +88,12 @@ jobs:
           emit() { printf '%s=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"; }
 
           emit_full_run() {
+            run_heavy="${1:-true}"
             for bucket in backend frontend ui security deps migrations workflows cross_platform; do
               emit "$bucket" "true"
             done
             emit docs_only "false"
-            emit run_heavy "true"
+            emit run_heavy "$run_heavy"
             emit full_run "true"
           }
 
@@ -109,8 +110,12 @@ jobs:
             exit 0
           fi
 
-          CHANGED_FILES=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" \
-            --paginate --jq '.[].filename')
+          if ! CHANGED_FILES=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" \
+            --paginate --jq '.[].filename'); then
+            echo "Could not query changed files — falling back to a full run."
+            emit_full_run
+            exit 0
+          fi
 
           if [ -z "$CHANGED_FILES" ]; then
             echo "Could not determine changed files — falling back to a full run."
@@ -142,7 +147,8 @@ jobs:
             esac
 
             case "$file" in
-              backend/*|etl/*|db/*|tests/*|scripts/*|ops/*|pytest.ini|Makefile)
+              backend/*|etl/*|db/*|tests/*|scripts/*|ops/*|conftest.py|\
+              _pytest_support.py|pytest.ini|Makefile)
                 backend=true ;;
             esac
 
@@ -188,7 +194,8 @@ jobs:
             case "$file" in
               *.sh|*.ps1|*.bat|*.cmd|backend/scripts/*|scripts/*|\
               backend/apply_migrations.py|backend/manage.py|backend/logging_config.py|\
-              backend/requirements*.txt|Makefile|pytest.ini|Dockerfile*|docker-compose*.yml)
+              backend/requirements*.txt|conftest.py|_pytest_support.py|Makefile|pytest.ini|\
+              Dockerfile*|docker-compose*.yml)
                 cross_platform=true ;;
             esac
           done <<< "$CHANGED_FILES"
@@ -196,7 +203,11 @@ jobs:
           # A workflow change means CI itself changed — validate against everything.
           if [ "$workflows" = "true" ]; then
             echo "Workflow files changed — escalating to a full run."
-            emit_full_run
+            workflow_run_heavy=true
+            if [ "$IS_DRAFT" = "true" ]; then
+              workflow_run_heavy=false
+            fi
+            emit_full_run "$workflow_run_heavy"
             {
               echo "## Change Classification"
               echo ""
