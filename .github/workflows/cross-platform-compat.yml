@@ -20,17 +20,35 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    # Nightly full-fidelity run — safety net behind the PR path filters.
+    - cron: "45 4 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  detect:
+    uses: ./.github/workflows/detect-changes.yml
+
   compat:
     name: Compat check (${{ matrix.os }} / Python ${{ matrix.python-version }})
+    needs: detect
+    # Only backend changes can break Python cross-platform behaviour.
+    if: needs.detect.outputs.run_heavy == 'true' && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.full_run == 'true')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # Linux always runs. The Windows leg — the expensive half, and the only
+        # reason this workflow exists — is added only when the change touches
+        # OS-sensitive surfaces (shell/PowerShell scripts, path/subprocess-heavy
+        # modules, packaging config) or when this is a full run.
+        os: ${{ fromJSON((needs.detect.outputs.full_run == 'true' || needs.detect.outputs.cross_platform == 'true') && '["ubuntu-latest", "windows-latest"]' || '["ubuntu-latest"]') }}
         python-version: ['3.13']
 
     # Use bash explicitly so Linux-style commands work on Windows (Git Bash)

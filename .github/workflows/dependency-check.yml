@@ -12,6 +12,10 @@ on:
       - frontend/package*.json
       - .github/workflows/dependency-check.yml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend-security-audit:
     runs-on: ubuntu-latest

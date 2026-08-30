@@ -17,6 +17,10 @@ on:
       - .github/workflows/agent-catalog-guard.yml
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   agent-catalog-guard:
     runs-on: windows-latest
