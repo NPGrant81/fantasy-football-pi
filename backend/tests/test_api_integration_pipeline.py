@@ -49,7 +49,15 @@ def test_health_contract_shape(client):
     assert response.status_code in {200, 503}
 
     payload = response.json()
-    assert set(payload.keys()) == {"status", "service", "database"}
+    assert set(payload.keys()) == {
+        "status",
+        "service",
+        "database",
+        "schema",
+        "version",
+        "uptime_seconds",
+        "checks",
+    }
     assert payload["status"] in {"ok", "degraded"}
     assert payload["service"] == "fantasy-football-backend"
     assert payload["database"] in {"ok", "error"}
