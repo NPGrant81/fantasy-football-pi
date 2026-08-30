@@ -1,11 +1,15 @@
-import pytest
 import asyncio
+import os
+from pathlib import Path
+
+import pytest
+from sqlalchemy import inspect, text
+from sqlalchemy.engine import make_url
 
 from backend import main as backend_main
-from backend.database import SessionLocal
+from backend.database import SQLALCHEMY_DATABASE_URL, SessionLocal
 from backend.core.security import get_password_hash
 from backend.scripts.seed import run_seeder
-from sqlalchemy import inspect, text
 import models
 
 
@@ -33,6 +37,17 @@ def test_lifespan_requires_migrated_tables(integration_client):
         assert "leagues" in inspector.get_table_names()
     finally:
         db.close()
+
+
+def test_pytest_database_selection_is_deterministic():
+    configured_url = make_url(os.environ["FFPI_PYTEST_DATABASE_URL"])
+
+    assert make_url(SQLALCHEMY_DATABASE_URL) == configured_url
+    if configured_url.get_backend_name() == "sqlite":
+        database_path = Path(configured_url.database)
+        assert database_path.name == "backend.db"
+        assert database_path.parent.name.startswith("ffpi-pytest-")
+        assert database_path.is_file()
 
 
 def test_seeder_populates_admin(integration_client):
