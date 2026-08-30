@@ -176,6 +176,7 @@ jobs:
       - name: Run backend tests with coverage
         id: backend_tests
         run: |
+          set -o pipefail
           python -m pytest backend -q \
             --tb=short \
             --cov=backend \
