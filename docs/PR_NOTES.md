@@ -11,13 +11,13 @@ This branch was created to trigger CI for backend and frontend tests.
 
 - Review requested: 2026-08-30
 - Threads opened: 6
-- Threads resolved: 0 (pending pushed fixes and re-review)
-- Follow-up commits: `b7fd9c5`
+- Threads resolved: 6
+- Follow-up commits: `b7fd9c5`, `8453125`
 - Classifier follow-up: root pytest lifecycle files trigger backend and cross-platform lanes, API failures fail open, and draft workflow changes keep heavy lanes disabled.
 - Reliability follow-up: Cypress installs during `npm ci`, label creation has `issues: write`, and PR/push/schedule concurrency keys no longer collide.
 - Gate follow-up: dead-code reporting survives upstream failures, and `ci-gate` rejects applicable lanes that are unexpectedly skipped.
-- Local validation: all 17 workflows parsed; `actionlint` passed; focused classifier and gate behavior scenarios passed.
-- Residual risk: Full GitHub Actions validation and Copilot re-review remain merge gates.
+- Validation: all 17 workflows parsed; `actionlint` and focused classifier/gate scenarios passed; final-head GitHub Actions passed every applicable workflow and `ci-gate`.
+- Residual risk: Copilot re-review must be requested in the GitHub UI because GitHub's REST and GraphQL reviewer APIs reject bot identities.
 
 ---
 
