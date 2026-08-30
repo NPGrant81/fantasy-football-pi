@@ -12,7 +12,7 @@ This branch was created to trigger CI for backend and frontend tests.
 - Review requested: 2026-08-30
 - Threads opened: 6
 - Threads resolved: 0 (pending pushed fixes and re-review)
-- Follow-up commits: pending
+- Follow-up commits: `b7fd9c5`
 - Classifier follow-up: root pytest lifecycle files trigger backend and cross-platform lanes, API failures fail open, and draft workflow changes keep heavy lanes disabled.
 - Reliability follow-up: Cypress installs during `npm ci`, label creation has `issues: write`, and PR/push/schedule concurrency keys no longer collide.
 - Gate follow-up: dead-code reporting survives upstream failures, and `ci-gate` rejects applicable lanes that are unexpectedly skipped.
