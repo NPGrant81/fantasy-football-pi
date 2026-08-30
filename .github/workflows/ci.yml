@@ -5,10 +5,26 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    # Nightly full-fidelity run — catches anything the PR path filters miss.
+    - cron: "30 4 * * *"
   workflow_dispatch:
 
+# A new push to the same PR/branch supersedes the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Single source of truth for "what kind of change is this?".
+  # Every gated job below reads `needs.detect.outputs.*`.
+  detect:
+    uses: ./.github/workflows/detect-changes.yml
+
   test:
+    needs: detect
+    if: needs.detect.outputs.run_heavy == 'true' && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.full_run == 'true')
     runs-on: ubuntu-latest
     outputs:
       duration_seconds: ${{ steps.timing_end.outputs.duration_seconds }}
@@ -254,6 +270,7 @@ jobs:
 
   api-integration:
     runs-on: ubuntu-latest
+    # Implicitly skipped when `test` is skipped (backend untouched).
     needs: test
     outputs:
       duration_seconds: ${{ steps.timing_end.outputs.duration_seconds }}
@@ -376,6 +393,8 @@ jobs:
           echo "duration_seconds=$DURATION" >> "$GITHUB_OUTPUT"
 
   frontend-test:
+    needs: detect
+    if: needs.detect.outputs.run_heavy == 'true' && (needs.detect.outputs.frontend == 'true' || needs.detect.outputs.full_run == 'true')
     runs-on: ubuntu-latest
     outputs:
       duration_seconds: ${{ steps.timing_end.outputs.duration_seconds }}
@@ -533,7 +552,14 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    needs: frontend-test
+    needs: [detect, frontend-test]
+    # Runs for backend OR frontend changes. `frontend-test` may legitimately be
+    # skipped (backend-only change) — that must not cascade into a skip here.
+    if: >-
+      !cancelled()
+      && needs.detect.outputs.run_heavy == 'true'
+      && (needs['frontend-test'].result == 'success' || needs['frontend-test'].result == 'skipped')
+      && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.frontend == 'true' || needs.detect.outputs.full_run == 'true')
     outputs:
       duration_seconds: ${{ steps.timing_end.outputs.duration_seconds }}
       failure_category: ${{ steps.result_category.outputs.category }}
@@ -659,8 +685,12 @@ jobs:
 
   dead-code-report:
     runs-on: ubuntu-latest
-    needs: [test, frontend-test]
-    if: always()
+    needs: [detect, test, frontend-test]
+    # Reports even when upstream lanes fail, but not when nothing was analysed.
+    if: >-
+      !cancelled()
+      && needs.detect.outputs.run_heavy == 'true'
+      && (needs.detect.outputs.backend == 'true' || needs.detect.outputs.frontend == 'true' || needs.detect.outputs.full_run == 'true')
     outputs:
       duration_seconds: ${{ steps.timing_end.outputs.duration_seconds }}
       failure_category: ${{ steps.result_category.outputs.category }}
@@ -769,12 +799,14 @@ jobs:
   observability:
     name: CI Observability Report
     runs-on: ubuntu-latest
-    needs: [test, api-integration, frontend-test, e2e, dead-code-report]
+    needs: [detect, test, api-integration, frontend-test, e2e, dead-code-report]
     if: always()
     steps:
       - name: Build CI dashboard summary
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DOCS_ONLY: ${{ needs.detect.outputs.docs_only }}
+          RUN_HEAVY: ${{ needs.detect.outputs.run_heavy }}
           BACKEND_RESULT: ${{ needs.test.result }}
           FRONTEND_RESULT: ${{ needs['frontend-test'].result }}
           API_CONTRACT_RESULT: ${{ needs['api-integration'].result }}
@@ -809,11 +841,22 @@ jobs:
           TOTAL_DURATION=$((BACKEND_DURATION + API_CONTRACT_DURATION + FRONTEND_DURATION + API_DURATION + DEAD_CODE_DURATION))
 
           FAILED_CATEGORIES=""
-          [ "$BACKEND_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES backend"
-          [ "$API_CONTRACT_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES api_contract"
-          [ "$FRONTEND_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES frontend"
-          [ "$API_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES api"
-          [ "$DEAD_CODE_CATEGORY" != "none" ] && FAILED_CATEGORIES="$FAILED_CATEGORIES dead_code"
+          # A lane that never ran contributes no failure category. Without this
+          # normalisation a skipped lane (empty output) would be reported as a
+          # failure and every docs-only PR would show red.
+          note_category() {
+            local result="$1" category="$2" label="$3"
+            if [ "$result" = "skipped" ] || [ -z "$category" ] || [ "$category" = "none" ]; then
+              return 0
+            fi
+            FAILED_CATEGORIES="$FAILED_CATEGORIES $label"
+          }
+
+          note_category "$BACKEND_RESULT" "$BACKEND_CATEGORY" backend
+          note_category "$API_CONTRACT_RESULT" "$API_CONTRACT_CATEGORY" api_contract
+          note_category "$FRONTEND_RESULT" "$FRONTEND_CATEGORY" frontend
+          note_category "$API_RESULT" "$API_CATEGORY" api
+          note_category "$DEAD_CODE_RESULT" "$DEAD_CODE_CATEGORY" dead_code
 
           if [ -z "$FAILED_CATEGORIES" ]; then
             FAILED_CATEGORIES="none"
@@ -835,11 +878,17 @@ jobs:
             echo ""
             echo "- Total build time (tracked jobs): ${TOTAL_DURATION}s"
             echo "- Failed categories: $FAILED_CATEGORIES"
+            echo "- Docs-only change: \`${DOCS_ONLY:-unknown}\` | Heavy lanes enabled: \`${RUN_HEAVY:-unknown}\`"
+            echo "- SKIPPED lanes were intentionally filtered out by the change classifier and do not indicate failure"
             echo "- Frontend checks include lint, typecheck, responsive audit, unit coverage, snapshots, and build output logs"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack on CI failure
-        if: needs.test.result != 'success' || needs['api-integration'].result != 'success' || needs['frontend-test'].result != 'success' || needs.e2e.result != 'success'
+        if: >-
+          contains(fromJSON('["failure", "cancelled"]'), needs.test.result)
+          || contains(fromJSON('["failure", "cancelled"]'), needs['api-integration'].result)
+          || contains(fromJSON('["failure", "cancelled"]'), needs['frontend-test'].result)
+          || contains(fromJSON('["failure", "cancelled"]'), needs.e2e.result)
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -862,7 +911,11 @@ jobs:
           curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
 
       - name: Notify Teams on CI failure
-        if: needs.test.result != 'success' || needs['api-integration'].result != 'success' || needs['frontend-test'].result != 'success' || needs.e2e.result != 'success'
+        if: >-
+          contains(fromJSON('["failure", "cancelled"]'), needs.test.result)
+          || contains(fromJSON('["failure", "cancelled"]'), needs['api-integration'].result)
+          || contains(fromJSON('["failure", "cancelled"]'), needs['frontend-test'].result)
+          || contains(fromJSON('["failure", "cancelled"]'), needs.e2e.result)
         env:
           TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -884,3 +937,54 @@ jobs:
           )
           curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$TEAMS_WEBHOOK_URL"
 
+
+  # ---------------------------------------------------------------------------
+  # Single required status check.
+  #
+  # Branch protection should require ONLY `ci-gate` (plus `gitleaks`). Every
+  # other lane may legitimately be skipped by the change classifier; a skipped
+  # lane is a pass here, a failed or cancelled lane is a failure. This means
+  # branch protection never has to be reconfigured when lanes are added.
+  # ---------------------------------------------------------------------------
+  ci-gate:
+    name: ci-gate
+    runs-on: ubuntu-latest
+    needs: [detect, test, api-integration, frontend-test, e2e, dead-code-report]
+    if: always()
+    steps:
+      - name: Evaluate lane results
+        env:
+          RESULTS: |
+            detect=${{ needs.detect.result }}
+            test=${{ needs.test.result }}
+            api-integration=${{ needs['api-integration'].result }}
+            frontend-test=${{ needs['frontend-test'].result }}
+            e2e=${{ needs.e2e.result }}
+            dead-code-report=${{ needs['dead-code-report'].result }}
+        run: |
+          set -euo pipefail
+
+          failed=0
+          {
+            echo "## CI Gate"
+            echo ""
+            echo "| Lane | Result | Verdict |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          while IFS='=' read -r lane result; do
+            [ -n "$lane" ] || continue
+            case "$result" in
+              success)  verdict="pass" ;;
+              skipped)  verdict="pass (not applicable to this change)" ;;
+              *)        verdict="FAIL"; failed=1 ;;
+            esac
+            echo "| \`$lane\` | \`$result\` | $verdict |" >> "$GITHUB_STEP_SUMMARY"
+          done <<< "$RESULTS"
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$failed" -ne 0 ]; then
+            echo "One or more CI lanes did not pass." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "All applicable CI lanes passed." >> "$GITHUB_STEP_SUMMARY"
