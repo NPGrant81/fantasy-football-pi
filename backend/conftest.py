@@ -1,6 +1,6 @@
 """
 Pytest configuration for backend tests.
-This file sets up test fixtures and handles database initialization.
+Database initialization is owned by the repository-root conftest.
 """
 
 from contextlib import asynccontextmanager

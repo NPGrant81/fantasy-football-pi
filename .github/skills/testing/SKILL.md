@@ -32,13 +32,12 @@ frontend/tests/
 
 ### Setup
 ```python
-# Repository conftest.py provides:
-# - a disposable, schema-initialized SQLite database for local runs
-# - client: FastAPI TestClient
+# Repository conftest.py provides a disposable, schema-initialized SQLite
+# database for local backend runs. backend/conftest.py provides client.
 
 def test_health(client):
-  response = client.get("/")
-  assert response.status_code == 200
+    response = client.get("/")
+    assert response.status_code == 200
 ```
 
 ### Test structure

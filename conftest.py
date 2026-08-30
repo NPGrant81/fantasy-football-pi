@@ -11,7 +11,7 @@ import pytest
 
 _test_database_directory: TemporaryDirectory[str] | None = None
 
-os.environ.setdefault("TESTING", "true")
+os.environ["TESTING"] = "1"
 use_configured_database = os.getenv("FFPI_PYTEST_USE_CONFIGURED_DATABASE") == "1"
 if use_configured_database and os.getenv("CI", "").lower() != "true":
     raise RuntimeError(
@@ -31,18 +31,28 @@ else:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def test_database_lifecycle():
+def test_database_lifecycle(request):
     """Initialize and dispose only the SQLite database created for this run."""
     if _test_database_directory is None:
         yield
         return
 
-    from backend import models, models_draft_value  # noqa: F401
-    from backend.database import Base, engine
-
+    backend_directory = Path(__file__).resolve().parent / "backend"
+    backend_selected = any(
+        Path(item.path).resolve().is_relative_to(backend_directory)
+        for item in request.session.items
+        if getattr(item, "path", None) is not None
+    )
+    database_engine = None
     try:
-        Base.metadata.create_all(bind=engine)
+        if backend_selected:
+            from backend import models, models_draft_value  # noqa: F401
+            from backend.database import Base, engine
+
+            database_engine = engine
+            Base.metadata.create_all(bind=database_engine)
         yield
     finally:
-        engine.dispose()
+        if database_engine is not None:
+            database_engine.dispose()
         _test_database_directory.cleanup()

@@ -16,7 +16,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
       FFPI_PYTEST_USE_CONFIGURED_DATABASE: "1"
-      TESTING: "true"
+      TESTING: "1"
       CI: "true"
     services:
       postgres:
