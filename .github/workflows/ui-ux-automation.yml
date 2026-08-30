@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  # write is needed to post the theme-guardrail PR comment.
   pull-requests: write
 
 concurrency:

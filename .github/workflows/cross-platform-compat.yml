@@ -30,6 +30,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege default for every job, including the `detect` classifier which
+# reads the PR file list via the REST API.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   detect:
     uses: ./.github/workflows/detect-changes.yml
