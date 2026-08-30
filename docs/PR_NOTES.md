@@ -7,6 +7,21 @@ This branch was created to trigger CI for backend and frontend tests.
 
 ---
 
+## PR #511 Copilot Feedback
+
+- Review requested: 2026-08-30
+- Threads opened: 1
+- Threads resolved: 1
+- Follow-up commits: `3843b0b`, `f351188`, `e0122c6`
+- Copilot result on `99027a1`: approval recommended with no comments.
+- Independent review follow-up: databases claiming every current Alembic head now require the complete FFPI table contract; older known revisions remain upgradeable.
+- CI follow-up: backend pytest failures now propagate through `tee`, preserving trustworthy PostgreSQL test evidence.
+- Documentation follow-up: the migration runbook now defines every database classification and its safe operator recovery path.
+- Latest focused backend validation: `89 passed, 6 skipped`; PostgreSQL cases run in CI.
+- Residual risk: Refreshed CI and Copilot re-review remain merge gates.
+
+---
+
 ## PR #483 Copilot Feedback
 
 - Review requested: 2026-08-22
