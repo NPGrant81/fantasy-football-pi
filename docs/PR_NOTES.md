@@ -10,14 +10,15 @@ This branch was created to trigger CI for backend and frontend tests.
 ## PR #512 Copilot Feedback
 
 - Review requested: 2026-08-30
-- Threads opened: 3
-- Threads resolved: 3
-- Suppressed findings reviewed: 2
-- Follow-up commits: `243e8a2`, `d3dfa69`
+- Threads opened: 6
+- Threads resolved: 6
+- Suppressed findings reviewed: 4
+- Follow-up commits: `243e8a2`, `d3dfa69`, `c46c6dd`
 - Database safety follow-up: configured database reuse is restricted to explicit CI opt-in, and local pytest always owns a unique disposable SQLite directory.
-- Review follow-up: `TESTING=1` is consistent across bootstrap and CI, fixture ownership documentation is accurate, and backend schema initialization runs only when backend tests are selected.
-- Latest focused validation: backend startup `7 passed`; ETL-only isolation `18 passed`; flake8, workflow parsing, diff checks, and diagnostics passed.
-- Latest completed CI on `243e8a2`: backend `853 passed, 1 skipped`; main CI, Linux/Windows compatibility, security, secrets, and UI automation passed.
+- Review follow-up: `TESTING=1` is consistent across bootstrap and CI, fixture ownership documentation is accurate, and database selection plus schema initialization run only when backend tests are selected.
+- Cross-suite isolation proof: ETL-only pytest preserved its configured `DATABASE_URL`, did not claim backend database ownership, and passed its focused validation.
+- Latest local validation: backend startup `8 passed`; full backend `848 passed, 7 skipped`; flake8, workflow parsing, diff checks, and diagnostics passed.
+- Latest completed CI on `2674a29`: backend `853 passed, 1 skipped`; main CI, Linux/Windows compatibility, security, secrets, and UI automation passed.
 - Residual risk: Final-head CI and Copilot re-review remain merge gates.
 
 ---
