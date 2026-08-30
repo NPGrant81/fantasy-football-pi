@@ -48,20 +48,25 @@ def test_pytest_database_selection_is_deterministic():
         assert database_path.name == "backend.db"
         assert database_path.parent.name.startswith("ffpi-pytest-")
         assert database_path.is_file()
+    else:
+        assert os.getenv("FFPI_PYTEST_USE_CONFIGURED_DATABASE") == "1"
+        assert os.getenv("CI", "").lower() == "true"
+        assert os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+        assert configured_url.get_backend_name() == "postgresql"
 
 
 def test_pytest_database_selection_is_scoped_to_backend():
-    from conftest import _backend_tests_requested
+    from _pytest_support import backend_tests_requested
 
     repository_root = Path(__file__).resolve().parents[2]
     backend_node = repository_root / "backend/tests/test_startup.py"
 
-    assert _backend_tests_requested([])
-    assert _backend_tests_requested(
-        [f"{backend_node}::test_database_lifecycle"]
+    assert backend_tests_requested([], repository_root)
+    assert backend_tests_requested(
+        [f"{backend_node}::test_database_lifecycle"], repository_root
     )
-    assert not _backend_tests_requested(
-        [str(repository_root / "etl/test_load_validation.py")]
+    assert not backend_tests_requested(
+        [str(repository_root / "etl/test_load_validation.py")], repository_root
     )
 
 

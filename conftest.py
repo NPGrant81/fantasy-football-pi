@@ -9,39 +9,27 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+from _pytest_support import backend_tests_requested
+
 
 _test_database_directory: TemporaryDirectory[str] | None = None
 
 os.environ["TESTING"] = "1"
 
 
-def _backend_tests_requested(arguments: list[str]) -> bool:
-    repository_root = Path(__file__).resolve().parent
-    backend_directory = repository_root / "backend"
-    selected_paths = [
-        Path(argument.split("::", 1)[0]).resolve()
-        for argument in arguments
-        if not argument.startswith("-")
-        and Path(argument.split("::", 1)[0]).exists()
-    ]
-    if not selected_paths:
-        return True
-    return any(
-        path == repository_root
-        or path == backend_directory
-        or path.is_relative_to(backend_directory)
-        for path in selected_paths
-    )
-
-
-_backend_tests_selected = _backend_tests_requested(sys.argv[1:])
+repository_root = Path(__file__).resolve().parent
+_backend_tests_selected = backend_tests_requested(sys.argv[1:], repository_root)
 if _backend_tests_selected:
     use_configured_database = (
         os.getenv("FFPI_PYTEST_USE_CONFIGURED_DATABASE") == "1"
     )
-    if use_configured_database and os.getenv("CI", "").lower() != "true":
+    running_in_github_actions = (
+        os.getenv("CI", "").lower() == "true"
+        and os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+    )
+    if use_configured_database and not running_in_github_actions:
         raise RuntimeError(
-            "FFPI_PYTEST_USE_CONFIGURED_DATABASE=1 is restricted to CI test databases"
+            "FFPI_PYTEST_USE_CONFIGURED_DATABASE=1 is restricted to GitHub Actions"
         )
     if use_configured_database and "DATABASE_URL" not in os.environ:
         raise RuntimeError(

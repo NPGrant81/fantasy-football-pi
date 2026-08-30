@@ -27,8 +27,9 @@ Notes:
 - Routine local runs replace any inherited `DATABASE_URL` with disposable
   SQLite. CI preserves its migrated PostgreSQL service by setting
   `FFPI_PYTEST_USE_CONFIGURED_DATABASE=1`; do not set that opt-in for a
-  developer or production database. Configured-database mode is rejected
-  outside CI, and pytest does not copy or log the configured URL.
+  developer or production database. Configured-database mode requires the
+  GitHub Actions runtime signal, and pytest does not copy or log the configured
+  URL.
 
 - The example test calls `main.read_root()` directly to avoid running the FastAPI startup event (which seeds the DB). For most tests you should instead rely on the provided fixtures:
   - `client` – a lightweight `TestClient` that **does not** execute the app's
