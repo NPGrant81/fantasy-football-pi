@@ -7,6 +7,39 @@ This branch was created to trigger CI for backend and frontend tests.
 
 ---
 
+## PR #512 Copilot Feedback
+
+- Review requested: 2026-08-30
+- Threads opened: 8
+- Threads resolved: 8
+- Suppressed findings reviewed: 5
+- Follow-up commits: `243e8a2`, `d3dfa69`, `c46c6dd`, `359b253`, `0841429`
+- Database safety follow-up: configured database reuse is restricted to explicit CI opt-in, and local pytest always owns a unique disposable SQLite directory.
+- Review follow-up: `TESTING=1` is consistent across bootstrap and CI, fixture ownership documentation is accurate, and database selection plus schema initialization run only when backend tests are selected.
+- Cross-suite isolation proof: ETL-only pytest preserved its configured `DATABASE_URL`, did not claim backend database ownership, and passed its focused validation.
+- CI integration follow-up: deferred app loading exposed duplicate `core.security` module identities; canonical backend imports restored the API auth monkeypatch/dependency contract, with the failed lane passing `3/3` locally.
+- Final safety follow-up: configured database reuse requires the GitHub Actions runtime signal, selector regression logic lives in a regular support module, and CI mode asserts a PostgreSQL engine.
+- Latest local validation: backend startup `8 passed`; full backend `848 passed, 7 skipped`; flake8, workflow parsing, diff checks, and diagnostics passed.
+- Latest completed CI on `2674a29`: backend `853 passed, 1 skipped`; main CI, Linux/Windows compatibility, security, secrets, and UI automation passed.
+- Residual risk: Final-head CI and Copilot re-review remain merge gates.
+
+---
+
+## PR #511 Copilot Feedback
+
+- Review requested: 2026-08-30
+- Threads opened: 1
+- Threads resolved: 1
+- Follow-up commits: `3843b0b`, `f351188`, `e0122c6`
+- Copilot result on `99027a1`: approval recommended with no comments.
+- Independent review follow-up: databases claiming every current Alembic head now require the complete FFPI table contract; older known revisions remain upgradeable.
+- CI follow-up: backend pytest failures now propagate through `tee`, preserving trustworthy PostgreSQL test evidence.
+- Documentation follow-up: the migration runbook now defines every database classification and its safe operator recovery path.
+- Latest focused backend validation: `89 passed, 6 skipped`; PostgreSQL cases run in CI.
+- Residual risk: Refreshed CI and Copilot re-review remain merge gates.
+
+---
+
 ## PR #483 Copilot Feedback
 
 - Review requested: 2026-08-22

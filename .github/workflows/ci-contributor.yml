@@ -17,6 +17,11 @@ jobs:
     # only run this job when the PR comes from a fork (head repo != base repo)
     if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      FFPI_PYTEST_USE_CONFIGURED_DATABASE: "1"
+      TESTING: "1"
+      CI: "true"
     services:
       postgres:
         image: postgres:15
@@ -42,12 +47,10 @@ jobs:
           cd backend
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Apply database migrations
+        run: python -m backend.apply_migrations
       - name: Run backend tests
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
-        run: |
-          cd backend
-          python -m pytest -q
+        run: python -m pytest backend -q
 
   frontend-tests:
     name: Frontend tests & lint (fork PRs only)

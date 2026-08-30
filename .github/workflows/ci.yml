@@ -55,6 +55,10 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:password@localhost:5432/fantasy_pi
+      FFPI_TEST_POSTGRES_URL: postgresql://postgres:password@localhost:5432/fantasy_pi
+      FFPI_PYTEST_USE_CONFIGURED_DATABASE: "1"
+      TESTING: "1"
+      CI: "true"
 
     steps:
       - name: Checkout
@@ -200,6 +204,7 @@ jobs:
       - name: Run backend tests with coverage
         id: backend_tests
         run: |
+          set -o pipefail
           python -m pytest backend -q \
             --tb=short \
             --cov=backend \

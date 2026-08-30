@@ -1,11 +1,15 @@
-import pytest
 import asyncio
+import os
+from pathlib import Path
+
+import pytest
+from sqlalchemy import inspect, text
+from sqlalchemy.engine import make_url
 
 from backend import main as backend_main
-from backend.database import SessionLocal
+from backend.database import SQLALCHEMY_DATABASE_URL, SessionLocal
 from backend.core.security import get_password_hash
 from backend.scripts.seed import run_seeder
-from sqlalchemy import inspect, text
 import models
 
 
@@ -33,6 +37,37 @@ def test_lifespan_requires_migrated_tables(integration_client):
         assert "leagues" in inspector.get_table_names()
     finally:
         db.close()
+
+
+def test_pytest_database_selection_is_deterministic():
+    configured_url = make_url(SQLALCHEMY_DATABASE_URL)
+
+    if os.getenv("FFPI_PYTEST_OWNS_DATABASE") == "1":
+        assert configured_url.get_backend_name() == "sqlite"
+        database_path = Path(configured_url.database)
+        assert database_path.name == "backend.db"
+        assert database_path.parent.name.startswith("ffpi-pytest-")
+        assert database_path.is_file()
+    else:
+        assert os.getenv("FFPI_PYTEST_USE_CONFIGURED_DATABASE") == "1"
+        assert os.getenv("CI", "").lower() == "true"
+        assert os.getenv("GITHUB_ACTIONS", "").lower() == "true"
+        assert configured_url.get_backend_name() == "postgresql"
+
+
+def test_pytest_database_selection_is_scoped_to_backend():
+    from _pytest_support import backend_tests_requested
+
+    repository_root = Path(__file__).resolve().parents[2]
+    backend_node = repository_root / "backend/tests/test_startup.py"
+
+    assert backend_tests_requested([], repository_root)
+    assert backend_tests_requested(
+        [f"{backend_node}::test_database_lifecycle"], repository_root
+    )
+    assert not backend_tests_requested(
+        [str(repository_root / "etl/test_load_validation.py")], repository_root
+    )
 
 
 def test_seeder_populates_admin(integration_client):

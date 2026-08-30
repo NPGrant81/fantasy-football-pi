@@ -26,8 +26,6 @@ Scope: Data-quality guardrails for historical ingest, normalization, and standin
 From repository root:
 
 ```powershell
-$env:TESTING='1'
-$env:DATABASE_URL='sqlite:///./pytest_backend.db'
 python3.13.exe -m pytest backend/tests/test_data_quality_guardrails.py backend/tests/test_data_quality_seasonal_guardrails.py backend/tests/test_data_quality_volume_guardrails.py
 ```
 
@@ -35,10 +33,11 @@ python3.13.exe -m pytest backend/tests/test_data_quality_guardrails.py backend/t
 From repository root:
 
 ```powershell
-$env:TESTING='1'
-$env:DATABASE_URL='sqlite:///./pytest_backend.db'
-python3.13.exe -m pytest backend/tests
+python3.13.exe -m pytest backend -q
 ```
+
+Pytest creates, initializes, and removes a unique temporary SQLite database for
+each local run. Do not configure a persistent `pytest_backend.db` file.
 
 ## Failure Interpretation Matrix
 
