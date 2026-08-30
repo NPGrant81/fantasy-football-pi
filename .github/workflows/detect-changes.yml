@@ -217,7 +217,14 @@ jobs:
           fi
 
           docs_only=true
-          if [ "$non_docs" = "true" ]; then
+          if [ "$non_docs" = "true" ] \
+            || [ "$backend" = "true" ] \
+            || [ "$frontend" = "true" ] \
+            || [ "$ui" = "true" ] \
+            || [ "$security" = "true" ] \
+            || [ "$deps" = "true" ] \
+            || [ "$migrations" = "true" ] \
+            || [ "$cross_platform" = "true" ]; then
             docs_only=false
           fi
 
