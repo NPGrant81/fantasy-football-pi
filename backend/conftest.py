@@ -9,8 +9,6 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from .main import app
-
 
 @pytest.fixture
 def mock_db():
@@ -35,6 +33,8 @@ def client():
     ``manage_lifespan`` keyword, so we temporarily disable the app's
     lifespan context instead.
     """
+    from .main import app
+
     # stash the real lifespan context so we can restore it afterwards
     original = app.router.lifespan_context
 
@@ -57,5 +57,7 @@ def integration_client():
     This is identical to ``client`` but deliberately *does not* override
     the lifespan context.  Use this sparingly in startup/integration tests.
     """
+    from .main import app
+
     with TestClient(app) as c:
         yield c

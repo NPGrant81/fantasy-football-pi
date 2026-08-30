@@ -50,6 +50,21 @@ def test_pytest_database_selection_is_deterministic():
         assert database_path.is_file()
 
 
+def test_pytest_database_selection_is_scoped_to_backend():
+    from conftest import _backend_tests_requested
+
+    repository_root = Path(__file__).resolve().parents[2]
+    backend_node = repository_root / "backend/tests/test_startup.py"
+
+    assert _backend_tests_requested([])
+    assert _backend_tests_requested(
+        [f"{backend_node}::test_database_lifecycle"]
+    )
+    assert not _backend_tests_requested(
+        [str(repository_root / "etl/test_load_validation.py")]
+    )
+
+
 def test_seeder_populates_admin(integration_client):
     """Manually invoke the seeder and verify default admin is inserted."""
     db = SessionLocal()
