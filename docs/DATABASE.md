@@ -107,7 +107,15 @@ This keeps a second copy outside the Pi in case the SD card fails or the device 
 
 ## Monitoring and alerting
 
-If a backup has not succeeded in the last 25 hours, the system should produce an alert or incident note. This can be implemented by checking the latest backup timestamp in cron or a small monitoring script and emitting a warning when stale.
+If a backup has not succeeded in the last 25 hours, the system should produce an alert or incident note. The repo includes `scripts/check_backup_status.sh`, which inspects the latest backup timestamp in the configured `BACKUP_DIR` and exits non-zero when the newest snapshot is older than the configured `STALE_HOURS` threshold.
+
+Example cron entry:
+
+```cron
+0 * * * * /home/pi/fantasy-football-pi/scripts/check_backup_status.sh >> /var/log/fantasy-football-pi-check-backup.log 2>&1
+```
+
+This keeps backup freshness visible and surfaces a failure before a missing backup becomes a production incident.
 
 ## Restore checklist
 
