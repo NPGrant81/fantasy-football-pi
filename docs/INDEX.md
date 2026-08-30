@@ -39,6 +39,7 @@ Refer to the appropriate file for more information.
 - [Pattern Library](PATTERN_LIBRARY.md)
 - [Pattern Standardization Plan](PATTERN_STANDARDIZATION_PLAN.md)
 - [Pi Update Cheatsheet](PI_UPDATE_CHEATSHEET.md)
+- [Pi Action Checklist Mobile](pi_action_checklist_mobile.md)
 - [Player Api Filtering](PLAYER_API_FILTERING.md)
 - [Project Management](PROJECT_MANAGEMENT.md)
 - [Pr Notes](PR_NOTES.md)

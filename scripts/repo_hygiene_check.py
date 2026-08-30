@@ -119,6 +119,7 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
             "raspberry",
             "restore",
             "pi_update",
+            "pi_action",
             "ci_cd_observability",
             "season-reset",
         ]
