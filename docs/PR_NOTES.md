@@ -19,6 +19,8 @@ This branch was created to trigger CI for backend and frontend tests.
 - Second review follow-up: gate documentation now matches applicability-aware skip semantics, and every scheduled cancellable workflow uses event-aware concurrency.
 - Third review: 16/16 files reviewed with 0 new comments; 2 suppressed findings were reviewed and addressed.
 - Suppressed-finding follow-up: functional image changes cannot report `docs_only=true`, and UI automation caches the Cypress binary by lockfile.
+- Final review: 16/16 files reviewed with 0 new comments; 2 suppressed label-routing mismatches were reviewed and addressed.
+- Label-routing follow-up: root pytest infrastructure maps to `area:backend`, while frontend scripts and Cypress paths map to `area:ui`.
 - Validation: all 17 workflows parsed; `actionlint` and focused classifier/gate scenarios passed; prior-head GitHub Actions passed every applicable workflow and `ci-gate`.
 - Residual risk: Final-head GitHub Actions remain the merge gate.
 

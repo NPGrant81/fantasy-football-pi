@@ -16,7 +16,10 @@
           - tests/**
           - scripts/**
           - ops/**
+          - conftest.py
+          - _pytest_support.py
           - pytest.ini
+          - Makefile
 
 "area:frontend":
   - changed-files:
@@ -33,6 +36,8 @@
           - frontend/src/*.css
           - frontend/tailwind.config.js
           - frontend/postcss.config.js
+          - frontend/scripts/**
+          - frontend/cypress/**
 
 "area:security":
   - changed-files:
