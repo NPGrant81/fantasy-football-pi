@@ -79,7 +79,11 @@ FFPI_APPLICATION_TABLES = frozenset(
 )
 
 
-def _database_is_empty(database_engine, known_revisions: frozenset[str]) -> bool:
+def _database_is_empty(
+    database_engine,
+    known_revisions: frozenset[str],
+    head_revisions: frozenset[str] = frozenset(),
+) -> bool:
     table_names = set(inspect(database_engine).get_table_names())
     ffpi_tables = table_names & FFPI_APPLICATION_TABLES
     existing_revisions: set[str] = set()
@@ -106,6 +110,15 @@ def _database_is_empty(database_engine, known_revisions: frozenset[str]) -> bool
                 "Refusing FFPI migration: database has FFPI Alembic history but no "
                 "recognized FFPI tables. Restore the schema from backup before retrying."
             )
+        if head_revisions.issubset(existing_revisions) and head_revisions:
+            missing_tables = FFPI_APPLICATION_TABLES - ffpi_tables
+            if missing_tables:
+                tables = ", ".join(sorted(missing_tables))
+                raise RuntimeError(
+                    "Refusing FFPI migration: database claims the current Alembic "
+                    "head but has an incomplete FFPI schema. Missing table(s): "
+                    f"{tables}. Restore the schema from backup before retrying."
+                )
         return False
     if ffpi_tables:
         tables = ", ".join(sorted(ffpi_tables))
@@ -120,6 +133,10 @@ def _database_is_empty(database_engine, known_revisions: frozenset[str]) -> bool
 def _known_revisions(config: Config) -> frozenset[str]:
     script = ScriptDirectory.from_config(config)
     return frozenset(revision.revision for revision in script.walk_revisions())
+
+
+def _head_revisions(config: Config) -> frozenset[str]:
+    return frozenset(ScriptDirectory.from_config(config).get_heads())
 
 
 def _bootstrap_config(config_path: Path) -> Config:
@@ -141,7 +158,11 @@ def apply_migrations(config_path: Path = ALEMBIC_CONFIG_PATH) -> None:
     migration_engine = create_engine(database_url, pool_pre_ping=True)
     try:
         config = Config(str(config_path))
-        if _database_is_empty(migration_engine, _known_revisions(config)):
+        if _database_is_empty(
+            migration_engine,
+            _known_revisions(config),
+            _head_revisions(config),
+        ):
             command.upgrade(_bootstrap_config(config_path), "head")
             command.stamp(config, BOOTSTRAP_MAIN_REVISION, purge=True)
         command.upgrade(config, "heads")

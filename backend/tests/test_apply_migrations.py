@@ -143,7 +143,70 @@ def test_database_is_empty_rejects_foreign_alembic_history(
         migration_runner._database_is_empty(FakeEngine(), frozenset({"ffpi_revision"}))
 
 
-def test_database_is_empty_recognizes_established_ffpi_database(monkeypatch):
+@pytest.mark.parametrize(
+    ("ffpi_tables", "known_revisions", "head_revisions"),
+    [
+        (
+            migration_runner.FFPI_APPLICATION_TABLES,
+            frozenset({"ffpi_revision"}),
+            frozenset({"ffpi_revision"}),
+        ),
+        (
+            frozenset({"users"}),
+            frozenset({"ffpi_revision", "current_revision"}),
+            frozenset({"current_revision"}),
+        ),
+    ],
+)
+def test_database_is_empty_recognizes_established_ffpi_database(
+    monkeypatch,
+    ffpi_tables,
+    known_revisions,
+    head_revisions,
+):
+    class FakeScalars:
+        def all(self):
+            return ["ffpi_revision"]
+
+    class FakeResult:
+        def scalars(self):
+            return FakeScalars()
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def execute(self, _statement):
+            return FakeResult()
+
+    class FakeEngine:
+        def connect(self):
+            return FakeConnection()
+
+    class FakeInspector:
+        def get_table_names(self):
+            return ["alembic_version", *ffpi_tables]
+
+    monkeypatch.setattr(
+        migration_runner,
+        "inspect",
+        lambda _engine: FakeInspector(),
+    )
+
+    assert (
+        migration_runner._database_is_empty(
+            FakeEngine(),
+            known_revisions,
+            head_revisions,
+        )
+        is False
+    )
+
+
+def test_database_is_empty_rejects_incomplete_schema_at_current_head(monkeypatch):
     class FakeScalars:
         def all(self):
             return ["ffpi_revision"]
@@ -176,13 +239,12 @@ def test_database_is_empty_recognizes_established_ffpi_database(monkeypatch):
         lambda _engine: FakeInspector(),
     )
 
-    assert (
+    with pytest.raises(RuntimeError, match="current Alembic head.*incomplete"):
         migration_runner._database_is_empty(
             FakeEngine(),
             frozenset({"ffpi_revision"}),
+            frozenset({"ffpi_revision"}),
         )
-        is False
-    )
 
 
 def test_database_is_empty_rejects_known_history_without_ffpi_tables(monkeypatch):
@@ -232,6 +294,7 @@ def test_database_is_empty_rejects_known_history_without_ffpi_tables(monkeypatch
         ("unrelated", True, None),
         ("partial", None, "partial FFPI schema"),
         ("established", False, None),
+        ("partial_at_head", None, "current Alembic head.*incomplete"),
         ("foreign_history", None, "unknown Alembic revision"),
     ],
 )
@@ -261,8 +324,14 @@ def test_database_classification_with_postgresql(
             Table("monitoring_events", metadata, Column("id", Integer))
         elif database_state == "partial":
             Table("scoring_rules", metadata, Column("id", Integer))
-        elif database_state == "established":
-            Table("users", metadata, Column("id", Integer))
+        elif database_state in {"established", "partial_at_head"}:
+            application_tables = (
+                migration_runner.FFPI_APPLICATION_TABLES
+                if database_state == "established"
+                else {"users"}
+            )
+            for table_name in application_tables:
+                Table(table_name, metadata, Column("id", Integer))
             Table(
                 "alembic_version",
                 metadata,
@@ -276,10 +345,14 @@ def test_database_classification_with_postgresql(
             )
         metadata.create_all(test_engine)
 
-        if database_state in {"established", "foreign_history"}:
+        if database_state in {
+            "established",
+            "partial_at_head",
+            "foreign_history",
+        }:
             revision = (
                 "ffpi_revision"
-                if database_state == "established"
+                if database_state in {"established", "partial_at_head"}
                 else "foreign_revision"
             )
             with test_engine.begin() as connection:
@@ -294,11 +367,13 @@ def test_database_classification_with_postgresql(
                 migration_runner._database_is_empty(
                     test_engine,
                     frozenset({"ffpi_revision"}),
+                    frozenset({"ffpi_revision"}),
                 )
         else:
             assert (
                 migration_runner._database_is_empty(
                     test_engine,
+                    frozenset({"ffpi_revision"}),
                     frozenset({"ffpi_revision"}),
                 )
                 is expected_empty
@@ -339,11 +414,16 @@ def test_apply_migrations_upgrades_all_heads_for_established_database(monkeypatc
     monkeypatch.setattr(
         migration_runner,
         "_database_is_empty",
-        lambda _engine, _revisions: False,
+        lambda _engine, _revisions, _heads: False,
     )
     monkeypatch.setattr(
         migration_runner,
         "_known_revisions",
+        lambda _config: frozenset({"ffpi_revision"}),
+    )
+    monkeypatch.setattr(
+        migration_runner,
+        "_head_revisions",
         lambda _config: frozenset({"ffpi_revision"}),
     )
     monkeypatch.setattr(
@@ -393,11 +473,16 @@ def test_apply_migrations_bootstraps_empty_database(monkeypatch, tmp_path):
     monkeypatch.setattr(
         migration_runner,
         "_database_is_empty",
-        lambda _engine, _revisions: True,
+        lambda _engine, _revisions, _heads: True,
     )
     monkeypatch.setattr(
         migration_runner,
         "_known_revisions",
+        lambda _config: frozenset({"ffpi_revision"}),
+    )
+    monkeypatch.setattr(
+        migration_runner,
+        "_head_revisions",
         lambda _config: frozenset({"ffpi_revision"}),
     )
     monkeypatch.setattr(
@@ -464,6 +549,11 @@ def test_apply_migrations_rejects_partial_schema_before_commands(
     monkeypatch.setattr(
         migration_runner,
         "_known_revisions",
+        lambda _config: frozenset({"ffpi_revision"}),
+    )
+    monkeypatch.setattr(
+        migration_runner,
+        "_head_revisions",
         lambda _config: frozenset({"ffpi_revision"}),
     )
     monkeypatch.setattr(
