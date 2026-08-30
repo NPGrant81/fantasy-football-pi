@@ -12,7 +12,7 @@ import string
 # use top-level aliases so module can be imported as either
 # `backend.routers.platform_tools` or simply `routers.platform_tools`
 from database import get_db
-from core.security import get_current_active_superuser, get_password_hash
+from backend.core.security import get_current_active_superuser, get_password_hash
 import models
 import services.admin_service as admin_service
 import services.admin_audit_service as admin_audit_service

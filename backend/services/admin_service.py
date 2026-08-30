@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 # use top-level aliases so services work under both package and script imports
 import models
-import core.security as security
 from backend.services import player_service
 
 # `uat` is a subpackage under backend; use the full path so imports work whether

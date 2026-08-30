@@ -70,6 +70,12 @@ def test_health_contract_shape(client):
 
 
 def test_auth_token_contract_shape(client, api_db, monkeypatch):
+    from backend.routers import auth
+
+    assert client.app is app
+    assert auth.security is security
+    assert auth.get_db is get_db
+
     monkeypatch.setattr(
         security,
         "verify_password",
