@@ -48,10 +48,28 @@
     "last_reviewed": "2026-06-27"
   },
   {
+    "path": "docs/DEPLOYMENT.md",
+    "owner": "platform",
+    "cadence_days": 60,
+    "last_reviewed": "2026-08-29"
+  },
+  {
+    "path": "docs/DATABASE.md",
+    "owner": "platform",
+    "cadence_days": 60,
+    "last_reviewed": "2026-08-29"
+  },
+  {
     "path": "docs/RASPBERRY_PI_DEPLOYMENT.md",
     "owner": "platform",
     "cadence_days": 60,
     "last_reviewed": "2026-06-27"
+  },
+  {
+    "path": "docs/pi_action_checklist_mobile.md",
+    "owner": "platform",
+    "cadence_days": 30,
+    "last_reviewed": "2026-08-30"
   },
   {
     "path": "docs/CLOUDFLARE_TUNNEL_SETUP.md",
@@ -66,10 +84,22 @@
     "last_reviewed": "2026-06-27"
   },
   {
+    "path": "docs/SECRETS.md",
+    "owner": "security",
+    "cadence_days": 60,
+    "last_reviewed": "2026-08-29"
+  },
+  {
     "path": "docs/CI_CD_OBSERVABILITY.md",
     "owner": "platform",
     "cadence_days": 60,
     "last_reviewed": "2026-06-27"
+  },
+  {
+    "path": "docs/MONITORING.md",
+    "owner": "platform",
+    "cadence_days": 60,
+    "last_reviewed": "2026-08-29"
   },
   {
     "path": "docs/API_INTEGRATION_PIPELINE.md",

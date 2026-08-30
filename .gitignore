@@ -135,7 +135,11 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+# Environment configuration files (keep templates tracked; secrets stay local)
 .env
+.env.*
+!.env.example
+!**/.env.example
 .envrc
 .venv
 env/

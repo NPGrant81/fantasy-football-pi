@@ -9,7 +9,7 @@
 
 This document summarizes the gaps identified during architecture and deployment planning for the fantasy-football platform on Raspberry Pi OS. Each gap area has a corresponding sub-issue in the `/issues/` directory with detailed tasks and acceptance criteria.
 
-The platform has a strong foundation (Dockerization, systemd, Nginx, dead-code detection, architecture clarification), but several critical production-grade layers remain unimplemented.
+The platform has a strong foundation (Dockerization, systemd, Nginx, dead-code detection, architecture clarification), and a first operational baseline has been implemented for health reporting, deployment automation, monitoring, and secrets hygiene. The main remaining risk is workflow stability and keeping the repo’s operational backlog aligned with what is actually implemented.
 
 ---
 
@@ -18,13 +18,13 @@ The platform has a strong foundation (Dockerization, systemd, Nginx, dead-code d
 | # | Area | Sub-Issue | Priority | Status |
 |---|------|-----------|----------|--------|
 | 1 | CI/CD Pipeline for ARM64 Builds | [gap-01-ci-cd-arm64.md](../../issues/gap-01-ci-cd-arm64.md) | High | Open |
-| 2 | Secrets Management | [gap-02-secrets-management.md](../../issues/gap-02-secrets-management.md) | High | Open |
-| 3 | Logging & Monitoring Stack | [gap-03-logging-monitoring.md](../../issues/gap-03-logging-monitoring.md) | Medium | Open |
-| 4 | Database Strategy & Backup Plan | [gap-04-database-strategy.md](../../issues/gap-04-database-strategy.md) | High | Open |
-| 5 | Automated Test Suite | [gap-05-automated-test-suite.md](../../issues/gap-05-automated-test-suite.md) | High | Open |
+| 2 | Secrets Management | [gap-02-secrets-management.md](../../issues/gap-02-secrets-management.md) | High | Completed |
+| 3 | Logging & Monitoring Stack | [gap-03-logging-monitoring.md](../../issues/gap-03-logging-monitoring.md) | Medium | Completed |
+| 4 | Database Strategy & Backup Plan | [gap-04-database-strategy.md](../../issues/gap-04-database-strategy.md) | High | In Progress |
+| 5 | Automated Test Suite | [gap-05-automated-test-suite.md](../../issues/gap-05-automated-test-suite.md) | High | In Progress |
 | 6 | API Documentation & Schema Validation | [gap-06-api-documentation.md](../../issues/gap-06-api-documentation.md) | Medium | Open |
-| 7 | Deployment Automation | [gap-07-deployment-automation.md](../../issues/gap-07-deployment-automation.md) | Medium | Open |
-| 8 | Security Hardening | [gap-08-security-hardening.md](../../issues/gap-08-security-hardening.md) | High | Open |
+| 7 | Deployment Automation | [gap-07-deployment-automation.md](../../issues/gap-07-deployment-automation.md) | Medium | Completed |
+| 8 | Security Hardening | [gap-08-security-hardening.md](../../issues/gap-08-security-hardening.md) | High | In Progress |
 | 9 | Architecture Decision Records (ADR System) | [gap-09-adr-system.md](../../issues/gap-09-adr-system.md) | Low | Open |
 | 10 | Performance & Load Testing | [gap-10-performance-load-testing.md](../../issues/gap-10-performance-load-testing.md) | Low | Open |
 

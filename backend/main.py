@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +29,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     dbmod = importlib.import_module("backend.database")
     configmod = importlib.import_module("backend.core.config")
     secmod = importlib.import_module("backend.core.security")
+    logging_config = importlib.import_module("backend.logging_config")
     # load routers package and each submodule explicitly
     routers_pkg = importlib.import_module("backend.routers")
     # the package itself may not yet have attributes for each router, so import
@@ -66,6 +68,7 @@ if __name__ == "__main__" or __package__ in (None, ""):
     get_settings = configmod.get_settings
     get_password_hash = secmod.get_password_hash
     check_is_commissioner = secmod.check_is_commissioner
+    configure_logging = logging_config.configure_logging
     watchdog_service = importlib.import_module("backend.services.live_scoring_watchdog_service")
     polling_service = importlib.import_module("backend.services.live_scoring_polling_service")
     player_news_scheduler_service = importlib.import_module("backend.services.player_news_scheduler_service")
@@ -80,6 +83,7 @@ else:
     from .database import engine, SessionLocal, probe_database
     from .core.config import RuntimeSettings, get_settings
     from .core.security import get_password_hash, check_is_commissioner
+    from .logging_config import configure_logging
     from .services import live_scoring_watchdog_service as watchdog_service
     from .services import live_scoring_polling_service as polling_service
     from .services import player_news_scheduler_service
@@ -101,6 +105,7 @@ else:
         dashboard, players, waivers, draft, auth, feedback, trades, platform_tools, etl, nfl, playoffs, analytics, news, keepers, divisions, scoring
     )
 
+configure_logging()
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -220,6 +225,7 @@ def _validate_production_secrets() -> None:
 _validate_production_secrets()
 
 app = FastAPI(title="Fantasy Football War Room API", lifespan=lifespan)
+app.state.started_at = datetime.now(timezone.utc)
 
 
 def _is_production_env() -> bool:
@@ -394,18 +400,38 @@ def read_root():
 @app.get("/health", operation_id="health_check_get")
 @app.head("/health", operation_id="health_check_head")
 def health_check(request: Request):
-    db_ok = True
+    db_ok = False
+    schema_status = "unknown"
     try:
         probe_database(engine)
+        db_ok = True
     except Exception:
-        db_ok = False
         # Keep full exception details in server logs only.
         logger.exception("Health check DB probe failed")
 
+    if db_ok:
+        try:
+            schema_readiness_service.assert_schema_ready(engine, models.Base.metadata)
+            schema_status = "ok"
+        except Exception:
+            logger.exception("Health check schema readiness failed")
+            schema_status = "error"
+
+    checks = {
+        "database": "ok" if db_ok else "error",
+        "schema": schema_status,
+    }
     payload = {
         "status": "ok" if db_ok else "degraded",
         "service": "fantasy-football-backend",
-        "database": "ok" if db_ok else "error",
+        "database": checks["database"],
+        "schema": checks["schema"],
+        "version": os.getenv("APP_VERSION", "unknown"),
+        "uptime_seconds": round(
+            max(0.0, (datetime.now(timezone.utc) - app.state.started_at).total_seconds()),
+            2,
+        ),
+        "checks": checks,
     }
     if request.method == "HEAD":
         return Response(status_code=200 if db_ok else 503)

@@ -50,7 +50,25 @@ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM users;"
 psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM league_settings;"
 ```
 
-## 5. Restart services
+## 5. Validate recovery without touching live data
+
+Before relying on a backup in production, run the repo validation script to exercise the exact backup and restore flow without mutating the active database:
+
+```bash
+DB_URL="sqlite:////var/lib/fantasy-football-pi/app.db" \
+BACKUP_DIR="/var/backups/fantasy-football-pi" \
+./scripts/validate_backup_recovery.sh
+```
+
+This script:
+- creates a fresh backup snapshot
+- checks the newest backup is within the stale threshold
+- runs `restore_db.sh --dry-run` against the generated backup
+- exits non-zero if any step fails
+
+This is the operational safety check to run before a production restore drill or a real failed-disk recovery event.
+
+## 6. Restart services
 ```bash
 sudo systemctl restart cloudflared
 # Restart backend service name used on host, if present

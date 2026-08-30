@@ -113,16 +113,19 @@ def _classify_doc_path(rel_path: str) -> tuple[str, str] | None:
         token in name
         for token in [
             "cloudflare",
+            "database",
             "deployment",
+            "monitoring",
             "raspberry",
             "restore",
             "pi_update",
+            "pi_action",
             "ci_cd_observability",
             "season-reset",
         ]
     ):
         return ("platform", "operations")
-    if any(token in name for token in ["security", "permissions", "incident_response", "secrets_rotation"]):
+    if any(token in name for token in ["security", "permissions", "incident_response", "secrets_rotation", "secrets"]):
         return ("security", "policy")
     if any(token in name for token in ["data", "scoring", "validation", "dictionary", "monte-carlo", "mfl_", "cross_module_edge_case", "db_migration_phase1", "owner_backfill", "ml-feature"]):
         return ("data", "data-contract-or-quality")

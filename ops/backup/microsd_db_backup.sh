@@ -20,7 +20,11 @@ RETENTION_DAYS="${RETENTION_DAYS:-14}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-if [[ -f "${REPO_ROOT}/.env" ]]; then
+if [[ -z "${DB_URL:-}" && -f "${REPO_ROOT}/backend/.env" ]]; then
+  # shellcheck disable=SC1090
+  source "${REPO_ROOT}/backend/.env"
+fi
+if [[ -z "${DB_URL:-}" && -f "${REPO_ROOT}/.env" ]]; then
   # shellcheck disable=SC1090
   source "${REPO_ROOT}/.env"
 fi
@@ -64,7 +68,7 @@ elif [[ "${DB_URL}" =~ ^sqlite:///(.+)$ ]]; then
   gzip -f "${OUT_FILE}"
   log "SQLite backup completed -> ${OUT_FILE}.gz"
 else
-  fail "Unsupported DB URL scheme in '${DB_URL}'"
+  fail "Unsupported DB URL scheme"
 fi
 
 log "Applying retention: delete backups older than ${RETENTION_DAYS} days"
