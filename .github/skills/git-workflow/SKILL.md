@@ -227,6 +227,29 @@ On every push/PR, GitHub Actions runs:
 
 All 5 must pass before merge is allowed.
 
+### Change-aware lane selection
+On **pull requests**, lanes are filtered by what the diff touches.
+`.github/workflows/detect-changes.yml` is a reusable workflow that classifies the
+PR into path buckets, and each workflow gates its jobs on `needs.detect.outputs.*`:
+
+| Change type | Lanes that run |
+|---|---|
+| Backend | CI backend/API/E2E/dead-code, Cross-Platform Compat, Security Test Lane |
+| Frontend | CI frontend/E2E/dead-code, UI UX Automation |
+| UI/theme only | UI UX Automation (+ frontend lanes) |
+| Dependencies | Dependency Check |
+| Docs only | Secrets Scan + `ci-gate` only |
+
+- **`ci-gate` is the single required status check** — it passes when every lane is
+  `success` or `skipped`. A skipped lane is intentional, not a failure.
+- `gitleaks` (Secrets Scan) is never filtered.
+- Pushes to `main`, the nightly schedule, `workflow_dispatch`, and any change to
+  `.github/workflows/**` bypass filtering and run everything.
+- Draft PRs skip the heavy lanes; mark ready for review to run them.
+- Add new path rules to `detect-changes.yml`, **not** as per-workflow `paths:`
+  filters — a workflow skipped by `paths:` never reports a status and would leave
+  a required check permanently pending.
+
 ### Local pre-commit checks
 ```bash
 # Run before pushing to catch issues early

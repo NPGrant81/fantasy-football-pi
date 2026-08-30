@@ -62,8 +62,11 @@ jobs:
         #   chore, docs, refactor, ci, build, style, test
         # followed by ':', '(', or ' ' (space) — e.g. "chore: …", "docs(api): …", "refactor …".
         if: github.event_name == 'pull_request'
+        env:
+          # Passed via env (not interpolated inline) to avoid shell injection
+          # through a crafted PR title.
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
           # Match conventional commit prefix: type followed by ':', '(', or space.
           EXEMPT_PREFIXES="^(chore|docs|refactor|ci|build|style|test)[ :(\.]"
 
