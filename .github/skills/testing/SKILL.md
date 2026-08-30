@@ -32,12 +32,12 @@ frontend/tests/
 
 ### Setup
 ```python
-# conftest.py provides:
-# - db: in-memory SQLite session via pytest fixture
-# - client: FastAPI TestClient
-# - test_user, test_commissioner: User fixtures
+# Repository conftest.py provides a disposable, schema-initialized SQLite
+# database for local backend runs. backend/conftest.py provides client.
 
-from backend.conftest import db, client, test_user
+def test_health(client):
+    response = client.get("/")
+    assert response.status_code == 200
 ```
 
 ### Test structure
@@ -145,11 +145,14 @@ expect(screen.queryByText(/Consolation/i)).not.toBeInTheDocument();
 ## Running Tests
 
 ```bash
-# Backend — all tests
-cd backend && python -m pytest
+# Backend — all tests, from repository root (POSIX)
+python3.13 -m pytest backend -q
+
+# Backend — all tests, from repository root (Windows PowerShell)
+python3.13.exe -m pytest backend -q
 
 # Backend — specific file
-python -m pytest tests/test_analytics_router.py -v
+python3.13 -m pytest backend/tests/test_analytics_router.py -v
 
 # Frontend — all tests (one-time run)
 cd frontend && npm test -- --run

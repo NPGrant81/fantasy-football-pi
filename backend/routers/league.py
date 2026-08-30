@@ -1691,7 +1691,7 @@ def create_owner(
     temp_password = ''.join(secrets.choice(alphabet) for i in range(8))
     
     # 4. Hash & Save
-    from core.security import get_password_hash
+    from backend.core.security import get_password_hash
     hashed_pw = get_password_hash(temp_password)
     
     owner_limit = None

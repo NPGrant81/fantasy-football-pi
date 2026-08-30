@@ -1,32 +1,13 @@
 """
 Pytest configuration for backend tests.
-This file sets up test fixtures and handles database initialization.
+Database initialization is owned by the repository-root conftest.
 """
 
+from contextlib import asynccontextmanager
+from unittest.mock import Mock
+
 import pytest
-import os
-from unittest.mock import Mock, patch
-
-
-# Ensure app/database imports use a deterministic test DB URL.
-os.environ["TESTING"] = "true"
-os.environ["DATABASE_URL"] = "sqlite:///./pytest_backend.db"
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_environment():
-    """
-    Setup test environment before running tests.
-    This ensures that database connection attempts during module import don't fail.
-    """
-    # Keep explicit markers for test-only branches in runtime code.
-    os.environ["TESTING"] = "true"
-    
-    yield
-    
-    # Cleanup after tests
-    if "TESTING" in os.environ:
-        del os.environ["TESTING"]
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
@@ -43,10 +24,6 @@ def mock_db():
 # TestClient fixtures to control lifespan behaviour
 # ---------------------------------------------------------------------------
 
-from fastapi.testclient import TestClient
-from .main import app
-from contextlib import asynccontextmanager
-
 
 @pytest.fixture
 def client():
@@ -56,6 +33,8 @@ def client():
     ``manage_lifespan`` keyword, so we temporarily disable the app's
     lifespan context instead.
     """
+    from .main import app
+
     # stash the real lifespan context so we can restore it afterwards
     original = app.router.lifespan_context
 
@@ -78,5 +57,7 @@ def integration_client():
     This is identical to ``client`` but deliberately *does not* override
     the lifespan context.  Use this sparingly in startup/integration tests.
     """
+    from .main import app
+
     with TestClient(app) as c:
         yield c
