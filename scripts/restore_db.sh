@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 DB_URL="${DB_URL:-${DATABASE_URL:-}}"
 BACKUP_DIR="${BACKUP_DIR:-${FANTASY_PI_BACKUP_DIR:-${HOME}/.local/share/fantasy-football-pi/backups}}"
 DRY_RUN=0
@@ -88,17 +89,17 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ "${DB_URL}" =~ ^postgres(ql)?:// ]]; then
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log "Dry run: would restore Postgres backup from ${ARCHIVE_PATH}"
+    exit 0
+  fi
+
   TARGET_PATH="${ARCHIVE_PATH}"
   if [[ "${ARCHIVE_PATH}" == *.gz ]]; then
     TMP_FILE="$(mktemp /tmp/fantasy-pi-restore.XXXXXX.dump)"
     gzip -dc "${ARCHIVE_PATH}" > "${TMP_FILE}"
     TARGET_PATH="${TMP_FILE}"
     CLEANUP_TMP="${TMP_FILE}"
-  fi
-
-  if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log "Dry run: would restore Postgres backup from ${ARCHIVE_PATH}"
-    exit 0
   fi
 
   command -v pg_restore >/dev/null 2>&1 || { echo "Error: pg_restore not found in PATH" >&2; exit 1; }
@@ -114,17 +115,17 @@ elif [[ "${DB_URL}" =~ ^sqlite://(/|.*)$ ]]; then
     DB_PATH="${REPO_ROOT}/${DB_PATH}"
   fi
 
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log "Dry run: would restore SQLite backup ${ARCHIVE_PATH} to ${DB_PATH}"
+    exit 0
+  fi
+
   TARGET_PATH="${ARCHIVE_PATH}"
   if [[ "${ARCHIVE_PATH}" == *.gz ]]; then
     TMP_FILE="$(mktemp /tmp/fantasy-pi-restore.XXXXXX.sqlite)"
     gzip -dc "${ARCHIVE_PATH}" > "${TMP_FILE}"
     TARGET_PATH="${TMP_FILE}"
     CLEANUP_TMP="${TMP_FILE}"
-  fi
-
-  if [[ "${DRY_RUN}" -eq 1 ]]; then
-    log "Dry run: would restore SQLite backup ${ARCHIVE_PATH} to ${DB_PATH}"
-    exit 0
   fi
 
   mkdir -p "$(dirname "${DB_PATH}")"
