@@ -1,14 +1,28 @@
-# Architecture Overview (Issue #302)
+# System Topology Authority
+
+- Status: canonical
+- Owner: engineering
+- Last reviewed: 2026-08-31
+- Review cadence: 90 days
+- Supersedes: topology claims in `docs/ARCHITECTURE.md` and `docs/architecture-overview.md`
+- Originating decision: Issue #302 (2026-03-21)
+
+## Authority and Scope
+
+This document is the canonical authority for the as-built system topology,
+deployment units, service boundaries, and microservice decomposition triggers.
+For code placement and dependency direction inside those units, defer to
+`docs/ARCHITECTURE.md`.
 
 ## Status
 
-- Current architecture: containerized monolith
-- Decision date: 2026-03-21
-- Decision owner: engineering
+- Current architecture: modular monolith
+- Container tooling: supported packaging and orchestration, not a service boundary
 
 ## Short Answer
 
-The platform is containerized, but it is not currently a microservice architecture.
+The platform is a modular monolith, not a microservice architecture. Its
+service-oriented backend modules remain in one backend deployment boundary.
 
 ## Current Architecture (As Built)
 
@@ -29,9 +43,11 @@ flowchart LR
     BE -->|SQLAlchemy queries| DB
 ```
 
-## Containerized vs Microserviced
+## Containerized vs Microservices
 
-Containerized means runtime packaging and deployment are isolated in containers.
+Containerized describes runtime packaging and orchestration. It does not define
+the application architecture, and supported launchers may run components without
+making each component an independent service.
 
 Microserviced means the system is split into independent services that have:
 
@@ -55,7 +71,8 @@ These are not separate services today. They remain modules inside the backend co
 
 ## Decision
 
-For near-term delivery, the project remains a containerized modular monolith.
+For near-term delivery, the project remains a modular monolith. Container tooling
+may package and orchestrate its runtime units without changing that topology.
 
 Rationale:
 

@@ -57,7 +57,7 @@ The pattern intentionally avoids a separate mapping step. SQLAlchemy models are 
 
 1. Browser calls `GET /analytics/league/1/luck-index`
 2. Router `analytics.py` validates query params via FastAPI's `Query()`
-3. Router calls service function (or computes inline for analytics — acceptable for read-only analytics)
+3. Router calls a service function
 4. Service queries `models.Matchup` via SQLAlchemy session
 5. Router returns Pydantic-typed response `{"rows": [...], "meta": {...}}`
 6. Frontend `analyticsApi.js` → `getJson()` → component state → render

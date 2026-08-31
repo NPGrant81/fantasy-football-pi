@@ -1,10 +1,24 @@
-War Room Alpha: Technical Architecture
-This document outlines the high-level organization and logical patterns of the War Room Alpha backend.
+# Code Placement and Layer Boundaries
 
-For the current containerized-vs-microservice architecture decision and high-level system diagram, see `docs/architecture/overview.md` (Issue #302).
+- Status: canonical
+- Owner: engineering
+- Last reviewed: 2026-08-31
+- Review cadence: 90 days
+- Supersedes: code-placement and layer-boundary guidance in `docs/architecture-overview.md`
+
+## Authority and Scope
+
+This document is the canonical authority for code placement, dependency direction,
+and layer boundaries in Fantasy Football PI. For the as-built system topology and
+the modular-monolith decision, see `docs/architecture/overview.md`, which takes
+precedence on deployment-unit and service-topology questions.
+
+The repository is a modular monolith with service-oriented modules. "Service"
+describes an internal business-logic boundary under `backend/services/`; it does
+not mean an independently deployable microservice.
 
 1. Directory Structure
-   The project follows a Service-Oriented Architecture to separate web interfaces from core business logic.
+  The backend uses layered, service-oriented modules to separate web interfaces from core business logic.
 
 backend/
 ├── core/ # 1.1 Security, Auth context, and Constants

@@ -15,7 +15,12 @@ INDEX = DOCS / "INDEX.md"
 
 header = "# Project Documentation Index\n\n" + \
          "This folder contains high-level documentation for the Fantasy Football Pi project.\n" + \
-         "Refer to the appropriate file for more information.\n\n"
+         "Refer to the appropriate file for more information.\n\n" + \
+         "## Architecture Entry Points\n\n" + \
+         "- [System topology](architecture/overview.md) (canonical)\n" + \
+         "- [Code placement and layer boundaries](ARCHITECTURE.md) (canonical)\n" + \
+         "- [Architecture navigation](architecture-overview.md) (navigation only)\n\n" + \
+         "## Documents\n\n"
 
 # Gather all markdown files recursively, excluding INDEX.md itself.
 # Sort: top-level files first (alphabetically), then subdirectory files

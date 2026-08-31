@@ -1,58 +1,31 @@
-# Architecture Overview (Issue #113)
+# Architecture Navigation
 
-## Purpose
+- Status: navigation only
+- Owner: engineering
+- Last reviewed: 2026-08-31
+- Review cadence: 90 days
+- Supersession: replaces the former Issue #113 architecture summary; it is not an architecture authority
 
-This page is the quick-start architecture map for contributors and reviewers.
-It points to canonical architecture references and defines where major concerns
-belong in this repository.
+## Canonical Authorities
 
-For detailed architecture, use:
+Use the authority that owns the question. When another document conflicts with
+one of these authorities, the authority takes precedence within its scope.
 
-- `docs/ARCHITECTURE.md`
-- `docs/architecture/overview.md`
-- `docs/API_PAGE_MATRIX.md`
+| Question | Canonical authority | Scope |
+| --- | --- | --- |
+| What is deployed, and is the system a monolith or microservices? | [`docs/architecture/overview.md`](architecture/overview.md) | As-built topology, deployment units, service boundaries, and decomposition triggers |
+| Where does code belong, and which layers may depend on which? | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | Code placement, dependency direction, backend layers, frontend placement, and cross-layer boundaries |
 
-## System Layers
+The terms are complementary: Fantasy Football PI is a **modular monolith**, and
+its backend contains **service-oriented modules**. Those modules are internal
+code boundaries, not independently deployable microservices.
 
-1. Frontend (`frontend/`)
-- React + Vite single-page app.
-- Page-level orchestration in `src/pages/`.
-- Shared API client and request wrappers in `src/api/`.
+## Supporting References
 
-2. Backend API (`backend/`)
-- FastAPI routers in `backend/routers/`.
-- Business logic in `backend/services/`.
-- Shared auth/config/dependencies in `backend/core/`.
+- [`docs/API_PAGE_MATRIX.md`](API_PAGE_MATRIX.md) maps frontend pages to API contracts.
+- [`docs/PATTERN_LIBRARY.md`](PATTERN_LIBRARY.md) records reusable implementation patterns.
+- [`docs/patterns/PATTERN_DECISION_LOG.md`](patterns/PATTERN_DECISION_LOG.md) records accepted and superseded pattern decisions.
+- [`docs/DOC_ISSUE_CORRELATION_MAP.md`](DOC_ISSUE_CORRELATION_MAP.md) maps documentation to issue history.
 
-3. Data and ETL (`etl/`, `db/`)
-- Data extraction/transform/load in `etl/`.
-- Schema, migrations, database objects in `db/` and `backend/alembic/`.
-
-4. Ops and Deployment (`deploy/`, workflows)
-- Systemd/nginx/cloudflared runtime artifacts in `deploy/`.
-- CI/CD and validation gates in `.github/workflows/`.
-
-## Contract Boundaries
-
-- Frontend should consume backend APIs through shared client wrappers, not
-  hardcoded host/path strings.
-- Routers should delegate business rules to service functions.
-- ETL feature contracts must be versioned and documented before model promotion.
-- Commissioner settings are authoritative for league-specific simulation limits.
-
-## Quality Gate Alignment
-
-All cross-layer changes should include:
-
-- tests in affected layers (backend pytest, frontend vitest, Cypress when UX flow changes)
-- API/documentation updates in `docs/API_PAGE_MATRIX.md` when request/response
-  behavior changes
-- issue and status updates in `docs/ISSUE_STATUS.md` for traceability
-
-## Decision Records and Standards
-
-When a change affects architecture-level behavior, update at least one:
-
-- `docs/PATTERN_LIBRARY.md` for reusable implementation patterns
-- `docs/PATTERN_DECISION_LOG.md` for important design decisions
-- `docs/DOC_ISSUE_CORRELATION_MAP.md` to keep doc-to-issue traceability intact
+Supporting references defer to the two canonical authorities above for topology
+and layer-placement decisions.
