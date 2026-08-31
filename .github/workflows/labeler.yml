@@ -1,0 +1,70 @@
+# Applies `area:*` labels based on the paths a PR touches.
+#
+# These labels are the human/agent-routing counterpart to the CI change
+# classifier: `detect-changes.yml` decides which lanes execute, this decides
+# which specialist reviewer (or `.github/agents/*` agent) is relevant. See
+# `.github/REVIEW_CHECKLIST.md` for the label -> agent mapping.
+
+name: PR Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  label:
+    name: Apply area labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # actions/labeler does not create missing labels, so ensure they exist
+      # before labelling. Idempotent: existing labels are left untouched.
+      - name: Ensure area labels exist
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const labels = [
+              { name: 'area:backend', color: '1d76db' },
+              { name: 'area:frontend', color: '0e8a16' },
+              { name: 'area:ui', color: '5319e7' },
+              { name: 'area:security', color: 'b60205' },
+              { name: 'area:database', color: 'd93f0b' },
+              { name: 'area:dependencies', color: 'fbca04' },
+              { name: 'area:ci', color: '006b75' },
+              { name: 'area:docs', color: 'c5def5' },
+            ];
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: 'Auto-applied by PR Labeler based on changed paths.',
+                });
+                core.info(`Created label ${label.name}`);
+              }
+            }
+
+      - name: Apply labels from changed paths
+        uses: actions/labeler@v5
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: true

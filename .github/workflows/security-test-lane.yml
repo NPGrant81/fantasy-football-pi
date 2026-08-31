@@ -3,13 +3,36 @@ name: Security Test Lane
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  schedule:
+    # Nightly full-fidelity run — safety net behind the PR path filters.
+    - cron: "0 5 * * *"
   workflow_dispatch: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege default for every job, including the `detect` classifier which
+# reads the PR file list via the REST API.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
+  detect:
+    uses: ./.github/workflows/detect-changes.yml
+
   security-backend-suite:
     name: security-backend-suite
+    needs: detect
+    if: >-
+      needs.detect.outputs.run_heavy == 'true'
+      && (needs.detect.outputs.security == 'true'
+          || needs.detect.outputs.backend == 'true'
+          || needs.detect.outputs.full_run == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read

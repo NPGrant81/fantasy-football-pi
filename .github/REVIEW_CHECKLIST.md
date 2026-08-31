@@ -10,8 +10,51 @@ Triage (first 5–15 minutes)
 - Label PR as draft / ready / needs-info.
 
 Automated checks
-- Confirm required checks ran: backend tests, frontend lint/tests, E2E (if applicable).
+- `ci-gate` is the intended required status check. It requires every applicable
+  CI lane to succeed and accepts `skipped` only when the classifier marks that
+  lane inapplicable; an unexpected skip indicates a pipeline/configuration issue.
+- Confirm the lanes that *should* have run for this change actually ran — see the
+  change-type matrix below and the "Change Classification" block in the run summary.
 - Confirm no new dependency vulnerabilities introduced (dependency checks).
+- `gitleaks` (Secrets Scan) runs on every PR and is never filtered.
+
+### Which lanes run for which change type
+
+Path buckets are computed once per run by `.github/workflows/detect-changes.yml`
+and consumed by the other workflows via `needs.detect.outputs.*`.
+
+| Bucket | Example paths | Lanes triggered |
+|---|---|---|
+| `backend` | `backend/**`, `etl/**`, `db/**`, `tests/**`, `scripts/**` | CI `test`, `api-integration`, `e2e`, `dead-code-report`, Cross-Platform Compat, Security Test Lane |
+| `frontend` | `frontend/**`, `check-ui.js`, `audit-breakpoints.sh` | CI `frontend-test`, `e2e`, `dead-code-report`, UI UX Automation |
+| `ui` | `frontend/src/components/**`, `frontend/src/pages/**`, theme config | UI UX Automation |
+| `security` | `backend/core/security.py`, `backend/routers/auth.py`, auth tests | Security Test Lane |
+| `deps` | `backend/requirements*.txt`, `frontend/package*.json` | Dependency Check |
+| `migrations` | `backend/alembic/**`, `backend/models*` | (labelling + reviewer routing) |
+| `cross_platform` | `*.sh`, `*.ps1`, `backend/scripts/**`, packaging config | Windows leg of Cross-Platform Compat |
+| `docs_only` | `docs/**`, `*.md`, `.github/agents/**`, images | Secrets Scan + `ci-gate` only |
+
+Always-full runs (no filtering): pushes to `main`, the nightly schedule, manual
+`workflow_dispatch`, and any PR touching `.github/workflows/**`.
+
+Draft PRs skip the heavy lanes. Mark the PR **ready for review** to get the full
+applicable suite.
+
+### Reviewer / agent routing
+The `area:*` labels applied by `.github/workflows/labeler.yml` use the same path
+buckets and map to the specialist agents in `.github/agents/`:
+
+| Label | Specialist agent |
+|---|---|
+| `area:backend` | `api-contract-enforcer`, `test-strategy-enforcer` |
+| `area:frontend` / `area:ui` | `ui-ux` skill, `test-strategy-enforcer` |
+| `area:security` | `security-rbac-auditor` |
+| `area:database` | `validation-hardening-checker` |
+| `area:dependencies` | `ops-maintenance-scheduler` |
+| `area:ci` | `deploy-release-orchestrator`, `architecture-drift-auditor` |
+| `area:docs` | `governance-cadence` |
+
+Invoke the agents matching the PR's labels rather than the whole catalogue.
 
 Manual review
 - Does the code do what the PR claims?

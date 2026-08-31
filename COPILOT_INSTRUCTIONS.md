@@ -213,6 +213,28 @@ const fetchOwners = async (leagueId) => {
 - Add new dependencies only after discussing justification in the PR description.
 - CI pipelines validate backend lint, frontend lint, unit tests, and build steps.
 
+### Change-aware CI (path filtering)
+
+CI does **not** run every lane on every PR. `.github/workflows/detect-changes.yml`
+is a reusable workflow that classifies the PR diff into path buckets
+(`backend`, `frontend`, `ui`, `security`, `deps`, `migrations`, `cross_platform`,
+`docs_only`); every other workflow gates its expensive jobs on those outputs via
+`needs.detect.outputs.*`.
+
+- **`ci-gate` is the intended required status check** (alongside `gitleaks`). It
+  requires every applicable lane to succeed and accepts `skipped` only when the
+  classifier marks that lane inapplicable, so branch protection never needs
+  updating as lanes are added.
+- **Always add new path rules to `detect-changes.yml`**, not as per-workflow
+  `paths:` filters — a workflow skipped by `paths:` never reports a status and
+  will block a required check.
+- Keep `.github/labeler.yml` and `.github/CODEOWNERS` in sync with those buckets.
+- Filtering applies to `pull_request` events only. Pushes to `main`, the nightly
+  schedule, `workflow_dispatch`, and any change to `.github/workflows/**` run the
+  full suite unconditionally.
+- Draft PRs skip the heavy lanes; mark ready for review to run them.
+- See `.github/REVIEW_CHECKLIST.md` for the bucket → lane → reviewer matrix.
+
 ### Bug-fix branch and PR workflow (required)
 
 Copilot **must** follow this sequence for every bug fix, regardless of size:

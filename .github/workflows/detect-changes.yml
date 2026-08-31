@@ -1,0 +1,270 @@
+# Change classifier — single source of truth for "what kind of change is this?"
+#
+# Callers invoke this reusable workflow once and gate their expensive jobs on
+# the boolean outputs. Keeping the path buckets in ONE file avoids the drift
+# that happens when a dozen workflows each carry their own copy-pasted
+# `paths:` list.
+#
+# Guardrails baked in:
+#   - Anything that is NOT a `pull_request` event (push to main, schedule,
+#     manual dispatch) classifies as a FULL run. Merge-time and nightly runs
+#     therefore always execute the complete matrix, even if a filter is wrong.
+#   - A change to `.github/workflows/**` also forces a FULL run, so edits to CI
+#     itself are always validated against everything.
+#   - Draft pull requests set `run_heavy=false`; mark the PR ready for review
+#     (or push to main) to get the full suite.
+
+name: Detect Changes
+
+on:
+  workflow_call:
+    outputs:
+      backend:
+        description: Backend/Python code, ETL, or backend tests changed.
+        value: ${{ jobs.classify.outputs.backend }}
+      frontend:
+        description: Frontend code, config, or frontend tests changed.
+        value: ${{ jobs.classify.outputs.frontend }}
+      ui:
+        description: UI components/pages or theme configuration changed.
+        value: ${{ jobs.classify.outputs.ui }}
+      security:
+        description: Auth, RBAC, or security-sensitive backend modules changed.
+        value: ${{ jobs.classify.outputs.security }}
+      deps:
+        description: Backend requirements or frontend package manifests changed.
+        value: ${{ jobs.classify.outputs.deps }}
+      migrations:
+        description: Alembic revisions or ORM model definitions changed.
+        value: ${{ jobs.classify.outputs.migrations }}
+      workflows:
+        description: GitHub Actions workflows or composite actions changed.
+        value: ${{ jobs.classify.outputs.workflows }}
+      cross_platform:
+        description: Files with OS-specific risk (paths, subprocess, shell scripts) changed.
+        value: ${{ jobs.classify.outputs.cross_platform }}
+      docs_only:
+        description: The diff touches documentation/markdown/agent prose only.
+        value: ${{ jobs.classify.outputs.docs_only }}
+      run_heavy:
+        description: False for draft pull requests; heavy lanes should be skipped.
+        value: ${{ jobs.classify.outputs.run_heavy }}
+      full_run:
+        description: True when the event bypasses filtering entirely (push/schedule/dispatch/CI change).
+        value: ${{ jobs.classify.outputs.full_run }}
+
+jobs:
+  classify:
+    name: Classify changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ui: ${{ steps.filter.outputs.ui }}
+      security: ${{ steps.filter.outputs.security }}
+      deps: ${{ steps.filter.outputs.deps }}
+      migrations: ${{ steps.filter.outputs.migrations }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+      cross_platform: ${{ steps.filter.outputs.cross_platform }}
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+      run_heavy: ${{ steps.filter.outputs.run_heavy }}
+      full_run: ${{ steps.filter.outputs.full_run }}
+    steps:
+      - name: Classify changed paths
+        id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          emit() { printf '%s=%s\n' "$1" "$2" >> "$GITHUB_OUTPUT"; }
+
+          emit_full_run() {
+            run_heavy="${1:-true}"
+            for bucket in backend frontend ui security deps migrations workflows cross_platform; do
+              emit "$bucket" "true"
+            done
+            emit docs_only "false"
+            emit run_heavy "$run_heavy"
+            emit full_run "true"
+          }
+
+          # Non-PR events (push to main, schedule, manual dispatch) always run
+          # the full matrix — this is the safety net behind the filtering.
+          if [ "$EVENT_NAME" != "pull_request" ] && [ "$EVENT_NAME" != "pull_request_target" ]; then
+            echo "Event '$EVENT_NAME' is not a pull request — classifying as a full run."
+            emit_full_run
+            {
+              echo "## Change Classification"
+              echo ""
+              echo "Event \`$EVENT_NAME\` bypasses path filtering: **full suite**."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if ! CHANGED_FILES=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" \
+            --paginate --jq '.[].filename'); then
+            echo "Could not query changed files — falling back to a full run."
+            emit_full_run
+            exit 0
+          fi
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "Could not determine changed files — falling back to a full run."
+            emit_full_run
+            exit 0
+          fi
+
+          backend=false
+          frontend=false
+          ui=false
+          security=false
+          deps=false
+          migrations=false
+          workflows=false
+          cross_platform=false
+          non_docs=false
+
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+
+            case "$file" in
+              # ---- documentation-ish paths (do not set non_docs) ----
+              docs/*|issues/*|*.md|.github/agents/*|.github/skills/*|\
+              *.png|*.jpg|*.jpeg|*.gif|*.svg|*.webp|*.ico|LICENSE|.gitignore)
+                ;;
+              *)
+                non_docs=true
+                ;;
+            esac
+
+            case "$file" in
+              backend/*|etl/*|db/*|tests/*|scripts/*|ops/*|conftest.py|\
+              _pytest_support.py|pytest.ini|Makefile)
+                backend=true ;;
+            esac
+
+            case "$file" in
+              frontend/*|check-ui.js|audit-breakpoints.sh)
+                frontend=true ;;
+            esac
+
+            case "$file" in
+              frontend/src/components/*|frontend/src/pages/*|frontend/src/*.css|\
+              frontend/tailwind.config.js|frontend/postcss.config.js|\
+              frontend/scripts/*|frontend/cypress/*)
+                ui=true ;;
+            esac
+
+            case "$file" in
+              backend/core/security.py|backend/core/config.py|backend/routers/auth.py|\
+              backend/dependencies*|backend/services/*auth*|backend/services/*permission*|\
+              backend/utils/*auth*|backend/tests/*security*|backend/tests/*auth*|\
+              .gitleaks.toml)
+                security=true ;;
+            esac
+
+            case "$file" in
+              backend/requirements*.txt|frontend/package.json|frontend/package-lock.json|\
+              etl/requirements*.txt)
+                deps=true ;;
+            esac
+
+            case "$file" in
+              backend/alembic/*|backend/models.py|backend/models/*|backend/models_*.py|\
+              backend/database.py|backend/db_config.py)
+                migrations=true ;;
+            esac
+
+            case "$file" in
+              .github/workflows/*|.github/actions/*)
+                workflows=true ;;
+            esac
+
+            # OS-sensitive surfaces: shell/PowerShell entry points, path/subprocess
+            # heavy modules, packaging and tooling config.
+            case "$file" in
+              *.sh|*.ps1|*.bat|*.cmd|backend/scripts/*|scripts/*|\
+              backend/apply_migrations.py|backend/manage.py|backend/logging_config.py|\
+              backend/requirements*.txt|conftest.py|_pytest_support.py|Makefile|pytest.ini|\
+              Dockerfile*|docker-compose*.yml)
+                cross_platform=true ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          # A workflow change means CI itself changed — validate against everything.
+          if [ "$workflows" = "true" ]; then
+            echo "Workflow files changed — escalating to a full run."
+            workflow_run_heavy=true
+            if [ "$IS_DRAFT" = "true" ]; then
+              workflow_run_heavy=false
+            fi
+            emit_full_run "$workflow_run_heavy"
+            {
+              echo "## Change Classification"
+              echo ""
+              echo "\`.github/workflows/**\` changed: **full suite** (CI changes are always fully validated)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          docs_only=true
+          if [ "$non_docs" = "true" ] \
+            || [ "$backend" = "true" ] \
+            || [ "$frontend" = "true" ] \
+            || [ "$ui" = "true" ] \
+            || [ "$security" = "true" ] \
+            || [ "$deps" = "true" ] \
+            || [ "$migrations" = "true" ] \
+            || [ "$cross_platform" = "true" ]; then
+            docs_only=false
+          fi
+
+          run_heavy=true
+          if [ "$IS_DRAFT" = "true" ]; then
+            run_heavy=false
+          fi
+
+          emit backend "$backend"
+          emit frontend "$frontend"
+          emit ui "$ui"
+          emit security "$security"
+          emit deps "$deps"
+          emit migrations "$migrations"
+          emit workflows "$workflows"
+          emit cross_platform "$cross_platform"
+          emit docs_only "$docs_only"
+          emit run_heavy "$run_heavy"
+          emit full_run "false"
+
+          {
+            echo "## Change Classification"
+            echo ""
+            echo "| Bucket | Detected |"
+            echo "|---|---|"
+            echo "| backend | \`$backend\` |"
+            echo "| frontend | \`$frontend\` |"
+            echo "| ui | \`$ui\` |"
+            echo "| security | \`$security\` |"
+            echo "| deps | \`$deps\` |"
+            echo "| migrations | \`$migrations\` |"
+            echo "| cross_platform | \`$cross_platform\` |"
+            echo "| docs_only | \`$docs_only\` |"
+            echo "| run_heavy (false = draft PR) | \`$run_heavy\` |"
+            echo ""
+            echo "<details><summary>Changed files</summary>"
+            echo ""
+            echo '```'
+            echo "$CHANGED_FILES"
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"

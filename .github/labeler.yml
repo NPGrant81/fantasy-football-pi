@@ -1,0 +1,83 @@
+# Automatic PR area labels.
+#
+# The path buckets here intentionally mirror the change classifier in
+# `.github/workflows/detect-changes.yml`. Keep the two in sync: the classifier
+# decides *what CI runs*, these labels decide *who reviews* and make the routing
+# visible on the PR itself.
+#
+# Config format: actions/labeler v5+.
+
+"area:backend":
+  - changed-files:
+      - any-glob-to-any-file:
+          - backend/**
+          - etl/**
+          - db/**
+          - tests/**
+          - scripts/**
+          - ops/**
+          - conftest.py
+          - _pytest_support.py
+          - pytest.ini
+          - Makefile
+
+"area:frontend":
+  - changed-files:
+      - any-glob-to-any-file:
+          - frontend/**
+          - check-ui.js
+          - audit-breakpoints.sh
+
+"area:ui":
+  - changed-files:
+      - any-glob-to-any-file:
+          - frontend/src/components/**
+          - frontend/src/pages/**
+          - frontend/src/*.css
+          - frontend/tailwind.config.js
+          - frontend/postcss.config.js
+          - frontend/scripts/**
+          - frontend/cypress/**
+
+"area:security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - backend/core/security.py
+          - backend/core/config.py
+          - backend/routers/auth.py
+          - backend/tests/**/*security*
+          - backend/tests/**/*auth*
+          - .gitleaks.toml
+
+"area:database":
+  - changed-files:
+      - any-glob-to-any-file:
+          - backend/alembic/**
+          - backend/models.py
+          - backend/models/**
+          - backend/models_*.py
+          - backend/database.py
+          - backend/db_config.py
+
+"area:dependencies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - backend/requirements*.txt
+          - etl/requirements*.txt
+          - frontend/package.json
+          - frontend/package-lock.json
+
+"area:ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**
+          - .github/actions/**
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - issues/**
+          - "**/*.md"
+          - .github/agents/**
+          - .github/skills/**
