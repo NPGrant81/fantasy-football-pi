@@ -4,7 +4,7 @@
 - Owner: engineering
 - Last reviewed: 2026-08-31
 - Review cadence: 90 days
-- Supersession: replaces the former Issue #113 architecture summary; it is not an architecture authority
+- Supersedes: the former Issue #113 architecture summary; this document is not an architecture authority
 
 ## Canonical Authorities
 

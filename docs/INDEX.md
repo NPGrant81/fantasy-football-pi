@@ -88,15 +88,15 @@ Refer to the appropriate file for more information.
 
 - [Overview](architecture/overview.md)
 
-### Commit-Packages
-
-- [2026-03-15-Bundle-Plan](archive/commit-packages/2026-03-15-bundle-plan.md)
-
 ### Archive
 
 - [Markdown Governance Sweep Report 2026-03-08](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-03-08.md)
 - [Markdown Governance Sweep Report 2026-05-05](archive/MARKDOWN_GOVERNANCE_SWEEP_REPORT_2026-05-05.md)
 - [Session Completion 2026-03-21](archive/SESSION_COMPLETION_2026-03-21.md)
+
+### Commit-Packages
+
+- [2026-03-15-Bundle-Plan](archive/commit-packages/2026-03-15-bundle-plan.md)
 
 ### Data-Migration
 
@@ -148,6 +148,11 @@ Refer to the appropriate file for more information.
 ### Ml
 
 - [Execution Board 360 Snapshot](ml/EXECUTION_BOARD_360_SNAPSHOT.md)
+- [Ready 103 112 For Pr364](ml/READY_103_112_FOR_PR364.md)
+
+### Phase1
+
+- [Artifact Pr Checklists 361 363](ml/phase1/ARTIFACT_PR_CHECKLISTS_361_363.md)
 
 ### 103
 
@@ -163,14 +168,6 @@ Refer to the appropriate file for more information.
 
 - [Artifact-01-Correction-Ledger-Schema](ml/phase1/105/artifact-01-correction-ledger-schema.md)
 - [Artifact-01-Draft-Validator-Spec](ml/phase1/105/artifact-01-draft-validator-spec.md)
-
-### Phase1
-
-- [Artifact Pr Checklists 361 363](ml/phase1/ARTIFACT_PR_CHECKLISTS_361_363.md)
-
-### Ml
-
-- [Ready 103 112 For Pr364](ml/READY_103_112_FOR_PR364.md)
 
 ### Patterns
 

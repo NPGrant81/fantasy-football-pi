@@ -4,7 +4,7 @@
 - Owner: engineering
 - Last reviewed: 2026-08-31
 - Review cadence: 90 days
-- Supersedes: topology claims in `docs/ARCHITECTURE.md` and `docs/architecture-overview.md`
+- Supersedes: prior topology guidance in `docs/ARCHITECTURE.md` and the former `docs/architecture-overview.md` architecture summary
 - Originating decision: Issue #302 (2026-03-21)
 
 ## Authority and Scope

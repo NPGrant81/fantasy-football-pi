@@ -27,7 +27,10 @@ header = "# Project Documentation Index\n\n" + \
 # grouped by directory to keep the index readable.
 all_md = sorted(DOCS.rglob("*.md"))
 top_level = [p for p in all_md if p.parent == DOCS and p.name.lower() != "index.md"]
-subdirs = [p for p in all_md if p.parent != DOCS]
+subdirs = sorted(
+    (p for p in all_md if p.parent != DOCS),
+    key=lambda p: (p.parent.relative_to(DOCS).as_posix(), p.name.lower()),
+)
 
 with open(INDEX, "w", encoding="utf-8") as f:
     f.write(header)
