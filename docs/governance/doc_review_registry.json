@@ -3,13 +3,13 @@
     "path": "docs/ARCHITECTURE.md",
     "owner": "engineering",
     "cadence_days": 90,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-08-31"
   },
   {
     "path": "docs/architecture/overview.md",
     "owner": "engineering",
     "cadence_days": 90,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-08-31"
   },
   {
     "path": "docs/PROJECT_MANAGEMENT.md",
@@ -171,7 +171,7 @@
     "path": "docs/PATTERN_COMPLIANCE_MATRIX.md",
     "owner": "engineering",
     "cadence_days": 14,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-08-31"
   },
   {
     "path": "docs/PATTERN_STANDARDIZATION_PLAN.md",
@@ -207,7 +207,7 @@
     "path": "docs/INDEX.md",
     "owner": "engineering",
     "cadence_days": 30,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-08-31"
   },
   {
     "path": "docs/governance/README.md",
@@ -639,7 +639,7 @@
     "path": "docs/architecture-overview.md",
     "owner": "engineering",
     "cadence_days": 90,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-08-31"
   },
   {
     "path": "docs/feature-dictionary.md",

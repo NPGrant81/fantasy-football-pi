@@ -15,14 +15,22 @@ INDEX = DOCS / "INDEX.md"
 
 header = "# Project Documentation Index\n\n" + \
          "This folder contains high-level documentation for the Fantasy Football Pi project.\n" + \
-         "Refer to the appropriate file for more information.\n\n"
+         "Refer to the appropriate file for more information.\n\n" + \
+         "## Architecture Entry Points\n\n" + \
+         "- [System topology](architecture/overview.md) (canonical)\n" + \
+         "- [Code placement and layer boundaries](ARCHITECTURE.md) (canonical)\n" + \
+         "- [Architecture navigation](architecture-overview.md) (navigation only)\n\n" + \
+         "## Documents\n\n"
 
 # Gather all markdown files recursively, excluding INDEX.md itself.
 # Sort: top-level files first (alphabetically), then subdirectory files
 # grouped by directory to keep the index readable.
 all_md = sorted(DOCS.rglob("*.md"))
 top_level = [p for p in all_md if p.parent == DOCS and p.name.lower() != "index.md"]
-subdirs = [p for p in all_md if p.parent != DOCS]
+subdirs = sorted(
+    (p for p in all_md if p.parent != DOCS),
+    key=lambda p: (p.parent.relative_to(DOCS).as_posix(), p.name.lower()),
+)
 
 with open(INDEX, "w", encoding="utf-8") as f:
     f.write(header)

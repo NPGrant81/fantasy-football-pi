@@ -1,8 +1,8 @@
 # Pattern Compliance Matrix
 
-Updated: 2026-03-29
+Updated: 2026-08-31
 Owner: engineering
-Tracking issues: #334, #333
+Tracking issues: #501, #334, #333
 
 ## Purpose
 
@@ -26,11 +26,24 @@ Use this section to drive active remediation and sprint planning.
 
 | Domain | Standard / Pattern | Current Coverage | Gap Type | Criticality | Short-Term Target | Owner | Verification Gate |
 |---|---|---:|---|---|---|---|---|
+| Architecture governance | One authority per architecture domain | Complete: topology and code placement have explicit authorities; the former overview is navigation-only | Steady-state maintenance | Low | Keep authority, precedence, and supersession metadata current | engineering | `python -m scripts.repo_hygiene_check`; documentation link check |
 | Backend rules | Commissioner deadline helper pattern | Scoped: trade + waiver | Coverage breadth | High | Extend to all deadline-gated flows touched this cycle | backend | `python -m scripts.repo_hygiene_check`; targeted pytest |
 | Docs governance | Governed docs registry coverage | 100.0% | Steady-state maintenance | Low | Maintain 100% by failing hygiene checks on missing/uncategorized docs | product + engineering | `python -m scripts.repo_hygiene_check`; `python -m scripts.docs_review_sweep --warn-days 14` |
 | PR governance | Pattern impact declaration | Enabled via PR template | Adoption discipline | Medium | 100% usage for cross-cutting PRs | reviewers | PR review checklist |
 | Pattern lifecycle | Proposal + decision logging | In place | Process consistency | Medium | Ensure new cross-cutting patterns include decision log updates | engineering | diff checks on `docs/patterns/*` |
 | Observability | Invalid deadline fallback logging | Implemented in helper | Expansion scope | Medium | Add log assertions where new fallback paths are introduced | backend | pytest log assertions |
+
+### Issue #501 Architecture Authority Review
+
+| Criterion | Result | Evidence |
+| --- | --- | --- |
+| Unique document purposes | PASS | `docs/architecture/overview.md` owns topology; `docs/ARCHITECTURE.md` owns code placement; `docs/architecture-overview.md` is navigation only |
+| Precedence and supersession | PASS | Both authorities declare scope and supersession; the navigation page defines conflict precedence |
+| Consistent terminology | PASS | Authorities define a modular monolith with internal service-oriented modules, not independently deployable microservices |
+| Architecture-link integrity | PASS | Changed-file local Markdown link check completed on 2026-08-31; the missing architecture-skill layer map was restored as a derived reference |
+| Index and registry alignment | PASS | `docs/INDEX.md` distinguishes canonical authorities from navigation; all three documents have engineering ownership and current 90-day reviews |
+| Derived layer-map status | PASS | `.github/skills/architecture/references/layer-map.md` names both canonical authorities and explicitly defers on conflict |
+| Architecture skill layer consistency | PASS | `.github/skills/architecture/SKILL.md` requires routers to delegate business behavior to services without an inline-analytics exception |
 
 ### Initial Ungoverned Operational Docs Triage (first 15)
 
