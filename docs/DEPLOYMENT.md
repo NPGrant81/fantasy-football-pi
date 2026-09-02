@@ -5,17 +5,17 @@ This repository includes a lightweight deploy workflow for the Raspberry Pi runt
 ## Topology Contract
 
 - Development uses Vite on `127.0.0.1:5173` with Docker Compose PostgreSQL on
-	`5432`; Compose also provides Redis on `6379` for optional distributed rate
-	limiting.
+  `5432`; Compose also provides Redis on `6379` for optional distributed rate
+  limiting.
 - Production runs native PostgreSQL on the Raspberry Pi. systemd launches
-	FastAPI/Uvicorn on `127.0.0.1:8000`, with
-	`python -m backend.apply_migrations` as `ExecStartPre`.
+  FastAPI/Uvicorn on `127.0.0.1:8000`, with
+  `python -m backend.apply_migrations` as `ExecStartPre`.
 - Cloudflare Tunnel forwards to Nginx on the Pi. Nginx serves
-	`/var/www/fantasy-football-pi/frontend/dist` and reverse proxies backend route
-	families to `127.0.0.1:8000`.
+  `/var/www/fantasy-football-pi/frontend/dist` and reverse proxies backend route
+  families to `127.0.0.1:8000`.
 - Redis is not a production requirement. The rate limiter uses in-memory state
-	by default and uses Redis only when `RATE_LIMITER_BACKEND=redis` is explicitly
-	configured.
+  by default and uses Redis only when `RATE_LIMITER_BACKEND=redis` is explicitly
+  configured.
 
 ## Command summary
 
@@ -88,6 +88,6 @@ Restore actions should be run only after confirming the target database and serv
 
 - These commands are intentionally small and explicit, not a full zero-downtime orchestration system.
 - For production-style blue/green or canary deployment, the repo should evolve
-	toward a systemd dual-service pattern or a separately approved packaging
-	strategy.
+  toward a systemd dual-service pattern or a separately approved packaging
+  strategy.
 - The explicit health check remains the guardrail before a deploy is considered successful.

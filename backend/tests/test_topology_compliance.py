@@ -13,6 +13,8 @@ def test_production_topology_matches_deployment_templates():
     nginx_config = _read("deploy/nginx/fantasy-football-pi.conf.example")
     cloudflared_config = _read("deploy/cloudflared/config.cli.example.yml")
     incident_runbook = _read("docs/INCIDENT_RESPONSE_RUNBOOK.md")
+    deployment_skill = _read(".github/skills/deployment/SKILL.md")
+    deployment_guide = _read("docs/DEPLOYMENT.md")
 
     assert "ExecStartPre=/home/pi/fantasy-football-pi/backend/venv/bin/python -m backend.apply_migrations" in systemd_service
     assert "--host 127.0.0.1 --port 8000" in systemd_service
@@ -21,6 +23,11 @@ def test_production_topology_matches_deployment_templates():
     assert cloudflared_config.count("service: http://127.0.0.1:80") == 2
     assert "systemctl restart fantasy-football-backend" in incident_runbook
     assert "http://localhost:8010" not in incident_runbook
+    assert "# Update: SECRET_KEY=<new-secret>" in incident_runbook
+    assert 'Environment="SECRET_KEY=<new-secret>"' not in incident_runbook
+    assert "root /var/www/fantasy-football-pi/frontend/dist;" in deployment_skill
+    assert "try_files $uri /index.html;" in deployment_skill
+    assert "\t" not in deployment_guide
 
 
 def test_architecture_authority_declares_development_and_redis_contracts():

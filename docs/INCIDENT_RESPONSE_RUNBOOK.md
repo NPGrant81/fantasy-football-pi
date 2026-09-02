@@ -64,7 +64,7 @@ This runbook provides step-by-step procedures for responding to security inciden
    **Via environment (Raspberry Pi systemd):**
    ```bash
    sudo nano /etc/fantasy-football-pi/backend.env
-   # Update: Environment="SECRET_KEY=<new-secret>"
+   # Update: SECRET_KEY=<new-secret>
    
    sudo systemctl daemon-reload
    sudo systemctl restart fantasy-football-backend
