@@ -181,9 +181,25 @@ Temporary wrapper/shim files used during migration have been removed.
   4.4 Frontend Runtime Notes
 
 - `src/api/client.js`: Central axios instance with auth token handling and 401 behavior.
-- `App.jsx`: Handles initial auth/league gate, then mounts `Layout` and routes.
+- `src/App.jsx`: Handles initial auth/league gate, then mounts `Layout` and routes.
+- `src/main.jsx`: Creates the application `QueryClient` and wraps the application in
+  `QueryClientProvider`.
 
-  4.5 Testing Strategy
+  4.5 State Ownership
+
+- **TanStack Query** owns remote/server state: API reads, cached results,
+  request loading/error state, mutations, retries, query keys, and targeted
+  invalidation after writes. Do not copy this state into Context.
+- **React Context** owns shared client-only state: theme preference,
+  authenticated identity/session presentation, and selected league where that
+  state must span routes.
+- **Component state** owns transient view and form state: open panels, filters,
+  selected rows, draft input values, and unsaved form fields.
+- Query keys are defined near their consuming feature. Mutations invalidate the
+  affected keys through `useQueryClient`; broad cache clearing is not a default
+  refresh strategy.
+
+  4.6 Testing Strategy
 
 - Backend: `pytest` tests under `backend/tests/`.
 - Frontend unit/integration: `vitest` + React Testing Library under `frontend/tests/`.
@@ -195,6 +211,6 @@ Recommendations
 - Keep `apiClient` thin and test-friendly.
 - Mock network calls in component tests and isolate business logic for faster feedback.
 
-  4.6 UI Documentation
+  4.7 UI Documentation
 
 - Consolidated UI reference lives in [UI_REFERENCE.md](UI_REFERENCE.md).

@@ -21,16 +21,16 @@ The pattern intentionally avoids a separate mapping step. SQLAlchemy models are 
 
 ```
 ┌──────────────────────────────────────┐
-│  Browser (React 18 / Vite)           │  ← UI only, no business logic
+│  Browser (React 19 / Vite)           │  ← UI only, no business logic
 │  frontend/src/pages/ + components/   │
-│  State: React Context only           │
+│  State: TanStack Query + Context     │
 └─────────────┬────────────────────────┘
               │ HTTP (JSON)
               ▼
 ┌──────────────────────────────────────┐
 │  API Layer (FastAPI)                 │  ← Thin: validate input, call service, return schema
 │  backend/routers/*.py                │
-│  DTOs: backend/schemas/*.py (Pydantic│
+│  DTOs: Pydantic models               │
 └─────────────┬────────────────────────┘
               │
               ▼
@@ -95,13 +95,15 @@ These terms must be spelled identically in both backend and frontend:
 - Use Pydantic schemas for ALL endpoint request/response typing
 - Prefix analytics response objects with `rows` + `meta` (see `_analytics_meta()` helper)
 - Keep frontend API calls inside `frontend/src/api/` files; never `fetch()` in components directly
-- Use React Context for shared state; no Redux, Zustand, or other stores
+- Use TanStack Query for remote/server state, including caching, mutations, and invalidation
+- Use React Context for shared client state; do not duplicate server state in Context
+- Keep transient form and view state in the owning component
 
 ## Never Do
 - Never put domain logic in a route handler
 - Never write raw SQL — SQLAlchemy ORM only
 - Never bypass `frontend/src/api/client.js` for HTTP calls
-- Never introduce new state management libraries (Redux, Zustand, Jotai, etc.)
+- Never introduce Redux, Zustand, Jotai, or another global client-state store without an ADR
 - Never create new database relationships without a corresponding Alembic migration
 - Never expose SQLAlchemy model objects directly from endpoints — always serialize via Pydantic
 
@@ -112,7 +114,7 @@ These terms must be spelled identically in both backend and frontend:
 | 50-line route handler with loops and calculations | Move logic to `services/` |
 | `db.execute(text("SELECT ..."))` | Use ORM query: `db.query(Model).filter(...)` |
 | `axios.get('/api/...')` in a React component | `import { fetchX } from '@api/xApi'` |
-| Redux store for async data | React Query / React Context |
+| Context or Redux cache for API data | TanStack Query with feature-owned query keys and targeted invalidation |
 | `models.User` dict in API response | Pydantic schema with only exposed fields |
 
 ## Related Skills

@@ -124,6 +124,19 @@
   - empty: successful fetch with no items
   - error: failed fetch or action
 
+### 12) State Ownership
+
+- TanStack Query owns API-backed server state, including caching, request state,
+  mutations, query keys, retries, and targeted invalidation.
+- React Context is reserved for shared client-only state such as theme,
+  authenticated identity, and selected league context. It must not duplicate
+  TanStack Query server state.
+- Component state owns local, transient interactions such as form input,
+  selected rows, filters, and open/closed UI controls.
+- Define query keys with the feature that consumes them. Invalidate affected
+  keys after a successful mutation instead of maintaining a parallel Context
+  cache or clearing the entire client.
+
 ## Shared Primitive Source
 
 - `frontend/src/utils/uiStandards.js`

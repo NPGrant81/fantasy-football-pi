@@ -101,8 +101,10 @@ const POSITION_COLORS = {
 - **PascalCase filenames**: `PlayerConsistencyChart.jsx`
 - **No custom CSS files** — Tailwind only; exception: complex animations in `index.css`
 - **Lazy load large pages**: `const Analytics = React.lazy(() => import('./pages/Analytics'))`
-- **Context for shared state**: follow `ThemeContext` pattern
-- **No Redux/Zustand** — React Context is the state management solution
+- **TanStack Query for server state**: API-backed data, mutations, caching, and invalidation belong in feature-owned query hooks
+- **Context for shared client state**: follow `ThemeContext` for cross-route client-only concerns; never mirror Query data in Context
+- **Component state for transient UI**: keep form input, filters, selection, and open/closed controls near the component
+- **No Redux/Zustand** unless a new ADR approves a global client-state store
 
 ## Loading/Error States
 Use shared `AsyncState` components:
