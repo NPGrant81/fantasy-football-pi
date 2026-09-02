@@ -13,7 +13,7 @@ Fantasy Football PI runs on a Raspberry Pi in production with Cloudflare Tunnel 
 | Layer | Tech |
 |-------|------|
 | Backend | Python 3.11+, FastAPI, SQLAlchemy (sync + async patterns), Alembic |
-| Frontend | React 18, Vite, TypeScript/JSX, Tailwind CSS, Vitest |
+| Frontend | React 19, Vite, TanStack Query, TypeScript/JSX, Tailwind CSS, Vitest |
 | Database | PostgreSQL (Docker in dev, native on Pi in prod) |
 | Infra | Raspberry Pi 4, Nginx, Cloudflare Tunnel, systemd |
 
@@ -75,7 +75,7 @@ npm run dev
 ## Never Do
 - Never commit `.env` or any file containing secrets
 - Never run `npm install` inside `backend/`
-- Never modify `alembic/env.py` unless explicitly required — migrations break
+- Never modify `db/env.py` unless explicitly required — migrations break
 - Never use `pip install <package>` without adding it to `requirements.txt`
 - Never run database scripts directly against production without a backup
 

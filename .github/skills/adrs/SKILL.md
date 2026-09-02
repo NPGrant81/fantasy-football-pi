@@ -50,14 +50,14 @@ What becomes easier? What becomes harder? What technical debt is accepted?
 ## Existing Key Decisions
 
 ### Frontend Framework
-- **Decision**: React 18 + Vite over Next.js
+- **Decision**: React 19 + Vite over Next.js
 - **Rationale**: No SSR needed (private league app, requires auth); Vite is significantly faster for dev; React ecosystem familiarity
 - **Consequence**: No server-side rendering; all routing is client-side (React Router)
 
 ### State Management
-- **Decision**: React Context only — no Redux, Zustand, Jotai, or similar
-- **Rationale**: App state is modest (league selection, theme, auth token); global stores add complexity without benefit at current scale
-- **Consequence**: Complex async state requires React Query patterns; if features grow significantly, revisit
+- **Decision**: TanStack Query owns server state; Context owns shared client state; no Redux, Zustand, Jotai, or similar without a new ADR
+- **Rationale**: Query caching and invalidation are already active, while shared client state remains modest (league selection, theme, auth token)
+- **Consequence**: Query keys and invalidation stay feature-owned; Context must not duplicate API results
 
 ### Data Access
 - **Decision**: SQLAlchemy ORM exclusively — no raw SQL in application code

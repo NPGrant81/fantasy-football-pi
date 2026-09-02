@@ -45,6 +45,17 @@ Use this section to drive active remediation and sprint planning.
 | Derived layer-map status | PASS | `.github/skills/architecture/references/layer-map.md` names both canonical authorities and explicitly defers on conflict |
 | Architecture skill layer consistency | PASS | `.github/skills/architecture/SKILL.md` requires routers to delegate business behavior to services without an inline-analytics exception |
 
+### Issue #505 Frontend State Authority Review
+
+| Criterion | Result | Evidence |
+| --- | --- | --- |
+| Runtime version documentation | PASS | `frontend/package.json` declares React and React DOM `^19.2.7`; canonical architecture and bootstrap guidance now name React 19. |
+| Server-state ownership | PASS | `frontend/src/main.jsx` provides the root TanStack Query client; `DraftBoard` uses feature-owned query keys, mutations, and targeted invalidation. |
+| Client and local state boundaries | PASS | Canonical architecture and frontend standards reserve Context for shared client-only concerns and component state for transient view/form state. |
+| Dependency policy | PASS | TanStack Query is approved for remote state. Redux, Zustand, Jotai, and similar global client stores require a new ADR. |
+| Contributor guidance alignment | PASS | Architecture, UI/UX, bootstrap, and ADR skills use the same ownership model and reject Context as a duplicate API cache. |
+| Build verification | PASS | `npm run build` completed successfully on 2026-09-02. |
+
 ### Initial Ungoverned Operational Docs Triage (first 15)
 
 Use this table as the immediate remediation backlog for the current cycle.

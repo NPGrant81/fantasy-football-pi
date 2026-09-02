@@ -4,14 +4,14 @@ This document records the key architectural decisions made for this project. For
 
 ---
 
-## ADR-001: React 18 + Vite over Next.js
+## ADR-001: React + Vite over Next.js
 
 **Status**: Accepted  
 **Date**: 2024 (initial project setup)
 
 **Context**: Fantasy Football PI is a private-league dashboard requiring authentication for all views. Multiple frameworks were considered: Next.js (SSR/SSG), plain Create React App, Vite+React.
 
-**Decision**: Use React 18 with Vite as the build tool.
+**Decision**: Use React 19 with Vite as the build tool.
 
 **Rationale**:
 - No SEO or SSR requirements — all views are behind auth
@@ -48,25 +48,27 @@ This document records the key architectural decisions made for this project. For
 
 ---
 
-## ADR-003: React Context Only (No Redux/Zustand)
+## ADR-003: TanStack Query for Server State and Context for Client State
 
 **Status**: Accepted  
 **Date**: 2024
 
 **Context**: Frontend needs to share: current league selection, authenticated user, and theme preference across many components.
 
-**Decision**: React Context API is the only global state mechanism. No Redux, Zustand, Jotai, or similar.
+**Decision**: TanStack Query owns remote/server state. React Context owns shared
+client-only state. Local component state owns transient view and form state.
+Redux, Zustand, Jotai, and similar global client-state stores require a new ADR.
 
 **Rationale**:
-- App has limited cross-component state (auth, league ID, theme)
-- React Query manages all server state (caching, loading, invalidation)
+- App has limited cross-component client state (auth, league ID, theme)
+- TanStack Query manages server state (caching, loading, mutations, and invalidation)
 - Redux adds significant complexity for modest benefit at this scale
 - Fewer dependencies = less maintenance surface
 
 **Consequences**:
-- Complex derived state (e.g., aggregated cross-season stats) must be computed in hooks or services
-- If app grows to many async state slices, may warrant revisiting Zustand
-- Context re-renders are acceptable given component tree size
+- Query keys live with the owning feature and writes target only affected invalidations
+- Context must not become a parallel cache for API responses
+- Complex derived state belongs in hooks or services
 
 ---
 
