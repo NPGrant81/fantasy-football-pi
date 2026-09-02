@@ -1,7 +1,7 @@
 # Cloudflare Tunnel CLI config template (frontend + backend split hostnames)
 # Example domain:
 #   app.pplinsighthub.com -> frontend (nginx/static)
-#   api.pplinsighthub.com -> backend (FastAPI)
+#   api.pplinsighthub.com -> Nginx (FastAPI route proxy)
 #
 # Replace tunnel name/uuid and credentials-file path before use.
 
@@ -16,7 +16,7 @@ ingress:
       noHappyEyeballs: true
 
   - hostname: api.pplinsighthub.com
-    service: http://127.0.0.1:8000
+    service: http://127.0.0.1:80
     healthcheck:
       path: /health
       interval: 30s

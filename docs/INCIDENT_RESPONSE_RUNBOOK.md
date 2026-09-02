@@ -63,11 +63,11 @@ This runbook provides step-by-step procedures for responding to security inciden
    
    **Via environment (Raspberry Pi systemd):**
    ```bash
-   sudo nano /etc/systemd/system/fantasy-football-pi.service
+   sudo nano /etc/fantasy-football-pi/backend.env
    # Update: Environment="SECRET_KEY=<new-secret>"
    
    sudo systemctl daemon-reload
-   sudo systemctl restart fantasy-football-pi
+   sudo systemctl restart fantasy-football-backend
    ```
    
    **Via Docker:**
@@ -79,10 +79,10 @@ This runbook provides step-by-step procedures for responding to security inciden
 
 5. **Verify new key is active:**
    ```bash
-   curl http://localhost:8010/health
+   curl http://localhost:8000/health
    # Should return 200 OK
    
-   curl http://localhost:8010/auth/login \
+   curl http://localhost:8000/auth/login \
      -X POST \
      -H "Content-Type: application/json" \
      -d '{"username": "test_user", "password": "test_password"}'

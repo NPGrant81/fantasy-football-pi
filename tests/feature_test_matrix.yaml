@@ -187,6 +187,9 @@ lanes:
       - file: backend/tests/test_apply_migrations.py
         domain: infra
         status: active
+      - file: backend/tests/test_topology_compliance.py
+        domain: infra
+        status: active
       - file: backend/tests/test_trade_audit_history.py
         domain: trade
         status: active

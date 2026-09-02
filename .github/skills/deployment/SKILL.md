@@ -15,7 +15,7 @@ Internet
   └── Cloudflare Tunnel (TLS termination, DNS)
         └── cloudflared (systemd service on Pi)
               └── Nginx (reverse proxy on Pi :80)
-                    ├── /api/*    → FastAPI backend :8010
+                    ├── backend routes → FastAPI backend :8000
                     └── /*        → React static files (built)
 ```
 
@@ -94,7 +94,7 @@ sudo systemctl status fantasy-backend   # verify running
 
 ### 7. Smoke test
 ```bash
-curl -s http://localhost:8010/health | jq .
+curl -s http://localhost:8000/health | jq .
 # Expected: {"status": "ok"}
 ```
 
@@ -135,14 +135,15 @@ Suggested issue addendum:
 ```
 
 ## Nginx Configuration
-Key config at `deploy/nginx/fantasy-football.conf`:
-- `/api/` → proxied to `http://127.0.0.1:8010`
-- `/` → static files at `/home/pi/fantasy-football-pi/frontend/dist`
-- Cloudflare terminates TLS; Pi only needs HTTP on :80
+Key config at `deploy/nginx/fantasy-football-pi.conf.example`:
+- backend route families → proxied to `http://127.0.0.1:8000`
+- `/` → static files at `/var/www/fantasy-football-pi/frontend/dist`
+- Cloudflare Tunnel forwards to Nginx; TLS handling follows the enabled Nginx
+  site configuration
 
 ```nginx
-location /api/ {
-    proxy_pass http://127.0.0.1:8010/;
+location ~ ^/(auth|leagues|players|health)(/|$) {
+  proxy_pass http://127.0.0.1:8000;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
 }
@@ -178,14 +179,14 @@ See `docs/CLOUDFLARE_TUNNEL_SETUP.md` for the complete walkthrough.
 Docker is used for the **development database only**. Production runs PostgreSQL natively on the Pi.
 
 ```bash
-# Start dev database
-docker-compose up -d db
+# Start dev database and optional Redis
+docker compose up -d db redis
 
 # Stop
-docker-compose down
+docker compose down
 
 # View logs
-docker-compose logs db
+docker compose logs db
 ```
 
 ## Always Do

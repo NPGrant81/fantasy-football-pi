@@ -56,6 +56,16 @@ Use this section to drive active remediation and sprint planning.
 | Contributor guidance alignment | PASS | Architecture, UI/UX, bootstrap, and ADR skills use the same ownership model and reject Context as a duplicate API cache. |
 | Build verification | PASS | `npm run build` completed successfully on 2026-09-02. |
 
+### Issue #506 Deployment Topology Review
+
+| Criterion | Result | Evidence |
+| --- | --- | --- |
+| Development topology | PASS | `docker-compose.yml` defines PostgreSQL on `5432` and optional Redis on `6379`; Vite development runs separately on `5173`. |
+| Production topology | PASS | The backend systemd unit runs Uvicorn on `127.0.0.1:8000` after the migration `ExecStartPre`; Nginx serves static files and proxies backend routes. |
+| Ingress ownership | PASS | Cloudflared example forwards both frontend and API hostnames to Nginx, making Nginx the Pi ingress owner. |
+| Redis role | PASS | `rate_limiter_service.py` defaults to memory and uses Redis only when `RATE_LIMITER_BACKEND=redis` is explicitly selected. |
+| Drift protection | PASS | `backend/tests/test_topology_compliance.py` asserts the topology authority against the systemd, Nginx, Cloudflared, Compose, and rate-limiter sources. |
+
 ### Initial Ungoverned Operational Docs Triage (first 15)
 
 Use this table as the immediate remediation backlog for the current cycle.
