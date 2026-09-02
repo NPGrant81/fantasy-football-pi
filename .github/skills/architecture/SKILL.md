@@ -30,7 +30,7 @@ The pattern intentionally avoids a separate mapping step. SQLAlchemy models are 
 ┌──────────────────────────────────────┐
 │  API Layer (FastAPI)                 │  ← Thin: validate input, call service, return schema
 │  backend/routers/*.py                │
-│  DTOs: backend/schemas/*.py (Pydantic│
+│  DTOs: Pydantic models               │
 └─────────────┬────────────────────────┘
               │
               ▼

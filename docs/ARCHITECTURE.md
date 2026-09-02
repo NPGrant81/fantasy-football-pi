@@ -181,8 +181,8 @@ Temporary wrapper/shim files used during migration have been removed.
   4.4 Frontend Runtime Notes
 
 - `src/api/client.js`: Central axios instance with auth token handling and 401 behavior.
-- `App.jsx`: Handles initial auth/league gate, then mounts `Layout` and routes.
-- `main.jsx`: Creates the application `QueryClient` and wraps the application in
+- `src/App.jsx`: Handles initial auth/league gate, then mounts `Layout` and routes.
+- `src/main.jsx`: Creates the application `QueryClient` and wraps the application in
   `QueryClientProvider`.
 
   4.5 State Ownership
