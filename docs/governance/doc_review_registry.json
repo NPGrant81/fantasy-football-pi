@@ -9,7 +9,7 @@
     "path": "docs/architecture/overview.md",
     "owner": "engineering",
     "cadence_days": 90,
-    "last_reviewed": "2026-08-31"
+    "last_reviewed": "2026-09-02"
   },
   {
     "path": "docs/PROJECT_MANAGEMENT.md",
@@ -51,7 +51,7 @@
     "path": "docs/DEPLOYMENT.md",
     "owner": "platform",
     "cadence_days": 60,
-    "last_reviewed": "2026-08-29"
+    "last_reviewed": "2026-09-02"
   },
   {
     "path": "docs/DATABASE.md",
@@ -687,7 +687,7 @@
     "path": "docs/INCIDENT_RESPONSE_RUNBOOK.md",
     "owner": "security",
     "cadence_days": 45,
-    "last_reviewed": "2026-07-11"
+    "last_reviewed": "2026-09-02"
   },
   {
     "path": "docs/SECRETS_ROTATION_POLICY.md",

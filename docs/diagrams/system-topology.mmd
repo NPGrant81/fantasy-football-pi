@@ -1,0 +1,26 @@
+flowchart LR
+    User[User browser]
+
+    subgraph Production[Production Raspberry Pi]
+        Tunnel[Cloudflare Tunnel]
+        Nginx[Nginx]
+        Static[React static files]
+        Api[FastAPI Uvicorn :8000]
+        Database[(Native PostgreSQL)]
+    end
+
+    subgraph Development[Development workstation]
+        Vite[Vite React :5173]
+        Compose[Docker Compose]
+        DevDatabase[(PostgreSQL :5432)]
+        Redis[Redis :6379 optional]
+    end
+
+    User --> Tunnel
+    Tunnel --> Nginx
+    Nginx --> Static
+    Nginx --> Api
+    Api --> Database
+    Vite --> Api
+    Compose --> DevDatabase
+    Compose --> Redis

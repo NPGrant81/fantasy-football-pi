@@ -26,22 +26,48 @@ service-oriented backend modules remain in one backend deployment boundary.
 
 ## Current Architecture (As Built)
 
-- One frontend SPA (`frontend/`) served as one deployable unit
-- One backend API (`backend/`) served as one deployable unit
-- One primary relational database (PostgreSQL)
-- One compose/system-level deployment workflow that ships these parts together
+- **Development:** Vite serves the frontend on `127.0.0.1:5173`; Docker Compose
+    supplies PostgreSQL on `5432` and an optional Redis instance on `6379`.
+- **Production:** a Raspberry Pi runs FastAPI/Uvicorn as a systemd service on
+    `127.0.0.1:8000`, native PostgreSQL, and Nginx for static delivery and API
+    reverse proxying. The backend unit applies migrations through `ExecStartPre`
+    before Uvicorn starts.
+- Cloudflare Tunnel reaches Nginx on the Pi; Nginx is the single ingress owner
+    for the frontend and backend route families.
+- Redis is optional infrastructure for the distributed rate limiter. Production
+    defaults to the in-memory limiter unless `RATE_LIMITER_BACKEND=redis` is
+    deliberately configured.
 
 ```mermaid
 flowchart LR
-    User[User Browser]
-    FE[Frontend SPA\nVite/React]
-    BE[Backend API\nFastAPI/Uvicorn]
-    DB[(PostgreSQL)]
+        User[User browser]
 
-    User --> FE
-    FE -->|HTTP API calls| BE
-    BE -->|SQLAlchemy queries| DB
+        subgraph Production[Production Raspberry Pi]
+                Tunnel[Cloudflare Tunnel]
+                Nginx[Nginx]
+                Static[React static files]
+                Api[FastAPI Uvicorn :8000]
+                Database[(Native PostgreSQL)]
+        end
+
+        subgraph Development[Development workstation]
+                Vite[Vite React :5173]
+                Compose[Docker Compose]
+                DevDatabase[(PostgreSQL :5432)]
+                Redis[Redis :6379 optional]
+        end
+
+        User --> Tunnel
+        Tunnel --> Nginx
+        Nginx --> Static
+        Nginx --> Api
+        Api --> Database
+        Vite --> Api
+        Compose --> DevDatabase
+        Compose --> Redis
 ```
+
+The source for this diagram is `docs/diagrams/system-topology.mmd`.
 
 ## Containerized vs Microservices
 
