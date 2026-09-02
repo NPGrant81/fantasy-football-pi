@@ -149,8 +149,8 @@ location ~ ^/(auth|leagues|players|health)(/|$) {
 }
 
 location / {
-    root /home/pi/fantasy-football-pi/frontend/dist;
-    try_files $uri $uri/ /index.html;
+  root /var/www/fantasy-football-pi/frontend/dist;
+  try_files $uri /index.html;
 }
 ```
 
