@@ -59,17 +59,13 @@ export function useDraftTimer(initialTime = 5, onTimeUp) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    const deactivate = setTimeout(() => {
-      setIsActive(false);
-    }, 0);
-
     // Small grace period so any in-flight bid state settles before auto-draft fires
     const t = setTimeout(() => {
+      setIsActive(false);
       if (onTimeUpRef.current) onTimeUpRef.current();
     }, 300);
 
     return () => {
-      clearTimeout(deactivate);
       clearTimeout(t);
     };
   }, [timeLeft, isActive]);

@@ -10,6 +10,31 @@ Vite + React frontend for the PPL Insight Hub app.
 - Run lint: `npm run lint`
 - Verify pre-commit checks: `npm run verify`
 
+## Test Reliability and Lint Budget (#510)
+
+Vitest uses at most two workers on both Windows and CI to bound jsdom startup
+resource usage. The jsdom environment models a visible browser tab so focus-driven
+refresh tests exercise the application's visibility guard. Tests of hidden-tab
+behavior must explicitly override and restore `document.visibilityState`.
+
+The draft timer invokes its callback once, without arguments, after a 300 ms
+grace period. Reset and unmount cancel pending expiry. The Draft Board callback
+owns the automatic-draft argument.
+
+`npm run lint` enforces a maximum of three warnings; `lint:all` and `verify`
+inherit that budget. Do not increase it to accommodate new warnings. The remaining
+baseline is itemized below by owning module:
+
+| Owning module | Remaining warning |
+| --- | --- |
+| API client (`src/api/client.js`) | Unused `_refreshError` catch binding |
+| Trade analyzer (`src/components/charts/TradeAnalyzer.jsx`) | Unnecessary `teamA`/`teamB` callback dependencies |
+| Draft analyzer (`src/pages/DraftDayAnalyzer.jsx`) | Unused `advisorMessage` state |
+
+Test-file Vitest globals are scoped in ESLint rather than exposed to application
+code. Run the full suite twice consecutively before recording local reliability
+close-out; local results do not substitute for CI verification.
+
 ## Dependency Compatibility (React 19)
 
 - This project uses React 19.

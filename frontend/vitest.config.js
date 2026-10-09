@@ -22,6 +22,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    maxWorkers: 2,
+    environmentOptions: {
+      jsdom: { pretendToBeVisual: true },
+    },
     setupFiles: './src/setupTests.jsx',
     exclude: ['cypress/**', 'node_modules/**', 'dist/**', 'coverage/**'],
     coverage: {

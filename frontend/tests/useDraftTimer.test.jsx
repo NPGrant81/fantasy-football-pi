@@ -1,9 +1,11 @@
-/* global vi */
+import { vi } from 'vitest';
 import { render, act } from '@testing-library/react';
 import React from 'react';
 import { useDraftTimer } from '@hooks/useDraftTimer';
 
 describe('useDraftTimer hook', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
   function TimerTest({ initial, onTimeUp }) {
     const { timeLeft, start, reset, isActive } = useDraftTimer(
       initial,
@@ -19,8 +21,7 @@ describe('useDraftTimer hook', () => {
     );
   }
 
-  it('counts down and calls onTimeUp with true when it expires', () => {
-    vi.useFakeTimers();
+  it('counts down and calls onTimeUp once after the grace period', () => {
     const timeUp = vi.fn();
     const { getByText, getByTestId } = render(
       <TimerTest initial={3} onTimeUp={timeUp} />
@@ -41,9 +42,38 @@ describe('useDraftTimer hook', () => {
     expect(timeUp).not.toHaveBeenCalled();
 
     // grace period should fire the callback
-    act(() => vi.advanceTimersByTime(500));
-    expect(timeUp).toHaveBeenCalledWith(true);
+    act(() => vi.advanceTimersByTime(299));
+    expect(timeUp).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(timeUp).toHaveBeenCalledExactlyOnceWith();
+    expect(getByTestId('active').textContent).toBe('no');
+    act(() => vi.advanceTimersByTime(5000));
+    expect(timeUp).toHaveBeenCalledTimes(1);
+  });
 
-    vi.useRealTimers();
+  it('cancels pending expiry when reset during the grace period', () => {
+    const timeUp = vi.fn();
+    const { getByText, getByTestId } = render(
+      <TimerTest initial={1} onTimeUp={timeUp} />
+    );
+    act(() => getByText('start').click());
+    act(() => vi.advanceTimersByTime(1000));
+    act(() => getByText('reset').click());
+    act(() => vi.advanceTimersByTime(300));
+    expect(timeUp).not.toHaveBeenCalled();
+    expect(getByTestId('time').textContent).toBe('1');
+    expect(getByTestId('active').textContent).toBe('no');
+  });
+
+  it('cancels pending expiry on unmount', () => {
+    const timeUp = vi.fn();
+    const { getByText, unmount } = render(
+      <TimerTest initial={1} onTimeUp={timeUp} />
+    );
+    act(() => getByText('start').click());
+    act(() => vi.advanceTimersByTime(1000));
+    unmount();
+    act(() => vi.advanceTimersByTime(300));
+    expect(timeUp).not.toHaveBeenCalled();
   });
 });
