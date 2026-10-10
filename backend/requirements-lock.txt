@@ -144,8 +144,8 @@ python-json-logger==3.3.0
 python-multipart==0.0.22
 python-pptx==1.0.2
 pytz==2025.2
-pywin32==311
-pywinpty==3.0.0
+pywin32==311; sys_platform == "win32"
+pywinpty==3.0.0; sys_platform == "win32"
 PyYAML==6.0.2
 pyzmq==27.1.0
 rauth==0.7.3
