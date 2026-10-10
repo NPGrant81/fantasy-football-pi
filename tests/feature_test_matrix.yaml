@@ -376,7 +376,7 @@ lanes:
     description: React component and utility unit tests (vitest)
     runner: cd frontend && npm run test -- --run
     files:
-      - file: frontend/tests/AdminSettings.test.jsx
+      - file: frontend/tests/CommishAdmin.test.jsx
         domain: admin
         status: active
       - file: frontend/tests/AnalyticsDashboard.test.jsx

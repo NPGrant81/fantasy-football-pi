@@ -74,7 +74,11 @@ describe('TradeAnalyzer component', () => {
     await user.selectOptions(screen.getByLabelText(/Team B selector/i), '1');
 
     await waitFor(() => {
-      expect(screen.getByText(/Team A and Team B must be different teams/i)).toBeInTheDocument();
+      const alerts = screen.getAllByRole('alert');
+      for (const alert of alerts) {
+        expect(alert).toHaveTextContent('Team A and Team B must be different teams.');
+      }
+      expect(screen.getByRole('button', { name: /Prepare Trade Proposal/i })).toBeDisabled();
     });
   });
 

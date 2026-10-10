@@ -20,6 +20,7 @@ vi.mock('../src/api/client', () => {
 });
 
 vi.mock('react-router-dom', () => ({
+  useLocation: () => ({ state: null }),
   Link: ({ to, children, ..._props }) => (
     <a href={to} {..._props}>
       {children}
