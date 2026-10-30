@@ -170,6 +170,9 @@ jobs:
         run: |
           python -m alembic heads
 
+      - name: Validate stability workflow and recovery contracts
+        run: python -m pytest tests/test_stability_workflow_contract.py tests/test_backup_restore.py -q
+
       - name: Apply database migrations
         run: python -m backend.apply_migrations
 
@@ -482,7 +485,7 @@ jobs:
         id: frontend_unit_tests
         working-directory: frontend
         run: |
-          npm run test:coverage -- --run tests/PageSmokes.test.jsx
+          npm run test:coverage -- --run
 
       - name: Run snapshot tests
         id: frontend_snapshot_tests

@@ -35,6 +35,26 @@ Test-file Vitest globals are scoped in ESLint rather than exposed to application
 code. Run the full suite twice consecutively before recording local reliability
 close-out; local results do not substitute for CI verification.
 
+### Query and ingress contracts (#531)
+
+The shared Testing Library renderers use a real, isolated React Query client for
+each render, disable retries, and clear caches after cleanup. Keep API calls
+mocked, not the query library: rejected requests and invalidation/refetch must
+exercise the actual query state machine. Custom renderer wrappers are preserved.
+CI runs the complete coverage suite, not only page smoke tests.
+
+Development API ownership lives in `config/apiProxy.js` and must match
+`deploy/nginx/fantasy-football-pi.conf.example`. Prefixes have path boundaries so
+pages such as `/league-history` are not mistaken for APIs. GET/HEAD document
+requests accepting `text/html` load the React app even on overlapping paths;
+JSON and event-stream requests continue to the backend. The ingress regression
+test starts owned loopback servers to verify actual response types.
+
+Commissioner waiver history uses `/waivers/claims?league_id=<id>` with a
+league-specific query key. Failures are visible and retryable; a different
+league never inherits cached history from the previous league. The backend
+retains commissioner-only authorization and rejects a different league scope.
+
 ## Dependency Compatibility (React 19)
 
 - This project uses React 19.
