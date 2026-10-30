@@ -67,7 +67,15 @@ Deployment behavior:
 - Fetches refs on target host.
 - Resolves and deploys the requested ref.
 - Rebuilds backend/frontend and restarts services.
-- Records deployed ref under `.deploy/current_<env>.ref`.
+- The supplied systemd service applies migrations through `ExecStartPre` before
+  starting the backend. A successful restart alone is not proof of readiness.
+- Polls `http://127.0.0.1:8000/health` (30 attempts, two-second request timeout
+  and retry delay). Success requires `status`, `database`, and `schema` all
+  equal to `ok`.
+- Only after readiness succeeds, records the previous current ref under
+  `.deploy/last_success_<env>.ref` and the target under `.deploy/current_<env>.ref`.
+  An unhealthy deployment fails without advancing either ref. It does not
+  automatically roll back the running application.
 
 ## Rollback action (single action)
 
@@ -83,6 +91,56 @@ Rollback behavior:
 - Uses explicit `rollback_ref` when provided.
 - Falls back to last successful deployment ref when available.
 - Rebuilds backend/frontend and restarts services.
+- Uses the same readiness gate and post-health metadata updates as deploy.
+
+Readiness is a local backend/database/schema check, not an external Nginx,
+Cloudflare, provider, or browser check. Verify public JSON/SSE endpoints and
+React page reloads separately. Immutable, CI-verified release eligibility is
+tracked in [#520](https://github.com/NPGrant81/fantasy-football-pi/issues/520);
+this health gate does not implement that eligibility policy.
+
+## Backup recovery drill
+
+`scripts/validate_backup_recovery.sh` creates a backup, checks freshness, runs
+the existing restore preflight, then calls `scripts/verify_backup_restore.py`
+to actually restore the archive. A dry-run alone is not recovery evidence.
+
+- Set `DB_URL` (or `DATABASE_URL`) and `BACKUP_DIR`. Use a quiescent source or
+  pause application writes while taking the backup and collecting its manifest.
+- SQLite restores into a temporary directory and opens the existing source
+  read-only. PostgreSQL creates a uniquely named `ffpi_recovery_<uuid>` database,
+  restores there, and drops only the database this invocation created.
+- PostgreSQL requires compatible `createdb`, `pg_dump`, `pg_restore`, and
+  `dropdb` tools plus permission to create/drop the disposable database. Do not
+  grant broader production privileges solely to run this script; use an
+  appropriately controlled recovery host/role.
+- Compares table/column names, row counts, and the first five primary-key-ordered
+  rows per table. Tables without a primary key have schema/count checks only.
+  This is a sampled integrity check, not a byte-for-byte data audit.
+- Failure is explicit and nonzero. The script never accepts an existing
+  database as a restore destination. Test archives and the source are retained.
+- PostgreSQL round-trip coverage runs against an owned source database in the
+  GitHub Actions service; local SQLite coverage runs without PostgreSQL.
+
+To check an existing archive directly:
+
+```bash
+python scripts/verify_backup_restore.py --archive /path/to/backup.dump.gz
+```
+
+Successful source tests do not establish that the Pi's backup schedule,
+permissions, retention, or operator recovery procedure have been verified.
+
+## UI automation evidence
+
+The UI workflow owns one Vite process, waits for an HTTP-ready page with bounded
+retries, and runs accessibility and screenshot checks against that same server.
+It records actual step outcomes and retains startup diagnostics even on failure.
+Screenshot capture uses mocked responses and is not end-to-end provider or
+database integration proof. The existing git-status baseline check has no
+tracked screenshots to compare, so it is not pixel-diff evidence; a real
+baseline strategy is tracked separately in
+[#538](https://github.com/NPGrant81/fantasy-football-pi/issues/538).
 
 ## Logging and notifications
 

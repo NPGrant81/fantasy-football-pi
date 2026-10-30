@@ -50,4 +50,10 @@ log "Newest backup available: ${latest_backup}"
 BACKUP_DIR="${BACKUP_DIR}" STALE_HOURS="${STALE_HOURS}" bash "${REPO_ROOT}/scripts/check_backup_status.sh"
 BACKUP_DIR="${BACKUP_DIR}" DB_URL="${DB_URL}" bash "${REPO_ROOT}/scripts/restore_db.sh" --dry-run "${latest_backup}"
 
-log "Recovery validation passed: backup creation, freshness check, and dry-run restore all succeeded"
+backend_python="python3"
+if [[ -x "${REPO_ROOT}/backend/venv/bin/python" ]]; then
+  backend_python="${REPO_ROOT}/backend/venv/bin/python"
+fi
+DB_URL="${DB_URL}" "${backend_python}" "${REPO_ROOT}/scripts/verify_backup_restore.py" --archive "${latest_backup}"
+
+log "Recovery validation passed: backup creation, freshness, and isolated restoration verified"
