@@ -29,7 +29,8 @@ jobs:
       && (needs.detect.outputs.ui == 'true'
           || needs.detect.outputs.frontend == 'true'
           || needs.detect.outputs.full_run == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container: cypress/included@sha256:9f27bf8330595fe44dc3ba9c0c96cff1618d24241bd9f95a470f8f6e2ecfba7e
     env:
       UI_HOST: 127.0.0.1
       UI_PORT_A11Y: 5173
@@ -38,22 +39,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Cache Cypress binary
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/Cypress
-          key: ${{ runner.os }}-cypress-${{ hashFiles('frontend/package-lock.json') }}
-
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci --legacy-peer-deps
+
+      - name: Test visual baseline comparator
+        working-directory: frontend
+        run: npm run test:visual
 
       - name: Lint UI components and pages
         working-directory: frontend
@@ -163,7 +155,7 @@ jobs:
           spec: cypress/e2e/accessibility_smoke.spec.js
 
       - name: Run screenshot capture for visual regression
-        continue-on-error: true
+        id: visual_capture
         uses: cypress-io/github-action@v6
         with:
           working-directory: frontend
@@ -172,13 +164,14 @@ jobs:
           wait-on: http://${{ env.UI_HOST }}:${{ env.UI_PORT_VISUAL }}
           wait-on-timeout: 120
           config: baseUrl=http://${{ env.UI_HOST }}:${{ env.UI_PORT_VISUAL }}
-          browser: chrome
+          browser: electron
           spec: cypress/e2e/uat_capture_pages.spec.js
 
       - name: Validate screenshot baseline stability
+        id: visual_baseline_check
         working-directory: frontend
         run: |
-          node scripts/assert-visual-regression-clean.mjs
+          npm run visual:compare
 
       - name: Build frontend preview artifact
         working-directory: frontend
@@ -199,6 +192,14 @@ jobs:
           if-no-files-found: ignore
           path: frontend/cypress/screenshots
 
+      - name: Upload visual diff artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-ux-visual-diffs
+          if-no-files-found: ignore
+          path: frontend/cypress/visual-diffs
+
       - name: Upload Cypress videos
         if: always()
         uses: actions/upload-artifact@v7
@@ -214,9 +215,9 @@ jobs:
             echo "## UI/UX Automation Summary"
             echo ""
             echo "- Accessibility smoke checks: executed"
-            echo "- Visual regression check: screenshot baseline validation executed"
+            echo "- Visual screenshot capture: ${{ steps.visual_capture.outcome || 'not_run' }}"
+            echo "- Visual baseline comparison: ${{ steps.visual_baseline_check.outcome || 'not_run' }}"
             echo "- UI component linting: executed"
             echo "- PR preview artifact: frontend-preview-dist"
             echo "- Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           } >> "$GITHUB_STEP_SUMMARY"
-
