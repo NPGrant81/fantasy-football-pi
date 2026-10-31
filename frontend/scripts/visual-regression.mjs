@@ -84,7 +84,7 @@ export async function compareVisualBaselines({
       baseline.width !== actual.width || baseline.height !== actual.height;
     compared += 1;
 
-    if (differentPixels > 0) {
+    if (dimensionsChanged || differentPixels > 0) {
       await writeFile(
         path.join(diffDirectory, filename.replace(/\.png$/, '.diff.png')),
         PNG.sync.write(diff),

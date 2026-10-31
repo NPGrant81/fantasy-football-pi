@@ -94,16 +94,21 @@ test('changed screenshot dimensions fail explicitly', async (t) => {
   await writeImage(
     fixture.baselineDirectory,
     'page.png',
-    solidImage([255, 255, 255]),
+    new PNG({ width: 10, height: 10 }),
   );
   await writeImage(
     fixture.actualDirectory,
     'page.png',
-    solidImage([255, 255, 255], 11, 10),
+    new PNG({ width: 11, height: 10 }),
   );
 
   const result = await compareVisualBaselines(fixture);
 
   assert.equal(result.failures.length, 1);
   assert.match(result.failures[0].reason, /dimensions changed/);
+  const diffImage = PNG.sync.read(
+    await readFile(path.join(fixture.diffDirectory, 'page.diff.png')),
+  );
+  assert.equal(diffImage.width, 11);
+  assert.equal(diffImage.height, 10);
 });
