@@ -17,18 +17,29 @@ cd /home/pi/fantasy-football-pi
 # 1. Pull latest
 git pull origin main
 
-# 2. Apply migrations with the same guarded runner used by systemd
-/home/pi/fantasy-football-pi/backend/venv/bin/python -m backend.apply_migrations
+# 2. Apply migrations and verify revisions with the protected production env
+sudo systemd-run --wait --pipe --collect \
+  --property=Type=exec \
+  --property=User=pi \
+  --property=Group=www-data \
+  --property=WorkingDirectory=/home/pi/fantasy-football-pi \
+  --property=EnvironmentFile=/etc/fantasy-football-pi/backend.env \
+  /bin/bash -euc '
+    /home/pi/fantasy-football-pi/backend/venv/bin/python -m backend.apply_migrations
+    cd backend
+    /home/pi/fantasy-football-pi/backend/venv/bin/alembic current
+    /home/pi/fantasy-football-pi/backend/venv/bin/alembic heads
+  '
 
-# 3. Verify current revision(s) and graph heads
-cd backend
-alembic current
-alembic heads
-
-# 4. Restart and verify the backend
+# 3. Restart and verify the backend
 sudo systemctl restart fantasy-football-backend
 sudo systemctl status fantasy-football-backend --no-pager
 ```
+
+The transient systemd service uses the same protected environment file,
+working directory, and service account as the backend unit. This keeps both
+the migration runner and Alembic revision checks pointed at the production
+database instead of a developer `.env` file.
 
 ## Startup Classification Contract
 

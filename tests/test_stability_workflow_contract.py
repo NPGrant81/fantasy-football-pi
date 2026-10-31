@@ -58,6 +58,26 @@ def test_microsd_backup_unit_loads_production_database_environment():
     script = (ROOT / "ops" / "backup" / "microsd_db_backup.sh").read_text()
     assert "EnvironmentFile=/etc/fantasy-football-pi/backend.env" in unit
     assert 'DB_URL="${DB_URL:-${DATABASE_URL:-}}"' in script
+    assert (
+        'if [[ -z "${DB_URL:-}" && -z "${DATABASE_URL:-}" && '
+        '-f "${REPO_ROOT}/backend/.env" ]]'
+    ) in script
+    assert (
+        'if [[ -z "${DB_URL:-}" && -z "${DATABASE_URL:-}" && '
+        '-f "${REPO_ROOT}/.env" ]]'
+    ) in script
+
+
+def test_production_migration_runbook_uses_protected_systemd_environment():
+    runbook = (
+        ROOT / ".github" / "skills" / "database" / "references" / "migration-runbook.md"
+    ).read_text(encoding="utf-8")
+    assert "systemd-run --wait --pipe --collect" in runbook
+    assert "--property=EnvironmentFile=/etc/fantasy-football-pi/backend.env" in runbook
+    assert "--property=User=pi" in runbook
+    assert "python -m backend.apply_migrations" in runbook
+    assert "alembic current" in runbook
+    assert "alembic heads" in runbook
 
 
 def test_nginx_vary_header_is_set_at_server_scope():
