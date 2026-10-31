@@ -542,8 +542,8 @@ Validation: tests and CI checks for waiver functionality are included in ongoing
 
 - PR: [#546](https://github.com/NPGrant81/fantasy-football-pi/pull/546)
 - Branch: `fix/issue-396-tunnel-nginx-origin`
-- Review requested: Attempted 2026-10-31; GitHub currently shows no review request.
-- Threads opened: 0
-- Threads resolved: 0
-- Follow-up commits: None
+- Review requested: 2026-10-31
+- Threads opened: 3
+- Threads resolved: 3
+- Follow-up commits: `8644acb`
 - Residual risk: `nginx -t` and Raspberry Pi/public-tunnel validation remain pending.
