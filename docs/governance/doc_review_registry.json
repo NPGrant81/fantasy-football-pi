@@ -63,7 +63,7 @@
     "path": "docs/RASPBERRY_PI_DEPLOYMENT.md",
     "owner": "platform",
     "cadence_days": 60,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/pi_action_checklist_mobile.md",
@@ -75,7 +75,7 @@
     "path": "docs/CLOUDFLARE_TUNNEL_SETUP.md",
     "owner": "platform",
     "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/SECURITY_HARDENING.md",
@@ -273,19 +273,19 @@
     "path": "docs/cloudflare-pi-handoff-checklist.md",
     "owner": "platform",
     "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/cloudflare-tunnel-cli.md",
     "owner": "platform",
     "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/cloudflare-tunnel-monitoring.md",
     "owner": "platform",
     "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/cloudflare-tunnel-systemd.md",

@@ -10,6 +10,17 @@ This is the recommended production-style setup for Raspberry Pi:
 Quick reference: `docs/PI_UPDATE_CHEATSHEET.md`
 Docker parity setup reference: `docs/pi-setup/docker.md`
 
+### Choose the Nginx origin mode
+
+The TLS Nginx template in this guide redirects port 80 to HTTPS on port 443.
+For Cloudflare Tunnel TLS termination, use
+`deploy/nginx/fantasy-football-pi-tunnel-origin.conf.example`, which serves
+only on loopback port 8080, and configure the tunnel to target
+`http://127.0.0.1:8080`. Do not expose that listener to the LAN. Do not install
+the TLS redirect site and tunnel-origin site as competing app sites without
+reviewing their listeners. See
+[CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) before cutover.
+
 ## Phase 1: Raspberry Pi OS Setup
 
 Use this section when preparing a fresh Raspberry Pi 5 before any app deploy work.

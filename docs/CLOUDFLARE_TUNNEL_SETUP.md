@@ -5,7 +5,15 @@ This guide covers production tunnel cutover after the local Raspberry Pi origin 
 Deployment target:
 - Domain: `pplinsighthub.com`
 - Tunnel name: `ppl-insight-hub-prod1`
-- Origin on Pi: `http://127.0.0.1:80`
+- Origin on Pi: `http://127.0.0.1:8080`
+
+The named tunnel uses the dedicated loopback-only Nginx listener at
+`127.0.0.1:8080`, defined in
+`deploy/nginx/fantasy-football-pi-tunnel-origin.conf.example`. This avoids the
+port-80 redirect in `deploy/nginx/fantasy-football-pi.conf.example`. Cloudflare
+terminates public TLS; cloudflared connects to the local HTTP origin. Do not
+expose port 8080 on a LAN interface or point the tunnel at the redirecting
+port-80 listener.
 
 For lower-level references, see:
 - `docs/cloudflare-tunnel-cli.md`
@@ -23,7 +31,7 @@ These are the minimum items that must be in place when the app is ready for real
 - `/etc/cloudflared/config.yml` exists and includes both `tunnel:` and `credentials-file:`
 - The named-tunnel credentials JSON exists at `/etc/cloudflared/<tunnel-uuid>.json`
 - The `cloudflared` system user/group exists on the Pi
-- Nginx is serving the intended local origin on `127.0.0.1:80`
+- Nginx is serving the intended local origin on `127.0.0.1:8080`
 - Backend env production values are finalized, especially `ALLOWED_HOSTS` and `FRONTEND_ALLOWED_ORIGINS`
 - The Cloudflare tunnel routes for `pplinsighthub.com` and `www.pplinsighthub.com` point to the named tunnel
 - `cloudflared.service` and `cloudflared-watchdog.timer` are enabled and healthy
@@ -48,8 +56,9 @@ What you should not treat as complete yet:
 - final backup validation tied to the real database target
 
 Recommended temporary setup for infrastructure-only testing:
-- Make sure Nginx serves any simple HTTP response on `127.0.0.1:80`
-- Use a temporary tunnel healthcheck path of `/` instead of `/health` if the backend is not deployed yet
+- Make sure Nginx serves any simple HTTP response on `127.0.0.1:8080` using
+  the loopback-only tunnel-origin site
+- Verify the origin locally; ingress config does not perform origin health probes.
 - Verify public `200`/`304` on the root page only
 
 Once the app is actually deployed, switch back to the full production checks in this guide.
@@ -58,12 +67,25 @@ Once the app is actually deployed, switch back to the full production checks in 
 
 Do not start tunnel cutover until the pre-Cloudflare host-side checklist is complete.
 
+Install and activate the dedicated tunnel-origin site from the repository root
+on the Pi. It can coexist with the TLS site because it listens only on
+`127.0.0.1:8080`; do not replace the TLS site unless that is an intentional
+deployment change.
+
+```bash
+sudo cp deploy/nginx/fantasy-football-pi-tunnel-origin.conf.example /etc/nginx/sites-available/fantasy-football-pi-tunnel-origin.conf
+sudo ln -sfn /etc/nginx/sites-available/fantasy-football-pi-tunnel-origin.conf /etc/nginx/sites-enabled/fantasy-football-pi-tunnel-origin.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
 Required local-origin checks on the Pi:
 
 ```bash
 curl -fsS http://127.0.0.1:8000/health
-curl -I http://127.0.0.1/
-curl -I http://127.0.0.1/auth/me
+curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/
+curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/auth/me
+curl --max-time 5 -v -H 'Host: unrecognized.invalid' http://127.0.0.1:8080/
 sudo systemctl status fantasy-football-backend --no-pager
 sudo systemctl status nginx --no-pager
 ```
@@ -72,16 +94,18 @@ Expected:
 - FastAPI health responds locally.
 - Nginx serves the frontend locally.
 - `/auth/me` reaches the backend and may return `401` when unauthenticated.
+- Nginx responds directly; it does not redirect to the public hostname.
+- The unrecognized host request is closed by Nginx's default `444` server.
 
 If you are running setup-only test mode, replace these preconditions with:
 
 ```bash
-curl -I http://127.0.0.1/
+curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/
 sudo systemctl status nginx --no-pager
 ```
 
 Expected in setup-only mode:
-- Nginx responds locally on port `80`
+- Nginx responds locally on port `8080`
 - You have a stable local origin for Cloudflare to reach
 
 ## 2. Install cloudflared on the Raspberry Pi
@@ -135,9 +159,9 @@ Required review points:
 - The `tunnel:` value matches the real tunnel name or UUID.
 - The `credentials-file:` path points to the real credentials JSON stored in `/etc/cloudflared/`.
 - The credentials JSON for that tunnel exists in `/etc/cloudflared/`.
-- The ingress service target remains `http://127.0.0.1:80` when cloudflared runs on the Pi.
+- The ingress service target remains `http://127.0.0.1:8080` when cloudflared runs on the Pi.
 - `pplinsighthub.com` and `www.pplinsighthub.com` both point to the same local origin unless you intentionally split them.
-- If the app is not deployed yet, temporarily change the healthcheck path from `/health` to `/`.
+- Origin health is checked with local `curl` commands and the systemd watchdog or an external monitor; it is not configured in the ingress YAML.
 
 ## 4. Install the cloudflared systemd service on the Pi
 
@@ -190,8 +214,8 @@ cloudflared tunnel route dns ppl-insight-hub-prod1 www.pplinsighthub.com
 
 Dashboard equivalent:
 - Zero Trust -> Networks -> Tunnels -> `ppl-insight-hub-prod1`
-- Add public hostname `pplinsighthub.com` -> service `http://127.0.0.1:80`
-- Add public hostname `www.pplinsighthub.com` -> service `http://127.0.0.1:80`
+- Add public hostname `pplinsighthub.com` -> service `http://127.0.0.1:8080`
+- Add public hostname `www.pplinsighthub.com` -> service `http://127.0.0.1:8080`
 
 Verification target:
 - DNS routes are proxied through the named tunnel.
@@ -271,8 +295,8 @@ sudo systemctl stop cloudflared
 
 ```bash
 curl -fsS http://127.0.0.1:8000/health
-curl -I http://127.0.0.1/
-curl -I http://127.0.0.1/auth/me
+curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/
+curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/auth/me
 ```
 
 4. Review tunnel logs before retrying:
