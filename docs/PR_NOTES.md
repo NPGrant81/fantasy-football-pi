@@ -7,6 +7,30 @@ This branch was created to trigger CI for backend and frontend tests.
 
 ---
 
+## Issue #531 Stabilization - Copilot Feedback
+
+- Dependency: reuses PR #530's timer and frontend reliability fixes; merge that PR first.
+- Review requested: pending PR publication.
+- Threads opened: pending.
+- Threads resolved: pending.
+- Follow-up commits: none yet.
+- Local validation: full frontend coverage and repeat run each passed 392 tests;
+  final ingress/query/history regressions passed 30 tests after query-string
+  coverage was added. Full backend and operational tests passed 870 tests with
+  9 expected skips. Lint, typecheck, theme checks, build, workflow parsing,
+  embedded Bash syntax, requirements and repository hygiene passed.
+- Representative browser validation: accessibility and UAT capture both passed
+  with cached Cypress/Electron against an owned local Vite server.
+- UAT: added six unexecuted CERT cases and refreshed only waiver walkthrough
+  slide 19; mocked local captures do not establish CERT acceptance.
+- Residual risk: hosted CI, installed-Pi ingress/readiness, and production
+  recovery validation remain pending. PostgreSQL restore round-trip runs only
+  in the owned CI service. Missing deployment secrets and configuration-aware
+  workflow delivery remain external/separate (#522); immutable verified refs
+  remain #520. A real visual baseline comparator remains #538.
+
+---
+
 ## PR #513 Copilot Feedback
 
 - Review requested: 2026-08-30

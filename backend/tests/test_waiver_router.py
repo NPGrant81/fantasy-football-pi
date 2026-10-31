@@ -99,6 +99,25 @@ def test_list_waiver_claims_requires_commissioner(db_session):
     assert exc.value.status_code == 403
 
 
+def test_list_waiver_claims_rejects_different_active_league(db_session):
+    from fastapi import HTTPException
+
+    league = models.League(name="Scope")
+    db_session.add(league)
+    db_session.commit()
+    commissioner = make_user(db_session, league, is_comm=True)
+    with pytest.raises(HTTPException) as exc:
+        list_waiver_claims(
+            db=db_session,
+            current_user=commissioner,
+            league_id=league.id + 1,
+        )
+    assert exc.value.status_code == 403
+    assert list_waiver_claims(
+        db=db_session, current_user=commissioner, league_id=league.id
+    ) == []
+
+
 def test_submit_claim_includes_team_id(monkeypatch, db_session):
     league = models.League(name="LZ")
     db_session.add(league)

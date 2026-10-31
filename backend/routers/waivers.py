@@ -1,5 +1,6 @@
 # backend/routers/waivers.py
-from fastapi import APIRouter, Depends
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models  # models in package root
@@ -75,6 +76,7 @@ def submit_waiver_claim(
 def list_waiver_claims(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_admin),
+    league_id: Annotated[int | None, Query(ge=1)] = None,
 ):
     """
     Returns all waiver claims for the commissioner's league.  Used by
@@ -82,11 +84,17 @@ def list_waiver_claims(
     """
     # safety: ensure only commissioners can call even if dependency bypassed
     if not current_user.is_commissioner:
-        from fastapi import HTTPException, status
+        from fastapi import status
 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: commissioner privileges required."
+        )
+
+    if league_id is not None and league_id != current_user.league_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this league's waiver history.",
         )
 
     claims = (

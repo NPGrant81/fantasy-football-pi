@@ -33,7 +33,6 @@ jobs:
     env:
       UI_HOST: 127.0.0.1
       UI_PORT_A11Y: 5173
-      UI_PORT_VISUAL: 5174
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -41,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -150,37 +149,46 @@ jobs:
           echo "Theme guardrails failed. See PR comment and artifact for details."
           exit 1
 
+      - name: Start and verify UI server
+        id: ui_server
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          node node_modules/vite/bin/vite.js --host "$UI_HOST" --port "$UI_PORT_A11Y" --strictPort > ../ui-server.log 2>&1 &
+          SERVER_PID=$!
+          echo "$SERVER_PID" > ../ui-server.pid
+          for attempt in {1..60}; do
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              cat ../ui-server.log
+              exit 1
+            fi
+            if curl --connect-timeout 2 --max-time 5 -fsS -H 'Accept: text/html' "http://$UI_HOST:$UI_PORT_A11Y/" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat ../ui-server.log
+          echo "UI server did not become ready after 60 bounded attempts (each request capped at 5 seconds)."
+          exit 1
+
       - name: Run accessibility smoke checks
-        uses: cypress-io/github-action@v6
-        with:
-          working-directory: frontend
-          install: false
-          start: npm run dev -- --host ${{ env.UI_HOST }} --port ${{ env.UI_PORT_A11Y }} --strictPort
-          wait-on: http://${{ env.UI_HOST }}:${{ env.UI_PORT_A11Y }}
-          wait-on-timeout: 120
-          config: baseUrl=http://${{ env.UI_HOST }}:${{ env.UI_PORT_A11Y }}
-          browser: chrome
-          spec: cypress/e2e/accessibility_smoke.spec.js
+        id: accessibility
+        working-directory: frontend
+        run: npx cypress run --browser chrome --spec cypress/e2e/accessibility_smoke.spec.js --config "baseUrl=http://$UI_HOST:$UI_PORT_A11Y"
 
       - name: Run screenshot capture for visual regression
-        continue-on-error: true
-        uses: cypress-io/github-action@v6
-        with:
-          working-directory: frontend
-          install: false
-          start: npm run dev -- --host ${{ env.UI_HOST }} --port ${{ env.UI_PORT_VISUAL }} --strictPort
-          wait-on: http://${{ env.UI_HOST }}:${{ env.UI_PORT_VISUAL }}
-          wait-on-timeout: 120
-          config: baseUrl=http://${{ env.UI_HOST }}:${{ env.UI_PORT_VISUAL }}
-          browser: chrome
-          spec: cypress/e2e/uat_capture_pages.spec.js
+        id: screenshots
+        working-directory: frontend
+        run: npx cypress run --browser chrome --spec cypress/e2e/uat_capture_pages.spec.js --config "baseUrl=http://$UI_HOST:$UI_PORT_A11Y"
 
       - name: Validate screenshot baseline stability
+        id: visual_baseline
         working-directory: frontend
         run: |
           node scripts/assert-visual-regression-clean.mjs
 
       - name: Build frontend preview artifact
+        id: preview_build
         working-directory: frontend
         run: npm run build
 
@@ -207,16 +215,31 @@ jobs:
           if-no-files-found: ignore
           path: frontend/cypress/videos
 
+      - name: Stop UI server
+        if: always()
+        run: |
+          if [ -f ui-server.pid ]; then
+            kill "$(cat ui-server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload UI startup logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-server-log
+          if-no-files-found: ignore
+          path: ui-server.log
+
       - name: Publish UI UX pipeline summary
         if: always()
         run: |
           {
             echo "## UI/UX Automation Summary"
             echo ""
-            echo "- Accessibility smoke checks: executed"
-            echo "- Visual regression check: screenshot baseline validation executed"
-            echo "- UI component linting: executed"
-            echo "- PR preview artifact: frontend-preview-dist"
+            echo "- UI readiness: ${{ steps.ui_server.outcome }}"
+            echo "- Accessibility smoke checks: ${{ steps.accessibility.outcome }}"
+            echo "- Screenshot capture: ${{ steps.screenshots.outcome }}"
+            echo "- Visual baseline validation: ${{ steps.visual_baseline.outcome }}"
+            echo "- Preview build: ${{ steps.preview_build.outcome }}"
             echo "- Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           } >> "$GITHUB_STEP_SUMMARY"
-
