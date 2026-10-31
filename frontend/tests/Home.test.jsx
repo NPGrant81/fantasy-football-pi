@@ -157,7 +157,7 @@ describe('Home (League Dashboard)', () => {
       if (url === '/leagues/owners?league_id=1') {
         return Promise.resolve({ data: [] });
       }
-      if (url === '/leagues/1/news') {
+      if (url === '/news/global?league_id=1&limit=20') {
         return Promise.resolve({ data: mockNews });
       }
       return Promise.reject(new Error('Unknown URL'));

@@ -69,6 +69,15 @@ export default [
     },
   },
 
+  {
+    files: ['tests/**/*.{js,jsx}', '**/*.test.{js,jsx}', 'src/setupTests.jsx'],
+    languageOptions: {
+      globals: {
+        vi: 'readonly',
+      },
+    },
+  },
+
   // --- CYPRESS TEST FILES CONFIGURATION ---
   {
     files: ['cypress/**/*.js', 'cypress/**/*.jsx'],

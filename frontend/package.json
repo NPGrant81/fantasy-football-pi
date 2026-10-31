@@ -14,7 +14,7 @@
     "verify": "npm run lint:all && npm run test -- --run && npm run build",
     "e2e": "node scripts/run-e2e.mjs",
     "e2e:run": "cypress run",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 3",
     "lint:theme": "node scripts/lint-theme-guardrails.mjs",
     "lint:all": "npm run lint && npm run lint:theme",
     "lint:fix": "eslint . --fix",
