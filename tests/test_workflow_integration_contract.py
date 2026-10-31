@@ -127,6 +127,29 @@ def test_cli_does_not_print_configured_secret_values(monkeypatch, capsys):
     assert secret_value not in captured.err
 
 
+def test_cli_writes_fail_outputs_when_contract_is_invalid(
+    monkeypatch, tmp_path, capsys
+):
+    contract_path = tmp_path / "contract.json"
+    contract_path.write_text(
+        json.dumps({"version": 2, "integrations": _contract()}),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "github-output.txt"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output_path))
+
+    assert (
+        validator.main(["service", "--contract", str(contract_path)])
+        == 2
+    )
+
+    captured = capsys.readouterr()
+    assert "FAIL:" in captured.err
+    assert output_path.read_text(encoding="utf-8") == (
+        "state=FAIL\nmissing_csv=\ncan_run=false\n"
+    )
+
+
 def test_repository_contract_is_valid():
     integrations = validator.load_contract()
 

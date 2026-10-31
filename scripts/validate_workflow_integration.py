@@ -145,6 +145,12 @@ def main(argv: list[str] | None = None) -> int:
         result = evaluate_integration(args.integration, os.environ, integrations)
     except ContractError as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
+        github_output = os.getenv("GITHUB_OUTPUT")
+        if github_output:
+            _write_github_outputs(
+                Path(github_output),
+                IntegrationResult(state="FAIL"),
+            )
         return 2
 
     print(f"{result.state}: {result.message}")
