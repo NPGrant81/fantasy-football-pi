@@ -69,7 +69,7 @@ npm run dev
 - Activate the virtualenv before running any backend command
 - Run `python -m backend.apply_migrations` after pulling changes that touch `models.py`
 - Use `docker-compose` for the local database; do not install PostgreSQL manually on dev machines
-- Check `requirements.txt` vs `requirements-lock.txt` — lock file pins exact versions for reproducibility
+- Check `backend/requirements.txt` vs `backend/requirements-lock.txt` — the lock file pins backend versions for reproducibility
 - Set `PYTHONPATH=backend` when running pytest from the repo root
 
 ## Never Do

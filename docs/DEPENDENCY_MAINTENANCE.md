@@ -53,7 +53,7 @@ exact version matching between `requirements.txt` and `requirements-lock.txt`.
 ## Responding to Findings
 
 1. Update `backend/requirements.txt` with the desired version(s).
-2. Install and test locally (e.g. `pip install -r requirements.txt`).
+2. Install and test locally (e.g. `python -m pip install -r backend/requirements.txt`).
 3. Refresh the lock file:
    ```bash
    python -m pip freeze > backend/requirements-lock.txt

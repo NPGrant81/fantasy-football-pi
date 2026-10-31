@@ -4,12 +4,12 @@
 
 Establish a predictable PostgreSQL folder layout and complete a safe Alembic cutover to the `/db` structure.
 
-## Scope Completed in Phase 1
+## Scope Completed
 
 - `/db` hierarchy is established and documented.
 - Domain purpose is defined for each folder.
 - Migration ownership conventions are documented.
-- Runtime path switch intentionally deferred to Phase 2.
+- Alembic runtime configuration now uses the canonical `/db` migration tree.
 
 ## Current State
 
@@ -17,37 +17,21 @@ Establish a predictable PostgreSQL folder layout and complete a safe Alembic cut
 - Legacy files in `backend/alembic/versions` have been removed.
 - Head lineage is unified via merge revision `5517dcbf0494`.
 
-## Phase 2 Safe Cutover Checklist
+## Cutover Status
 
-Use this exact order:
+The Phase 2 runtime cutover is complete:
 
-1. **Freeze migration generation**
-   - Pause creation of new revisions during cutover PR.
+- `backend/alembic.ini` points Alembic to `db/` and `db/migrations/`.
+- `db/env.py` and `db/script.py.mako` provide the Alembic environment and revision template.
+- Canonical revisions are maintained in `db/migrations/`; the former
+  `backend/alembic/versions/` tree is no longer the migration source.
+- New migrations must be applied through the guarded project runner,
+  `python -m backend.apply_migrations`, from the repository root. Do not use
+  direct `alembic upgrade` commands for application or production databases.
 
-2. **Validate revision parity**
-   - Ensure both trees contain the same revision files and `down_revision` chain.
-   - Confirm no duplicate `revision` IDs.
-
-3. **Switch Alembic script path**
-   - Update `backend/alembic.ini`:
-     - `script_location = db`
-     - `directory = db`
-   - Keep `sqlalchemy.url` unchanged.
-
-4. **Add/adjust environment loader**
-   - Ensure `db/env.py` imports app metadata correctly (equivalent to current `backend/alembic/env.py`).
-
-5. **Smoke test Alembic commands**
-   - `alembic -c backend/alembic.ini current`
-   - `alembic -c backend/alembic.ini heads`
-   - `alembic -c backend/alembic.ini history`
-   - `alembic -c backend/alembic.ini upgrade head` (against dev DB)
-
-6. **Remove legacy migration tree**
-   - Only after successful smoke tests and CI, remove stale files from `backend/alembic/versions`.
-
-7. **CI guardrail**
-   - Add a CI check that fails if revision files exist outside `db/migrations` after cutover.
+The configured database's current revision must be verified separately against
+the canonical graph before any deployment. This document does not establish
+that a production database is current.
 
 ## Naming and Placement Standard
 
@@ -60,14 +44,14 @@ Use this exact order:
 
 - [x] `/db` scaffold is present and documented.
 - [x] Folder purpose and naming conventions are written.
-- [x] Safe cutover checklist is documented for Phase 2.
-- [x] Alembic runtime cutover executed and validated (Phase 2).
+- [x] Alembic runtime cutover completed and the canonical migration location documented.
 
-## Phase 2 Execution Notes (Workspace)
+## Cutover Implementation Notes
 
-- `backend/alembic.ini` now uses:
-   - `script_location = %(here)s/../db`
-   - `version_locations = %(here)s/../db/migrations`
-- Added `db/env.py` and `db/script.py.mako` for full Alembic compatibility.
-- Performed migration resilience sweep across `0003` through `0012` to guard against pre-existing schema drift.
-- Verified with `alembic stamp 0001_create_draft_value_tables` followed by `alembic upgrade head`; migration chain now completes and `current` matches `heads`.
+- `backend/alembic.ini` uses `script_location = %(here)s/../db` and
+  `version_locations = %(here)s/../db/migrations`.
+- The canonical graph includes merge revision `5517dcbf0494` and head
+  `0028_reconcile_runtime_schema`.
+- Historical cutover validation included Alembic command and migration checks.
+  Re-run database-specific checks against the intended target before deployment;
+  never stamp a database simply to bypass a missing-revision error.

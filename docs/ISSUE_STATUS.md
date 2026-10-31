@@ -109,7 +109,7 @@
 - **Learning Captured:** Player identity must be independent from season/team state.
 - **Phase-1 Changes Implemented:**
   - Added normalized tables: `player_seasons` and `player_aliases`
-  - Added Alembic migration: `backend/alembic/versions/20260312_01_player_identity_normalization.py`
+  - Added Alembic migration: `db/migrations/0015_player_identity_normalization.py`
   - Added ingestion utility: `backend/services/player_identity_service.py`
   - Updated sync pipelines to upsert season-dependent rows:
     - `backend/scripts/import_espn_players.py`

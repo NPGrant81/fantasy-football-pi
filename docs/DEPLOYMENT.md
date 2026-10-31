@@ -35,7 +35,7 @@ make restore RESTORE_FILE=/path/to/postgres_20260829T000000Z.dump.gz
 
 The helper at `deploy/deploy.sh` wraps the common operational steps needed for a safe deployment:
 
-- record the last good git ref for rollback
+- record the pre-deploy git ref as a code-rollback candidate
 - pull the latest repo changes
 - apply schema migrations when available
 - restart the FastAPI backend service
@@ -56,7 +56,14 @@ This should be used for routine production updates or server restarts. The scrip
 make rollback
 ```
 
-The previous git ref is recorded before each deploy and reused for a quick rollback path.
+The pre-deploy git ref is recorded before each deploy. `make rollback` checks out
+that ref and runs the migrations available in the checked-out code; it does not
+downgrade or restore the database. Because migrations are applied with
+`upgrade`, a code rollback can fail if the database is already at a revision
+unknown to the older checkout. Review migration compatibility and take a
+verified backup before deployment; use the approved database-restore procedure
+if data or schema recovery is required. The checkout leaves Git detached, so
+return to the tracked deployment branch before the next `make deploy`.
 
 ## Service lifecycle
 

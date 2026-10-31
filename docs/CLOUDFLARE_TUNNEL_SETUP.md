@@ -7,6 +7,18 @@ Deployment target:
 - Tunnel name: `ppl-insight-hub-prod1`
 - Origin on Pi: `http://127.0.0.1:80`
 
+**Origin compatibility gate:** the named tunnel example sends HTTP to Nginx on
+port 80, but `deploy/nginx/fantasy-football-pi.conf.example` redirects port 80
+to HTTPS on port 443. Do not install those two examples together unchanged:
+the tunnel can receive a redirect back to the public HTTPS hostname instead of
+the app origin. Before production cutover, use a tunnel-compatible Nginx origin
+that serves on the configured HTTP port, or deliberately configure and verify
+an HTTPS origin (including certificate and server-name validation). The
+repository currently provides only the redirecting TLS Nginx example, so a
+compatible origin configuration must be added and verified before this
+HTTP-origin setup is production-ready. The production origin mode is not
+established by this guide alone.
+
 For lower-level references, see:
 - `docs/cloudflare-tunnel-cli.md`
 - `docs/cloudflare-tunnel-systemd.md`
@@ -72,6 +84,9 @@ Expected:
 - FastAPI health responds locally.
 - Nginx serves the frontend locally.
 - `/auth/me` reaches the backend and may return `401` when unauthenticated.
+- The configured tunnel origin must serve the app without redirecting the
+  request back to the public HTTPS URL. Check the `Location` header; resolve
+  the origin compatibility gate above before continuing if it redirects.
 
 If you are running setup-only test mode, replace these preconditions with:
 

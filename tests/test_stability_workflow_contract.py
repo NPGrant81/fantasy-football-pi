@@ -53,6 +53,13 @@ def test_recovery_check_requires_actual_disposable_restore():
     assert 'DB_URL="${verification_db_url}"' in script
 
 
+def test_microsd_backup_unit_loads_production_database_environment():
+    unit = (ROOT / "deploy" / "systemd" / "microsd-db-backup.service.example").read_text()
+    script = (ROOT / "ops" / "backup" / "microsd_db_backup.sh").read_text()
+    assert "EnvironmentFile=/etc/fantasy-football-pi/backend.env" in unit
+    assert 'DB_URL="${DB_URL:-${DATABASE_URL:-}}"' in script
+
+
 def test_nginx_vary_header_is_set_at_server_scope():
     config = (ROOT / "deploy" / "nginx" / "fantasy-football-pi.conf.example").read_text()
     server_start = config.index("server {", config.index("server {") + 1)

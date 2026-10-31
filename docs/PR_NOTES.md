@@ -7,6 +7,24 @@ This branch was created to trigger CI for backend and frontend tests.
 
 ---
 
+## Documentation and Operations Cleanup — Copilot Feedback
+
+- Review requested: pending PR publication.
+- Threads opened: pending.
+- Threads resolved: pending.
+- Follow-up commits: none yet.
+- Scope: align database, backup/restore, migration, authentication, deployment,
+  Cloudflare, monitoring, and weekly-ingestion guidance with current code and
+  configuration. Add a backup-service environment contract test.
+- Validation: stability workflow contract tests passed (14); repository
+  hygiene, review-registry JSON, and `git diff --check` passed.
+- Residual risk: production database state and deployed Pi/tunnel/backup
+  configuration remain unverified. The repository's Nginx TLS redirect
+  example and Cloudflare HTTP-origin example are incompatible unchanged; that
+  configuration needs a separate implementation and validation slice.
+
+---
+
 ## Issue #531 Stabilization - Copilot Feedback
 
 - Dependency: reuses PR #530's timer and frontend reliability fixes; merge that PR first.
