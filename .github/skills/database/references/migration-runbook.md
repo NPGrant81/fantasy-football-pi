@@ -20,12 +20,11 @@ git pull origin main
 # 2. Activate venv
 source .venv/bin/activate
 
-# 3. Run migration
-cd backend
-alembic upgrade head
+# 3. Run the canonical migration runner from the repository root
+python -m backend.apply_migrations
 
 # 4. Verify current head
-alembic current
+python -m alembic -c backend/alembic.ini current
 
 # 5. Restart backend
 sudo systemctl restart fantasy-backend
@@ -74,8 +73,8 @@ make a database an established FFPI database.
 
 ```bash
 # Check current state
-alembic current
-alembic history --verbose
+python -m alembic -c backend/alembic.ini current
+python -m alembic -c backend/alembic.ini history --verbose
 
 # Restore from backup if data corruption suspected
 sudo systemctl stop fantasy-backend

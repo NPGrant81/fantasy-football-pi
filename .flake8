@@ -3,7 +3,6 @@ max-line-length = 120
 exclude =
     .git,
     __pycache__,
-    backend/alembic,
     backend/data,
     etl/__pycache__,
     node_modules,

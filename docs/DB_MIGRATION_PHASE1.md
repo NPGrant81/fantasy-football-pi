@@ -4,50 +4,24 @@
 
 Establish a predictable PostgreSQL folder layout and complete a safe Alembic cutover to the `/db` structure.
 
-## Scope Completed in Phase 1
+## Completed Cutover
 
 - `/db` hierarchy is established and documented.
 - Domain purpose is defined for each folder.
 - Migration ownership conventions are documented.
-- Runtime path switch intentionally deferred to Phase 2.
+- Runtime path switch is complete.
 
 ## Current State
 
 - Alembic runtime config points to `/db` with revisions in `db/migrations`.
-- Legacy files in `backend/alembic/versions` have been removed.
-- Head lineage is unified via merge revision `5517dcbf0494`.
+- Retired `backend/alembic/` artifacts have been removed.
+- Earlier branches were unified by merge revision `5517dcbf0494`; the current
+  canonical graph has the single head `0028_reconcile_runtime_schema`.
+- CI rejects any future `backend/**/alembic/versions/*.py` revision file.
 
-## Phase 2 Safe Cutover Checklist
-
-Use this exact order:
-
-1. **Freeze migration generation**
-   - Pause creation of new revisions during cutover PR.
-
-2. **Validate revision parity**
-   - Ensure both trees contain the same revision files and `down_revision` chain.
-   - Confirm no duplicate `revision` IDs.
-
-3. **Switch Alembic script path**
-   - Update `backend/alembic.ini`:
-     - `script_location = db`
-     - `directory = db`
-   - Keep `sqlalchemy.url` unchanged.
-
-4. **Add/adjust environment loader**
-   - Ensure `db/env.py` imports app metadata correctly (equivalent to current `backend/alembic/env.py`).
-
-5. **Smoke test Alembic commands**
-   - `alembic -c backend/alembic.ini current`
-   - `alembic -c backend/alembic.ini heads`
-   - `alembic -c backend/alembic.ini history`
-   - `alembic -c backend/alembic.ini upgrade head` (against dev DB)
-
-6. **Remove legacy migration tree**
-   - Only after successful smoke tests and CI, remove stale files from `backend/alembic/versions`.
-
-7. **CI guardrail**
-   - Add a CI check that fails if revision files exist outside `db/migrations` after cutover.
+See `docs/MIGRATION_LEGACY_INVENTORY.md` for the disposition of the retired lineage.
+Disposable PostgreSQL execution and deployed revision-history verification
+remain release gates for retiring that lineage.
 
 ## Naming and Placement Standard
 

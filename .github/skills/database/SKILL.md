@@ -11,7 +11,7 @@ The Fantasy Football PI database holds all league, player, matchup, and analytic
 
 ## Tech Stack
 - **ORM**: SQLAlchemy (models in `backend/models.py` and `backend/models/`)
-- **Migrations**: Alembic (`backend/alembic/`, config at `backend/alembic.ini`)
+- **Migrations**: Alembic (`db/migrations/`, environment at `db/env.py`, config at `backend/alembic.ini`)
 - **Database**: PostgreSQL 14+
 - **Connection**: `backend/database.py` — provides `SessionLocal` and `get_db` dependency
 - **Seeding**: `backend/scripts/seed_data.py`, `db/seeds/`
@@ -67,16 +67,16 @@ All primary models are in `backend/models.py`. Key tables:
 # 1. Make changes to backend/models.py
 
 # 2. Generate a migration (review the generated file carefully!)
-alembic revision --autogenerate -m "describe_change"
+python -m alembic -c backend/alembic.ini revision --autogenerate -m "describe_change"
 
-# 3. Review backend/alembic/versions/<hash>_describe_change.py
+# 3. Review db/migrations/<hash>_describe_change.py
 #    Autogenerate is not perfect — verify upgrade() and downgrade()
 
 # 4. Apply locally
-alembic upgrade head
+python -m backend.apply_migrations
 
 # 5. Test, then commit the migration file with your model changes
-git add backend/alembic/versions/ backend/models.py
+git add db/migrations/ backend/models.py
 ```
 
 ## Common Problems & Remediation

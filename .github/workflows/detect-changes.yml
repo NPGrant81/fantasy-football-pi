@@ -179,8 +179,9 @@ jobs:
             esac
 
             case "$file" in
-              backend/alembic/*|backend/models.py|backend/models/*|backend/models_*.py|\
-              backend/database.py|backend/db_config.py)
+              backend/alembic.ini|db/env.py|db/migrations/*|db/bootstrap/*|\
+              backend/models.py|backend/models/*|backend/models_*.py|backend/database.py|\
+              backend/db_config.py)
                 migrations=true ;;
             esac
 

@@ -1,8 +1,8 @@
 # Pattern Compliance Matrix
 
-Updated: 2026-08-31
+Updated: 2026-10-31
 Owner: engineering
-Tracking issues: #501, #334, #333
+Tracking issues: #501, #502, #334, #333
 
 ## Purpose
 
@@ -17,7 +17,7 @@ Provide a single matrix for:
 | Check | Current Result | Interpretation |
 |---|---|---|
 | `python -m scripts.repo_hygiene_check` | PASS | Scoped pattern and repo standards checks are healthy. |
-| `python -m scripts.docs_review_sweep --warn-days 14` | PASS | Governed docs are fresh under current cadence thresholds. |
+| `python -m scripts.docs_review_sweep --warn-days 14` | FAIL | The current sweep reports repository-wide overdue reviews; this issue's migration documents are refreshed in this change. |
 | Docs governance coverage | 85 / 85 (100.0%) | Full markdown governance coverage achieved, including archive scope. |
 
 ## Matrix: Short-Term Remediation (0-6 weeks)
@@ -65,6 +65,16 @@ Use this section to drive active remediation and sprint planning.
 | Ingress ownership | PASS | Cloudflared example forwards both frontend and API hostnames to Nginx, making Nginx the Pi ingress owner. |
 | Redis role | PASS | `rate_limiter_service.py` defaults to memory and uses Redis only when `RATE_LIMITER_BACKEND=redis` is explicitly selected. |
 | Drift protection | PASS | `backend/tests/test_topology_compliance.py` asserts the topology authority against the systemd, Nginx, Cloudflared, Compose, and rate-limiter sources. |
+
+### Issue #502 Migration Authority Review
+
+| Criterion | Result | Evidence |
+| --- | --- | --- |
+| Canonical revision authority | PASS | `backend/alembic.ini` resolves the Alembic script environment to `db/` and incremental revisions to `db/migrations/`. |
+| Retired lineage disposition | IN PROGRESS | `docs/MIGRATION_LEGACY_INVENTORY.md` records all eight revision IDs, ancestry, schema mapping, downgrade effects, and recovery boundary; disposable PostgreSQL and deployed-history evidence remain pending. |
+| Legacy source removal | IN PROGRESS | Removal is present in the proposed change; do not merge or close the issue until the database-history release gates are satisfied. |
+| New revision path protection | PASS | CI rejects Python revisions under `backend/**/alembic/versions/`; routing and ownership now classify `db/migrations/`, `db/bootstrap/`, `db/env.py`, and `backend/alembic.ini` as migration surfaces. |
+| Layout and runner validation | PASS (unit/static) | `backend/tests/test_migration_layout.py` plus `backend/tests/test_apply_migrations.py`: `74 passed, 6 skipped`; canonical Alembic graph reports `0028_reconcile_runtime_schema` as its only head. `current` and database-backed upgrade checks remain pending. |
 
 ### Initial Ungoverned Operational Docs Triage (first 15)
 

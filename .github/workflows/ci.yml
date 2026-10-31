@@ -156,6 +156,15 @@ jobs:
         run: |
           python -m scripts.repo_hygiene_check
 
+      - name: Enforce canonical migration revision layout
+        run: |
+          legacy_revisions=$(find backend -path '*/alembic/versions/*.py' -type f -print)
+          if [ -n "$legacy_revisions" ]; then
+            echo "ERROR: Alembic revisions must be stored in db/migrations/."
+            echo "$legacy_revisions"
+            exit 1
+          fi
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
