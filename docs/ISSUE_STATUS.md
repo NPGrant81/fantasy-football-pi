@@ -1,6 +1,8 @@
 # GitHub Issues Status Report
-**Date:** April 26, 2026  
-**Branch:** main
+**Date:** October 31, 2026
+
+
+**Current GitHub snapshot:** 118 open issues as of October 31, 2026. The open-issue register at the end of this report is authoritative for issue state, priority, workflow labels, and last-updated date.
 
 ---
 
@@ -259,56 +261,154 @@
 
 ---
 
-## SUMMARY
+## CURRENT GITHUB ISSUE STATUS
 
-- **Total Open Issues:** Dynamic; use `gh issue list --state open` for current count.
-- **✅ Fully Completed:** Includes Stories `1.2`, `6.1`, `6.3`, `6.4`, `7.2`, and `7.3`.
-- **🔄 Partially Completed:** Story `6.2` dynamic structure follow-up only.
-- **📌 Active Follow-Ups:** Track open operational scope in GitHub issues rather than reopening closed story-description issues. Current example: `#341` covers League 60 historical owner identity enrichment and backfill.
-- **🏗️ Infrastructure:** 3 tasks (0.1 ✅, 0.2 ⏳, 0.3 ✅)
+**Snapshot date:** 2026-10-31. GitHub currently reports 118 open issues. This is a point-in-time register, not a claim that every open issue is actively being worked.
 
----
+| Priority label | Open issues |
+| --- | ---: |
+| P0 | 2 |
+| P1 | 54 |
+| P2 | 50 |
+| P3 | 10 |
+| No priority label | 2 |
 
-## RECOMMENDATIONS FOR NEXT SPRINTS
+| Workflow label | Open issues |
+| --- | ---: |
+| `status:ready` | 38 |
+| `status:blocked` | 14 |
+| No explicit ready/blocked label | 66 |
 
-### P1 (High Priority)
+GitHub's open/closed state is the issue status of record. `status:ready` and `status:blocked` are explicit workflow labels; where neither is present, this report does not infer that work is in progress. Labels below are captured as-is and may need triage when an issue is revisited.
 
-1. **Complete Story 6.2 follow-up** - Dynamic commissioner-settings bracket structure
-  - Effort: 2-3 days
-  - Impact: Correct bracket behavior across league formats
-  - Tracking: GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154)
-2. **Theme polish follow-up** - Improve light/dark readability and contrast
-  - Effort: 0.5-1 day
-  - Impact: Better accessibility and visual consistency
-  - Tracking: GitHub issue [#75](https://github.com/NPGrant81/fantasy-football-pi/issues/75)
+### Related current workstreams
 
-### P2 (Medium Priority)
+- **CI and deployment reliability:** #519–#522 remain open; the #519 epic tracks configuration-aware workflows and deploy gates.
+- **Historical data integrity:** #523 and #524–#529 remain open; #529 is marked blocked, while the other listed issues are marked ready.
+- **Application stabilization:** #531–#538 remain open. The semantic data-layer issue #540 is also open and is scoped to a shared contract, with existing data-contract and schema work explicitly kept in their current workstreams.
+- **Data contracts and league-rule propagation:** #398–#400 remain open as the existing Layer A–C epics.
 
-3. **Story 6.2 follow-up** - Dynamic commissioner-settings bracket structure
-  - Effort: 2-3 days
-  - Impact: Correct bracket behavior across league formats
-  - Tracking: GitHub issue [#154](https://github.com/NPGrant81/fantasy-football-pi/issues/154)
+### Open issue register
 
-4. **Quality hardening sweep** - Edge-case tests and docs governance
-  - Effort: 2-4 days
-  - Impact: Lower regression risk and cleaner contributor pathways
-  - Tracking: GitHub issues [#43](https://github.com/NPGrant81/fantasy-football-pi/issues/43), [#100](https://github.com/NPGrant81/fantasy-football-pi/issues/100), [#155](https://github.com/NPGrant81/fantasy-football-pi/issues/155), [#156](https://github.com/NPGrant81/fantasy-football-pi/issues/156)
+| Issue | Title | Priority | Workflow label | Other labels | Updated |
+| --- | --- | --- | --- | --- | --- |
+| [#54](https://github.com/NPGrant81/fantasy-football-pi/issues/54) | [FRONTEND] Analytics Charts — Phase 1: Build with Mock Data | priority:P2 | none | frontend, analytics | 2026-08-30 |
+| [#55](https://github.com/NPGrant81/fantasy-football-pi/issues/55) | Weekly Matchup Comparison Chart — Mock Data Phase | priority:P2 | none | frontend, analytics | 2026-08-30 |
+| [#75](https://github.com/NPGrant81/fantasy-football-pi/issues/75) | Improve Color Contrast for Light/Dark Mode Theme | priority:P2 | none | enhancement, frontend | 2026-08-30 |
+| [#78](https://github.com/NPGrant81/fantasy-football-pi/issues/78) | Cross‑Platform Development & Deployment Strategy (Windows → Raspberry Pi) | priority:P1 | none | devops, deployment | 2026-08-30 |
+| [#79](https://github.com/NPGrant81/fantasy-football-pi/issues/79) | Unified Architecture, Security, and Cross‑Platform Development Strategy | priority:P1 | none | devops, security, deployment | 2026-08-30 |
+| [#84](https://github.com/NPGrant81/fantasy-football-pi/issues/84) | Phase 4: Project Deployment | priority:P2 | none | devops, deployment | 2026-08-30 |
+| [#92](https://github.com/NPGrant81/fantasy-football-pi/issues/92) | League Analytics — Navigation Buttons, Player Interaction, Layout Cleanup, and Visual Consistency | priority:P2 | none | frontend, analytics | 2026-08-30 |
+| [#98](https://github.com/NPGrant81/fantasy-football-pi/issues/98) | Integration Test: End Draft Workflow (Commissioner → System‑Wide Updates) | priority:P1 | none | Backend, frontend, devops, testing | 2026-08-30 |
+| [#99](https://github.com/NPGrant81/fantasy-football-pi/issues/99) | Integration Test: Submit Lineups (Team Page → Matchup Page, Current & Future Weeks) | priority:P1 | none | frontend, testing | 2026-08-30 |
+| [#101](https://github.com/NPGrant81/fantasy-football-pi/issues/101) | UI/UX & Backend: UAT Isolation Model & Fast-Forward Controls | priority:P1 | none | Backend, frontend | 2026-08-30 |
+| [#108](https://github.com/NPGrant81/fantasy-football-pi/issues/108) | ML Model Training & Evaluation Pipeline | priority:P2 | none | Machine Learning, analytics | 2026-08-30 |
+| [#109](https://github.com/NPGrant81/fantasy-football-pi/issues/109) | Model Serving & Integration with PPL Draft Analyzer | priority:P2 | status:blocked | Machine Learning, analytics | 2026-08-30 |
+| [#111](https://github.com/NPGrant81/fantasy-football-pi/issues/111) | Draft Day Mode with Chatbot Integration | priority:P3 | status:blocked | Machine Learning, analytics | 2026-08-30 |
+| [#112](https://github.com/NPGrant81/fantasy-football-pi/issues/112) | Post-Draft Analysis & Season Outlook | priority:P2 | status:blocked | Machine Learning, analytics | 2026-08-30 |
+| [#120](https://github.com/NPGrant81/fantasy-football-pi/issues/120) | Implement League Divisions (Configuration, UI, ML Balancing, Playoffs, History) | priority:P2 | none | frontend | 2026-08-30 |
+| [#132](https://github.com/NPGrant81/fantasy-football-pi/issues/132) | Remove Keepers & Ledger from Sidebar Navigation | priority:P2 | none | enhancement, frontend | 2026-08-30 |
+| [#150](https://github.com/NPGrant81/fantasy-football-pi/issues/150) | GitHub Issue Draft — UAT Overview + UAT Master Tester Onboarding | priority:P1 | none | testing | 2026-08-30 |
+| [#153](https://github.com/NPGrant81/fantasy-football-pi/issues/153) | Valuation Model Specification | priority:P2 | none | Backend, analytics | 2026-08-30 |
+| [#155](https://github.com/NPGrant81/fantasy-football-pi/issues/155) | Quality Sweep: Cross-Module Edge-Case Test Matrix (Beyond #43 and #100) | priority:P1 | none | Backend, devops | 2026-08-30 |
+| [#156](https://github.com/NPGrant81/fantasy-football-pi/issues/156) | Documentation Governance Sweep: Staleness, Directive Drift, and Issue Correlation | priority:P2 | none | documentation, devops, docs | 2026-08-30 |
+| [#157](https://github.com/NPGrant81/fantasy-football-pi/issues/157) | Trade Analyzer – UI Wireframe Acceptance Criteria | priority:P2 | none | Backend, frontend, analytics | 2026-08-30 |
+| [#165](https://github.com/NPGrant81/fantasy-football-pi/issues/165) | Enhance Propose Trade Workflow (Multi‑Player Support + Trade Analyzer Integration) | priority:P2 | none | enhancement, Backend, frontend, analytics | 2026-08-30 |
+| [#178](https://github.com/NPGrant81/fantasy-football-pi/issues/178) | Issue: Add Documentation & UI Explanations for Scoring Rule Types, Terminology, and Logic Application | priority:P2 | none | enhancement, Backend, frontend, database | 2026-08-30 |
+| [#182](https://github.com/NPGrant81/fantasy-football-pi/issues/182) | Add Export to CSV/XLSX for Simulation Results | priority:P3 | none | enhancement, Backend, frontend, analytics | 2026-08-30 |
+| [#183](https://github.com/NPGrant81/fantasy-football-pi/issues/183) | Add Simulation Results Explainer Panel / Tooltips | priority:P3 | none | enhancement, Backend, frontend, analytics | 2026-08-30 |
+| [#184](https://github.com/NPGrant81/fantasy-football-pi/issues/184) | Add Total Spend + Positional Spend to Simulation Output and UI | priority:P2 | none | enhancement, Backend, frontend, analytics | 2026-08-30 |
+| [#185](https://github.com/NPGrant81/fantasy-football-pi/issues/185) | Confirm Simulation Results Are Not Persisted in Database (Architecture Check) | priority:P1 | none | enhancement, Backend, frontend, analytics | 2026-08-30 |
+| [#239](https://github.com/NPGrant81/fantasy-football-pi/issues/239) | Add “League Champions” Modal to Homepage | priority:P2 | none | enhancement, frontend | 2026-08-30 |
+| [#255](https://github.com/NPGrant81/fantasy-football-pi/issues/255) | Data Migration – League History Reports (Export → Transform → Import) | priority:P2 | status:ready | documentation, Backend, database, data-migration | 2026-10-09 |
+| [#256](https://github.com/NPGrant81/fantasy-football-pi/issues/256) | Define Data Requirements & Schemas | priority:P2 | status:ready | Backend, database, data-migration | 2026-08-30 |
+| [#257](https://github.com/NPGrant81/fantasy-football-pi/issues/257) | Build Extraction API (Legacy → CSV) | priority:P2 | none | Backend, database, data-migration | 2026-08-30 |
+| [#258](https://github.com/NPGrant81/fantasy-football-pi/issues/258) | Implement CSV Import Pipeline (CSV → New App) | priority:P2 | none | Backend, database, data-migration | 2026-08-30 |
+| [#259](https://github.com/NPGrant81/fantasy-football-pi/issues/259) | Data Integrity & Reconciliation | priority:P2 | none | Backend, database, data-migration | 2026-08-30 |
+| [#260](https://github.com/NPGrant81/fantasy-football-pi/issues/260) | Migration Workflow & Documentation | priority:P2 | none | Backend, database, data-migration | 2026-08-30 |
+| [#262](https://github.com/NPGrant81/fantasy-football-pi/issues/262) | Live Scoring Integration (ESPN API → Normalized Game Data → Real‑Time Updates) | priority:P1 | status:ready | Backend, devops, database | 2026-08-30 |
+| [#263](https://github.com/NPGrant81/fantasy-football-pi/issues/263) | 1. ESPN API Discovery & Data Contract Definition | priority:P1 | status:ready | Backend, devops, database | 2026-08-30 |
+| [#264](https://github.com/NPGrant81/fantasy-football-pi/issues/264) | 2. Backend Ingestion Layer | priority:P1 | status:blocked | Backend, devops, database | 2026-08-30 |
+| [#265](https://github.com/NPGrant81/fantasy-football-pi/issues/265) | 3. Polling & Scheduling | priority:P1 | status:blocked | Backend, devops, database | 2026-08-30 |
+| [#266](https://github.com/NPGrant81/fantasy-football-pi/issues/266) | 4. Fantasy Scoring Engine Integration | priority:P1 | status:blocked | Backend, devops, database | 2026-08-30 |
+| [#267](https://github.com/NPGrant81/fantasy-football-pi/issues/267) | 5. Real‑Time Update Delivery | priority:P1 | status:blocked | Backend, devops, database | 2026-08-30 |
+| [#268](https://github.com/NPGrant81/fantasy-football-pi/issues/268) | 6. Data Persistence & History | priority:P1 | status:blocked | Backend, devops, database | 2026-08-30 |
+| [#269](https://github.com/NPGrant81/fantasy-football-pi/issues/269) | 7. Monitoring & Observability | priority:P1 | status:blocked | Backend, devops, database, observability | 2026-08-30 |
+| [#270](https://github.com/NPGrant81/fantasy-football-pi/issues/270) | 8. Documentation & Developer Workflow | priority:P1 | status:blocked | Backend, devops, database | 2026-08-30 |
+| [#288](https://github.com/NPGrant81/fantasy-football-pi/issues/288) | Implement Year‑End Data Rollup Pipeline for Historical League Records | priority:P2 | none | enhancement, Backend, database, data-migration | 2026-08-30 |
+| [#290](https://github.com/NPGrant81/fantasy-football-pi/issues/290) | Pre-Deploy Raspberry Pi Host Foundation Checklist (Packages, Hardening, Service Readiness) | priority:P1 | none | enhancement, devops, security, deployment | 2026-08-30 |
+| [#297](https://github.com/NPGrant81/fantasy-football-pi/issues/297) | Post-merge operational closeout: manual draft backfill + import/reconcile evidence | priority:P2 | none | Backend, database, data-migration | 2026-08-30 |
+| [#298](https://github.com/NPGrant81/fantasy-football-pi/issues/298) | Raspberry Pi production cutover readiness | priority:P1 | none | Backend, devops, docs, deployment, observability | 2026-09-23 |
+| [#300](https://github.com/NPGrant81/fantasy-football-pi/issues/300) | Dockerize the App + Configure systemd + Nginx Reverse Proxy | priority:P2 | none | enhancement, devops, deployment | 2026-08-30 |
+| [#301](https://github.com/NPGrant81/fantasy-football-pi/issues/301) | Implement Dead/Stale Code Detection & Pruning System | priority:P3 | none | enhancement, Backend, devops | 2026-08-30 |
+| [#302](https://github.com/NPGrant81/fantasy-football-pi/issues/302) | Clarify Architecture — Is the App Containerized or Microserviced? | priority:P2 | none | devops, docs, deployment | 2026-08-30 |
+| [#305](https://github.com/NPGrant81/fantasy-football-pi/issues/305) | Pi cutover remaining work after Docker baseline | priority:P1 | none | Backend, devops, docs, deployment | 2026-08-30 |
+| [#307](https://github.com/NPGrant81/fantasy-football-pi/issues/307) | Integration Test: Commissioner Settings Propagation (Non-Scoring Rules) | priority:P2 | none | Backend, frontend, testing | 2026-08-30 |
+| [#308](https://github.com/NPGrant81/fantasy-football-pi/issues/308) | Documentation Governance Follow-Up: Stale/Conflicting Instruction Cleanup Pipeline | priority:P3 | none | enhancement, docs | 2026-08-30 |
+| [#335](https://github.com/NPGrant81/fantasy-football-pi/issues/335) | Governance Steady State: docs classification, cadence, and drift prevention | priority:P3 | none | enhancement, docs | 2026-08-30 |
+| [#342](https://github.com/NPGrant81/fantasy-football-pi/issues/342) | War Room Enhancements — Undo Draft, Permissions, Session Controls, Timer, and UI Consolidation | priority:P2 | none | enhancement | 2026-08-30 |
+| [#343](https://github.com/NPGrant81/fantasy-football-pi/issues/343) | Trade System Overhaul — Timeline, Approval Workflow, Future Draft Capital, and Email Notifications | priority:P1 | none | enhancement, Backend, frontend, database, epic | 2026-08-30 |
+| [#360](https://github.com/NPGrant81/fantasy-football-pi/issues/360) | [ML Program] #103-#111 Execution Tracker and Risk Matrix | priority:P2 | none | Machine Learning, analytics | 2026-08-30 |
+| [#361](https://github.com/NPGrant81/fantasy-football-pi/issues/361) | [Phase 1] #103 Implementation: Canonical Player Metadata Pipeline + Gate Evidence | priority:P2 | none | Machine Learning, analytics | 2026-08-30 |
+| [#362](https://github.com/NPGrant81/fantasy-football-pi/issues/362) | [Phase 1] #104 Implementation: Owner Budget Timeline + Behavior Feature Prep | priority:P2 | none | Machine Learning, analytics | 2026-08-30 |
+| [#370](https://github.com/NPGrant81/fantasy-football-pi/issues/370) | Epic: Test-First Delivery + Local Pre-PR Gates | priority:P2 | status:ready | enhancement, testing, epic | 2026-08-30 |
+| [#375](https://github.com/NPGrant81/fantasy-football-pi/issues/375) | Phase 4: Load, resilience, and security test lanes | priority:P2 | status:ready | enhancement, testing, security, performance | 2026-08-30 |
+| [#376](https://github.com/NPGrant81/fantasy-football-pi/issues/376) | Phase 5: Testing governance cadence | priority:P3 | status:ready | enhancement, testing | 2026-08-30 |
+| [#396](https://github.com/NPGrant81/fantasy-football-pi/issues/396) | Refresh Cloudflare-based deployment strategy for Raspberry Pi production | priority:P1 | status:ready | enhancement, devops, docs, deployment | 2026-08-30 |
+| [#398](https://github.com/NPGrant81/fantasy-football-pi/issues/398) | Epic: Layer A — External Data Contract Adapters | priority:P1 | status:ready | Backend, devops, epic | 2026-08-30 |
+| [#399](https://github.com/NPGrant81/fantasy-football-pi/issues/399) | Epic: Layer B — League Settings Propagation Service | priority:P1 | status:ready | enhancement, Backend, epic | 2026-08-30 |
+| [#400](https://github.com/NPGrant81/fantasy-football-pi/issues/400) | Epic: Layer C — Graceful Degradation + Schema Drift Guards | priority:P1 | status:ready | Backend, devops, testing, epic | 2026-08-30 |
+| [#402](https://github.com/NPGrant81/fantasy-football-pi/issues/402) | Epic: Production Security Hardening Program for External Hosting | priority:P1 | none | enhancement, epic, security | 2026-08-30 |
+| [#407](https://github.com/NPGrant81/fantasy-football-pi/issues/407) | [Security][#402] Remove Token Storage from Browser Storage | priority:P1 | status:ready | enhancement, frontend, epic, security | 2026-08-30 |
+| [#410](https://github.com/NPGrant81/fantasy-football-pi/issues/410) | [Security][#402] API PII Exposure Audit + Response Hardening | priority:P1 | status:ready | enhancement, Backend, testing, epic, security | 2026-08-30 |
+| [#411](https://github.com/NPGrant81/fantasy-football-pi/issues/411) | [Security][#402] Tighten CORS Header Policy | priority:P1 | status:ready | enhancement, Backend, epic, security | 2026-08-30 |
+| [#413](https://github.com/NPGrant81/fantasy-football-pi/issues/413) | [Security][#402] HTTPS Enforcement + HSTS Preload Decision | priority:P1 | status:ready | enhancement, devops, docs, epic, security, deployment | 2026-08-30 |
+| [#418](https://github.com/NPGrant81/fantasy-football-pi/issues/418) | [Security][#402] Dependabot + Dependency Vulnerability Automation | priority:P1 | status:ready | enhancement, Backend, frontend, devops, epic, security | 2026-08-30 |
+| [#430](https://github.com/NPGrant81/fantasy-football-pi/issues/430) | perf: fix N+1 query pattern in update_rosters.py | priority:P2 | none | enhancement, Backend, database, performance | 2026-08-30 |
+| [#431](https://github.com/NPGrant81/fantasy-football-pi/issues/431) | perf: fix N+1 query pattern in trade_service.py keeper update | priority:P2 | none | enhancement, Backend, database, performance | 2026-08-30 |
+| [#432](https://github.com/NPGrant81/fantasy-football-pi/issues/432) | perf: add missing database indexes for hot query columns | priority:P2 | none | enhancement, database, performance | 2026-08-30 |
+| [#433](https://github.com/NPGrant81/fantasy-football-pi/issues/433) | perf: background-task blocking model prediction and Monte Carlo simulation endpoints | priority:P1 | none | enhancement, Backend, Machine Learning, performance, analytics | 2026-08-30 |
+| [#434](https://github.com/NPGrant81/fantasy-football-pi/issues/434) | perf: add in-process cache for frequently-read, rarely-changing queries | priority:P2 | none | enhancement, Backend, performance | 2026-08-30 |
+| [#435](https://github.com/NPGrant81/fantasy-football-pi/issues/435) | perf: replace manual fetch/useEffect with TanStack Query (React Query) for server state | priority:P3 | none | enhancement, frontend, performance | 2026-08-30 |
+| [#451](https://github.com/NPGrant81/fantasy-football-pi/issues/451) | feat(#103 Phase 3): ETL write-back — populate canonical_player_snapshots from canonicalization pipeline | priority:P2 | none | enhancement, Backend, Machine Learning, analytics, data-migration | 2026-08-30 |
+| [#452](https://github.com/NPGrant81/fantasy-football-pi/issues/452) | feat(#103): Expose Position registry via API endpoint + frontend consumption | priority:P2 | none | enhancement, Backend, frontend, analytics | 2026-08-30 |
+| [#455](https://github.com/NPGrant81/fantasy-football-pi/issues/455) | feat: resolve new-season player position gaps in draft validator (annual recurring) | priority:P1 | none | enhancement, etl, data-quality, analytics, data-migration | 2026-08-30 |
+| [#475](https://github.com/NPGrant81/fantasy-football-pi/issues/475) | Ops: League 60 container data sync + Windows parity validation | priority:P1 | none | deployment, data-migration | 2026-08-30 |
+| [#478](https://github.com/NPGrant81/fantasy-football-pi/issues/478) | Docs Governance Sweep Failure | priority:P3 | none | — | 2026-10-26 |
+| [#484](https://github.com/NPGrant81/fantasy-football-pi/issues/484) | refactor(scripts): eliminate remaining import-time database side effects | priority:P1 | status:ready | — | 2026-08-30 |
+| [#485](https://github.com/NPGrant81/fantasy-football-pi/issues/485) | Blind Bidding System | priority:P2 | none | — | 2026-08-30 |
+| [#491](https://github.com/NPGrant81/fantasy-football-pi/issues/491) | Code-review agent skill | priority:P3 | status:blocked | — | 2026-08-30 |
+| [#492](https://github.com/NPGrant81/fantasy-football-pi/issues/492) | docs(governance): reconcile standards inventory and promote emerging contracts | priority:P1 | status:ready | — | 2026-08-30 |
+| [#493](https://github.com/NPGrant81/fantasy-football-pi/issues/493) | docs(governance): replace dead sweep targets and map successors | priority:P2 | status:ready | — | 2026-08-30 |
+| [#494](https://github.com/NPGrant81/fantasy-football-pi/issues/494) | docs(architecture): consolidate canonical authority and terminology | priority:P1 | status:blocked | — | 2026-08-30 |
+| [#495](https://github.com/NPGrant81/fantasy-football-pi/issues/495) | docs(database): codify deterministic startup migration lifecycle | priority:P1 | status:blocked | deployment | 2026-08-30 |
+| [#496](https://github.com/NPGrant81/fantasy-football-pi/issues/496) | docs(ui): align standards, skills, and runtime token contracts | priority:P2 | status:ready | — | 2026-08-30 |
+| [#497](https://github.com/NPGrant81/fantasy-football-pi/issues/497) | docs(dependencies): align maintenance policy with automated controls | priority:P2 | status:ready | security | 2026-08-30 |
+| [#498](https://github.com/NPGrant81/fantasy-football-pi/issues/498) | docs(governance): establish FMEA and 5S successor ownership | priority:P2 | status:ready | — | 2026-08-30 |
+| [#499](https://github.com/NPGrant81/fantasy-football-pi/issues/499) | docs(governance): complete overdue standards reviews with evidence | priority:P2 | status:ready | — | 2026-08-30 |
+| [#500](https://github.com/NPGrant81/fantasy-football-pi/issues/500) | docs(architecture): reconcile architecture drift and promote current runtime contracts | priority:P0 | status:ready | — | 2026-10-31 |
+| [#502](https://github.com/NPGrant81/fantasy-football-pi/issues/502) | chore(database): reconcile legacy and canonical Alembic inventories | priority:P0 | status:ready | — | 2026-09-02 |
+| [#504](https://github.com/NPGrant81/fantasy-football-pi/issues/504) | test(database): enforce bootstrap and incremental schema equivalence | priority:P1 | status:ready | — | 2026-08-30 |
+| [#508](https://github.com/NPGrant81/fantasy-football-pi/issues/508) | ci(database): test migration-backed E2E and established-database upgrades | priority:P1 | status:ready | deployment | 2026-08-30 |
+| [#519](https://github.com/NPGrant81/fantasy-football-pi/issues/519) | ci: make scheduled workflows configuration-aware and keep main deployable | priority:P1 | status:ready | epic, security, release-blocker, deployment, area:ci | 2026-10-01 |
+| [#520](https://github.com/NPGrant81/fantasy-football-pi/issues/520) | ci: require immutable verified refs for deployment | priority:P1 | status:ready | release-blocker, deployment, area:security, area:ci | 2026-10-01 |
+| [#521](https://github.com/NPGrant81/fantasy-football-pi/issues/521) | security: remediate frontend audit findings and automate updates | priority:P1 | status:ready | security, release-blocker, area:frontend, area:security, area:dependencies | 2026-10-01 |
+| [#522](https://github.com/NPGrant81/fantasy-football-pi/issues/522) | ci: add configuration-aware workflow integration contracts | priority:P1 | status:ready | testing, release-blocker, deployment, area:ci | 2026-10-01 |
+| [#523](https://github.com/NPGrant81/fantasy-football-pi/issues/523) | epic(database): Hardening Historical League & Ingestion SQL Data Models for Referential & Ingestion Integrity | priority:P1 | status:ready | Backend, database, epic, etl, data-quality | 2026-10-09 |
+| [#524](https://github.com/NPGrant81/fantasy-football-pi/issues/524) | feat(database): Add idempotency unique constraints and indexes to draft_picks and transaction_history | priority:P1 | status:ready | Backend, database, data-quality | 2026-10-03 |
+| [#525](https://github.com/NPGrant81/fantasy-football-pi/issues/525) | feat(database): Update waiver_budgets composite unique constraint to support multi-season history | priority:P1 | status:ready | Backend, database, data-quality | 2026-10-03 |
+| [#526](https://github.com/NPGrant81/fantasy-football-pi/issues/526) | feat(database): Add native mfl_id and sleeper_id provider identity columns to Player model | priority:P1 | status:ready | Backend, database, etl, data-quality | 2026-10-09 |
+| [#527](https://github.com/NPGrant81/fantasy-football-pi/issues/527) | feat(database): Add is_historical_stub flag to users table and classify historical archive accounts | priority:P1 | status:ready | Backend, database, security | 2026-10-03 |
+| [#528](https://github.com/NPGrant81/fantasy-football-pi/issues/528) | chore(database): Author Alembic migration and update ORM models with schema readiness parity | priority:P1 | status:ready | Backend, database | 2026-10-09 |
+| [#529](https://github.com/NPGrant81/fantasy-football-pi/issues/529) | Resolve 2004 MFL player identity ambiguities and apply PlayerSeason import | priority:P1 | status:blocked | etl, data-quality, data-migration | 2026-10-09 |
+| [#531](https://github.com/NPGrant81/fantasy-football-pi/issues/531) | epic: stabilize application wiring, quality gates and operational readiness | priority:P1 | none | epic | 2026-10-30 |
+| [#532](https://github.com/NPGrant81/fantasy-football-pi/issues/532) | fix(ingress): align API proxy ownership and preserve SPA reloads | priority:P1 | none | bug, devops | 2026-10-30 |
+| [#533](https://github.com/NPGrant81/fantasy-football-pi/issues/533) | ci(frontend): require the full regression suite instead of smoke-only coverage | priority:P1 | none | devops, testing | 2026-10-30 |
+| [#534](https://github.com/NPGrant81/fantasy-football-pi/issues/534) | fix(waivers): connect commissioner claim history and surface request failures | priority:P2 | none | bug, frontend | 2026-10-30 |
+| [#535](https://github.com/NPGrant81/fantasy-football-pi/issues/535) | test(frontend): exercise real query failure and cache-invalidation behavior | priority:P2 | none | frontend, testing | 2026-10-30 |
+| [#536](https://github.com/NPGrant81/fantasy-football-pi/issues/536) | fix(ci): restore executable accessibility and UI automation checks | priority:P2 | none | bug, devops, testing | 2026-10-30 |
+| [#537](https://github.com/NPGrant81/fantasy-football-pi/issues/537) | fix(recovery): verify backup restoration in a disposable database | priority:P2 | none | devops, database, testing | 2026-10-30 |
+| [#538](https://github.com/NPGrant81/fantasy-football-pi/issues/538) | test(ui): replace no-op screenshot baseline check with visual comparison | unprioritized | none | — | 2026-10-30 |
+| [#540](https://github.com/NPGrant81/fantasy-football-pi/issues/540) | feat(data): establish a shared semantic data layer | unprioritized | status:ready | Backend, database, data-quality, analytics | 2026-10-31 |
 
-### P3 (Low Priority / Polish)
-
-5. **Story 7.2** - Dark/Light mode toggle
-6. **Story 1.2** - Historical data archiving
-
----
-
-## READY TO CLOSE (When PR merged)
-
-- Story 5.1: Free Agent Search ✅
-- Story 2.1-2.3: Draft System ✅
-- Story 4.2-4.4: Scoring Management ✅
-- Story 5.2-5.4: Waiver System ✅
-- Story 3.1: Team Customization ✅
-- Story 6 (Core): Matchups ✅
-- Story 0.1: Docker/Postgres Setup ✅
-
-**Action:** Link this ISSUE_STATUS.md to a summary comment on each GitHub issue or create a tracking project for remaining work.
+The story and infrastructure sections above are retained as historical implementation notes. Check the live issue before treating those notes as current delivery status; use the register above for the current GitHub state.
