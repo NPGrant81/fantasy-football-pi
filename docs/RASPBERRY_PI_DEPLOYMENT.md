@@ -18,7 +18,9 @@ For Cloudflare Tunnel TLS termination, use
 only on loopback port 8080, and configure the tunnel to target
 `http://127.0.0.1:8080`. Do not expose that listener to the LAN. Do not install
 the TLS redirect site and tunnel-origin site as competing app sites without
-reviewing their listeners. See
+reviewing their listeners. Enable Cloudflare's zone-level **Always Use HTTPS**
+setting before cutover; the tunnel origin also redirects requests marked as
+public HTTP by Cloudflare. See
 [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) before cutover.
 
 ## Phase 1: Raspberry Pi OS Setup

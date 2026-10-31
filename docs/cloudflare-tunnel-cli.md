@@ -60,6 +60,7 @@ Set values:
 For these hostnames, use
 `deploy/nginx/fantasy-football-pi-tunnel-origin.conf.example` and keep the
 origin listener loopback-only. Do not target the port-80 TLS redirect site.
+Enable Cloudflare's zone-level **Always Use HTTPS** setting before cutover.
 
 ## 4. DNS routing
 ```bash

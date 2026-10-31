@@ -33,6 +33,13 @@ Important routing note:
   `/health` through the public tunnel.
 - Ensure Nginx forwards `/health` to FastAPI (`127.0.0.1:8000`) so endpoint
   checks validate API + DB status.
+- Enable Cloudflare's zone-level **Always Use HTTPS** setting. The Nginx origin
+  also redirects requests marked as public HTTP by `CF-Visitor`.
+- The API hostname proxies every path to FastAPI; on app hostnames, only
+  explicit React document routes may use the SPA fallback. API-only paths do
+  not use that fallback.
+- `/draft/ws/` forwards WebSocket upgrade headers and allows long-lived
+  connections.
 
 The supported `originRequest.connectTimeout: 5s` setting limits origin
 connection time; it is not a health probe.

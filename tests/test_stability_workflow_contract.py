@@ -84,14 +84,32 @@ def test_cloudflare_tunnels_use_loopback_nginx_without_ingress_healthcheck_field
     ).read_text(encoding="utf-8")
     assert "listen 127.0.0.1:8080 default_server;" in nginx
     assert (
-        "server_name pplinsighthub.com www.pplinsighthub.com "
-        "app.pplinsighthub.com api.pplinsighthub.com;"
+        "server_name pplinsighthub.com www.pplinsighthub.com app.pplinsighthub.com;"
     ) in nginx
+    assert "server_name api.pplinsighthub.com;" in nginx
     assert "return 444;" in nginx
     assert "set_real_ip_from 127.0.0.1;" in nginx
     assert "real_ip_header CF-Connecting-IP;" in nginx
     assert "proxy_pass http://127.0.0.1:8000;" in nginx
     assert "proxy_set_header X-Forwarded-Proto https;" in nginx
+    assert "map $http_cf_visitor $tunnel_redirect_http" in nginx
+    assert "~http[^s] 1;" in nginx
+    assert (
+        "if ($tunnel_redirect_http) { return 308 https://$host$request_uri; }"
+        in nginx
+    )
+    assert "map $http_upgrade $connection_upgrade" in nginx
+    assert "proxy_set_header Upgrade $http_upgrade;" in nginx
+    assert "proxy_set_header Connection $connection_upgrade;" in nginx
+    assert "location ^~ /draft/ws/" in nginx
+    assert "proxy_read_timeout 3600s;" in nginx
+    spa_map = nginx.split(
+        'map "$request_method:$http_accept:$host:$uri" $tunnel_spa_document_request {',
+        maxsplit=1,
+    )[1].split("\n}", maxsplit=1)[0]
+    assert "/health" not in spa_map
+    assert "/auth" not in spa_map
+    assert "api\\.pplinsighthub\\.com" not in spa_map
     assert "return 301" not in nginx
 
 

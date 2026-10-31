@@ -13,7 +13,9 @@ The named tunnel uses the dedicated loopback-only Nginx listener at
 port-80 redirect in `deploy/nginx/fantasy-football-pi.conf.example`. Cloudflare
 terminates public TLS; cloudflared connects to the local HTTP origin. Do not
 expose port 8080 on a LAN interface or point the tunnel at the redirecting
-port-80 listener.
+port-80 listener. Enable Cloudflare's zone-level **Always Use HTTPS** setting
+before cutover; the Nginx origin also redirects edge-marked HTTP requests to
+HTTPS while leaving HTTPS requests redirect-free.
 
 For lower-level references, see:
 - `docs/cloudflare-tunnel-cli.md`
@@ -34,6 +36,7 @@ These are the minimum items that must be in place when the app is ready for real
 - Nginx is serving the intended local origin on `127.0.0.1:8080`
 - Backend env production values are finalized, especially `ALLOWED_HOSTS` and `FRONTEND_ALLOWED_ORIGINS`
 - The Cloudflare tunnel routes for `pplinsighthub.com` and `www.pplinsighthub.com` point to the named tunnel
+- Cloudflare's zone-level **Always Use HTTPS** setting is enabled
 - `cloudflared.service` and `cloudflared-watchdog.timer` are enabled and healthy
 - Reboot validation has passed on the Pi
 
@@ -83,8 +86,9 @@ Required local-origin checks on the Pi:
 
 ```bash
 curl -fsS http://127.0.0.1:8000/health
-curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/
-curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/auth/me
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"https"}' http://127.0.0.1:8080/
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"https"}' http://127.0.0.1:8080/auth/me
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"http"}' http://127.0.0.1:8080/
 curl --max-time 5 -v -H 'Host: unrecognized.invalid' http://127.0.0.1:8080/
 sudo systemctl status fantasy-football-backend --no-pager
 sudo systemctl status nginx --no-pager
@@ -94,13 +98,14 @@ Expected:
 - FastAPI health responds locally.
 - Nginx serves the frontend locally.
 - `/auth/me` reaches the backend and may return `401` when unauthenticated.
-- Nginx responds directly; it does not redirect to the public hostname.
+- The edge-marked HTTPS request responds without redirecting.
+- The edge-marked HTTP request returns `308` with an HTTPS `Location`.
 - The unrecognized host request is closed by Nginx's default `444` server.
 
 If you are running setup-only test mode, replace these preconditions with:
 
 ```bash
-curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"https"}' http://127.0.0.1:8080/
 sudo systemctl status nginx --no-pager
 ```
 
@@ -162,6 +167,7 @@ Required review points:
 - The ingress service target remains `http://127.0.0.1:8080` when cloudflared runs on the Pi.
 - `pplinsighthub.com` and `www.pplinsighthub.com` both point to the same local origin unless you intentionally split them.
 - Origin health is checked with local `curl` commands and the systemd watchdog or an external monitor; it is not configured in the ingress YAML.
+- Cloudflare's zone-level **Always Use HTTPS** setting is enabled before public cutover.
 
 ## 4. Install the cloudflared systemd service on the Pi
 
@@ -230,9 +236,11 @@ curl -I https://pplinsighthub.com
 curl -I https://www.pplinsighthub.com
 curl -I https://pplinsighthub.com/auth/me
 curl -I https://pplinsighthub.com/health
+curl -I http://pplinsighthub.com
 ```
 
 Expected:
+- Public HTTP redirects to HTTPS; public HTTPS remains redirect-free.
 - Frontend routes return `200` or `304`.
 - `/auth/me` returns `401` when unauthenticated, confirming backend reachability.
 - `/health` returns a successful response through the tunnel.

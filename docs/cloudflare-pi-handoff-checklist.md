@@ -67,14 +67,18 @@ Set:
 Check the local origin before starting the tunnel:
 
 ```bash
-curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/
-curl -I -H 'Host: pplinsighthub.com' http://127.0.0.1:8080/auth/me
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"https"}' http://127.0.0.1:8080/
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"https"}' http://127.0.0.1:8080/auth/me
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"http"}' http://127.0.0.1:8080/
 curl --max-time 5 -v -H 'Host: unrecognized.invalid' http://127.0.0.1:8080/
 ```
 
-The root route should respond without redirecting. `/auth/me` should reach the
-backend and may return `401` when unauthenticated. The unrecognized host should
-be closed by Nginx's default `444` server.
+The root route with `CF-Visitor: {"scheme":"https"}` should respond without
+redirecting. `/auth/me` should reach the backend and may return `401` when
+unauthenticated. The edge-marked HTTP request should return `308` with an HTTPS
+`Location`; the unrecognized host should be closed by Nginx's default `444`
+server. Enable Cloudflare's zone-level **Always Use HTTPS** setting before
+public cutover.
 
 Validate config:
 
