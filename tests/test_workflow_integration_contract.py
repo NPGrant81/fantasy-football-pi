@@ -229,6 +229,15 @@ def test_staging_deploy_summary_runs_after_validation_failure():
     assert "      - name: Publish staging deployment intent\n        if: always()" in workflow
 
 
+def test_roster_sync_accepts_only_confirmed_completion_marker():
+    workflow_path = validator.ROOT / ".github" / "workflows" / "sync-rosters.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+
+    assert 'grep -Fq "NFL Reality Sync Complete."' in workflow
+    assert "if completed is False:" in workflow
+    assert 'echo "executed=true" >> "$GITHUB_OUTPUT"' in workflow
+
+
 def test_workflow_contract_suite_runs_in_ci_and_contract_changes_select_backend_lane():
     ci_workflow = (
         validator.ROOT / ".github" / "workflows" / "ci.yml"
