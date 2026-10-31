@@ -196,3 +196,23 @@ def test_production_deploy_summary_reports_validation_state():
     workflow = workflow_path.read_text(encoding="utf-8")
 
     assert 'echo "- State: ${{ steps.validate.outputs.state }}"' in workflow
+    assert "      - name: Publish production deployment intent\n        if: always()" in workflow
+
+
+def test_staging_deploy_summary_runs_after_validation_failure():
+    workflow_path = validator.ROOT / ".github" / "workflows" / "deploy-staging.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+
+    assert "      - name: Publish staging deployment intent\n        if: always()" in workflow
+
+
+def test_workflow_contract_suite_runs_in_ci_and_contract_changes_select_backend_lane():
+    ci_workflow = (
+        validator.ROOT / ".github" / "workflows" / "ci.yml"
+    ).read_text(encoding="utf-8")
+    classifier = (
+        validator.ROOT / ".github" / "workflows" / "detect-changes.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "python -m pytest tests/test_workflow_integration_contract.py -q" in ci_workflow
+    assert ".github/integration-contracts.json" in classifier

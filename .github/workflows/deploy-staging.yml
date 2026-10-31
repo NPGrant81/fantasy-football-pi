@@ -47,6 +47,7 @@ jobs:
         run: python -m scripts.validate_workflow_integration staging_deploy
 
       - name: Publish staging deployment intent
+        if: always()
         run: |
           {
             echo "## Staging Deployment Request"

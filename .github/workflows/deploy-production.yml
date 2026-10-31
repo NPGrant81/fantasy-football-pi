@@ -47,6 +47,7 @@ jobs:
         run: python -m scripts.validate_workflow_integration production_deploy
 
       - name: Publish production deployment intent
+        if: always()
         run: |
           {
             echo "## Production Deployment Request"

@@ -30,7 +30,7 @@ except ModuleNotFoundError:
     )
     from services.nfl_roster_provider_service import fetch_current_players
 
-def sync_nfl_reality():
+def sync_nfl_reality() -> bool:
     db = SessionLocal()
     print("🔄 Pulling latest NFL roster data from ESPN...")
     
@@ -38,7 +38,7 @@ def sync_nfl_reality():
     if df.empty:
         print("⚠️ ESPN roster fetch returned no rows; skipping reality sync")
         db.close()
-        return
+        return False
     
     # Filter for active players to keep it fast
     active_players = df[df['status'] == 'Active']
@@ -108,7 +108,9 @@ def sync_nfl_reality():
         print(f"🚫 Marked {deactivated} player-season(s) inactive (absent from feed)")
 
     db.commit()
+    db.close()
     print("✨ NFL Reality Sync Complete.")
+    return True
 
 if __name__ == "__main__":
     sync_nfl_reality()
