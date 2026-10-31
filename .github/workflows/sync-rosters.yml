@@ -24,32 +24,19 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Preflight required secrets
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate roster sync configuration
         id: preflight
         env:
+          ROSTER_SYNC_ENABLED: ${{ vars.ROSTER_SYNC_ENABLED || 'true' }}
           PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
           PROD_DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
           PROD_DEPLOY_USER: ${{ secrets.PROD_DEPLOY_USER }}
           PROD_DEPLOY_APP_DIR: ${{ secrets.PROD_DEPLOY_APP_DIR }}
           PROD_DEPLOY_KNOWN_HOST: ${{ secrets.PROD_DEPLOY_KNOWN_HOST }}
-        run: |
-          set -euo pipefail
-          missing=()
-
-          [ -n "${PROD_DEPLOY_SSH_KEY:-}" ] || missing+=("PROD_DEPLOY_SSH_KEY")
-          [ -n "${PROD_DEPLOY_HOST:-}" ] || missing+=("PROD_DEPLOY_HOST")
-          [ -n "${PROD_DEPLOY_USER:-}" ] || missing+=("PROD_DEPLOY_USER")
-          [ -n "${PROD_DEPLOY_APP_DIR:-}" ] || missing+=("PROD_DEPLOY_APP_DIR")
-          [ -n "${PROD_DEPLOY_KNOWN_HOST:-}" ] || missing+=("PROD_DEPLOY_KNOWN_HOST")
-
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "can_run=false" >> "$GITHUB_OUTPUT"
-            printf "missing_csv=%s\n" "$(IFS=,; echo "${missing[*]}")" >> "$GITHUB_OUTPUT"
-            echo "Roster sync preflight: missing required secrets: ${missing[*]}"
-          else
-            echo "can_run=true" >> "$GITHUB_OUTPUT"
-            echo "missing_csv=" >> "$GITHUB_OUTPUT"
-          fi
+        run: python -m scripts.validate_workflow_integration roster_sync
 
       - name: Configure SSH key
         if: steps.preflight.outputs.can_run == 'true'
@@ -76,6 +63,7 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
 
       - name: Run roster sync on Pi
+        id: sync
         if: steps.preflight.outputs.can_run == 'true'
         env:
           DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
@@ -108,18 +96,20 @@ jobs:
           echo "▶ Starting NFL reality sync ($(date -u '+%Y-%m-%d %H:%M UTC'))"
           python3 -c "import sys, os; sys.path.insert(0, os.getcwd()); from scripts.daily_sync import sync_nfl_reality; sync_nfl_reality(); print('Roster sync complete')"
           REMOTE_SCRIPT
+          echo "executed=true" >> "$GITHUB_OUTPUT"
 
       - name: Report sync summary
         if: always()
         run: |
-          if [ "${{ steps.preflight.outputs.can_run }}" != "true" ]; then
-            echo "## ⚠️ NFL Roster Sync Skipped (Configuration Required)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.preflight.outputs.state }}" = "NOT_CONFIGURED" ]; then
+            echo "## NFL Roster Sync: NOT_CONFIGURED" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Missing required secrets: ${{ steps.preflight.outputs.missing_csv }}" >> "$GITHUB_STEP_SUMMARY"
-          elif [ "${{ job.status }}" = "success" ]; then
-            echo "## ✅ NFL Roster Sync Succeeded" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.sync.outputs.executed }}" = "true" ]; then
+            echo "## NFL Roster Sync: PASS" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "## ❌ NFL Roster Sync Failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "## NFL Roster Sync: FAIL" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Missing required variables: ${{ steps.preflight.outputs.missing_csv }}" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Triggered:** ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
