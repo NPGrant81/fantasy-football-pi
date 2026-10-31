@@ -28,9 +28,9 @@ def test_ui_automation_owns_readiness_and_reports_actual_outcomes():
     assert node["with"]["node-version"] == 24
     startup = next(step for step in steps if step.get("id") == "ui_server")
     assert "node node_modules/vite/bin/vite.js" in startup["run"]
-    assert "curl --connect-timeout" in startup["run"]
-    assert "-fsS" in startup["run"]
-    assert "--connect-timeout 2 --max-time 5" in startup["run"]
+    assert "fetch(process.argv[1]" in startup["run"]
+    assert "AbortSignal.timeout(5000)" in startup["run"]
+    assert "curl" not in startup["run"]
     assert "kill -0" in startup["run"]
     assert "for attempt in {1..60}" in startup["run"]
     assert "after 60 bounded attempts" in startup["run"]

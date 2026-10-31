@@ -170,7 +170,7 @@ jobs:
               cat ../ui-server.log
               exit 1
             fi
-            if node -e 'fetch(process.argv[1]).then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' "http://$UI_HOST:$UI_PORT_A11Y/"; then
+            if node -e 'fetch(process.argv[1], { signal: AbortSignal.timeout(5000) }).then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' "http://$UI_HOST:$UI_PORT_A11Y/"; then
               exit 0
             fi
             sleep 2
@@ -187,7 +187,7 @@ jobs:
       - name: Run screenshot capture for visual regression
         id: screenshots
         working-directory: frontend
-        run: npx cypress run --browser chrome --spec cypress/e2e/uat_capture_pages.spec.js --config "baseUrl=http://$UI_HOST:$UI_PORT_A11Y"
+        run: npx cypress run --browser electron --spec cypress/e2e/uat_capture_pages.spec.js --config "baseUrl=http://$UI_HOST:$UI_PORT_A11Y"
 
       - name: Validate screenshot baseline stability
         id: visual_baseline
