@@ -170,7 +170,7 @@ jobs:
               cat ../ui-server.log
               exit 1
             fi
-            if curl --connect-timeout 2 --max-time 5 -fsS -H 'Accept: text/html' "http://$UI_HOST:$UI_PORT_A11Y/" > /dev/null; then
+            if node -e 'fetch(process.argv[1]).then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' "http://$UI_HOST:$UI_PORT_A11Y/"; then
               exit 0
             fi
             sleep 2
