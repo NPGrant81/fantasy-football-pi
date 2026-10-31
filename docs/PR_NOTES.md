@@ -537,3 +537,13 @@ Waiver Wire Testing scope is complete for current baseline:
 
 Validation: tests and CI checks for waiver functionality are included in ongoing repository validation.
 ```
+
+## PR #546 Copilot Feedback
+
+- PR: [#546](https://github.com/NPGrant81/fantasy-football-pi/pull/546)
+- Branch: `fix/issue-396-tunnel-nginx-origin`
+- Review requested: Attempted 2026-10-31; GitHub currently shows no review request.
+- Threads opened: 0
+- Threads resolved: 0
+- Follow-up commits: None
+- Residual risk: `nginx -t` and Raspberry Pi/public-tunnel validation remain pending.
