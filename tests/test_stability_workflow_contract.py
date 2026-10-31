@@ -28,9 +28,12 @@ def test_ui_automation_owns_readiness_and_reports_actual_outcomes():
     assert node["with"]["node-version"] == 24
     startup = next(step for step in steps if step.get("id") == "ui_server")
     assert "node node_modules/vite/bin/vite.js" in startup["run"]
-    assert "curl -fsS" in startup["run"]
+    assert "curl --connect-timeout" in startup["run"]
+    assert "-fsS" in startup["run"]
+    assert "--connect-timeout 2 --max-time 5" in startup["run"]
     assert "kill -0" in startup["run"]
     assert "for attempt in {1..60}" in startup["run"]
+    assert "after 60 bounded attempts" in startup["run"]
     for step_id in ("accessibility", "screenshots"):
         step = next(step for step in steps if step.get("id") == step_id)
         assert "npx cypress run" in step["run"]
@@ -46,6 +49,14 @@ def test_recovery_check_requires_actual_disposable_restore():
     script = (ROOT / "scripts" / "validate_backup_recovery.sh").read_text()
     assert "scripts/verify_backup_restore.py" in script
     assert '--archive "${latest_backup}"' in script
+    assert 'verification_db_url="sqlite:///${REPO_ROOT}/${db_path}"' in script
+    assert 'DB_URL="${verification_db_url}"' in script
+
+
+def test_nginx_vary_header_is_set_at_server_scope():
+    config = (ROOT / "deploy" / "nginx" / "fantasy-football-pi.conf.example").read_text()
+    server_start = config.index("server {", config.index("server {") + 1)
+    assert server_start < config.index("add_header Vary Accept always;") < config.index("location /")
 
 
 def test_both_deployments_verify_health_before_recording_success():

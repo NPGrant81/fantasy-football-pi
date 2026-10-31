@@ -54,6 +54,16 @@ backend_python="python3"
 if [[ -x "${REPO_ROOT}/backend/venv/bin/python" ]]; then
   backend_python="${REPO_ROOT}/backend/venv/bin/python"
 fi
-DB_URL="${DB_URL}" "${backend_python}" "${REPO_ROOT}/scripts/verify_backup_restore.py" --archive "${latest_backup}"
+verification_db_url="${DB_URL}"
+if [[ "${DB_URL}" =~ ^sqlite://(/|.*)$ ]]; then
+  db_path="${DB_URL#sqlite:///}"
+  if [[ "${db_path}" == "${DB_URL}" ]]; then
+    db_path="${DB_URL#sqlite://}"
+  fi
+  if [[ "${db_path}" != /* && -f "${REPO_ROOT}/${db_path}" ]]; then
+    verification_db_url="sqlite:///${REPO_ROOT}/${db_path}"
+  fi
+fi
+DB_URL="${verification_db_url}" "${backend_python}" "${REPO_ROOT}/scripts/verify_backup_restore.py" --archive "${latest_backup}"
 
 log "Recovery validation passed: backup creation, freshness, and isolated restoration verified"

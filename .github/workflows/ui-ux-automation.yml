@@ -162,13 +162,13 @@ jobs:
               cat ../ui-server.log
               exit 1
             fi
-            if curl -fsS -H 'Accept: text/html' "http://$UI_HOST:$UI_PORT_A11Y/" > /dev/null; then
+            if curl --connect-timeout 2 --max-time 5 -fsS -H 'Accept: text/html' "http://$UI_HOST:$UI_PORT_A11Y/" > /dev/null; then
               exit 0
             fi
             sleep 2
           done
           cat ../ui-server.log
-          echo "UI server did not become ready within 120 seconds."
+          echo "UI server did not become ready after 60 bounded attempts (each request capped at 5 seconds)."
           exit 1
 
       - name: Run accessibility smoke checks
