@@ -211,7 +211,7 @@ SLIDE_DEFINITIONS: list[dict[str, object]] = [
         'bullets': [
             'Current and editable waiver settings are shown together for review.',
             'Update Waiver Rules action writes policy changes explicitly.',
-            'Saved settings persist and reflect on member-facing waiver flows.',
+            'Claim history follows the selected league; permission and loading failures offer a clear retry.',
         ],
     },
     {

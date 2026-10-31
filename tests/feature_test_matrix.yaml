@@ -376,6 +376,18 @@ lanes:
     description: React component and utility unit tests (vitest)
     runner: cd frontend && npm run test -- --run
     files:
+      - file: frontend/tests/ManageWaiverRules.test.jsx
+        domain: waiver
+        status: active
+        notes: "#534 scoped history, empty/error/retry and league-switch regressions"
+      - file: frontend/tests/queryClient.test.jsx
+        domain: infra
+        status: active
+        notes: "#535 real query errors, invalidation/refetch and isolated caches"
+      - file: frontend/tests/ingressRouting.test.js
+        domain: infra
+        status: active
+        notes: "#532 Vite/Nginx contract plus live JSON/SSE/document routing"
       - file: frontend/tests/CommishAdmin.test.jsx
         domain: admin
         status: active
@@ -527,14 +539,28 @@ lanes:
 
   e2e:
     description: End-to-end browser tests
-    runner: "# Not yet configured — no Cypress or Playwright config found"
-    files: []
-    notes: E2E lane is planned (Phase 4, issue #375). No test files exist yet.
+    runner: cd frontend && npx cypress run
+    files:
+      - file: frontend/cypress/e2e/accessibility_smoke.spec.js
+        domain: accessibility
+        status: active
+      - file: frontend/cypress/e2e/uat_capture_pages.spec.js
+        domain: ui
+        status: active
+    notes: "#536 HTTP readiness precedes browser checks; UAT capture mocks APIs, not integration proof"
 
   integration:
     description: Cross-layer integration tests (API + DB + service)
     runner: .venv/bin/pytest backend/tests/ -m integration
     files:
+      - file: tests/test_stability_workflow_contract.py
+        domain: infra
+        status: active
+        notes: "Run with python -m pytest; deploy health, full CI, UI readiness and recovery contracts"
+      - file: tests/test_backup_restore.py
+        domain: recovery
+        status: active
+        notes: "Run with python -m pytest; SQLite round trip and isolated PostgreSQL drill (CI service only)"
       - file: backend/tests/test_scoring_router_integration.py
         domain: scoring
         status: active

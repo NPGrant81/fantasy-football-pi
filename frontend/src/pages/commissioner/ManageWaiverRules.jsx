@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import apiClient from '@api/client';
 import { useActiveLeague } from '@context/LeagueContext';
 import { Link } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
-import { EmptyState, LoadingState } from '@components/common/AsyncState';
+import { EmptyState, ErrorState, LoadingState } from '@components/common/AsyncState';
 import PageTemplate from '@components/layout/PageTemplate';
 import {
   StandardTable,
@@ -31,8 +32,21 @@ export default function ManageWaiverRules() {
   const [tieBreaker, setTieBreaker] = useState('standings');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [claims, setClaims] = useState([]); // waiver claim history for auditors
-  const [claimsLoading, setClaimsLoading] = useState(false);
+  const claimsQuery = useQuery({
+    queryKey: ['waiver-claims', leagueId],
+    enabled: Boolean(leagueId),
+    queryFn: async ({ signal }) => {
+      const { data } = await apiClient.get('/waivers/claims', {
+        params: { league_id: leagueId },
+        signal,
+      });
+      if (!Array.isArray(data)) {
+        throw new Error('Waiver history returned an invalid response.');
+      }
+      return data;
+    },
+  });
+  const claims = claimsQuery.data || [];
   const [budgets, setBudgets] = useState([]);
   const [budgetsLoading, setBudgetsLoading] = useState(false);
 
@@ -40,7 +54,6 @@ export default function ManageWaiverRules() {
   useEffect(() => {
     if (!leagueId) {
       setMessage('No active league selected.');
-      setClaims([]);
       setBudgets([]);
       return;
     }
@@ -63,28 +76,9 @@ export default function ManageWaiverRules() {
     }
 
     fetchWaiverSettings();
-    fetchClaims();
     fetchBudgets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId]);
-
-  // fetch historical waiver claims (commissioner only)
-  const fetchClaims = async () => {
-    if (!leagueId) {
-      setClaims([]);
-      return;
-    }
-
-    setClaimsLoading(true);
-    try {
-      const res = await apiClient.get(`/leagues/${leagueId}/waivers/claims`);
-      setClaims(Array.isArray(res.data) ? res.data : []);
-    } catch {
-      // ignore failures for now
-    } finally {
-      setClaimsLoading(false);
-    }
-  };
 
   // fetch current budgets for league (commissioner view)
   const fetchBudgets = async () => {
@@ -291,8 +285,19 @@ export default function ManageWaiverRules() {
         <h2 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">
           Waiver Claim History
         </h2>
-        {claimsLoading ? (
+        {claimsQuery.isLoading ? (
           <LoadingState message="Loading history..." className={textMuted} />
+        ) : claimsQuery.isError ? (
+          <div>
+            <ErrorState message={
+              claimsQuery.error?.response?.status === 403
+                ? 'You do not have permission to view waiver history for this league.'
+                : 'Failed to load waiver history. Please retry.'
+            } />
+            <button type="button" className={`${buttonSecondary} mt-2`} onClick={() => claimsQuery.refetch()}>
+              Retry waiver history
+            </button>
+          </div>
         ) : claims.length ? (
           <StandardTableContainer>
             <StandardTable>
