@@ -7,21 +7,22 @@ This branch was created to trigger CI for backend and frontend tests.
 
 ---
 
-## Documentation and Operations Cleanup — Copilot Feedback
+## PR #545 Documentation and Operations Cleanup — Copilot Feedback
 
-- Review requested: pending PR publication.
-- Threads opened: pending.
-- Threads resolved: pending.
-- Follow-up commits: none yet.
+- Review requested: 2026-10-31.
+- Threads opened: 2.
+- Threads resolved: 2.
+- Follow-up commits: `cda665c`.
 - Scope: align database, backup/restore, migration, authentication, deployment,
   Cloudflare, monitoring, and weekly-ingestion guidance with current code and
   configuration. Add a backup-service environment contract test.
-- Validation: stability workflow contract tests passed (14); repository
-  hygiene, review-registry JSON, and `git diff --check` passed.
+- Validation: stability workflow contract tests passed (15); repository
+  hygiene, review-registry JSON, `git diff --check`, and Git Bash syntax check
+  passed.
 - Residual risk: production database state and deployed Pi/tunnel/backup
-  configuration remain unverified. The repository's Nginx TLS redirect
-  example and Cloudflare HTTP-origin example are incompatible unchanged; that
-  configuration needs a separate implementation and validation slice.
+  configuration remain unverified. The separate origin fix is tracked in
+  [PR #546](https://github.com/NPGrant81/fantasy-football-pi/pull/546), with
+  Nginx syntax and Pi/public-tunnel validation still pending.
 
 ---
 
