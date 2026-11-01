@@ -6,8 +6,10 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import String, create_engine, inspect, text
 
 from backend.db_config import load_backend_env_file, resolve_database_url
 
@@ -139,6 +141,46 @@ def _head_revisions(config: Config) -> frozenset[str]:
     return frozenset(ScriptDirectory.from_config(config).get_heads())
 
 
+def _ensure_version_column_capacity(
+    database_engine,
+    known_revisions: frozenset[str],
+) -> None:
+    """Widen Alembic's default 32-character column for longer revision IDs."""
+    inspector = inspect(database_engine)
+    if "alembic_version" not in inspector.get_table_names():
+        raise RuntimeError(
+            "Refusing FFPI migration: recognized Alembic history has no "
+            "alembic_version table."
+        )
+
+    version_column = next(
+        (
+            column
+            for column in inspector.get_columns("alembic_version")
+            if column["name"] == "version_num"
+        ),
+        None,
+    )
+    if version_column is None:
+        raise RuntimeError(
+            "Refusing FFPI migration: alembic_version has no version_num column."
+        )
+
+    required_length = max(map(len, known_revisions), default=0)
+    current_length = getattr(version_column["type"], "length", None)
+    if not required_length or current_length is None or current_length >= required_length:
+        return
+
+    with database_engine.begin() as connection:
+        operations = Operations(MigrationContext.configure(connection))
+        operations.alter_column(
+            "alembic_version",
+            "version_num",
+            existing_type=version_column["type"],
+            type_=String(required_length),
+        )
+
+
 def _bootstrap_config(config_path: Path) -> Config:
     config = Config(str(config_path))
     config.set_main_option("script_location", str(BOOTSTRAP_SCRIPT_PATH))
@@ -158,13 +200,16 @@ def apply_migrations(config_path: Path = ALEMBIC_CONFIG_PATH) -> None:
     migration_engine = create_engine(database_url, pool_pre_ping=True)
     try:
         config = Config(str(config_path))
+        known_revisions = _known_revisions(config)
+        head_revisions = _head_revisions(config)
         if _database_is_empty(
             migration_engine,
-            _known_revisions(config),
-            _head_revisions(config),
+            known_revisions,
+            head_revisions,
         ):
             command.upgrade(_bootstrap_config(config_path), "head")
             command.stamp(config, BOOTSTRAP_MAIN_REVISION, purge=True)
+        _ensure_version_column_capacity(migration_engine, known_revisions)
         command.upgrade(config, "heads")
     finally:
         migration_engine.dispose()

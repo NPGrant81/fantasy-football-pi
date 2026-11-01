@@ -127,6 +127,15 @@ def _alembic_versions(engine):
         )
 
 
+def _alembic_version_column_length(engine):
+    version_column = next(
+        column
+        for column in inspect(engine).get_columns("alembic_version")
+        if column["name"] == "version_num"
+    )
+    return version_column["type"].length
+
+
 def test_ffpi_application_tables_match_orm_metadata():
     importlib.import_module("backend.models")
     importlib.import_module("backend.models_draft_value")
@@ -581,6 +590,22 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
         )
         assert _alembic_versions(bootstrap_engine) == expected_heads
         assert _alembic_versions(incremental_engine) == expected_heads
+        longest_revision_length = max(
+            map(
+                len,
+                migration_runner._known_revisions(
+                    Config(str(migration_runner.ALEMBIC_CONFIG_PATH))
+                ),
+            )
+        )
+        assert (
+            _alembic_version_column_length(bootstrap_engine)
+            >= longest_revision_length
+        )
+        assert (
+            _alembic_version_column_length(incremental_engine)
+            >= longest_revision_length
+        )
 
         with incremental_engine.connect() as connection:
             preserved_player = connection.execute(
@@ -659,6 +684,11 @@ def test_apply_migrations_upgrades_all_heads_for_established_database(monkeypatc
         lambda _config: frozenset({"ffpi_revision"}),
     )
     monkeypatch.setattr(
+        migration_runner,
+        "_ensure_version_column_capacity",
+        lambda _engine, _revisions: calls.append(("ensure_version_capacity",)),
+    )
+    monkeypatch.setattr(
         migration_runner.command,
         "upgrade",
         lambda config, revision: calls.append(("upgrade", config, revision)),
@@ -670,6 +700,7 @@ def test_apply_migrations_upgrades_all_heads_for_established_database(monkeypatc
     assert resolve_call[1]["require_explicit"] is True
     upgrades = [call for call in calls if call[0] == "upgrade"]
     assert upgrades[-1][2] == "heads"
+    assert ("ensure_version_capacity",) in calls
     assert calls[-1] == ("dispose",)
 
 
@@ -718,6 +749,11 @@ def test_apply_migrations_bootstraps_empty_database(monkeypatch, tmp_path):
         lambda _config: frozenset({"ffpi_revision"}),
     )
     monkeypatch.setattr(
+        migration_runner,
+        "_ensure_version_column_capacity",
+        lambda _engine, _revisions: calls.append(("ensure_version_capacity",)),
+    )
+    monkeypatch.setattr(
         migration_runner.command,
         "upgrade",
         lambda config, revision: calls.append(("upgrade", config, revision)),
@@ -742,6 +778,7 @@ def test_apply_migrations_bootstraps_empty_database(monkeypatch, tmp_path):
     )
     upgrades = [call for call in calls if call[0] == "upgrade"]
     assert [call[2] for call in upgrades] == ["head", "heads"]
+    assert ("ensure_version_capacity",) in calls
     assert calls[-1] == ("dispose",)
 
 
