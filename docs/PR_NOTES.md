@@ -3,16 +3,28 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
+## PR #551 Copilot Feedback
+
+- Review requested: 2026-11-01.
+- Threads opened: 7.
+- Threads resolved: 7.
+- Follow-up commits: `56fe618`.
+- Review follow-up: clarified the projection ETL/runtime ESPN mapping conflict, current-status roster selection and null-league picks, MFL transaction import-time timestamps and free-form week notes, nullable weekly-stat keys versus matchup identity, scoring-override provenance and cross-league scope, consumer season defaults, and list/detail response differences.
+- Scope: map current semantic sources and consumers, document evidence gaps, and select two candidate consumers for #549 without changing stored meaning or APIs.
+- Validation: repository hygiene and `git diff --check` passed after the review corrections; documentation registry JSON validation passed for the source-map changes. The non-default-base area-label check passed, while fork-only backend, frontend, and E2E checks were skipped. PR #551 now targets `main`; the default-base docs CI gate and secrets scan are pending.
+- Residual risk: the latest completed Copilot review predates the follow-up commit. A fresh review request was attempted but the GitHub tool failed before submission. No application behavior, schema, API, or persisted data changed.
+
 ## PR #550 Copilot Feedback
 
 - Review requested: 2026-11-01.
-- Review state: pending at last check; no review comments or threads visible.
+- Final Copilot review: approval recommended; no open review issues.
 - Threads opened: 0 at last check.
 - Threads resolved: 0.
 - Follow-up commits: none.
 - Scope: define shared semantics for entity identity, season/week context, membership, metric grain, scoring basis, provenance, and freshness without changing schemas or persisted data.
 - Validation: repository hygiene, documentation registry JSON, and `git diff --check` passed; hosted `ci-gate`, secrets scan, and migration-layout check passed. Backend, frontend, and E2E lanes skipped as expected for docs-only changes.
-- Residual risk: Copilot review and required human approval/merge remain pending.
+- Merged: 2026-11-01 using merge commit `0a5274b8d6fa71a525c9950942778c6cc49d8977`.
+- Residual risk: none identified in the contract documentation; production data conformance remains unverified.
 
 ## PR #543 Copilot Feedback
 
