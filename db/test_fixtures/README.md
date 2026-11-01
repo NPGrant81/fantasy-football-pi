@@ -41,9 +41,11 @@ values remain in the archive; division labels are converted into per-league
 The published incremental revision graph has no table-creation revisions for
 some current tables, even though later revisions add foreign keys that depend
 on them. It also creates `refresh_tokens` without the token-hash index in the
-bootstrap schema. The bridge materializes the explicit set of empty
-bridge-managed tables from current ORM metadata in the preparation transaction;
-the dry run lists them. Existing legacy rows are not copied into these tables.
+bootstrap schema, and `validated_draft_results` with a server default and
+without the bootstrap ID index. The bridge materializes the explicit set of
+empty bridge-managed tables from current ORM metadata in the preparation
+transaction; the dry run lists them. Existing legacy rows are not copied into
+these tables.
 
 The preflight and initial schema preparation are transactional. A durable
 `prepared` marker in the archive permits an explicit retry if canonical

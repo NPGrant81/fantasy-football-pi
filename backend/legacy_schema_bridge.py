@@ -60,6 +60,7 @@ BRIDGE_MANAGED_TABLES = frozenset(
         "trade_events",
         "trades",
         "unmatched_players",
+        "validated_draft_results",
         "waiver_budgets",
     }
 )
