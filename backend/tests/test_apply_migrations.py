@@ -692,7 +692,7 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
             prepared_report = prepare_legacy_schema(incremental_engine)
             assert prepared_report.phase.startswith("prepared:")
             resumed_report = prepare_legacy_schema(incremental_engine)
-            assert resumed_report.phase == prepared_report.phase
+            assert resumed_report.phase == f"resume:{prepared_report.phase}"
             command.upgrade(
                 Config(str(migration_runner.ALEMBIC_CONFIG_PATH)),
                 "0001_create_draft_value_tables",
