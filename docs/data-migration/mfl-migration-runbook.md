@@ -43,13 +43,18 @@ Before the standard import flow:
    ```
 
    The command uses read-only repeatable-read transactions, accepts only named
-   working copies, and refuses to overwrite an existing report. Exit code **2**
+   working copies, rejects database-name/service URL overrides, and refuses to
+   overwrite an existing report. Exit code **2**
    means the report was saved but import remains blocked; **1** indicates an
    operational/input failure. Argument errors also use argparse's exit code 2
    without a saved-report message.
 4. Review source SHA-256 hashes, full draft multisets (season, owner, player,
    exact bid, position and team), conflicting source IDs, missing attributes,
    observed schema fingerprint, unknown Alembic revisions and uniqueness drift.
+   Uniqueness contracts include expressions, partial-index predicates and NULL
+   semantics. SQL-rendering differences remain review items, not automatic
+   equivalence. Missing affected tables are reported without inspecting absent
+   constraints.
    Tables/columns alone cannot prove schema compatibility.
 5. Use the report's `mapping_review_template` as an **unapproved** review
    worksheet. Supply explicit source-player to canonical-player mappings and
@@ -66,6 +71,48 @@ This read-only report is not an importer or a completed #528 certification.
 Keep reports and identity-review evidence in access-restricted storage outside
 Git; publish aggregate findings only. The general flows below do not bypass
 this remediation gate.
+
+### Native MFL repair worksheet (offline)
+
+Reuse retained API exports before sending new requests. For new extraction,
+use one season and one report per short burst, with a bounded request count;
+stop on authentication failure, throttling or unexpected redirects instead of
+launching a multi-season retry sweep. Public exports may require no credentials.
+
+The standalone source reconciler makes **zero API requests** and performs no
+database operations. Select exactly one export root for each season; an
+explicit draft CSV override can replace a stale/header-only draft export
+without modifying any retained source:
+
+```powershell
+python -m backend.scripts.reconcile_ppl_mfl_sources `
+  --source-root backend\data `
+  --season-export "2024=C:\restricted-exports\history_api_2023_2026" `
+  --season-export "2025=C:\restricted-exports\history_api_2023_2026" `
+  --draft-export "2025=C:\restricted-exports\fresh-auction\draftResults\2025.csv" `
+  --output C:\restricted-reports\ppl-mfl-source-repair.json
+```
+
+The input format is the existing extractor's `players`, `franchises` and
+`draftResults` CSV contract, including season, league, endpoint and extraction
+metadata. Only auction-grain drafts currently qualify as source candidates;
+unsupported event shapes, invalid bids and dangling native references remain
+explicit blockers. Native IDs retain leading zeros.
+
+The report hashes every selected input and retains all draft events with
+file-hash/CSV-row evidence locators. These locators are **not** final idempotency
+keys. Name/position/exact-bid comparisons and per-season owner overlap only
+nominate legacy/source candidates. Contradictory legacy identities, split owner
+evidence and repeated native event tuples must not be resolved by first-row,
+majority-match or numeric-ID assumptions. A native event without a legacy
+candidate is not proven missing while legacy identity coverage is incomplete.
+
+Use `native_mapping_review_template` to review native franchise/player to
+target mappings; all entries start unapproved with null target IDs. Every
+season's franchise list is included even when legacy matches are unavailable.
+Like the copied-database reconciler, the command saves new evidence exclusively,
+returns 2 for a saved unapproved worksheet and 1 for an operational/input
+failure. It never applies a repair.
 
 Optional checks:
 

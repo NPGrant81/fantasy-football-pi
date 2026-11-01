@@ -6,8 +6,10 @@ Pull request test branch: feature/tests-ci
 ## PR #557 Read-Only Reconciliation Preparation
 
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
-  worksheet and a remediation gate in the MFL migration runbook.
-- Validation: 31 focused backend tests passed; Black, flake8 and whitespace
+  worksheets, selected native MFL source evidence and a remediation gate in
+  the MFL migration runbook.
+- Validation: 71 focused backend tests passed, including existing auction
+  extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
   table schemas, counts and complete row hashes.
@@ -20,14 +22,28 @@ Pull request test branch: feature/tests-ci
 - Observed revision `0029_harden_historical_ingestion_models` is absent from the
   checked migration graph. Source-event uniqueness, multi-season waiver
   uniqueness, Sleeper IDs and historical-stub columns require reviewed adoption.
+- Native source recovery: exactly one public 2024 auction request confirmed
+  140 records matching the retained API CSV, compared with 139 legacy records.
+  A separate single public 2025 auction request recovered 144 records. No
+  credentials, retries or redirect following were needed for either burst.
+  Selected retained/fresh exports cover 1,198 native auction events in 2018–2025
+  versus 1,197 legacy CSV rows. Offline comparison found 864 single-event review
+  candidates; these are not approved target identities or completed imports.
+- The source worksheet includes all 96 per-season native franchise mapping
+  entries, preserves conflicting IDs and exposes split/shared owner evidence
+  in 2024. It does not choose a majority mapping or assert that every unmatched
+  source event is missing.
 - Copilot Feedback:
   - Review requested: attempted 2026-11-01 via MCP and CLI.
-  - No accepted request is visible; the MCP call returned no confirmation and
-    the CLI request was rejected with HTTP 422 (reviewer not a collaborator).
-  - Threads opened: 0; threads resolved: 0 at the last check.
-  - Review-driven follow-up commits: none; manual/automated review still required.
-- Hosted CI: pending at publication; the initial secrets scan and migration
-  layout checks passed. No final CI-gate result is claimed.
+  - The initial request was not visible and CLI returned HTTP 422, but Copilot
+    subsequently submitted a four-thread review.
+  - Threads opened: 4; fixes implemented and validated in `459006e`.
+    Thread resolution follows push; fresh review remains required.
+  - Fixes reject database-name/service overrides, require nonempty provenance
+    names, retain missing-table evidence and compare unique expressions,
+    partial predicates and NULL semantics.
+- Hosted CI: all applicable checks, including `ci-gate`, passed before these
+  follow-up commits. New-head CI remains pending; no new-head result is claimed.
 - Residual risk: no schema adoption, identity approval, historical import or
   production deployment performed. Refs #524, #525, #526, #527 and #528 remain
   open; this preparatory slice does not certify ingestion or runtime parity.
