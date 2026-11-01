@@ -26,6 +26,7 @@ from backend.legacy_schema_bridge import (
     finalize_legacy_schema_adoption,
     inspect_legacy_database,
     prepare_legacy_schema,
+    reconcile_adopted_schema,
 )
 
 
@@ -701,6 +702,18 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
                 {"0001_create_draft_value_tables"}
             )
             migration_runner.apply_migrations()
+        with incremental_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO manual_player_mappings "
+                    "(source_name, scraped_player_name, true_player_id, "
+                    "scraped_name, player_id) "
+                    "VALUES ('equivalence-probe', 'Archived mapping', "
+                    ":player_id, 'Archived mapping', :player_id)"
+                ),
+                {"player_id": player_id},
+            )
+        reconcile_adopted_schema(incremental_engine)
         finalize_legacy_schema_adoption(incremental_engine)
 
         with monkeypatch.context() as scoped_environment:
@@ -770,6 +783,19 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
                 ),
                 {"rule_id": scoring_rule_id},
             ).scalar_one()
+            archived_mapping = connection.execute(
+                text(
+                    f"SELECT source_name, scraped_player_name, true_player_id "
+                    f"FROM {ARCHIVE_SCHEMA}.reconcile_manual_player_mappings "
+                    "WHERE source_name = 'equivalence-probe'"
+                )
+            ).one()
+            mapping_columns = {
+                column["name"]
+                for column in inspect(incremental_engine).get_columns(
+                    "manual_player_mappings"
+                )
+            }
             archived_counts = {
                 table: connection.execute(
                     text(f"SELECT count(*) FROM {ARCHIVE_SCHEMA}.{table}")
@@ -808,6 +834,10 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
         assert preserved_division == "East"
         assert archived_division == "East"
         assert archived_points == 4.0
+        assert archived_mapping == ("equivalence-probe", "Archived mapping", player_id)
+        assert "source_name" not in mapping_columns
+        assert "scraped_player_name" not in mapping_columns
+        assert "true_player_id" not in mapping_columns
         assert any(
             foreign_key["referred_schema"] == ARCHIVE_SCHEMA
             and foreign_key["referred_table"] == "leagues"

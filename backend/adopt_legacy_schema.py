@@ -17,6 +17,7 @@ from backend.legacy_schema_bridge import (
     finalize_legacy_schema_adoption,
     inspect_legacy_database,
     prepare_legacy_schema,
+    reconcile_adopted_schema,
 )
 
 
@@ -62,6 +63,7 @@ def _run_adoption(database_url: str) -> None:
 
         migration_runner.apply_migrations()
         _verify_canonical_heads(engine)
+        reconcile_adopted_schema(engine)
         finalize_legacy_schema_adoption(engine)
         _verify_canonical_heads(engine)
     finally:

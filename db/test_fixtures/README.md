@@ -40,13 +40,15 @@ values remain in the archive; division labels are converted into per-league
 
 The published incremental revision graph has no table-creation revisions for
 some current tables, even though later revisions add foreign keys that depend
-on them. It also creates `refresh_tokens` without the token-hash index in the
-bootstrap schema, and `validated_draft_results` with a server default and
-without the bootstrap ID index. The `player_aliases` revision similarly leaves
-a server default and omits the bootstrap ID index. The bridge materializes the
-explicit set of empty bridge-managed tables from current ORM metadata in the
-preparation transaction; the dry run lists them. Existing legacy rows are not
-copied into these tables.
+on them. The bridge materializes the explicit set of empty bridge-managed
+tables from current ORM metadata in the preparation transaction; the dry run
+lists them. Existing legacy rows are not copied into these tables. After
+canonical migrations reach their heads, the bridge reconciles the resulting
+public schema against current ORM metadata, which is also the bootstrap
+schema contract. Reconciliation refuses to drop tables and archives any
+non-empty table whose migration-only columns must be removed under
+`ffpi_legacy_archive` before applying the changes. It fails if the schema does
+not converge to the metadata.
 
 The preflight and initial schema preparation are transactional. A durable
 `prepared` marker in the archive permits an explicit retry if canonical

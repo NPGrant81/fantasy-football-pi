@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
 import sqlalchemy as sa
+from alembic.autogenerate import produce_migrations
 from alembic.migration import MigrationContext
-from alembic.operations import Operations
+from alembic.operations import Operations, ops as alembic_ops
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.schema import CreateSchema, DropSchema
@@ -396,6 +398,111 @@ def _create_bridge_managed_tables(connection: Connection) -> None:
         ],
         checkfirst=True,
     )
+
+
+def _flatten_operations(
+    operations: Iterable[alembic_ops.MigrateOperation],
+) -> Iterator[alembic_ops.MigrateOperation]:
+    for operation in operations:
+        if isinstance(operation, alembic_ops.ModifyTableOps):
+            yield from _flatten_operations(operation.ops)
+        else:
+            yield operation
+
+
+def _archive_reconciliation_data(
+    connection: Connection,
+    table_names: set[str],
+) -> None:
+    inspector = inspect(connection)
+    archive_tables = set(inspector.get_table_names(schema=ARCHIVE_SCHEMA))
+    for table_name in sorted(table_names):
+        source_table = _qualified(connection, LEGACY_SCHEMA, table_name)
+        archive_table_name = f"reconcile_{table_name}"
+        archive_table = _qualified(connection, ARCHIVE_SCHEMA, archive_table_name)
+        source_rows = connection.execute(
+            text(f"SELECT count(*) FROM {source_table}")
+        ).scalar_one()
+        if not source_rows:
+            continue
+        if archive_table_name not in archive_tables:
+            connection.exec_driver_sql(
+                f"CREATE TABLE {archive_table} "
+                f"(LIKE {source_table} INCLUDING ALL)"
+            )
+            connection.exec_driver_sql(
+                f"INSERT INTO {archive_table} SELECT * FROM {source_table}"
+            )
+        archived_rows = connection.execute(
+            text(f"SELECT count(*) FROM {archive_table}")
+        ).scalar_one()
+        source_alias = _quoted(connection, "source_row")
+        archive_alias = _quoted(connection, "archive_row")
+        rows_differ = connection.execute(
+            text(
+                "SELECT EXISTS ("
+                f"(SELECT to_jsonb({source_alias}) FROM {source_table} "
+                f"AS {source_alias} EXCEPT "
+                f"SELECT to_jsonb({archive_alias}) FROM {archive_table} "
+                f"AS {archive_alias}) UNION ALL "
+                f"(SELECT to_jsonb({archive_alias}) FROM {archive_table} "
+                f"AS {archive_alias} EXCEPT "
+                f"SELECT to_jsonb({source_alias}) FROM {source_table} "
+                f"AS {source_alias})"
+                ")"
+            )
+        ).scalar_one()
+        if archived_rows != source_rows or rows_differ:
+            raise RuntimeError(
+                f"Schema reconciliation archive for {table_name} does not "
+                "exactly match its source; refusing to remove or alter data."
+            )
+
+
+def reconcile_adopted_schema(engine: Engine) -> None:
+    from backend.models import Base
+
+    with engine.begin() as connection:
+        migration_context = MigrationContext.configure(
+            connection,
+            opts={
+                "compare_type": True,
+                "compare_server_default": True,
+            },
+        )
+        migration_script = produce_migrations(migration_context, Base.metadata)
+        operations = list(
+            _flatten_operations(migration_script.upgrade_ops.ops)
+        )
+        dropped_tables = [
+            operation.table_name
+            for operation in operations
+            if isinstance(operation, alembic_ops.DropTableOp)
+        ]
+        if dropped_tables:
+            raise RuntimeError(
+                "Schema reconciliation found tables absent from current ORM "
+                f"metadata: {sorted(dropped_tables)}. Refusing to drop tables."
+            )
+        dropped_tables = {
+            operation.table_name
+            for operation in operations
+            if isinstance(operation, alembic_ops.DropColumnOp)
+        }
+        _archive_reconciliation_data(connection, dropped_tables)
+        migration_operations = Operations(migration_context)
+        for operation in operations:
+            migration_operations.invoke(operation)
+
+        remaining_script = produce_migrations(migration_context, Base.metadata)
+        if not remaining_script.upgrade_ops.is_empty():
+            remaining_operations = list(
+                _flatten_operations(remaining_script.upgrade_ops.ops)
+            )
+            raise RuntimeError(
+                "Schema reconciliation did not converge to current ORM metadata. "
+                f"Remaining operations: {remaining_operations!r}."
+            )
 
 
 def _existing_adoption_state(connection: Connection) -> tuple[str, str] | None:
