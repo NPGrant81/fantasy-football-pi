@@ -38,6 +38,13 @@ fields block before schema changes. The original `points` and `users.division`
 values remain in the archive; division labels are converted into per-league
 `divisions` rows and linked by `users.division_id`.
 
+The published incremental revision graph has no table-creation revisions for a
+specific set of current tables, even though later revisions add foreign keys
+that depend on some of them. The bridge creates these missing, empty tables
+from current ORM metadata during the same transaction as preparation; the dry
+run lists them explicitly. Existing legacy rows are not copied into these new
+tables.
+
 The preflight and initial schema preparation are transactional. A durable
 `prepared` marker in the archive permits an explicit retry if canonical
 migrations stop after preparation; the original tables remain archived.
