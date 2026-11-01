@@ -3,7 +3,7 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
-## Issue #528 Read-Only Reconciliation Preparation
+## PR #557 Read-Only Reconciliation Preparation
 
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheet and a remediation gate in the MFL migration runbook.
@@ -20,7 +20,14 @@ Pull request test branch: feature/tests-ci
 - Observed revision `0029_harden_historical_ingestion_models` is absent from the
   checked migration graph. Source-event uniqueness, multi-season waiver
   uniqueness, Sleeper IDs and historical-stub columns require reviewed adoption.
-- Copilot Feedback: review pending PR creation; no review outcome claimed.
+- Copilot Feedback:
+  - Review requested: attempted 2026-11-01 via MCP and CLI.
+  - No accepted request is visible; the MCP call returned no confirmation and
+    the CLI request was rejected with HTTP 422 (reviewer not a collaborator).
+  - Threads opened: 0; threads resolved: 0 at the last check.
+  - Review-driven follow-up commits: none; manual/automated review still required.
+- Hosted CI: pending at publication; the initial secrets scan and migration
+  layout checks passed. No final CI-gate result is claimed.
 - Residual risk: no schema adoption, identity approval, historical import or
   production deployment performed. Refs #524, #525, #526, #527 and #528 remain
   open; this preparatory slice does not certify ingestion or runtime parity.
