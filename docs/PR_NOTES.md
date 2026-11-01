@@ -6,7 +6,8 @@ Pull request test branch: feature/tests-ci
 ## PR #555 Copilot Feedback
 
 - Review received: 2026-11-01.
-- Threads opened: 5; all five findings have verified fixes.
+- Threads opened: 5; threads resolved: 5.
+- Follow-up commit: `e8603a5`.
 - Foreign-key snapshots retain external schema identity and normalize only
   internal references. A same-named cross-schema constraint fails preflight.
 - Preparation locks the full source set before validation/archiving.
