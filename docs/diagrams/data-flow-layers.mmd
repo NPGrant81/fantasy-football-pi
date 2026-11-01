@@ -1,0 +1,103 @@
+---
+title: Fantasy Football PI - Data flow and layer boundaries
+---
+flowchart TD
+    subgraph sources["1. Inputs"]
+        ESPN["ESPN player, schedule and live-stat feeds"]
+        VALUES["ESPN, Yahoo, DraftSharks and FantasyNerds values"]
+        MFL["MFL historical CSV, JSON and HTML exports"]
+        ACTIONS["Owner and commissioner actions<br/>Draft, lineup, waiver, trade and rule edits"]
+    end
+
+    subgraph ingestion["2. Ingestion and transformation - source-specific pipelines"]
+        LIVE["Player import and live-scoring ingestion<br/>Normalize payloads; resolve ESPN IDs"]
+        ETL["Projection ETL<br/>Normalize and validate; resolve players; aggregate values"]
+        HISTORY["Historical archive, normalize and import<br/>Map provider leagues, seasons, franchises and players"]
+        AUDIT["Pipeline evidence<br/>Raw files, checksums, fingerprints and run status"]
+    end
+
+    subgraph storage["3. PostgreSQL - persisted facts, configuration and derived records"]
+        IDENT[("Identity and season context<br/>players, player_seasons, aliases, ID mappings<br/>leagues, users, league_mfl_seasons")]
+        STATS[("Observations and events<br/>player_weekly_stats, nfl_games<br/>MFL normalized facts and ingestion records")]
+        DOMAIN[("League operations and configuration<br/>draft_picks, lineup_submissions, matchups<br/>rules, keepers, waivers, trades, ledger")]
+        DERIVED[("Values and analytical records<br/>platform_projections, draft_values<br/>manager_efficiency and playoff snapshots")]
+    end
+
+    subgraph schema["Schema control - not a row-processing layer"]
+        BASE["SQLAlchemy Base<br/>Shared declarative model registry"]
+        META["Base.metadata<br/>Table, column and relationship definitions"]
+        MIG["Canonical Alembic migrations<br/>Empty DB bootstrap / explicit legacy adoption"]
+        ARCHIVE[("Legacy archive<br/>Recovery evidence; not a normal page data source")]
+    end
+
+    subgraph backend["4. Backend access and business logic"]
+        ORM["SQLAlchemy models + Session<br/>SessionLocal / get_db; queries and transactions"]
+        SERVICES["Domain services and analytical calculations<br/>Identity, scoring, standings, history, draft and ledger"]
+        LEGACY["Existing router-local queries and calculations<br/>As-built bypass; not the intended layer boundary"]
+        ROUTERS["FastAPI routers + authentication / authorization"]
+        DTOS["Response contracts<br/>Pydantic where declared; JSON payloads elsewhere"]
+        WRITE["Request validation and authorization<br/>Domain mutations via services or existing router logic"]
+    end
+
+    subgraph frontend["5. Browser"]
+        CLIENT["Shared API client<br/>Feature API helpers where adopted"]
+        STATE["Server results<br/>TanStack Query where adopted; local state elsewhere"]
+        PAGES["React page families<br/>Detailed database-to-page mapping in data-page-consumers.mmd"]
+    end
+
+    subgraph planned["Planned shared semantic adoption - not yet a universal runtime layer"]
+        SEMANTICS["Identity + league / season / week + ownership context<br/>Point basis and effective scoring definition<br/>Provenance, freshness, unknown versus measured zero"]
+    end
+
+    ESPN --> LIVE
+    VALUES --> ETL
+    MFL --> HISTORY
+    LIVE --> IDENT
+    LIVE --> STATS
+    LIVE -->|reconcile affected matchups and metrics| DOMAIN
+    ETL --> IDENT
+    ETL --> DERIVED
+    HISTORY --> IDENT
+    HISTORY --> STATS
+    HISTORY --> DOMAIN
+    LIVE --> AUDIT
+    HISTORY --> AUDIT
+    AUDIT -->|persisted run evidence where supported| STATS
+
+    BASE -.->|models inherit from Base| ORM
+    BASE -.->|registers definitions| META
+    META -.->|definition reference, not row flow| MIG
+    MIG -.->|creates or changes schema| IDENT
+    MIG -.->|creates or changes schema| STATS
+    MIG -.->|creates or changes schema| DOMAIN
+    MIG -.->|creates or changes schema| DERIVED
+    MIG -.->|explicit adoption preserves original rows| ARCHIVE
+
+    IDENT --> ORM
+    STATS --> ORM
+    DOMAIN --> ORM
+    DERIVED --> ORM
+    ORM --> SERVICES
+    ORM --> LEGACY
+    SERVICES --> ROUTERS
+    LEGACY --> ROUTERS
+    ROUTERS --> DTOS
+    DTOS -->|HTTP JSON responses| CLIENT
+    CLIENT --> STATE
+    STATE --> PAGES
+
+    ACTIONS -->|authenticated API requests| WRITE
+    PAGES -->|mutations through API client| WRITE
+    WRITE -->|transactional model updates| ORM
+    ORM -->|commit domain changes| DOMAIN
+    SERVICES -->|persist derived results where applicable| DERIVED
+
+    SEMANTICS -.->|planned consumer contract adoption| SERVICES
+    SEMANTICS -.->|planned context and provenance in responses| DTOS
+
+    classDef control fill:#eef2ff,stroke:#4f46e5,color:#111827;
+    classDef planned fill:#fff7ed,stroke:#c2410c,color:#111827,stroke-dasharray:5 5;
+    classDef caution fill:#fefce8,stroke:#a16207,color:#111827;
+    class BASE,META,MIG,ARCHIVE control;
+    class SEMANTICS planned;
+    class LEGACY caution;

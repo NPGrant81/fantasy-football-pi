@@ -1,0 +1,103 @@
+---
+title: Fantasy Football PI - Stored data to API and page consumers
+---
+flowchart LR
+    subgraph data["PostgreSQL data families - shared inputs, not exclusive ownership"]
+        ID[("Players, provider mappings and player seasons")]
+        CONFIG[("Leagues, users, settings, divisions and scoring rules")]
+        WEEKLY[("Player weekly stats, NFL games and matchups")]
+        DRAFT[("Draft picks, projections, draft values and budgets")]
+        MOVES[("Lineups, keepers, waiver claims, trades and transactions")]
+        LEDGER[("Economic ledger and balances")]
+        HIST[("MFL historical facts, league-season mapping and owner mapping")]
+        METRICS[("Manager efficiency and playoff records")]
+        NEWS[("Player news records")]
+        OPS[("Ingestion evidence, account/token records, audit and feedback")]
+    end
+
+    subgraph serving["ORM access, services or router-local logic, and API responses"]
+        PLAYERAPI["Player APIs<br/>/players and /players/{id}/season-details"]
+        DRAFTAPI["Draft and model APIs<br/>/draft/history, /draft/rankings<br/>/draft/model/predict and /draft/simulation"]
+        TEAMAPI["Team and decision APIs<br/>/team, /dashboard, /keepers, /waivers and /trades"]
+        MATCHAPI["Matchup APIs<br/>/matchups/week/{week} and /matchups/{id}"]
+        ANALYTICSAPI["Analytics APIs<br/>/analytics/league/{id}/..."]
+        LEAGUEAPI["League, standings and configuration APIs<br/>/leagues, /scoring and division / keeper / playoff settings"]
+        HISTORYAPI["History APIs and enrichment<br/>/leagues/{id}/history/..."]
+        PLAYOFFAPI["Playoff APIs<br/>/playoffs/..."]
+        LEDGERAPI["Ledger statement APIs"]
+        NEWSAPI["News APIs<br/>/news/global and league news"]
+        ADMINAPI["Authentication, admin, ingestion-health and feedback APIs"]
+    end
+
+    subgraph ui["React consumers - all responses use the shared API client"]
+        HOME["Home - League Dashboard<br/>League, standings, news and top free agents"]
+        DRAFTP["Draft Board and Draft Day Analyzer<br/>Player pool, picks, rankings, predictions and simulations"]
+        LOCKER["Your Locker Room<br/>Roster, lineup, player performance and in-season insights"]
+        MOVEP["Waiver Wire, Keepers and Trade Builder"]
+        MATCHP["Matchups and Game Center<br/>Weekly totals and matchup-detail player rows"]
+        ANALYTICSP["League Analytics<br/>Efficiency, luck, consistency, heatmaps and opportunities"]
+        HISTORYP["League History sections<br/>Champions, awards, records, series and historical analytics"]
+        PLAYOFFP["Playoff Bracket and bracket components"]
+        COMMP["Commissioner pages<br/>Owners, rules, divisions, trades, keepers and playoffs"]
+        MAP["Historical Owner Mapping utility"]
+        LEDGERP["My Ledger Statement and Commissioner Ledger"]
+        ADMINP["Login, Site Admin, Manage Commissioners and Bug Report"]
+    end
+
+    ID --> PLAYERAPI
+    WEEKLY --> PLAYERAPI
+    CONFIG --> PLAYERAPI
+    ID --> DRAFTAPI
+    DRAFT --> DRAFTAPI
+    CONFIG --> DRAFTAPI
+    DRAFT --> TEAMAPI
+    MOVES --> TEAMAPI
+    CONFIG --> TEAMAPI
+    WEEKLY --> MATCHAPI
+    DRAFT --> MATCHAPI
+    CONFIG --> MATCHAPI
+    WEEKLY --> ANALYTICSAPI
+    DRAFT --> ANALYTICSAPI
+    MOVES --> ANALYTICSAPI
+    METRICS --> ANALYTICSAPI
+    CONFIG --> ANALYTICSAPI
+    CONFIG --> LEAGUEAPI
+    WEEKLY --> LEAGUEAPI
+    HIST --> HISTORYAPI
+    CONFIG --> HISTORYAPI
+    HIST --> PLAYOFFAPI
+    METRICS --> PLAYOFFAPI
+    CONFIG --> PLAYOFFAPI
+    LEDGER --> LEDGERAPI
+    NEWS --> NEWSAPI
+    OPS --> ADMINAPI
+    CONFIG --> ADMINAPI
+
+    PLAYERAPI --> HOME
+    PLAYERAPI --> DRAFTP
+    PLAYERAPI --> LOCKER
+    PLAYERAPI --> MOVEP
+    DRAFTAPI --> DRAFTP
+    TEAMAPI --> LOCKER
+    TEAMAPI --> MOVEP
+    MATCHAPI --> MATCHP
+    ANALYTICSAPI --> ANALYTICSP
+    ANALYTICSAPI --> LOCKER
+    LEAGUEAPI --> HOME
+    LEAGUEAPI --> DRAFTP
+    LEAGUEAPI --> COMMP
+    TEAMAPI --> COMMP
+    HISTORYAPI --> HISTORYP
+    HISTORYAPI --> MAP
+    LEAGUEAPI --> MAP
+    PLAYOFFAPI --> PLAYOFFP
+    LEDGERAPI --> LEDGERP
+    NEWSAPI --> HOME
+    ADMINAPI --> ADMINP
+
+    GAP["Current semantic gaps<br/>Provider ID stores can disagree<br/>Points may mix source and scoring bases<br/>Current rosters are not historical ownership<br/>Freshness and absent-data contracts are incomplete"]
+    GAP -.->|requires planned shared-definition adoption| PLAYERAPI
+    GAP -.->|requires planned shared-definition adoption| MATCHAPI
+    GAP -.->|context and provenance needed for comparisons| ANALYTICSAPI
+    classDef caution fill:#fff7ed,stroke:#c2410c,color:#111827,stroke-dasharray:5 5;
+    class GAP caution;
