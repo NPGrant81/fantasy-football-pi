@@ -6,7 +6,7 @@ Pull request test branch: feature/tests-ci
 ## PR #555 Copilot Feedback
 
 - Review received: 2026-11-01.
-- Threads opened: 9; first 5 resolved; remaining 4 have verified fixes.
+- Threads opened: 9; threads resolved: 9.
 - Follow-up commit: `e8603a5`.
 - Foreign-key snapshots retain external schema identity and normalize only
   internal references. A same-named cross-schema constraint fails preflight.
@@ -37,8 +37,8 @@ Pull request test branch: feature/tests-ci
 ## PR #553 Copilot Feedback
 
 - Review received: 2026-11-01.
-- Threads opened: 7; first 4 resolved; remaining 3 have verified fixes.
-- Follow-up commits: `1dfb861`, `7e8e583`, and the consolidated bridge.
+- Threads opened: 7; threads resolved: 7.
+- Follow-up commits: `1dfb861`, `7e8e583`, `a9fb80e`, `141a124`.
 - Review fixes: isolated databases were already implemented; snapshots now
   compare expression-index SQL and sequence type, start, increment, bounds,
   cache, cycle, and owning schema/table/column. Runtime sequence state is excluded.
