@@ -306,6 +306,12 @@
     "last_reviewed": "2026-06-27"
   },
   {
+    "path": "docs/SEMANTIC_DATA_CONTRACT.md",
+    "owner": "data",
+    "cadence_days": 30,
+    "last_reviewed": "2026-10-31"
+  },
+  {
     "path": "docs/DATA_SOURCE_AUDIT_ISSUE_102.md",
     "owner": "data",
     "cadence_days": 45,
