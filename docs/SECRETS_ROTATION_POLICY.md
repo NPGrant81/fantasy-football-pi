@@ -20,19 +20,25 @@ These secrets directly control authentication and encryption. Rotation is critic
 
 | Secret | Purpose | Rotation Cadence | Length | Format |
 |--------|---------|------------------|--------|--------|
-| `SECRET_KEY` | FastAPI auth secret for JWT signing/verification | **Quarterly (90 days)** or on compromise | 32+ bytes | URL-safe base64 |
-| `JWT_SECRET` (if separate) | JWT token signing | **Quarterly (90 days)** or on compromise | 32+ bytes | URL-safe base64 |
+| `SECRET_KEY` | FastAPI auth secret for JWT signing/verification | **Quarterly (90 days)** or on compromise | 32+ characters | URL-safe base64 |
 
 ### Tier 2: External API Credentials (Medium Sensitivity)
 
-These grant access to third-party services. Rotate if service is breached or credentials are exposed.
+These grant access to third-party services. Rotate immediately if exposed and
+otherwise follow the provider's rotation requirements.
 
 | Credential | Service | Rotation Cadence | Format |
 |------------|---------|------------------|--------|
-| OAuth2 Client Secret | MFL OAuth | **Semi-annual (180 days)** or on breach notification | UUID or client-generated |
+| `YAHOO_CLIENT_SECRET` and OAuth tokens | Yahoo Fantasy Sports | On exposure or provider requirement | OAuth2 credentials |
+| `GEMINI_API_KEY` or `GOOGLE_API_KEY` | Google AI advisor | On exposure or provider requirement | API key |
 | Cloudflare API Token | Cloudflare Tunnel | **Annual (365 days)** or after zone changes | Bearer token |
-| GitHub App Secret | GitHub integrations (bug reports) | **Annual (365 days)** or on key exposure | URL-safe base64 |
-| Slack Webhook (if used) | Notifications | **On-demand** (no scheduled rotation) | HTTPS URL |
+| `GITHUB_APP_PRIVATE_KEY` or `GITHUB_TOKEN` / `GH_TOKEN` | GitHub issue integration | On exposure or provider requirement | App private key or token |
+| `SLACK_WEBHOOK_URL` / `TEAMS_WEBHOOK_URL` | CI and ETL notifications | On exposure or provider requirement | HTTPS webhook URL |
+
+The current application does not configure `MFL_OAUTH_CLIENT_SECRET`,
+`JWT_SECRET`, or `GITHUB_APP_SECRET`; do not use those names as rotation inputs.
+The Cloudflare API token row applies only if operators separately use an
+account-level token; the tunnel service itself uses a credentials JSON file.
 
 ### Tier 3: Database Credentials (High Sensitivity)
 
@@ -54,9 +60,10 @@ Managed by PostgreSQL administrators. Rotate when:
 
 - [ ] Schedule rotation during low-traffic window (avoid peak draft/waiver times)
 - [ ] Notify deployment team and on-call engineer
-- [ ] Verify backup of current secrets (encrypted, stored in secure vault)
+- [ ] For routine rotation only, verify the current secret is backed up in an
+      encrypted, restricted vault; never back up or restore a compromised value
 - [ ] Test new secrets in non-production environment first
-- [ ] Have rollback plan ready (old secret, verified working)
+- [ ] Have a recovery plan ready that does not restore a compromised secret
 
 ### SECRET_KEY Rotation (Tier 1)
 
@@ -83,7 +90,9 @@ aBcDeFgHiJkLmNoPqRsT-UvWxYz0123456789_ABCD-EfGhIjKlMnOpQrS
    - Login creates valid session
    - JWT tokens are correctly signed/verified
    - CSRF protection still functional
-   - Existing sessions from old SECRET_KEY are invalidated immediately after rotation
+   - Access JWTs signed with the old key will be rejected after the application
+     starts with the new key; persisted refresh tokens are not invalidated by
+     this change alone.
 
 3. **Verify no hard-coded secrets:**
    ```bash
@@ -92,18 +101,18 @@ aBcDeFgHiJkLmNoPqRsT-UvWxYz0123456789_ABCD-EfGhIjKlMnOpQrS
 
 #### Step 3: Deploy New Secret
 
-**Option A: Blue-Green Deployment (Recommended)**
-- Deploy new instance with `SECRET_KEY=<new-secret>`
-- Verify health checks pass
-- Route 10% traffic to new instance, monitor errors
-- If stable, route 100% traffic
-- Keep old instance running for 1 hour as rollback
+**Blue-Green deployment is not currently supported.** The current application
+supports one active JWT signing key and does not support verification with both
+the old and new keys. Do not split traffic between instances using different
+`SECRET_KEY` values: each instance will reject access tokens signed by the
+other. Blue-green rotation requires a separately designed and tested multi-key
+verification procedure before it is safe to use.
 
-**Option B: Rolling Restart (Single Instance)**
+**Single-instance rotation (supported):**
 1. Update `SECRET_KEY` in environment (Raspberry Pi systemd service or Docker `.env`)
 2. Restart application service:
    ```bash
-   sudo systemctl restart fantasy-football-pi
+   sudo systemctl restart fantasy-football-backend
    # or
    docker-compose up -d
    ```
@@ -113,65 +122,76 @@ aBcDeFgHiJkLmNoPqRsT-UvWxYz0123456789_ABCD-EfGhIjKlMnOpQrS
 #### Step 4: Post-Rotation Validation
 
 - [ ] New users can log in
-- [ ] Existing sessions signed with old `SECRET_KEY` are invalidated immediately
+- [ ] Access JWTs signed with the old `SECRET_KEY` are rejected
 - [ ] JWT tokens issued with new SECRET_KEY are valid
 - [ ] CSRF tokens are correctly signed
 - [ ] No auth/session errors in logs
-- [ ] Old SECRET_KEY-signed tokens are rejected
+- [ ] Confirm refresh-token handling separately: refresh tokens are opaque database records, not signed with `SECRET_KEY`, and may issue new access tokens until expired or revoked
+
+Changing `SECRET_KEY` invalidates old access JWTs, but does not by itself
+invalidate persisted refresh tokens. For a suspected compromise, do not claim
+all sessions are invalidated until refresh-token revocation has been completed
+through a reviewed, approved operator procedure. Backend code has a per-user
+revocation helper, but the application has no global administrative
+refresh-token revocation workflow; coordinate the incident-wide procedure with
+the security and database owners before claiming all sessions are invalidated.
 
 #### Step 5: Archive Old Secret
 
 - [ ] Document rotation date and time
-- [ ] Store old SECRET_KEY in encrypted archive with timestamp
-- [ ] Retain for 90 days (recovery window)
+- [ ] If rotation is routine, store the old SECRET_KEY in a restricted encrypted archive with timestamp
+- [ ] Retain only for the approved recovery window; do not retain a compromised secret for recovery
 - [ ] Never commit to version control
 
 ---
 
 ### External API Credential Rotation
 
-#### OAuth2 Client Secret (MFL)
+#### Yahoo Fantasy Sports OAuth Credentials
 
-**Cadence:** Semi-annual (180 days) or on service breach notification
+1. Revoke or replace the exposed OAuth credential in the Yahoo developer console.
+2. Update `YAHOO_CLIENT_SECRET`, `YAHOO_ACCESS_TOKEN`, and
+   `YAHOO_REFRESH_TOKEN` in the configured secret source. The extractor also
+   supports a legacy root-level `oauth2.json`; do not leave compromised values
+   there.
+3. Run the normal Yahoo OAuth/data-extraction validation flow.
+4. Monitor extraction logs for authorization failures.
 
-1. Log into MFL API settings (if available)
-2. Request new client secret (old one typically revoked immediately)
-3. Update `MFL_OAUTH_CLIENT_SECRET` in environment
-4. Test MFL import/auth flow:
-   ```bash
-   python -m backend.manage extract-mfl-history --start-year <YYYY> --end-year <YYYY>
-   ```
-5. Monitor MFL API calls for auth failures:
-   ```bash
-   python -m backend.manage extract-mfl-history --start-year <YYYY> --end-year <YYYY>
-   ```
+#### Google AI API Key
 
-#### Cloudflare API Token (Tunnel)
+1. Revoke or replace the exposed key in the Google AI provider console.
+2. Update `GEMINI_API_KEY` or `GOOGLE_API_KEY` in the configured secret source.
+3. Verify the advisor feature can authenticate with the replacement key.
 
-**Cadence:** Annual (365 days) or after zone configuration changes
+#### Cloudflare Tunnel Credentials
 
-1. Log into Cloudflare dashboard
-2. Regenerate API token for "Cloudflare Tunnel" permission scope
-3. Download new token JSON (`/etc/cloudflared/cert.pem` equivalent)
-4. Update `/etc/cloudflared/config.yml` or Docker `.env`
-5. Restart cloudflared service:
+The tunnel service uses the tunnel credentials JSON referenced by
+`credentials-file` in `/etc/cloudflared/config.yml`; this is not
+`/etc/cloudflared/cert.pem` or an application API token.
+
+1. Replace or revoke the compromised tunnel credential using Cloudflare's
+   supported tunnel-credential procedure.
+2. Update the configured credentials JSON and preserve the service's required
+   file ownership and permissions.
+3. Restart and verify the service:
    ```bash
    sudo systemctl restart cloudflared
-   ```
-6. Verify tunnel status:
-   ```bash
-   cloudflared tunnel list
+   sudo systemctl status cloudflared --no-pager
+   sudo journalctl -u cloudflared -n 100 --no-pager
    ```
 
-#### GitHub App Secret
+#### GitHub Issue Integration Credentials
 
-**Cadence:** Annual (365 days) or on key exposure
+The integration accepts a GitHub App private key (`GITHUB_APP_PRIVATE_KEY` or
+`GITHUB_APP_PRIVATE_KEY_PATH`) or a personal access token (`GITHUB_TOKEN` or
+`GH_TOKEN`). Replace the credential through its issuing GitHub settings, update
+the configured secret source, then verify bug-report issue creation.
 
-1. Go to GitHub App settings (Organization Settings → Developer Settings → Apps)
-2. Rotate webhook secret or client secret
-3. Update `GITHUB_APP_SECRET` in environment
-4. Test bug report creation flow
-5. Monitor webhook delivery logs in GitHub
+#### Slack and Teams Notification Webhooks
+
+Replace a compromised webhook in its provider, update the corresponding
+`SLACK_WEBHOOK_URL` or `TEAMS_WEBHOOK_URL` GitHub Actions secret, and verify a
+workflow notification. ETL Slack configuration uses `SLACK_WEBHOOK_URL`.
 
 ---
 
@@ -181,27 +201,9 @@ aBcDeFgHiJkLmNoPqRsT-UvWxYz0123456789_ABCD-EfGhIjKlMnOpQrS
 
 The application includes runtime validation to prevent deployment with default/insecure secrets:
 
-```python
-# backend/main.py
-app_env = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
-if app_env in {"production", "prod"}:
-   secret_key = os.getenv("SECRET_KEY", "")
-   weak_patterns = [
-      "change-me-in-production",
-      "your-secret-key-here",
-      "secret",
-      "test",
-      "debug",
-      "default",
-      "insecure",
-   ]
-
-   if not secret_key or len(secret_key) < 32:
-      raise RuntimeError("FATAL: SECRET_KEY is not set or too short in production")
-
-   if any(pattern in secret_key.lower() for pattern in weak_patterns):
-      raise RuntimeError("FATAL: SECRET_KEY contains a weak pattern in production")
-```
+Production settings, including `SECRET_KEY` presence, minimum length, and
+weak-pattern rejection, are validated by `RuntimeSettings` in
+`backend/core/config.py`.
 
 **When this check triggers:**
 - Application fails to start
@@ -217,11 +219,17 @@ python backend/scripts/validate_secrets.py
 ```
 
 **Checks:**
-- `SECRET_KEY` is not a default/weak value
-- `SECRET_KEY` length >= 32 bytes
-- No secrets committed to git
-- Environment variables are set
-- All required Tier 1 secrets are present
+- In production, `SECRET_KEY` is present, at least 32 characters long, and
+  does not contain a rejected weak pattern
+- `.env` and `backend/.env` are not tracked by Git
+- A root-level `.env`, if present, has restricted permissions
+- Production `AUTH_COOKIE_SECURE` is enabled (warning-level check)
+
+The script does not check every provider credential or validate the permissions
+of `backend/.env` or `/etc/fantasy-football-pi/backend.env`; configure those
+checks separately.
+Warnings do not fail the default run; `--strict` makes warnings return exit code
+2.
 
 ---
 
@@ -237,27 +245,28 @@ python backend/scripts/validate_secrets.py
    - Follow rotation procedure above
    - Deploy to production immediately
 
-2. **Force user logout operationally:**
+2. **Invalidate old access JWTs:**
    - Restart the application after updating `SECRET_KEY`
-   - Existing cookies/JWT tokens signed with the old key become invalid immediately
-   - Users must log in again with new credentials
+   - Access JWTs signed with the old key are rejected by the new process
+   - This does not revoke persisted refresh tokens; follow a reviewed
+     operator-approved revocation procedure before claiming all sessions ended
 
-4. **Notify users:**
+3. **Notify users:**
    - Email all league commissioners and owners
    - Post announcement on UI dashboard
    - Recommend password change as precaution
 
 **Follow-up Actions (< 1 hour):**
 
-5. **Audit logs for unauthorized access:**
+4. **Audit logs for unauthorized access:**
    - Review application and reverse-proxy logs for unusual login or privileged API activity
 
-6. **Check for suspicious API activity:**
+5. **Check for suspicious API activity:**
    - Unusual player trades
    - Unauthorized admin actions
    - League setting changes
 
-7. **Document incident:**
+6. **Document incident:**
    - Time of detection
    - Scope of exposure (e.g., test server, staging, production)
    - Actions taken
@@ -294,7 +303,7 @@ All secret rotation events are logged:
 2026-05-09T14:32:00+00:00 INFO  secrets_rotation: SECRET_KEY rotated by ops-team
 2026-05-09T14:32:15+00:00 INFO  secrets_rotation: New SECRET_KEY validation passed
 2026-05-09T14:32:30+00:00 INFO  secrets_rotation: Application restarted successfully
-2026-05-09T14:33:00+00:00 INFO  auth: 1,242 sessions invalidated
+2026-05-09T14:33:00+00:00 INFO  auth: old access JWT rejected
 ```
 
 ---
@@ -303,39 +312,48 @@ All secret rotation events are logged:
 
 ### Test Environment Setup
 
+Use a local non-production database with a pre-created test account. Do not use
+production credentials. Run the server in Terminal 1 and the requests below in
+Terminal 2 so the server can be stopped and restarted with the rotated key.
+Run the server commands from the repository root.
+
 ```bash
-# 1. Set current SECRET_KEY
+# Terminal 1: start with the current test key
 export SECRET_KEY="test-secret-1-1234567890123456789012"
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010
+```
 
-# 2. Start application
-cd backend && python main.py
-
-# 3. Create test session
-curl -X POST http://localhost:8010/auth/login \
-  -d '{"username": "test", "password": "test123"}' \
+```bash
+# Terminal 2: create a session using the local test account
+curl -X POST http://127.0.0.1:8010/auth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=test&password=test123" \
   -c cookies.txt
 
-# 4. Verify session is valid
-curl http://localhost:8010/auth/me -b cookies.txt
+# Verify the access token is valid
+curl http://127.0.0.1:8010/auth/me -b cookies.txt
+```
 
-# 5. Change SECRET_KEY (simulating rotation)
+Stop the server in Terminal 1, set the new key, and restart it:
+
+```bash
+# Terminal 1: after stopping the server
 export SECRET_KEY="test-secret-2-0987654321098765432109"
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8010
+```
 
-# 6. Restart application
-# SIGNAL: send SIGTERM, restart process
+In Terminal 2, verify the old access token is rejected, then log in again:
 
-# 7. Verify old session is invalid (should get 401 Unauthorized)
-curl http://localhost:8010/auth/me -b cookies.txt
+```bash
+# Expect 401. This does not test whether a persisted refresh token can mint a new access token.
+curl -i http://127.0.0.1:8010/auth/me -b cookies.txt
 
-# 8. Create new session with new SECRET_KEY
-curl -X POST http://localhost:8010/auth/login \
-  -d '{"username": "test", "password": "test123"}' \
+curl -X POST http://127.0.0.1:8010/auth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=test&password=test123" \
   -c cookies2.txt
 
-# 9. Verify new session works
-curl http://localhost:8010/auth/me -b cookies2.txt
-
-# PASS: Old sessions invalidated, new sessions work
+curl http://127.0.0.1:8010/auth/me -b cookies2.txt
 ```
 
 ---

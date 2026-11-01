@@ -108,10 +108,14 @@ Deployment behavior:
 
 - Validates all required environment variables/secrets before executing.
 - Fetches refs on target host.
-- Resolves and deploys the requested ref.
+- Resolves and deploys the requested ref. Prefer a reviewed immutable tag or
+  commit SHA over a moving branch name.
 - Rebuilds backend/frontend and restarts services.
 - The supplied systemd service applies migrations through `ExecStartPre` before
   starting the backend. A successful restart alone is not proof of readiness.
+- The workflow does not create a database backup. Before deploying a ref with
+  pending migrations, verify a fresh backup and a recovery path using
+  [restore.md](./restore.md).
 - Polls `http://127.0.0.1:8000/health` (30 attempts, two-second request timeout
   and retry delay). Success requires `status`, `database`, and `schema` all
   equal to `ok`.
@@ -135,6 +139,11 @@ Rollback behavior:
 - Falls back to last successful deployment ref when available.
 - Rebuilds backend/frontend and restarts services.
 - Uses the same readiness gate and post-health metadata updates as deploy.
+- Rolls back application code only; it does not downgrade the database. The
+  systemd pre-start migration runner still executes. Confirm the selected
+  application ref can run against the current schema; if not, use the
+  documented database recovery procedure instead of treating code rollback as
+  a database rollback.
 
 Readiness is a local backend/database/schema check, not an external Nginx,
 Cloudflare, provider, or browser check. Verify public JSON/SSE endpoints and

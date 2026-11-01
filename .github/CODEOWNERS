@@ -21,7 +21,7 @@
 /backend/routers/auth.py      @NPGrant81
 
 # Schema changes are hard to reverse in production — review explicitly.
-/backend/alembic/versions/    @NPGrant81
+/db/migrations/               @NPGrant81
 /backend/models.py            @NPGrant81
 /backend/models/              @NPGrant81
 /backend/database.py          @NPGrant81

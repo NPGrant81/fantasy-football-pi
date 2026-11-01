@@ -33,7 +33,7 @@
     "path": "docs/FRONTEND_UI_STANDARDS.md",
     "owner": "frontend",
     "cadence_days": 60,
-    "last_reviewed": "2026-09-02"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/DATA_QUALITY_RUNBOOK.md",
@@ -45,25 +45,25 @@
     "path": "docs/DEPLOYMENT_WORKFLOWS.md",
     "owner": "platform",
     "cadence_days": 60,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/DEPLOYMENT.md",
     "owner": "platform",
     "cadence_days": 60,
-    "last_reviewed": "2026-09-02"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/DATABASE.md",
     "owner": "platform",
     "cadence_days": 60,
-    "last_reviewed": "2026-08-29"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/RASPBERRY_PI_DEPLOYMENT.md",
     "owner": "platform",
     "cadence_days": 60,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/pi_action_checklist_mobile.md",
@@ -75,19 +75,19 @@
     "path": "docs/CLOUDFLARE_TUNNEL_SETUP.md",
     "owner": "platform",
     "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/SECURITY_HARDENING.md",
     "owner": "security",
     "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/SECRETS.md",
     "owner": "security",
     "cadence_days": 60,
-    "last_reviewed": "2026-08-29"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/CI_CD_OBSERVABILITY.md",
@@ -99,7 +99,7 @@
     "path": "docs/MONITORING.md",
     "owner": "platform",
     "cadence_days": 60,
-    "last_reviewed": "2026-08-29"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/API_INTEGRATION_PIPELINE.md",
@@ -147,7 +147,7 @@
     "path": "docs/DB_MIGRATION_PHASE1.md",
     "owner": "backend",
     "cadence_days": 45,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/PLAYER_API_FILTERING.md",
@@ -213,7 +213,7 @@
     "path": "docs/governance/README.md",
     "owner": "engineering",
     "cadence_days": 60,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/DOCUMENTATION_UPDATE_PROCESS_PLAN.md",
@@ -225,7 +225,7 @@
     "path": "docs/DEPENDENCY_MAINTENANCE.md",
     "owner": "backend",
     "cadence_days": 30,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/BACKEND_CI_PIPELINE_OPTIMIZATION.md",
@@ -345,7 +345,7 @@
     "path": "docs/restore.md",
     "owner": "platform",
     "cadence_days": 90,
-    "last_reviewed": "2026-06-27"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/pi-setup/docker.md",
@@ -687,12 +687,12 @@
     "path": "docs/INCIDENT_RESPONSE_RUNBOOK.md",
     "owner": "security",
     "cadence_days": 45,
-    "last_reviewed": "2026-09-02"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/SECRETS_ROTATION_POLICY.md",
     "owner": "security",
     "cadence_days": 45,
-    "last_reviewed": "2026-07-11"
+    "last_reviewed": "2026-10-31"
   }
 ]
