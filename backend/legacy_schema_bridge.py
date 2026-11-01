@@ -496,11 +496,27 @@ def _bootstrap_schema_contract(
             target_table = source_table.to_metadata(
                 target_metadata,
                 schema=None,
-                referred_schema_fn=(
-                    lambda table, to_schema, constraint, referred_schema:
-                    None if referred_schema == contract_schema else referred_schema
-                ),
             )
+            for constraint in list(target_table.foreign_key_constraints):
+                target_table.constraints.remove(constraint)
+            for column in target_table.columns:
+                column.foreign_keys.clear()
+            for constraint in source_table.foreign_key_constraints:
+                target_table.append_constraint(
+                    sa.ForeignKeyConstraint(
+                        [element.parent.name for element in constraint.elements],
+                        [
+                            f"{element.column.table.name}.{element.column.name}"
+                            for element in constraint.elements
+                        ],
+                        name=constraint.name,
+                        onupdate=constraint.onupdate,
+                        ondelete=constraint.ondelete,
+                        deferrable=constraint.deferrable,
+                        initially=constraint.initially,
+                        match=constraint.match,
+                    )
+                )
             for column in target_table.columns:
                 if column.server_default is None:
                     continue
