@@ -22,15 +22,33 @@ def test_frontend_ci_requires_full_suite():
     assert unit["run"].strip() == "npm run test:coverage -- --run"
 
 
+def test_canonical_migration_layout_gate_runs_for_every_change():
+    jobs = workflow("ci.yml")["jobs"]
+    migration_layout = jobs["migration-layout"]
+    assert "needs" not in migration_layout
+    assert "if" not in migration_layout
+    assert any(
+        step.get("run") == "python scripts/validate_migration_layout.py"
+        for step in migration_layout["steps"]
+    )
+
+    ci_gate = jobs["ci-gate"]
+    assert "migration-layout" in ci_gate["needs"]
+    assert "migration-layout=${{ needs['migration-layout'].result }}" in (
+        ci_gate["steps"][0]["env"]["RESULTS"]
+    )
+    assert "migration-layout=true" in ci_gate["steps"][0]["env"]["APPLICABILITY"]
+
+
 def test_ui_automation_owns_readiness_and_reports_actual_outcomes():
     steps = workflow("ui-ux-automation.yml")["jobs"]["ui-ux-automation"]["steps"]
     node = next(step for step in steps if step.get("uses", "").startswith("actions/setup-node@"))
     assert node["with"]["node-version"] == 24
     startup = next(step for step in steps if step.get("id") == "ui_server")
     assert "node node_modules/vite/bin/vite.js" in startup["run"]
-    assert "curl --connect-timeout" in startup["run"]
-    assert "-fsS" in startup["run"]
-    assert "--connect-timeout 2 --max-time 5" in startup["run"]
+    assert "fetch(process.argv[1]" in startup["run"]
+    assert "AbortSignal.timeout(5000)" in startup["run"]
+    assert "curl" not in startup["run"]
     assert "kill -0" in startup["run"]
     assert "for attempt in {1..60}" in startup["run"]
     assert "after 60 bounded attempts" in startup["run"]

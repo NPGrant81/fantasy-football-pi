@@ -27,7 +27,13 @@ export default defineConfig({
       jsdom: { pretendToBeVisual: true },
     },
     setupFiles: './src/setupTests.jsx',
-    exclude: ['cypress/**', 'node_modules/**', 'dist/**', 'coverage/**'],
+    exclude: [
+      'cypress/**',
+      'node_modules/**',
+      'dist/**',
+      'coverage/**',
+      'scripts/visual-regression.test.mjs',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],

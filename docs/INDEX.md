@@ -48,6 +48,7 @@ Refer to the appropriate file for more information.
 - [Issue Status](ISSUE_STATUS.md)
 - [League60 Owner Backfill](LEAGUE60_OWNER_BACKFILL.md)
 - [Live Scoring Reliability Runbook](LIVE_SCORING_RELIABILITY_RUNBOOK.md)
+- [Migration Legacy Inventory](MIGRATION_LEGACY_INVENTORY.md)
 - [Mfl Historical Data Operations](MFL_HISTORICAL_DATA_OPERATIONS.md)
 - [Ml-Feature-Specification](ml-feature-specification.md)
 - [Model-Serving-And-Integration](model-serving-and-integration.md)

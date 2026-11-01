@@ -150,6 +150,12 @@
     "last_reviewed": "2026-10-31"
   },
   {
+    "path": "docs/MIGRATION_LEGACY_INVENTORY.md",
+    "owner": "backend",
+    "cadence_days": 45,
+    "last_reviewed": "2026-10-31"
+  },
+  {
     "path": "docs/PLAYER_API_FILTERING.md",
     "owner": "backend",
     "cadence_days": 45,
@@ -171,7 +177,7 @@
     "path": "docs/PATTERN_COMPLIANCE_MATRIX.md",
     "owner": "engineering",
     "cadence_days": 14,
-    "last_reviewed": "2026-09-02"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/PATTERN_STANDARDIZATION_PLAN.md",
@@ -207,7 +213,7 @@
     "path": "docs/INDEX.md",
     "owner": "engineering",
     "cadence_days": 30,
-    "last_reviewed": "2026-08-31"
+    "last_reviewed": "2026-10-31"
   },
   {
     "path": "docs/governance/README.md",

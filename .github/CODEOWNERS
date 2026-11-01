@@ -21,7 +21,9 @@
 /backend/routers/auth.py      @NPGrant81
 
 # Schema changes are hard to reverse in production — review explicitly.
+/backend/alembic.ini          @NPGrant81
 /db/migrations/               @NPGrant81
+/db/bootstrap/                @NPGrant81
 /backend/models.py            @NPGrant81
 /backend/models/              @NPGrant81
 /backend/database.py          @NPGrant81
@@ -32,6 +34,7 @@
 /backend/requirements-validation.txt  @NPGrant81
 /frontend/package.json                @NPGrant81
 /frontend/package-lock.json           @NPGrant81
+/frontend/cypress/visual-baselines/   @NPGrant81
 
 # CI, deployment, and secrets handling.
 /.github/workflows/  @NPGrant81

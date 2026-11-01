@@ -29,7 +29,11 @@ jobs:
       && (needs.detect.outputs.ui == 'true'
           || needs.detect.outputs.frontend == 'true'
           || needs.detect.outputs.full_run == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container: cypress/included@sha256:9f27bf8330595fe44dc3ba9c0c96cff1618d24241bd9f95a470f8f6e2ecfba7e
+    defaults:
+      run:
+        shell: bash
     env:
       UI_HOST: 127.0.0.1
       UI_PORT_A11Y: 5173
@@ -53,6 +57,10 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci --legacy-peer-deps
+
+      - name: Test visual baseline comparator
+        working-directory: frontend
+        run: npm run test:visual
 
       - name: Lint UI components and pages
         working-directory: frontend
@@ -162,7 +170,7 @@ jobs:
               cat ../ui-server.log
               exit 1
             fi
-            if curl --connect-timeout 2 --max-time 5 -fsS -H 'Accept: text/html' "http://$UI_HOST:$UI_PORT_A11Y/" > /dev/null; then
+            if node -e 'fetch(process.argv[1], { signal: AbortSignal.timeout(5000) }).then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' "http://$UI_HOST:$UI_PORT_A11Y/"; then
               exit 0
             fi
             sleep 2
@@ -179,13 +187,13 @@ jobs:
       - name: Run screenshot capture for visual regression
         id: screenshots
         working-directory: frontend
-        run: npx cypress run --browser chrome --spec cypress/e2e/uat_capture_pages.spec.js --config "baseUrl=http://$UI_HOST:$UI_PORT_A11Y"
+        run: npx cypress run --browser electron --spec cypress/e2e/uat_capture_pages.spec.js --config "baseUrl=http://$UI_HOST:$UI_PORT_A11Y"
 
       - name: Validate screenshot baseline stability
         id: visual_baseline
         working-directory: frontend
         run: |
-          node scripts/assert-visual-regression-clean.mjs
+          npm run visual:compare
 
       - name: Build frontend preview artifact
         id: preview_build
@@ -206,6 +214,14 @@ jobs:
           name: ui-ux-screenshots
           if-no-files-found: ignore
           path: frontend/cypress/screenshots
+
+      - name: Upload visual diff artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-ux-visual-diffs
+          if-no-files-found: ignore
+          path: frontend/cypress/visual-diffs
 
       - name: Upload Cypress videos
         if: always()

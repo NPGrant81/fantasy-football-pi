@@ -18,6 +18,16 @@ This branch was created to trigger CI for backend and frontend tests.
 
 ---
 
+## PR #544 Copilot Feedback
+
+- Review requested: 2026-11-01
+- Threads opened: 2
+- Threads resolved: 2
+- Follow-up: added repository-wide revision-location validation with one governed bootstrap exception; run it independently of path-filtered backend tests and include it in `ci-gate`; restored required test-matrix metadata for topology and migration-layout tests.
+- Merge follow-up: reconciled PR documentation with current `main` while preserving the protected migration environment and non-destructive recovery guidance.
+- Local validation: 49 migration-layout and workflow contract tests passed; layout checker, repo hygiene, JSON/YAML/test-matrix validation, and `git diff --check` passed.
+- Residual risk: deployed revision-history inventory remains an operator validation gate; final hosted CI is pending.
+
 ## PR #545 Documentation and Operations Cleanup — Copilot Feedback
 
 - Review requested: 2026-10-31.
@@ -577,3 +587,14 @@ Validation: tests and CI checks for waiver functionality are included in ongoing
 - Threads resolved: 3
 - Follow-up commits: `8644acb`
 - Residual risk: `nginx -t` and Raspberry Pi/public-tunnel validation remain pending.
+
+## PR #542 Copilot Feedback
+
+- Branch: `test/issue-538-visual-baselines`
+- Review requested: 2026-10-31
+- Threads opened: 3
+- Threads resolved: 3
+- Follow-up commit: `a9ea48d`
+- Follow-up: excluded the Node `node:test` file from Vitest discovery and ensured dimension-only screenshot failures emit a diff artifact.
+- Validation: frontend Vitest `58 passed / 395 tests`; visual regression `4 passed`; ESLint passed.
+- Residual risk: final-head CI is pending.
