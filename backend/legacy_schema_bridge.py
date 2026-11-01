@@ -36,8 +36,8 @@ LEGACY_TABLES = frozenset(
         "waiver_claims",
     }
 )
-# These current tables have no creator in the published incremental revisions.
-MIGRATION_GAP_TABLES = frozenset(
+# These empty current tables need bridge preparation for bootstrap parity.
+BRIDGE_MANAGED_TABLES = frozenset(
     {
         "division_config_snapshots",
         "division_name_reports",
@@ -49,6 +49,7 @@ MIGRATION_GAP_TABLES = frozenset(
         "player_news_sentiment_trends",
         "playoff_matches",
         "playoff_snapshots",
+        "refresh_tokens",
         "scoring_rule_change_logs",
         "scoring_rule_proposals",
         "scoring_rule_votes",
@@ -77,7 +78,7 @@ class LegacyAdoptionReport:
     table_row_counts: tuple[tuple[str, int], ...]
     scoring_rule_rows: int
     division_groups: int
-    migration_gap_tables: tuple[str, ...]
+    bridge_managed_tables: tuple[str, ...]
 
 
 def _quoted(connection: Connection, identifier: str) -> str:
@@ -376,20 +377,20 @@ def _row_counts(connection: Connection, schema: str) -> tuple[tuple[str, int], .
     )
 
 
-def _create_migration_gap_tables(connection: Connection) -> None:
+def _create_bridge_managed_tables(connection: Connection) -> None:
     from backend.models import Base
 
-    missing_metadata = MIGRATION_GAP_TABLES - set(Base.metadata.tables)
+    missing_metadata = BRIDGE_MANAGED_TABLES - set(Base.metadata.tables)
     if missing_metadata:
         raise RuntimeError(
-            "The bridge's migration-gap table list is absent from ORM metadata: "
+            "The bridge-managed table list is absent from ORM metadata: "
             f"{sorted(missing_metadata)}."
         )
     Base.metadata.create_all(
         bind=connection,
         tables=[
             Base.metadata.tables[table_name]
-            for table_name in sorted(MIGRATION_GAP_TABLES)
+            for table_name in sorted(BRIDGE_MANAGED_TABLES)
         ],
         checkfirst=True,
     )
@@ -446,7 +447,7 @@ def _resumable_report(
         table_row_counts=_archive_row_counts(connection),
         scoring_rule_rows=scoring_rule_rows,
         division_groups=division_groups,
-        migration_gap_tables=tuple(sorted(MIGRATION_GAP_TABLES)),
+        bridge_managed_tables=tuple(sorted(BRIDGE_MANAGED_TABLES)),
     )
 
 
@@ -510,7 +511,7 @@ def inspect_legacy_database(
         table_row_counts=row_counts,
         scoring_rule_rows=scoring_rule_rows,
         division_groups=division_groups,
-        migration_gap_tables=tuple(sorted(MIGRATION_GAP_TABLES)),
+        bridge_managed_tables=tuple(sorted(BRIDGE_MANAGED_TABLES)),
     )
 
 
@@ -694,7 +695,7 @@ def prepare_legacy_schema(
             )
         )
         operations.drop_column("users", "division")
-        _create_migration_gap_tables(connection)
+        _create_bridge_managed_tables(connection)
 
     return LegacyAdoptionReport(
         database=engine.url.database,
@@ -702,7 +703,7 @@ def prepare_legacy_schema(
         table_row_counts=row_counts,
         scoring_rule_rows=scoring_rule_rows,
         division_groups=division_groups,
-        migration_gap_tables=tuple(sorted(MIGRATION_GAP_TABLES)),
+        bridge_managed_tables=tuple(sorted(BRIDGE_MANAGED_TABLES)),
     )
 
 
