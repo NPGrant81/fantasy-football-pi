@@ -8,7 +8,7 @@ Pull request test branch: feature/tests-ci
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.
-- Validation: 71 focused backend tests passed, including existing auction
+- Validation: 72 focused backend tests passed, including existing auction
   extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
@@ -33,12 +33,16 @@ Pull request test branch: feature/tests-ci
   entries, preserves conflicting IDs and exposes split/shared owner evidence
   in 2024. It does not choose a majority mapping or assert that every unmatched
   source event is missing.
+- Repair strategy selected: resolve every legacy ID conflict before
+  reconstruction, not a native-history replacement. The conflict register
+  retains every CSV variant/occurrence with hash-bound source row references
+  and unapproved resolution fields.
 - Copilot Feedback:
   - Review requested: attempted 2026-11-01 via MCP and CLI.
   - The initial request was not visible and CLI returned HTTP 422, but Copilot
     subsequently submitted a four-thread review.
-  - Threads opened: 4; fixes implemented and validated in `459006e`.
-    Thread resolution follows push; fresh review remains required.
+  - Threads opened: 4; threads resolved: 4 after `459006e` was pushed.
+    Fresh review remains required.
   - Fixes reject database-name/service overrides, require nonempty provenance
     names, retain missing-table evidence and compare unique expressions,
     partial predicates and NULL semantics.

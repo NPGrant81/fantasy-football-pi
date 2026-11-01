@@ -74,6 +74,32 @@ def test_conflicting_legacy_player_ids_are_not_resolved_by_matching_name(
     assert report["source_owner_franchise_candidates"] == []
 
 
+def test_conflict_register_retains_every_variant_and_duplicate_row(source_evidence):
+    sources = source_evidence["sources"]
+    original = deepcopy(sources["players.csv"][0])
+    sources["players.csv"].extend(
+        [
+            {**original, "PlayerName": "Other Player"},
+            original,
+        ]
+    )
+    sources["users.csv"].append({"OwnerID": "1", "OwnerName": "Other Owner"})
+    hashes = {name: "a" * 64 for name in sources}
+    report = script._legacy_conflict_register(sources, hashes)
+    assert len(report) == 2
+    player = report[0]
+    assert player["source_id"] == 10
+    assert player["differing_columns"] == ["PlayerName"]
+    assert len(player["variants"]) == 2
+    assert player["variants"][0]["source_row_refs"] == [
+        "a" * 64 + ":2",
+        "a" * 64 + ":4",
+    ]
+    assert all(row["approved"] is False and row["resolution"] is None for row in report)
+    assert "Other Player" not in str(report)
+    assert "Other Owner" not in str(report)
+
+
 def test_source_comparison_does_not_round_bid_or_guess_position(source_evidence):
     source_evidence["drafts"][0]["winning_bid"] = "5.01001"
     report = script.reconcile_season(**source_evidence)

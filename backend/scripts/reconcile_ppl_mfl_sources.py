@@ -52,6 +52,51 @@ def _source_id(value: object) -> str:
     return identifier
 
 
+def _legacy_conflict_register(
+    sources: dict[str, list[dict[str, Any]]], hashes: dict[str, str]
+) -> list[dict[str, Any]]:
+    register = []
+    for name, identifier in (
+        ("players.csv", "Player_ID"),
+        ("users.csv", "OwnerID"),
+        ("positions.csv", "PositionID"),
+    ):
+        conflicts = {
+            key for key, row in _index(sources[name], identifier).items() if row is None
+        }
+        for key in sorted(conflicts):
+            variants: dict[str, dict[str, Any]] = {}
+            originals = []
+            for number, row in enumerate(sources[name], start=2):
+                if _integer(row[identifier]) != key:
+                    continue
+                originals.append(row)
+                digest = hashlib.sha256(
+                    json.dumps(row, sort_keys=True).encode("utf-8")
+                ).hexdigest()
+                variant = variants.setdefault(
+                    digest, {"variant_sha256": digest, "source_row_refs": []}
+                )
+                variant["source_row_refs"].append(f"{hashes[name]}:{number}")
+            columns = set().union(*(row.keys() for row in originals))
+            register.append(
+                {
+                    "source_file": name,
+                    "source_id": key,
+                    "differing_columns": sorted(
+                        column
+                        for column in columns
+                        if len({row.get(column) for row in originals}) > 1
+                    ),
+                    "variants": list(variants.values()),
+                    "approved": False,
+                    "resolution": None,
+                    "evidence": [],
+                }
+            )
+    return register
+
+
 def _read_export(
     path: Path, report_type: str, season: int
 ) -> tuple[list[dict[str, str]], str]:
@@ -314,6 +359,7 @@ def run_source_reconciliation(
         "api_requests_sent": 0,
         "ready_to_import": False,
         "legacy_source_files_sha256": hashes,
+        "legacy_conflict_register": _legacy_conflict_register(sources, hashes),
         "selected_mfl_exports": selected,
         "seasons": reports,
         "limitations": [
@@ -321,6 +367,7 @@ def run_source_reconciliation(
             "Name/position/bid and owner overlap are candidates, never approved mappings.",
             "No legacy candidate does not prove a missing event when identities are unresolved.",
             "Resolve schema adoption and native event grain before any database import.",
+            "Resolve every legacy ID conflict before reconstruction; do not substitute native history.",
         ],
     }
 

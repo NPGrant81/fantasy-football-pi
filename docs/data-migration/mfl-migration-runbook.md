@@ -107,6 +107,15 @@ evidence and repeated native event tuples must not be resolved by first-row,
 majority-match or numeric-ID assumptions. A native event without a legacy
 candidate is not proven missing while legacy identity coverage is incomplete.
 
+For #528, resolve **every legacy ID conflict before reconstruction**, rather
+than substituting native MFL history for the contradictory legacy records.
+The `legacy_conflict_register` preserves every distinct CSV variant and every
+duplicate occurrence with hash-bound row references. Each entry starts with
+`approved=false`, `resolution=null` and empty supporting evidence. Use the
+retained sources and season-specific MFL evidence to establish resolutions;
+never modify original CSVs or discard conflicting rows as cleanup. Native
+mapping templates remain review aids, not authorization to bypass this gate.
+
 Use `native_mapping_review_template` to review native franchise/player to
 target mappings; all entries start unapproved with null target IDs. Every
 season's franchise list is included even when legacy matches are unavailable.
