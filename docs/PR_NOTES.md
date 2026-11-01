@@ -3,6 +3,17 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
+## PR #551 Copilot Feedback
+
+- Review requested: 2026-11-01.
+- Review state: pending at last check; no review comments or threads visible.
+- Threads opened: 0 at last check.
+- Threads resolved: 0.
+- Follow-up commits: none.
+- Scope: map current semantic sources and consumers, document evidence gaps, and select two candidate consumers for #549 without changing stored meaning or APIs.
+- Validation: repository hygiene, documentation registry JSON, and `git diff --check` passed.
+- Residual risk: stacked on PR #550; review and merge #550 first. Copilot review, hosted checks, and human approval remain pending.
+
 ## PR #550 Copilot Feedback
 
 - Review requested: 2026-11-01.
