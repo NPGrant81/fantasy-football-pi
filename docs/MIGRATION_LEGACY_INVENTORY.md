@@ -61,6 +61,9 @@ reviewed schema-equivalence procedure verifies its canonical state.
 
 ## Guardrail
 
-CI rejects Python revision files under `backend/**/alembic/versions/`. New active
+CI scans repository-wide for Python files with module-level Alembic revision
+assignments. Only `db/migrations/` and the governed
+`db/bootstrap/versions/0001_create_schema_at_0028.py` exception are permitted;
+the check runs for every change and is part of the required `ci-gate`. New active
 revisions belong in `db/migrations/`; changes to the immutable bootstrap lineage
 require the governed bootstrap-equivalence procedure.

@@ -41,7 +41,7 @@ npm audit
 ```bash
 # Backend — update one package at a time, re-run tests
 pip install <package>==<new-version>
-pip freeze > requirements-lock.txt
+pip freeze > backend/requirements-lock.txt
 python -m pytest   # verify nothing broke
 
 # Frontend
@@ -88,51 +88,63 @@ Log levels:
 
 ### Manual backup (before migrations)
 ```bash
-pg_dump -U postgres fantasy_football > backups/fantasy_$(date +%Y%m%d_%H%M).sql
+# Production Pi: run the unit that loads the protected backend environment file.
+sudo systemctl start microsd-db-backup.service
+sudo systemctl status microsd-db-backup.service --no-pager
 ```
 
-### Automated backup (recommended cron on Pi)
+Verify that a fresh artifact was written before proceeding. The generic
+repository backup script can instead write to a chosen `BACKUP_DIR`; see
+`docs/DATABASE.md`. Keep the database URL in a protected environment source.
+
+### Automated backup (systemd timer on Pi)
 ```bash
-# Add to crontab: crontab -e
-0 3 * * 0 pg_dump -U postgres fantasy_football > /home/pi/backups/fantasy_$(date +\%Y\%m\%d).sql
+# Install and enable the supplied microSD backup service and timer.
+# See docs/restore.md for the complete setup and verification steps.
+sudo systemctl enable --now microsd-db-backup.timer
+sudo systemctl start microsd-db-backup.service
+sudo systemctl status microsd-db-backup.service --no-pager
 ```
 
 ### Restore from backup
 ```bash
-psql -U postgres -d fantasy_football < backups/fantasy_20250501.sql
+# Follow the guarded target/backup checks in docs/restore.md.
+./scripts/restore_db.sh /path/to/verified-backup.dump.gz
 ```
 
 ## ETL Schedule
 
 ### ESPN weekly stats ingestion
 ```bash
-# Run after each NFL week finalizes (Tuesday morning)
-python backend/scripts/archive_weekly_stats.py --season 2025 --week <N>
+# Run after the selected NFL week finalizes (Tuesday morning)
+python backend/scripts/archive_weekly_stats.py <SEASON> <WEEK>
 ```
 
 Verify ingestion:
 ```bash
-# Check row count for the week
-psql -c "SELECT count(*) FROM player_weekly_stats WHERE season=2025 AND week=<N>;"
+# Check row count for the selected week
+psql -c "SELECT count(*) FROM player_weekly_stats WHERE season=<SEASON> AND week=<WEEK>;"
 ```
 
 ### MFL historical data
 ```bash
-# One-time per season import for historical leagues
-python backend/services/mfl_ingestion_service.py --season <YYYY>
+# Start with the supported extraction CLI; follow the runbook for import and reconciliation.
+python -m backend.manage extract-mfl-history --help
 ```
+See `docs/data-migration/mfl-migration-runbook.md` for the supported
+extract/import/reconcile workflow.
 
 ## Health Checks
 
 ### Backend health endpoint
 ```bash
-curl -s http://localhost:8010/health | jq .
-# Expected: {"status": "ok", "db": "connected", "version": "..."}
+curl -fsS http://127.0.0.1:8000/health | jq .
+# Healthy response has status="ok", database="ok", and schema="ok".
 ```
 
 ### Service status check
 ```bash
-sudo systemctl status fantasy-backend cloudflared nginx
+sudo systemctl status fantasy-football-backend cloudflared nginx --no-pager
 ```
 
 ### Pi hardware monitoring
@@ -149,14 +161,14 @@ free -h
 
 ## Alembic Migration Health
 ```bash
-# Check current migration state
-cd backend && alembic current
+# Compare the database revision with the canonical graph (using the intended DB URL)
+cd backend && alembic current && alembic heads
 
-# Check for pending migrations
-alembic history | head -5
+# Review migration history
+alembic history --verbose
 
-# Detect if autogenerate finds unapplied changes
-alembic revision --autogenerate -m "check" --sql | head -20
+# Apply through the guarded project runner from the repository root
+cd .. && python -m backend.apply_migrations
 ```
 
 ## Data Retention Policy
@@ -171,8 +183,8 @@ alembic revision --autogenerate -m "check" --sql | head -20
 - Run `pip-audit` before every pre-season to catch CVEs in dependencies
 - Back up the database before any production migration
 - Check disk space on the Pi monthly (SD cards fill up)
-- Monitor `journalctl -u fantasy-backend` for error spikes after each NFL week
-- Keep `requirements-lock.txt` in sync with any `requirements.txt` changes
+- Monitor `journalctl -u fantasy-football-backend` for error spikes after each NFL week
+- Keep `backend/requirements-lock.txt` in sync with backend requirement changes
 - Keep `backend/requirements-validation.txt` aligned with validation engines used in code
 - Document dependency decisions in `docs/DEPENDENCY_MAINTENANCE.md`
 
@@ -190,7 +202,7 @@ alembic revision --autogenerate -m "check" --sql | head -20
 | SD card full | Archive old logs; purge `__pycache__`; consider SSD |
 | ESPN API key expired | Refresh `ESPN_S2` and `ESPN_SWID` cookies from browser |
 | MFL API rate limit | Add exponential backoff in ingestion script |
-| `alembic heads` shows 2 heads | `alembic merge heads -m "merge_<description>"` |
+| `alembic heads` shows 2 heads | Create a reviewed merge with `alembic -c backend/alembic.ini merge heads -m "merge_<description>"`, then apply through `python -m backend.apply_migrations` |
 
 ## Related Skills
 - [Database](../database/SKILL.md) — migration procedures

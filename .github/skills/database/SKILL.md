@@ -52,7 +52,8 @@ All primary models are in `backend/models.py`. Key tables:
 - Always add `nullable=True` or a `server_default` for new columns on existing tables
 - Use `UniqueConstraint` at the model level for business-key uniqueness
 - Close sessions properly — use `Depends(get_db)` in FastAPI, or `with SessionLocal() as db:` in scripts
-- Back up the database before running `alembic upgrade head` on production
+- Back up the database before migration. In production, run the configured
+  backup service and apply migrations only through `python -m backend.apply_migrations`.
 
 ## Never Do
 - Never write raw SQL (`db.execute(text(...))` is banned except in migration scripts)
@@ -66,13 +67,13 @@ All primary models are in `backend/models.py`. Key tables:
 ```bash
 # 1. Make changes to backend/models.py
 
-# 2. Generate a migration (review the generated file carefully!)
+# 2. Generate a migration from the repository root (review it carefully!)
 python -m alembic -c backend/alembic.ini revision --autogenerate -m "describe_change"
 
 # 3. Review db/migrations/<hash>_describe_change.py
 #    Autogenerate is not perfect — verify upgrade() and downgrade()
 
-# 4. Apply locally
+# 4. Apply through the guarded project runner from the repository root.
 python -m backend.apply_migrations
 
 # 5. Test, then commit the migration file with your model changes
@@ -83,9 +84,9 @@ git add db/migrations/ backend/models.py
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| `Can't locate revision identifier` | Out-of-sync migration history | `alembic history --verbose` to find divergence |
-| `Multiple heads` | Concurrent migrations on different branches | `alembic merge heads -m "merge"` |
-| `Column already exists` | Migration applied twice | Check `alembic_version` table; mark revision current if needed |
+| `Can't locate revision identifier` | Out-of-sync or retired migration history | Stop and compare the database revision with the canonical graph; do not stamp or edit history to bypass the error |
+| `Multiple heads` | Concurrent migrations on different branches | Create a reviewed merge revision with `alembic -c backend/alembic.ini merge heads -m "merge"`; apply it through the guarded runner |
+| `Column already exists` | Schema and migration history disagree | Stop and inspect the database schema and migration history; do not stamp a revision without an approved recovery plan |
 | `hist_%` users in member lists | Missing exclusion filter | Add `~models.User.username.like("hist_%")` |
 | Slow analytics queries | Missing index | Add `index=True` to frequently filtered columns |
 | Migration breaks prod | Destructive change | Always add columns as nullable; drop in follow-up migration |

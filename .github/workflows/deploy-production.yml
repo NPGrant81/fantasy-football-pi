@@ -29,33 +29,30 @@ jobs:
   validate-production-env:
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      state: ${{ steps.validate.outputs.state }}
     steps:
-      - name: Validate required production deployment secrets
+      - name: Checkout repository metadata
+        uses: actions/checkout@v7
+
+      - name: Validate production deployment configuration
+        id: validate
         env:
-          DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.PROD_DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
-          DEPLOY_APP_DIR: ${{ secrets.PROD_DEPLOY_APP_DIR }}
-          DEPLOY_KNOWN_HOST: ${{ secrets.PROD_DEPLOY_KNOWN_HOST }}
-        run: |
-          set -euo pipefail
-          missing=0
-          for var in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_APP_DIR DEPLOY_KNOWN_HOST; do
-            if [ -z "${!var:-}" ]; then
-              echo "Missing required secret: $var"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            echo "Production deployment validation failed due to missing secrets."
-            exit 1
-          fi
+          PRODUCTION_DEPLOY_ENABLED: ${{ vars.PRODUCTION_DEPLOY_ENABLED || 'true' }}
+          PROD_DEPLOY_HOST: ${{ secrets.PROD_DEPLOY_HOST }}
+          PROD_DEPLOY_USER: ${{ secrets.PROD_DEPLOY_USER }}
+          PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          PROD_DEPLOY_APP_DIR: ${{ secrets.PROD_DEPLOY_APP_DIR }}
+          PROD_DEPLOY_KNOWN_HOST: ${{ secrets.PROD_DEPLOY_KNOWN_HOST }}
+        run: python -m scripts.validate_workflow_integration production_deploy
 
       - name: Publish production deployment intent
+        if: always()
         run: |
           {
             echo "## Production Deployment Request"
             echo ""
+            echo "- State: ${{ steps.validate.outputs.state }}"
             echo "- Action: ${{ inputs.action }}"
             echo "- Release ref: ${{ inputs.release_ref }}"
             echo "- Rollback ref: ${{ inputs.rollback_ref || 'auto(last_success_production.ref)' }}"
@@ -64,6 +61,7 @@ jobs:
   deploy-production:
     runs-on: ubuntu-latest
     needs: validate-production-env
+    if: needs.validate-production-env.outputs.state == 'PASS'
     environment: production
     steps:
       - name: Checkout repository metadata

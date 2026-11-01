@@ -29,33 +29,30 @@ jobs:
   validate-staging-env:
     runs-on: ubuntu-latest
     environment: staging
+    outputs:
+      state: ${{ steps.validate.outputs.state }}
     steps:
-      - name: Validate required staging deployment secrets
+      - name: Checkout repository metadata
+        uses: actions/checkout@v7
+
+      - name: Validate staging deployment configuration
+        id: validate
         env:
-          DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.STAGING_DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.STAGING_DEPLOY_SSH_KEY }}
-          DEPLOY_APP_DIR: ${{ secrets.STAGING_DEPLOY_APP_DIR }}
-          DEPLOY_KNOWN_HOST: ${{ secrets.STAGING_DEPLOY_KNOWN_HOST }}
-        run: |
-          set -euo pipefail
-          missing=0
-          for var in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_APP_DIR DEPLOY_KNOWN_HOST; do
-            if [ -z "${!var:-}" ]; then
-              echo "Missing required secret: $var"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            echo "Staging deployment validation failed due to missing secrets."
-            exit 1
-          fi
+          STAGING_DEPLOY_ENABLED: ${{ vars.STAGING_DEPLOY_ENABLED || 'false' }}
+          STAGING_DEPLOY_HOST: ${{ secrets.STAGING_DEPLOY_HOST }}
+          STAGING_DEPLOY_USER: ${{ secrets.STAGING_DEPLOY_USER }}
+          STAGING_DEPLOY_SSH_KEY: ${{ secrets.STAGING_DEPLOY_SSH_KEY }}
+          STAGING_DEPLOY_APP_DIR: ${{ secrets.STAGING_DEPLOY_APP_DIR }}
+          STAGING_DEPLOY_KNOWN_HOST: ${{ secrets.STAGING_DEPLOY_KNOWN_HOST }}
+        run: python -m scripts.validate_workflow_integration staging_deploy
 
       - name: Publish staging deployment intent
+        if: always()
         run: |
           {
             echo "## Staging Deployment Request"
             echo ""
+            echo "- State: ${{ steps.validate.outputs.state }}"
             echo "- Action: ${{ inputs.action }}"
             echo "- Release ref: ${{ inputs.release_ref }}"
             echo "- Rollback ref: ${{ inputs.rollback_ref || 'auto(last_success_staging.ref)' }}"
@@ -64,6 +61,7 @@ jobs:
   deploy-staging:
     runs-on: ubuntu-latest
     needs: validate-staging-env
+    if: needs.validate-staging-env.outputs.state == 'PASS'
     environment: staging
     steps:
       - name: Checkout repository metadata

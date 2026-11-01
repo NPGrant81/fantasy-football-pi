@@ -22,6 +22,24 @@ def test_frontend_ci_requires_full_suite():
     assert unit["run"].strip() == "npm run test:coverage -- --run"
 
 
+def test_canonical_migration_layout_gate_runs_for_every_change():
+    jobs = workflow("ci.yml")["jobs"]
+    migration_layout = jobs["migration-layout"]
+    assert "needs" not in migration_layout
+    assert "if" not in migration_layout
+    assert any(
+        step.get("run") == "python scripts/validate_migration_layout.py"
+        for step in migration_layout["steps"]
+    )
+
+    ci_gate = jobs["ci-gate"]
+    assert "migration-layout" in ci_gate["needs"]
+    assert "migration-layout=${{ needs['migration-layout'].result }}" in (
+        ci_gate["steps"][0]["env"]["RESULTS"]
+    )
+    assert "migration-layout=true" in ci_gate["steps"][0]["env"]["APPLICABILITY"]
+
+
 def test_ui_automation_owns_readiness_and_reports_actual_outcomes():
     steps = workflow("ui-ux-automation.yml")["jobs"]["ui-ux-automation"]["steps"]
     node = next(step for step in steps if step.get("uses", "").startswith("actions/setup-node@"))
@@ -51,6 +69,33 @@ def test_recovery_check_requires_actual_disposable_restore():
     assert '--archive "${latest_backup}"' in script
     assert 'verification_db_url="sqlite:///${REPO_ROOT}/${db_path}"' in script
     assert 'DB_URL="${verification_db_url}"' in script
+
+
+def test_microsd_backup_unit_loads_production_database_environment():
+    unit = (ROOT / "deploy" / "systemd" / "microsd-db-backup.service.example").read_text()
+    script = (ROOT / "ops" / "backup" / "microsd_db_backup.sh").read_text()
+    assert "EnvironmentFile=/etc/fantasy-football-pi/backend.env" in unit
+    assert 'DB_URL="${DB_URL:-${DATABASE_URL:-}}"' in script
+    assert (
+        'if [[ -z "${DB_URL:-}" && -z "${DATABASE_URL:-}" && '
+        '-f "${REPO_ROOT}/backend/.env" ]]'
+    ) in script
+    assert (
+        'if [[ -z "${DB_URL:-}" && -z "${DATABASE_URL:-}" && '
+        '-f "${REPO_ROOT}/.env" ]]'
+    ) in script
+
+
+def test_production_migration_runbook_uses_protected_systemd_environment():
+    runbook = (
+        ROOT / ".github" / "skills" / "database" / "references" / "migration-runbook.md"
+    ).read_text(encoding="utf-8")
+    assert "systemd-run --wait --pipe --collect" in runbook
+    assert "--property=EnvironmentFile=/etc/fantasy-football-pi/backend.env" in runbook
+    assert "--property=User=pi" in runbook
+    assert "python -m backend.apply_migrations" in runbook
+    assert "alembic current" in runbook
+    assert "alembic heads" in runbook
 
 
 def test_nginx_vary_header_is_set_at_server_scope():

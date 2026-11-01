@@ -188,6 +188,8 @@ lanes:
         domain: infra
         status: active
       - file: backend/tests/test_topology_compliance.py
+        domain: infra
+        status: active
       - file: backend/tests/test_migration_layout.py
         domain: infra
         status: active

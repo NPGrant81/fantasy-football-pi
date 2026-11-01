@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/fantasy-football-pi
+EnvironmentFile=/etc/fantasy-football-pi/backend.env
 Environment=BACKUP_MOUNT=/mnt/microsd
 Environment=BACKUP_SUBDIR=backups/fantasy-football-pi
 Environment=RETENTION_DAYS=14
