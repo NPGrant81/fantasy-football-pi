@@ -6,10 +6,55 @@ This directory contains [Mermaid](https://mermaid.js.org/) diagrams that documen
 
 | File | Description |
 |------|-------------|
+| [data-flow-layers.mmd](./data-flow-layers.mmd) | As-built ingestion, PostgreSQL, ORM, service, API and browser flow; schema control and planned semantic adoption |
+| [data-page-consumers.mmd](./data-page-consumers.mmd) | Shared persisted data families mapped to API domains and actual React page families |
 | [draft-flow.md](./draft-flow.md) | Auction draft flow — nomination, bidding, and roster assignment |
 | [waiver-flow.md](./waiver-flow.md) | Waiver / FAAB processing — claim queue, sorting, and ledger deduction |
 | [ledger-model.md](./ledger-model.md) | Ledger interaction model — how user actions create ledger entries and update balances |
 | [simulation-pipeline.md](./simulation-pipeline.md) | Draft strategy simulation pipeline — Monte Carlo iterations and result aggregation |
+
+## Reading the data-flow maps
+
+These maps describe the code and source contracts available on the issue-554
+worktree, not a verification of deployed database contents. Solid arrows show
+data or request flow. Dashed, labeled arrows show schema-definition/control
+relationships or planned semantic adoption, not an existing universal pipeline.
+The consumer map groups representative dependencies; it is not an exhaustive
+endpoint or column inventory.
+
+`Base` in [`backend/database.py`](../../backend/database.py) is SQLAlchemy's
+shared declarative registry. Models inherit from it and register table
+definitions in `Base.metadata`; rows are read and written through models and
+sessions, not transformed by `Base`. Published Alembic/bootstrap revisions own
+schema changes. The legacy archive is recovery evidence, not the source for
+ordinary page queries.
+
+The intended boundary is router -> service -> ORM, but the current code also
+has router-local queries and calculations. Similarly, not every response is
+Pydantic-typed and not every page uses TanStack Query. The diagrams show those
+as-built exceptions rather than presenting the desired architecture as complete.
+
+The planned semantic work must distinguish provider identities from app IDs,
+source-reported points from league-calculated points, current rosters from
+historical ownership, and missing data from measured zero. A league's current
+rules or season do not establish historical scoring context. See the
+[semantic contract](../SEMANTIC_DATA_CONTRACT.md) and
+[as-built source map](../SEMANTIC_DATA_SOURCE_MAP.md).
+
+Evidence for the maps:
+
+- [Database sessions and Base](../../backend/database.py),
+  [domain models](../../backend/models.py), and
+  [projection/value models](../../backend/models_draft_value.py).
+- [Projection loader](../../etl/load/load_to_postgres.py),
+  [live scoring ingestion](../../backend/services/live_scoring_ingest_service.py),
+  [MFL importer](../../backend/scripts/import_mfl_csv.py), and
+  [history enrichment](../../backend/services/league_history_enrichment_service.py).
+- [React routes](../../frontend/src/App.jsx),
+  [API/page inventory](../API_PAGE_MATRIX.md), and
+  [frontend API helpers](../../frontend/src/api/).
+
+Open either `.mmd` file with the Mermaid extension to preview and edit it.
 
 ## How to Edit Mermaid Diagrams
 

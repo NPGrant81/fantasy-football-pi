@@ -3,22 +3,56 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
+## PR #555 Copilot Feedback
+
+- Review received: 2026-11-01.
+- Threads opened: 9; first 5 resolved; remaining 4 have verified fixes.
+- Follow-up commit: `e8603a5`.
+- Foreign-key snapshots retain external schema identity and normalize only
+  internal references. A same-named cross-schema constraint fails preflight.
+- Preparation locks the full source set before validation/archiving.
+  Reconciliation retains exclusive source locks through column drops, including
+  empty tables; competing writes are tested with real PostgreSQL lock timeouts.
+- Active scoring rules require explicit per-ID event/calculation/range/position
+  mappings via `--scoring-mappings`; labels and flat bonuses are no longer
+  inferred. The adopted passing-TD rule scores 0/0/4/8 for missing/zero/one/two
+  touchdowns and zero for an excluded position.
+- NULL lineup season/week fails inspection and preparation before archiving.
+- Parent PR #553's latest snapshot hardening was merged without rewriting
+  shared history; both PR feedback logs were retained.
+- Re-review fixes: reject non-public effective creation schemas before initial
+  adoption and partial/completed retries; compare structural sequences with
+  internal ownership normalization; reject categories conflicting with reviewed
+  stat events; exercise CLI failure/retry after committed preparation and
+  revision `0001`, and idempotent completed reruns.
+- Consolidation approved: integrate the bridge into PR #553, then close #555
+  as superseded rather than retaining a failing parent/child dependency.
+- Validation: full backend passed on disposable PostgreSQL 18: 927 passed,
+  2 skipped. Bootstrap equivalence/preservation and both previously failing
+  logging assertions pass. Black, flake8 and whitespace passed.
+- Residual risk: hosted CI and fresh automated review still require confirmation.
+  Production adoption remains a separately approved, backed-up maintenance
+  operation; no production database was accessed.
+
 ## PR #553 Copilot Feedback
 
 - Review received: 2026-11-01.
-- Threads opened: 5; threads resolved: 4; follow-up commit: `1dfb861`.
+- Threads opened: 7; first 4 resolved; remaining 3 have verified fixes.
+- Follow-up commits: `1dfb861`, `7e8e583`, and the consolidated bridge.
 - Review fixes: isolated databases were already implemented; snapshots now
   compare expression-index SQL and sequence type, start, increment, bounds,
   cache, cycle, and owning schema/table/column. Runtime sequence state is excluded.
-- Validation: 89 focused tests passed against a disposable local PostgreSQL 18
-  cluster, including 11 new snapshot regressions; flake8 and whitespace checks
-  passed. The separate equivalence acceptance test still fails at revision
-  `0003` because the frozen legacy schema lacks `applicable_positions`.
-- Residual risk: the legacy transition thread remains blocked on the explicit
-  adoption bridge in [PR #555](https://github.com/NPGrant81/fantasy-football-pi/pull/555)
-  / [issue #554](https://github.com/NPGrant81/fantasy-football-pi/issues/554).
-  Do not merge until integration; do not rewrite the historical fixture or published
-  revisions, skip the acceptance test, or stamp away the mismatch.
+- Re-review fixes: snapshot column sorting and view definitions; regressions
+  detect ordinary-index ordering drift and changed/dropped views.
+- Shared CI failure root cause: Alembic `fileConfig` disabled existing
+  application loggers during in-process migration tests. Both environment
+  files now preserve loggers, covered by configuration/runtime regression.
+- The approved consolidation includes the reviewed explicit bridge from
+  [PR #555](https://github.com/NPGrant81/fantasy-football-pi/pull/555).
+  Full backend: 927 passed, 2 skipped, with PostgreSQL equivalence enabled.
+  No fixture/published migration rewrite or acceptance-test skip was needed.
+- Residual risk: fresh hosted CI and review require confirmation; no production
+  adoption or deployment was performed.
 
 ## PR #552 Copilot Feedback
 
