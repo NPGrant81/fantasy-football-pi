@@ -110,6 +110,148 @@ def test_source_comparison_does_not_round_bid_or_guess_position(source_evidence)
 
 
 @pytest.fixture
+def conflicting_player_evidence(source_evidence):
+    source_evidence["sources"]["players.csv"].append(
+        {"Player_ID": "10", "PlayerName": "Other Player", "PositionID": "3"}
+    )
+    source_evidence["players"].append(
+        {"player_mfl_id": "124", "player_name": "Other Player", "position": "RB"}
+    )
+    return source_evidence
+
+
+def test_player_conflicts_preserve_all_variants_and_exact_event_evidence(
+    conflicting_player_evidence,
+):
+    before = deepcopy(conflicting_player_evidence)
+    report = script.reconcile_season(**conflicting_player_evidence)
+    profile = report["player_conflict_audit"][0]
+    assert profile["source_player_id"] == 10
+    assert len(profile["variants"]) == 2
+    assert all(v["status"] == "single_native_id_review" for v in profile["variants"])
+    event = profile["affected_draft_rows"][0]
+    assert event["status"] == "single_event_review"
+    assert event["candidate_native_events"][0]["player_mfl_id"] == "123"
+    assert len(event["candidate_native_events"][0]["supporting_variant_sha256"]) == 1
+    assert event["approved"] is False and event["resolution"] is None
+    assert conflicting_player_evidence == before
+    assert "Brown" not in str(profile)
+    assert "Other Player" not in str(profile)
+
+
+def test_player_conflict_audit_does_not_guess_when_two_variants_match_bid(
+    conflicting_player_evidence,
+):
+    conflicting_player_evidence["drafts"].append(
+        {**conflicting_player_evidence["drafts"][0], "player_mfl_id": "124"}
+    )
+    report = script.reconcile_season(**conflicting_player_evidence)
+    event = report["player_conflict_audit"][0]["affected_draft_rows"][0]
+    assert event["status"] == "ambiguous"
+    assert len(event["candidate_native_events"]) == 2
+    dispositions = script._player_conflict_dispositions(
+        conflicting_player_evidence["sources"], [report]
+    )
+    assert dispositions[0]["disposition"] == "blocked_ambiguous_or_missing_event"
+
+
+def test_player_dispositions_require_row_specific_identity_for_reused_ids(
+    conflicting_player_evidence,
+):
+    conflicting_player_evidence["sources"]["draft_results.csv"].append(
+        {
+            **conflicting_player_evidence["sources"]["draft_results.csv"][0],
+            "WinningBid": "6",
+        }
+    )
+    conflicting_player_evidence["drafts"].append(
+        {
+            **conflicting_player_evidence["drafts"][0],
+            "player_mfl_id": "124",
+            "winning_bid": "6",
+        }
+    )
+    report = script.reconcile_season(**conflicting_player_evidence)
+    disposition = script._player_conflict_dispositions(
+        conflicting_player_evidence["sources"], [report]
+    )[0]
+    assert disposition["single_event_candidate_native_ids"] == ["123", "124"]
+    assert disposition["row_specific_identity_required"] is True
+    assert disposition["disposition"] == "event_resolutions_ready_for_review"
+    assert disposition["approved"] is False
+    assert disposition["resolution"] is None
+
+
+def test_missing_season_or_catalog_only_conflict_blocks_reconstruction(
+    conflicting_player_evidence,
+):
+    report = script.reconcile_season(**conflicting_player_evidence)
+    conflicting_player_evidence["sources"]["draft_results.csv"].append(
+        {
+            **conflicting_player_evidence["sources"]["draft_results.csv"][0],
+            "Year": "2023",
+        }
+    )
+    disposition = script._player_conflict_dispositions(
+        conflicting_player_evidence["sources"], [report]
+    )[0]
+    assert disposition["uncovered_legacy_rows"] == [3]
+    assert disposition["disposition"] == "blocked_missing_season_evidence"
+    conflicting_player_evidence["sources"]["draft_results.csv"] = []
+    report = script.reconcile_season(**conflicting_player_evidence)
+    disposition = script._player_conflict_dispositions(
+        conflicting_player_evidence["sources"], [report]
+    )[0]
+    assert disposition["disposition"] == "blocked_catalog_only_identity_review"
+
+
+def test_player_audit_keeps_duplicate_rows_and_blank_names_blocked(
+    conflicting_player_evidence,
+):
+    conflicting_player_evidence["sources"]["players.csv"][1]["PlayerName"] = " "
+    conflicting_player_evidence["sources"]["players.csv"].append(
+        deepcopy(conflicting_player_evidence["sources"]["players.csv"][0])
+    )
+    conflicting_player_evidence["drafts"] *= 2
+    profile = script.reconcile_season(**conflicting_player_evidence)[
+        "player_conflict_audit"
+    ][0]
+    assert sorted(len(v["legacy_catalog_rows"]) for v in profile["variants"]) == [1, 2]
+    assert any(v["status"] == "missing_name" for v in profile["variants"])
+    assert profile["affected_draft_rows"][0]["status"] == "ambiguous"
+
+
+def test_suffix_aliases_share_candidates_without_becoming_approved(source_evidence):
+    source_evidence["sources"]["players.csv"] = [
+        {"Player_ID": "10", "PlayerName": "AJ Brown", "PositionID": "2"},
+        {"Player_ID": "10", "PlayerName": "AJ Brown Jr.", "PositionID": "2"},
+    ]
+    profile = script.reconcile_season(**source_evidence)["player_conflict_audit"][0]
+    assert profile["variant_relationship"] == "suffix_or_punctuation_alias_review"
+    assert len(profile["variants"]) == 2
+    assert all(v["status"] == "single_native_id_review" for v in profile["variants"])
+    event = profile["affected_draft_rows"][0]
+    assert len(event["candidate_native_events"]) == 1
+    assert len(event["candidate_native_events"][0]["supporting_variant_sha256"]) == 2
+    assert event["approved"] is False
+
+
+def test_suffix_name_collision_remains_ambiguous(source_evidence):
+    source_evidence["sources"]["players.csv"].append(
+        {"Player_ID": "10", "PlayerName": "AJ Brown Jr.", "PositionID": "2"}
+    )
+    source_evidence["players"].append(
+        {"player_mfl_id": "125", "player_name": "AJ Brown Sr.", "position": "WR"}
+    )
+    source_evidence["drafts"].append(
+        {**source_evidence["drafts"][0], "player_mfl_id": "125"}
+    )
+    profile = script.reconcile_season(**source_evidence)["player_conflict_audit"][0]
+    assert profile["affected_draft_rows"][0]["status"] == "ambiguous"
+    assert all(v["status"] == "ambiguous" for v in profile["variants"])
+
+
+@pytest.fixture
 def disputed_position_evidence(source_evidence):
     source_evidence["sources"]["positions.csv"] = [
         {"PositionID": "8099", "Position": "Kicker"},
@@ -405,6 +547,38 @@ def test_draft_override_is_explicit_and_hash_bound(tmp_path, selected_exports):
         report["selected_mfl_exports"][-1]["sha256"]
         == hashlib.sha256(override.read_bytes()).hexdigest()
     )
+
+
+def test_player_proposals_bind_legacy_and_native_catalog_rows_to_input_hashes(
+    selected_exports,
+):
+    source_root, export_root = selected_exports
+    path = source_root / "players.csv"
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    rows.append({**rows[0], "PlayerName": "AJ Brown Jr."})
+    _write_csv(path, rows)
+    report = script.run_source_reconciliation(
+        source_root=source_root, season_exports={2024: export_root}, draft_exports={}
+    )
+    profile = report["seasons"][0]["player_conflict_audit"][0]
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    assert {
+        ref for v in profile["variants"] for ref in v["legacy_catalog_row_refs"]
+    } == {f"{digest}:2", f"{digest}:3"}
+    native_digest = hashlib.sha256(
+        (export_root / "players" / "2024.csv").read_bytes()
+    ).hexdigest()
+    assert all(
+        c["evidence_ref"] == f"{native_digest}:2"
+        for v in profile["variants"]
+        for c in v["candidate_native_catalog"]
+    )
+    event = profile["affected_draft_rows"][0]
+    assert event["legacy_evidence_ref"] == (
+        report["legacy_source_files_sha256"]["draft_results.csv"] + ":2"
+    )
+    assert report["player_conflict_dispositions"][0]["reconstruction_blocked"] is True
 
 
 @pytest.mark.parametrize("selection", [["2024"], ["2024="], ["2024=a", "2024=b"]])

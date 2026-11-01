@@ -8,7 +8,7 @@ Pull request test branch: feature/tests-ci
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.
-- Validation: 79 focused backend tests passed, including existing auction
+- Validation: 87 focused backend tests passed, including existing auction
   extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
@@ -44,6 +44,12 @@ Pull request test branch: feature/tests-ci
   observations show global ID replacement is unsafe; no alias or identity is
   approved. This slice sent zero API requests and verified unchanged source
   hashes and working-copy manifests.
+- Slice 2 is in progress: player-conflict evidence covers all 50 IDs, 101
+  variants and 135 affected drafts. All 135 have single-event proposals, across
+  39 drafted IDs; 11 undrafted IDs remain catalog-only blockers. Relationships
+  are 23 suffix/punctuation review groups, 22 defense-label groups and five
+  nontrivial alias/identity groups. No global identity, nickname or target
+  mapping is approved. All proposals remain reconstruction-blocked.
 - Copilot Feedback:
   - Review requested: attempted 2026-11-01 via MCP and CLI.
   - The initial request was not visible and CLI returned HTTP 422, but Copilot

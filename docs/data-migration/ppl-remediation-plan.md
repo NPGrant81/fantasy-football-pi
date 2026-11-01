@@ -69,6 +69,38 @@ references, keeps rows unapproved and records the methodology/limitations.
 It contains IDs and aggregates rather than owner/player names. Reports stay
 in restricted storage outside Git. Inputs and databases are unchanged.
 
+## Slice 2 progress and remaining gate
+
+`player_conflict_audit` now traces all 50 conflicting player IDs, all 101
+distinct source variants and all 135 affected draft rows through selected
+2018-2025 catalogs and auction events. Variant/catalog/draft evidence includes
+input SHA-256 and CSV row references. Every original variant is retained.
+
+Observed variant relationships:
+
+- 23 suffix/punctuation alias review groups, using the existing player-service
+  suffix normalizer. Native name collisions remain ambiguous.
+- 22 defense-label alias review groups.
+- Five nontrivial alias/identity review groups (including nickname/spelling
+  differences); no fuzzy match or hardcoded nickname mapping is applied.
+
+All 135 affected draft rows nominate one valid native auction event by
+name-variant/exact-bid evidence. The 39 drafted IDs therefore have **event
+resolution proposals ready for review**, not approved identities. The 11
+undrafted IDs remain blocked on catalog-only identity review. None of the
+single-event candidates spans multiple native player IDs within the selected
+season evidence; this does not prove every variant is the same identity.
+
+`player_conflict_dispositions` records uncovered-season, ambiguous/missing-event
+and catalog-only blockers. A proposal does not certify all source variants or
+approve nickname, defense or target-player mappings. Every entry remains
+`approved=false`, `resolution=null`, `reconstruction_blocked=true`.
+
+Slice 2 is **in progress**, not complete. Next steps are reviewing the 39
+draft-supported proposals and establishing explicit evidence for the 11
+undrafted identities and unmatched alias variants. Slices 3-7 remain gated.
+This work uses retained exports only and makes no API/database calls.
+
 ## API policy
 
 Reuse retained exports first. Any new request is one season/report in a short,

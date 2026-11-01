@@ -121,6 +121,18 @@ retained sources and season-specific MFL evidence to establish resolutions;
 never modify original CSVs or discard conflicting rows as cleanup. Native
 mapping templates remain review aids, not authorization to bypass this gate.
 
+Slice 2 adds `player_conflict_audit` (all source variants, seasonal native
+catalog candidates and exact-bid event candidates) and
+`player_conflict_dispositions` (cross-season coverage and explicit blockers).
+The existing suffix/punctuation normalizer contributes review candidates only;
+it does not authorize merging same-name native IDs. Nickname and defense-label
+differences remain distinct variants, not hardcoded automatic aliases.
+Legacy and native catalog/event references are hash-bound. A drafted ID with
+single-event proposals is not an approved resolution of all its variants.
+Undrafted conflicts require catalog-only identity evidence; absence of draft
+usage is not grounds to discard them. Reconstruction remains blocked until
+every conflict and mapping is reviewed.
+
 Use `native_mapping_review_template` to review native franchise/player to
 target mappings; all entries start unapproved with null target IDs. Every
 season's franchise list is included even when legacy matches are unavailable.

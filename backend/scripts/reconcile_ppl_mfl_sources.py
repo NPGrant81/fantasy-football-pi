@@ -22,7 +22,10 @@ from backend.scripts.reconcile_ppl_history import (
     _position_id,
     _read_sources,
 )
-from backend.services.player_service import normalize_display_name
+from backend.services.player_service import (
+    _dedupe_normalized_name,
+    normalize_display_name,
+)
 
 HEADERS = {
     "players": {"player_mfl_id", "player_name", "position"},
@@ -122,25 +125,13 @@ def _read_export(
     return rows, hashlib.sha256(raw).hexdigest()
 
 
-def _position_conflict_audit(
+def _native_event_candidates(
     *,
-    season: int,
-    sources: dict[str, list[dict[str, Any]]],
     players: list[dict[str, str]],
     franchises: list[dict[str, str]],
     drafts: list[dict[str, str]],
     draft_sha256: str,
-) -> dict[str, Any]:
-    conflicting_ids = {
-        identifier
-        for identifier, row in _index(sources["positions.csv"], "PositionID").items()
-        if row is None
-    }
-    legacy_names: dict[int, set[str]] = defaultdict(set)
-    for row in sources["players.csv"]:
-        name = _label(normalize_display_name(row["PlayerName"]))
-        if name:
-            legacy_names[_integer(row["Player_ID"])].add(name)
+) -> dict[tuple[str, object], list[dict[str, Any]]]:
     native_catalog: dict[str, set[tuple[str, str]]] = defaultdict(set)
     native_franchises = {_source_id(row["franchise_id"]) for row in franchises}
     for row in players:
@@ -174,6 +165,34 @@ def _position_conflict_audit(
                 "native_position": position,
             }
         )
+    return events
+
+
+def _position_conflict_audit(
+    *,
+    season: int,
+    sources: dict[str, list[dict[str, Any]]],
+    players: list[dict[str, str]],
+    franchises: list[dict[str, str]],
+    drafts: list[dict[str, str]],
+    draft_sha256: str,
+) -> dict[str, Any]:
+    conflicting_ids = {
+        identifier
+        for identifier, row in _index(sources["positions.csv"], "PositionID").items()
+        if row is None
+    }
+    legacy_names: dict[int, set[str]] = defaultdict(set)
+    for row in sources["players.csv"]:
+        name = _label(normalize_display_name(row["PlayerName"]))
+        if name:
+            legacy_names[_integer(row["Player_ID"])].add(name)
+    events = _native_event_candidates(
+        players=players,
+        franchises=franchises,
+        drafts=drafts,
+        draft_sha256=draft_sha256,
+    )
     rows = []
     for number, row in enumerate(sources["draft_results.csv"], start=2):
         identifier = _position_id(row["PositionID"])
@@ -234,6 +253,211 @@ def _position_conflict_audit(
             "No native event candidate does not prove missing history.",
         ],
     }
+
+
+def _player_conflict_audit(
+    *,
+    season: int,
+    sources: dict[str, list[dict[str, Any]]],
+    players: list[dict[str, str]],
+    franchises: list[dict[str, str]],
+    drafts: list[dict[str, str]],
+    draft_sha256: str,
+) -> list[dict[str, Any]]:
+    conflicts = {
+        identifier
+        for identifier, row in _index(sources["players.csv"], "Player_ID").items()
+        if row is None
+    }
+    variants: dict[int, dict[str, dict[str, Any]]] = defaultdict(dict)
+    for number, row in enumerate(sources["players.csv"], start=2):
+        identifier = _integer(row["Player_ID"])
+        if identifier not in conflicts:
+            continue
+        digest = hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest()
+        variant = variants[identifier].setdefault(
+            digest,
+            {
+                "name": _label(normalize_display_name(row["PlayerName"])),
+                "alias_key": _dedupe_normalized_name(row["PlayerName"]),
+                "defense_label": "D/ST" in str(row["PlayerName"]).upper(),
+                "legacy_catalog_rows": [],
+            },
+        )
+        variant["legacy_catalog_rows"].append(number)
+    native_by_name: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    native_names_by_alias: dict[str, set[str]] = defaultdict(set)
+    for number, row in enumerate(players, start=2):
+        name = _label(normalize_display_name(row["player_name"]))
+        if name:
+            native_names_by_alias[_dedupe_normalized_name(row["player_name"])].add(name)
+            native_by_name[name].append(
+                {
+                    "player_mfl_id": _source_id(row["player_mfl_id"]),
+                    "native_position": _position(row["position"]),
+                    "native_catalog_row": number,
+                }
+            )
+
+    def candidate_names(variant: dict[str, Any]) -> set[str]:
+        return (
+            {variant["name"]} | native_names_by_alias[variant["alias_key"]]
+            if variant["name"]
+            else set()
+        )
+
+    def variant_report(digest: str, variant: dict[str, Any]) -> dict[str, Any]:
+        catalog = [
+            {
+                **row,
+                "match_method": (
+                    "exact_display_name"
+                    if name == variant["name"]
+                    else "existing_suffix_punctuation_normalizer"
+                ),
+            }
+            for name in sorted(candidate_names(variant))
+            for row in native_by_name.get(name, [])
+        ]
+        identities = {row["player_mfl_id"] for row in catalog}
+        return {
+            "variant_sha256": digest,
+            "legacy_catalog_rows": variant["legacy_catalog_rows"],
+            "candidate_native_catalog": catalog,
+            "status": (
+                "missing_name"
+                if not variant["name"]
+                else (
+                    "single_native_id_review"
+                    if len(identities) == 1
+                    else ("ambiguous" if identities else "no_candidate")
+                )
+            ),
+            "approved": False,
+        }
+
+    events = _native_event_candidates(
+        players=players,
+        franchises=franchises,
+        drafts=drafts,
+        draft_sha256=draft_sha256,
+    )
+    affected: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for number, row in enumerate(sources["draft_results.csv"], start=2):
+        identifier = _integer(row["PlayerID"])
+        if _integer(row["Year"]) != season or identifier not in conflicts:
+            continue
+        bid = _amount(row["WinningBid"])
+        candidates: dict[str, dict[str, Any]] = {}
+        for digest, variant in variants[identifier].items():
+            if not variant["name"]:
+                continue
+            for name in sorted(candidate_names(variant)):
+                for event in events.get((name, bid), []):
+                    candidate = candidates.setdefault(
+                        event["evidence_ref"],
+                        {**event, "supporting_variant_sha256": []},
+                    )
+                    candidate["supporting_variant_sha256"].append(digest)
+        event_candidates = list(candidates.values())
+        affected[identifier].append(
+            {
+                "legacy_csv_row": number,
+                "source_owner_id": _integer(row["OwnerID"]),
+                "winning_bid": str(bid),
+                "candidate_native_events": event_candidates,
+                "status": (
+                    "single_event_review"
+                    if len(event_candidates) == 1
+                    else ("ambiguous" if event_candidates else "no_candidate")
+                ),
+                "approved": False,
+                "resolution": None,
+            }
+        )
+    return [
+        {
+            "source_player_id": identifier,
+            "variant_relationship": (
+                "suffix_or_punctuation_alias_review"
+                if len({v["alias_key"] for v in variants[identifier].values()}) == 1
+                else (
+                    "defense_label_alias_review"
+                    if any(v["defense_label"] for v in variants[identifier].values())
+                    else "nontrivial_alias_or_identity_review"
+                )
+            ),
+            "variants": [
+                variant_report(digest, variant)
+                for digest, variant in sorted(variants[identifier].items())
+            ],
+            "affected_draft_rows": affected[identifier],
+            "status": (
+                "review_required" if affected[identifier] else "catalog_only_review"
+            ),
+            "approved": False,
+        }
+        for identifier in sorted(conflicts)
+    ]
+
+
+def _player_conflict_dispositions(
+    sources: dict[str, list[dict[str, Any]]], reports: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    by_player: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for report in reports:
+        for profile in report["player_conflict_audit"]:
+            by_player[profile["source_player_id"]].append(
+                {"season": report["season"], **profile}
+            )
+    result = []
+    for identifier, profiles in sorted(by_player.items()):
+        all_rows = [
+            number
+            for number, row in enumerate(sources["draft_results.csv"], start=2)
+            if _integer(row["PlayerID"]) == identifier
+        ]
+        covered = {
+            row["legacy_csv_row"]
+            for profile in profiles
+            for row in profile["affected_draft_rows"]
+        }
+        event_rows = [
+            row for profile in profiles for row in profile["affected_draft_rows"]
+        ]
+        missing = sorted(set(all_rows) - covered)
+        if missing:
+            disposition = "blocked_missing_season_evidence"
+        elif any(row["status"] != "single_event_review" for row in event_rows):
+            disposition = "blocked_ambiguous_or_missing_event"
+        elif not event_rows:
+            disposition = "blocked_catalog_only_identity_review"
+        else:
+            disposition = "event_resolutions_ready_for_review"
+        selected = {
+            row["candidate_native_events"][0]["player_mfl_id"]
+            for row in event_rows
+            if row["status"] == "single_event_review"
+        }
+        result.append(
+            {
+                "source_player_id": identifier,
+                "variant_relationship": profiles[0]["variant_relationship"],
+                "affected_draft_rows": len(all_rows),
+                "uncovered_legacy_rows": missing,
+                "event_status_counts": dict(
+                    Counter(row["status"] for row in event_rows)
+                ),
+                "single_event_candidate_native_ids": sorted(selected),
+                "row_specific_identity_required": len(selected) > 1,
+                "disposition": disposition,
+                "approved": False,
+                "resolution": None,
+                "evidence": [],
+                "reconstruction_blocked": True,
+            }
+        )
+    return result
 
 
 def reconcile_season(
@@ -399,6 +623,14 @@ def reconcile_season(
         blockers.append({"kind": "conflicting_season_owner_evidence"})
     return {
         "season": season,
+        "player_conflict_audit": _player_conflict_audit(
+            season=season,
+            sources=sources,
+            players=players,
+            franchises=franchises,
+            drafts=drafts,
+            draft_sha256=draft_sha256,
+        ),
         "position_conflict_audit": _position_conflict_audit(
             season=season,
             sources=sources,
@@ -455,6 +687,7 @@ def run_source_reconciliation(
         if season not in KNOWN_LEAGUE_BY_SEASON:
             raise ValueError("Season has no verified MFL league mapping.")
         rows = {}
+        export_hashes = {}
         draft_hash = ""
         for report in HEADERS:
             path = (
@@ -463,6 +696,7 @@ def run_source_reconciliation(
                 else root / report / f"{season}.csv"
             )
             rows[report], digest = _read_export(path, report, season)
+            export_hashes[report] = digest
             selected.append({"season": season, "report": report, "sha256": digest})
             if report == "draftResults":
                 draft_hash = digest
@@ -476,12 +710,27 @@ def run_source_reconciliation(
                 draft_sha256=draft_hash,
             )
         )
+        for profile in reports[-1]["player_conflict_audit"]:
+            for variant in profile["variants"]:
+                variant["legacy_catalog_row_refs"] = [
+                    f"{hashes['players.csv']}:{number}"
+                    for number in variant["legacy_catalog_rows"]
+                ]
+                for candidate in variant["candidate_native_catalog"]:
+                    candidate["evidence_ref"] = (
+                        f"{export_hashes['players']}:{candidate['native_catalog_row']}"
+                    )
+            for event in profile["affected_draft_rows"]:
+                event["legacy_evidence_ref"] = (
+                    f"{hashes['draft_results.csv']}:{event['legacy_csv_row']}"
+                )
     return {
         "writes_performed_to_databases": False,
         "api_requests_sent": 0,
         "ready_to_import": False,
         "legacy_source_files_sha256": hashes,
         "legacy_conflict_register": _legacy_conflict_register(sources, hashes),
+        "player_conflict_dispositions": _player_conflict_dispositions(sources, reports),
         "selected_mfl_exports": selected,
         "seasons": reports,
         "limitations": [
