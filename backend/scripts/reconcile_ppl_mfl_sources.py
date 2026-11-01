@@ -1,4 +1,4 @@
-"""Build an unapproved, offline PPL repair worksheet from selected MFL exports."""
+"""Build offline PPL repair evidence and replay reviewed source resolutions."""
 
 from __future__ import annotations
 
@@ -13,6 +13,10 @@ import sys
 from typing import Any
 
 from backend.scripts.extract_mfl_history import KNOWN_LEAGUE_BY_SEASON
+from backend.scripts.reconcile_ppl_attributes import (
+    approve_attribute_resolutions,
+    build_attribute_audit,
+)
 from backend.scripts.reconcile_ppl_history import (
     _amount,
     _index,
@@ -623,6 +627,22 @@ def reconcile_season(
         blockers.append({"kind": "conflicting_season_owner_evidence"})
     return {
         "season": season,
+        "native_catalog_conflicts": [
+            {
+                "player_mfl_id": identifier,
+                "rows": [
+                    {
+                        "native_catalog_row": number,
+                        "player_name": row["player_name"],
+                        "native_position": _position(row["position"]),
+                    }
+                    for number, row in enumerate(players, start=2)
+                    if _source_id(row["player_mfl_id"]) == identifier
+                ],
+            }
+            for identifier, identities in sorted(native_players.items())
+            if len(identities) > 1
+        ],
         "player_conflict_audit": _player_conflict_audit(
             season=season,
             sources=sources,
@@ -679,6 +699,8 @@ def run_source_reconciliation(
     draft_exports: dict[int, Path],
     player_resolutions: dict[str, Any] | None = None,
     owner_resolutions: dict[str, Any] | None = None,
+    audit_attributes: bool = False,
+    attribute_resolutions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not season_exports or set(draft_exports) - set(season_exports):
         raise ValueError("Select season exports before any draft override.")
@@ -728,6 +750,11 @@ def run_source_reconciliation(
                 event["legacy_evidence_ref"] = (
                     f"{hashes['draft_results.csv']}:{event['legacy_csv_row']}"
                 )
+        for conflict in reports[-1]["native_catalog_conflicts"]:
+            for row in conflict["rows"]:
+                row["evidence_ref"] = (
+                    f"{export_hashes['players']}:{row['native_catalog_row']}"
+                )
     result = {
         "writes_performed_to_databases": False,
         "api_requests_sent": 0,
@@ -765,6 +792,19 @@ def run_source_reconciliation(
             )
     elif owner_resolutions is not None:
         raise ValueError("Owner resolutions require validated player approvals.")
+    if audit_attributes or attribute_resolutions is not None:
+        if "approved_owner_resolutions" not in result:
+            raise ValueError("Attribute review requires validated owner approvals.")
+        result["attribute_repair_audit"] = build_attribute_audit(
+            sources=sources,
+            report=result,
+            native_seasons=native_seasons,
+            teams_path=source_root / "teams.csv",
+        )
+        if attribute_resolutions is not None:
+            result["approved_attribute_resolutions"] = approve_attribute_resolutions(
+                result, attribute_resolutions
+            )
     return result
 
 
@@ -1127,6 +1167,12 @@ def approve_player_resolutions(
     for identifier, profile in sorted(profiles.items()):
         entry = indexed[identifier]
         native_id = _source_id(entry["player_mfl_id"])
+        if any(
+            conflict["player_mfl_id"] == native_id
+            for season in report["seasons"]
+            for conflict in season["native_catalog_conflicts"]
+        ):
+            raise ValueError("Approved native ID has conflicting catalog identities.")
         seasonal = [
             player
             for season in report["seasons"]
@@ -1232,6 +1278,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--player-resolutions", type=Path)
     parser.add_argument("--owner-resolutions", type=Path)
+    parser.add_argument("--audit-attributes", action="store_true")
+    parser.add_argument("--attribute-resolutions", type=Path)
     args = parser.parse_args(argv)
     if args.output.exists():
         parser.error("--output already exists; choose a new evidence file.")
@@ -1251,6 +1299,12 @@ def main(argv: list[str] | None = None) -> int:
                 if args.owner_resolutions
                 else None
             ),
+            audit_attributes=args.audit_attributes,
+            attribute_resolutions=(
+                json.loads(args.attribute_resolutions.read_text(encoding="utf-8"))
+                if args.attribute_resolutions
+                else None
+            ),
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8") as handle:
@@ -1262,7 +1316,13 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    if args.owner_resolutions:
+    if args.attribute_resolutions:
+        print(f"Reviewed attribute resolutions saved: {args.output}")
+        print("Slice 5 ready; target mappings, schema and imports remain BLOCKED.")
+    elif args.audit_attributes:
+        print(f"Unapproved attribute repair worksheet saved: {args.output}")
+        print("BLOCKED: row-specific attribute repairs require explicit approval.")
+    elif args.owner_resolutions:
         print(f"Reviewed source-owner resolutions saved: {args.output}")
         print("Slice 4 ready; target-account mappings and imports remain BLOCKED.")
     elif args.player_resolutions:

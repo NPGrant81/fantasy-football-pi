@@ -925,6 +925,101 @@ def test_explicit_approval_resolves_identities_not_import_or_positions(
     assert report == before
 
 
+def test_attribute_cli_replays_reviewed_repairs_and_preserves_input_files(
+    selected_exports, tmp_path, monkeypatch, capsys
+):
+    import requests
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Attribute reconciliation must remain offline.")
+
+    monkeypatch.setattr(requests.sessions.Session, "request", unexpected)
+    source_root, export_root = selected_exports
+    _write_csv(source_root / "teams.csv", [{"Team": "PHI", "TeamID": "3"}])
+    path = export_root / "players" / "2024.csv"
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    _write_csv(path, [{**row, "nfl_team": "PHI"} for row in rows])
+    report = script.run_source_reconciliation(
+        source_root=source_root, season_exports={2024: export_root}, draft_exports={}
+    )
+    common = {
+        "approved": True,
+        "review_basis": "Explicit fixture review",
+        "legacy_source_files_sha256": report["legacy_source_files_sha256"],
+        "selected_mfl_exports": report["selected_mfl_exports"],
+    }
+    players = {**common, "players": []}
+    owners = {
+        **common,
+        "reviewed_owner_variant_sha256": [],
+        "season_owners": [
+            {
+                "season": 2024,
+                "source_owner_id": 1,
+                "franchise_id": "0001",
+                "approved": True,
+            }
+        ],
+    }
+    report = script.run_source_reconciliation(
+        source_root=source_root,
+        season_exports={2024: export_root},
+        draft_exports={},
+        player_resolutions=players,
+        owner_resolutions=owners,
+        audit_attributes=True,
+    )
+    audit = report["attribute_repair_audit"]
+    attributes = {
+        **common,
+        "teams_sha256": audit["teams_sha256"],
+        "taxonomy": audit["taxonomy_proposals"],
+        "draft_rows": [row["proposal"] for row in audit["draft_rows"]],
+        "catalog_positions": [
+            row["proposal"] for row in audit["catalog_rows"] if row["proposal"]
+        ],
+    }
+    args = [
+        "--source-root",
+        str(source_root),
+        "--season-export",
+        f"2024={export_root}",
+        "--output",
+        str(tmp_path / "resolved.json"),
+    ]
+    for flag, manifest in (
+        ("player", players),
+        ("owner", owners),
+        ("attribute", attributes),
+    ):
+        path = tmp_path / f"{flag}.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        args += [f"--{flag}-resolutions", str(path)]
+    inputs = {path: path.read_bytes() for path in tmp_path.rglob("*.csv")}
+    assert script.main(args) == 2
+    saved = json.loads((tmp_path / "resolved.json").read_text())
+    assert saved["approved_attribute_resolutions"]["ready_for_slice_5"] is True
+    assert saved["ready_to_import"] is False
+    assert saved["api_requests_sent"] == 0
+    assert saved["writes_performed_to_databases"] is False
+    assert "Slice 5 ready" in capsys.readouterr().out
+    assert all(path.read_bytes() == raw for path, raw in inputs.items())
+    with pytest.raises(SystemExit):
+        script.main(args)
+
+
+def test_attribute_review_requires_validated_owner_approvals(selected_exports):
+    source_root, export_root = selected_exports
+    with pytest.raises(ValueError, match="requires validated owner"):
+        script.run_source_reconciliation(
+            source_root=source_root,
+            season_exports={2024: export_root},
+            draft_exports={},
+            audit_attributes=True,
+        )
+
+
 def test_catalog_only_identity_can_be_resolved_without_inventing_events(
     approval_evidence,
 ):
@@ -937,6 +1032,55 @@ def test_catalog_only_identity_can_be_resolved_without_inventing_events(
     assert result["ready_for_slice_3"] is True
     assert result["resolved_players"][0]["legacy_event_refs"] == []
     assert result["resolved_players"][0]["catalog_evidence_refs"]
+
+
+@pytest.mark.parametrize(
+    "name,position,conflicting",
+    [
+        ("Different Player", "WR", True),
+        ("AJ Brown", "RB", True),
+        ("", "WR", True),
+        ("AJ Brown", "WR", False),
+    ],
+)
+def test_catalog_only_approval_checks_every_row_sharing_native_id(
+    selected_exports, approval_evidence, name, position, conflicting
+):
+    source_root, export_root = selected_exports
+    _, decisions = deepcopy(approval_evidence)
+    path = source_root / "draft_results.csv"
+    header = path.read_text().splitlines()[0]
+    path.write_text(header + "\n", encoding="utf-8")
+    path = export_root / "players" / "2024.csv"
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    rows.append({**rows[0], "player_name": name, "position": position})
+    _write_csv(path, rows)
+    report = script.run_source_reconciliation(
+        source_root=source_root, season_exports={2024: export_root}, draft_exports={}
+    )
+    decisions["legacy_source_files_sha256"] = report["legacy_source_files_sha256"]
+    decisions["selected_mfl_exports"] = report["selected_mfl_exports"]
+    profile = report["seasons"][0]["player_conflict_audit"][0]
+    assert profile["affected_draft_rows"] == []
+    conflicts = report["seasons"][0]["native_catalog_conflicts"]
+    if conflicting:
+        assert len(conflicts) == 1
+        assert conflicts[0]["player_mfl_id"] == "123"
+        assert [row["player_name"] for row in conflicts[0]["rows"]] == [
+            "AJ Brown",
+            name,
+        ]
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        assert {row["evidence_ref"] for row in conflicts[0]["rows"]} == {
+            f"{digest}:2",
+            f"{digest}:3",
+        }
+        with pytest.raises(ValueError, match="conflicting catalog identities"):
+            script.approve_player_resolutions(report, decisions)
+    else:
+        assert conflicts == []
+        assert script.approve_player_resolutions(report, decisions)["ready_for_slice_3"]
 
 
 def test_cli_replays_approved_identity_manifest(

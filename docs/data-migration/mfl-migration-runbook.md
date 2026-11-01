@@ -141,6 +141,9 @@ specifies `player_mfl_id`, `native_position`, `aliases_reviewed=true` and every
 `reviewed_variant_sha256`. Missing/duplicate identities, unreviewed variants,
 stale hashes, unsupported native catalog IDs/positions and conflicting events
 are rejected. This is an identity-review gate, not a repair/import command.
+All rows sharing a native player ID are inspected: contradictory names or
+positions are retained under `native_catalog_conflicts` with evidence references
+and reject approval, including catalog-only identities without draft events.
 
 The output's `approved_player_resolutions` records catalog and event evidence,
 marks `ready_for_slice_3=true` only after all identities pass, and leaves
@@ -168,6 +171,41 @@ override previously approved conflicting-player identities.
 `ready_for_slice_4=true`. Target-account mappings and imports remain blocked;
 this command never changes users, source files or database rows. All approval
 files and output reports belong in restricted storage outside Git.
+
+For slice 4, add `--audit-attributes` to the same player/owner replay to create
+an unapproved `attribute_repair_audit`. The additional `teams.csv` input requires
+`Team` and `TeamID` columns; its SHA-256 is recorded separately so earlier
+identity approvals keep their original four-file hash contract.
+
+After explicit review, pass `--attribute-resolutions` with a restricted JSON
+containing `approved=true`, a nonempty `review_basis`, the exact
+`legacy_source_files_sha256`, `selected_mfl_exports` and `teams_sha256`, plus
+the complete reviewed proposal lists:
+
+- `taxonomy`: all `taxonomy_proposals`, preserving source row references.
+- `draft_rows`: each draft row's `proposal`, including its legacy/native event
+  references, native player ID/catalog references, canonical `position`,
+  source taxonomy `source_team_id` and `team_basis`.
+- `catalog_positions`: every non-null catalog `proposal`, including its
+  `season_positions` and native catalog references. Unlinked catalog rows remain
+  preserved outside the approved scope.
+
+The validator requires exact row-level coverage and evidence. Missing,
+duplicate, stale or altered proposals and unsupported/conflicting native
+attributes reject approval. Catalog positions remain seasonal (for example
+QB/TE changes); label normalization never authorizes global draft-ID replacement.
+Shared team-taxonomy identifiers preserve all labels and source row references.
+
+Team replacements have basis `season_catalog_snapshot_not_auction_time`.
+Catalog extraction timestamps and originals remain in the audit. Review this
+temporal limitation explicitly, including valid-looking legacy team IDs that
+disagree with the snapshot; do not silently claim auction-time affiliation.
+Matching legacy teams retain basis `retain_legacy`.
+
+The separate `approved_attribute_resolutions` section marks
+`ready_for_slice_5=true`; candidate audit sections remain unapproved.
+The output is still exclusive-create and exit code 2 still means imports are
+blocked. No source/catalog/database rows or target mappings are changed.
 
 Use `native_mapping_review_template` to review native franchise/player to
 target mappings; all entries start unapproved with null target IDs. Every

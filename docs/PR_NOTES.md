@@ -8,17 +8,17 @@ Pull request test branch: feature/tests-ci
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.
-- Validation: 117 focused backend tests passed, including existing auction
+- Validation: 147 focused backend tests passed, including existing auction
   extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
   table schemas, counts and complete row hashes.
-- Evidence: 147 CSV drafts absent from staging (144 in 2025, three in 2023);
+- Initial copied-database evidence: 147 CSV drafts absent from staging (144 in 2025, three in 2023);
   zero unexpected staging rows when position/team attributes are included.
-  All 96 season-owner keys remain unmapped; 473 referenced player IDs require
+  All 96 season-owner keys initially lacked target mappings; 473 referenced player IDs required
   review (363 ambiguous, 108 unmapped, two single-candidate review items).
   There are 147 incomplete draft-attribute items and 180 identity-provenance
-  blockers. Conflicting IDs remain unresolved, not silently deduplicated.
+  blockers. Later source-identity approvals below do not approve target mappings.
 - Observed revision `0029_harden_historical_ingestion_models` is absent from the
   checked migration graph. Source-event uniqueness, multi-season waiver
   uniqueness, Sleeper IDs and historical-stub columns require reviewed adoption.
@@ -60,18 +60,34 @@ Pull request test branch: feature/tests-ci
   preserved in hash-bound reviewed manifests. Distinct season owners cannot
   collapse; duplicate native-event claims are rejected. Target-account
   mappings, position/team repairs and imports remain separate gates.
+- Slice 4 source-attribute gate is complete with explicit row-specific and
+  snapshot-policy approval. All 1,197 drafts have reviewed attribute resolutions:
+  144 blank/79 mismatched positions and 153 team repairs (three 2023 invalid
+  values, six 2024 discrepancies, 144 2025 blanks). All 113 disputed-position
+  rows are resolved without global ID replacement. Nine taxonomy rows and
+  540 linked player catalog rows are reviewed: 70 position repairs and one
+  seasonal QB/TE history; 1,310 unlinked catalog rows remain untouched.
+  Team repairs are season-catalog snapshot attribution, not proof of auction-time
+  affiliation. Hash-bound CLI replay sets slice 5 ready but leaves imports blocked.
 - Copilot Feedback:
   - Review requested: attempted 2026-11-01 via MCP and CLI.
   - The initial request was not visible and CLI returned HTTP 422, but Copilot
     subsequently submitted a four-thread review.
-  - Threads opened: 4; threads resolved: 4 after `459006e` was pushed.
-    Fresh review remains required.
+  - Initial threads opened: 4; threads resolved: 4 after `459006e` was pushed.
+    A subsequent catalog-only native-ID conflict finding is fixed with four
+    regressions; thread resolution follows publication. Fresh review remains required.
   - Fixes reject database-name/service overrides, require nonempty provenance
     names, retain missing-table evidence and compare unique expressions,
     partial predicates and NULL semantics.
-- Hosted CI: all applicable checks, including `ci-gate`, passed before these
-  follow-up commits. New-head CI remains pending; no new-head result is claimed.
-- Residual risk: no schema adoption, identity approval, historical import or
+  - Native catalog contradictions are now retained with all source row references;
+    any selected ID with conflicting names/positions blocks player approval even
+    without draft events. Actual selected exports are conflict-free and all
+    approved slice 2-4 manifests replay successfully.
+- Hosted CI: the slice 3 backend lane stopped at repository hygiene because the
+  remediation plan lacked index/governance registration. Both registrations are
+  now added and the hygiene gate is rerun locally. New-head hosted CI remains
+  pending; no new-head result is claimed.
+- Residual risk: no schema adoption, target-identity mapping, historical import or
   production deployment performed. Refs #524, #525, #526, #527 and #528 remain
   open; this preparatory slice does not certify ingestion or runtime parity.
 

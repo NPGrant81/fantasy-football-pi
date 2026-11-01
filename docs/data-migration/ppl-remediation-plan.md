@@ -148,6 +148,60 @@ no account identity, access, membership or database row has been changed.
 No API requests were sent. Restricted approval manifests and replay reports
 remain outside Git.
 
+## Slice 4 reviewed attribute resolutions
+
+The owner explicitly approved the row-specific repairs and snapshot-attribution
+policy. The offline reconciler now replays `--attribute-resolutions` only after
+the player and owner approval gates pass. All 1,197 draft rows have unique,
+hash-bound attribute resolutions:
+
+- 974 draft positions retained, 144 missing 2025 positions filled and 79
+  mismatched positions corrected using the reviewed native identity/event.
+- All 113 disputed-position drafts are accounted for: `8006` resolves per row
+  to 12 DST, two WR, one QB and one RB; `8099` resolves to 73 DST and 24 K.
+  The earlier unmatched candidate now has the approved supplemental identity
+  evidence from slice 3.
+- 1,044 team attributes retained; 153 repaired from the corresponding seasonal
+  player catalog: three invalid 2023 values, six discrepant 2024 values and
+  144 missing 2025 values.
+- The six 2024 team repairs are A.J. Brown GBP to PHI, Justin Herbert SFO to LAC,
+  Seattle defense NOS to SEA, Trevor Lawrence SEA to JAC, Marvin Harrison Jr.
+  NEP to ARI and Jonathon Brooks TBB to CAR.
+- All nine position-taxonomy rows are reviewed. Def/TD means DST and
+  Kicker/PK means K **as labels only**; these approvals never authorize global
+  replacement of draft position IDs.
+
+Team repairs explicitly use `season_catalog_snapshot_not_auction_time`.
+The retained catalogs do not prove NFL affiliation at auction time. Original
+IDs/labels, native catalog row references and extraction timestamps remain in
+the audit; the approved attribution must not be presented as auction-time
+evidence. The team taxonomy is separately hash-bound, including shared
+FA/FA* and OAK/LVR identifiers.
+
+Of 1,850 player catalog rows, 540 are linked to reviewed draft identities or
+approved player conflicts: 469 retain their positions, 70 have missing or
+mismatched position repairs and one preserves Taysom Hill's seasonal QB (2021)
+and TE (2024) positions. Resolutions are season-specific, not a global current
+position update. The other 1,310 rows have no reviewed identity link and remain
+preserved outside this repair scope; they are not certified or discarded.
+
+The approval validator checks exact source/export/team hashes and complete
+row-specific taxonomy, draft and linked-catalog proposals, including native
+event/catalog references. Unsupported or conflicting attributes block approval.
+Fresh PR feedback also exposed a catalog-only player-approval gap: contradictory
+rows sharing a native ID are now preserved with hash-bound references and block
+approval even when only one name matches. Selected actual catalogs contain no
+such conflicts; all prior approvals replay successfully.
+
+Slice 4 is **complete for reviewed historical source attributes**.
+`approved_attribute_resolutions.ready_for_slice_5=true`;
+`ready_to_import=false`. Validation: 147 focused tests, Black, flake8 and
+whitespace checks passed. Both full database-copy manifests still match the
+verified baselines; original sources and selected export hashes are unchanged.
+No API requests, source rewrites, database repairs or imports were performed.
+Slice 5 may reconcile missing/disputed events and define their ingestion grain;
+target mappings and schema/runtime adoption remain separate blockers.
+
 ## API policy
 
 Reuse retained exports first. Any new request is one season/report in a short,
