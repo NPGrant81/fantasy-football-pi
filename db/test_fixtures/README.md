@@ -18,7 +18,7 @@ table. The reviewed, explicit legacy adoption bridge is tracked in
 Until that bridge is integrated, the equivalence test remains a failing
 acceptance gate on PostgreSQL, not a supported direct-upgrade procedure.
 Do not edit the fixture, rewrite published migrations, or stamp the database
-to conceal those missing transitions. PR #553 must remain draft while this
+to conceal those missing transitions. PR #553 must not merge while this
 dependency is outstanding.
 
 The test uses separate disposable databases for bootstrap and incremental

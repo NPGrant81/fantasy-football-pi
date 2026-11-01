@@ -6,7 +6,7 @@ Pull request test branch: feature/tests-ci
 ## PR #553 Copilot Feedback
 
 - Review received: 2026-11-01.
-- Threads opened: 5; credential rendering was already resolved.
+- Threads opened: 5; threads resolved: 4; follow-up commit: `1dfb861`.
 - Review fixes: isolated databases were already implemented; snapshots now
   compare expression-index SQL and sequence type, start, increment, bounds,
   cache, cycle, and owning schema/table/column. Runtime sequence state is excluded.
@@ -17,7 +17,7 @@ Pull request test branch: feature/tests-ci
 - Residual risk: the legacy transition thread remains blocked on the explicit
   adoption bridge in [PR #555](https://github.com/NPGrant81/fantasy-football-pi/pull/555)
   / [issue #554](https://github.com/NPGrant81/fantasy-football-pi/issues/554).
-  Keep this PR draft; do not rewrite the historical fixture or published
+  Do not merge until integration; do not rewrite the historical fixture or published
   revisions, skip the acceptance test, or stamp away the mismatch.
 
 ## PR #552 Copilot Feedback
