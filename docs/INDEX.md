@@ -75,6 +75,7 @@ Refer to the appropriate file for more information.
 - [Season-Reset](season-reset.md)
 - [Secrets](SECRETS.md)
 - [Secrets Rotation Policy](SECRETS_ROTATION_POLICY.md)
+- [Semantic Data Contract](SEMANTIC_DATA_CONTRACT.md)
 - [Security Hardening](SECURITY_HARDENING.md)
 - [Testing Session Summary](TESTING_SESSION_SUMMARY.md)
 - [Trade Qa Regression 2026-03-30](TRADE_QA_REGRESSION_2026-03-30.md)
