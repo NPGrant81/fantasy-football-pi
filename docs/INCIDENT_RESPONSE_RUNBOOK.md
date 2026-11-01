@@ -39,7 +39,8 @@ This runbook provides step-by-step procedures for responding to security inciden
 
 ### Immediate Remediation (< 15 minutes)
 
-**Goal:** Stop active threats and revoke all existing sessions
+**Goal:** Stop active threats, invalidate old access JWTs, and coordinate
+refresh-token revocation before claiming all sessions are ended.
 
 1. **If committed to git:**
    ```bash
@@ -49,9 +50,14 @@ This runbook provides step-by-step procedures for responding to security inciden
    # Then rotate the exposed secret and coordinate any required force-pushes
    ```
 
-2. **Revoke all existing sessions:**
-   - Deploy a newly generated `SECRET_KEY`
-   - Restart application services so old signed sessions are rejected immediately
+2. **Account for access and refresh token invalidation:**
+   - Updating `SECRET_KEY` and restarting rejects old access JWTs
+   - Persisted refresh tokens are not signed with `SECRET_KEY` and can still
+     mint new access JWTs until expired or revoked
+   - Backend code has a per-user refresh-token revocation helper, but no
+     supported incident-wide operator workflow. Coordinate a reviewed,
+     approved revocation procedure with the security and database owners; do
+     not claim all sessions are revoked until it is complete.
 
 3. **Generate new SECRET_KEY:**
    ```bash
@@ -82,11 +88,12 @@ This runbook provides step-by-step procedures for responding to security inciden
    curl http://localhost:8000/health
    # Should return 200 OK
    
-   curl http://localhost:8000/auth/login \
+   curl --fail-with-body http://localhost:8000/auth/token \
      -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"username": "test_user", "password": "test_password"}'
-   # Should work with new sessions
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     --data-urlencode "username=<authorized-account>" \
+     --data-urlencode "password=<authorized-password>"
+   # Use an authorized account for this environment; the API accepts form data.
    ```
 
 ### Short-term Actions (< 1 hour)
@@ -107,7 +114,8 @@ This runbook provides step-by-step procedures for responding to security inciden
    - **Email subject:** "Action Required: Security Incident — Please Reset Your Password"
    - **Include:**
      - What happened (non-technical summary)
-     - What we did (sessions invalidated, new credentials deployed)
+     - What we did (old access JWTs rejected, refresh-token revocation status,
+       new credentials deployed)
      - What users should do (change password if they feel uneasy)
      - Link to incident blog post
 
@@ -167,7 +175,9 @@ This runbook provides step-by-step procedures for responding to security inciden
 
 3. **Check if actor's session was compromised:**
    - Review recent login behavior for the affected account in application logs
-   - If compromise is suspected, rotate `SECRET_KEY` to invalidate active sessions immediately
+   - If compromise is suspected, rotate `SECRET_KEY` to reject existing access
+     JWTs; separately coordinate revocation of the affected user's refresh
+     tokens before claiming the session is fully invalidated
 
 4. **Assess damage:**
    - Was league data corrupted?
@@ -177,8 +187,10 @@ This runbook provides step-by-step procedures for responding to security inciden
 ### Remediation (< 1 hour)
 
 5. **Revoke user session if compromised:**
-   - Rotate `SECRET_KEY` and restart services to invalidate active sessions
-   - Require the affected user to log in again
+   - Rotate `SECRET_KEY` and restart services to reject existing access JWTs
+   - Revoke the affected user's persisted refresh tokens through a reviewed,
+     approved operator procedure; rotation alone does not revoke them
+   - Require the affected user to log in again after revocation is verified
 
 6. **Undo the unauthorized action:**
    - Contact the commissioner
@@ -188,7 +200,8 @@ This runbook provides step-by-step procedures for responding to security inciden
 
 7. **Notify affected user:**
    - Explain what happened
-   - Confirm we revoked their sessions
+   - Confirm which access/refresh tokens were revoked; do not state all sessions
+     were revoked unless refresh-token revocation is verified
    - Request password reset
    - Ask them to check for any other unusual activity
 
@@ -369,11 +382,11 @@ This runbook provides step-by-step procedures for responding to security inciden
 
 ```bash
 # Update and test
-pip install --upgrade <package>
+python -m pip install --upgrade <package>
 pytest backend/tests/ -v
 
 # Commit and push
-git add requirements.txt requirements-lock.txt
+git add backend/requirements.txt backend/requirements-lock.txt
 git commit -m "chore(deps): patch <package> for CVE-XXXX-XXXXX"
 git push origin feat/patch-cve
 

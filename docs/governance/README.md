@@ -74,13 +74,15 @@ The workflow `.github/workflows/docs-governance-sweep.yml` runs:
 - every Monday at 13:00 UTC
 - on manual dispatch
 
-When checks fail, the workflow automatically creates or updates a GitHub issue
-named `Docs Governance Sweep Failure` with the latest report and run link.
+When checks report errors, the workflow automatically creates or updates a
+GitHub issue named `Docs Governance Sweep Failure` with the latest report and
+run link.
 
-It fails when:
+An overdue review makes `docs_review_sweep.py` return a nonzero result and is
+reported in the issue and workflow artifact, but does not by itself fail the
+workflow. Structural checks are blocking:
 
-- governed docs are overdue for review
-- docs are missing from governance registry
+- docs are missing from the governance registry or the registry is invalid
 - docs cannot be classified by domain/type guardrails
 - docs index is not current
 - repository hygiene checks fail

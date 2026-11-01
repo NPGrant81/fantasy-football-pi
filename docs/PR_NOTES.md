@@ -3,7 +3,37 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
+## PR #543 Copilot Feedback
+
+- Review requested: 2026-10-31
+- Threads opened: 4
+- Threads resolved: 4
+- Follow-up commits: `12f2ede`, `c70e422`, `1797893`
+- Review follow-ups: failure summaries now run after validation errors; roster sync requires confirmed completion while remaining compatible with older deployed revisions; workflow-contract tests run in CI and contract-only changes select the backend lane; invalid contracts emit explicit `FAIL` outputs.
+- Final Copilot review: approval recommended with no active findings.
+- Validation: 28 focused tests passed; repository hygiene and workflow YAML checks passed; all applicable final-head CI checks passed.
+- Residual risk: PR #543 remains open pending required human approval/merge policy.
+
 This branch was created to trigger CI for backend and frontend tests.
+
+---
+
+## PR #545 Documentation and Operations Cleanup — Copilot Feedback
+
+- Review requested: 2026-10-31.
+- Threads opened: 2.
+- Threads resolved: 2.
+- Follow-up commits: `cda665c`.
+- Scope: align database, backup/restore, migration, authentication, deployment,
+  Cloudflare, monitoring, and weekly-ingestion guidance with current code and
+  configuration. Add a backup-service environment contract test.
+- Validation: stability workflow contract tests passed (15); repository
+  hygiene, review-registry JSON, `git diff --check`, and Git Bash syntax check
+  passed.
+- Residual risk: production database state and deployed Pi/tunnel/backup
+  configuration remain unverified. The separate origin fix is tracked in
+  [PR #546](https://github.com/NPGrant81/fantasy-football-pi/pull/546), with
+  Nginx syntax and Pi/public-tunnel validation still pending.
 
 ---
 

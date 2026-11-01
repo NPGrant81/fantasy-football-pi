@@ -31,24 +31,24 @@ deploy/
 
 | Service | Unit File | Purpose |
 |---------|-----------|---------|
-| `fantasy-backend` | `deploy/systemd/fantasy-backend.service` | FastAPI (uvicorn) |
+| `fantasy-football-backend` | `deploy/systemd/fantasy-football-backend.service.example` | FastAPI (uvicorn) |
 | `cloudflared` | `deploy/systemd/cloudflared.service` | Cloudflare tunnel |
 
 ### Common systemd commands
 ```bash
 # Check status
-sudo systemctl status fantasy-backend
+sudo systemctl status fantasy-football-backend
 sudo systemctl status cloudflared
 
 # Restart after code update
-sudo systemctl restart fantasy-backend
+sudo systemctl restart fantasy-football-backend
 
 # View live logs
-sudo journalctl -u fantasy-backend -f
+sudo journalctl -u fantasy-football-backend -f
 sudo journalctl -u cloudflared -f
 
 # Enable on boot
-sudo systemctl enable fantasy-backend
+sudo systemctl enable fantasy-football-backend
 ```
 
 ## Release Process (Pi deployment)
@@ -88,8 +88,8 @@ npm run build
 
 ### 6. Restart services
 ```bash
-sudo systemctl restart fantasy-backend
-sudo systemctl status fantasy-backend   # verify running
+sudo systemctl restart fantasy-football-backend
+sudo systemctl status fantasy-football-backend   # verify running
 ```
 
 ### 7. Smoke test
@@ -191,9 +191,9 @@ docker compose logs db
 
 ## Always Do
 - Run `python -m backend.apply_migrations` before restarting the backend after every deployment
-- Restart `fantasy-backend` after any backend code change
+- Restart `fantasy-football-backend` after any backend code change
 - Rebuild frontend (`npm run build`) after any frontend code change
-- Check `journalctl -u fantasy-backend -f` for errors after restart
+- Check `journalctl -u fantasy-football-backend -f` for errors after restart
 - Back up the database before migrations: `pg_dump fantasy_football > backup_$(date +%Y%m%d).sql`
 - Test the `/health` endpoint immediately after restart
 - Post close-out notes on each related GitHub issue after deployment verification
@@ -222,14 +222,14 @@ cd frontend && npm run build
 cd backend && alembic downgrade -1   # (only if migration is reversible)
 
 # 5. Restart service
-sudo systemctl restart fantasy-backend
+sudo systemctl restart fantasy-football-backend
 ```
 
 ## Common Problems & Remediation
 
 | Problem | Fix |
 |---------|-----|
-| 502 Bad Gateway | Backend not running — `sudo systemctl restart fantasy-backend` |
+| 502 Bad Gateway | Backend not running — `sudo systemctl restart fantasy-football-backend` |
 | Tunnel not connecting | `sudo systemctl restart cloudflared` + check token |
 | Static files not updating | Ran `npm run build` but Nginx cache — `sudo systemctl reload nginx` |
 | Port 8010 already in use | `pkill -f uvicorn` then restart service |

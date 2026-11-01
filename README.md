@@ -193,11 +193,12 @@ pytest -q
   an application exception. A failure in one optional scheduler is logged and
   does not prevent the remaining schedulers or API from starting.
 
-- **Seeding:** the server startup still auto‑creates an admin user and
-  default league for convenience. A more robust setup is to run a standalone
-  seeder script (`backend/scripts/seed.py`), which you can create by
-  extracting the code in `main.py`'s `seed_database` event. This avoids
-  side‑effects during normal app launches and simplifies CI.
+- **Seeding:** startup seeding is disabled by default and controlled by
+  `AUTO_SEED_ON_STARTUP`. When explicitly enabled, startup runs
+  `backend/scripts/seed.py` to create the local admin and default league.
+  The seeder uses known local credentials, and production settings reject
+  `AUTO_SEED_ON_STARTUP=true`; never enable it outside a disposable local
+  development database.
 
 - Reproducible backend install (frozen set):
 

@@ -20,11 +20,12 @@ RETENTION_DAYS="${RETENTION_DAYS:-14}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-if [[ -z "${DB_URL:-}" && -f "${REPO_ROOT}/backend/.env" ]]; then
+# Local dotenv files are fallback-only; keep explicit service URLs authoritative.
+if [[ -z "${DB_URL:-}" && -z "${DATABASE_URL:-}" && -f "${REPO_ROOT}/backend/.env" ]]; then
   # shellcheck disable=SC1090
   source "${REPO_ROOT}/backend/.env"
 fi
-if [[ -z "${DB_URL:-}" && -f "${REPO_ROOT}/.env" ]]; then
+if [[ -z "${DB_URL:-}" && -z "${DATABASE_URL:-}" && -f "${REPO_ROOT}/.env" ]]; then
   # shellcheck disable=SC1090
   source "${REPO_ROOT}/.env"
 fi

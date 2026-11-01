@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "integrations": {
+    "production_deploy": {
+      "enablement_variable": "PRODUCTION_DEPLOY_ENABLED",
+      "required_variables": [
+        "PROD_DEPLOY_HOST",
+        "PROD_DEPLOY_USER",
+        "PROD_DEPLOY_SSH_KEY",
+        "PROD_DEPLOY_APP_DIR",
+        "PROD_DEPLOY_KNOWN_HOST"
+      ],
+      "workflows": [
+        ".github/workflows/deployment-secrets-precheck.yml",
+        ".github/workflows/deploy-production.yml"
+      ],
+      "owner": "platform-ops"
+    },
+    "staging_deploy": {
+      "enablement_variable": "STAGING_DEPLOY_ENABLED",
+      "required_variables": [
+        "STAGING_DEPLOY_HOST",
+        "STAGING_DEPLOY_USER",
+        "STAGING_DEPLOY_SSH_KEY",
+        "STAGING_DEPLOY_APP_DIR",
+        "STAGING_DEPLOY_KNOWN_HOST"
+      ],
+      "workflows": [
+        ".github/workflows/deployment-secrets-precheck.yml",
+        ".github/workflows/deploy-staging.yml"
+      ],
+      "owner": "platform-ops"
+    },
+    "roster_sync": {
+      "enablement_variable": "ROSTER_SYNC_ENABLED",
+      "required_variables": [
+        "PROD_DEPLOY_HOST",
+        "PROD_DEPLOY_USER",
+        "PROD_DEPLOY_SSH_KEY",
+        "PROD_DEPLOY_APP_DIR",
+        "PROD_DEPLOY_KNOWN_HOST"
+      ],
+      "workflows": [
+        ".github/workflows/sync-rosters.yml"
+      ],
+      "owner": "platform-ops"
+    },
+    "fantasynerds": {
+      "enablement_variable": "FANTASYNERDS_ENABLED",
+      "required_variables": [
+        "FANTASYNERDS_API_KEY"
+      ],
+      "workflows": [
+        ".github/workflows/source-prechecks.yml"
+      ],
+      "owner": "data-ops"
+    },
+    "yahoo": {
+      "enablement_variable": "YAHOO_ENABLED",
+      "required_variables": [
+        "YAHOO_CLIENT_ID",
+        "YAHOO_CLIENT_SECRET",
+        "YAHOO_ACCESS_TOKEN",
+        "YAHOO_REFRESH_TOKEN"
+      ],
+      "workflows": [
+        ".github/workflows/source-prechecks.yml"
+      ],
+      "owner": "data-ops"
+    }
+  }
+}

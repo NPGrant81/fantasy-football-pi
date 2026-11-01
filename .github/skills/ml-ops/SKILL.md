@@ -221,7 +221,7 @@ Historical data comes from two sources:
 - **MFL (My Fantasy League)**: Historical season data via `backend/services/mfl_ingestion_service.py`
 - **ESPN API**: Current-season weekly stats via `backend/scripts/archive_weekly_stats.py`
 
-ETL runs: `python backend/scripts/archive_weekly_stats.py --season 2025 --week 10`
+ETL runs: `python backend/scripts/archive_weekly_stats.py <SEASON> <WEEK>`
 
 ## Always Do
 - Use `_resolved_season()` for every analytics endpoint season parameter
