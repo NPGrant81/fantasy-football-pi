@@ -18,12 +18,31 @@ Pull request test branch: feature/tests-ci
   inferred. The adopted passing-TD rule scores 0/0/4/8 for missing/zero/one/two
   touchdowns and zero for an excluded position.
 - NULL lineup season/week fails inspection and preparation before archiving.
-- Validation: 126 tests passed on disposable PostgreSQL 18, including full
+- Parent PR #553's latest snapshot hardening was merged without rewriting
+  shared history; both PR feedback logs were retained.
+- Validation: 137 tests passed on disposable PostgreSQL 18, including full
   bootstrap/incremental equivalence and preservation, scoring, CLI mapping
   propagation, and validation boundaries. Black, flake8 and whitespace passed.
 - Residual risk: hosted CI and fresh automated review still require confirmation.
   Production adoption remains a separately approved, backed-up maintenance
   operation; no production database was accessed.
+
+## PR #553 Copilot Feedback
+
+- Review received: 2026-11-01.
+- Threads opened: 5; threads resolved: 4; follow-up commit: `1dfb861`.
+- Review fixes: isolated databases were already implemented; snapshots now
+  compare expression-index SQL and sequence type, start, increment, bounds,
+  cache, cycle, and owning schema/table/column. Runtime sequence state is excluded.
+- Validation: 89 focused tests passed against a disposable local PostgreSQL 18
+  cluster, including 11 new snapshot regressions; flake8 and whitespace checks
+  passed. The separate equivalence acceptance test still fails at revision
+  `0003` because the frozen legacy schema lacks `applicable_positions`.
+- Residual risk: the legacy transition thread remains blocked on the explicit
+  adoption bridge in [PR #555](https://github.com/NPGrant81/fantasy-football-pi/pull/555)
+  / [issue #554](https://github.com/NPGrant81/fantasy-football-pi/issues/554).
+  Do not merge until integration; do not rewrite the historical fixture or published
+  revisions, skip the acceptance test, or stamp away the mismatch.
 
 ## PR #552 Copilot Feedback
 

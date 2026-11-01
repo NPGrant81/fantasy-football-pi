@@ -194,6 +194,7 @@ def _migration_schema_snapshot(engine):
                         index.get("name"),
                         tuple(index.get("column_names") or ()),
                         index.get("unique"),
+                        tuple(index.get("expressions") or ()),
                         tuple(
                             sorted(
                                 (key, str(value))
@@ -219,8 +220,118 @@ def _migration_schema_snapshot(engine):
             "check_constraints": check_constraints,
             "indexes": indexes,
         }
-    snapshot["sequences"] = tuple(sorted(inspector.get_sequence_names()))
+    with engine.connect() as connection:
+        snapshot["sequences"] = tuple(
+            tuple(row)
+            for row in connection.execute(
+                text(
+                    "SELECT sequence.relname, format_type(properties.seqtypid, NULL), "
+                    "properties.seqstart, properties.seqincrement, properties.seqmin, "
+                    "properties.seqmax, properties.seqcache, properties.seqcycle, "
+                    "owner_namespace.nspname, owner_table.relname, owner_column.attname, "
+                    "dependency.deptype "
+                    "FROM pg_class AS sequence "
+                    "JOIN pg_namespace AS namespace ON namespace.oid = sequence.relnamespace "
+                    "JOIN pg_sequence AS properties ON properties.seqrelid = sequence.oid "
+                    "LEFT JOIN pg_depend AS dependency "
+                    "ON dependency.classid = 'pg_class'::regclass "
+                    "AND dependency.objid = sequence.oid AND dependency.objsubid = 0 "
+                    "AND dependency.refclassid = 'pg_class'::regclass "
+                    "AND dependency.refobjsubid > 0 AND dependency.deptype IN ('a', 'i') "
+                    "LEFT JOIN pg_class AS owner_table ON owner_table.oid = dependency.refobjid "
+                    "LEFT JOIN pg_namespace AS owner_namespace "
+                    "ON owner_namespace.oid = owner_table.relnamespace "
+                    "LEFT JOIN pg_attribute AS owner_column "
+                    "ON owner_column.attrelid = owner_table.oid "
+                    "AND owner_column.attnum = dependency.refobjsubid "
+                    "WHERE namespace.nspname = current_schema() "
+                    "ORDER BY sequence.relname, owner_namespace.nspname, "
+                    "owner_table.relname, owner_column.attname"
+                )
+            )
+        )
     return snapshot
+
+
+@pytest.fixture
+def schema_snapshot_engine():
+    database_url = os.getenv("FFPI_TEST_POSTGRES_URL")
+    if not database_url:
+        pytest.skip("FFPI_TEST_POSTGRES_URL is not configured")
+
+    schema_name = f"ffpi_snapshot_{uuid4().hex}"
+    admin_engine = create_engine(database_url, pool_pre_ping=True)
+    test_engine = None
+    try:
+        with admin_engine.begin() as connection:
+            connection.execute(CreateSchema(schema_name))
+        test_engine = create_engine(
+            database_url,
+            pool_pre_ping=True,
+            connect_args={"options": f"-csearch_path={schema_name}"},
+        )
+        with test_engine.begin() as connection:
+            connection.exec_driver_sql(
+                "CREATE TABLE snapshot_probe (id SERIAL PRIMARY KEY, payload JSON)"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX snapshot_expression ON snapshot_probe "
+                "USING gin ((payload::jsonb))"
+            )
+        yield test_engine
+    finally:
+        if test_engine is not None:
+            test_engine.dispose()
+        with admin_engine.begin() as connection:
+            connection.execute(DropSchema(schema_name, cascade=True, if_exists=True))
+        admin_engine.dispose()
+
+
+def test_schema_snapshot_detects_changed_index_expression(schema_snapshot_engine):
+    engine = schema_snapshot_engine
+    baseline = _migration_schema_snapshot(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("DROP INDEX snapshot_expression")
+        connection.exec_driver_sql(
+            "CREATE INDEX snapshot_expression ON snapshot_probe "
+            "USING gin ((payload::jsonb -> 'stats'))"
+        )
+    changed = _migration_schema_snapshot(engine)
+    assert changed["snapshot_probe"]["indexes"] != baseline["snapshot_probe"]["indexes"]
+    assert changed["sequences"] == baseline["sequences"]
+
+
+@pytest.mark.parametrize(
+    "alteration",
+    [
+        "INCREMENT BY -1",
+        "MINVALUE 0",
+        "MAXVALUE 100000",
+        "START WITH 2",
+        "CACHE 10",
+        "CYCLE",
+        "AS BIGINT",
+        "OWNED BY NONE",
+        "OWNED BY snapshot_probe.payload",
+    ],
+)
+def test_schema_snapshot_detects_sequence_structure_changes(
+    schema_snapshot_engine, alteration
+):
+    engine = schema_snapshot_engine
+    baseline = _migration_schema_snapshot(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(f"ALTER SEQUENCE snapshot_probe_id_seq {alteration}")
+    assert _migration_schema_snapshot(engine)["sequences"] != baseline["sequences"]
+
+
+def test_schema_snapshot_ignores_sequence_runtime_state(schema_snapshot_engine):
+    engine = schema_snapshot_engine
+    baseline = _migration_schema_snapshot(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("INSERT INTO snapshot_probe (payload) VALUES ('{}')")
+        connection.exec_driver_sql("SELECT setval('snapshot_probe_id_seq', 50, true)")
+    assert _migration_schema_snapshot(engine) == baseline
 
 
 def _migration_url_for_database(database_url, database_name):
