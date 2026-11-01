@@ -7,6 +7,15 @@ from datetime import datetime, timedelta
 from ..database import get_db
 from .. import models
 from ..services import scoring_service
+from ..schemas.semantic import (
+    SemanticContext,
+    SemanticMembershipContext,
+    SemanticScope,
+)
+from ..services.semantic_context_service import (
+    build_matchup_semantic_context,
+    build_semantic_point_context,
+)
 from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..core.security import get_current_user
 
@@ -23,6 +32,7 @@ class PlayerGameStats(BaseModel):
     nfl_team: str
     projected: float
     actual: float
+    semantic_context: SemanticContext | None = None
 
 class TeamInfo(BaseModel):
     id: int
@@ -72,6 +82,7 @@ class MatchupSchema(BaseModel):
     date_range: str
     division_context: DivisionContext
     rivalry_context: RivalryContext
+    semantic_context: SemanticContext | None = None
 
 # --- Helper: Date Calculator ---
 def get_week_info(week_num: int):
@@ -132,9 +143,18 @@ def get_team_starters(
         if player:
             projected_points = 0.0
             actual_points = 0.0
+            point_context = build_semantic_point_context(
+                sources=[],
+                value_basis="unknown",
+                scoring_definition="unknown",
+                selection_policy="latest_row_id",
+                value_count=0,
+                unknown_value_count=0,
+            )
+            actual_context = point_context
 
             if league_id:
-                calculated, _, stats_payload = scoring_service.calculate_player_week_points(
+                calculated, _, stats_payload, point_context = scoring_service.calculate_player_week_points(
                     db,
                     league_id=league_id,
                     player_id=player.id,
@@ -145,6 +165,19 @@ def get_team_starters(
                 )
                 projected_points = float(calculated)
                 actual_points = float(stats_payload.get("fantasy_points", calculated) or 0.0)
+                if stats_payload.get("fantasy_points") is not None:
+                    actual_context = build_semantic_point_context(
+                        sources=point_context.sources or [None],
+                        value_basis=(
+                            "source_reported" if point_context.sources else "unknown"
+                        ),
+                        scoring_definition="unknown",
+                        selection_policy=point_context.selection_policy,
+                        value_count=1,
+                        unknown_value_count=0,
+                    )
+                else:
+                    actual_context = point_context
 
             roster.append(PlayerGameStats(
                 player_id=player.id,
@@ -153,6 +186,25 @@ def get_team_starters(
                 nfl_team=player.nfl_team,
                 projected=projected_points,
                 actual=actual_points,
+                semantic_context=SemanticContext(
+                    metric="player_matchup_points",
+                    scope=SemanticScope(
+                        league_id=league_id,
+                        player_id=player.id,
+                        season=season,
+                        week=week,
+                    ),
+                    projected=point_context,
+                    actual=actual_context,
+                    membership=SemanticMembershipContext(
+                        basis="current_draft_pick_status",
+                        league_scoped=False,
+                        season_scoped=False,
+                        week_scoped=False,
+                        historical_status="current_only",
+                        allows_unscoped_legacy_picks=True,
+                    ),
+                ),
             ))
             
     # Sort by Position (QB, RB, WR, TE, K, DEF)
@@ -270,6 +322,20 @@ def get_weekly_matchups(
                     template_key="grudge_match" if game.rivalry_name else None,
                     is_commissioner_edited=bool(game.rivalry_name),
                 ),
+                semantic_context=build_matchup_semantic_context(
+                    game=game,
+                    season_year=season_year,
+                    home_projected_contexts=[
+                        player.semantic_context.projected
+                        for player in home_roster
+                        if player.semantic_context and player.semantic_context.projected
+                    ],
+                    away_projected_contexts=[
+                        player.semantic_context.projected
+                        for player in away_roster
+                        if player.semantic_context and player.semantic_context.projected
+                    ],
+                ),
             ))
             
     return results
@@ -375,5 +441,19 @@ def fetch_matchup_detail_data(matchup_id: int, db: Session, *, game: Optional[mo
             rivalry_name=game.rivalry_name,
             template_key="grudge_match" if game.rivalry_name else None,
             is_commissioner_edited=bool(game.rivalry_name),
+        ),
+        semantic_context=build_matchup_semantic_context(
+            game=game,
+            season_year=season_year,
+            home_projected_contexts=[
+                player.semantic_context.projected
+                for player in home_roster
+                if player.semantic_context and player.semantic_context.projected
+            ],
+            away_projected_contexts=[
+                player.semantic_context.projected
+                for player in away_roster
+                if player.semantic_context and player.semantic_context.projected
+            ],
         ),
     )

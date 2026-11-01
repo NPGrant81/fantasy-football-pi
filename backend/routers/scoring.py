@@ -504,7 +504,7 @@ def calculate_scoring_player_preview(
             detail="Provide stats payload or (player_id, season, week) for preview calculation",
         )
 
-    points, breakdown, stats_payload = calculate_player_week_points(
+    points, breakdown, stats_payload, semantic_context = calculate_player_week_points(
         db,
         league_id=league_id,
         player_id=request.player_id,
@@ -523,6 +523,7 @@ def calculate_scoring_player_preview(
         "points": points,
         "breakdown": [item.__dict__ for item in breakdown],
         "stats_used": stats_payload,
+        "semantic_context": semantic_context.model_dump(),
         "rules_evaluated": len(active_scoring_rules_for_league(db, league_id=league_id, season_year=season_year)),
     }
 

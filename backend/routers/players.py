@@ -10,6 +10,7 @@ from ..database import get_db
 from .. import models
 from ..core.security import get_current_user, check_is_commissioner 
 from ..services import player_service # 2.1.1 IMPORT the service logic
+from ..services.semantic_context_service import build_player_stat_semantic_context
 
 router = APIRouter(
     prefix="/players",
@@ -61,6 +62,7 @@ def _build_team_logo_url(team_abbr: Optional[str]) -> Optional[str]:
     # nflplotR/nflverse logo workflows are team-abbreviation driven.
     # Use the NFL club logo endpoint keyed by cleaned team abbreviation.
     return f"https://static.www.nfl.com/t_q-best/league/api/clubs/logos/{normalized}.png"
+
 
 @router.get("/search", response_model=list[PlayerSearchResult])
 def search_players(
@@ -156,6 +158,12 @@ def get_player_season_details(
         .order_by(models.PlayerWeeklyStat.week.asc())
         .all()
     )
+    semantic_context = build_player_stat_semantic_context(
+        player_id=player.id,
+        season=season,
+        rows=season_rows,
+        aggregation="sum_all_available_source_rows",
+    )
 
     if not season_rows:
         return {
@@ -173,6 +181,7 @@ def get_player_season_details(
             "best_week_points": 0.0,
             "latest_week_points": 0.0,
             "weekly": [],
+            "semantic_context": semantic_context.model_dump(),
         }
 
     total_points = (
@@ -210,10 +219,18 @@ def get_player_season_details(
         "average_fantasy_points": float((total_points or 0.0) / games_played) if games_played else 0.0,
         "best_week_points": float(max_points or 0.0),
         "latest_week_points": float(latest.fantasy_points or 0.0),
+        "semantic_context": semantic_context.model_dump(),
         "weekly": [
             {
                 "week": row.week,
                 "fantasy_points": float(row.fantasy_points or 0.0),
+                "source": row.source,
+                "semantic_context": build_player_stat_semantic_context(
+                    player_id=player.id,
+                    season=season,
+                    rows=[row],
+                    week=row.week,
+                ).model_dump(),
             }
             for row in season_rows
         ],

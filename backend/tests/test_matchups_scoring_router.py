@@ -12,7 +12,9 @@ from backend.routers.matchups import (
     calculate_win_probabilities,
     fetch_matchup_detail_data as get_matchup_detail,
     get_team_starters,
+    get_weekly_matchups,
 )
+from backend.routers.players import get_player_season_details
 
 
 @pytest.fixture
@@ -55,12 +57,14 @@ def _seed_matchup_data(db_session):
                 owner_id=home.id,
                 player_id=home_qb.id,
                 league_id=league.id,
+                year=2025,
                 current_status="STARTER",
             ),
             models.DraftPick(
                 owner_id=away.id,
                 player_id=away_wr.id,
                 league_id=league.id,
+                year=2025,
                 current_status="STARTER",
             ),
         ]
@@ -117,6 +121,7 @@ def _seed_matchup_data(db_session):
     )
 
     matchup = models.Matchup(
+        season=2026,
         week=3,
         league_id=league.id,
         home_team_id=home.id,
@@ -132,6 +137,8 @@ def _seed_matchup_data(db_session):
         "league_id": league.id,
         "home_id": home.id,
         "away_id": away.id,
+        "home_player_id": home_qb.id,
+        "away_player_id": away_wr.id,
         "matchup_id": matchup.id,
     }
 
@@ -165,6 +172,175 @@ def test_get_team_starters_uses_scoring_service_points(db_session):
     # 6 receptions * 1.0
     assert away_starters[0].projected == pytest.approx(6.0)
     assert away_starters[0].actual == pytest.approx(9.0)
+
+
+def test_player_and_matchup_detail_share_point_provenance_semantics(db_session):
+    seeded = _seed_matchup_data(db_session)
+
+    player_details = get_player_season_details(
+        seeded["home_player_id"],
+        season=2026,
+        db=db_session,
+    )
+    matchup_details = get_matchup_detail(seeded["matchup_id"], db_session)
+
+    player_points = player_details["semantic_context"]["points"]
+    matchup_player = matchup_details.home_roster[0]
+    actual_points = matchup_player.semantic_context.actual
+    projected_points = matchup_player.semantic_context.projected
+
+    assert player_details["total_fantasy_points"] == pytest.approx(18.0)
+    assert player_points["source_status"] == actual_points.source_status == "known"
+    assert player_points["sources"] == actual_points.sources == ["test"]
+    assert player_points["value_basis"] == actual_points.value_basis == "source_reported"
+    assert player_points["freshness"] == actual_points.freshness == "unknown"
+    assert projected_points.value_basis == "league_calculated"
+    assert projected_points.scoring_definition == "unversioned"
+    assert matchup_player.semantic_context.membership.historical_status == "current_only"
+    assert matchup_player.semantic_context.membership.season_scoped is False
+    assert matchup_player.semantic_context.membership.week_scoped is False
+
+
+def test_player_season_aggregate_preserves_all_sources_and_marks_mixed_context(db_session):
+    seeded = _seed_matchup_data(db_session)
+    db_session.add(
+        models.PlayerWeeklyStat(
+            player_id=seeded["home_player_id"],
+            season=2026,
+            week=3,
+            stats={"passing_yards": 250},
+            fantasy_points=21.0,
+            source="provider_b",
+        )
+    )
+    db_session.commit()
+
+    details = get_player_season_details(
+        seeded["home_player_id"],
+        season=2026,
+        db=db_session,
+    )
+
+    semantic_points = details["semantic_context"]["points"]
+    assert details["total_fantasy_points"] == pytest.approx(39.0)
+    assert details["games_played"] == 2
+    assert semantic_points["source_status"] == "mixed"
+    assert semantic_points["sources"] == ["provider_b", "test"]
+    assert semantic_points["selection_policy"] == "all_available_source_rows"
+    assert {row["source"] for row in details["weekly"]} == {"provider_b", "test"}
+
+
+def test_player_season_details_preserves_unknown_source_and_missing_points(db_session):
+    seeded = _seed_matchup_data(db_session)
+    stat = (
+        db_session.query(models.PlayerWeeklyStat)
+        .filter_by(player_id=seeded["home_player_id"], season=2026, week=3)
+        .one()
+    )
+    stat.source = None
+    stat.fantasy_points = None
+    db_session.commit()
+
+    details = get_player_season_details(
+        seeded["home_player_id"],
+        season=2026,
+        db=db_session,
+    )
+    semantic_points = details["semantic_context"]["points"]
+
+    assert details["total_fantasy_points"] == 0.0
+    assert details["weekly"][0]["fantasy_points"] == 0.0
+    assert semantic_points["source_status"] == "unknown"
+    assert semantic_points["value_basis"] == "unknown"
+    assert semantic_points["value_status"] == "unknown"
+    assert semantic_points["unknown_source_count"] == 1
+    assert semantic_points["freshness"] == "unknown"
+
+
+def test_matchup_actual_points_remain_unknown_without_source_provenance(db_session):
+    seeded = _seed_matchup_data(db_session)
+    stat = (
+        db_session.query(models.PlayerWeeklyStat)
+        .filter_by(player_id=seeded["home_player_id"], season=2026, week=3)
+        .one()
+    )
+    stat.source = None
+    db_session.commit()
+
+    matchup = get_matchup_detail(seeded["matchup_id"], db_session)
+    home_player = matchup.home_roster[0]
+
+    assert home_player.actual == pytest.approx(18.0)
+    assert home_player.semantic_context.actual.value_basis == "unknown"
+    assert home_player.semantic_context.actual.source_status == "unknown"
+    assert home_player.semantic_context.actual.value_status == "known"
+    assert home_player.semantic_context.projected.value_basis == "league_calculated"
+
+
+def test_missing_source_provenance_does_not_mark_present_points_unknown(db_session):
+    seeded = _seed_matchup_data(db_session)
+    stat = (
+        db_session.query(models.PlayerWeeklyStat)
+        .filter_by(player_id=seeded["home_player_id"], season=2026, week=3)
+        .one()
+    )
+    stat.source = None
+    db_session.commit()
+
+    details = get_player_season_details(
+        seeded["home_player_id"],
+        season=2026,
+        db=db_session,
+    )
+    semantic_points = details["semantic_context"]["points"]
+
+    assert semantic_points["value_status"] == "known"
+    assert semantic_points["value_basis"] == "unknown"
+    assert semantic_points["unknown_value_count"] == 0
+    assert semantic_points["unknown_source_count"] == 1
+
+
+def test_matchup_context_exposes_aggregate_basis_and_unknown_stored_scores(db_session):
+    seeded = _seed_matchup_data(db_session)
+    home_user = db_session.query(models.User).filter_by(id=seeded["home_id"]).one()
+
+    [weekly_matchup] = get_weekly_matchups(3, db_session, home_user)
+
+    assert weekly_matchup.home_roster == []
+    assert weekly_matchup.semantic_context.scope.season == 2026
+    assert weekly_matchup.semantic_context.calculation_scope.season == 2026
+    assert weekly_matchup.semantic_context.home_projected.sources == ["test"]
+    assert weekly_matchup.semantic_context.home_projected.value_basis == "league_calculated"
+    assert weekly_matchup.semantic_context.stored_scores.value_basis == "unknown"
+    assert weekly_matchup.semantic_context.stored_scores.value_status == "unknown"
+    assert weekly_matchup.semantic_context.stored_scores.freshness == "unknown"
+    assert weekly_matchup.semantic_context.membership.historical_status == "current_only"
+
+
+def test_matchup_detail_marks_legacy_picks_as_current_only_membership(db_session):
+    seeded = _seed_matchup_data(db_session)
+    legacy_player = models.Player(name="Legacy TE", position="TE", nfl_team="DDD")
+    db_session.add(legacy_player)
+    db_session.commit()
+    db_session.refresh(legacy_player)
+    db_session.add(
+        models.DraftPick(
+            owner_id=seeded["home_id"],
+            player_id=legacy_player.id,
+            league_id=None,
+            year=2024,
+            current_status="STARTER",
+        )
+    )
+    db_session.commit()
+
+    matchup = get_matchup_detail(seeded["matchup_id"], db_session)
+    legacy_row = next(row for row in matchup.home_roster if row.player_id == legacy_player.id)
+
+    assert legacy_row.semantic_context.membership.league_scoped is False
+    assert legacy_row.semantic_context.membership.allows_unscoped_legacy_picks is True
+    assert legacy_row.semantic_context.membership.season_scoped is False
+    assert legacy_row.semantic_context.membership.historical_status == "current_only"
 
 
 def test_get_team_starters_isolates_by_league(db_session):
