@@ -117,7 +117,7 @@ def _migration_url_for_schema(database_url, schema_name):
     url = make_url(database_url)
     query = dict(url.query)
     query["options"] = f"-csearch_path={schema_name}"
-    return str(url.set(query=query))
+    return url.set(query=query).render_as_string(hide_password=False)
 
 
 def _alembic_versions(engine):
