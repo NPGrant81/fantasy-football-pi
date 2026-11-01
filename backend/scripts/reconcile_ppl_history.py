@@ -16,6 +16,7 @@ import csv
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection, make_url
+from sqlalchemy.dialects import postgresql
 
 from backend.services.player_service import normalize_display_name
 
@@ -201,6 +202,7 @@ def reconcile_rows(
         verified = bool(
             archived
             and staged_player
+            and _label(archived["PlayerName"])
             and _label(archived["PlayerName"]) == _label(staged_player["PlayerName"])
             and _position_id(archived["PositionID"]) is not None
             and _position_id(archived["PositionID"])
@@ -239,6 +241,7 @@ def reconcile_rows(
         verified = bool(
             archived
             and staged_user
+            and _label(archived["OwnerName"])
             and _label(archived["OwnerName"]) == _label(staged_user["username"])
         )
         candidates = (
@@ -355,6 +358,126 @@ def _rows(
     ]
 
 
+def _unique_drift(
+    expected: sa.Table,
+    constraints: list[dict[str, Any]],
+    indexes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    def sql(expression: Any) -> str | None:
+        if expression is None:
+            return None
+        if isinstance(expression, str):
+            return expression.strip()
+        return str(
+            expression.compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True, "include_table": False},
+            )
+        ).strip()
+
+    def contract(
+        terms: list[dict[str, str]], predicate: str | None, nulls: bool
+    ) -> str:
+        return json.dumps(
+            {
+                "terms": terms,
+                "predicate": predicate,
+                "nulls_not_distinct": nulls,
+            },
+            sort_keys=True,
+        )
+
+    expected_contracts = set()
+    for item in (
+        *[c for c in expected.constraints if isinstance(c, sa.UniqueConstraint)],
+        *[i for i in expected.indexes if i.unique],
+    ):
+        expressions = item.expressions if isinstance(item, sa.Index) else item.columns
+        terms = [
+            (
+                {"column": expression.name}
+                if isinstance(expression, sa.Column)
+                else {"expression": sql(expression)}
+            )
+            for expression in expressions
+        ]
+        options = item.dialect_options["postgresql"]
+        expected_contracts.add(
+            contract(
+                terms,
+                sql(options.get("where")),
+                bool(options.get("nulls_not_distinct")),
+            )
+        )
+    actual_contracts = set()
+    for item in (*constraints, *[i for i in indexes if i["unique"]]):
+        expressions = item.get("expressions", [])
+        terms = [
+            (
+                {"column": column}
+                if column is not None
+                else {"expression": expressions[index]}
+            )
+            for index, column in enumerate(item["column_names"])
+        ]
+        options = item.get("dialect_options", {})
+        actual_contracts.add(
+            contract(
+                terms,
+                sql(options.get("postgresql_where")),
+                bool(options.get("postgresql_nulls_not_distinct")),
+            )
+        )
+    missing = [
+        json.loads(value) for value in sorted(expected_contracts - actual_contracts)
+    ]
+    extra = [
+        json.loads(value) for value in sorted(actual_contracts - expected_contracts)
+    ]
+    return {
+        "missing_orm_unique_contracts": missing,
+        "extra_observed_unique_contracts": extra,
+        "missing_orm_unique_keys": [
+            [term.get("column") for term in value["terms"]] for value in missing
+        ],
+        "extra_observed_unique_keys": [
+            [term.get("column") for term in value["terms"]] for value in extra
+        ],
+    }
+
+
+def _affected_unique_drift(
+    observed: sa.Inspector, metadata: sa.MetaData, table_names: set[str]
+) -> dict[str, Any]:
+    result = {}
+    for table_name in (
+        "draft_picks",
+        "waiver_budgets",
+        "players",
+        "transaction_history",
+        "users",
+    ):
+        if table_name not in table_names:
+            result[table_name] = {"missing_table": True}
+            continue
+        expected = metadata.tables[table_name]
+        result[table_name] = {
+            **_unique_drift(
+                expected,
+                observed.get_unique_constraints(table_name, schema="public"),
+                observed.get_indexes(table_name, schema="public"),
+            ),
+            "observed_only_columns": sorted(
+                {
+                    column["name"]
+                    for column in observed.get_columns(table_name, schema="public")
+                }
+                - set(expected.columns.keys())
+            ),
+        }
+    return result
+
+
 def run_reconciliation(
     *, source_root: Path, target_url: str, staging_url: str, league_id: int
 ) -> dict[str, Any]:
@@ -367,6 +490,10 @@ def run_reconciliation(
     target = make_url(target_url)
     staging = make_url(staging_url)
     for url in (target, staging):
+        if {"dbname", "database", "service", "servicefile"} & {
+            key.casefold() for key in url.query
+        }:
+            raise ValueError("Database-name and service overrides are not permitted.")
         if url.get_backend_name() != "postgresql" or not (
             url.database or ""
         ).startswith("ffpi_528_"):
@@ -452,53 +579,9 @@ def run_reconciliation(
                             }
                         )
                     )
-                    constraint_drift = {}
-                    for table_name in (
-                        "draft_picks",
-                        "waiver_budgets",
-                        "players",
-                        "transaction_history",
-                        "users",
-                    ):
-                        expected_table = models.Base.metadata.tables[table_name]
-                        expected_unique = {
-                            tuple(column.name for column in constraint.columns)
-                            for constraint in expected_table.constraints
-                            if isinstance(constraint, sa.UniqueConstraint)
-                        } | {
-                            tuple(column.name for column in index.columns)
-                            for index in expected_table.indexes
-                            if index.unique
-                        }
-                        actual_unique = {
-                            tuple(constraint["column_names"])
-                            for constraint in observed.get_unique_constraints(
-                                table_name, schema="public"
-                            )
-                        } | {
-                            tuple(index["column_names"])
-                            for index in observed.get_indexes(
-                                table_name, schema="public"
-                            )
-                            if index["unique"]
-                        }
-                        constraint_drift[table_name] = {
-                            "missing_orm_unique_keys": sorted(
-                                expected_unique - actual_unique
-                            ),
-                            "extra_observed_unique_keys": sorted(
-                                actual_unique - expected_unique
-                            ),
-                            "observed_only_columns": sorted(
-                                {
-                                    column["name"]
-                                    for column in observed.get_columns(
-                                        table_name, schema="public"
-                                    )
-                                }
-                                - set(expected_table.columns.keys())
-                            ),
-                        }
+                    constraint_drift = _affected_unique_drift(
+                        observed, models.Base.metadata, table_names
+                    )
                     report.update(
                         {
                             "source_files_sha256": digests,

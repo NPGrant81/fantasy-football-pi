@@ -270,6 +270,116 @@ def test_missing_position_is_an_explicit_provenance_blocker(reconciliation_data)
     ]
 
 
+@pytest.mark.parametrize("name", ["", "   "])
+def test_empty_names_never_verify_identity(reconciliation_data, name):
+    reconciliation_data["sources"]["players.csv"][0]["PlayerName"] = name
+    reconciliation_data["staging_players"][0]["PlayerName"] = None
+    reconciliation_data["sources"]["users.csv"][0]["OwnerName"] = name
+    reconciliation_data["staging_users"][0]["username"] = ""
+    report = reconcile_rows(**reconciliation_data)
+    assert len(report["provenance_blockers"]) == 2
+    assert report["player_candidates"][0]["csv_staging_identity_verified"] is False
+    assert (
+        report["season_owner_candidates"][0]["csv_staging_identity_verified"] is False
+    )
+
+
+@pytest.mark.parametrize("parameter", ["dbname", "database", "service", "servicefile"])
+@pytest.mark.parametrize("side", ["target_url", "staging_url"])
+def test_database_overrides_are_rejected_before_engine_creation(
+    reconciliation_data, tmp_path, monkeypatch, parameter, side
+):
+    import sqlalchemy as sa
+    from backend.scripts import reconcile_ppl_history as script
+
+    monkeypatch.setattr(
+        script, "_read_sources", lambda root: (reconciliation_data["sources"], {})
+    )
+
+    def unexpected_engine(*args, **kwargs):
+        pytest.fail("Connection overrides must be rejected before engine creation.")
+
+    monkeypatch.setattr(sa, "create_engine", unexpected_engine)
+    urls = {
+        "target_url": "postgresql://localhost/ffpi_528_app",
+        "staging_url": "postgresql://localhost/ffpi_528_etl",
+    }
+    urls[side] += f"?{parameter}=fantasy_football"
+    with pytest.raises(ValueError, match="overrides"):
+        script.run_reconciliation(source_root=tmp_path, league_id=60, **urls)
+
+
+def test_missing_affected_tables_are_not_inspected():
+    from unittest.mock import Mock
+    import sqlalchemy as sa
+    from backend.scripts.reconcile_ppl_history import _affected_unique_drift
+
+    inspector = Mock(spec=sa.Inspector)
+    drift = _affected_unique_drift(inspector, sa.MetaData(), set())
+    assert drift["waiver_budgets"] == {"missing_table": True}
+    assert drift["transaction_history"] == {"missing_table": True}
+    inspector.get_unique_constraints.assert_not_called()
+    inspector.get_indexes.assert_not_called()
+    inspector.get_columns.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"postgresql_where": "is_historical_stub = false"},
+        {"postgresql_nulls_not_distinct": True},
+    ],
+)
+def test_unique_contract_detects_partial_and_null_semantics(options):
+    import sqlalchemy as sa
+    from backend.scripts.reconcile_ppl_history import _unique_drift
+
+    table = sa.Table(
+        "users", sa.MetaData(), sa.Column("username", sa.String, unique=True)
+    )
+    observed = [
+        {"unique": True, "column_names": ["username"], "dialect_options": options}
+    ]
+    drift = _unique_drift(table, [], observed)
+    assert drift["missing_orm_unique_keys"] == [["username"]]
+    assert drift["extra_observed_unique_keys"] == [["username"]]
+    assert len(drift["extra_observed_unique_contracts"]) == 1
+
+
+def test_unique_contract_detects_expression_changes_and_deduplicates_backing_index():
+    import sqlalchemy as sa
+    from backend.scripts.reconcile_ppl_history import _unique_drift
+
+    table = sa.Table("users", sa.MetaData(), sa.Column("username", sa.String))
+    sa.Index("uq_lower_username", sa.func.lower(table.c.username), unique=True)
+    observed = [
+        {
+            "unique": True,
+            "column_names": [None],
+            "expressions": ["upper(username)"],
+            "dialect_options": {},
+        }
+    ]
+    drift = _unique_drift(table, [], observed)
+    assert drift["missing_orm_unique_contracts"][0]["terms"] == [
+        {"expression": "lower(username)"}
+    ]
+    assert drift["extra_observed_unique_contracts"][0]["terms"] == [
+        {"expression": "upper(username)"}
+    ]
+    plain = sa.Table("plain", sa.MetaData(), sa.Column("id", sa.Integer, unique=True))
+    assert _unique_drift(
+        plain,
+        [{"column_names": ["id"]}],
+        [{"unique": True, "column_names": ["id"]}],
+    ) == {
+        "missing_orm_unique_contracts": [],
+        "extra_observed_unique_contracts": [],
+        "missing_orm_unique_keys": [],
+        "extra_observed_unique_keys": [],
+    }
+
+
 def test_retained_csv_sources_have_hashes_and_strict_headers(tmp_path):
     (tmp_path / "users.csv").write_text(
         "OwnerID,WrongHeader\n1,owner\n", encoding="utf-8"
