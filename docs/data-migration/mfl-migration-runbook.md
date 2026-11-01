@@ -20,6 +20,53 @@ Workflow:
 - Target app league id is known.
 - For private leagues, an MFL session cookie is available.
 
+### Retained PPL databases: remediation gate (Refs #524–#528)
+
+The existing Post Pacific League app/staging databases are not a clean
+replay of the migration graph. Do not run the archival `load_ppl_history.py`
+loader or apply an import to these originals. Its numeric-ID assumptions and
+account mutations are not an identity-remediation strategy.
+
+Before the standard import flow:
+
+1. Retain verified backups of both databases and restore distinct working
+   copies with database names beginning `ffpi_528_`. Keep originals unchanged.
+2. Set `PPL_TARGET_DATABASE_URL` and `PPL_STAGING_DATABASE_URL` privately to
+   those copies. Do not put credentialed URLs in shell history, reports or Git.
+3. Reconcile retained bootstrap CSVs against staging and the app schema:
+
+   ```powershell
+   python -m backend.scripts.reconcile_ppl_history `
+     --source-root backend\data `
+     --target-league-id 60 `
+     --output C:\restricted-reports\ppl-reconciliation.json
+   ```
+
+   The command uses read-only repeatable-read transactions, accepts only named
+   working copies, and refuses to overwrite an existing report. Exit code **2**
+   means the report was saved but import remains blocked; **1** indicates an
+   operational/input failure. Argument errors also use argparse's exit code 2
+   without a saved-report message.
+4. Review source SHA-256 hashes, full draft multisets (season, owner, player,
+   exact bid, position and team), conflicting source IDs, missing attributes,
+   observed schema fingerprint, unknown Alembic revisions and uniqueness drift.
+   Tables/columns alone cannot prove schema compatibility.
+5. Use the report's `mapping_review_template` as an **unapproved** review
+   worksheet. Supply explicit source-player to canonical-player mappings and
+   `(season, source_owner_id)` to target-owner mappings, each supported by
+   evidence. Name matches and overlapping numeric IDs are candidates only;
+   they must not become automatic approvals or cross-season fallbacks.
+6. Resolve source discrepancies and event grain, then design reviewed schema
+   adoption and test ingestion/idempotency/runtime behavior on copies. An
+   unknown revision must not be blindly stamped or replaced by an invented
+   migration. Preserve existing source-event, platform-ID and historical-stub
+   fields when reconciling the schema.
+
+This read-only report is not an importer or a completed #528 certification.
+Keep reports and identity-review evidence in access-restricted storage outside
+Git; publish aggregate findings only. The general flows below do not bypass
+this remediation gate.
+
 Optional checks:
 
 - `python -m backend.manage extract-mfl-history --help`

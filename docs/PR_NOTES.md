@@ -3,6 +3,28 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
+## Issue #528 Read-Only Reconciliation Preparation
+
+- Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
+  worksheet and a remediation gate in the MFL migration runbook.
+- Validation: 31 focused backend tests passed; Black, flake8 and whitespace
+  checks passed. The real PostgreSQL reconciliation completed with the expected
+  blocked exit code. Both working copies still match their original verified
+  table schemas, counts and complete row hashes.
+- Evidence: 147 CSV drafts absent from staging (144 in 2025, three in 2023);
+  zero unexpected staging rows when position/team attributes are included.
+  All 96 season-owner keys remain unmapped; 473 referenced player IDs require
+  review (363 ambiguous, 108 unmapped, two single-candidate review items).
+  There are 147 incomplete draft-attribute items and 180 identity-provenance
+  blockers. Conflicting IDs remain unresolved, not silently deduplicated.
+- Observed revision `0029_harden_historical_ingestion_models` is absent from the
+  checked migration graph. Source-event uniqueness, multi-season waiver
+  uniqueness, Sleeper IDs and historical-stub columns require reviewed adoption.
+- Copilot Feedback: review pending PR creation; no review outcome claimed.
+- Residual risk: no schema adoption, identity approval, historical import or
+  production deployment performed. Refs #524, #525, #526, #527 and #528 remain
+  open; this preparatory slice does not certify ingestion or runtime parity.
+
 ## PR #555 Copilot Feedback
 
 - Review received: 2026-11-01.
