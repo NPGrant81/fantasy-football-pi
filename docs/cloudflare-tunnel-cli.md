@@ -54,8 +54,13 @@ Set values:
 - `tunnel: <tunnel-name-or-uuid>`
 - `credentials-file: /etc/cloudflared/<tunnel-uuid>.json`
 - hostnames (example):
-  - `app.pplinsighthub.com` -> frontend (`127.0.0.1:80`)
-  - `api.pplinsighthub.com` -> backend (`127.0.0.1:8000`)
+  - `app.pplinsighthub.com` -> frontend (`127.0.0.1:8080`)
+  - `api.pplinsighthub.com` -> Nginx API route (`127.0.0.1:8080`)
+
+For these hostnames, use
+`deploy/nginx/fantasy-football-pi-tunnel-origin.conf.example` and keep the
+origin listener loopback-only. Do not target the port-80 TLS redirect site.
+Enable Cloudflare's zone-level **Always Use HTTPS** setting before cutover.
 
 ## 4. DNS routing
 ```bash

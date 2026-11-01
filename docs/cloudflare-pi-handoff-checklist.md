@@ -1,6 +1,6 @@
 # Cloudflare Tunnel Pi Handoff Checklist
 
-Date: 2026-03-20
+Date: 2026-10-31
 Purpose: Complete Cloudflare tunnel setup from the Raspberry Pi, then return a minimal evidence bundle.
 
 ## Scope
@@ -50,6 +50,11 @@ Capture:
 From repository root on Pi:
 
 ```bash
+sudo cp deploy/nginx/fantasy-football-pi-tunnel-origin.conf.example /etc/nginx/sites-available/fantasy-football-pi-tunnel-origin.conf
+sudo ln -sfn /etc/nginx/sites-available/fantasy-football-pi-tunnel-origin.conf /etc/nginx/sites-enabled/fantasy-football-pi-tunnel-origin.conf
+sudo nginx -t
+sudo systemctl reload nginx
+
 sudo mkdir -p /etc/cloudflared
 sudo cp deploy/cloudflared/config.ppl-insight-hub-prod1.example.yml /etc/cloudflared/config.yml
 sudo nano /etc/cloudflared/config.yml
@@ -57,7 +62,23 @@ sudo nano /etc/cloudflared/config.yml
 
 Set:
 - `credentials-file: /etc/cloudflared/<tunnel-uuid>.json`
-- Keep service target as `http://127.0.0.1:80` if nginx is on the Pi
+- Keep both ingress service targets at `http://127.0.0.1:8080` when cloudflared runs on the Pi.
+
+Check the local origin before starting the tunnel:
+
+```bash
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"https"}' http://127.0.0.1:8080/
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"https"}' http://127.0.0.1:8080/auth/me
+curl -I -H 'Host: pplinsighthub.com' -H 'CF-Visitor: {"scheme":"http"}' http://127.0.0.1:8080/
+curl --max-time 5 -v -H 'Host: unrecognized.invalid' http://127.0.0.1:8080/
+```
+
+The root route with `CF-Visitor: {"scheme":"https"}` should respond without
+redirecting. `/auth/me` should reach the backend and may return `401` when
+unauthenticated. The edge-marked HTTP request should return `308` with an HTTPS
+`Location`; the unrecognized host should be closed by Nginx's default `444`
+server. Enable Cloudflare's zone-level **Always Use HTTPS** setting before
+public cutover.
 
 Validate config:
 

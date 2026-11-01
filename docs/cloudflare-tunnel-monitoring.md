@@ -1,6 +1,6 @@
 # Cloudflare Tunnel Monitoring Playbook
 
-Date: 2026-03-10
+Date: 2026-10-31
 Related Issue: #209
 
 ## Goal
@@ -17,25 +17,32 @@ Provide lightweight, Pi-friendly observability for Cloudflare Tunnel uptime and 
 flowchart LR
   U[External Monitor] -->|HTTPS /health| CF[Cloudflare Edge]
   CF --> T[cloudflared tunnel]
-  T --> NGINX[nginx :80]
+  T --> NGINX[nginx 127.0.0.1:8080]
   NGINX --> API[FastAPI /health]
   API --> DB[(Postgres)]
   WD[systemd watchdog timer] -->|curl public /health| T
   WD -->|on failure| R[systemctl restart cloudflared]
 ```
 
-## 1. Tunnel Health Checks
+## 1. Origin and Endpoint Health Checks
 Use `deploy/cloudflared/config.ppl-insight-hub-prod1.example.yml` as baseline.
 
 Important routing note:
-- Ensure your reverse proxy forwards `/health` to FastAPI (`127.0.0.1:8000`) so health checks validate API + DB status.
+- cloudflared ingress rules do not configure origin health probes. Verify the
+  origin locally and use the systemd watchdog or an external monitor to check
+  `/health` through the public tunnel.
+- Ensure Nginx forwards `/health` to FastAPI (`127.0.0.1:8000`) so endpoint
+  checks validate API + DB status.
+- Enable Cloudflare's zone-level **Always Use HTTPS** setting. The Nginx origin
+  also redirects requests marked as public HTTP by `CF-Visitor`.
+- The API hostname proxies every path to FastAPI; on app hostnames, only
+  explicit React document routes may use the SPA fallback. API-only paths do
+  not use that fallback.
+- `/draft/ws/` forwards WebSocket upgrade headers and allows long-lived
+  connections.
 
-Recommended ingress block settings:
-- `healthcheck.path: /health`
-- `healthcheck.interval: 30s`
-- `healthcheck.timeout: 5s`
-- `healthcheck.retries: 2`
-- `originRequest.connectTimeout: 5s`
+The supported `originRequest.connectTimeout: 5s` setting limits origin
+connection time; it is not a health probe.
 
 ## 2. Local Monitoring With systemd
 Example files:
@@ -142,7 +149,7 @@ Recovery:
 - Suppress noisy alerts until platform recovers.
 
 ## Acceptance Mapping
-- Tunnel health checks configured: yes (template)
+- Origin and public endpoint checks documented: yes (local checks, watchdog, and optional external monitor)
 - Failure detectable in minutes: yes (watchdog timer + external monitor)
 - systemd restart reliability: yes (`Restart=on-failure`, tuning in service template)
 - Logs retained and observable: yes (journalctl + retention guidance)

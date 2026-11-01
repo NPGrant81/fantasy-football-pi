@@ -10,15 +10,18 @@ This is the recommended production-style setup for Raspberry Pi:
 Quick reference: `docs/PI_UPDATE_CHEATSHEET.md`
 Docker parity setup reference: `docs/pi-setup/docker.md`
 
-### Choose one TLS/origin mode before installing Nginx
+### Choose the Nginx origin mode
 
-The Nginx template in this guide terminates TLS on port 443 and redirects
-port 80 to HTTPS. The named Cloudflare Tunnel example instead sends HTTP to
-port 80. Those two examples are not compatible unchanged. For Tunnel
-termination with an HTTP origin, use an Nginx configuration that serves the
-app on the configured origin port without redirecting back to the public
-HTTPS hostname. Alternatively, configure and verify a TLS origin on port 443.
-See [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) before cutover.
+The TLS Nginx template in this guide redirects port 80 to HTTPS on port 443.
+For Cloudflare Tunnel TLS termination, use
+`deploy/nginx/fantasy-football-pi-tunnel-origin.conf.example`, which serves
+only on loopback port 8080, and configure the tunnel to target
+`http://127.0.0.1:8080`. Do not expose that listener to the LAN. Do not install
+the TLS redirect site and tunnel-origin site as competing app sites without
+reviewing their listeners. Enable Cloudflare's zone-level **Always Use HTTPS**
+setting before cutover; the tunnel origin also redirects requests marked as
+public HTTP by Cloudflare. See
+[CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) before cutover.
 
 ## Phase 1: Raspberry Pi OS Setup
 
@@ -284,7 +287,7 @@ verify a fresh backup and follow the recovery checks in [restore.md](./restore.m
 | `backend/requirements*.txt` | `cd backend && ./venv/bin/pip install -r requirements-lock.txt` |
 | `backend/**` (code) | `sudo systemctl restart fantasy-football-backend` |
 | `frontend/**` | `cd frontend && npm ci --legacy-peer-deps && npm run build && sudo rsync -av --delete dist/ /var/www/fantasy-football-pi/frontend/dist/` |
-| `deploy/nginx/**` | Select the TLS/origin mode described above before installing the template; the redirecting TLS example is not compatible unchanged with the named tunnel's HTTP `:80` origin. Then run `sudo nginx -t` and reload Nginx. |
+| `deploy/nginx/**` | Select the TLS/origin mode described above before installing the template; the redirecting TLS example is not compatible unchanged with the named tunnel's loopback HTTP `:8080` origin. Then run `sudo nginx -t` and reload Nginx. |
 | `deploy/systemd/fantasy-football-backend.service.example` | `sudo cp .../fantasy-football-backend.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart fantasy-football-backend` |
 | `deploy/systemd/cloudflared*.example` | copy updated unit files to `/etc/systemd/system/`, then `sudo systemctl daemon-reload` and restart/enable relevant units |
 | `deploy/cloudflared/**` | copy updated config to `/etc/cloudflared/config.yml`, then `sudo systemctl restart cloudflared` |

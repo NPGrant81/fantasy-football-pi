@@ -13,6 +13,8 @@ jobs:
   fantasynerds-precheck:
     name: FantasyNerds Precheck
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -61,6 +63,8 @@ jobs:
   yahoo-precheck:
     name: Yahoo Precheck
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7

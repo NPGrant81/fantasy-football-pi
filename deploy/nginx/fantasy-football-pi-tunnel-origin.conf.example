@@ -1,0 +1,159 @@
+# Loopback-only Nginx origin for Cloudflare Tunnel TLS termination.
+#
+# Install as the active app site when cloudflared runs on this host and
+# forwards to http://127.0.0.1:8080. Redirect only requests that Cloudflare
+# marks as public HTTP; leave edge HTTPS requests redirect-free.
+
+limit_req_zone $binary_remote_addr zone=tunnel_api_rate_limit:10m rate=10r/s;
+limit_conn_zone $binary_remote_addr zone=tunnel_per_ip_conn:10m;
+
+map $http_cf_visitor $tunnel_redirect_http {
+    default 0;
+    ~http[^s] 1;
+}
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+map "$request_method:$http_accept:$host:$uri" $tunnel_spa_document_request {
+    default 0;
+    ~^(GET|HEAD):.*text/html:(?:pplinsighthub\.com|www\.pplinsighthub\.com|app\.pplinsighthub\.com):/$ 1;
+    ~^(GET|HEAD):.*text/html:(?:pplinsighthub\.com|www\.pplinsighthub\.com|app\.pplinsighthub\.com):/(?:draft|team(?:/[^/]+)?|ledger|matchups|matchup/[^/]+|admin(?:/manage-commissioners)?|commissioner(?:/(?:lineup-rules|manage-owners|manage-waiver-rules|manage-trades|manage-scoring-rules|manage-divisions|history-owner-mapping|keeper-rules|ledger-statement|playoff-settings))?|waivers|waiver-rules|bug-report|keepers|trades/submit|analytics|playoffs|league-history(?:/(?:historical-analytics|champions|awards|franchise-records|player-records|match-records|all-time-series-records|season-records|career-records|record-streaks))?)/?$ 1;
+}
+
+server {
+    listen 127.0.0.1:8080 default_server;
+    server_name _;
+    return 444;
+}
+
+server {
+    listen 127.0.0.1:8080;
+    server_name pplinsighthub.com www.pplinsighthub.com app.pplinsighthub.com;
+
+    # Trust the Cloudflare client-IP header only on the loopback connector path.
+    set_real_ip_from 127.0.0.1;
+    real_ip_header CF-Connecting-IP;
+
+    if ($tunnel_redirect_http) { return 308 https://$host$request_uri; }
+
+    server_tokens off;
+    client_max_body_size 10m;
+    keepalive_timeout 30;
+    send_timeout 30;
+    limit_conn tunnel_per_ip_conn 20;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Vary Accept always;
+
+    location / {
+        root /var/www/fantasy-football-pi/frontend/dist;
+        try_files $uri $uri/ @tunnel_spa_fallback;
+    }
+
+    location @tunnel_spa_fallback {
+        if ($tunnel_spa_document_request = 0) { return 404; }
+        root /var/www/fantasy-football-pi/frontend/dist;
+        try_files /index.html =404;
+    }
+
+    location ^~ /draft/ws/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_connect_timeout 10s;
+        proxy_buffering off;
+    }
+
+    location ~ ^/(auth|draft|draft-pick|draft-history|admin/tools|admin/nfl|admin/live-scoring|admin/drafts|admin/config|admin/create-test-league|admin/reset-draft|admin/finalize-draft|admin/reset-league|team|league|leagues|players|advisor|dashboard|waivers|trades|scoring|keepers|playoffs|analytics|nfl|feedback|bug-reports|etl|api/etl|matchups|news|live-scoring|health)(/|$) {
+        if ($tunnel_spa_document_request) {
+            rewrite ^ /index.html last;
+        }
+        limit_req zone=tunnel_api_rate_limit burst=20 nodelay;
+
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_connect_timeout 10s;
+        proxy_buffering off;
+    }
+}
+
+server {
+    listen 127.0.0.1:8080;
+    server_name api.pplinsighthub.com;
+
+    set_real_ip_from 127.0.0.1;
+    real_ip_header CF-Connecting-IP;
+
+    if ($tunnel_redirect_http) { return 308 https://$host$request_uri; }
+
+    server_tokens off;
+    client_max_body_size 10m;
+    keepalive_timeout 30;
+    send_timeout 30;
+    limit_conn tunnel_per_ip_conn 20;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Vary Accept always;
+
+    location ^~ /draft/ws/ {
+        limit_req zone=tunnel_api_rate_limit burst=20 nodelay;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_connect_timeout 10s;
+        proxy_buffering off;
+    }
+
+    location / {
+        limit_req zone=tunnel_api_rate_limit burst=20 nodelay;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_connect_timeout 10s;
+        proxy_buffering off;
+    }
+}
