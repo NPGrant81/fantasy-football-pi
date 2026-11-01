@@ -25,7 +25,7 @@ This branch was created to trigger CI for backend and frontend tests.
 - Threads resolved: 2
 - Follow-up: added repository-wide revision-location validation with one governed bootstrap exception; run it independently of path-filtered backend tests and include it in `ci-gate`; restored required test-matrix metadata for topology and migration-layout tests.
 - Merge follow-up: reconciled PR documentation with current `main` while preserving the protected migration environment and non-destructive recovery guidance.
-- Local validation: 23 migration-layout and workflow contract tests passed; layout checker, repo hygiene, JSON/YAML validation, and `git diff --check` passed.
+- Local validation: 49 migration-layout and workflow contract tests passed; layout checker, repo hygiene, JSON/YAML/test-matrix validation, and `git diff --check` passed.
 - Residual risk: deployed revision-history inventory remains an operator validation gate; final hosted CI is pending.
 
 ## PR #545 Documentation and Operations Cleanup — Copilot Feedback
