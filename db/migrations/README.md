@@ -13,6 +13,8 @@ This folder stores Alembic migration revisions only.
 This is the only directory for active incremental Alembic revisions. The Alembic
 configuration remains at `backend/alembic.ini`, with its environment in `db/env.py`.
 Run migrations from the repository root with `python -m backend.apply_migrations`.
+The guarded runner expands Alembic's `alembic_version.version_num` column when
+needed so it can store the longest revision identifier in the canonical graph.
 
 The immutable empty-database bootstrap lineage lives separately in `db/bootstrap/`.
 See `docs/MIGRATION_LEGACY_INVENTORY.md` for the retired legacy lineage and recovery
