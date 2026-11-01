@@ -15,7 +15,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations, ops as alembic_ops
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, Engine
-from sqlalchemy.schema import CreateSchema, DropSchema
+from sqlalchemy.schema import BLANK_SCHEMA, CreateSchema, DropSchema
 
 
 LEGACY_SCHEMA = "public"
@@ -496,6 +496,12 @@ def _bootstrap_schema_contract(
             target_table = source_table.to_metadata(
                 target_metadata,
                 schema=None,
+                referred_schema_fn=(
+                    lambda table, to_schema, constraint, referred_schema:
+                    BLANK_SCHEMA
+                    if referred_schema == contract_schema
+                    else None
+                ),
             )
             for constraint in list(target_table.foreign_key_constraints):
                 target_table.constraints.remove(constraint)
