@@ -13,7 +13,45 @@ Governance Tracker: [Issue #156](https://github.com/NPGrant81/fantasy-football-p
 
 Deployment workflows are manual (`workflow_dispatch`) and isolated from PR validation.
 
-## Required repository secrets
+## Integration state contract
+
+Workflow integrations use `.github/integration-contracts.json` as the source of
+truth for enablement variables, required secret variable names, owning workflows,
+and operational ownership. `scripts/validate_workflow_integration.py` evaluates
+each integration before work begins.
+
+Every integration reports exactly one state:
+
+- `PASS`: explicitly enabled and all required configuration is present.
+- `FAIL`: enabled with missing configuration, or the enablement value is invalid.
+- `NOT_CONFIGURED`: explicitly disabled; no external action is attempted.
+
+`NOT_CONFIGURED` is not a successful execution. In particular, roster
+synchronization reports `PASS` only after the remote synchronization command
+completes.
+
+Accepted enablement values are `true`, `yes`, `on`, or `1`, and `false`, `no`,
+`off`, or `0` (case-insensitive). Any other value fails closed.
+
+## Environment configuration
+
+Set deployment enablement variables and secrets under **Settings > Environments**
+for the matching `production` or `staging` environment. Set source integration
+variables and secrets under **Settings > Secrets and variables > Actions**.
+
+| Integration | Enablement variable | Default | Owner |
+|---|---|---|---|
+| Production deployment | `PRODUCTION_DEPLOY_ENABLED` | `true` | platform-ops |
+| Staging deployment | `STAGING_DEPLOY_ENABLED` | `false` | platform-ops |
+| NFL roster sync | `ROSTER_SYNC_ENABLED` | `true` | platform-ops |
+| FantasyNerds precheck | `FANTASYNERDS_ENABLED` | `false` | data-ops |
+| Yahoo precheck | `YAHOO_ENABLED` | `false` | data-ops |
+
+Defaults make the current operating decision explicit: production and roster
+sync fail closed, while staging and external source checks remain dormant until
+intentionally enabled.
+
+## Required environment secrets
 
 Staging:
 
@@ -50,8 +88,13 @@ Weekly source precheck workflow (`.github/workflows/source-prechecks.yml`):
 Deployment secrets precheck workflow (`.github/workflows/deployment-secrets-precheck.yml`):
 
 - Runs daily on a schedule and on manual dispatch
-- Verifies required staging and production deploy secrets exist
-- Fails fast with a summary listing missing secret names per environment
+- Verifies configuration immediately from the shared integration contract
+- Fails when an enabled environment is incomplete
+- Reports disabled environments as `NOT_CONFIGURED`
+
+The production, staging, roster-sync, and source workflows repeat this preflight
+at execution time. A prior scheduled result is never treated as sufficient proof
+that current configuration is valid.
 
 ## Deploy action
 

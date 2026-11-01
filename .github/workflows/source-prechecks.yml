@@ -7,18 +7,28 @@ on:
   workflow_dispatch:
 
 jobs:
-  source-prechecks:
+  fantasynerds-precheck:
+    name: FantasyNerds Precheck
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Validate FantasyNerds configuration
+        id: preflight
+        env:
+          FANTASYNERDS_ENABLED: ${{ vars.FANTASYNERDS_ENABLED || 'false' }}
+          FANTASYNERDS_API_KEY: ${{ secrets.FANTASYNERDS_API_KEY }}
+        run: python -m scripts.validate_workflow_integration fantasynerds
+
       - name: Set up Python
+        if: steps.preflight.outputs.can_run == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
       - name: Install dependencies
+        if: steps.preflight.outputs.can_run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
@@ -26,16 +36,75 @@ jobs:
           if [ -f etl/requirements.txt ]; then pip install -r etl/requirements.txt; fi
 
       - name: Run FantasyNerds precheck
+        id: source-check
+        if: steps.preflight.outputs.can_run == 'true'
         env:
           FANTASYNERDS_API_KEY: ${{ secrets.FANTASYNERDS_API_KEY }}
+        run: python -m etl.fantasynerds_preprod_check
+
+      - name: Report FantasyNerds state
+        if: always()
         run: |
-          python -m etl.fantasynerds_preprod_check
+          echo "## FantasyNerds Precheck" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.preflight.outputs.state }}" = "NOT_CONFIGURED" ]; then
+            echo "- State: NOT_CONFIGURED" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.source-check.outcome }}" = "success" ]; then
+            echo "- State: PASS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- State: FAIL" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  yahoo-precheck:
+    name: Yahoo Precheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate Yahoo configuration
+        id: preflight
+        env:
+          YAHOO_ENABLED: ${{ vars.YAHOO_ENABLED || 'false' }}
+          YAHOO_CLIENT_ID: ${{ secrets.YAHOO_CLIENT_ID }}
+          YAHOO_CLIENT_SECRET: ${{ secrets.YAHOO_CLIENT_SECRET }}
+          YAHOO_ACCESS_TOKEN: ${{ secrets.YAHOO_ACCESS_TOKEN }}
+          YAHOO_REFRESH_TOKEN: ${{ secrets.YAHOO_REFRESH_TOKEN }}
+        run: python -m scripts.validate_workflow_integration yahoo
+
+      - name: Set up Python
+        if: steps.preflight.outputs.can_run == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        if: steps.preflight.outputs.can_run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          if [ -f backend/requirements-validation.txt ]; then pip install -r backend/requirements-validation.txt; fi
+          if [ -f etl/requirements.txt ]; then pip install -r etl/requirements.txt; fi
 
       - name: Run Yahoo precheck
+        id: source-check
+        if: steps.preflight.outputs.can_run == 'true'
         env:
           YAHOO_CLIENT_ID: ${{ secrets.YAHOO_CLIENT_ID }}
           YAHOO_CLIENT_SECRET: ${{ secrets.YAHOO_CLIENT_SECRET }}
           YAHOO_ACCESS_TOKEN: ${{ secrets.YAHOO_ACCESS_TOKEN }}
           YAHOO_REFRESH_TOKEN: ${{ secrets.YAHOO_REFRESH_TOKEN }}
+        run: python -m etl.yahoo_preprod_check
+
+      - name: Report Yahoo state
+        if: always()
         run: |
-          python -m etl.yahoo_preprod_check
+          echo "## Yahoo Precheck" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.preflight.outputs.state }}" = "NOT_CONFIGURED" ]; then
+            echo "- State: NOT_CONFIGURED" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.source-check.outcome }}" = "success" ]; then
+            echo "- State: PASS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- State: FAIL" >> "$GITHUB_STEP_SUMMARY"
+          fi
