@@ -459,10 +459,132 @@ def _archive_reconciliation_data(
             )
 
 
-def reconcile_adopted_schema(engine: Engine) -> None:
-    from backend.models import Base
+def _bootstrap_schema_contract(
+    connection: Connection,
+) -> tuple[sa.MetaData, dict[str, object]]:
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
 
+    bootstrap_directory = Path(__file__).resolve().parents[1] / "db" / "bootstrap"
+    config = Config()
+    config.set_main_option("script_location", str(bootstrap_directory))
+    config.set_main_option(
+        "version_locations",
+        str(bootstrap_directory / "versions"),
+    )
+    script = ScriptDirectory.from_config(config)
+    if len(script.get_heads()) != 1:
+        raise RuntimeError(
+            "Bootstrap schema contract must have exactly one revision head."
+        )
+
+    contract_schema = f"ffpi_bootstrap_contract_{uuid4().hex}"
+    with connection.begin_nested():
+        connection.execute(CreateSchema(contract_schema))
+        connection.exec_driver_sql(
+            f"SET LOCAL search_path TO {_quoted(connection, contract_schema)}"
+        )
+        for revision in reversed(list(script.walk_revisions())):
+            with Operations.context(MigrationContext.configure(connection)):
+                revision.module.upgrade()
+
+        contract_snapshot = _schema_snapshot(connection, contract_schema)
+        reflected_metadata = sa.MetaData()
+        reflected_metadata.reflect(bind=connection, schema=contract_schema)
+        target_metadata = sa.MetaData()
+        for source_table in reflected_metadata.tables.values():
+            target_table = source_table.to_metadata(
+                target_metadata,
+                schema=None,
+                referred_schema_fn=(
+                    lambda table, to_schema, constraint, referred_schema:
+                    None if referred_schema == contract_schema else referred_schema
+                ),
+            )
+            for column in target_table.columns:
+                if column.server_default is None:
+                    continue
+                expression = str(column.server_default.arg)
+                normalized = _normalize_schema_expression(
+                    expression,
+                    contract_schema,
+                )
+                if normalized != expression:
+                    column.server_default = sa.DefaultClause(sa.text(str(normalized)))
+
+        connection.execute(
+            DropSchema(contract_schema, cascade=True, if_exists=True)
+        )
+        connection.exec_driver_sql(
+            f"SET LOCAL search_path TO {_quoted(connection, LEGACY_SCHEMA)}"
+        )
+
+    return target_metadata, contract_snapshot
+
+
+def _foreign_key_signature(
+    constrained_columns: Iterable[str],
+    referred_table: str | None,
+    referred_columns: Iterable[str],
+) -> tuple[tuple[str, ...], str | None, tuple[str, ...]]:
+    return (
+        tuple(constrained_columns),
+        referred_table,
+        tuple(referred_columns),
+    )
+
+
+def _rename_bootstrap_foreign_keys(
+    connection: Connection,
+    metadata: sa.MetaData,
+) -> None:
+    for table in metadata.tables.values():
+        expected = {
+            _foreign_key_signature(
+                [element.parent.name for element in constraint.elements],
+                constraint.elements[0].column.table.name,
+                [element.column.name for element in constraint.elements],
+            ): constraint.name
+            for constraint in table.foreign_key_constraints
+            if constraint.name and constraint.elements
+        }
+        for signature, expected_name in expected.items():
+            actual_foreign_keys = inspect(connection).get_foreign_keys(
+                table.name,
+                schema=LEGACY_SCHEMA,
+            )
+            matches = [
+                foreign_key
+                for foreign_key in actual_foreign_keys
+                if _foreign_key_signature(
+                    foreign_key.get("constrained_columns") or (),
+                    foreign_key.get("referred_table"),
+                    foreign_key.get("referred_columns") or (),
+                )
+                == signature
+            ]
+            if len(matches) != 1 or matches[0].get("name") == expected_name:
+                continue
+            existing_name = matches[0].get("name")
+            if not existing_name or any(
+                foreign_key.get("name") == expected_name
+                for foreign_key in actual_foreign_keys
+            ):
+                raise RuntimeError(
+                    f"Cannot safely rename foreign key on {table.name} to "
+                    f"{expected_name!r}; the bootstrap constraint name is "
+                    "missing or already in use."
+                )
+            connection.exec_driver_sql(
+                f"ALTER TABLE {_qualified(connection, LEGACY_SCHEMA, table.name)} "
+                f"RENAME CONSTRAINT {_quoted(connection, existing_name)} "
+                f"TO {_quoted(connection, expected_name)}"
+            )
+
+
+def reconcile_adopted_schema(engine: Engine) -> None:
     with engine.begin() as connection:
+        target_metadata, bootstrap_snapshot = _bootstrap_schema_contract(connection)
         migration_context = MigrationContext.configure(
             connection,
             opts={
@@ -470,38 +592,61 @@ def reconcile_adopted_schema(engine: Engine) -> None:
                 "compare_server_default": True,
             },
         )
-        migration_script = produce_migrations(migration_context, Base.metadata)
+        migration_script = produce_migrations(
+            migration_context,
+            target_metadata,
+        )
         operations = list(
             _flatten_operations(migration_script.upgrade_ops.ops)
         )
-        dropped_tables = [
+        tables_to_drop = [
             operation.table_name
             for operation in operations
             if isinstance(operation, alembic_ops.DropTableOp)
         ]
-        if dropped_tables:
+        if tables_to_drop:
             raise RuntimeError(
-                "Schema reconciliation found tables absent from current ORM "
-                f"metadata: {sorted(dropped_tables)}. Refusing to drop tables."
+                "Schema reconciliation found tables absent from the bootstrap "
+                f"metadata: {sorted(tables_to_drop)}. Refusing to drop tables."
             )
-        dropped_tables = {
+        tables_with_dropped_columns = {
             operation.table_name
             for operation in operations
             if isinstance(operation, alembic_ops.DropColumnOp)
         }
-        _archive_reconciliation_data(connection, dropped_tables)
+        _archive_reconciliation_data(connection, tables_with_dropped_columns)
         migration_operations = Operations(migration_context)
         for operation in operations:
             migration_operations.invoke(operation)
 
-        remaining_script = produce_migrations(migration_context, Base.metadata)
+        _rename_bootstrap_foreign_keys(connection, target_metadata)
+        remaining_script = produce_migrations(
+            migration_context,
+            target_metadata,
+        )
         if not remaining_script.upgrade_ops.is_empty():
             remaining_operations = list(
                 _flatten_operations(remaining_script.upgrade_ops.ops)
             )
             raise RuntimeError(
-                "Schema reconciliation did not converge to current ORM metadata. "
+                "Schema reconciliation did not converge to the bootstrap "
+                "schema contract. "
                 f"Remaining operations: {remaining_operations!r}."
+            )
+
+        actual_snapshot = _schema_snapshot(connection, LEGACY_SCHEMA)
+        actual_snapshot.pop("alembic_version", None)
+        if actual_snapshot != bootstrap_snapshot:
+            differing_objects = sorted(
+                object_name
+                for object_name in actual_snapshot.keys()
+                | bootstrap_snapshot.keys()
+                if actual_snapshot.get(object_name)
+                != bootstrap_snapshot.get(object_name)
+            )
+            raise RuntimeError(
+                "Schema reconciliation did not exactly match the bootstrap "
+                f"schema contract. Different object(s): {differing_objects}."
             )
 
 
