@@ -8,7 +8,7 @@ Pull request test branch: feature/tests-ci
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.
-- Validation: 147 focused backend tests passed, including existing auction
+- Validation: 162 focused backend tests passed, including existing auction
   extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
@@ -74,8 +74,11 @@ Pull request test branch: feature/tests-ci
   - The initial request was not visible and CLI returned HTTP 422, but Copilot
     subsequently submitted a four-thread review.
   - Initial threads opened: 4; threads resolved: 4 after `459006e` was pushed.
-    A subsequent catalog-only native-ID conflict finding is fixed with four
-    regressions; thread resolution follows publication. Fresh review remains required.
+    A subsequent catalog-only native-ID conflict finding is fixed in `8ccd99c`
+    with four regressions and its thread is resolved. Another finding rejects
+    supplied null/nonobject approval JSON before reconciliation; 15 regressions
+    cover player, owner and attribute manifests. Its resolution follows
+    publication. Fresh review remains required.
   - Fixes reject database-name/service overrides, require nonempty provenance
     names, retain missing-table evidence and compare unique expressions,
     partial predicates and NULL semantics.

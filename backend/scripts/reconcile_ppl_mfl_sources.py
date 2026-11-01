@@ -1266,6 +1266,15 @@ def approve_player_resolutions(
     }
 
 
+def _read_approval(path: Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    decisions = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(decisions, dict):
+        raise ValueError("A supplied approval manifest must be a JSON object.")
+    return decisions
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", required=True, type=Path)
@@ -1284,27 +1293,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.output.exists():
         parser.error("--output already exists; choose a new evidence file.")
     try:
-        decisions = (
-            json.loads(args.player_resolutions.read_text(encoding="utf-8"))
-            if args.player_resolutions
-            else None
-        )
         report = run_source_reconciliation(
             source_root=args.source_root,
             season_exports=_selections(args.season_export),
             draft_exports=_selections(args.draft_export),
-            player_resolutions=decisions,
-            owner_resolutions=(
-                json.loads(args.owner_resolutions.read_text(encoding="utf-8"))
-                if args.owner_resolutions
-                else None
-            ),
+            player_resolutions=_read_approval(args.player_resolutions),
+            owner_resolutions=_read_approval(args.owner_resolutions),
             audit_attributes=args.audit_attributes,
-            attribute_resolutions=(
-                json.loads(args.attribute_resolutions.read_text(encoding="utf-8"))
-                if args.attribute_resolutions
-                else None
-            ),
+            attribute_resolutions=_read_approval(args.attribute_resolutions),
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8") as handle:

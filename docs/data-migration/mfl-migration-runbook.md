@@ -141,6 +141,10 @@ specifies `player_mfl_id`, `native_position`, `aliases_reviewed=true` and every
 `reviewed_variant_sha256`. Missing/duplicate identities, unreviewed variants,
 stale hashes, unsupported native catalog IDs/positions and conflicting events
 are rejected. This is an identity-review gate, not a repair/import command.
+All supplied player, owner and attribute approval manifests must decode to JSON
+objects. JSON null, arrays and scalar values fail before reconciliation with
+exit code 1 and no report/readiness claim; an absent option is not a supplied
+approval.
 All rows sharing a native player ID are inspected: contradictory names or
 positions are retained under `native_catalog_conflicts` with evidence references
 and reject approval, including catalog-only identities without draft events.

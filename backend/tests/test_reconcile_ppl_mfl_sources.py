@@ -1020,6 +1020,39 @@ def test_attribute_review_requires_validated_owner_approvals(selected_exports):
         )
 
 
+@pytest.mark.parametrize("kind", ["player", "owner", "attribute"])
+@pytest.mark.parametrize("payload", [None, [], 1, "approval", True])
+def test_supplied_nonobject_approval_never_skips_gate_or_claims_readiness(
+    tmp_path, monkeypatch, capsys, kind, payload
+):
+    def unexpected(**kwargs):
+        pytest.fail("Invalid approval must fail before reconciliation.")
+
+    monkeypatch.setattr(script, "run_source_reconciliation", unexpected)
+    path = tmp_path / "approval.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    output = tmp_path / "result.json"
+    assert (
+        script.main(
+            [
+                "--source-root",
+                str(tmp_path),
+                "--season-export",
+                f"2024={tmp_path}",
+                f"--{kind}-resolutions",
+                str(path),
+                "--output",
+                str(output),
+            ]
+        )
+        == 1
+    )
+    captured = capsys.readouterr()
+    assert "ERROR" in captured.err
+    assert "ready" not in captured.out
+    assert not output.exists()
+
+
 def test_catalog_only_identity_can_be_resolved_without_inventing_events(
     approval_evidence,
 ):

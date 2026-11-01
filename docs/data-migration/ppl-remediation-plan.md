@@ -192,10 +192,13 @@ Fresh PR feedback also exposed a catalog-only player-approval gap: contradictory
 rows sharing a native ID are now preserved with hash-bound references and block
 approval even when only one name matches. Selected actual catalogs contain no
 such conflicts; all prior approvals replay successfully.
+Supplied approval manifests must also be JSON objects: null, arrays and scalars
+are rejected before reconciliation, so supplying a path cannot bypass a gate or
+produce a false readiness claim.
 
 Slice 4 is **complete for reviewed historical source attributes**.
 `approved_attribute_resolutions.ready_for_slice_5=true`;
-`ready_to_import=false`. Validation: 147 focused tests, Black, flake8 and
+`ready_to_import=false`. Validation: 162 focused tests, Black, flake8 and
 whitespace checks passed. Both full database-copy manifests still match the
 verified baselines; original sources and selected export hashes are unchanged.
 No API requests, source rewrites, database repairs or imports were performed.
