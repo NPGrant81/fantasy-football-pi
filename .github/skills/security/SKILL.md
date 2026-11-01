@@ -78,9 +78,9 @@ This is both a data integrity and security rule.
 | A03 Injection | SQLAlchemy ORM — no raw SQL ever; Pydantic validates all inputs |
 | A04 Insecure Design | Service layer isolates business logic; schema-validated DTOs |
 | A05 Security Misconfiguration | `.env` not committed; secrets via environment variables |
-| A06 Vulnerable Components | `requirements-lock.txt` pins versions; regular dependency audits |
+| A06 Vulnerable Components | `backend/requirements-lock.txt` pins backend versions; regular dependency audits |
 | A07 Auth Failures | JWT expiry enforced; idle timer on frontend; no password in URL |
-| A08 Software & Data Integrity | `requirements-lock.txt`; `.pre-commit-config.yaml` hooks |
+| A08 Software & Data Integrity | `backend/requirements-lock.txt`; `.pre-commit-config.yaml` hooks |
 | A09 Logging Failures | `logging.getLogger('fantasy')` for audit trail; avoid logging PII |
 | A10 SSRF | No user-controlled URL fetching; API keys are server-side only |
 

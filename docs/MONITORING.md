@@ -6,11 +6,14 @@ This repository includes a lightweight monitoring baseline for a Raspberry Pi de
 
 - Loki: log aggregation for FastAPI, Nginx, and systemd journal logs
 - Promtail: log shipping from host files and journald
-- Prometheus: metrics collection for app and host-level signals
+- Prometheus: self and host metrics; application metrics only if explicitly
+  enabled and configured
 - Node Exporter: CPU, memory, and disk metrics
 - Grafana: dashboards and alerting surface
 
-The stack is intentionally lightweight and designed for Pi-class hardware. It is meant as a production baseline, not as a full Kubernetes-style observability platform.
+The stack is intentionally lightweight and designed for Pi-class hardware. It
+is an optional monitoring foundation, not a complete production alerting or
+application-metrics solution.
 
 ## Run the stack
 
@@ -28,11 +31,22 @@ docker compose -f docker-compose.monitoring.yml ps
 
 Then open:
 
-- Grafana: http://<pi-host>:3000
-- Prometheus: http://<pi-host>:9090
-- Loki: http://<pi-host>:3100/ready
+- Grafana: http://127.0.0.1:3000
+- Prometheus: http://127.0.0.1:9090
+- Loki readiness: http://127.0.0.1:3100/ready
 
-Default Grafana credentials are `admin / change-me` unless overridden with `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` in the shell environment.
+The Compose file publishes these ports on all host interfaces. Restrict access
+with a host firewall or change the port mappings to bind to `127.0.0.1` before
+starting the stack on a networked host. Do not expose Grafana, Prometheus, or
+Loki publicly. The default Grafana password is `change-me`; set a strong
+`GRAFANA_ADMIN_PASSWORD` before starting the stack.
+
+For remote administration, use SSH local forwarding and keep the monitoring
+ports firewalled:
+
+```bash
+ssh -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 <user>@<pi-host>
+```
 
 ## Log sources
 
@@ -46,11 +60,18 @@ This makes the app logs, Nginx access/error logs, and host-level events searchab
 
 ## Health signal and backend metrics
 
-The FastAPI backend exposes a `/health` endpoint that reports service, database, and schema state. The health check should remain the first gate before marking the service healthy in deployment automation.
+The FastAPI backend exposes a `/health` endpoint that reports service,
+database, and schema state. The health check should remain the first gate
+before marking the service healthy in deployment automation.
 
-If your backend exposes Prometheus metrics, update the scrape target in `monitoring/prometheus.yml` to match the service host and port.
+Prometheus currently scrapes itself and Node Exporter. The backend scrape
+configuration is commented out, and the application request-metrics panels in
+the dashboard will remain empty until a compatible backend metrics endpoint
+and scrape target are implemented and verified. Do not treat those panels as
+application monitoring evidence yet.
 
-The default target is `host.docker.internal:8000`, which works with the included `host-gateway` mapping and is the easiest way to monitor a locally running backend on the same machine.
+The `host.docker.internal` host-gateway mapping is available in Compose for an
+optional backend scrape target, but it is not enabled by default.
 
 ## Grafana dashboard
 
@@ -58,7 +79,7 @@ The provided dashboard is provisioned automatically at startup:
 
 - `monitoring/grafana/dashboards/overview.json`
 
-It includes panels for:
+It currently includes panels for:
 
 - request rate
 - error rate
@@ -67,9 +88,14 @@ It includes panels for:
 - memory usage
 - disk usage
 
+Only the Pi utilization panels are backed by the default Node Exporter scrape.
+Request rate, error rate, and latency require backend metrics that are not
+currently scraped.
+
 ## Alerting
 
-This baseline does not include a full alertmanager deployment yet. The next hardening step is to add Prometheus Alertmanager rules for:
+This stack does not include Alertmanager or configured alert rules. A future
+hardening step is to add alerting for:
 
 - service down
 - high 5xx rate

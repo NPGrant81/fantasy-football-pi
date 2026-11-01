@@ -173,6 +173,9 @@ jobs:
       - name: Validate stability workflow and recovery contracts
         run: python -m pytest tests/test_stability_workflow_contract.py tests/test_backup_restore.py -q
 
+      - name: Validate workflow integration contracts
+        run: python -m pytest tests/test_workflow_integration_contract.py -q
+
       - name: Apply database migrations
         run: python -m backend.apply_migrations
 

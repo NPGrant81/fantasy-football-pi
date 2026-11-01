@@ -153,6 +153,11 @@ jobs:
             esac
 
             case "$file" in
+              .github/integration-contracts.json)
+                backend=true ;;
+            esac
+
+            case "$file" in
               frontend/*|check-ui.js|audit-breakpoints.sh)
                 frontend=true ;;
             esac

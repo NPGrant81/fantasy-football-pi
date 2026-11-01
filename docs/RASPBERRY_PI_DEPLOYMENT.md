@@ -215,9 +215,26 @@ Expected:
 
 ## 7. Deploy Update Routine
 
+The recommended release path is the manual
+`.github/workflows/deploy-production.yml` workflow, using a reviewed tag or
+commit SHA. The workflow installs the backend lock file and builds the
+frontend on the Pi, restarts services, and checks local API/database/schema
+health. It does not create a database backup or verify public Cloudflare,
+browser, or provider behavior. Complete those checks separately.
+
+For a manual Pi update, use a reviewed immutable ref and stop if the worktree
+contains local changes. Verify a fresh backup before restarting the backend,
+because the systemd unit applies pending migrations as a pre-start action.
+Follow [restore.md](./restore.md) for backup and restore checks.
+
 ```bash
 cd /home/pi/fantasy-football-pi
-git pull
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Worktree is not clean; stop and inspect before deploying."
+  exit 1
+fi
+git fetch origin --tags
+git checkout --detach <reviewed-commit-sha>
 
 cd backend
 ./venv/bin/pip install -r requirements-lock.txt
@@ -229,7 +246,13 @@ sudo rsync -av --delete dist/ /var/www/fantasy-football-pi/frontend/dist/
 
 sudo systemctl restart fantasy-football-backend
 sudo systemctl reload nginx
+curl -fsS http://127.0.0.1:8000/health
 ```
+
+The production workflow currently runs `npm ci` and `npm run build` on the Pi.
+If the host runs out of memory or disk during the build, stop and recover the
+host before retrying; moving builds to CI artifacts requires a separately
+implemented and verified deployment path.
 
 ## 8. How To Decide What Must Be Updated On Pi
 
@@ -256,13 +279,15 @@ The helper prints a command checklist based on changed file paths.
 ### B. Apply updates based on changed paths
 
 Run only the commands required by the files that changed.
+Before restarting the backend when migrations or model changes are included,
+verify a fresh backup and follow the recovery checks in [restore.md](./restore.md).
 
 | Changed path(s) | Required action on Pi |
 | --- | --- |
 | `backend/requirements*.txt` | `cd backend && ./venv/bin/pip install -r requirements-lock.txt` |
 | `backend/**` (code) | `sudo systemctl restart fantasy-football-backend` |
 | `frontend/**` | `cd frontend && npm ci --legacy-peer-deps && npm run build && sudo rsync -av --delete dist/ /var/www/fantasy-football-pi/frontend/dist/` |
-| `deploy/nginx/**` | `sudo cp deploy/nginx/fantasy-football-pi.conf.example /etc/nginx/sites-available/fantasy-football-pi.conf && sudo nginx -t && sudo systemctl reload nginx` |
+| `deploy/nginx/**` | Select the TLS/origin mode described above before installing the template; the redirecting TLS example is not compatible unchanged with the named tunnel's loopback HTTP `:8080` origin. Then run `sudo nginx -t` and reload Nginx. |
 | `deploy/systemd/fantasy-football-backend.service.example` | `sudo cp .../fantasy-football-backend.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart fantasy-football-backend` |
 | `deploy/systemd/cloudflared*.example` | copy updated unit files to `/etc/systemd/system/`, then `sudo systemctl daemon-reload` and restart/enable relevant units |
 | `deploy/cloudflared/**` | copy updated config to `/etc/cloudflared/config.yml`, then `sudo systemctl restart cloudflared` |
@@ -280,6 +305,19 @@ sudo systemctl list-timers --all | grep microsd-db-backup
 ```
 
 If all changed files were docs-only, skip service restarts.
+
+## 9. Rollback
+
+Use the production workflow's `action=rollback` and provide a reviewed
+`rollback_ref`, or use the last successful production ref. This rolls back the
+application code only; it does not reverse database migrations. The backend
+service will still run the guarded migration runner before starting. If the
+previous code cannot operate with the current schema, stop and follow the
+database restore/recovery runbook rather than running `alembic downgrade` as a
+generic rollback step.
+
+After rollback, verify the local `/health` readiness fields and separately
+check the public hostname and key application flows.
 
 ## Notes
 

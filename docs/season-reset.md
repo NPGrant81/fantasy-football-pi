@@ -54,8 +54,11 @@ python backend/scripts/archive_mfl_json_exports.py --season {YEAR}
 
 ### 3.2 Archive weekly stats
 
+Run this once for each finalized week in the season; the script requires both
+the season and week as positional arguments.
+
 ```bash
-python backend/scripts/archive_weekly_stats.py --season {YEAR}
+python backend/scripts/archive_weekly_stats.py {YEAR} {WEEK}
 ```
 
 ### 3.3 Validate archive completeness

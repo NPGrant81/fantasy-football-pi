@@ -101,6 +101,8 @@ Expected:
 - The edge-marked HTTPS request responds without redirecting.
 - The edge-marked HTTP request returns `308` with an HTTPS `Location`.
 - The unrecognized host request is closed by Nginx's default `444` server.
+- The configured tunnel origin serves the app without redirecting the request
+  back to the public HTTPS URL; check the `Location` header.
 
 If you are running setup-only test mode, replace these preconditions with:
 

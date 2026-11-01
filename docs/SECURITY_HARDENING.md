@@ -1,50 +1,61 @@
 # Security Hardening Baseline
 
-This document captures the current security baseline implemented for issue #77 and the next phases for the Fantasy Football Pi platform.
+This document records implemented security controls and remaining work. It
+describes repository code and example configuration; it is not evidence that
+production settings or operational controls have been verified.
 
-## Implemented baseline (Phase 1 + Phase 2)
+## Implemented controls
 
 ### Backend API hardening
-- Security response headers are applied to all backend responses:
-  - `Content-Security-Policy`
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
-  - `Referrer-Policy: strict-origin-when-cross-origin`
-  - `Permissions-Policy`
-  - `Cross-Origin-Opener-Policy: same-origin`
-  - `Strict-Transport-Security` (HTTPS requests)
-- Trusted host filtering is enabled via `ALLOWED_HOSTS`.
-- Frontend CORS origins are configurable via `FRONTEND_ALLOWED_ORIGINS`.
-- The application exposes `/health` GET and HEAD checks that report basic service health, DB connectivity, and uptime metadata for load balancers and monitoring tools.
 
-### Authentication hardening
-- JWT access token lifetime now defaults to 30 minutes (`ACCESS_TOKEN_EXPIRE_MINUTES`).
-- Production startup now fails fast if `SECRET_KEY` is not explicitly set.
-- Login endpoint now includes lightweight brute-force protection:
-  - Configurable time window: `LOGIN_RATE_LIMIT_WINDOW_SECONDS`
-  - Configurable max failures: `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`
-  - Per-IP/per-username attempt tracking with `429` on lockout
-  - Failed and rate-limited attempts are logged
-- Cookie-based sessions are issued at login:
-  - HTTP-only access token cookie (`ffpi_access_token` by default)
-  - CSRF cookie (`ffpi_csrf_token`) for double-submit verification
-- CSRF protection is enforced for `POST`/`PUT`/`PATCH`/`DELETE` requests when cookie auth is used.
-- `POST /auth/logout` clears auth cookies.
-- Frontend is now cookie-session first and no longer stores bearer access tokens in browser storage.
-- Bearer header auth is now opt-in (`ALLOW_BEARER_AUTH=1`) for controlled interoperability.
+- The backend adds defensive response headers, including Content Security
+  Policy, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, and `Cross-Origin-Opener-Policy`.
+- Backend HSTS is added only when the ASGI request scheme is HTTPS. Verify the
+  deployed proxy and Cloudflare configuration rather than assuming this from
+  the code alone.
+- Trusted hosts are restricted through `ALLOWED_HOSTS`; browser origins are
+  configured through `FRONTEND_ALLOWED_ORIGINS`.
+- `/health` GET and HEAD report service, database, and schema readiness.
+
+### Authentication and account security
+
+- Access JWT lifetime defaults to 30 minutes (`ACCESS_TOKEN_EXPIRE_MINUTES`).
+- Production startup requires a strong, explicitly configured `SECRET_KEY`.
+- Failed-login protection is configurable with
+  `LOGIN_RATE_LIMIT_WINDOW_SECONDS` and `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`;
+  attempts are tracked per IP and username, and limited requests receive 429.
+- Rate limiting defaults to process-local memory. A Redis backend is available
+  with `RATE_LIMITER_BACKEND=redis`; Redis failure falls back to process-local
+  memory, which does not provide shared limits across instances.
+- Cookie authentication uses an HTTP-only access-token cookie and a
+  double-submit CSRF cookie. Unsafe methods require CSRF validation when cookie
+  authentication is enabled.
+- Logout clears cookies and revokes the presented access and refresh tokens.
+- Refresh tokens are persisted as hashes, rotated on refresh, and replay
+  detection revokes that user's active refresh tokens.
+- Password-reset token creation and confirmation endpoints exist, but the
+  request endpoint does not deliver email. Self-service reset is therefore not
+  operational end-to-end. Email verification is not implemented.
+- The frontend is cookie-session first and does not store bearer access tokens
+  in browser storage. Bearer-token authentication is opt-in with
+  `ALLOW_BEARER_AUTH=1`.
+- Privileged-action audit-log storage and a superuser read endpoint exist.
+  Treat coverage as partial until every required privileged operation is
+  verified; the application-level log is not an immutable audit store.
 
 ### CI security checks
-- `dependency-check.yml` now runs on dependency-related PR changes in addition to schedule/manual.
-- Backend checks include:
-  - Existing dependency checker
-  - `bandit` static security scan
-- Frontend checks include:
-  - `npm audit --audit-level=high`
-- `secrets-scan.yml` runs gitleaks on push/PR to `main` with repository-specific allowlist tuning in `.gitleaks.toml`.
 
-## Environment variables
+- `.github/workflows/dependency-check.yml` runs monthly, manually, and on
+  dependency-related pull-request changes. On pull requests, dependency and
+  npm audit findings are non-blocking; Bandit and strict backend lock
+  validation still run.
+- The dependency workflow runs backend dependency checks, Bandit, and
+  high-severity npm audit checks.
+- `.github/workflows/secrets-scan.yml` runs Gitleaks on pull requests targeting
+  `main`, pushes to `main`, and manual dispatch, using `.gitleaks.toml`.
 
-Recommended runtime settings:
+## Production settings to verify
 
 - `APP_ENV=production`
 - `SECRET_KEY=<strong random secret>`
@@ -54,45 +65,76 @@ Recommended runtime settings:
 - `CSRF_HEADER_NAME=X-CSRF-Token`
 - `USE_COOKIE_AUTH=1`
 - `AUTH_COOKIE_SAMESITE=lax`
-- `AUTH_COOKIE_SECURE=1` (set to `0` for local HTTP development)
-- `ALLOWED_HOSTS=your.domain.com,localhost,127.0.0.1`
-- `FRONTEND_ALLOWED_ORIGINS=https://your.domain.com`
+- `AUTH_COOKIE_SECURE=1`
+- `ALLOW_ALL_ORIGINS=0`
+- `AUTO_SEED_ON_STARTUP=0`
+- `ALLOWED_HOSTS=<production hostnames>`
+- `FRONTEND_ALLOWED_ORIGINS=<production HTTPS origins>`
 - `LOGIN_RATE_LIMIT_WINDOW_SECONDS=300`
 - `LOGIN_RATE_LIMIT_MAX_ATTEMPTS=10`
+- `RATE_LIMITER_BACKEND=memory` (use `redis` only when Redis is configured
+  and monitored)
 
-## Remaining roadmap (Phase 3+)
+Use the deployment environment file and production configuration checks as the
+source of truth for required settings. Never commit secret values.
+
+## Remaining work
 
 ### User/account security
-- Add password reset and email verification token flows.
-- Add account lockout telemetry dashboard.
 
-### Backend authorization and abuse controls
-- Add endpoint-level scope enforcement for commissioner/admin actions.
-- Enhance rate limiter with request-type specific thresholds (e.g., login vs. API calls).
-- Consider Redis-backed rate limiting for distributed deployments.
+- Connect password-reset token delivery to a supported email service and
+  verify the complete request-to-confirm flow before advertising password
+  reset.
+- Design and implement email verification if required by the product.
+- Add account-lockout telemetry and operator visibility.
 
-### Token lifecycle and audit roadmap
-- Add JWT revocation and refresh-token rotation support.
-- Add immutable admin audit logging for privileged operations.
+### Authorization and abuse controls
+
+- Audit route authorization and cross-league isolation for all mutations and
+  sensitive reads; the existence of role dependencies does not prove complete
+  endpoint coverage.
+- Add request-type-specific API limits beyond failed-login protection where
+  threat analysis calls for them.
+- For multi-instance deployments, configure and monitor Redis; the memory
+  fallback is per-process and is not a distributed control.
+
+### Token lifecycle and audit
+
+- Verify access-token revocation and refresh-token rotation/replay handling
+  with automated tests and operational procedures.
+- Complete and test privileged-action audit coverage. Use an external or
+  append-only store if immutable audit evidence is required.
 
 ### Infrastructure and operations
-- Enforce HTTPS-only at Nginx with HSTS preload decision review.
-- Add incident response runbook and backup restoration drills.
 
-### Nginx hardening template
-- A deploy-ready starter config for Raspberry Pi is available at:
-  - `deploy/nginx/fantasy-football-pi.conf.example`
-- It includes:
-  - HTTP to HTTPS redirect
-  - TLS 1.2/1.3 only
-  - HSTS and defensive headers
-  - Request/connection rate limiting
-  - Safe proxy timeouts and forwarded headers
+- Review the HSTS preload decision before enabling preload. Current Nginx
+  configuration includes HSTS, but it does not establish that the production
+  Cloudflare-to-origin topology is correct.
+- Run and retain evidence for production incident-response and backup-restore
+  drills. Procedures are documented in
+  [INCIDENT_RESPONSE_RUNBOOK.md](./INCIDENT_RESPONSE_RUNBOOK.md) and
+  [restore.md](./restore.md).
 
-## Incident response quick-start
+## Nginx and Cloudflare origin configuration
 
-1. Identify and isolate affected service (API, DB, frontend, CI).
-2. Rotate exposed secrets immediately (`SECRET_KEY`, database credentials, API keys).
-3. Gather logs and preserve artifacts for timeline reconstruction.
-4. Patch root cause and verify with targeted tests plus CI security checks.
-5. Document post-incident actions and prevent recurrence via automation.
+The Nginx example at `deploy/nginx/fantasy-football-pi.conf.example` includes
+an HTTP-to-HTTPS redirect and a TLS listener. The named Cloudflare Tunnel
+example currently targets HTTP on Nginx port 80. These examples are not a
+verified compatible pair as written: a tunnel request can receive a redirect
+back to the public HTTPS hostname instead of reaching the app. Resolve the
+origin mode and verify local and public health checks before production
+cutover; see [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md).
+
+## Incident response
+
+The incident response procedure is documented in
+[INCIDENT_RESPONSE_RUNBOOK.md](./INCIDENT_RESPONSE_RUNBOOK.md), and backup
+restore procedures are documented in [restore.md](./restore.md). Production
+drills still need dated evidence; documentation alone does not establish that
+the procedures work against the intended production environment.
+
+1. Identify and isolate the affected service (API, database, frontend, or CI).
+2. Rotate exposed secrets immediately; do not restore a compromised value.
+3. Preserve logs and artifacts for timeline reconstruction.
+4. Patch the root cause and verify with targeted tests and CI security checks.
+5. Record follow-up actions and prevent recurrence with automation.
