@@ -8,7 +8,7 @@ Pull request test branch: feature/tests-ci
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.
-- Validation: 72 focused backend tests passed, including existing auction
+- Validation: 79 focused backend tests passed, including existing auction
   extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
@@ -37,6 +37,13 @@ Pull request test branch: feature/tests-ci
   reconstruction, not a native-history replacement. The conflict register
   retains every CSV variant/occurrence with hash-bound source row references
   and unapproved resolution fields.
+- Sliced remediation plan added; slice 1 completed as a position-conflict
+  forensic audit. All 113 affected draft-row references are accounted for
+  without filtering candidates by disputed position IDs. Of these, 112 have
+  single-event review candidates and one has none. Mixed native-position
+  observations show global ID replacement is unsafe; no alias or identity is
+  approved. This slice sent zero API requests and verified unchanged source
+  hashes and working-copy manifests.
 - Copilot Feedback:
   - Review requested: attempted 2026-11-01 via MCP and CLI.
   - The initial request was not visible and CLI returned HTTP 422, but Copilot

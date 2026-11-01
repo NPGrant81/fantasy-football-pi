@@ -122,6 +122,120 @@ def _read_export(
     return rows, hashlib.sha256(raw).hexdigest()
 
 
+def _position_conflict_audit(
+    *,
+    season: int,
+    sources: dict[str, list[dict[str, Any]]],
+    players: list[dict[str, str]],
+    franchises: list[dict[str, str]],
+    drafts: list[dict[str, str]],
+    draft_sha256: str,
+) -> dict[str, Any]:
+    conflicting_ids = {
+        identifier
+        for identifier, row in _index(sources["positions.csv"], "PositionID").items()
+        if row is None
+    }
+    legacy_names: dict[int, set[str]] = defaultdict(set)
+    for row in sources["players.csv"]:
+        name = _label(normalize_display_name(row["PlayerName"]))
+        if name:
+            legacy_names[_integer(row["Player_ID"])].add(name)
+    native_catalog: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    native_franchises = {_source_id(row["franchise_id"]) for row in franchises}
+    for row in players:
+        native_catalog[_source_id(row["player_mfl_id"])].add(
+            (
+                _label(normalize_display_name(row["player_name"])),
+                _position(row["position"]),
+            )
+        )
+    events: dict[tuple[str, object], list[dict[str, Any]]] = defaultdict(list)
+    for number, row in enumerate(drafts, start=2):
+        if _source_id(row["franchise_id"]) not in native_franchises:
+            continue
+        identities = native_catalog.get(_source_id(row["player_mfl_id"]), set())
+        if len(identities) != 1:
+            continue
+        name, position = next(iter(identities))
+        if not name or not position:
+            continue
+        try:
+            bid = _amount(row["winning_bid"])
+        except ValueError:
+            continue
+        if row["draft_source"] != "auctionResults" or row["draft_style"] != "auction":
+            continue
+        events[(name, bid)].append(
+            {
+                "evidence_ref": f"{draft_sha256}:{number}",
+                "player_mfl_id": row["player_mfl_id"],
+                "franchise_id": row["franchise_id"],
+                "native_position": position,
+            }
+        )
+    rows = []
+    for number, row in enumerate(sources["draft_results.csv"], start=2):
+        identifier = _position_id(row["PositionID"])
+        if _integer(row["Year"]) != season or identifier not in conflicting_ids:
+            continue
+        candidates = [
+            event
+            for name in sorted(legacy_names[_integer(row["PlayerID"])])
+            for event in events.get((name, _amount(row["WinningBid"])), [])
+        ]
+        rows.append(
+            {
+                "legacy_csv_row": number,
+                "source_position_id": identifier,
+                "source_player_id": _integer(row["PlayerID"]),
+                "source_owner_id": _integer(row["OwnerID"]),
+                "winning_bid": str(_amount(row["WinningBid"])),
+                "candidate_native_positions": sorted(
+                    {event["native_position"] for event in candidates}
+                ),
+                "candidate_native_events": candidates,
+                "status": (
+                    "no_candidate"
+                    if not candidates
+                    else (
+                        "single_event_review" if len(candidates) == 1 else "ambiguous"
+                    )
+                ),
+                "approved": False,
+            }
+        )
+    return {
+        "method": "all_legacy_name_variants_and_exact_bid_without_position_assumption",
+        "rows": rows,
+        "position_ids": [
+            {
+                "source_position_id": identifier,
+                "affected_draft_rows": sum(
+                    row["source_position_id"] == identifier for row in rows
+                ),
+                "candidate_position_sets": [
+                    {"native_positions": list(positions), "rows": count}
+                    for positions, count in sorted(
+                        Counter(
+                            tuple(row["candidate_native_positions"])
+                            for row in rows
+                            if row["source_position_id"] == identifier
+                        ).items()
+                    )
+                ],
+                "global_replacement_approved": False,
+            }
+            for identifier in sorted(conflicting_ids)
+        ],
+        "limitations": [
+            "All legacy player variants participate; a candidate is not an approved identity.",
+            "Matching names and bids cannot authorize a global position-ID replacement.",
+            "No native event candidate does not prove missing history.",
+        ],
+    }
+
+
 def reconcile_season(
     *,
     season: int,
@@ -285,6 +399,14 @@ def reconcile_season(
         blockers.append({"kind": "conflicting_season_owner_evidence"})
     return {
         "season": season,
+        "position_conflict_audit": _position_conflict_audit(
+            season=season,
+            sources=sources,
+            players=players,
+            drafts=drafts,
+            franchises=franchises,
+            draft_sha256=draft_sha256,
+        ),
         "league_mfl_id": KNOWN_LEAGUE_BY_SEASON[season],
         "native_draft_rows": len(events),
         "legacy_draft_rows": len(legacy_report),

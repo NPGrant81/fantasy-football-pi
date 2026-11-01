@@ -74,6 +74,11 @@ this remediation gate.
 
 ### Native MFL repair worksheet (offline)
 
+The [sliced remediation plan](ppl-remediation-plan.md) defines the conflict-first
+sequence and acceptance gates. Slice 1 audits disputed position IDs without
+using the disputed position as an event-matching filter. Review its
+`position_conflict_audit` before proposing alias or per-row repairs.
+
 Reuse retained API exports before sending new requests. For new extraction,
 use one season and one report per short burst, with a bounded request count;
 stop on authentication failure, throttling or unexpected redirects instead of

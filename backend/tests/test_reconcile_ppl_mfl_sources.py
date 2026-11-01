@@ -109,6 +109,95 @@ def test_source_comparison_does_not_round_bid_or_guess_position(source_evidence)
     assert report["legacy_status_counts"] == {"unverified_legacy_identity": 1}
 
 
+@pytest.fixture
+def disputed_position_evidence(source_evidence):
+    source_evidence["sources"]["positions.csv"] = [
+        {"PositionID": "8099", "Position": "Kicker"},
+        {"PositionID": "8099", "Position": "PK"},
+    ]
+    source_evidence["sources"]["draft_results.csv"][0]["PositionID"] = "8099"
+    source_evidence["sources"]["players.csv"][0]["PositionID"] = "8099"
+    source_evidence["players"][0]["position"] = "Def"
+    return source_evidence
+
+
+def test_position_audit_does_not_use_disputed_position_to_filter_native_events(
+    disputed_position_evidence,
+):
+    before = deepcopy(disputed_position_evidence)
+    report = script.reconcile_season(**disputed_position_evidence)
+    audit = report["position_conflict_audit"]
+    assert audit["rows"][0]["candidate_native_positions"] == ["DST"]
+    assert audit["rows"][0]["candidate_native_events"][0]["evidence_ref"] == (
+        "a" * 64 + ":2"
+    )
+    assert audit["position_ids"] == [
+        {
+            "source_position_id": 8099,
+            "affected_draft_rows": 1,
+            "candidate_position_sets": [{"native_positions": ["DST"], "rows": 1}],
+            "global_replacement_approved": False,
+        }
+    ]
+    assert audit["rows"][0]["approved"] is False
+    assert disputed_position_evidence == before
+    assert "Brown" not in str(audit)
+
+
+def test_position_audit_preserves_conflicting_player_variants_and_all_events(
+    disputed_position_evidence,
+):
+    disputed_position_evidence["sources"]["players.csv"].append(
+        {"Player_ID": "10", "PlayerName": "Other Player", "PositionID": "8099"}
+    )
+    disputed_position_evidence["players"].append(
+        {"player_mfl_id": "124", "player_name": "Other Player", "position": "PK"}
+    )
+    disputed_position_evidence["drafts"].append(
+        {**disputed_position_evidence["drafts"][0], "player_mfl_id": "124"}
+    )
+    audit = script.reconcile_season(**disputed_position_evidence)[
+        "position_conflict_audit"
+    ]
+    assert audit["rows"][0]["candidate_native_positions"] == ["DST", "K"]
+    assert len(audit["rows"][0]["candidate_native_events"]) == 2
+    assert audit["rows"][0]["status"] == "ambiguous"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"winning_bid": "5.02"},
+        {"winning_bid": ""},
+        {"franchise_id": "999"},
+        {"draft_style": "snake"},
+    ],
+)
+def test_position_audit_does_not_use_invalid_or_inexact_source_events(
+    disputed_position_evidence,
+    change,
+):
+    disputed_position_evidence["drafts"][0].update(change)
+    audit = script.reconcile_season(**disputed_position_evidence)[
+        "position_conflict_audit"
+    ]
+    assert audit["rows"][0]["status"] == "no_candidate"
+    assert audit["rows"][0]["candidate_native_events"] == []
+
+
+def test_position_audit_is_season_scoped_and_counts_repeated_legacy_rows(
+    disputed_position_evidence,
+):
+    rows = disputed_position_evidence["sources"]["draft_results.csv"]
+    rows.extend([deepcopy(rows[0]), {**rows[0], "Year": "2023"}])
+    audit = script.reconcile_season(**disputed_position_evidence)[
+        "position_conflict_audit"
+    ]
+    assert len(audit["rows"]) == 2
+    assert audit["position_ids"][0]["affected_draft_rows"] == 2
+    assert [row["legacy_csv_row"] for row in audit["rows"]] == [2, 3]
+
+
 @pytest.mark.parametrize(
     "change,reason",
     [
