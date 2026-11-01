@@ -17,6 +17,7 @@ from backend.db_config import resolve_database_url
 from backend.legacy_schema_bridge import (
     LegacyAdoptionReport,
     LegacyScoringMapping,
+    _require_public_creation_schema,
     finalize_legacy_schema_adoption,
     inspect_legacy_database,
     prepare_legacy_schema,
@@ -74,6 +75,7 @@ def _run_adoption(
 
 def _verify_canonical_heads(engine: Engine) -> None:
     with engine.connect() as connection:
+        _require_public_creation_schema(connection)
         actual_heads = frozenset(
             connection.execute(
                 text("SELECT version_num FROM alembic_version")

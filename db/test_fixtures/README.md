@@ -15,16 +15,18 @@ table. The reviewed, explicit legacy adoption bridge is tracked in
 [#554](https://github.com/NPGrant81/fantasy-football-pi/issues/554) and
 [PR #555](https://github.com/NPGrant81/fantasy-football-pi/pull/555).
 
-Until that bridge is integrated, the equivalence test remains a failing
-acceptance gate on PostgreSQL, not a supported direct-upgrade procedure.
+The bridge and equivalence baseline are consolidated in PR #553; PR #555
+records the original bridge review. The incremental test explicitly prepares
+and adopts the legacy schema before canonical migrations and verifies exact
+bootstrap equivalence and archived data preservation.
 Do not edit the fixture, rewrite published migrations, or stamp the database
-to conceal those missing transitions. PR #553 must not merge while this
-dependency is outstanding.
+to conceal those missing transitions. Direct incremental upgrade without the
+reviewed adoption bridge remains unsupported.
 
 The test uses separate disposable databases for bootstrap and incremental
 execution so unqualified catalog checks in published migrations cannot see
 objects in the other path or the CI database. Schema snapshots include
-reflected index expressions and structural sequence properties (type, start,
+reflected index expressions, column ordering, view definitions, and structural sequence properties (type, start,
 increment, bounds, cache, cycle, and owning table/column), but not mutable
 sequence state such as `last_value` or `is_called`. Targeted regression tests
 verify expression and sequence drift is detected and consuming IDs does not
@@ -40,7 +42,9 @@ DDL; do not generate it from `Base.metadata` at test time.
 temporarily creates and drops a fixture schema in a transaction, but makes no
 persistent schema or data changes. It accepts only the exact table and object
 shape represented by this fixture, and reports row counts and mapping
-preconditions. To execute, set
+preconditions. The effective creation schema must be `public` on all
+connections; a search path such as `other, public` is rejected before initial
+preparation, partial retries, and completed retries. To execute, set
 `DATABASE_URL` to the intended PostgreSQL target and pass both `--apply` and
 `--confirm-database <database-name>`. This command is separate from application
 startup; startup never adopts an unversioned schema automatically. Stop
@@ -73,7 +77,9 @@ stat keys understood by the scoring service; calculations must be `per_unit`
 or `flat_bonus`, bounds must be ordered finite two-decimal values, and positions
 must be explicit supported codes. Flat bonuses must exclude zero, so absent
 stats cannot award a bonus. Unknown, duplicate, extra or unmapped rules fail
-closed before archiving. Empty provider-position IDs, custom source and active
+closed before archiving. A category resolving to a different raw stat from
+the reviewed event also fails closed; unrelated stats must not substitute for
+the mapped event. Empty provider-position IDs, custom source and active
 status are assigned only after validation of the explicit semantics.
 Values that cannot be represented without loss or do not satisfy required
 fields block before schema changes, including NULL lineup season/week.
@@ -96,6 +102,9 @@ resulting schema exactly matches the bootstrap snapshot.
 The preflight and initial schema preparation are transactional. A durable
 `prepared` marker in the archive permits an explicit retry if canonical
 migrations stop after preparation; the original tables remain archived.
+CLI regression tests interrupt after committed preparation and revision
+`0001`, retry to canonical heads and `complete`, and rerun completed adoption
+without changing the archive or mapped rows.
 Unknown schemas, archive collisions, pre-existing Alembic history, and
 ambiguous scoring rows fail closed. Keep a separately verified database backup
 before any non-test use; production adoption requires its own approved release

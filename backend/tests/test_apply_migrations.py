@@ -403,6 +403,38 @@ def test_schema_snapshot_ignores_sequence_runtime_state(schema_snapshot_engine):
     assert _migration_schema_snapshot(engine) == baseline
 
 
+@pytest.mark.parametrize(
+    "alteration",
+    [
+        "INCREMENT BY -1",
+        "MINVALUE 0",
+        "MAXVALUE 100000",
+        "START WITH 2",
+        "CACHE 10",
+        "CYCLE",
+        "AS BIGINT",
+        "OWNED BY NONE",
+    ],
+)
+def test_bridge_snapshot_detects_sequence_structure(schema_snapshot_engine, alteration):
+    with schema_snapshot_engine.begin() as connection:
+        schema = connection.exec_driver_sql("SELECT current_schema()").scalar_one()
+        baseline = bridge._schema_snapshot(connection, schema)
+        connection.exec_driver_sql(f"ALTER SEQUENCE snapshot_probe_id_seq {alteration}")
+        assert (
+            bridge._schema_snapshot(connection, schema)["sequences"]
+            != baseline["sequences"]
+        )
+
+
+def test_bridge_snapshot_ignores_sequence_runtime_state(schema_snapshot_engine):
+    with schema_snapshot_engine.begin() as connection:
+        schema = connection.exec_driver_sql("SELECT current_schema()").scalar_one()
+        baseline = bridge._schema_snapshot(connection, schema)
+        connection.exec_driver_sql("SELECT setval('snapshot_probe_id_seq', 50, true)")
+        assert bridge._schema_snapshot(connection, schema) == baseline
+
+
 def _migration_url_for_database(database_url, database_name):
     url = make_url(database_url)
     return url.set(database=database_name).render_as_string(hide_password=False)
@@ -1256,6 +1288,8 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
         "missing_mapping",
         "duplicate_mapping",
         "extra_mapping",
+        "altered_sequence",
+        "conflicting_category",
         "null_season",
         "null_week",
     ],
@@ -1311,6 +1345,10 @@ def test_legacy_adoption_rejects_unsupported_source_without_archiving(
                     "ALTER TABLE users ADD CONSTRAINT users_league_id_fkey "
                     "FOREIGN KEY (league_id) REFERENCES other.leagues(id)"
                 )
+            elif invalid_case == "altered_sequence":
+                connection.exec_driver_sql(
+                    "ALTER SEQUENCE players_id_seq MINVALUE 0 MAXVALUE 1 CYCLE"
+                )
             else:
                 league_id = connection.execute(
                     text(
@@ -1343,10 +1381,15 @@ def test_legacy_adoption_rejects_unsupported_source_without_archiving(
                         text(
                             "INSERT INTO scoring_rules "
                             "(league_id, category, description, points) "
-                            "VALUES (:league_id, 'passing', 'Passing TD', :points)"
+                            "VALUES (:league_id, :category, 'Passing TD', :points)"
                         ),
                         {
                             "league_id": league_id,
+                            "category": (
+                                "rushing_tds"
+                                if invalid_case == "conflicting_category"
+                                else "passing"
+                            ),
                             "points": (
                                 None if invalid_case == "unmappable_scoring_rule" else 4
                             ),
@@ -1355,7 +1398,8 @@ def test_legacy_adoption_rejects_unsupported_source_without_archiving(
 
         expected_error = (
             "differs from the pinned fixture"
-            if invalid_case in {"unexpected_column", "cross_schema_fk"}
+            if invalid_case
+            in {"unexpected_column", "cross_schema_fk", "altered_sequence"}
             else (
                 "NULL season or week"
                 if invalid_case in {"null_season", "null_week"}
@@ -1368,7 +1412,11 @@ def test_legacy_adoption_rejects_unsupported_source_without_archiving(
             else (
                 (_passing_td_mapping(1), _passing_td_mapping(2))
                 if invalid_case == "extra_mapping"
-                else ()
+                else (
+                    (_passing_td_mapping(1),)
+                    if invalid_case == "conflicting_category"
+                    else ()
+                )
             )
         )
         source_snapshot = _migration_schema_snapshot(test_engine)
@@ -1393,6 +1441,161 @@ def test_legacy_adoption_rejects_unsupported_source_without_archiving(
                 f"DROP DATABASE IF EXISTS {quoted_name} WITH (FORCE)"
             )
         admin_engine.dispose()
+
+
+@pytest.fixture
+def legacy_cli_engine():
+    url = os.getenv("FFPI_TEST_POSTGRES_URL")
+    if not url:
+        pytest.skip("FFPI_TEST_POSTGRES_URL is not configured")
+    name = f"ffpi_cli_{uuid4().hex}"
+    admin = create_engine(url)
+    engine = None
+    try:
+        with admin.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        ) as connection:
+            connection.exec_driver_sql(
+                f"CREATE DATABASE {admin.dialect.identifier_preparer.quote(name)}"
+            )
+        engine = create_engine(_migration_url_for_database(url, name))
+        with engine.begin() as connection:
+            bridge._execute_fixture(connection)
+            connection.exec_driver_sql(
+                "INSERT INTO leagues (id, name) VALUES (1, 'Recovery')"
+            )
+            connection.exec_driver_sql(
+                "INSERT INTO scoring_rules (id, league_id, category, description, points) "
+                "VALUES (1, 1, 'passing', 'Passing TD', 4)"
+            )
+        yield engine
+    finally:
+        if engine is not None:
+            engine.dispose()
+        with admin.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        ) as connection:
+            connection.exec_driver_sql(
+                f"DROP DATABASE IF EXISTS {admin.dialect.identifier_preparer.quote(name)} "
+                "WITH (FORCE)"
+            )
+        admin.dispose()
+
+
+@pytest.mark.parametrize("interruption", ["preparation", "revision_0001"])
+def test_legacy_cli_recovers_after_committed_stage(
+    legacy_cli_engine, tmp_path, monkeypatch, interruption
+):
+    from backend import adopt_legacy_schema as cli
+    from backend.models import ScoringRule
+    from backend.services.scoring_service import calculate_points_for_stats
+    from sqlalchemy.orm import Session
+
+    engine = legacy_cli_engine
+    monkeypatch.setenv("DATABASE_URL", engine.url.render_as_string(hide_password=False))
+    mapping_file = tmp_path / "mapping.json"
+    mapping_file.write_text(
+        f"[{_passing_td_mapping(1).model_dump_json()}]", encoding="utf-8"
+    )
+    args = [
+        "--scoring-mappings",
+        str(mapping_file),
+        "--apply",
+        "--confirm-database",
+        engine.url.database,
+    ]
+    with monkeypatch.context() as failure:
+        if interruption == "preparation":
+            original = bridge.prepare_legacy_schema
+
+            def fail_after_preparation(*args, **kwargs):
+                original(*args, **kwargs)
+                raise RuntimeError("Injected interruption")
+
+            failure.setattr(cli, "prepare_legacy_schema", fail_after_preparation)
+        else:
+
+            def fail_after_revision():
+                assert _alembic_versions(engine) == frozenset({cli.INITIAL_REVISION})
+                raise RuntimeError("Injected interruption")
+
+            failure.setattr(migration_runner, "apply_migrations", fail_after_revision)
+        with pytest.raises(RuntimeError, match="Injected interruption"):
+            cli.main(args)
+    with engine.connect() as connection:
+        archived = bridge._schema_snapshot(connection, ARCHIVE_SCHEMA)
+        assert (
+            connection.exec_driver_sql(
+                f"SELECT phase FROM {ARCHIVE_SCHEMA}.adoption_state"
+            ).scalar_one()
+            == "prepared"
+        )
+        assert (
+            connection.exec_driver_sql(
+                f"SELECT points FROM {ARCHIVE_SCHEMA}.scoring_rules WHERE id = 1"
+            ).scalar_one()
+            == 4
+        )
+    assert cli.main(args) == 0
+    cli._verify_canonical_heads(engine)
+    with engine.connect() as connection:
+        assert bridge._schema_snapshot(connection, ARCHIVE_SCHEMA) == archived
+        assert (
+            connection.exec_driver_sql(
+                f"SELECT phase FROM {ARCHIVE_SCHEMA}.adoption_state"
+            ).scalar_one()
+            == "complete"
+        )
+    completed = _migration_schema_snapshot(engine)
+    assert cli.main(args) == 0
+    assert _migration_schema_snapshot(engine) == completed
+    with Session(engine) as session:
+        rule = session.get(ScoringRule, 1)
+        for stats, expected in (
+            ({}, 0),
+            ({"rushing_tds": 2}, 0),
+            ({"passing_tds": 2}, 8),
+        ):
+            assert (
+                calculate_points_for_stats(stats=stats, position="QB", rules=[rule])[0]
+                == expected
+            )
+
+
+@pytest.mark.parametrize("phase", ["initial", "prepared", "complete"])
+def test_legacy_cli_rejects_nonpublic_creation_schema(
+    legacy_cli_engine, monkeypatch, tmp_path, phase
+):
+    from backend import adopt_legacy_schema as cli
+
+    engine = legacy_cli_engine
+    url = engine.url.render_as_string(hide_password=False)
+    monkeypatch.setenv("DATABASE_URL", url)
+    mapping = tmp_path / "mapping.json"
+    mapping.write_text(
+        f"[{_passing_td_mapping(1).model_dump_json()}]", encoding="utf-8"
+    )
+    args = [
+        "--scoring-mappings",
+        str(mapping),
+        "--apply",
+        "--confirm-database",
+        engine.url.database,
+    ]
+    if phase == "prepared":
+        prepare_legacy_schema(engine, scoring_mappings=(_passing_td_mapping(1),))
+    elif phase == "complete":
+        assert cli.main(args) == 0
+    with engine.begin() as connection:
+        connection.exec_driver_sql("CREATE SCHEMA other")
+        before = bridge._schema_snapshot(connection, "public")
+    other_url = engine.url.update_query_dict({"options": "-csearch_path=other,public"})
+    monkeypatch.setenv("DATABASE_URL", other_url.render_as_string(hide_password=False))
+    with pytest.raises(RuntimeError, match="effective creation schema"):
+        cli.main(args)
+    with engine.connect() as connection:
+        assert bridge._schema_snapshot(connection, "public") == before
+        assert not inspect(connection).get_table_names(schema="other")
 
 
 def test_apply_migrations_upgrades_all_heads_for_established_database(

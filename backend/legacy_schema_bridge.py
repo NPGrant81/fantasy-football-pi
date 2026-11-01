@@ -230,6 +230,14 @@ def _schema_snapshot(connection: Connection, schema: str) -> dict[str, object]:
                         ),
                         tuple(
                             sorted(
+                                (column, tuple(ordering))
+                                for column, ordering in (
+                                    index.get("column_sorting") or {}
+                                ).items()
+                            )
+                        ),
+                        tuple(
+                            sorted(
                                 (key, str(value))
                                 for key, value in (
                                     index.get("dialect_options") or {}
@@ -253,7 +261,43 @@ def _schema_snapshot(connection: Connection, schema: str) -> dict[str, object]:
             "check_constraints": check_constraints,
             "indexes": indexes,
         }
-    snapshot["sequences"] = tuple(sorted(inspector.get_sequence_names(schema=schema)))
+    snapshot["sequences"] = tuple(
+        (
+            row.name,
+            row.data_type,
+            row.start,
+            row.increment,
+            row.minimum,
+            row.maximum,
+            row.cache,
+            row.cycle,
+            None if row.owner_schema == schema else row.owner_schema,
+            row.owner_table,
+            row.owner_column,
+            row.dependency_type,
+        )
+        for row in connection.execute(
+            text(
+                "SELECT seq.relname AS name, format_type(p.seqtypid, NULL) AS data_type, "
+                "p.seqstart AS start, p.seqincrement AS increment, p.seqmin AS minimum, "
+                "p.seqmax AS maximum, p.seqcache AS cache, p.seqcycle AS cycle, "
+                "ons.nspname AS owner_schema, owner.relname AS owner_table, "
+                "attr.attname AS owner_column, dep.deptype AS dependency_type "
+                "FROM pg_class seq JOIN pg_namespace ns ON ns.oid = seq.relnamespace "
+                "JOIN pg_sequence p ON p.seqrelid = seq.oid "
+                "LEFT JOIN pg_depend dep ON dep.classid = 'pg_class'::regclass "
+                "AND dep.objid = seq.oid AND dep.objsubid = 0 "
+                "AND dep.refclassid = 'pg_class'::regclass AND dep.refobjsubid > 0 "
+                "AND dep.deptype IN ('a', 'i') "
+                "LEFT JOIN pg_class owner ON owner.oid = dep.refobjid "
+                "LEFT JOIN pg_namespace ons ON ons.oid = owner.relnamespace "
+                "LEFT JOIN pg_attribute attr ON attr.attrelid = owner.oid "
+                "AND attr.attnum = dep.refobjsubid "
+                "WHERE ns.nspname = :schema ORDER BY seq.relname"
+            ),
+            {"schema": schema},
+        )
+    )
     snapshot["views"] = tuple(
         sorted(
             (
@@ -657,6 +701,7 @@ def _rename_bootstrap_foreign_keys(
 
 def reconcile_adopted_schema(engine: Engine) -> None:
     with engine.begin() as connection:
+        _require_public_creation_schema(connection)
         target_metadata, bootstrap_snapshot = _bootstrap_schema_contract(connection)
         migration_context = MigrationContext.configure(
             connection,
@@ -787,6 +832,16 @@ def _lock_source_tables(
         )
 
 
+def _require_public_creation_schema(connection: Connection) -> None:
+    schema = connection.execute(text("SELECT current_schema()")).scalar_one()
+    if schema != LEGACY_SCHEMA:
+        raise RuntimeError(
+            "Legacy adoption requires public as the effective creation schema "
+            f"on every connection; found {schema!r}. Set search_path to public "
+            "before preflight or retry. No adoption changes were made."
+        )
+
+
 def _validate_lineup_fields(connection: Connection, schema: str) -> None:
     table = _qualified(connection, schema, "lineup_submissions")
     invalid_rows = connection.execute(
@@ -822,13 +877,29 @@ def _validate_scoring_rule_mapping(
             "league, category, and losslessly representable points must "
             "be present. Source data remains unchanged."
         )
-    rows = connection.execute(text(f"SELECT id FROM {scoring_rules}")).scalars().all()
+    rows = connection.execute(text(f"SELECT id, category FROM {scoring_rules}")).all()
     mapping_ids = [mapping.rule_id for mapping in scoring_mappings]
-    if len(mapping_ids) != len(set(mapping_ids)) or set(mapping_ids) != set(rows):
+    if len(mapping_ids) != len(set(mapping_ids)) or set(mapping_ids) != {
+        row.id for row in rows
+    }:
         raise RuntimeError(
             "Cannot map legacy scoring_rules: provide exactly one explicit "
             "validated scoring mapping per source rule ID, with no extra IDs."
         )
+    from backend.services.scoring_service import STAT_KEY_ALIASES
+
+    mappings_by_id = {mapping.rule_id: mapping for mapping in scoring_mappings}
+    stat_keys = {
+        alias: event for event, aliases in STAT_KEY_ALIASES.items() for alias in aliases
+    }
+    for row in rows:
+        category = row.category.lower().strip().replace(" ", "_")
+        event = mappings_by_id[row.id].event_name
+        if category in stat_keys and stat_keys[category] != event:
+            raise RuntimeError(
+                f"Cannot map legacy scoring_rules row {row.id}: category "
+                f"{row.category!r} conflicts with reviewed event {event!r}."
+            )
     return len(rows)
 
 
@@ -852,6 +923,7 @@ def inspect_legacy_database(
     scoring_mappings: tuple[LegacyScoringMapping, ...] = (),
 ) -> LegacyAdoptionReport:
     with engine.begin() as connection:
+        _require_public_creation_schema(connection)
         existing_state = _existing_adoption_state(connection)
         if existing_state is not None:
             return _resumable_report(engine, connection, existing_state)
@@ -879,6 +951,7 @@ def prepare_legacy_schema(
     scoring_mappings: tuple[LegacyScoringMapping, ...] = (),
 ) -> LegacyAdoptionReport:
     with engine.begin() as connection:
+        _require_public_creation_schema(connection)
         existing_state = _existing_adoption_state(connection)
         if existing_state is not None:
             return _resumable_report(engine, connection, existing_state)
@@ -1075,6 +1148,7 @@ def prepare_legacy_schema(
 
 def finalize_legacy_schema_adoption(engine: Engine) -> None:
     with engine.begin() as connection:
+        _require_public_creation_schema(connection)
         state_table = _qualified(connection, ARCHIVE_SCHEMA, STATE_TABLE)
         state = connection.execute(
             text(
