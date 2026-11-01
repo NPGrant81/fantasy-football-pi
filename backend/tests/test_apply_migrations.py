@@ -87,6 +87,14 @@ def _migration_schema_snapshot(engine):
                         tuple(index.get("expressions") or ()),
                         tuple(
                             sorted(
+                                (column, tuple(ordering))
+                                for column, ordering in (
+                                    index.get("column_sorting") or {}
+                                ).items()
+                            )
+                        ),
+                        tuple(
+                            sorted(
                                 (key, str(value))
                                 for key, value in (
                                     index.get("dialect_options") or {}
@@ -111,6 +119,12 @@ def _migration_schema_snapshot(engine):
             "indexes": indexes,
         }
     with engine.connect() as connection:
+        snapshot["views"] = tuple(
+            sorted(
+                (name, inspector.get_view_definition(name))
+                for name in inspector.get_view_names()
+            )
+        )
         snapshot["sequences"] = tuple(
             tuple(row)
             for row in connection.execute(
@@ -191,6 +205,61 @@ def test_schema_snapshot_detects_changed_index_expression(schema_snapshot_engine
     assert changed["sequences"] == baseline["sequences"]
 
 
+def test_schema_snapshot_detects_changed_column_sorting(schema_snapshot_engine):
+    engine = schema_snapshot_engine
+    with engine.begin() as connection:
+        connection.exec_driver_sql("CREATE INDEX snapshot_order ON snapshot_probe (id)")
+    baseline = _migration_schema_snapshot(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("DROP INDEX snapshot_order")
+        connection.exec_driver_sql(
+            "CREATE INDEX snapshot_order ON snapshot_probe (id DESC NULLS LAST)"
+        )
+    assert (
+        _migration_schema_snapshot(engine)["snapshot_probe"]["indexes"]
+        != baseline["snapshot_probe"]["indexes"]
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "DROP VIEW snapshot_view",
+        "CREATE OR REPLACE VIEW snapshot_view AS SELECT id FROM snapshot_probe WHERE id > 1",
+    ],
+)
+def test_schema_snapshot_detects_view_changes(schema_snapshot_engine, mutation):
+    engine = schema_snapshot_engine
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE VIEW snapshot_view AS SELECT id FROM snapshot_probe"
+        )
+    baseline = _migration_schema_snapshot(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(mutation)
+    assert _migration_schema_snapshot(engine)["views"] != baseline["views"]
+
+
+@pytest.mark.parametrize("environment", [("env.py",), ("bootstrap", "env.py")])
+def test_alembic_logging_keeps_application_loggers_enabled(environment):
+    import logging
+    from logging.config import fileConfig
+
+    environment_path = Path(__file__).resolve().parents[2].joinpath("db", *environment)
+    tree = ast.parse(environment_path.read_text(encoding="utf-8"))
+    call = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "fileConfig"
+    )
+    kwargs = {keyword.arg: ast.literal_eval(keyword.value) for keyword in call.keywords}
+    logger = logging.getLogger("ffpi.migration.logging_probe")
+    fileConfig(str(migration_runner.ALEMBIC_CONFIG_PATH), **kwargs)
+    assert not logger.disabled
+
+
 @pytest.mark.parametrize(
     "alteration",
     [
@@ -211,9 +280,7 @@ def test_schema_snapshot_detects_sequence_structure_changes(
     engine = schema_snapshot_engine
     baseline = _migration_schema_snapshot(engine)
     with engine.begin() as connection:
-        connection.exec_driver_sql(
-            f"ALTER SEQUENCE snapshot_probe_id_seq {alteration}"
-        )
+        connection.exec_driver_sql(f"ALTER SEQUENCE snapshot_probe_id_seq {alteration}")
     assert _migration_schema_snapshot(engine)["sequences"] != baseline["sequences"]
 
 
@@ -221,12 +288,8 @@ def test_schema_snapshot_ignores_sequence_runtime_state(schema_snapshot_engine):
     engine = schema_snapshot_engine
     baseline = _migration_schema_snapshot(engine)
     with engine.begin() as connection:
-        connection.exec_driver_sql(
-            "INSERT INTO snapshot_probe (payload) VALUES ('{}')"
-        )
-        connection.exec_driver_sql(
-            "SELECT setval('snapshot_probe_id_seq', 50, true)"
-        )
+        connection.exec_driver_sql("INSERT INTO snapshot_probe (payload) VALUES ('{}')")
+        connection.exec_driver_sql("SELECT setval('snapshot_probe_id_seq', 50, true)")
     assert _migration_schema_snapshot(engine) == baseline
 
 
@@ -599,9 +662,9 @@ def test_database_classification_with_postgresql(
             )
             with test_engine.begin() as connection:
                 connection.execute(
-                    metadata.tables["alembic_version"].insert().values(
-                        version_num=revision
-                    )
+                    metadata.tables["alembic_version"]
+                    .insert()
+                    .values(version_num=revision)
                 )
 
         if error_pattern:
@@ -652,9 +715,7 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
                 connection.exec_driver_sql(f"CREATE DATABASE {quoted_name}")
                 created_databases.append(database_name)
 
-        bootstrap_url = _migration_url_for_database(
-            database_url, bootstrap_database
-        )
+        bootstrap_url = _migration_url_for_database(database_url, bootstrap_database)
         incremental_url = _migration_url_for_database(
             database_url, incremental_database
         )
@@ -716,8 +777,7 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
             )
         )
         assert (
-            _alembic_version_column_length(bootstrap_engine)
-            >= longest_revision_length
+            _alembic_version_column_length(bootstrap_engine) >= longest_revision_length
         )
         assert (
             _alembic_version_column_length(incremental_engine)
@@ -760,7 +820,9 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
         admin_engine.dispose()
 
 
-def test_apply_migrations_upgrades_all_heads_for_established_database(monkeypatch, tmp_path):
+def test_apply_migrations_upgrades_all_heads_for_established_database(
+    monkeypatch, tmp_path
+):
     config_path = tmp_path / "alembic.ini"
     config_path.write_text("[alembic]\nscript_location = db\n", encoding="ascii")
     calls = []
