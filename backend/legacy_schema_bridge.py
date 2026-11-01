@@ -203,7 +203,7 @@ def _schema_snapshot(connection: Connection, schema: str) -> dict[str, object]:
             )
             for row in connection.execute(
                 text(
-                    "SELECT relation.relname AS table_name, trigger.tgname AS "
+                    "SELECT relation.relname AS table_name, trg.tgname AS "
                     "trigger_name, pg_get_triggerdef(trg.oid) AS definition, "
                     "trg.tgenabled AS enabled "
                     "FROM pg_trigger AS trg "
