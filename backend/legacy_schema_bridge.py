@@ -3,20 +3,23 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 import sqlalchemy as sa
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from alembic.autogenerate import produce_migrations
 from alembic.migration import MigrationContext
 from alembic.operations import Operations, ops as alembic_ops
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.schema import BLANK_SCHEMA, CreateSchema, DropSchema
-
 
 LEGACY_SCHEMA = "public"
 ARCHIVE_SCHEMA = "ffpi_legacy_archive"
@@ -75,6 +78,43 @@ LEGACY_FIXTURE = (
 )
 
 
+class LegacyScoringMapping(BaseModel):
+    """Operator-reviewed semantics for one pinned legacy scoring row."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: int = Field(strict=True, gt=0)
+    event_name: str
+    calculation_type: Literal["per_unit", "flat_bonus"]
+    range_min: Decimal = Field(allow_inf_nan=False, max_digits=10, decimal_places=2)
+    range_max: Decimal = Field(allow_inf_nan=False, max_digits=10, decimal_places=2)
+    applicable_positions: list[Literal["QB", "RB", "WR", "TE", "K", "DST", "ALL"]] = (
+        Field(min_length=1)
+    )
+
+    @field_validator("event_name")
+    @classmethod
+    def validate_event(cls, value: str) -> str:
+        from backend.services.scoring_service import STAT_KEY_ALIASES
+
+        if value not in STAT_KEY_ALIASES or value == "fantasy_points":
+            raise ValueError("event_name must be a canonical raw scoring stat key")
+        return value
+
+    @model_validator(mode="after")
+    def validate_range(self) -> LegacyScoringMapping:
+        if self.range_min > self.range_max:
+            raise ValueError("range_min must not exceed range_max")
+        if (
+            self.calculation_type == "flat_bonus"
+            and self.range_min <= 0 <= self.range_max
+        ):
+            raise ValueError(
+                "flat_bonus range must exclude zero to avoid missing-stat bonuses"
+            )
+        return self
+
+
 @dataclass(frozen=True)
 class LegacyAdoptionReport:
     database: str | None
@@ -126,6 +166,11 @@ def _schema_snapshot(connection: Connection, schema: str) -> dict[str, object]:
                     (
                         foreign_key.get("name"),
                         tuple(foreign_key.get("constrained_columns") or ()),
+                        (
+                            None
+                            if foreign_key.get("referred_schema") == schema
+                            else foreign_key.get("referred_schema")
+                        ),
                         foreign_key.get("referred_table"),
                         tuple(foreign_key.get("referred_columns") or ()),
                         tuple(sorted((foreign_key.get("options") or {}).items())),
@@ -133,6 +178,7 @@ def _schema_snapshot(connection: Connection, schema: str) -> dict[str, object]:
                     for foreign_key in inspector.get_foreign_keys(
                         table_name,
                         schema=schema,
+                        postgresql_ignore_search_path=True,
                     )
                 ],
                 key=repr,
@@ -207,9 +253,7 @@ def _schema_snapshot(connection: Connection, schema: str) -> dict[str, object]:
             "check_constraints": check_constraints,
             "indexes": indexes,
         }
-    snapshot["sequences"] = tuple(
-        sorted(inspector.get_sequence_names(schema=schema))
-    )
+    snapshot["sequences"] = tuple(sorted(inspector.get_sequence_names(schema=schema)))
     snapshot["views"] = tuple(
         sorted(
             (
@@ -303,26 +347,34 @@ def _verify_source_schema(connection: Connection, source_schema: str) -> str:
             f"Archive schema {ARCHIVE_SCHEMA!r} exists without a validated "
             "adoption-state record; refusing to overwrite it."
         )
-    conflicting_tables = connection.execute(
-        text(
-            "SELECT table_schema FROM information_schema.tables "
-            "WHERE table_name = 'manual_player_mappings' "
-            "AND table_schema <> :source_schema"
-        ),
-        {"source_schema": source_schema},
-    ).scalars().all()
+    conflicting_tables = (
+        connection.execute(
+            text(
+                "SELECT table_schema FROM information_schema.tables "
+                "WHERE table_name = 'manual_player_mappings' "
+                "AND table_schema <> :source_schema"
+            ),
+            {"source_schema": source_schema},
+        )
+        .scalars()
+        .all()
+    )
     if conflicting_tables:
         raise RuntimeError(
             "Legacy adoption cannot proceed while another schema contains "
             "manual_player_mappings; migration 0002 does not schema-qualify its "
             "information_schema lookup."
         )
-    conflicting_types = connection.execute(
-        text(
-            "SELECT typname FROM pg_type "
-            "WHERE typname IN ('scoring_category', 'calc_type')"
+    conflicting_types = (
+        connection.execute(
+            text(
+                "SELECT typname FROM pg_type "
+                "WHERE typname IN ('scoring_category', 'calc_type')"
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if conflicting_types:
         raise RuntimeError(
             "Legacy adoption found pre-existing scoring enum type(s): "
@@ -374,7 +426,9 @@ def _row_counts(connection: Connection, schema: str) -> tuple[tuple[str, int], .
         (
             table_name,
             connection.execute(
-                text(f"SELECT count(*) FROM {_qualified(connection, schema, table_name)}")
+                text(
+                    f"SELECT count(*) FROM {_qualified(connection, schema, table_name)}"
+                )
             ).scalar_one(),
         )
         for table_name in sorted(LEGACY_TABLES)
@@ -414,6 +468,7 @@ def _archive_reconciliation_data(
     connection: Connection,
     table_names: set[str],
 ) -> None:
+    _lock_source_tables(connection, LEGACY_SCHEMA, table_names)
     inspector = inspect(connection)
     archive_tables = set(inspector.get_table_names(schema=ARCHIVE_SCHEMA))
     for table_name in sorted(table_names):
@@ -427,8 +482,7 @@ def _archive_reconciliation_data(
             continue
         if archive_table_name not in archive_tables:
             connection.exec_driver_sql(
-                f"CREATE TABLE {archive_table} "
-                f"(LIKE {source_table} INCLUDING ALL)"
+                f"CREATE TABLE {archive_table} " f"(LIKE {source_table} INCLUDING ALL)"
             )
             connection.exec_driver_sql(
                 f"INSERT INTO {archive_table} SELECT * FROM {source_table}"
@@ -497,10 +551,9 @@ def _bootstrap_schema_contract(
                 target_metadata,
                 schema=None,
                 referred_schema_fn=(
-                    lambda table, to_schema, constraint, referred_schema:
-                    BLANK_SCHEMA
-                    if referred_schema == contract_schema
-                    else None
+                    lambda table, to_schema, constraint, referred_schema: (
+                        BLANK_SCHEMA if referred_schema == contract_schema else None
+                    )
                 ),
             )
             for constraint in list(target_table.foreign_key_constraints):
@@ -534,9 +587,7 @@ def _bootstrap_schema_contract(
                 if normalized != expression:
                     column.server_default = sa.DefaultClause(sa.text(str(normalized)))
 
-        connection.execute(
-            DropSchema(contract_schema, cascade=True, if_exists=True)
-        )
+        connection.execute(DropSchema(contract_schema, cascade=True, if_exists=True))
         connection.exec_driver_sql(
             f"SET LOCAL search_path TO {_quoted(connection, LEGACY_SCHEMA)}"
         )
@@ -618,9 +669,7 @@ def reconcile_adopted_schema(engine: Engine) -> None:
             migration_context,
             target_metadata,
         )
-        operations = list(
-            _flatten_operations(migration_script.upgrade_ops.ops)
-        )
+        operations = list(_flatten_operations(migration_script.upgrade_ops.ops))
         tables_to_drop = [
             operation.table_name
             for operation in operations
@@ -661,8 +710,7 @@ def reconcile_adopted_schema(engine: Engine) -> None:
         if actual_snapshot != bootstrap_snapshot:
             differing_objects = sorted(
                 object_name
-                for object_name in actual_snapshot.keys()
-                | bootstrap_snapshot.keys()
+                for object_name in actual_snapshot.keys() | bootstrap_snapshot.keys()
                 if actual_snapshot.get(object_name)
                 != bootstrap_snapshot.get(object_name)
             )
@@ -727,7 +775,35 @@ def _resumable_report(
     )
 
 
-def _validate_scoring_rule_mapping(connection: Connection, schema: str) -> int:
+def _lock_source_tables(
+    connection: Connection, schema: str, table_names: Iterable[str]
+) -> None:
+    tables = sorted(table_names)
+    if tables:
+        connection.exec_driver_sql(
+            "LOCK TABLE "
+            + ", ".join(_qualified(connection, schema, table) for table in tables)
+            + " IN ACCESS EXCLUSIVE MODE"
+        )
+
+
+def _validate_lineup_fields(connection: Connection, schema: str) -> None:
+    table = _qualified(connection, schema, "lineup_submissions")
+    invalid_rows = connection.execute(
+        text(f"SELECT count(*) FROM {table} WHERE season IS NULL OR week IS NULL")
+    ).scalar_one()
+    if invalid_rows:
+        raise RuntimeError(
+            f"Cannot adopt {invalid_rows} lineup_submissions row(s) with NULL "
+            "season or week. Source data remains unchanged."
+        )
+
+
+def _validate_scoring_rule_mapping(
+    connection: Connection,
+    schema: str,
+    scoring_mappings: tuple[LegacyScoringMapping, ...],
+) -> int:
     scoring_rules = _qualified(connection, schema, "scoring_rules")
     invalid_rows = connection.execute(
         text(
@@ -737,22 +813,23 @@ def _validate_scoring_rule_mapping(connection: Connection, schema: str) -> int:
             "OR points IS NULL "
             "OR points::numeric < -99999999.99 "
             "OR points::numeric > 99999999.99 "
-            "OR points::numeric <> ROUND(points::numeric, 2) "
-            "OR (COALESCE(NULLIF(BTRIM(description), ''), "
-            "NULLIF(BTRIM(category), '')) IS NULL) "
-            "OR LENGTH(COALESCE(NULLIF(BTRIM(description), ''), "
-            "NULLIF(BTRIM(category), ''))) > 100"
+            "OR points::numeric <> ROUND(points::numeric, 2)"
         )
     ).scalar_one()
     if invalid_rows:
         raise RuntimeError(
             f"Cannot map {invalid_rows} legacy scoring_rules row(s): required "
-            "league, category, points, and a <=100-character event label must "
+            "league, category, and losslessly representable points must "
             "be present. Source data remains unchanged."
         )
-    return connection.execute(
-        text(f"SELECT count(*) FROM {scoring_rules}")
-    ).scalar_one()
+    rows = connection.execute(text(f"SELECT id FROM {scoring_rules}")).scalars().all()
+    mapping_ids = [mapping.rule_id for mapping in scoring_mappings]
+    if len(mapping_ids) != len(set(mapping_ids)) or set(mapping_ids) != set(rows):
+        raise RuntimeError(
+            "Cannot map legacy scoring_rules: provide exactly one explicit "
+            "validated scoring mapping per source rule ID, with no extra IDs."
+        )
+    return len(rows)
 
 
 def _division_group_count(connection: Connection, schema: str) -> int:
@@ -772,13 +849,17 @@ def inspect_legacy_database(
     engine: Engine,
     *,
     source_schema: str = LEGACY_SCHEMA,
+    scoring_mappings: tuple[LegacyScoringMapping, ...] = (),
 ) -> LegacyAdoptionReport:
     with engine.begin() as connection:
         existing_state = _existing_adoption_state(connection)
         if existing_state is not None:
             return _resumable_report(engine, connection, existing_state)
         source_fingerprint = _verify_source_schema(connection, source_schema)
-        scoring_rule_rows = _validate_scoring_rule_mapping(connection, source_schema)
+        scoring_rule_rows = _validate_scoring_rule_mapping(
+            connection, source_schema, scoring_mappings
+        )
+        _validate_lineup_fields(connection, source_schema)
         division_groups = _division_group_count(connection, source_schema)
         row_counts = _row_counts(connection, source_schema)
     return LegacyAdoptionReport(
@@ -795,13 +876,18 @@ def prepare_legacy_schema(
     engine: Engine,
     *,
     source_schema: str = LEGACY_SCHEMA,
+    scoring_mappings: tuple[LegacyScoringMapping, ...] = (),
 ) -> LegacyAdoptionReport:
     with engine.begin() as connection:
         existing_state = _existing_adoption_state(connection)
         if existing_state is not None:
             return _resumable_report(engine, connection, existing_state)
+        _lock_source_tables(connection, source_schema, LEGACY_TABLES)
         source_fingerprint = _verify_source_schema(connection, source_schema)
-        scoring_rule_rows = _validate_scoring_rule_mapping(connection, source_schema)
+        scoring_rule_rows = _validate_scoring_rule_mapping(
+            connection, source_schema, scoring_mappings
+        )
+        _validate_lineup_fields(connection, source_schema)
         division_groups = _division_group_count(connection, source_schema)
         row_counts = _row_counts(connection, source_schema)
         connection.execute(CreateSchema(ARCHIVE_SCHEMA))
@@ -835,9 +921,7 @@ def prepare_legacy_schema(
                 options = foreign_key.get("options") or {}
                 operations.create_foreign_key(
                     foreign_key.get("name")
-                    or (
-                        f"fk_{table_name}_{foreign_key['referred_table']}_{index}"
-                    ),
+                    or (f"fk_{table_name}_{foreign_key['referred_table']}_{index}"),
                     table_name,
                     foreign_key["referred_table"],
                     foreign_key.get("constrained_columns") or [],
@@ -891,20 +975,26 @@ def prepare_legacy_schema(
             operations.add_column("scoring_rules", column)
 
         scoring_rules = _qualified(connection, source_schema, "scoring_rules")
-        connection.execute(
-            text(
-                f"UPDATE {scoring_rules} SET "
-                "event_name = COALESCE(NULLIF(BTRIM(description), ''), BTRIM(category)), "
-                "range_min = 0, "
-                "range_max = 9999.99, "
-                "point_value = points::numeric, "
-                "calculation_type = 'flat_bonus', "
-                "applicable_positions = '[\"ALL\"]'::json, "
-                "position_ids = '[]'::json, "
-                "source = 'custom', "
-                "is_active = TRUE"
+        for mapping in scoring_mappings:
+            connection.execute(
+                text(
+                    f"UPDATE {scoring_rules} SET "
+                    "event_name = :event_name, range_min = :range_min, "
+                    "range_max = :range_max, point_value = points::numeric, "
+                    "calculation_type = :calculation_type, "
+                    "applicable_positions = CAST(:positions AS json), "
+                    "position_ids = '[]'::json, source = 'custom', is_active = TRUE "
+                    "WHERE id = :rule_id"
+                ),
+                {
+                    "rule_id": mapping.rule_id,
+                    "event_name": mapping.event_name,
+                    "range_min": mapping.range_min,
+                    "range_max": mapping.range_max,
+                    "calculation_type": mapping.calculation_type,
+                    "positions": json.dumps(mapping.applicable_positions),
+                },
             )
-        )
         for column_name in (
             "league_id",
             "category",

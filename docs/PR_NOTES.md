@@ -3,6 +3,27 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
+## PR #555 Copilot Feedback
+
+- Review received: 2026-11-01.
+- Threads opened: 5; all five findings have verified fixes.
+- Foreign-key snapshots retain external schema identity and normalize only
+  internal references. A same-named cross-schema constraint fails preflight.
+- Preparation locks the full source set before validation/archiving.
+  Reconciliation retains exclusive source locks through column drops, including
+  empty tables; competing writes are tested with real PostgreSQL lock timeouts.
+- Active scoring rules require explicit per-ID event/calculation/range/position
+  mappings via `--scoring-mappings`; labels and flat bonuses are no longer
+  inferred. The adopted passing-TD rule scores 0/0/4/8 for missing/zero/one/two
+  touchdowns and zero for an excluded position.
+- NULL lineup season/week fails inspection and preparation before archiving.
+- Validation: 126 tests passed on disposable PostgreSQL 18, including full
+  bootstrap/incremental equivalence and preservation, scoring, CLI mapping
+  propagation, and validation boundaries. Black, flake8 and whitespace passed.
+- Residual risk: hosted CI and fresh automated review still require confirmation.
+  Production adoption remains a separately approved, backed-up maintenance
+  operation; no production database was accessed.
+
 ## PR #552 Copilot Feedback
 
 - Review requested: attempted 2026-10-31; no request was accepted or is visible on the PR.

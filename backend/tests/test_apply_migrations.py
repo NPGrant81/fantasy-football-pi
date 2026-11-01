@@ -18,16 +18,119 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from backend import apply_migrations as migration_runner
+from backend import legacy_schema_bridge as bridge
 from backend.legacy_schema_bridge import (
     ARCHIVE_SCHEMA,
+    LegacyScoringMapping,
     finalize_legacy_schema_adoption,
     inspect_legacy_database,
     prepare_legacy_schema,
     reconcile_adopted_schema,
 )
+
+
+def _passing_td_mapping(rule_id):
+    return LegacyScoringMapping(
+        rule_id=rule_id,
+        event_name="passing_tds",
+        calculation_type="per_unit",
+        range_min="0",
+        range_max="9999.99",
+        applicable_positions=["QB"],
+    )
+
+
+def _assert_write_blocked(engine, statement):
+    with pytest.raises(DBAPIError) as error:
+        with engine.begin() as writer:
+            writer.exec_driver_sql("SET LOCAL lock_timeout = '100ms'")
+            writer.exec_driver_sql(statement)
+    assert error.value.orig.pgcode == "55P03"
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"event_name": "Passing TD"},
+        {"event_name": "unknown_stat"},
+        {"event_name": "fantasy_points"},
+        {"calculation_type": "unknown"},
+        {"calculation_type": "flat_bonus"},
+        {"range_min": "10", "range_max": "1"},
+        {"range_min": "NaN"},
+        {"range_max": "Infinity"},
+        {"range_min": "0.001"},
+        {"applicable_positions": []},
+        {"applicable_positions": ["unknown"]},
+    ],
+)
+def test_legacy_scoring_mapping_rejects_unestablished_semantics(changes):
+    from pydantic import ValidationError
+
+    payload = _passing_td_mapping(1).model_dump()
+    payload.update(changes)
+    with pytest.raises(ValidationError):
+        LegacyScoringMapping.model_validate(payload)
+
+
+def test_legacy_scoring_mapping_accepts_explicit_nonzero_bonus():
+    payload = _passing_td_mapping(1).model_dump()
+    payload.update(calculation_type="flat_bonus", range_min="3")
+    mapping = LegacyScoringMapping.model_validate(payload)
+    assert mapping.range_min == 3
+
+
+@pytest.mark.parametrize("apply", [False, True])
+def test_legacy_adoption_cli_passes_reviewed_mappings(tmp_path, monkeypatch, apply):
+    from backend import adopt_legacy_schema as adoption_cli
+
+    mapping = _passing_td_mapping(42)
+    mapping_file = tmp_path / "scoring.json"
+    mapping_file.write_text(f"[{mapping.model_dump_json()}]", encoding="utf-8")
+    calls = []
+
+    class FakeEngine:
+        def dispose(self):
+            calls.append("disposed")
+
+    def inspect_target(engine, *, scoring_mappings):
+        assert scoring_mappings == (mapping,)
+        return bridge.LegacyAdoptionReport(
+            database="test_target",
+            phase="validated:probe",
+            table_row_counts=(),
+            scoring_rule_rows=1,
+            division_groups=0,
+            bridge_managed_tables=(),
+        )
+
+    monkeypatch.setattr(
+        adoption_cli,
+        "resolve_database_url",
+        lambda **kwargs: "postgresql://localhost/test_target",
+    )
+    monkeypatch.setattr(
+        adoption_cli, "create_engine", lambda *args, **kwargs: FakeEngine()
+    )
+    monkeypatch.setattr(adoption_cli, "inspect_legacy_database", inspect_target)
+    monkeypatch.setattr(
+        adoption_cli,
+        "_run_adoption",
+        lambda url, mappings: calls.append((url, mappings)),
+    )
+    args = ["--scoring-mappings", str(mapping_file)]
+    if apply:
+        args.extend(["--apply", "--confirm-database", "test_target"])
+    assert adoption_cli.main(args) == 0
+    assert calls == (
+        ["disposed", ("postgresql://localhost/test_target", (mapping,))]
+        if apply
+        else ["disposed"]
+    )
 
 
 def _migration_schema_snapshot(engine):
@@ -489,9 +592,9 @@ def test_database_classification_with_postgresql(
             )
             with test_engine.begin() as connection:
                 connection.execute(
-                    metadata.tables["alembic_version"].insert().values(
-                        version_num=revision
-                    )
+                    metadata.tables["alembic_version"]
+                    .insert()
+                    .values(version_num=revision)
                 )
 
         if error_pattern:
@@ -542,9 +645,7 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
                 connection.exec_driver_sql(f"CREATE DATABASE {quoted_name}")
                 created_databases.append(database_name)
 
-        bootstrap_url = _migration_url_for_database(
-            database_url, bootstrap_database
-        )
+        bootstrap_url = _migration_url_for_database(database_url, bootstrap_database)
         incremental_url = _migration_url_for_database(
             database_url, incremental_database
         )
@@ -683,14 +784,40 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
                 {"league_id": league_id, "user_id": user_id},
             )
 
-        report = inspect_legacy_database(incremental_engine)
+        mappings = (_passing_td_mapping(scoring_rule_id),)
+        report = inspect_legacy_database(incremental_engine, scoring_mappings=mappings)
         assert report.phase.startswith("validated:")
         assert report.scoring_rule_rows == 1
         assert report.division_groups == 1
 
         with monkeypatch.context() as scoped_environment:
             scoped_environment.setenv("DATABASE_URL", incremental_url)
-            prepared_report = prepare_legacy_schema(incremental_engine)
+            original_validate = bridge._validate_scoring_rule_mapping
+
+            def validate_while_locked(connection, schema, scoring_mappings):
+                result = original_validate(connection, schema, scoring_mappings)
+                locked_tables = set(
+                    connection.execute(
+                        text(
+                            "SELECT c.relname FROM pg_locks l JOIN pg_class c "
+                            "ON c.oid = l.relation JOIN pg_namespace n ON n.oid = c.relnamespace "
+                            "WHERE l.pid = pg_backend_pid() AND l.granted "
+                            "AND l.mode = 'AccessExclusiveLock' AND n.nspname = 'public'"
+                        )
+                    ).scalars()
+                )
+                assert bridge.LEGACY_TABLES <= locked_tables
+                _assert_write_blocked(
+                    incremental_engine, "UPDATE scoring_rules SET points = 4.001"
+                )
+                return result
+
+            scoped_environment.setattr(
+                bridge, "_validate_scoring_rule_mapping", validate_while_locked
+            )
+            prepared_report = prepare_legacy_schema(
+                incremental_engine, scoring_mappings=mappings
+            )
             assert prepared_report.phase.startswith("prepared:")
             resumed_report = prepare_legacy_schema(incremental_engine)
             assert resumed_report.phase == f"resume:{prepared_report.phase}"
@@ -703,6 +830,13 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
             )
             migration_runner.apply_migrations()
         with incremental_engine.begin() as connection:
+            bridge._archive_reconciliation_data(connection, {"manual_player_mappings"})
+            assert "reconcile_manual_player_mappings" not in inspect(
+                connection
+            ).get_table_names(schema=ARCHIVE_SCHEMA)
+            _assert_write_blocked(
+                incremental_engine, "INSERT INTO manual_player_mappings DEFAULT VALUES"
+            )
             connection.execute(
                 text(
                     "INSERT INTO manual_player_mappings "
@@ -713,7 +847,21 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
                 ),
                 {"player_id": player_id},
             )
-        reconcile_adopted_schema(incremental_engine)
+        with monkeypatch.context() as scoped_environment:
+            original_archive = bridge._archive_reconciliation_data
+
+            def archive_while_locked(connection, tables):
+                original_archive(connection, tables)
+                assert "manual_player_mappings" in tables
+                _assert_write_blocked(
+                    incremental_engine,
+                    "UPDATE manual_player_mappings SET source_name = 'lost-write'",
+                )
+
+            scoped_environment.setattr(
+                bridge, "_archive_reconciliation_data", archive_while_locked
+            )
+            reconcile_adopted_schema(incremental_engine)
         finalize_legacy_schema_adoption(incremental_engine)
 
         with monkeypatch.context() as scoped_environment:
@@ -734,8 +882,7 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
             )
         )
         assert (
-            _alembic_version_column_length(bootstrap_engine)
-            >= longest_revision_length
+            _alembic_version_column_length(bootstrap_engine) >= longest_revision_length
         )
         assert (
             _alembic_version_column_length(incremental_engine)
@@ -824,13 +971,31 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
             )
         assert preserved_rule == (
             "passing",
-            "Passing TD",
+            "passing_tds",
             4,
             0,
             9999.99,
-            "flat_bonus",
-            ["ALL"],
+            "per_unit",
+            ["QB"],
         )
+        from sqlalchemy.orm import Session
+        from backend.models import ScoringRule
+        from backend.services.scoring_service import calculate_points_for_stats
+
+        with Session(incremental_engine) as session:
+            rule = session.get(ScoringRule, scoring_rule_id)
+            assert rule.is_active
+            for stats, position, expected_points in (
+                ({}, "QB", 0),
+                ({"passing_tds": 0}, "QB", 0),
+                ({"passing_tds": 1}, "QB", 4),
+                ({"passing_tds": 2}, "QB", 8),
+                ({"passing_tds": 2}, "RB", 0),
+            ):
+                points, _ = calculate_points_for_stats(
+                    stats=stats, position=position, rules=[rule]
+                )
+                assert points == expected_points
         assert preserved_division == "East"
         assert archived_division == "East"
         assert archived_points == 4.0
@@ -873,11 +1038,12 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
                 != bootstrap_snapshot.get(table_name, {}).get(part)
             }
             for table_name in set(incremental_snapshot) | set(bootstrap_snapshot)
-            if incremental_snapshot.get(table_name) != bootstrap_snapshot.get(table_name)
+            if incremental_snapshot.get(table_name)
+            != bootstrap_snapshot.get(table_name)
         }
-        assert not schema_differences, (
-            f"Bootstrap/incremental schema differences: {schema_differences}"
-        )
+        assert (
+            not schema_differences
+        ), f"Bootstrap/incremental schema differences: {schema_differences}"
 
         with incremental_engine.begin() as connection:
             connection.exec_driver_sql(
@@ -901,7 +1067,19 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
         admin_engine.dispose()
 
 
-@pytest.mark.parametrize("invalid_case", ["unexpected_column", "unmappable_scoring_rule"])
+@pytest.mark.parametrize(
+    "invalid_case",
+    [
+        "unexpected_column",
+        "unmappable_scoring_rule",
+        "cross_schema_fk",
+        "missing_mapping",
+        "duplicate_mapping",
+        "extra_mapping",
+        "null_season",
+        "null_week",
+    ],
+)
 def test_legacy_adoption_rejects_unsupported_source_without_archiving(
     invalid_case,
 ):
@@ -941,6 +1119,18 @@ def test_legacy_adoption_rejects_unsupported_source_without_archiving(
                 connection.exec_driver_sql(
                     "ALTER TABLE players ADD COLUMN unexpected_source_column TEXT"
                 )
+            elif invalid_case == "cross_schema_fk":
+                connection.exec_driver_sql("CREATE SCHEMA other")
+                connection.exec_driver_sql(
+                    "CREATE TABLE other.leagues (id INTEGER PRIMARY KEY)"
+                )
+                connection.exec_driver_sql(
+                    "ALTER TABLE users DROP CONSTRAINT users_league_id_fkey"
+                )
+                connection.exec_driver_sql(
+                    "ALTER TABLE users ADD CONSTRAINT users_league_id_fkey "
+                    "FOREIGN KEY (league_id) REFERENCES other.leagues(id)"
+                )
             else:
                 league_id = connection.execute(
                     text(
@@ -948,22 +1138,64 @@ def test_legacy_adoption_rejects_unsupported_source_without_archiving(
                         "RETURNING id"
                     )
                 ).scalar_one()
-                connection.execute(
-                    text(
-                        "INSERT INTO scoring_rules "
-                        "(league_id, category, description, points) "
-                        "VALUES (:league_id, 'passing', 'Passing TD', NULL)"
-                    ),
-                    {"league_id": league_id},
-                )
+                if invalid_case in {"null_season", "null_week"}:
+                    user_id = connection.execute(
+                        text(
+                            "INSERT INTO users (username, league_id) "
+                            "VALUES ('lineup-probe', :league_id) RETURNING id"
+                        ),
+                        {"league_id": league_id},
+                    ).scalar_one()
+                    connection.execute(
+                        text(
+                            "INSERT INTO lineup_submissions (league_id, owner_id, season, week) "
+                            "VALUES (:league_id, :user_id, :season, :week)"
+                        ),
+                        {
+                            "league_id": league_id,
+                            "user_id": user_id,
+                            "season": None if invalid_case == "null_season" else 2025,
+                            "week": None if invalid_case == "null_week" else 1,
+                        },
+                    )
+                else:
+                    connection.execute(
+                        text(
+                            "INSERT INTO scoring_rules "
+                            "(league_id, category, description, points) "
+                            "VALUES (:league_id, 'passing', 'Passing TD', :points)"
+                        ),
+                        {
+                            "league_id": league_id,
+                            "points": (
+                                None if invalid_case == "unmappable_scoring_rule" else 4
+                            ),
+                        },
+                    )
 
         expected_error = (
             "differs from the pinned fixture"
-            if invalid_case == "unexpected_column"
-            else "Cannot map"
+            if invalid_case in {"unexpected_column", "cross_schema_fk"}
+            else (
+                "NULL season or week"
+                if invalid_case in {"null_season", "null_week"}
+                else "Cannot map"
+            )
         )
-        with pytest.raises(RuntimeError, match=expected_error):
-            inspect_legacy_database(test_engine)
+        mappings = (
+            (_passing_td_mapping(1), _passing_td_mapping(1))
+            if invalid_case == "duplicate_mapping"
+            else (
+                (_passing_td_mapping(1), _passing_td_mapping(2))
+                if invalid_case == "extra_mapping"
+                else ()
+            )
+        )
+        source_snapshot = _migration_schema_snapshot(test_engine)
+        for operation in (inspect_legacy_database, prepare_legacy_schema):
+            with pytest.raises(RuntimeError, match=expected_error):
+                operation(test_engine, scoring_mappings=mappings)
+            assert _migration_schema_snapshot(test_engine) == source_snapshot
 
         assert ARCHIVE_SCHEMA not in inspect(test_engine).get_schema_names()
         assert "alembic_version" not in inspect(test_engine).get_table_names()
@@ -983,7 +1215,9 @@ def test_legacy_adoption_rejects_unsupported_source_without_archiving(
         admin_engine.dispose()
 
 
-def test_apply_migrations_upgrades_all_heads_for_established_database(monkeypatch, tmp_path):
+def test_apply_migrations_upgrades_all_heads_for_established_database(
+    monkeypatch, tmp_path
+):
     config_path = tmp_path / "alembic.ini"
     config_path.write_text("[alembic]\nscript_location = db\n", encoding="ascii")
     calls = []

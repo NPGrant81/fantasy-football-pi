@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from pydantic import TypeAdapter
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine, make_url
 
@@ -14,20 +16,18 @@ from backend import apply_migrations as migration_runner
 from backend.db_config import resolve_database_url
 from backend.legacy_schema_bridge import (
     LegacyAdoptionReport,
+    LegacyScoringMapping,
     finalize_legacy_schema_adoption,
     inspect_legacy_database,
     prepare_legacy_schema,
     reconcile_adopted_schema,
 )
 
-
 INITIAL_REVISION = "0001_create_draft_value_tables"
 
 
 def _format_report(report: LegacyAdoptionReport) -> str:
-    counts = ", ".join(
-        f"{table}={count}" for table, count in report.table_row_counts
-    )
+    counts = ", ".join(f"{table}={count}" for table, count in report.table_row_counts)
     return (
         f"Database: {report.database}\n"
         f"State: {report.phase}\n"
@@ -36,25 +36,27 @@ def _format_report(report: LegacyAdoptionReport) -> str:
         f"Division groups to map: {report.division_groups}\n"
         "Empty tables to materialize for bootstrap parity: "
         f"{', '.join(report.bridge_managed_tables)}\n"
-        "Scoring mapping: points -> point_value; description (or category) -> "
-        "event_name; range 0..9999.99; flat_bonus; ALL positions.\n"
+        "Scoring mapping: original points -> point_value; event, calculation, "
+        "range and positions require an explicit reviewed mapping for each rule.\n"
         "Original source tables will be retained in schema "
         "'ffpi_legacy_archive'."
     )
 
 
-def _run_adoption(database_url: str) -> None:
+def _run_adoption(
+    database_url: str, scoring_mappings: tuple[LegacyScoringMapping, ...] = ()
+) -> None:
     engine = create_engine(database_url, pool_pre_ping=True)
     try:
-        report = prepare_legacy_schema(engine)
+        report = prepare_legacy_schema(engine, scoring_mappings=scoring_mappings)
         print(_format_report(report))
         if report.phase.startswith("resume:complete:"):
             _verify_canonical_heads(engine)
             return
 
-        has_history = "alembic_version" in migration_runner.inspect(
-            engine
-        ).get_table_names()
+        has_history = (
+            "alembic_version" in migration_runner.inspect(engine).get_table_names()
+        )
         if not has_history:
             command.upgrade(
                 Config(str(migration_runner.ALEMBIC_CONFIG_PATH)),
@@ -96,6 +98,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     parser.add_argument(
+        "--scoring-mappings",
+        type=Path,
+        help="Reviewed JSON array of explicit per-rule scoring mappings.",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Apply the forward-only bridge and canonical migrations.",
@@ -105,6 +112,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Required with --apply; must exactly match DATABASE_URL's database.",
     )
     args = parser.parse_args(argv)
+    scoring_mappings = (
+        TypeAdapter(tuple[LegacyScoringMapping, ...]).validate_json(
+            args.scoring_mappings.read_text(encoding="utf-8")
+        )
+        if args.scoring_mappings is not None
+        else ()
+    )
 
     database_url = resolve_database_url(
         require_explicit=True,
@@ -116,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
 
     engine = create_engine(database_url, pool_pre_ping=True)
     try:
-        report = inspect_legacy_database(engine)
+        report = inspect_legacy_database(engine, scoring_mappings=scoring_mappings)
         print(_format_report(report))
     finally:
         engine.dispose()
@@ -130,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
             "--confirm-database must exactly match the database name in DATABASE_URL."
         )
 
-    _run_adoption(database_url)
+    _run_adoption(database_url, scoring_mappings)
     print("Legacy adoption completed at all canonical Alembic heads.")
     return 0
 

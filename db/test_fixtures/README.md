@@ -25,16 +25,41 @@ shape represented by this fixture, and reports row counts and mapping
 preconditions. To execute, set
 `DATABASE_URL` to the intended PostgreSQL target and pass both `--apply` and
 `--confirm-database <database-name>`. This command is separate from application
-startup; startup never adopts an unversioned schema automatically.
+startup; startup never adopts an unversioned schema automatically. Stop
+application/ETL writers for the maintenance window. Preparation acquires
+transaction-scoped exclusive locks on every source table before validation;
+reconciliation locks every table losing columns before counting or copying
+rows and retains those locks through the drops, including empty tables.
 
 The bridge first copies each source table, including its columns, indexes,
 defaults, primary/unique/check constraints, foreign keys, and rows, into the
 durable `ffpi_legacy_archive` schema. It then maps legacy `scoring_rules.points` to
-`point_value`, uses the non-empty description (or category) for `event_name`,
-and sets the documented legacy defaults: range `0..9999.99`, `flat_bonus`,
-all positions, empty provider-position IDs, custom source, and active status.
+`point_value`. A reviewed JSON array supplied via `--scoring-mappings <file>`
+must define the event, calculation, bounds and positions for every source
+rule ID exactly once. Labels are not inferred as stat keys. For example, after
+confirming that source rule 42 means four points per quarterback passing TD:
+
+```json
+[{
+  "rule_id": 42,
+  "event_name": "passing_tds",
+  "calculation_type": "per_unit",
+  "range_min": "0",
+  "range_max": "9999.99",
+  "applicable_positions": ["QB"]
+}]
+```
+
+Use the same file for preflight and `--apply`. Events must be canonical raw
+stat keys understood by the scoring service; calculations must be `per_unit`
+or `flat_bonus`, bounds must be ordered finite two-decimal values, and positions
+must be explicit supported codes. Flat bonuses must exclude zero, so absent
+stats cannot award a bonus. Unknown, duplicate, extra or unmapped rules fail
+closed before archiving. Empty provider-position IDs, custom source and active
+status are assigned only after validation of the explicit semantics.
 Values that cannot be represented without loss or do not satisfy required
-fields block before schema changes. The original `points` and `users.division`
+fields block before schema changes, including NULL lineup season/week.
+The original `points` and `users.division`
 values remain in the archive; division labels are converted into per-league
 `divisions` rows and linked by `users.division_id`.
 
