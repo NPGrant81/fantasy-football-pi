@@ -43,12 +43,12 @@ some current tables, even though later revisions add foreign keys that depend
 on them. The bridge materializes the explicit set of empty bridge-managed
 tables from current ORM metadata in the preparation transaction; the dry run
 lists them. Existing legacy rows are not copied into these tables. After
-canonical migrations reach their heads, the bridge reconciles the resulting
-public schema against current ORM metadata, which is also the bootstrap
-schema contract. Reconciliation refuses to drop tables and archives any
-non-empty table whose migration-only columns must be removed under
-`ffpi_legacy_archive` before applying the changes. It fails if the schema does
-not converge to the metadata.
+canonical migrations reach their heads, the bridge materializes the immutable
+bootstrap Alembic revision in a temporary schema and reconciles the public
+schema against that exact contract. Reconciliation refuses to drop tables and
+archives any non-empty table whose migration-only columns must be removed
+under `ffpi_legacy_archive` before applying the changes. It fails unless the
+resulting schema exactly matches the bootstrap snapshot.
 
 The preflight and initial schema preparation are transactional. A durable
 `prepared` marker in the archive permits an explicit retry if canonical
