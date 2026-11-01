@@ -149,6 +149,26 @@ audit trail; the separately reviewed resolution section is authoritative for
 this identity-only gate. Catalog-only resolutions preserve zero event counts.
 Exit code 2 still signals that database imports remain blocked.
 
+For slice 3, use `--owner-resolutions` together with the reviewed player
+manifest. Owner approvals require the same source/export hashes and review
+basis, all `reviewed_owner_variant_sha256` values, and one approved
+`season_owners` entry per `(season, source_owner_id)` with a native `franchise_id`.
+Distinct source owners cannot be collapsed onto one franchise within a season.
+Every legacy draft must have unique native event evidence.
+
+Use `event_owner_exceptions` only for reviewed row-specific ownership errors:
+bind the legacy/native evidence references and `resolved_source_owner_id` to
+another explicitly reviewed owner in the same season. Supplemental
+`event_identities` require approved hash-bound legacy rows and native IDs
+supported by the catalog and a unique exact-bid auction event. They cannot
+override previously approved conflicting-player identities.
+
+`owner_conflict_audit` remains an unapproved source-evidence trail;
+`approved_owner_resolutions` records reviewed source ownership and
+`ready_for_slice_4=true`. Target-account mappings and imports remain blocked;
+this command never changes users, source files or database rows. All approval
+files and output reports belong in restricted storage outside Git.
+
 Use `native_mapping_review_template` to review native franchise/player to
 target mappings; all entries start unapproved with null target IDs. Every
 season's franchise list is included even when legacy matches are unavailable.

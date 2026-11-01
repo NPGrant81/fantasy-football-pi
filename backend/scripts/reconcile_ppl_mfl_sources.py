@@ -677,12 +677,15 @@ def run_source_reconciliation(
     source_root: Path,
     season_exports: dict[int, Path],
     draft_exports: dict[int, Path],
+    player_resolutions: dict[str, Any] | None = None,
+    owner_resolutions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not season_exports or set(draft_exports) - set(season_exports):
         raise ValueError("Select season exports before any draft override.")
     sources, hashes = _read_sources(source_root)
     reports = []
     selected = []
+    native_seasons = {}
     for season, root in sorted(season_exports.items()):
         if season not in KNOWN_LEAGUE_BY_SEASON:
             raise ValueError("Season has no verified MFL league mapping.")
@@ -700,6 +703,7 @@ def run_source_reconciliation(
             selected.append({"season": season, "report": report, "sha256": digest})
             if report == "draftResults":
                 draft_hash = digest
+        native_seasons[season] = rows
         reports.append(
             reconcile_season(
                 season=season,
@@ -724,7 +728,7 @@ def run_source_reconciliation(
                 event["legacy_evidence_ref"] = (
                     f"{hashes['draft_results.csv']}:{event['legacy_csv_row']}"
                 )
-    return {
+    result = {
         "writes_performed_to_databases": False,
         "api_requests_sent": 0,
         "ready_to_import": False,
@@ -740,6 +744,338 @@ def run_source_reconciliation(
             "Resolve schema adoption and native event grain before any database import.",
             "Resolve every legacy ID conflict before reconstruction; do not substitute native history.",
         ],
+    }
+    if player_resolutions is not None:
+        approval = approve_player_resolutions(result, player_resolutions)
+        result["approved_player_resolutions"] = approval
+        result["owner_conflict_audit"] = _owner_conflict_audit(
+            sources=sources,
+            report=result,
+            native_seasons=native_seasons,
+            approved_players=approval,
+            reviewed_event_identities=(
+                owner_resolutions.get("event_identities", [])
+                if owner_resolutions
+                else []
+            ),
+        )
+        if owner_resolutions is not None:
+            result["approved_owner_resolutions"] = approve_owner_resolutions(
+                result, owner_resolutions
+            )
+    elif owner_resolutions is not None:
+        raise ValueError("Owner resolutions require validated player approvals.")
+    return result
+
+
+def _owner_conflict_audit(
+    *,
+    sources: dict[str, list[dict[str, Any]]],
+    report: dict[str, Any],
+    native_seasons: dict[int, dict[str, list[dict[str, str]]]],
+    approved_players: dict[str, Any],
+    reviewed_event_identities: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Trace source owners per season without name-based or majority approval."""
+    approved = {
+        row["source_player_id"]: row["player_mfl_id"]
+        for row in approved_players["resolved_players"]
+    }
+    legacy_names: dict[int, set[str]] = defaultdict(set)
+    for row in sources["players.csv"]:
+        name = _dedupe_normalized_name(row["PlayerName"])
+        if name:
+            legacy_names[_integer(row["Player_ID"])].add(name)
+    owner_variants: dict[int, list[str]] = defaultdict(list)
+    for number, row in enumerate(sources["users.csv"], start=2):
+        owner_variants[_integer(row["OwnerID"])].append(
+            f"{report['legacy_source_files_sha256']['users.csv']}:{number}"
+        )
+    groups: dict[tuple[int, int], list[dict[str, Any]]] = defaultdict(list)
+    identity_overrides = {}
+    for entry in reviewed_event_identities or []:
+        number = _integer(entry["legacy_csv_row"])
+        if (
+            number in identity_overrides
+            or number < 2
+            or number > len(sources["draft_results.csv"]) + 1
+            or entry.get("approved") is not True
+            or entry.get("legacy_evidence_ref")
+            != (f"{report['legacy_source_files_sha256']['draft_results.csv']}:{number}")
+        ):
+            raise ValueError(
+                "Supplemental identity requires exact reviewed source evidence."
+            )
+        identity_overrides[number] = _source_id(entry["player_mfl_id"])
+    native_by_year = {}
+    for season in report["seasons"]:
+        year = season["season"]
+        by_name: dict[str, set[str]] = defaultdict(set)
+        for row in native_seasons[year]["players"]:
+            by_name[_dedupe_normalized_name(row["player_name"])].add(
+                _source_id(row["player_mfl_id"])
+            )
+        native_by_year[year] = by_name
+    for number, row in enumerate(sources["draft_results.csv"], start=2):
+        year, owner = _integer(row["Year"]), _integer(row["OwnerID"])
+        identifier = _integer(row["PlayerID"])
+        candidates = []
+        if year in native_seasons:
+            native_ids = (
+                {approved[identifier]}
+                if identifier in approved
+                else set().union(
+                    *(
+                        native_by_year[year].get(name, set())
+                        for name in legacy_names[identifier]
+                    )
+                )
+            )
+            if number in identity_overrides:
+                if (
+                    identifier in approved
+                    and identity_overrides[number] != approved[identifier]
+                ):
+                    raise ValueError(
+                        "Supplemental identity conflicts with approved player resolution."
+                    )
+                native_ids = {identity_overrides[number]}
+            season_report = next(s for s in report["seasons"] if s["season"] == year)
+            candidates = [
+                event
+                for event in season_report["native_events"]
+                if event["status"] != "blocked"
+                and event["player_mfl_id"] in native_ids
+                and _amount(event["winning_bid"]) == _amount(row["WinningBid"])
+            ]
+            if number in identity_overrides:
+                catalog_ids = {
+                    _source_id(player["player_mfl_id"])
+                    for player in native_seasons[year]["players"]
+                }
+                if (
+                    identity_overrides[number] not in catalog_ids
+                    or len(candidates) != 1
+                ):
+                    raise ValueError(
+                        "Supplemental identity lacks unique catalog/auction support."
+                    )
+        groups[(year, owner)].append(
+            {
+                "legacy_evidence_ref": (
+                    f"{report['legacy_source_files_sha256']['draft_results.csv']}:{number}"
+                ),
+                "legacy_csv_row": number,
+                "source_player_id": identifier,
+                "candidate_native_events": [
+                    {
+                        key: event[key]
+                        for key in (
+                            "evidence_ref",
+                            "player_mfl_id",
+                            "franchise_id",
+                            "winning_bid",
+                        )
+                    }
+                    for event in candidates
+                ],
+                "status": (
+                    "missing_season_evidence"
+                    if year not in native_seasons
+                    else (
+                        "single_event_review"
+                        if len(candidates) == 1
+                        else ("ambiguous" if candidates else "no_candidate")
+                    )
+                ),
+                "approved": False,
+            }
+        )
+    seasons = []
+    for (year, owner), rows in sorted(groups.items()):
+        support: dict[str, list[str]] = defaultdict(list)
+        for row in rows:
+            if row["status"] == "single_event_review":
+                support[row["candidate_native_events"][0]["franchise_id"]].append(
+                    row["legacy_evidence_ref"]
+                )
+        seasons.append(
+            {
+                "season": year,
+                "source_owner_id": owner,
+                "source_owner_variant_refs": owner_variants.get(owner, []),
+                "draft_rows": rows,
+                "status_counts": dict(Counter(row["status"] for row in rows)),
+                "candidate_franchises": [
+                    {"franchise_id": franchise, "supporting_legacy_refs": refs}
+                    for franchise, refs in sorted(support.items())
+                ],
+                "status": (
+                    "missing_owner_provenance"
+                    if owner not in owner_variants
+                    else (
+                        "split_owner_evidence"
+                        if len(support) > 1
+                        else (
+                            "season_mapping_review"
+                            if len(support) == 1
+                            else "no_supported_mapping"
+                        )
+                    )
+                ),
+                "approved": False,
+                "resolution": None,
+            }
+        )
+    shared = []
+    for year in sorted({row["season"] for row in seasons}):
+        franchise_owners: dict[str, set[int]] = defaultdict(set)
+        for row in seasons:
+            if row["season"] == year:
+                for candidate in row["candidate_franchises"]:
+                    franchise_owners[candidate["franchise_id"]].add(
+                        row["source_owner_id"]
+                    )
+        shared.extend(
+            {
+                "season": year,
+                "franchise_id": franchise,
+                "source_owner_ids": sorted(owners),
+            }
+            for franchise, owners in sorted(franchise_owners.items())
+            if len(owners) > 1
+        )
+    return {
+        "season_owner_entries": seasons,
+        "shared_franchise_evidence": shared,
+        "legacy_owner_conflicts": [
+            entry
+            for entry in report["legacy_conflict_register"]
+            if entry["source_file"] == "users.csv"
+        ],
+        "ready_for_slice_4": False,
+        "ready_to_import": False,
+        "method": "approved_conflicting_player_ids_or_name_candidates_and_exact_bid",
+        "limitations": [
+            "Names of owners are not used to approve identity or target-account mappings.",
+            "A split requires explicit event-specific review, not majority replacement.",
+            "Single-event/name evidence is a candidate; unresolved rows remain blockers.",
+            "No cross-season owner fallback or database changes are performed.",
+        ],
+    }
+
+
+def approve_owner_resolutions(
+    report: dict[str, Any], decisions: dict[str, Any]
+) -> dict[str, Any]:
+    audit = report["owner_conflict_audit"]
+    if (
+        decisions.get("approved") is not True
+        or not isinstance(decisions.get("review_basis"), str)
+        or not decisions["review_basis"].strip()
+        or decisions.get("legacy_source_files_sha256")
+        != report["legacy_source_files_sha256"]
+        or decisions.get("selected_mfl_exports") != report["selected_mfl_exports"]
+    ):
+        raise ValueError("Owner approvals must match reviewed source hashes.")
+    expected_variants = {
+        variant["variant_sha256"]
+        for conflict in audit["legacy_owner_conflicts"]
+        for variant in conflict["variants"]
+    }
+    variants = decisions.get("reviewed_owner_variant_sha256", [])
+    if len(variants) != len(expected_variants) or set(variants) != expected_variants:
+        raise ValueError("Every conflicting owner variant requires explicit review.")
+    expected = {
+        (entry["season"], entry["source_owner_id"]): entry
+        for entry in audit["season_owner_entries"]
+    }
+    mappings = {}
+    for entry in decisions.get("season_owners", []):
+        key = (_integer(entry["season"]), _integer(entry["source_owner_id"]))
+        if key in mappings or key not in expected or entry.get("approved") is not True:
+            raise ValueError(
+                "Owner mappings contain unapproved, duplicate or unknown entries."
+            )
+        franchise = _source_id(entry["franchise_id"])
+        if franchise not in {
+            c["franchise_id"] for c in expected[key]["candidate_franchises"]
+        }:
+            raise ValueError("Owner mapping lacks same-season event evidence.")
+        mappings[key] = franchise
+    if set(mappings) != set(expected):
+        raise ValueError("Every season-owner entry requires a reviewed mapping.")
+    if len({(year, franchise) for (year, owner), franchise in mappings.items()}) != len(
+        mappings
+    ):
+        raise ValueError(
+            "Season owner mappings must not collapse distinct source owners."
+        )
+    exceptions = {}
+    for entry in decisions.get("event_owner_exceptions", []):
+        ref = entry["legacy_evidence_ref"]
+        if ref in exceptions or entry.get("approved") is not True:
+            raise ValueError("Event owner exceptions must be unique and approved.")
+        exceptions[ref] = entry
+    resolved_rows = []
+    used = set()
+    native_refs = set()
+    for key, profile in sorted(expected.items()):
+        if not profile["source_owner_variant_refs"]:
+            raise ValueError("Owner provenance is missing.")
+        for row in profile["draft_rows"]:
+            if row["status"] != "single_event_review":
+                raise ValueError("Every owner event must have unique native evidence.")
+            candidate = row["candidate_native_events"][0]
+            native_key = (key[0], candidate["evidence_ref"])
+            if native_key in native_refs:
+                raise ValueError("Multiple legacy rows claim the same native event.")
+            native_refs.add(native_key)
+            ref = row["legacy_evidence_ref"]
+            corrected_owner = key[1]
+            franchise = mappings[key]
+            if ref in exceptions:
+                entry = exceptions[ref]
+                corrected_owner = _integer(entry["resolved_source_owner_id"])
+                corrected_key = (key[0], corrected_owner)
+                if corrected_key not in mappings or corrected_owner == key[1]:
+                    raise ValueError(
+                        "Owner exception must use a distinct reviewed same-season owner."
+                    )
+                franchise = mappings[corrected_key]
+                if entry.get("native_evidence_ref") != candidate["evidence_ref"]:
+                    raise ValueError("Owner exception native evidence is stale.")
+                used.add(ref)
+            if franchise != candidate["franchise_id"]:
+                raise ValueError(
+                    "Owner mapping conflicts with event; explicit exception required."
+                )
+            resolved_rows.append(
+                {
+                    "season": key[0],
+                    "original_source_owner_id": key[1],
+                    "resolved_source_owner_id": corrected_owner,
+                    "franchise_id": franchise,
+                    "legacy_evidence_ref": ref,
+                    "native_evidence_ref": candidate["evidence_ref"],
+                    "approved": True,
+                }
+            )
+    if set(exceptions) != used:
+        raise ValueError("Owner exceptions contain unknown legacy rows.")
+    return {
+        "owner_identity_gate": "resolved_source_season_franchises",
+        "season_owners": decisions["season_owners"],
+        "resolved_event_owners": resolved_rows,
+        "reviewed_owner_variant_sha256": sorted(expected_variants),
+        "event_identities": decisions.get("event_identities", []),
+        "review_basis": decisions["review_basis"],
+        "legacy_source_files_sha256": report["legacy_source_files_sha256"],
+        "selected_mfl_exports": report["selected_mfl_exports"],
+        "ready_for_slice_4": True,
+        "ready_to_import": False,
+        "scope": "legacy_source_ownership_only_not_target_accounts",
+        "writes_performed_to_databases": False,
     }
 
 
@@ -895,20 +1231,27 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--player-resolutions", type=Path)
+    parser.add_argument("--owner-resolutions", type=Path)
     args = parser.parse_args(argv)
     if args.output.exists():
         parser.error("--output already exists; choose a new evidence file.")
     try:
+        decisions = (
+            json.loads(args.player_resolutions.read_text(encoding="utf-8"))
+            if args.player_resolutions
+            else None
+        )
         report = run_source_reconciliation(
             source_root=args.source_root,
             season_exports=_selections(args.season_export),
             draft_exports=_selections(args.draft_export),
+            player_resolutions=decisions,
+            owner_resolutions=(
+                json.loads(args.owner_resolutions.read_text(encoding="utf-8"))
+                if args.owner_resolutions
+                else None
+            ),
         )
-        if args.player_resolutions:
-            decisions = json.loads(args.player_resolutions.read_text(encoding="utf-8"))
-            report["approved_player_resolutions"] = approve_player_resolutions(
-                report, decisions
-            )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8") as handle:
             json.dump(report, handle, indent=2)
@@ -919,7 +1262,10 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    if args.player_resolutions:
+    if args.owner_resolutions:
+        print(f"Reviewed source-owner resolutions saved: {args.output}")
+        print("Slice 4 ready; target-account mappings and imports remain BLOCKED.")
+    elif args.player_resolutions:
         print(f"Reviewed player identity resolutions saved: {args.output}")
         print(
             "Slice 3 ready; imports remain BLOCKED by the remaining remediation gates."

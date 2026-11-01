@@ -117,6 +117,37 @@ reconciliation and schema/import gates remain unresolved. No original source,
 position field or database row was changed. Validation: 100 focused tests and
 real approval-manifest replay passed. This slice made zero API requests.
 
+## Slice 3 source-ownership resolution
+
+The owner explicitly approved all 96 season-specific legacy owner to native
+franchise mappings, covering all 12 conflicting owner IDs and 25 distinct
+owner variants. The source audit uses validated player identities where
+available and exact-bid native event evidence; it never approves an owner from
+their name or falls back across seasons.
+
+All 1,197 legacy draft rows now have reviewed source-ownership evidence. One
+explicit exception is preserved: 2024 legacy CSV row 959 (Ezekiel Elliott,
+$5) resolves from source owner 6 to source owner 3/native franchise `0002`.
+The other twelve source-owner-6 events resolve to `0007`. No majority rewrite
+is used; the exception retains its original owner and both source references.
+
+Three additional event-specific identity labels were approved: 2021 Washington
+Commanders/Washington Football Team defense (`0520`), 2023 legacy "Mecole Def"
+to Mecole Hardman (`14113`), and 2025 Cameron/Cam Ward (`17030`). These do not
+authorize global catalog changes or position/team attribute repair.
+
+`--owner-resolutions` validates reviewed source hashes, every owner variant,
+complete season-key coverage, same-season franchise evidence, row-specific
+exceptions, supplemental native identities and uniqueness of native event
+claims. Distinct source owners cannot collapse into one season franchise.
+The approved resolution section is separate from preserved candidate evidence.
+
+Slice 3 is complete **for legacy source ownership**, and slice 4 may proceed.
+Target app user/account mappings remain a prerequisite to eventual imports;
+no account identity, access, membership or database row has been changed.
+No API requests were sent. Restricted approval manifests and replay reports
+remain outside Git.
+
 ## API policy
 
 Reuse retained exports first. Any new request is one season/report in a short,

@@ -621,6 +621,295 @@ def approval_evidence(selected_exports):
     return report, decisions
 
 
+@pytest.fixture
+def owner_approval_evidence(approval_evidence):
+    report, _ = deepcopy(approval_evidence)
+    conflict = {
+        "source_file": "users.csv",
+        "source_id": 1,
+        "variants": [{"variant_sha256": "variant-1"}, {"variant_sha256": "variant-2"}],
+    }
+    report["owner_conflict_audit"] = {
+        "legacy_owner_conflicts": [conflict],
+        "season_owner_entries": [
+            {
+                "season": 2024,
+                "source_owner_id": 1,
+                "source_owner_variant_refs": ["users-hash:2"],
+                "candidate_franchises": [{"franchise_id": "0001"}],
+                "draft_rows": [
+                    {
+                        "status": "single_event_review",
+                        "legacy_evidence_ref": "draft-hash:2",
+                        "candidate_native_events": [
+                            {
+                                "evidence_ref": "native-hash:2",
+                                "franchise_id": "0001",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    decisions = {
+        "approved": True,
+        "review_basis": "Explicit source ownership review",
+        "legacy_source_files_sha256": report["legacy_source_files_sha256"],
+        "selected_mfl_exports": report["selected_mfl_exports"],
+        "reviewed_owner_variant_sha256": ["variant-1", "variant-2"],
+        "season_owners": [
+            {
+                "season": 2024,
+                "source_owner_id": 1,
+                "franchise_id": "0001",
+                "approved": True,
+            }
+        ],
+        "event_owner_exceptions": [],
+    }
+    return report, decisions
+
+
+def test_owner_approval_resolves_source_ownership_not_target_accounts(
+    owner_approval_evidence,
+):
+    report, decisions = owner_approval_evidence
+    before = deepcopy(report)
+    result = script.approve_owner_resolutions(report, decisions)
+    assert result["ready_for_slice_4"] is True
+    assert result["ready_to_import"] is False
+    assert result["scope"] == "legacy_source_ownership_only_not_target_accounts"
+    assert result["resolved_event_owners"][0]["franchise_id"] == "0001"
+    assert report == before
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "stale_hash",
+        "missing_variant",
+        "duplicate_mapping",
+        "missing_mapping",
+        "unsupported_franchise",
+        "ambiguous_event",
+        "unknown_exception",
+        "unapproved",
+    ],
+)
+def test_owner_approval_rejects_missing_or_conflicting_evidence(
+    owner_approval_evidence, failure
+):
+    report, decisions = deepcopy(owner_approval_evidence)
+    if failure == "stale_hash":
+        decisions["legacy_source_files_sha256"] = {}
+    elif failure == "missing_variant":
+        decisions["reviewed_owner_variant_sha256"].pop()
+    elif failure == "duplicate_mapping":
+        decisions["season_owners"] *= 2
+    elif failure == "missing_mapping":
+        decisions["season_owners"] = []
+    elif failure == "unsupported_franchise":
+        decisions["season_owners"][0]["franchise_id"] = "0002"
+    elif failure == "ambiguous_event":
+        report["owner_conflict_audit"]["season_owner_entries"][0]["draft_rows"][0][
+            "status"
+        ] = "ambiguous"
+    elif failure == "unknown_exception":
+        decisions["event_owner_exceptions"] = [
+            {
+                "approved": True,
+                "legacy_evidence_ref": "unknown",
+            }
+        ]
+    else:
+        decisions["approved"] = False
+    with pytest.raises(ValueError):
+        script.approve_owner_resolutions(report, decisions)
+
+
+def test_owner_exception_is_row_specific_and_same_season(owner_approval_evidence):
+    report, decisions = deepcopy(owner_approval_evidence)
+    first = report["owner_conflict_audit"]["season_owner_entries"][0]
+    second = deepcopy(first)
+    second["source_owner_id"] = 2
+    second["candidate_franchises"] = [{"franchise_id": "0002"}]
+    second["draft_rows"][0]["legacy_evidence_ref"] = "draft-hash:3"
+    second["draft_rows"][0]["candidate_native_events"][0] = {
+        "evidence_ref": "native-hash:3",
+        "franchise_id": "0002",
+    }
+    first["candidate_franchises"].append({"franchise_id": "0002"})
+    first["draft_rows"][0]["candidate_native_events"][0]["franchise_id"] = "0002"
+    report["owner_conflict_audit"]["season_owner_entries"].append(second)
+    decisions["season_owners"].append(
+        {
+            **decisions["season_owners"][0],
+            "source_owner_id": 2,
+            "franchise_id": "0002",
+        }
+    )
+    decisions["event_owner_exceptions"] = [
+        {
+            "approved": True,
+            "legacy_evidence_ref": "draft-hash:2",
+            "native_evidence_ref": "native-hash:2",
+            "resolved_source_owner_id": 2,
+        }
+    ]
+    result = script.approve_owner_resolutions(report, decisions)
+    assert result["resolved_event_owners"][0]["original_source_owner_id"] == 1
+    assert result["resolved_event_owners"][0]["resolved_source_owner_id"] == 2
+    assert result["resolved_event_owners"][1]["resolved_source_owner_id"] == 2
+    decisions["event_owner_exceptions"][0]["native_evidence_ref"] = "stale"
+    with pytest.raises(ValueError, match="stale"):
+        script.approve_owner_resolutions(report, decisions)
+
+
+def test_duplicate_native_event_claims_are_blocked(owner_approval_evidence):
+    report, decisions = deepcopy(owner_approval_evidence)
+    rows = report["owner_conflict_audit"]["season_owner_entries"][0]["draft_rows"]
+    rows.append({**rows[0], "legacy_evidence_ref": "draft-hash:3"})
+    with pytest.raises(ValueError, match="same native event"):
+        script.approve_owner_resolutions(report, decisions)
+
+
+def test_owner_audit_requires_same_season_and_preserves_split_evidence(source_evidence):
+    before = deepcopy(source_evidence)
+    sources = source_evidence["sources"]
+    sources["draft_results.csv"].extend(
+        [
+            {**sources["draft_results.csv"][0], "WinningBid": "6"},
+            {**sources["draft_results.csv"][0], "Year": "2023"},
+        ]
+    )
+    source_evidence["franchises"].append({"franchise_id": "0002"})
+    source_evidence["drafts"].append(
+        {
+            **source_evidence["drafts"][0],
+            "franchise_id": "0002",
+            "winning_bid": "6",
+        }
+    )
+    season = script.reconcile_season(**source_evidence)
+    report = {
+        "seasons": [season],
+        "legacy_source_files_sha256": {"users.csv": "u", "draft_results.csv": "d"},
+        "legacy_conflict_register": [],
+    }
+    audit = script._owner_conflict_audit(
+        sources=sources,
+        report=report,
+        native_seasons={2024: {"players": source_evidence["players"]}},
+        approved_players={"resolved_players": []},
+    )
+    assert len(audit["season_owner_entries"]) == 2
+    assert (
+        audit["season_owner_entries"][0]["draft_rows"][0]["status"]
+        == "missing_season_evidence"
+    )
+    assert audit["season_owner_entries"][1]["status"] == "split_owner_evidence"
+    assert audit["ready_for_slice_4"] is False
+    assert before["sources"]["users.csv"] == sources["users.csv"]
+
+
+@pytest.mark.parametrize("failure", ["unapproved", "stale", "unsupported", "duplicate"])
+def test_supplemental_event_identity_requires_review_and_native_support(
+    source_evidence, failure
+):
+    season = script.reconcile_season(**source_evidence)
+    report = {
+        "seasons": [season],
+        "legacy_source_files_sha256": {"users.csv": "u", "draft_results.csv": "d"},
+        "legacy_conflict_register": [],
+    }
+    entry = {
+        "legacy_csv_row": 2,
+        "legacy_evidence_ref": "d:2",
+        "player_mfl_id": "123",
+        "approved": True,
+    }
+    if failure == "unapproved":
+        entry["approved"] = False
+    elif failure == "stale":
+        entry["legacy_evidence_ref"] = "old:2"
+    elif failure == "unsupported":
+        entry["player_mfl_id"] = "999"
+    entries = [entry, deepcopy(entry)] if failure == "duplicate" else [entry]
+    with pytest.raises(ValueError):
+        script._owner_conflict_audit(
+            sources=source_evidence["sources"],
+            report=report,
+            native_seasons={2024: {"players": source_evidence["players"]}},
+            approved_players={"resolved_players": []},
+            reviewed_event_identities=entries,
+        )
+
+
+def test_owner_cli_replays_full_source_approval_without_network_or_database(
+    selected_exports,
+    approval_evidence,
+    tmp_path,
+    capsys,
+    monkeypatch,
+):
+    import requests
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Owner approval must remain offline.")
+
+    monkeypatch.setattr(requests.sessions.Session, "request", unexpected)
+    source_root, export_root = selected_exports
+    _, players = approval_evidence
+    report = script.run_source_reconciliation(
+        source_root=source_root,
+        season_exports={2024: export_root},
+        draft_exports={},
+        player_resolutions=players,
+    )
+    owners = {
+        "approved": True,
+        "review_basis": "Explicit per-season ownership approval",
+        "legacy_source_files_sha256": report["legacy_source_files_sha256"],
+        "selected_mfl_exports": report["selected_mfl_exports"],
+        "reviewed_owner_variant_sha256": [],
+        "event_owner_exceptions": [],
+        "season_owners": [
+            {
+                "season": 2024,
+                "source_owner_id": 1,
+                "franchise_id": "0001",
+                "approved": True,
+            }
+        ],
+    }
+    player_path, owner_path = tmp_path / "players.json", tmp_path / "owners.json"
+    player_path.write_text(json.dumps(players), encoding="utf-8")
+    owner_path.write_text(json.dumps(owners), encoding="utf-8")
+    output = tmp_path / "reviewed.json"
+    assert (
+        script.main(
+            [
+                "--source-root",
+                str(source_root),
+                "--season-export",
+                f"2024={export_root}",
+                "--player-resolutions",
+                str(player_path),
+                "--owner-resolutions",
+                str(owner_path),
+                "--output",
+                str(output),
+            ]
+        )
+        == 2
+    )
+    saved = json.loads(output.read_text())
+    assert saved["approved_owner_resolutions"]["ready_for_slice_4"] is True
+    assert saved["ready_to_import"] is False
+    assert "Slice 4 ready" in capsys.readouterr().out
+
+
 def test_explicit_approval_resolves_identities_not_import_or_positions(
     approval_evidence,
 ):
@@ -657,7 +946,16 @@ def test_cli_replays_approved_identity_manifest(
     capsys,
 ):
     report, decisions = approval_evidence
-    monkeypatch.setattr(script, "run_source_reconciliation", lambda **kwargs: report)
+
+    def replay(**kwargs):
+        return {
+            **report,
+            "approved_player_resolutions": script.approve_player_resolutions(
+                report, kwargs["player_resolutions"]
+            ),
+        }
+
+    monkeypatch.setattr(script, "run_source_reconciliation", replay)
     selection = tmp_path / "approved.json"
     selection.write_text(json.dumps(decisions), encoding="utf-8")
     output = tmp_path / "resolved.json"

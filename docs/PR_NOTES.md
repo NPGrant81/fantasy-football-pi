@@ -8,7 +8,7 @@ Pull request test branch: feature/tests-ci
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.
-- Validation: 100 focused backend tests passed, including existing auction
+- Validation: 117 focused backend tests passed, including existing auction
   extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
@@ -53,6 +53,13 @@ Pull request test branch: feature/tests-ci
   for all 11 undrafted IDs. Hash-bound approval replay verifies all 50 IDs, 101
   variants and 135 affected drafts. Slice 3 may proceed; target mappings,
   position/team repairs, schema adoption and imports remain blocked.
+- Slice 3 source-ownership gate is complete after explicit owner approval:
+  96 season-owner keys, all 12 conflicting owner IDs/25 variants and all 1,197
+  legacy draft ownership records are accounted for. One 2024 row-specific
+  ownership exception and three event-specific player-label corrections are
+  preserved in hash-bound reviewed manifests. Distinct season owners cannot
+  collapse; duplicate native-event claims are rejected. Target-account
+  mappings, position/team repairs and imports remain separate gates.
 - Copilot Feedback:
   - Review requested: attempted 2026-11-01 via MCP and CLI.
   - The initial request was not visible and CLI returned HTTP 422, but Copilot
