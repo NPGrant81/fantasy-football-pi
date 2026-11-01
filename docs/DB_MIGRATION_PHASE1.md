@@ -10,12 +10,20 @@ Establish a predictable PostgreSQL folder layout and complete a safe Alembic cut
 - Domain purpose is defined for each folder.
 - Migration ownership conventions are documented.
 - Alembic runtime configuration now uses the canonical `/db` migration tree.
+- Runtime path switch is complete.
 
 ## Current State
 
 - Alembic runtime config points to `/db` with revisions in `db/migrations`.
-- Legacy files in `backend/alembic/versions` have been removed.
-- Head lineage is unified via merge revision `5517dcbf0494`.
+- Retired `backend/alembic/` artifacts have been removed.
+- Earlier branches were unified by merge revision `5517dcbf0494`; the current
+  canonical graph has the single head `0028_reconcile_runtime_schema`.
+- CI scans repository-wide for Alembic revision files and permits only
+  `db/migrations/` plus the governed bootstrap revision.
+
+See `docs/MIGRATION_LEGACY_INVENTORY.md` for the disposition of the retired lineage.
+Disposable PostgreSQL execution and deployed revision-history verification
+remain release gates for retiring that lineage.
 
 ## Cutover Status
 

@@ -52,7 +52,10 @@
 "area:database":
   - changed-files:
       - any-glob-to-any-file:
-          - backend/alembic/**
+          - backend/alembic.ini
+          - db/env.py
+          - db/migrations/**
+          - db/bootstrap/**
           - backend/models.py
           - backend/models/**
           - backend/models_*.py

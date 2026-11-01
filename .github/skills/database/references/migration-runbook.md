@@ -83,11 +83,20 @@ make a database an established FFPI database.
 ## If Migration Fails
 
 ```bash
-# Check current state
-cd /home/pi/fantasy-football-pi/backend
-alembic current
-alembic heads
-alembic history --verbose
+# Inspect migration state with the protected production environment
+sudo systemd-run --wait --pipe --collect \
+  --property=Type=exec \
+  --property=User=pi \
+  --property=Group=www-data \
+  --property=WorkingDirectory=/home/pi/fantasy-football-pi \
+  --property=EnvironmentFile=/etc/fantasy-football-pi/backend.env \
+  /bin/bash -euc '
+    cd backend
+    /home/pi/fantasy-football-pi/backend/venv/bin/alembic current
+    /home/pi/fantasy-football-pi/backend/venv/bin/alembic heads
+    /home/pi/fantasy-football-pi/backend/venv/bin/alembic history --verbose
+  '
+
 sudo journalctl -u fantasy-football-backend -n 100 --no-pager
 ```
 
