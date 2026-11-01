@@ -1,24 +1,44 @@
-import { execSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { compareVisualBaselines } from './visual-regression.mjs';
 
-const targetPath = 'cypress/screenshots/uat_capture_pages.spec.js';
-
-function run(command) {
-  return execSync(command, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-}
+const frontendDirectory = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
+const screenshotDirectory = path.join(
+  frontendDirectory,
+  'cypress',
+  'screenshots',
+  'uat_capture_pages.spec.js',
+);
+const baselineDirectory = path.join(
+  frontendDirectory,
+  'cypress',
+  'visual-baselines',
+  'uat_capture_pages.spec.js',
+);
+const diffDirectory = path.join(frontendDirectory, 'cypress', 'visual-diffs');
 
 try {
-  const changed = run(`git status --porcelain -- ${targetPath}`);
+  const { compared, failures } = await compareVisualBaselines({
+    baselineDirectory,
+    actualDirectory: screenshotDirectory,
+    diffDirectory,
+  });
 
-  if (!changed) {
-    console.log('Visual regression check passed: screenshot baseline is unchanged.');
-    process.exit(0);
+  if (failures.length > 0) {
+    console.error('Visual regression check failed:');
+    for (const failure of failures) {
+      console.error(`- ${failure.filename}: ${failure.reason}`);
+    }
+    console.error(`PNG diff images were written to ${diffDirectory}.`);
+    process.exitCode = 1;
+  } else {
+    console.log(`Visual regression check passed for ${compared} screenshots.`);
   }
-
-  console.error('Visual regression detected. Baseline screenshot diff found:');
-  console.error(changed);
-  process.exit(1);
 } catch (error) {
-  console.error('Unable to evaluate visual regression status.');
+  console.error('Unable to compare visual regression baselines.');
   console.error(error.message || error);
-  process.exit(1);
+  process.exitCode = 1;
 }

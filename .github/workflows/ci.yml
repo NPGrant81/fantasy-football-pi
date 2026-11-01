@@ -496,12 +496,11 @@ jobs:
         run: |
           npm run test:snapshots
 
-      - name: Optional visual regression validation
-        if: github.event_name == 'workflow_dispatch'
-        id: frontend_optional_visual
+      - name: Test visual baseline comparator
+        id: frontend_visual_comparator
         working-directory: frontend
         run: |
-          npm run test:visual-optional
+          npm run test:visual
 
       - name: Build frontend and capture logs
         id: frontend_build
@@ -545,7 +544,7 @@ jobs:
             echo "- Unit test result: ${{ steps.frontend_unit_tests.outcome }}"
             echo "- Snapshot test result: ${{ steps.frontend_snapshot_tests.outcome }}"
             echo "- Build result: ${{ steps.frontend_build.outcome }}"
-            echo "- Optional visual regression result: ${{ steps.frontend_optional_visual.outcome || 'not_run' }}"
+            echo "- Visual comparator tests result: ${{ steps.frontend_visual_comparator.outcome }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload frontend coverage artifact

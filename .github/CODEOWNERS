@@ -32,6 +32,7 @@
 /backend/requirements-validation.txt  @NPGrant81
 /frontend/package.json                @NPGrant81
 /frontend/package-lock.json           @NPGrant81
+/frontend/cypress/visual-baselines/   @NPGrant81
 
 # CI, deployment, and secrets handling.
 /.github/workflows/  @NPGrant81
