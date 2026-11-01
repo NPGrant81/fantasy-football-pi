@@ -84,8 +84,10 @@ definition. Use the explicit classification work in [#527](https://github.com/NP
 when it is implemented and its records are classified. Do not remove the
 existing exclusion based on this document.
 
-The exact persisted sources and effective-time rules for these membership
-concepts remain to be mapped in #547, coordinating with [#523](https://github.com/NPGrant81/fantasy-football-pi/issues/523).
+The current persisted sources and effective-time gaps for these membership
+concepts are documented in the [source map](SEMANTIC_DATA_SOURCE_MAP.md);
+historical data-model hardening remains coordinated with
+[#523](https://github.com/NPGrant81/fantasy-football-pi/issues/523).
 
 ## Metric meaning, context, and grain
 
@@ -175,10 +177,36 @@ a `source`, while MFL ingestion records and normalized HTML facts carry
 additional run, file, fingerprint, and normalization details. These examples
 are not a claim that all flows expose complete provenance or freshness.
 
+## Consumer semantic context
+
+The initial consumer adoption adds an additive `semantic_context` response
+object to player season details, matchup list/detail, and stored-stat scoring
+previews.
+Existing numeric fields remain unchanged; the metadata makes ambiguity
+explicit rather than selecting a provider or inferring missing history.
+
+Point contexts identify the source set and whether it is known, mixed, or
+unknown; the value basis; whether the scoring definition is known,
+unversioned, or unknown; the source-selection policy; observed time and
+freshness; and whether values are known, partial, or unknown. A
+`source_reported` value with unknown scoring definition is not comparable as
+league-calculated. A `league_calculated` value using mutable active rules is
+marked `unversioned`. Freshness remains `unknown` when no source observation
+time is available; database write time is not substituted.
+
+Membership context distinguishes non-applicable player statistics from the
+matchup consumer's mutable current starter status. The latter is not
+season/week-scoped historical roster evidence and may admit legacy picks
+without a league ID. Matchup `scope` describes the stored row, while
+`calculation_scope` separately reports the season used by the current
+scoring-settings lookup.
+
 ## Compatibility and change boundaries
 
-- This contract introduces no database columns, migrations, data rewrites, or
-  API response changes.
+- This contract introduces no database columns, migrations, or data rewrites.
+  The #549 adoption adds backward-compatible semantic metadata while
+  preserving existing response fields; breaking API changes require a
+  separate compatibility plan.
 - Existing persisted values MUST NOT be reinterpreted solely to make them fit
   these definitions. Unverified values remain unknown or provisional.
 - Existing provider adapters and league-settings propagation remain in
@@ -186,8 +214,8 @@ are not a claim that all flows expose complete provenance or freshness.
   [#399](https://github.com/NPGrant81/fantasy-football-pi/issues/399);
   historical data-model hardening remains in #523; canonical player metadata
   work remains in [#361](https://github.com/NPGrant81/fantasy-football-pi/issues/361).
-- The source-to-concept mapping and consumer selection are the next phase,
-  #547. Consumer adoption and contract tests are tracked in [#549](https://github.com/NPGrant81/fantasy-football-pi/issues/549).
+- The source-to-concept mapping is documented in [#547](https://github.com/NPGrant81/fantasy-football-pi/issues/547).
+  Consumer adoption and contract tests are tracked in [#549](https://github.com/NPGrant81/fantasy-football-pi/issues/549).
 - Any later schema or data migration requires a separate compatibility plan
   covering existing rows, rollout, validation, and rollback. This document is
   not authorization to migrate or reinterpret production data.

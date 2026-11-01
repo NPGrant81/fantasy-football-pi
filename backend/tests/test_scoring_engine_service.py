@@ -137,7 +137,7 @@ def test_calculate_player_week_points_falls_back_to_weekly_fantasy_points_withou
     )
     db_session.commit()
 
-    total, breakdown, payload = calculate_player_week_points(
+    total, breakdown, payload, semantic_context = calculate_player_week_points(
         db_session,
         league_id=league.id,
         player_id=player.id,
@@ -150,6 +150,9 @@ def test_calculate_player_week_points_falls_back_to_weekly_fantasy_points_withou
     assert total == pytest.approx(24.3)
     assert breakdown == []
     assert payload.get("fantasy_points") == pytest.approx(24.3)
+    assert semantic_context.value_basis == "source_reported"
+    assert semantic_context.sources == ["test"]
+    assert semantic_context.freshness == "unknown"
 
 
 def test_recalculate_league_week_scores_updates_matchup_totals(db_session):

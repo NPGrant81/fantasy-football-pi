@@ -8,6 +8,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .. import models
+from ..schemas.semantic import SemanticPointContext
+from .semantic_context_service import build_semantic_point_context
 
 
 STAT_KEY_ALIASES: dict[str, list[str]] = {
@@ -175,7 +177,7 @@ def calculate_player_week_points(
     week: int,
     position: str | None = None,
     season_year: int | None = None,
-) -> tuple[float, list[CalculatedRuleResult], dict[str, Any]]:
+) -> tuple[float, list[CalculatedRuleResult], dict[str, Any], SemanticPointContext]:
     rules = active_scoring_rules_for_league(db, league_id=league_id, season_year=season_year)
 
     player = db.query(models.Player).filter(models.Player.id == player_id).first()
@@ -193,7 +195,19 @@ def calculate_player_week_points(
     )
 
     if not weekly_stat:
-        return 0.0, [], {}
+        return (
+            0.0,
+            [],
+            {},
+            build_semantic_point_context(
+                sources=[],
+                value_basis="unknown",
+                scoring_definition="unknown",
+                selection_policy="latest_row_id",
+                value_count=0,
+                unknown_value_count=0,
+            ),
+        )
 
     stats_payload = dict(weekly_stat.stats or {})
     if weekly_stat.fantasy_points is not None:
@@ -203,7 +217,36 @@ def calculate_player_week_points(
     if not rules and weekly_stat.fantasy_points is not None:
         total = round(_to_float(weekly_stat.fantasy_points), 4)
 
-    return total, breakdown, stats_payload
+    has_calculated_value = bool(rules and stats_payload)
+    has_reported_value = (
+        not rules
+        and weekly_stat.fantasy_points is not None
+        and bool(weekly_stat.source and weekly_stat.source.strip())
+    )
+    if has_calculated_value:
+        value_basis = "league_calculated"
+        scoring_definition = "unversioned"
+    elif has_reported_value:
+        value_basis = "source_reported"
+        scoring_definition = "unknown"
+    else:
+        value_basis = "unknown"
+        scoring_definition = "unknown"
+
+    point_context = build_semantic_point_context(
+        sources=[weekly_stat.source],
+        value_basis=value_basis,
+        scoring_definition=scoring_definition,
+        selection_policy="latest_row_id",
+        value_count=1,
+        unknown_value_count=(
+            0
+            if has_calculated_value
+            or (not rules and weekly_stat.fantasy_points is not None)
+            else 1
+        ),
+    )
+    return total, breakdown, stats_payload, point_context
 
 
 def recalculate_matchup_scores(
@@ -245,7 +288,7 @@ def recalculate_matchup_scores(
         total = 0.0
         contributors = 0
         for pick in lineup:
-            points, _, _ = calculate_player_week_points(
+            points, _, _, _ = calculate_player_week_points(
                 db,
                 league_id=matchup.league_id,
                 player_id=pick.player_id,
