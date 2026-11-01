@@ -113,11 +113,9 @@ def _migration_schema_snapshot(engine):
     return snapshot
 
 
-def _migration_url_for_schema(database_url, schema_name):
+def _migration_url_for_database(database_url, database_name):
     url = make_url(database_url)
-    query = dict(url.query)
-    query["options"] = f"-csearch_path={schema_name}"
-    return url.set(query=query).render_as_string(hide_password=False)
+    return url.set(database=database_name).render_as_string(hide_password=False)
 
 
 def _alembic_versions(engine):
@@ -512,18 +510,28 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
         pytest.skip("FFPI_TEST_POSTGRES_URL is not configured")
 
     schema_suffix = uuid4().hex
-    bootstrap_schema = f"ffpi_issue504_bootstrap_{schema_suffix}"
-    incremental_schema = f"ffpi_issue504_incremental_{schema_suffix}"
+    bootstrap_database = f"ffpi_issue504_bootstrap_{schema_suffix}"
+    incremental_database = f"ffpi_issue504_incremental_{schema_suffix}"
     admin_engine = create_engine(database_url, pool_pre_ping=True)
     bootstrap_engine = None
     incremental_engine = None
+    created_databases = []
     try:
-        with admin_engine.begin() as connection:
-            connection.execute(CreateSchema(bootstrap_schema))
-            connection.execute(CreateSchema(incremental_schema))
+        with admin_engine.connect() as connection:
+            connection = connection.execution_options(isolation_level="AUTOCOMMIT")
+            for database_name in (bootstrap_database, incremental_database):
+                quoted_name = admin_engine.dialect.identifier_preparer.quote(
+                    database_name
+                )
+                connection.exec_driver_sql(f"CREATE DATABASE {quoted_name}")
+                created_databases.append(database_name)
 
-        bootstrap_url = _migration_url_for_schema(database_url, bootstrap_schema)
-        incremental_url = _migration_url_for_schema(database_url, incremental_schema)
+        bootstrap_url = _migration_url_for_database(
+            database_url, bootstrap_database
+        )
+        incremental_url = _migration_url_for_database(
+            database_url, incremental_database
+        )
         bootstrap_engine = create_engine(bootstrap_url, pool_pre_ping=True)
         incremental_engine = create_engine(incremental_url, pool_pre_ping=True)
 
@@ -598,13 +606,15 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
             bootstrap_engine.dispose()
         if incremental_engine is not None:
             incremental_engine.dispose()
-        with admin_engine.begin() as connection:
-            connection.execute(
-                DropSchema(bootstrap_schema, cascade=True, if_exists=True)
-            )
-            connection.execute(
-                DropSchema(incremental_schema, cascade=True, if_exists=True)
-            )
+        with admin_engine.connect() as connection:
+            connection = connection.execution_options(isolation_level="AUTOCOMMIT")
+            for database_name in created_databases:
+                quoted_name = admin_engine.dialect.identifier_preparer.quote(
+                    database_name
+                )
+                connection.exec_driver_sql(
+                    f"DROP DATABASE IF EXISTS {quoted_name} WITH (FORCE)"
+                )
         admin_engine.dispose()
 
 
