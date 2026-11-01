@@ -10,7 +10,7 @@ Pull request test branch: feature/tests-ci
 - Threads resolved: 0.
 - Follow-up commits: none.
 - Scope: add backward-compatible semantic context to player season details, matchup list/detail, and stored-stat scoring previews for #549.
-- Validation: 46 focused backend tests and repository hygiene passed; hosted CI is still running.
+- Validation: 46 focused backend tests and repository hygiene passed; all applicable hosted checks passed, including `ci-gate`, backend tests, API integration, E2E, security, compatibility, secrets scan, and migration-layout checks. Frontend/UI and fork-only lanes were skipped as expected.
 - Residual risk: the Copilot review tool failed with an MCP parameter-header error, and the CLI/API reviewer state remains empty. A manual review is still needed.
 
 ## PR #551 Copilot Feedback
