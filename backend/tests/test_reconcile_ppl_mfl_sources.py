@@ -585,3 +585,144 @@ def test_player_proposals_bind_legacy_and_native_catalog_rows_to_input_hashes(
 def test_duplicate_or_malformed_selections_are_rejected(selection):
     with pytest.raises(ValueError):
         script._selections(selection)
+
+
+@pytest.fixture
+def approval_evidence(selected_exports):
+    source_root, export_root = selected_exports
+    path = source_root / "players.csv"
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    rows.append({**rows[0], "PlayerName": "AJ Brown Jr."})
+    _write_csv(path, rows)
+    report = script.run_source_reconciliation(
+        source_root=source_root, season_exports={2024: export_root}, draft_exports={}
+    )
+    decisions = {
+        "approved": True,
+        "review_basis": "Explicit reviewer identity and alias approval",
+        "legacy_source_files_sha256": report["legacy_source_files_sha256"],
+        "selected_mfl_exports": report["selected_mfl_exports"],
+        "players": [
+            {
+                "source_player_id": 10,
+                "player_mfl_id": "123",
+                "native_position": "WR",
+                "aliases_reviewed": True,
+                "reviewed_variant_sha256": [
+                    v["variant_sha256"]
+                    for v in report["seasons"][0]["player_conflict_audit"][0][
+                        "variants"
+                    ]
+                ],
+            }
+        ],
+    }
+    return report, decisions
+
+
+def test_explicit_approval_resolves_identities_not_import_or_positions(
+    approval_evidence,
+):
+    report, decisions = approval_evidence
+    before = deepcopy(report)
+    result = script.approve_player_resolutions(report, decisions)
+    assert result["player_identity_gate"] == "resolved"
+    assert result["ready_for_slice_3"] is True
+    assert result["ready_to_import"] is False
+    assert result["resolved_players"][0]["scope"] == "legacy_player_identity_only"
+    assert len(result["resolved_players"][0]["catalog_evidence_refs"]) == 1
+    assert len(result["resolved_players"][0]["native_event_refs"]) == 1
+    assert report == before
+
+
+def test_catalog_only_identity_can_be_resolved_without_inventing_events(
+    approval_evidence,
+):
+    report, decisions = deepcopy(approval_evidence)
+    report["seasons"][0]["player_conflict_audit"][0]["affected_draft_rows"] = []
+    profile = report["player_conflict_dispositions"][0]
+    profile["affected_draft_rows"] = 0
+    profile["disposition"] = "blocked_catalog_only_identity_review"
+    result = script.approve_player_resolutions(report, decisions)
+    assert result["ready_for_slice_3"] is True
+    assert result["resolved_players"][0]["legacy_event_refs"] == []
+    assert result["resolved_players"][0]["catalog_evidence_refs"]
+
+
+def test_cli_replays_approved_identity_manifest(
+    approval_evidence,
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    report, decisions = approval_evidence
+    monkeypatch.setattr(script, "run_source_reconciliation", lambda **kwargs: report)
+    selection = tmp_path / "approved.json"
+    selection.write_text(json.dumps(decisions), encoding="utf-8")
+    output = tmp_path / "resolved.json"
+    assert (
+        script.main(
+            [
+                "--source-root",
+                str(tmp_path),
+                "--season-export",
+                f"2024={tmp_path}",
+                "--player-resolutions",
+                str(selection),
+                "--output",
+                str(output),
+            ]
+        )
+        == 2
+    )
+    saved = json.loads(output.read_text(encoding="utf-8"))
+    assert saved["approved_player_resolutions"]["ready_for_slice_3"] is True
+    assert saved["ready_to_import"] is False
+    assert "Slice 3 ready" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "unapproved",
+        "stale_hash",
+        "missing_identity",
+        "duplicate_identity",
+        "unreviewed_alias",
+        "missing_variant",
+        "wrong_native_id",
+        "wrong_position",
+        "uncovered_season",
+        "ambiguous_event",
+    ],
+)
+def test_approval_rejects_incomplete_stale_or_unsupported_decisions(
+    approval_evidence, failure
+):
+    report, decisions = deepcopy(approval_evidence)
+    entry = decisions["players"][0]
+    if failure == "unapproved":
+        decisions["approved"] = False
+    elif failure == "stale_hash":
+        decisions["legacy_source_files_sha256"] = {}
+    elif failure == "missing_identity":
+        decisions["players"] = []
+    elif failure == "duplicate_identity":
+        decisions["players"].append(deepcopy(entry))
+    elif failure == "unreviewed_alias":
+        entry["aliases_reviewed"] = False
+    elif failure == "missing_variant":
+        entry["reviewed_variant_sha256"].pop()
+    elif failure == "wrong_native_id":
+        entry["player_mfl_id"] = "999"
+    elif failure == "wrong_position":
+        entry["native_position"] = "DST"
+    elif failure == "uncovered_season":
+        report["player_conflict_dispositions"][0]["uncovered_legacy_rows"] = [99]
+    elif failure == "ambiguous_event":
+        report["seasons"][0]["player_conflict_audit"][0]["affected_draft_rows"][0][
+            "status"
+        ] = "ambiguous"
+    with pytest.raises(ValueError):
+        script.approve_player_resolutions(report, decisions)

@@ -96,10 +96,26 @@ and catalog-only blockers. A proposal does not certify all source variants or
 approve nickname, defense or target-player mappings. Every entry remains
 `approved=false`, `resolution=null`, `reconstruction_blocked=true`.
 
-Slice 2 is **in progress**, not complete. Next steps are reviewing the 39
-draft-supported proposals and establishing explicit evidence for the 11
-undrafted identities and unmatched alias variants. Slices 3-7 remain gated.
-This work uses retained exports only and makes no API/database calls.
+### Slice 2 resolution
+
+The owner explicitly approved all 50 reviewed native identities and aliases:
+suffix/punctuation variants, NFL team-name/D/ST labels, Chig/Chigoziem Okonkwo,
+Gabe/Gabriel Davis, Hollywood/Marquise Brown, Cam/Cameron Skattebo, and the
+Los/Las Vegas Raiders spelling difference. Catalog evidence distinguishes
+native defense IDs from the 12 similarly named team aggregate positions.
+
+All 11 undrafted identities have explicit catalog-backed resolutions; their
+lack of draft events does not discard them or manufacture historical events.
+The reviewed manifest accounts for all 50 IDs, 101 variants and 135 affected
+drafts. The `approved_player_resolutions` section records identity-only approval,
+catalog/event hashes and evidence references. Candidate sections remain
+unchanged to preserve the original evidence trail.
+
+Slice 2 is **complete for legacy player identity resolution**. Slice 3 may
+proceed. Target-app player mapping, legacy position/team repairs, event
+reconciliation and schema/import gates remain unresolved. No original source,
+position field or database row was changed. Validation: 100 focused tests and
+real approval-manifest replay passed. This slice made zero API requests.
 
 ## API policy
 

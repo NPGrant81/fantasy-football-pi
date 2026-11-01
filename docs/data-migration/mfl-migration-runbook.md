@@ -133,6 +133,22 @@ Undrafted conflicts require catalog-only identity evidence; absence of draft
 usage is not grounds to discard them. Reconstruction remains blocked until
 every conflict and mapping is reviewed.
 
+After explicit human review, pass a restricted approval JSON with
+`--player-resolutions C:\restricted-reports\player-approvals.json`. It must
+contain `approved=true`, a review basis, the exact legacy source hashes and
+selected MFL export hashes, and one entry per conflicting player ID. Each entry
+specifies `player_mfl_id`, `native_position`, `aliases_reviewed=true` and every
+`reviewed_variant_sha256`. Missing/duplicate identities, unreviewed variants,
+stale hashes, unsupported native catalog IDs/positions and conflicting events
+are rejected. This is an identity-review gate, not a repair/import command.
+
+The output's `approved_player_resolutions` records catalog and event evidence,
+marks `ready_for_slice_3=true` only after all identities pass, and leaves
+`ready_to_import=false`. Original candidate sections remain unapproved as an
+audit trail; the separately reviewed resolution section is authoritative for
+this identity-only gate. Catalog-only resolutions preserve zero event counts.
+Exit code 2 still signals that database imports remain blocked.
+
 Use `native_mapping_review_template` to review native franchise/player to
 target mappings; all entries start unapproved with null target IDs. Every
 season's franchise list is included even when legacy matches are unavailable.

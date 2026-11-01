@@ -756,6 +756,134 @@ def _selections(values: list[str]) -> dict[int, Path]:
     return result
 
 
+def approve_player_resolutions(
+    report: dict[str, Any], decisions: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate explicit human-reviewed identities against immutable source evidence."""
+    if (
+        decisions.get("approved") is not True
+        or not isinstance(decisions.get("review_basis"), str)
+        or not decisions["review_basis"].strip()
+        or decisions.get("legacy_source_files_sha256")
+        != report["legacy_source_files_sha256"]
+        or decisions.get("selected_mfl_exports") != report["selected_mfl_exports"]
+    ):
+        raise ValueError(
+            "Player approval must match reviewed source hashes and evidence."
+        )
+    entries = decisions.get("players")
+    if not isinstance(entries, list):
+        raise ValueError("Player approval requires a complete identity list.")
+    profiles = {
+        row["source_player_id"]: row for row in report["player_conflict_dispositions"]
+    }
+    indexed = {}
+    for entry in entries:
+        identifier = _integer(entry["source_player_id"])
+        if identifier in indexed or identifier not in profiles:
+            raise ValueError(
+                "Player approval contains duplicate or unknown identities."
+            )
+        indexed[identifier] = entry
+    if set(indexed) != set(profiles):
+        raise ValueError("Every player conflict must have an explicit resolution.")
+    resolved = []
+    for identifier, profile in sorted(profiles.items()):
+        entry = indexed[identifier]
+        native_id = _source_id(entry["player_mfl_id"])
+        seasonal = [
+            player
+            for season in report["seasons"]
+            for player in season["player_conflict_audit"]
+            if player["source_player_id"] == identifier
+        ]
+        variants = {
+            variant["variant_sha256"]
+            for player in seasonal
+            for variant in player["variants"]
+        }
+        reviewed_variants = entry.get("reviewed_variant_sha256")
+        if (
+            not isinstance(reviewed_variants, list)
+            or len(reviewed_variants) != len(variants)
+            or set(reviewed_variants) != variants
+            or entry.get("aliases_reviewed") is not True
+            or profile["uncovered_legacy_rows"]
+        ):
+            raise ValueError("All player variants and affected seasons require review.")
+        catalog = [
+            candidate
+            for player in seasonal
+            for variant in player["variants"]
+            for candidate in variant["candidate_native_catalog"]
+            if candidate["player_mfl_id"] == native_id
+        ]
+        # Explicit native position distinguishes defense from similarly named team aggregates.
+        position = entry.get("native_position")
+        catalog = [
+            candidate
+            for candidate in catalog
+            if candidate["native_position"] == position
+        ]
+        if not catalog or not position:
+            raise ValueError(
+                "Approved native identity/position lacks catalog evidence."
+            )
+        events = [
+            event for player in seasonal for event in player["affected_draft_rows"]
+        ]
+        for event in events:
+            candidates = event["candidate_native_events"]
+            if (
+                event["status"] != "single_event_review"
+                or len(candidates) != 1
+                or candidates[0]["player_mfl_id"] != native_id
+                or candidates[0]["native_position"] != position
+            ):
+                raise ValueError(
+                    "Approved identity conflicts with affected event evidence."
+                )
+        resolved.append(
+            {
+                "source_player_id": identifier,
+                "player_mfl_id": native_id,
+                "native_position": position,
+                "reviewed_variant_sha256": sorted(variants),
+                "catalog_evidence_refs": sorted(
+                    {candidate["evidence_ref"] for candidate in catalog}
+                ),
+                "legacy_event_refs": sorted(
+                    {event["legacy_evidence_ref"] for event in events}
+                ),
+                "native_event_refs": sorted(
+                    {
+                        event["candidate_native_events"][0]["evidence_ref"]
+                        for event in events
+                    }
+                ),
+                "approved": True,
+                "scope": "legacy_player_identity_only",
+            }
+        )
+    return {
+        "player_identity_gate": "resolved",
+        "resolved_players": resolved,
+        "review_basis": decisions["review_basis"],
+        "legacy_source_files_sha256": report["legacy_source_files_sha256"],
+        "selected_mfl_exports": report["selected_mfl_exports"],
+        "ready_for_slice_3": True,
+        "ready_to_import": False,
+        "writes_performed_to_databases": False,
+        "remaining_gates": [
+            "season-owner identity approval",
+            "position/team attribute repair",
+            "event reconciliation",
+            "schema/runtime adoption",
+            "target player mapping",
+        ],
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", required=True, type=Path)
@@ -766,6 +894,7 @@ def main(argv: list[str] | None = None) -> int:
         "--draft-export", action="append", default=[], metavar="YEAR=CSV"
     )
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--player-resolutions", type=Path)
     args = parser.parse_args(argv)
     if args.output.exists():
         parser.error("--output already exists; choose a new evidence file.")
@@ -775,6 +904,11 @@ def main(argv: list[str] | None = None) -> int:
             season_exports=_selections(args.season_export),
             draft_exports=_selections(args.draft_export),
         )
+        if args.player_resolutions:
+            decisions = json.loads(args.player_resolutions.read_text(encoding="utf-8"))
+            report["approved_player_resolutions"] = approve_player_resolutions(
+                report, decisions
+            )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8") as handle:
             json.dump(report, handle, indent=2)
@@ -785,8 +919,14 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"Unapproved source repair worksheet saved: {args.output}")
-    print("BLOCKED: source candidates require identity and event-grain review.")
+    if args.player_resolutions:
+        print(f"Reviewed player identity resolutions saved: {args.output}")
+        print(
+            "Slice 3 ready; imports remain BLOCKED by the remaining remediation gates."
+        )
+    else:
+        print(f"Unapproved source repair worksheet saved: {args.output}")
+        print("BLOCKED: source candidates require identity and event-grain review.")
     return 2
 
 
