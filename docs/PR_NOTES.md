@@ -25,8 +25,9 @@ Pull request test branch: feature/tests-ci
   internal ownership normalization; reject categories conflicting with reviewed
   stat events; exercise CLI failure/retry after committed preparation and
   revision `0001`, and idempotent completed reruns.
-- Consolidation approved: integrate the bridge into PR #553, then close #555
-  as superseded rather than retaining a failing parent/child dependency.
+- Consolidation approved: the bridge is integrated into PR #553 at `141a124`.
+  GitHub recorded PR #555 as merged into its parent branch when that merge
+  commit was pushed; this does not mean either change is merged into `main`.
 - Validation: full backend passed on disposable PostgreSQL 18: 927 passed,
   2 skipped. Bootstrap equivalence/preservation and both previously failing
   logging assertions pass. Black, flake8 and whitespace passed.
