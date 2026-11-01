@@ -5,10 +5,128 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import (
+    Column,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    create_engine,
+    inspect,
+    text,
+)
+from sqlalchemy.engine import make_url
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from backend import apply_migrations as migration_runner
+
+
+def _migration_schema_snapshot(engine):
+    inspector = inspect(engine)
+    snapshot = {}
+    for table_name in sorted(
+        name for name in inspector.get_table_names() if name != "alembic_version"
+    ):
+        columns = tuple(
+            sorted(
+                (
+                    column["name"],
+                    column["type"].compile(dialect=engine.dialect),
+                    column["nullable"],
+                    column.get("default"),
+                )
+                for column in inspector.get_columns(table_name)
+            )
+        )
+        primary_key = inspector.get_pk_constraint(table_name)
+        foreign_keys = tuple(
+            sorted(
+                [
+                    (
+                        foreign_key.get("name"),
+                        tuple(foreign_key.get("constrained_columns") or ()),
+                        foreign_key.get("referred_table"),
+                        tuple(foreign_key.get("referred_columns") or ()),
+                        tuple(sorted((foreign_key.get("options") or {}).items())),
+                    )
+                    for foreign_key in inspector.get_foreign_keys(table_name)
+                ],
+                key=repr,
+            )
+        )
+        unique_constraints = tuple(
+            sorted(
+                [
+                    (
+                        constraint.get("name"),
+                        tuple(constraint.get("column_names") or ()),
+                    )
+                    for constraint in inspector.get_unique_constraints(table_name)
+                ],
+                key=repr,
+            )
+        )
+        check_constraints = tuple(
+            sorted(
+                [
+                    (constraint.get("name"), constraint.get("sqltext"))
+                    for constraint in inspector.get_check_constraints(table_name)
+                ],
+                key=repr,
+            )
+        )
+        indexes = tuple(
+            sorted(
+                [
+                    (
+                        index.get("name"),
+                        tuple(index.get("column_names") or ()),
+                        index.get("unique"),
+                        tuple(
+                            sorted(
+                                (key, str(value))
+                                for key, value in (
+                                    index.get("dialect_options") or {}
+                                ).items()
+                            )
+                        ),
+                    )
+                    for index in inspector.get_indexes(table_name)
+                ],
+                key=repr,
+            )
+        )
+        snapshot[table_name] = {
+            "columns": columns,
+            "primary_key": (
+                primary_key.get("name"),
+                tuple(primary_key.get("constrained_columns") or ()),
+            ),
+            "foreign_keys": foreign_keys,
+            "unique_constraints": unique_constraints,
+            "check_constraints": check_constraints,
+            "indexes": indexes,
+        }
+    snapshot["sequences"] = tuple(sorted(inspector.get_sequence_names()))
+    return snapshot
+
+
+def _migration_url_for_schema(database_url, schema_name):
+    url = make_url(database_url)
+    query = dict(url.query)
+    query["options"] = f"-csearch_path={schema_name}"
+    return str(url.set(query=query))
+
+
+def _alembic_versions(engine):
+    with engine.connect() as connection:
+        return frozenset(
+            connection.execute(text("SELECT version_num FROM alembic_version"))
+            .scalars()
+            .all()
+        )
 
 
 def test_ffpi_application_tables_match_orm_metadata():
@@ -383,6 +501,110 @@ def test_database_classification_with_postgresql(
             test_engine.dispose()
         with admin_engine.begin() as connection:
             connection.execute(DropSchema(schema_name, cascade=True, if_exists=True))
+        admin_engine.dispose()
+
+
+def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
+    monkeypatch,
+):
+    database_url = os.getenv("FFPI_TEST_POSTGRES_URL")
+    if not database_url:
+        pytest.skip("FFPI_TEST_POSTGRES_URL is not configured")
+
+    schema_suffix = uuid4().hex
+    bootstrap_schema = f"ffpi_issue504_bootstrap_{schema_suffix}"
+    incremental_schema = f"ffpi_issue504_incremental_{schema_suffix}"
+    admin_engine = create_engine(database_url, pool_pre_ping=True)
+    bootstrap_engine = None
+    incremental_engine = None
+    try:
+        with admin_engine.begin() as connection:
+            connection.execute(CreateSchema(bootstrap_schema))
+            connection.execute(CreateSchema(incremental_schema))
+
+        bootstrap_url = _migration_url_for_schema(database_url, bootstrap_schema)
+        incremental_url = _migration_url_for_schema(database_url, incremental_schema)
+        bootstrap_engine = create_engine(bootstrap_url, pool_pre_ping=True)
+        incremental_engine = create_engine(incremental_url, pool_pre_ping=True)
+
+        baseline_path = (
+            Path(__file__).resolve().parents[2]
+            / "db"
+            / "test_fixtures"
+            / "pre_0001_legacy_schema.sql"
+        )
+        baseline_sql = "\n".join(
+            line
+            for line in baseline_path.read_text(encoding="utf-8").splitlines()
+            if not line.lstrip().startswith("--")
+        )
+        with incremental_engine.begin() as connection:
+            for statement in baseline_sql.split(";"):
+                if statement.strip():
+                    connection.exec_driver_sql(statement)
+            player_id = connection.execute(
+                text(
+                    "INSERT INTO players (name, gsis_id) "
+                    "VALUES (:name, :gsis_id) RETURNING id"
+                ),
+                {
+                    "name": "Issue 504 migration preservation probe",
+                    "gsis_id": "issue504",
+                },
+            ).scalar_one()
+
+        with monkeypatch.context() as scoped_environment:
+            scoped_environment.setenv("DATABASE_URL", incremental_url)
+            command.upgrade(
+                Config(str(migration_runner.ALEMBIC_CONFIG_PATH)),
+                "0001_create_draft_value_tables",
+            )
+            assert _alembic_versions(incremental_engine) == frozenset(
+                {"0001_create_draft_value_tables"}
+            )
+            migration_runner.apply_migrations()
+
+        with monkeypatch.context() as scoped_environment:
+            scoped_environment.setenv("DATABASE_URL", bootstrap_url)
+            migration_runner.apply_migrations()
+
+        expected_heads = migration_runner._head_revisions(
+            Config(str(migration_runner.ALEMBIC_CONFIG_PATH))
+        )
+        assert _alembic_versions(bootstrap_engine) == expected_heads
+        assert _alembic_versions(incremental_engine) == expected_heads
+
+        with incremental_engine.connect() as connection:
+            preserved_player = connection.execute(
+                text("SELECT name, gsis_id FROM players WHERE id = :player_id"),
+                {"player_id": player_id},
+            ).one()
+        assert preserved_player == (
+            "Issue 504 migration preservation probe",
+            "issue504",
+        )
+
+        bootstrap_snapshot = _migration_schema_snapshot(bootstrap_engine)
+        incremental_snapshot = _migration_schema_snapshot(incremental_engine)
+        assert incremental_snapshot == bootstrap_snapshot
+
+        with incremental_engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE players ADD COLUMN issue504_mismatch_probe INTEGER"
+            )
+        assert _migration_schema_snapshot(incremental_engine) != bootstrap_snapshot
+    finally:
+        if bootstrap_engine is not None:
+            bootstrap_engine.dispose()
+        if incremental_engine is not None:
+            incremental_engine.dispose()
+        with admin_engine.begin() as connection:
+            connection.execute(
+                DropSchema(bootstrap_schema, cascade=True, if_exists=True)
+            )
+            connection.execute(
+                DropSchema(incremental_schema, cascade=True, if_exists=True)
+            )
         admin_engine.dispose()
 
 
