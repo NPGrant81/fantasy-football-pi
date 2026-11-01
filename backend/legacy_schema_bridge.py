@@ -44,6 +44,7 @@ BRIDGE_MANAGED_TABLES = frozenset(
         "economic_ledger",
         "league_history_team_owner_map",
         "nfl_games",
+        "player_aliases",
         "player_news_items",
         "player_news_links",
         "player_news_sentiment_trends",

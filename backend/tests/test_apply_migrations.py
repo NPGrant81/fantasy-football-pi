@@ -831,7 +831,23 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
 
         bootstrap_snapshot = _migration_schema_snapshot(bootstrap_engine)
         incremental_snapshot = _migration_schema_snapshot(incremental_engine)
-        assert incremental_snapshot == bootstrap_snapshot
+        schema_differences = {
+            table_name: {
+                part: {
+                    "incremental": incremental_snapshot.get(table_name, {}).get(part),
+                    "bootstrap": bootstrap_snapshot.get(table_name, {}).get(part),
+                }
+                for part in set(incremental_snapshot.get(table_name, {}))
+                | set(bootstrap_snapshot.get(table_name, {}))
+                if incremental_snapshot.get(table_name, {}).get(part)
+                != bootstrap_snapshot.get(table_name, {}).get(part)
+            }
+            for table_name in set(incremental_snapshot) | set(bootstrap_snapshot)
+            if incremental_snapshot.get(table_name) != bootstrap_snapshot.get(table_name)
+        }
+        assert not schema_differences, (
+            f"Bootstrap/incremental schema differences: {schema_differences}"
+        )
 
         with incremental_engine.begin() as connection:
             connection.exec_driver_sql(
