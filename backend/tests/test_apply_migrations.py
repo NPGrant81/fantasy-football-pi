@@ -197,6 +197,14 @@ def _migration_schema_snapshot(engine):
                         tuple(index.get("expressions") or ()),
                         tuple(
                             sorted(
+                                (column, tuple(ordering))
+                                for column, ordering in (
+                                    index.get("column_sorting") or {}
+                                ).items()
+                            )
+                        ),
+                        tuple(
+                            sorted(
                                 (key, str(value))
                                 for key, value in (
                                     index.get("dialect_options") or {}
@@ -221,6 +229,12 @@ def _migration_schema_snapshot(engine):
             "indexes": indexes,
         }
     with engine.connect() as connection:
+        snapshot["views"] = tuple(
+            sorted(
+                (name, inspector.get_view_definition(name))
+                for name in inspector.get_view_names()
+            )
+        )
         snapshot["sequences"] = tuple(
             tuple(row)
             for row in connection.execute(
@@ -299,6 +313,61 @@ def test_schema_snapshot_detects_changed_index_expression(schema_snapshot_engine
     changed = _migration_schema_snapshot(engine)
     assert changed["snapshot_probe"]["indexes"] != baseline["snapshot_probe"]["indexes"]
     assert changed["sequences"] == baseline["sequences"]
+
+
+def test_schema_snapshot_detects_changed_column_sorting(schema_snapshot_engine):
+    engine = schema_snapshot_engine
+    with engine.begin() as connection:
+        connection.exec_driver_sql("CREATE INDEX snapshot_order ON snapshot_probe (id)")
+    baseline = _migration_schema_snapshot(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("DROP INDEX snapshot_order")
+        connection.exec_driver_sql(
+            "CREATE INDEX snapshot_order ON snapshot_probe (id DESC NULLS LAST)"
+        )
+    assert (
+        _migration_schema_snapshot(engine)["snapshot_probe"]["indexes"]
+        != baseline["snapshot_probe"]["indexes"]
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "DROP VIEW snapshot_view",
+        "CREATE OR REPLACE VIEW snapshot_view AS SELECT id FROM snapshot_probe WHERE id > 1",
+    ],
+)
+def test_schema_snapshot_detects_view_changes(schema_snapshot_engine, mutation):
+    engine = schema_snapshot_engine
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE VIEW snapshot_view AS SELECT id FROM snapshot_probe"
+        )
+    baseline = _migration_schema_snapshot(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(mutation)
+    assert _migration_schema_snapshot(engine)["views"] != baseline["views"]
+
+
+@pytest.mark.parametrize("environment", [("env.py",), ("bootstrap", "env.py")])
+def test_alembic_logging_keeps_application_loggers_enabled(environment):
+    import logging
+    from logging.config import fileConfig
+
+    environment_path = Path(__file__).resolve().parents[2].joinpath("db", *environment)
+    tree = ast.parse(environment_path.read_text(encoding="utf-8"))
+    call = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "fileConfig"
+    )
+    kwargs = {keyword.arg: ast.literal_eval(keyword.value) for keyword in call.keywords}
+    logger = logging.getLogger("ffpi.migration.logging_probe")
+    fileConfig(str(migration_runner.ALEMBIC_CONFIG_PATH), **kwargs)
+    assert not logger.disabled
 
 
 @pytest.mark.parametrize(
