@@ -187,6 +187,26 @@ lanes:
       - file: backend/tests/test_apply_migrations.py
         domain: infra
         status: active
+      - file: backend/tests/test_historical_schema_adoption.py
+        domain: infra
+        status: active
+        notes: Guarded unknown-revision adoption and transactional preservation on disposable PostgreSQL databases
+      - file: backend/tests/test_reconcile_ppl_targets.py
+        domain: historical-ingestion
+        status: active
+        notes: Hash-bound target identity proposals, native evidence, archival collisions and copy-only read guards
+      - file: backend/tests/test_apply_reviewed_ppl_history.py
+        domain: historical-ingestion
+        status: active
+        notes: Exact bid bounds, copy-only approved-plan application, provenance, preservation and idempotent PostgreSQL replay
+      - file: backend/tests/test_historical_auction_service.py
+        domain: historical-ingestion
+        status: active
+        notes: Authenticated historical reader, source grain, exact bids, league isolation and separation from live roster consumers
+      - file: backend/tests/test_historical_ingestion.py
+        domain: historical-ingestion
+        status: active
+        notes: Provider identity conflicts, source-event grain, Sleeper bindings and seasonal waiver budgets
       - file: backend/tests/test_topology_compliance.py
         domain: infra
         status: active
@@ -431,6 +451,10 @@ lanes:
       - file: frontend/tests/DraftHistoryFeed.test.jsx
         domain: draft
         status: active
+      - file: frontend/tests/LeagueHistoryObservations.test.jsx
+        domain: historical-ingestion
+        status: active
+        notes: Historical franchise labels, observation-grain warnings and exact monetary text
       - file: frontend/tests/GameCenter.test.jsx
         domain: scoring
         status: active

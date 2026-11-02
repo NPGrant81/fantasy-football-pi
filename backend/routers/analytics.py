@@ -1089,6 +1089,7 @@ def get_luck_index(
             models.User.league_id == league_id,
             models.User.is_superuser.is_(False),
             ~models.User.username.like("hist_%"),
+            models.User.is_historical_stub.is_(False),
         )
         .all()
     )
@@ -1695,6 +1696,7 @@ def get_in_season_insights(
             models.User.league_id == league_id,
             models.User.is_superuser.is_(False),
             ~models.User.username.like("hist_%"),
+            models.User.is_historical_stub.is_(False),
         )
         .all()
     )

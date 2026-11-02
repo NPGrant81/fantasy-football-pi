@@ -559,6 +559,7 @@ def _archive_reconciliation_data(
 
 def _bootstrap_schema_contract(
     connection: Connection,
+    revision: str = "heads",
 ) -> tuple[sa.MetaData, dict[str, object]]:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -582,7 +583,7 @@ def _bootstrap_schema_contract(
         connection.exec_driver_sql(
             f"SET LOCAL search_path TO {_quoted(connection, contract_schema)}"
         )
-        for revision in reversed(list(script.walk_revisions())):
+        for revision in reversed(list(script.walk_revisions(head=revision))):
             with Operations.context(MigrationContext.configure(connection)):
                 revision.module.upgrade()
 

@@ -352,6 +352,7 @@ def collect_draft_activity_news(
         .filter(
             models.DraftPick.league_id == league_id,
             ~models.User.username.like("hist_%"),
+            models.User.is_historical_stub.is_(False),
         )
         .order_by(desc(models.DraftPick.id))
         .limit(limit)

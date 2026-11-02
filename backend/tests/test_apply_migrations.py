@@ -474,10 +474,14 @@ def test_ffpi_application_tables_match_bootstrap_schema():
         / "versions"
         / "0001_create_schema_at_0028.py"
     )
-    syntax_tree = ast.parse(bootstrap_revision.read_text(encoding="utf-8"))
+    schema_revisions = [
+        bootstrap_revision,
+        bootstrap_revision.parents[2] / "migrations" / "0031_historical_observations.py",
+    ]
     bootstrap_tables = {
         node.args[0].value
-        for node in ast.walk(syntax_tree)
+        for revision in schema_revisions
+        for node in ast.walk(ast.parse(revision.read_text(encoding="utf-8")))
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "create_table"
@@ -1064,11 +1068,7 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
 
             def archive_while_locked(connection, tables):
                 original_archive(connection, tables)
-                assert "manual_player_mappings" in tables
-                _assert_write_blocked(
-                    incremental_engine,
-                    "UPDATE manual_player_mappings SET source_name = 'lost-write'",
-                )
+                assert "manual_player_mappings" not in tables
 
             scoped_environment.setattr(
                 bridge, "_archive_reconciliation_data", archive_while_locked
@@ -1142,10 +1142,10 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
                 ),
                 {"rule_id": scoring_rule_id},
             ).scalar_one()
-            archived_mapping = connection.execute(
+            preserved_mapping = connection.execute(
                 text(
                     f"SELECT source_name, scraped_player_name, true_player_id "
-                    f"FROM {ARCHIVE_SCHEMA}.reconcile_manual_player_mappings "
+                    "FROM manual_player_mappings "
                     "WHERE source_name = 'equivalence-probe'"
                 )
             ).one()
@@ -1211,10 +1211,8 @@ def test_bootstrap_and_incremental_migrations_produce_equivalent_schema(
         assert preserved_division == "East"
         assert archived_division == "East"
         assert archived_points == 4.0
-        assert archived_mapping == ("equivalence-probe", "Archived mapping", player_id)
-        assert "source_name" not in mapping_columns
-        assert "scraped_player_name" not in mapping_columns
-        assert "true_player_id" not in mapping_columns
+        assert preserved_mapping == ("equivalence-probe", "Archived mapping", player_id)
+        assert {"source_name", "scraped_player_name", "true_player_id"} <= mapping_columns
         assert any(
             foreign_key["referred_schema"] == ARCHIVE_SCHEMA
             and foreign_key["referred_table"] == "leagues"

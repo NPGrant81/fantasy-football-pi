@@ -25,7 +25,8 @@ except ImportError:  # pragma: no cover
 # Internal Imports
 from ..database import SessionLocal, get_db
 import models
-from ..schemas.draft import HistoricalRankingResponse
+from ..schemas.draft import DraftHistoryEvent, HistoricalRankingResponse
+from ..services.historical_auction_service import historical_auction_events, observation_seasons
 from ..services.ledger_service import owner_draft_budget_total, owner_has_incoming_credits
 from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.draft_rankings_service import get_historical_rankings as get_historical_rankings_service
@@ -120,7 +121,8 @@ def _get_websocket_user(websocket: WebSocket, db: Session):
     if security.is_token_revoked(db, jti):
         return None
 
-    return db.query(models.User).filter(models.User.username == username).first()
+    user = db.query(models.User).filter(models.User.username == username).first()
+    return None if user is None or security.is_historical_account(user) else user
 
 
 def _can_access_draft_session(current_user: models.User, session_id: str) -> bool:
@@ -177,6 +179,7 @@ def _resolve_simulation_league_config(db: Session, league_id: int) -> dict[str, 
             models.User.league_id == league_id,
             models.User.is_superuser.is_(False),
             ~models.User.username.like("hist_%"),
+            models.User.is_historical_stub.is_(False),
         )
         .scalar()
         or 0
@@ -674,10 +677,11 @@ def get_draft_seasons(
     if settings and settings.draft_year is not None and int(settings.draft_year) not in years:
         years.append(int(settings.draft_year))
 
-    return sorted(set(years), reverse=True)
+    return sorted(set(years) | set(observation_seasons(db, target_league_id)), reverse=True)
 
 
-@router.get("/draft/history/by-year")
+@router.get("/draft/history/by-year", response_model=list[DraftHistoryEvent],
+            response_model_exclude_unset=True)
 def get_draft_history_by_year(
     year: int,
     league_id: int | None = None,
@@ -707,7 +711,10 @@ def get_draft_history_by_year(
         .all()
     )
     keepers = _get_keeper_carryover_rows(db, league_id=target_league_id, draft_year=year) if include_keepers else []
-    return _serialize_draft_events(picks=picks, keepers=keepers)
+    return (
+        _serialize_draft_events(picks=picks, keepers=keepers)
+        + historical_auction_events(db, target_league_id, year)
+    )
 
 
 @router.get("/draft/rankings", response_model=List[HistoricalRankingResponse])
@@ -1093,6 +1100,8 @@ def run_draft_simulation(
                     for u in db.query(models.User).filter(
                         models.User.league_id == current_user.league_id,
                         models.User.is_superuser == False,
+                        models.User.is_historical_stub.is_(False),
+                        ~models.User.username.like("hist_%"),
                     ).all()
                 }
                 for pid, group in rival_counts.groupby("player_id"):

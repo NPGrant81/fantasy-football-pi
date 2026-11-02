@@ -270,6 +270,24 @@
     "last_reviewed": "2026-06-27"
   },
   {
+    "path": "docs/data-migration/ppl-remediation-plan.md",
+    "owner": "data",
+    "cadence_days": 60,
+    "last_reviewed": "2026-11-02"
+  },
+  {
+    "path": "docs/architecture/ADR-001-historical-ingestion-adoption.md",
+    "owner": "data",
+    "cadence_days": 60,
+    "last_reviewed": "2026-11-01"
+  },
+  {
+    "path": "docs/architecture/ADR-002-historical-auction-observations.md",
+    "owner": "data",
+    "cadence_days": 60,
+    "last_reviewed": "2026-11-02"
+  },
+  {
     "path": "docs/data-migration/mfl-year-status-matrix.md",
     "owner": "data",
     "cadence_days": 90,

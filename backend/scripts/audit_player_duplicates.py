@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import exists
+from sqlalchemy import exists, or_
 from sqlalchemy import func
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm import Session
@@ -24,7 +24,7 @@ from backend import models_draft_value as dv_models
 from backend.database import SessionLocal
 from backend.services import player_service
 
-ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
+ALLOWED_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF", "DST"}
 
 
 @dataclass
@@ -37,7 +37,11 @@ class DuplicateGroup:
 def _query_players(db: Session) -> list[models.Player]:
     return (
         db.query(models.Player)
-        .filter(models.Player.position.in_(ALLOWED_POSITIONS))
+        .filter(or_(
+            models.Player.position.in_(ALLOWED_POSITIONS),
+            models.Player.mfl_id.isnot(None),
+            models.Player.sleeper_id.isnot(None),
+        ))
         .order_by(models.Player.id.asc())
         .all()
     )
@@ -273,6 +277,23 @@ def run_audit(*, apply_changes: bool = False, fail_on_duplicates: bool = False, 
     try:
         players = _query_players(db)
         duplicate_groups = _find_duplicate_groups(players)
+        by_id = {player.id: player for player in players}
+        provider_groups = {
+            group.keep_id: {
+                field: {
+                    str(player_id): getattr(by_id[player_id], field)
+                    for player_id in [group.keep_id, *group.duplicate_ids]
+                    if getattr(by_id[player_id], field)
+                }
+                for field in ("mfl_id", "sleeper_id")
+            }
+            for group in duplicate_groups
+        }
+        bound_groups = sum(any(fields.values()) for fields in provider_groups.values())
+        if apply_changes and bound_groups:
+            raise ValueError(
+                "Provider-bound duplicate groups require reviewed canonical mappings; refusing automatic merges."
+            )
 
         report_groups: list[dict[str, Any]] = []
         merged = 0
@@ -292,6 +313,11 @@ def run_audit(*, apply_changes: bool = False, fail_on_duplicates: bool = False, 
                 "key": [str(part) for part in group.key],
                 "keep_id": group.keep_id,
                 "duplicates": duplicate_details,
+                "provider_identifiers": provider_groups[group.keep_id],
+                "provider_conflicts": [
+                    field for field, identities in provider_groups[group.keep_id].items()
+                    if len(set(identities.values())) > 1
+                ],
             }
 
             if apply_changes:
@@ -315,6 +341,7 @@ def run_audit(*, apply_changes: bool = False, fail_on_duplicates: bool = False, 
             "apply_changes": apply_changes,
             "rows_merged": merged,
             "rows_touched": moved,
+            "provider_bound_groups": bound_groups,
             "groups": report_groups,
         }
 

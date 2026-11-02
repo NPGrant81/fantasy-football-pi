@@ -81,6 +81,35 @@ def test_login_sets_auth_and_csrf_cookies(client, api_db, monkeypatch):
     assert me.json()["username"] == "cookie-user"
 
 
+@pytest.mark.parametrize("username,flag", [("renamed-archive", True), ("hist_2020_0001", False)])
+def test_historical_accounts_cannot_login_or_use_existing_tokens(client, api_db, monkeypatch, username, flag):
+    monkeypatch.setattr(security, "verify_password", lambda *_args: True)
+    user = models.User(username=username, hashed_password="hash", is_historical_stub=flag)
+    api_db.add(user)
+    api_db.commit()
+    login = client.post("/auth/token", data={"username": username, "password": "secret"})
+    assert login.status_code == 401
+    token = security.create_access_token({"sub": username})
+    client.cookies.set(security.ACCESS_TOKEN_COOKIE_NAME, token)
+    assert client.get("/auth/me").status_code == 401
+
+
+def test_historical_account_refresh_is_revoked(client, api_db, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    monkeypatch.setattr(auth_router, "USE_COOKIE_AUTH", False)
+    user = models.User(username="archived", is_historical_stub=True)
+    api_db.add(user)
+    api_db.commit()
+    record = security.create_refresh_token_record(
+        api_db, user.id, "existing-refresh", datetime.now(timezone.utc) + timedelta(days=1)
+    )
+    client.cookies.set(auth_router.REFRESH_TOKEN_COOKIE_NAME, "existing-refresh")
+    assert client.post("/auth/refresh").status_code == 401
+    api_db.refresh(record)
+    assert record.revoked_at is not None
+
+
 def test_login_username_match_is_case_insensitive(client, api_db, monkeypatch):
     monkeypatch.setattr(
         security,

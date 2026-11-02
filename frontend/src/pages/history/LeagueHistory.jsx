@@ -1039,10 +1039,17 @@ export default function LeagueHistory({ sectionKey }) {
                     {archiveHistory.map((pick) => (
                         <StandardTableRow key={pick.id || `${pick.player_id}-${pick.timestamp}`}>
                           <td className={tableCell}>
-                            {ownerNameById[Number(pick.owner_id)] || `Owner ${pick.owner_id}`}
+                            {pick.owner_label || ownerNameById[Number(pick.owner_id)] || `Owner ${pick.owner_id}`}
                           </td>
-                          <td className={tableCell}>{pick.player_name || 'Unknown Player'}</td>
-                          <td className={tableCellNumeric}>${Number(pick.amount || 0)}</td>
+                          <td className={tableCell}>
+                            {pick.player_name || 'Unknown Player'}
+                            {pick.event_grain === 'historical_auction_observation' && (
+                              <span className="block text-xs text-slate-600 dark:text-slate-400">
+                                Auction observation; order and current ownership not established.
+                              </span>
+                            )}
+                          </td>
+                          <td className={tableCellNumeric}>${pick.amount ?? 0}</td>
                         </StandardTableRow>
                       ))}
                   </tbody>

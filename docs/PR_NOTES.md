@@ -3,6 +3,177 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
+## PR #557 Historical Reconciliation and Working-Copy Reconstruction
+
+### Slice 7 approved reconstruction
+
+- Operator approved 472 existing native-corroborated canonical representatives,
+  explicit preservation/exclusion of nine mixed-native season links, 96
+  non-login archival accounts and separate observation storage.
+- Added canonical/bootstrap 0031 and
+  [ADR-002](architecture/ADR-002-historical-auction-observations.md). Kept
+  slice-6 adoption pinned to its original complete 0030 contract.
+- New approved-plan command validates the complete baseline, target/source
+  hashes, exact bids, provenance, original rows and full bootstrap parity.
+  It rejects changed/conflicting replays instead of guessing or overwriting.
+- Fresh working clone `ffpi_528_slice7_20261102t042139z` contains all 1,198
+  observations totaling exactly $16,785. A second application inserted
+  nothing, changed no bindings/accounts and preserved every sequence state.
+- All original data remains except approved player MFL fields on this new clone.
+  Both originals, both preserved copies and the adopted slice-6 baseline remain
+  unchanged. Live roster, draft, financial and transaction tables are unchanged.
+- Historical readers are authenticated and league-scoped; the history UI exposes
+  archival franchise labels, observation grain and exact bid text. Live player
+  availability, waivers, trade lookup and active-roster season isolation are tested.
+- Real-data validation exposed team aliases and the native-only supplement's
+  distinct attribute shape. Both are now retained without arbitrary single-label
+  selection; alias sets remain explicit and the supplement keeps its approved
+  label. Source approvals were not rewritten.
+- No live API requests, production promotion, player merges or duplicate
+  relationship rewrites. Roster-based analytics and out-of-scope historical
+  periods are not certified as reconstructed.
+- Validation: 1,175 backend tests passed (63 environment-gated skips);
+  183 PostgreSQL migration/adoption/import checks passed. Both light/dark
+  historical UI tests, frontend build/typecheck, targeted ESLint, theme
+  guardrails, new-module flake8/Black, migration layout and repository hygiene
+  passed. The hardened command also replayed the actual 1,198-row plan with
+  zero application writes and unchanged sequence states.
+- Copilot Feedback: fresh review will be requested on the slice-7 commit.
+  Previously resolved threads remain resolved; no latest-head review result
+  is assumed. Status is tracked on PR #557 and issue #528.
+
+### Slice 6 schema/runtime parity
+
+- Added canonical `0030_historical_ingestion`, governed bootstrap extension
+  and [ADR-001](architecture/ADR-001-historical-ingestion-adoption.md); the unavailable
+  observed `0029` script was neither invented nor blindly stamped.
+- Guarded adoption on a newly restored disposable clone converged to the full
+  bootstrap schema while preserving 58 application tables, 107,542 rows and
+  58 sequence states. Every original column remains; the version row changes
+  only after transactional verification.
+- Source-event uniqueness preserves distinct observations. MFL/Sleeper
+  identities are provider-first with explicit conflict rejection; automatic
+  merging of provider-bound duplicate groups is blocked.
+- Waiver budget/FAAB queries are season-scoped. Historical flags and legacy
+  names exclude stubs from active lists, login, refresh, bearer/cookie tokens
+  and draft websocket authentication.
+- Validation: 1,108 backend tests passed, 55 environment-gated skips;
+  142 PostgreSQL migration/adoption tests passed. New-module lint, Black,
+  migration-layout, whitespace and repository hygiene checks passed.
+- Both original preservation-copy manifests are unchanged. No historical
+  imports, live API requests, preserved-copy mutations or production changes.
+  Target mappings and reviewed-plan application remain slice 7 gates.
+- Copilot Feedback: four new slice 5 findings fixed in `42137d2`:
+  reviewed-event identity reuse, unsupported supplement teams, normalized owner
+  mappings and nullable raw cells. All 1,198 retained event approvals replayed
+  unchanged offline after the fixes; imports remain blocked. Fresh review is
+  requested with this slice; hosted status and remaining findings are tracked
+  on PR #557, not assumed complete.
+
+- Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
+  worksheets, selected native MFL source evidence and a remediation gate in
+  the MFL migration runbook.
+- Validation: 206 focused backend tests passed, including existing auction
+  extraction regressions; Black, flake8 and whitespace
+  checks passed. The real PostgreSQL reconciliation completed with the expected
+  blocked exit code. Both working copies still match their original verified
+  table schemas, counts and complete row hashes.
+- Initial copied-database evidence: 147 CSV drafts absent from staging (144 in 2025, three in 2023);
+  zero unexpected staging rows when position/team attributes are included.
+  All 96 season-owner keys initially lacked target mappings; 473 referenced player IDs required
+  review (363 ambiguous, 108 unmapped, two single-candidate review items).
+  There are 147 incomplete draft-attribute items and 180 identity-provenance
+  blockers. Later source-identity approvals below do not approve target mappings.
+- Observed revision `0029_harden_historical_ingestion_models` is absent from the
+  checked migration graph. Source-event uniqueness, multi-season waiver
+  uniqueness, Sleeper IDs and historical-stub columns require reviewed adoption.
+- Native source recovery: exactly one public 2024 auction request confirmed
+  140 records matching the retained API CSV, compared with 139 legacy records.
+  A separate single public 2025 auction request recovered 144 records. No
+  credentials, retries or redirect following were needed for either burst.
+  Selected retained/fresh exports cover 1,198 native auction events in 2018–2025
+  versus 1,197 legacy CSV rows. Offline comparison found 864 single-event review
+  candidates; these are not approved target identities or completed imports.
+- The source worksheet includes all 96 per-season native franchise mapping
+  entries, preserves conflicting IDs and exposes split/shared owner evidence
+  in 2024. It does not choose a majority mapping or assert that every unmatched
+  source event is missing.
+- Repair strategy selected: resolve every legacy ID conflict before
+  reconstruction, not a native-history replacement. The conflict register
+  retains every CSV variant/occurrence with hash-bound source row references
+  and unapproved resolution fields.
+- Sliced remediation plan added; slice 1 completed as a position-conflict
+  forensic audit. All 113 affected draft-row references are accounted for
+  without filtering candidates by disputed position IDs. Of these, 112 have
+  single-event review candidates and one has none. Mixed native-position
+  observations show global ID replacement is unsafe; no alias or identity is
+  approved. This slice sent zero API requests and verified unchanged source
+  hashes and working-copy manifests.
+- Slice 2 identity gate is complete: player-conflict evidence covers all 50 IDs, 101
+  variants and 135 affected drafts. All 135 have single-event proposals, across
+  39 drafted IDs; 11 undrafted IDs remain catalog-only blockers. Relationships
+  are 23 suffix/punctuation review groups, 22 defense-label groups and five
+  nontrivial alias/identity groups. The owner explicitly approved the reviewed
+  native identities and listed aliases, including catalog-backed resolutions
+  for all 11 undrafted IDs. Hash-bound approval replay verifies all 50 IDs, 101
+  variants and 135 affected drafts. Slice 3 may proceed; target mappings,
+  position/team repairs, schema adoption and imports remain blocked.
+- Slice 3 source-ownership gate is complete after explicit owner approval:
+  96 season-owner keys, all 12 conflicting owner IDs/25 variants and all 1,197
+  legacy draft ownership records are accounted for. One 2024 row-specific
+  ownership exception and three event-specific player-label corrections are
+  preserved in hash-bound reviewed manifests. Distinct season owners cannot
+  collapse; duplicate native-event claims are rejected. Target-account
+  mappings, position/team repairs and imports remain separate gates.
+- Slice 4 source-attribute gate is complete with explicit row-specific and
+  snapshot-policy approval. All 1,197 drafts have reviewed attribute resolutions:
+  144 blank/79 mismatched positions and 153 team repairs (three 2023 invalid
+  values, six 2024 discrepancies, 144 2025 blanks). All 113 disputed-position
+  rows are resolved without global ID replacement. Nine taxonomy rows and
+  540 linked player catalog rows are reviewed: 70 position repairs and one
+  seasonal QB/TE history; 1,310 unlinked catalog rows remain untouched.
+  Team repairs are season-catalog snapshot attribution, not proof of auction-time
+  affiliation. Hash-bound CLI replay sets slice 5 ready but leaves imports blocked.
+- Slice 5 event gate is complete after explicit event-disposition and
+  observation-grain approval: 1,197 legacy events preserved, 1,050 staging matches,
+  147 restoration-plan gaps, zero unexpected staging rows and one native-only
+  2024 $1 supplement. The reviewed plan has 1,198 distinct observations totaling
+  $16,785, preserving all 293 players appearing in multiple seasons.
+  Read-only staging capture and offline full-row-hash verification bind exact
+  original tuples to the reviewed plan. No staged/original rows were changed.
+  Versioned semantic observation keys exclude row order/hash/extraction time;
+  identical tuples block instead of deduplicating. Shared season timestamps
+  prove no chronology; changed observations require new review. Target mappings,
+  schema adoption and imports remain blocked; slice 6 may proceed.
+- Copilot Feedback:
+  - Review requested: attempted 2026-11-01 via MCP and CLI.
+  - The initial request was not visible and CLI returned HTTP 422, but Copilot
+    subsequently submitted a four-thread review.
+  - Initial threads opened: 4; threads resolved: 4 after `459006e` was pushed.
+    A subsequent catalog-only native-ID conflict finding is fixed in `8ccd99c`
+    with four regressions and its thread is resolved. Another finding rejects
+    supplied null/nonobject approval JSON before reconciliation, fixed in
+    `2345b56` with its thread resolved. Shape regressions now also cover the event
+    manifest. Those six review threads are resolved. A fresh seventh finding
+    exposes shortened optional team cells: both attribute and supplemental-event
+    audits now preserve missing-team blockers instead of raising AttributeError,
+    with two reproduced regressions. Its thread is resolved after publication;
+    fresh review of slice 5 remains required.
+  - Fixes reject database-name/service overrides, require nonempty provenance
+    names, retain missing-table evidence and compare unique expressions,
+    partial predicates and NULL semantics.
+  - Native catalog contradictions are now retained with all source row references;
+    any selected ID with conflicting names/positions blocks player approval even
+    without draft events. Actual selected exports are conflict-free and all
+    approved slice 2-4 manifests replay successfully.
+- Hosted CI: the slice 3 backend lane stopped at repository hygiene because the
+  remediation plan lacked index/governance registration. Both registrations are
+  fixed; all applicable hosted checks, including `ci-gate`, passed for
+  `2345b56`. Slice 5 new-head hosted CI remains pending; no result is claimed.
+- Residual risk: no schema adoption, target-identity mapping, historical import or
+  production deployment performed. Refs #524, #525, #526, #527 and #528 remain
+  open; this preparatory slice does not certify ingestion or runtime parity.
+
 ## PR #555 Copilot Feedback
 
 - Review received: 2026-11-01.

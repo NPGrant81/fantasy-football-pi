@@ -3,7 +3,8 @@ from .. import models
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
-from datetime import UTC, datetime
+from .season_service import active_season
+from ..core.security import is_historical_account
 from .ledger_service import owner_balance, record_ledger_entry
 from .validation_service import (
     validate_waiver_claim_boundary,
@@ -31,6 +32,8 @@ def _validate_commissioner_waiver_rules(db: Session, user: models.User) -> int:
 
 
 def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop_id: int = None, team_id: int | None = None):
+    if is_historical_account(user):
+        raise HTTPException(status_code=403, detail="Historical accounts cannot submit waiver claims.")
     boundary_report = validate_waiver_claim_boundary(
         {
             "player_id": player_id,
@@ -69,6 +72,8 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
         )
 
     roster_limit = _validate_commissioner_waiver_rules(db, user)
+    season_year = active_season(db, user.league_id)
+    waiver_budget = None
 
     if bid < 0:
         raise HTTPException(status_code=400, detail="Bid must be non-negative.")
@@ -77,6 +82,7 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
         db.query(func.coalesce(func.sum(models.EconomicLedger.amount), 0))
         .filter(
             models.EconomicLedger.league_id == user.league_id,
+            models.EconomicLedger.season_year == season_year,
             models.EconomicLedger.currency_type == "FAAB",
             models.EconomicLedger.to_owner_id == user.id,
         )
@@ -89,6 +95,7 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
             league_id=user.league_id,
             owner_id=user.id,
             currency_type="FAAB",
+            season_year=season_year,
         )
         if bid > remaining_faab:
             raise HTTPException(status_code=400, detail="Insufficient FAAB balance.")
@@ -98,7 +105,9 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
             .filter(
                 models.WaiverBudget.league_id == user.league_id,
                 models.WaiverBudget.owner_id == user.id,
+                models.WaiverBudget.year == season_year,
             )
+            .with_for_update()
             .first()
         )
         if waiver_budget and bid > int(waiver_budget.remaining_budget or 0):
@@ -150,7 +159,7 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
         player_id=player_id,
         amount=bid,
         session_id="WAIVER_WIRE",
-        year=2026,
+        year=season_year,
         league_id=user.league_id
     )
     
@@ -181,15 +190,9 @@ def process_claim(db: Session, user: models.User, player_id: int, bid: int, drop
         )
 
     if bid > 0:
-        now_year = datetime.now(UTC).year
-        season_year = now_year
-        settings = (
-            db.query(models.LeagueSettings)
-            .filter(models.LeagueSettings.league_id == user.league_id)
-            .first()
-        )
-        if settings and settings.draft_year:
-            season_year = int(settings.draft_year)
+        if waiver_budget is not None:
+            waiver_budget.remaining_budget = int(waiver_budget.remaining_budget or 0) - bid
+            waiver_budget.spent_budget = int(waiver_budget.spent_budget or 0) + bid
 
         record_ledger_entry(
             db,

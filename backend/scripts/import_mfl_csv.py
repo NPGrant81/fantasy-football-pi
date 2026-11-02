@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from backend import models
 from backend.database import SessionLocal
-from backend.services.player_service import canonical_player_identity
+from backend.services.player_service import find_existing_player
 
 
 REQUIRED_COLUMNS: dict[str, list[str]] = {
@@ -275,15 +275,6 @@ def _build_owner_map(
     return owner_map
 
 
-def _build_existing_player_index(db: Session) -> dict[tuple[str, str, str], models.Player]:
-    index: dict[tuple[str, str, str], models.Player] = {}
-    for player in db.query(models.Player).all():
-        key = canonical_player_identity(player.name, player.position, player.nfl_team)
-        if key[0] and key[1] and key[2]:
-            index[key] = player
-    return index
-
-
 def _build_franchise_division_map(
     franchise_rows: list[dict[str, str]],
 ) -> dict[tuple[int, str], str | None]:
@@ -441,7 +432,6 @@ def run_import_mfl_csv(
         division_map = _build_franchise_division_map(franchise_rows)
         playoff_week_map = _build_playoff_week_map(schedule_rows, franchise_rows)
 
-        player_index = _build_existing_player_index(db)
         mfl_player_to_local: dict[tuple[int, str], int] = {}
 
         for row in player_rows:
@@ -457,8 +447,9 @@ def run_import_mfl_csv(
                 summary.rows_invalid += 1
                 continue
 
-            key = canonical_player_identity(name, position, nfl_team)
-            existing = player_index.get(key)
+            existing = find_existing_player(
+                db, mfl_id=mfl_player_id, name=name, position=position, nfl_team=nfl_team,
+            )
             if existing is None:
                 existing = models.Player(
                     name=name,
@@ -466,12 +457,14 @@ def run_import_mfl_csv(
                     nfl_team=nfl_team,
                     adp=0.0,
                     projected_points=0.0,
+                    mfl_id=mfl_player_id,
                 )
                 db.add(existing)
                 db.flush()
-                player_index[key] = existing
                 summary.players_inserted += 1
             else:
+                existing.mfl_id = mfl_player_id
+                db.flush()
                 summary.players_matched += 1
 
             mfl_player_to_local[(season, mfl_player_id)] = int(existing.id)

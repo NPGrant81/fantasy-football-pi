@@ -126,7 +126,11 @@ def propose_trade(
     if payload.to_user_id == current_user.id:
         raise HTTPException(status_code=400, detail="You cannot propose a trade to yourself.")
 
-    target_user = db.query(models.User).filter(models.User.id == payload.to_user_id).first()
+    target_user = db.query(models.User).filter(
+        models.User.id == payload.to_user_id,
+        models.User.is_historical_stub.is_(False),
+        ~models.User.username.like("hist_%"),
+    ).first()
     if not target_user or target_user.league_id != current_user.league_id:
         raise HTTPException(status_code=404, detail="Target manager not found in your league.")
 
@@ -802,6 +806,7 @@ def get_pending_trades(
     users = {u.id: u for u in db.query(models.User).filter(
         models.User.league_id == current_user.league_id,
         ~models.User.username.like("hist_%"),
+        models.User.is_historical_stub.is_(False),
     ).all()}
     allowed_positions = {"QB", "RB", "WR", "TE", "K", "DEF"}
     players = {p.id: p for p in db.query(models.Player).filter(models.Player.position.in_(allowed_positions)).all()}

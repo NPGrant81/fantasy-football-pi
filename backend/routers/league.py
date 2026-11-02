@@ -16,6 +16,7 @@ from ..services import league_history_enrichment_service as history_enrichment_s
 from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.player_news_service import sentiment_from_text as _sentiment_from_text
 from ..services.commissioner_deadline_service import parse_commissioner_deadline
+from ..services.season_service import active_season
 from ..services.validation_service import (
     validate_league_settings_boundary,
     validate_league_settings_dynamic_rules,
@@ -413,6 +414,7 @@ def fetch_league_owners_data(
         models.User.league_id == league_id,
         models.User.is_superuser.is_(False),
         ~models.User.username.like("hist_%"),
+        models.User.is_historical_stub.is_(False),
     ).all()
 
     # Build a map from user id to division_id once to avoid per-matchup queries
@@ -601,6 +603,7 @@ def get_league_news(
                 models.DraftPick.session_id == session_key,
             ),
             ~models.User.username.like("hist_%"),
+            models.User.is_historical_stub.is_(False),
         )
         .order_by(desc(models.DraftPick.id))
         .limit(max(limit * 5, 100))
@@ -792,10 +795,12 @@ def join_league(league_id: int, current_user: models.User = Depends(get_current_
 # --- Waiver budget endpoint ---
 @router.get("/{league_id}/waiver-budgets", response_model=List[WaiverBudgetSchema])
 def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
+    year = active_season(db, league_id)
     has_faab_ledger = (
         db.query(models.EconomicLedger.id)
         .filter(
             models.EconomicLedger.league_id == league_id,
+            models.EconomicLedger.season_year == year,
             models.EconomicLedger.currency_type == "FAAB",
         )
         .first()
@@ -807,10 +812,11 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
             models.User.league_id == league_id,
             models.User.is_superuser.is_(False),
             ~models.User.username.like("hist_%"),
+            models.User.is_historical_stub.is_(False),
         ).all()
         legacy_records = (
             db.query(models.WaiverBudget)
-            .filter(models.WaiverBudget.league_id == league_id)
+            .filter(models.WaiverBudget.league_id == league_id, models.WaiverBudget.year == year)
             .all()
         )
         legacy_by_owner = {r.owner_id: r for r in legacy_records}
@@ -821,6 +827,7 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
                 db.query(func.coalesce(func.sum(models.EconomicLedger.amount), 0))
                 .filter(
                     models.EconomicLedger.league_id == league_id,
+                    models.EconomicLedger.season_year == year,
                     models.EconomicLedger.currency_type == "FAAB",
                     models.EconomicLedger.to_owner_id == user.id,
                 )
@@ -844,6 +851,7 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
                 db.query(func.coalesce(func.sum(models.EconomicLedger.amount), 0))
                 .filter(
                     models.EconomicLedger.league_id == league_id,
+                    models.EconomicLedger.season_year == year,
                     models.EconomicLedger.currency_type == "FAAB",
                     models.EconomicLedger.to_owner_id == user.id,
                     models.EconomicLedger.from_owner_id.is_(None),
@@ -854,6 +862,7 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
                 db.query(func.coalesce(func.sum(models.EconomicLedger.amount), 0))
                 .filter(
                     models.EconomicLedger.league_id == league_id,
+                    models.EconomicLedger.season_year == year,
                     models.EconomicLedger.currency_type == "FAAB",
                     models.EconomicLedger.from_owner_id == user.id,
                     models.EconomicLedger.to_owner_id.is_(None),
@@ -870,6 +879,7 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
                         league_id=league_id,
                         owner_id=user.id,
                         currency_type="FAAB",
+                        season_year=year,
                     ),
                     spent_budget=int(spent_budget or 0),
                 )
@@ -879,7 +889,13 @@ def get_waiver_budgets(league_id: int, db: Session = Depends(get_db)):
 
     records = (
         db.query(models.WaiverBudget)
-        .filter(models.WaiverBudget.league_id == league_id)
+        .join(models.User, models.User.id == models.WaiverBudget.owner_id)
+        .filter(
+            models.WaiverBudget.league_id == league_id,
+            models.WaiverBudget.year == year,
+            models.User.is_historical_stub.is_(False),
+            ~models.User.username.like("hist_%"),
+        )
         .all()
     )
     return [
@@ -1287,6 +1303,7 @@ def get_league_budgets(
         models.User.league_id == league_id,
         models.User.is_superuser.is_(False),
         ~models.User.username.like("hist_%"),
+        models.User.is_historical_stub.is_(False),
     ).all()
     has_draft_ledger = (
         db.query(models.EconomicLedger.id)
@@ -1427,6 +1444,7 @@ def update_league_budgets(
             models.User.league_id == league_id,
             models.User.is_superuser.is_(False),
             ~models.User.username.like("hist_%"),
+            models.User.is_historical_stub.is_(False),
         )
     }
     invalid_owner_ids = [owner_id for owner_id in owner_ids if owner_id not in valid_owner_ids]
@@ -1636,7 +1654,11 @@ def add_league_member(
     if current_user.league_id != league_id:
         raise HTTPException(status_code=403, detail="Commissioner can only manage members in their league")
 
-    user = db.query(models.User).filter(models.User.username == request.username).first()
+    user = db.query(models.User).filter(
+        models.User.username == request.username,
+        models.User.is_historical_stub.is_(False),
+        ~models.User.username.like("hist_%"),
+    ).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -1674,6 +1696,8 @@ def create_owner(
     db: Session = Depends(get_db)
 ):
     """Invite a new user with an auto-generated 8-char password."""
+    if request.username.strip().lower().startswith("hist_"):
+        raise HTTPException(status_code=400, detail="Username prefix is reserved for historical accounts")
 
     if request.league_id and request.league_id != current_user.league_id:
         raise HTTPException(status_code=403, detail="Commissioner can only add owners to their league")
@@ -1707,6 +1731,8 @@ def create_owner(
             current_count = db.query(models.User).filter(
                 models.User.league_id == request.league_id,
                 models.User.is_superuser.is_(False),
+                models.User.is_historical_stub.is_(False),
+                ~models.User.username.like("hist_%"),
                 models.User.username.not_in(["Free Agent", "Obsolete"]),
             ).count()
             if current_count >= owner_limit:
@@ -2667,6 +2693,8 @@ def finalize_draft(league_id: int, db: Session = Depends(get_db)):
     owners = db.query(models.User).filter(
         models.User.league_id == league_id,
         models.User.is_superuser.is_(False),
+        models.User.is_historical_stub.is_(False),
+        ~models.User.username.like("hist_%"),
         models.User.username.not_in(["Free Agent", "Obsolete"])
     ).all()
     

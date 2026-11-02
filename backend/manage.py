@@ -842,6 +842,7 @@ def bootstrap_mfl_franchise_users(
                 user = db.query(models.User).filter(models.User.id == entry["user_id"]).one_or_none()
                 if user is not None:
                     user.team_name = entry["team_name"]
+                    user.is_historical_stub = True
 
             for entry in to_create:
                 user = models.User(
@@ -852,6 +853,7 @@ def bootstrap_mfl_franchise_users(
                     team_name=entry["team_name"],
                     is_superuser=False,
                     is_commissioner=False,
+                    is_historical_stub=True,
                 )
                 db.add(user)
             if updates or to_create:

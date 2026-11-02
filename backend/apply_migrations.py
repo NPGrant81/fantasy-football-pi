@@ -16,7 +16,7 @@ from backend.db_config import load_backend_env_file, resolve_database_url
 
 ALEMBIC_CONFIG_PATH = Path(__file__).resolve().with_name("alembic.ini")
 BOOTSTRAP_SCRIPT_PATH = Path(__file__).resolve().parents[1] / "db" / "bootstrap"
-BOOTSTRAP_MAIN_REVISION = "0028_reconcile_runtime_schema"
+BOOTSTRAP_MAIN_REVISION = "0031_historical_observations"
 FFPI_APPLICATION_TABLES = frozenset(
     {
         "admin_audit_logs",
@@ -29,6 +29,7 @@ FFPI_APPLICATION_TABLES = frozenset(
         "draft_picks",
         "draft_values",
         "economic_ledger",
+        "historical_auction_observations",
         "keeper_rules",
         "keepers",
         "league_history_team_owner_map",

@@ -7,9 +7,12 @@ import ast
 import sys
 from pathlib import Path
 
-
 CANONICAL_MIGRATIONS = Path("db/migrations")
-BOOTSTRAP_REVISION = Path("db/bootstrap/versions/0001_create_schema_at_0028.py")
+BOOTSTRAP_REVISIONS = {
+    Path("db/bootstrap/versions/0001_create_schema_at_0028.py"),
+    Path("db/bootstrap/versions/0002_historical_ingestion.py"),
+    Path("db/bootstrap/versions/0003_historical_observations.py"),
+}
 IGNORED_DIRECTORIES = {".git", ".venv", "venv", "node_modules", "__pycache__"}
 
 
@@ -20,7 +23,9 @@ def _assigns_revision(statement: ast.stmt) -> bool:
             for target in statement.targets
         )
     if isinstance(statement, ast.AnnAssign):
-        return isinstance(statement.target, ast.Name) and statement.target.id == "revision"
+        return (
+            isinstance(statement.target, ast.Name) and statement.target.id == "revision"
+        )
     return False
 
 
@@ -45,7 +50,7 @@ def find_noncanonical_revision_files(repository_root: Path) -> list[Path]:
     invalid_paths = []
     for path in find_revision_files(repository_root):
         is_canonical = path.parts[:2] == CANONICAL_MIGRATIONS.parts
-        if not is_canonical and path != BOOTSTRAP_REVISION:
+        if not is_canonical and path not in BOOTSTRAP_REVISIONS:
             invalid_paths.append(path)
     return invalid_paths
 
@@ -55,7 +60,9 @@ def main() -> int:
     invalid_paths = find_noncanonical_revision_files(repository_root)
     if invalid_paths:
         print("ERROR: Alembic revision files must be in db/migrations/.")
-        print(f"The governed bootstrap revision is the only exception: {BOOTSTRAP_REVISION}")
+        print(
+            f"Only explicitly governed bootstrap revisions are exceptions: {sorted(BOOTSTRAP_REVISIONS)}"
+        )
         for path in invalid_paths:
             print(f"  {path.as_posix()}")
         return 1
