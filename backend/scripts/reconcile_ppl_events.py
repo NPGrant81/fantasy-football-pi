@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+from backend.scripts.reconcile_ppl_attributes import read_team_taxonomy
 
 from backend.scripts.reconcile_ppl_history import (
     _amount,
@@ -175,7 +176,13 @@ def build_event_audit(
     report: dict[str, Any],
     native_seasons: dict[int, dict[str, list[dict[str, str]]]],
     staging: dict[str, Any],
+    teams_path: Path,
 ) -> dict[str, Any]:
+    team_hash, _, team_ids, _ = read_team_taxonomy(teams_path)
+    if team_hash != report["approved_attribute_resolutions"]["teams_sha256"]:
+        raise ValueError(
+            "Event team taxonomy differs from approved attribute evidence."
+        )
     hashes = report["legacy_source_files_sha256"]
     owner_rows = report["approved_owner_resolutions"]["resolved_event_owners"]
     owner_by_ref = {row["legacy_evidence_ref"]: row for row in owner_rows}
@@ -245,10 +252,24 @@ def build_event_audit(
         owner_mappings[(row["season"], row["franchise_id"])].append(
             row["source_owner_id"]
         )
-    player_approvals = {
-        row["source_player_id"]: row["player_mfl_id"]
-        for row in report["approved_player_resolutions"]["resolved_players"]
-    }
+    reviewed_players: dict[int, set[str]] = defaultdict(set)
+    for row in report["approved_player_resolutions"]["resolved_players"]:
+        reviewed_players[row["source_player_id"]].add(row["player_mfl_id"])
+    native_by_ref = {}
+    native_name_ids = defaultdict(set)
+    for year, exports in native_seasons.items():
+        for number, row in enumerate(exports["draftResults"], start=2):
+            native_by_ref[(year, f"{selected[(year, 'draftResults')]}:{number}")] = row[
+                "player_mfl_id"
+            ]
+        for row in exports["players"]:
+            native_name_ids[_dedupe_normalized_name(row["player_name"])].add(
+                row["player_mfl_id"]
+            )
+    for row in legacy:
+        reviewed_players[row["source_player_id"]].add(
+            native_by_ref[(row["season"], row["native_evidence_ref"])]
+        )
     legacy_players = defaultdict(list)
     for number, row in enumerate(sources["players.csv"], start=2):
         legacy_players[_integer(row["Player_ID"])].append((number, row))
@@ -274,7 +295,7 @@ def build_event_audit(
             native_refs.add(ref)
             event = by_ref[ref]
             reasons = []
-            raw = json.loads(row.get("raw_pick", "null"))
+            raw = json.loads(row.get("raw_pick") or "null")
             if (
                 not isinstance(raw, dict)
                 or raw.get("player") != row["player_mfl_id"]
@@ -335,7 +356,7 @@ def build_event_audit(
                     (
                         _dedupe_normalized_name(r["player_name"]),
                         _position(r["position"]),
-                        (r.get("nfl_team") or "").strip(),
+                        (r.get("nfl_team") or "").strip().upper(),
                     )
                     for _, r in observations
                 }
@@ -345,16 +366,22 @@ def build_event_audit(
                     next(iter(identities)) if len(identities) == 1 else ("", "", "")
                 )
                 candidates = []
+                ambiguous_name = False
+                identity_conflict = False
                 for identifier, variants in sorted(legacy_players.items()):
-                    native_id = player_approvals.get(identifier)
-                    if native_id == row["player_mfl_id"] or (
-                        native_id is None
-                        and name
-                        and all(
-                            _dedupe_normalized_name(r["PlayerName"]) == name
-                            for _, r in variants
-                        )
-                    ):
+                    reviewed_ids = reviewed_players.get(identifier, set())
+                    name_matches = bool(name) and all(
+                        _dedupe_normalized_name(r["PlayerName"]) == name
+                        for _, r in variants
+                    )
+                    supported = reviewed_ids == {row["player_mfl_id"]}
+                    if not reviewed_ids and name_matches:
+                        supported = native_name_ids[name] == {row["player_mfl_id"]}
+                        if not supported:
+                            ambiguous_name = True
+                    elif reviewed_ids and not supported and name_matches:
+                        identity_conflict = True
+                    if supported:
                         candidates.append(
                             {
                                 "source_player_id": identifier,
@@ -363,6 +390,10 @@ def build_event_audit(
                                 ],
                             }
                         )
+                if not candidates and ambiguous_name:
+                    reasons.append("supplement_ambiguous_native_name")
+                if not candidates and identity_conflict:
+                    reasons.append("supplement_conflicting_reviewed_player_identity")
                 owners = owner_mappings[(year, row["franchise_id"])]
                 if len(candidates) != 1 or len(owners) != 1:
                     reasons.append(
@@ -373,6 +404,8 @@ def build_event_audit(
                     or not team
                 ):
                     reasons.append("supplement_missing_attributes")
+                if team and len(team_ids.get(team, set())) != 1:
+                    reasons.append("supplement_unsupported_team")
                 proposal["source_owner_id"] = owners[0] if len(owners) == 1 else None
                 proposal["source_player_candidates"] = candidates
                 proposal["source_player_id"] = (

@@ -14,13 +14,9 @@ def _taxonomy_position(value: str) -> str:
     return {"TD": "DST", "KICKER": "K"}.get(_position(value), _position(value))
 
 
-def build_attribute_audit(
-    *,
-    sources: dict[str, list[dict[str, Any]]],
-    report: dict[str, Any],
-    native_seasons: dict[int, dict[str, list[dict[str, str]]]],
+def read_team_taxonomy(
     teams_path: Path,
-) -> dict[str, Any]:
+) -> tuple[str, dict[int, set[str]], dict[str, set[int]], dict[int, list[str]]]:
     raw = teams_path.read_bytes()
     reader = csv.DictReader(io.StringIO(raw.decode("ISO-8859-1"), newline=""))
     if not {"Team", "TeamID"} <= set(reader.fieldnames or ()):
@@ -40,7 +36,17 @@ def build_attribute_audit(
         team_refs[identifier].append(f"{team_hash}:{number}")
     if any(len(ids) != 1 for ids in team_ids.values()):
         raise ValueError("Team taxonomy has ambiguous label identifiers.")
+    return team_hash, teams, team_ids, team_refs
 
+
+def build_attribute_audit(
+    *,
+    sources: dict[str, list[dict[str, Any]]],
+    report: dict[str, Any],
+    native_seasons: dict[int, dict[str, list[dict[str, str]]]],
+    teams_path: Path,
+) -> dict[str, Any]:
+    team_hash, teams, team_ids, team_refs = read_team_taxonomy(teams_path)
     hashes = report["legacy_source_files_sha256"]
     taxonomy = []
     positions: dict[int, set[str]] = defaultdict(set)

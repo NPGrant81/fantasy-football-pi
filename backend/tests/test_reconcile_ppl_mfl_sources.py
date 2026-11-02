@@ -684,6 +684,20 @@ def test_owner_approval_resolves_source_ownership_not_target_accounts(
     assert report == before
 
 
+def test_accepted_owner_mapping_returns_normalized_ids_for_later_event_gates(
+    owner_approval_evidence,
+):
+    report, decisions = deepcopy(owner_approval_evidence)
+    decisions["season_owners"][0].update(
+        season="2024", source_owner_id="1", franchise_id=" 0001 "
+    )
+    result = script.approve_owner_resolutions(report, decisions)
+    assert result["season_owners"] == [
+        {"season": 2024, "source_owner_id": 1, "franchise_id": "0001", "approved": True}
+    ]
+    assert decisions["season_owners"][0]["season"] == "2024"
+
+
 @pytest.mark.parametrize(
     "failure",
     [

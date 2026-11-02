@@ -831,6 +831,7 @@ def run_source_reconciliation(
             report=result,
             native_seasons=native_seasons,
             staging=read_staging_snapshot(staging_snapshot, staging_verification),
+            teams_path=source_root / "teams.csv",
         )
         if event_resolutions is not None:
             result["approved_event_resolutions"] = approve_event_resolutions(
@@ -1136,7 +1137,15 @@ def approve_owner_resolutions(
         raise ValueError("Owner exceptions contain unknown legacy rows.")
     return {
         "owner_identity_gate": "resolved_source_season_franchises",
-        "season_owners": decisions["season_owners"],
+        "season_owners": [
+            {
+                **entry,
+                "season": _integer(entry["season"]),
+                "source_owner_id": _integer(entry["source_owner_id"]),
+                "franchise_id": _source_id(entry["franchise_id"]),
+            }
+            for entry in decisions["season_owners"]
+        ],
         "resolved_event_owners": resolved_rows,
         "reviewed_owner_variant_sha256": sorted(expected_variants),
         "event_identities": decisions.get("event_identities", []),

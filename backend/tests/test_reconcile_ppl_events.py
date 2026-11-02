@@ -8,7 +8,10 @@ from backend.scripts import reconcile_ppl_events as script
 
 
 @pytest.fixture
-def event_evidence():
+def event_evidence(tmp_path):
+    teams_path = tmp_path / "teams.csv"
+    teams_path.write_text("Team,TeamID\nPHI,3\nFA,4\n", encoding="ISO-8859-1")
+    teams_hash = hashlib.sha256(teams_path.read_bytes()).hexdigest()
     players = [
         {
             "player_mfl_id": str(identifier),
@@ -56,6 +59,7 @@ def event_evidence():
         for number in range(2, 5)
     ]
     return {
+        "teams_path": teams_path,
         "sources": {
             "draft_results.csv": legacy,
             "players.csv": [
@@ -94,7 +98,7 @@ def event_evidence():
             },
             "approved_player_resolutions": {"resolved_players": []},
             "approved_attribute_resolutions": {
-                "teams_sha256": "teams-hash",
+                "teams_sha256": teams_hash,
                 "draft_rows": [
                     {
                         "legacy_evidence_ref": f"legacy-hash:{number}",
@@ -133,7 +137,7 @@ def _approval(evidence):
         "review_basis": "Explicit event and observation grain review",
         "legacy_source_files_sha256": report["legacy_source_files_sha256"],
         "selected_mfl_exports": report["selected_mfl_exports"],
-        "teams_sha256": "teams-hash",
+        "teams_sha256": report["approved_attribute_resolutions"]["teams_sha256"],
         "staging_snapshot_sha256": "staging-hash",
         "staging_verification_sha256": "verification-hash",
         "resolution": audit["proposal"],
@@ -359,6 +363,7 @@ def test_staging_comparison_uses_original_attributes_and_exact_bid(
         "raw_disagreement",
         "catalog_disagreement",
         "null_team",
+        "unsupported_team",
     ],
 )
 def test_unresolved_supplement_never_passes_gate(event_evidence, problem):
@@ -375,12 +380,75 @@ def test_unresolved_supplement_never_passes_gate(event_evidence, problem):
         exports["draftResults"][-1]["raw_pick"] = json.dumps(raw)
     elif problem == "null_team":
         exports["players"][-1]["nfl_team"] = None
+    elif problem == "unsupported_team":
+        exports["players"][-1]["nfl_team"] = "#N/A"
     else:
         exports["players"].append({**exports["players"][-1], "position": "RB"})
     report, decisions = _approval(event_evidence)
     assert report["event_reconciliation_audit"]["blockers"]
     with pytest.raises(ValueError, match="Unresolved event"):
         script.approve_event_resolutions(report, decisions)
+
+
+def test_supplement_cannot_reuse_source_identity_reviewed_through_events(
+    event_evidence,
+):
+    event_evidence["native_seasons"][2024]["players"][-1]["player_name"] = "AJ Brown"
+    report, decisions = _approval(event_evidence)
+    audit = report["event_reconciliation_audit"]
+    assert audit["proposal"]["events"][-1]["source_player_id"] is None
+    assert (
+        "supplement_conflicting_reviewed_player_identity"
+        in audit["blockers"][-1]["reasons"]
+    )
+    with pytest.raises(ValueError, match="Unresolved event"):
+        script.approve_event_resolutions(report, decisions)
+
+
+def test_explicit_native_binding_can_distinguish_same_name_identities(event_evidence):
+    event_evidence["native_seasons"][2024]["players"][-1]["player_name"] = "AJ Brown"
+    event_evidence["report"]["approved_player_resolutions"]["resolved_players"] = [
+        {"source_player_id": 30, "player_mfl_id": "345"}
+    ]
+    report, decisions = _approval(event_evidence)
+    assert (
+        report["event_reconciliation_audit"]["proposal"]["events"][-1][
+            "source_player_id"
+        ]
+        == 30
+    )
+    assert (
+        script.approve_event_resolutions(report, decisions)["ready_for_slice_6"] is True
+    )
+
+
+def test_supplement_name_fallback_requires_unique_native_identity(event_evidence):
+    players = event_evidence["native_seasons"][2024]["players"]
+    players.append({**players[-1], "player_mfl_id": "456"})
+    report, decisions = _approval(event_evidence)
+    assert (
+        "supplement_ambiguous_native_name"
+        in report["event_reconciliation_audit"]["blockers"][-1]["reasons"]
+    )
+    with pytest.raises(ValueError, match="Unresolved event"):
+        script.approve_event_resolutions(report, decisions)
+
+
+def test_missing_optional_raw_pick_is_an_explicit_event_blocker(event_evidence):
+    event_evidence["native_seasons"][2024]["draftResults"][-1]["raw_pick"] = None
+    report, decisions = _approval(event_evidence)
+    assert (
+        "raw_normalized_event_disagreement"
+        in report["event_reconciliation_audit"]["blockers"][-1]["reasons"]
+    )
+    with pytest.raises(ValueError, match="Unresolved event"):
+        script.approve_event_resolutions(report, decisions)
+
+
+def test_event_taxonomy_must_match_attribute_approval_hash(event_evidence):
+    event_evidence["teams_path"].write_text("Team,TeamID\nPHI,3\nFA,9\n")
+    with pytest.raises(ValueError, match="team taxonomy differs"):
+        script.build_event_audit(**event_evidence)
 
 
 @pytest.mark.parametrize(
