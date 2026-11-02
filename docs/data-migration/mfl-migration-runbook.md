@@ -261,6 +261,49 @@ evidence gate. `ready_to_import=false`, exclusive-create output and blocked exit
 code 2 remain. The tool has no API/database write path, does not repair staging,
 and does not authorize target mappings, schema adoption or production promotion.
 
+### Slice 6: guarded schema adoption
+
+See [ADR-001](../architecture/ADR-001-historical-ingestion-adoption.md) for the approved
+source-event grain and schema-adoption decision. Canonical head is
+`0030_historical_ingestion`; fresh bootstrap and incremental migration schemas
+are equivalent. Do not invent the absent observed `0029` migration.
+
+The explicit adoption command accepts only an independently restored loopback
+database named `ffpi_528_slice6_*`, never an original or preserved working copy:
+
+```powershell
+# DATABASE_URL must privately target the newly restored disposable copy.
+python -m backend.historical_schema_adoption --disposable-copy ffpi_528_slice6_<timestamp>
+```
+
+The command binds the complete input schema/version-table fingerprint,
+locks all tables, preserves every original column/row and sequence state,
+reconciles to the complete bootstrap snapshot and changes the version only
+after verification in the same transaction. An unexpected schema, source
+collision, incompatible row, lock timeout or preservation failure aborts.
+Rerunning on an already adopted copy is refused rather than reported as a
+new adoption. Normal startup still rejects unknown revisions.
+
+Legacy evidence fields retained in the canonical contract are not active
+settings or approved canonical mappings. Null-year waiver budgets remain
+archival/unassigned; current runtime uses explicitly resolved season scope.
+Current approved auction bids are integral; any later fractional bids require
+an explicit compatible storage/import decision, never the generic loader's
+legacy rounding helper.
+
+The successful clone trial does not authorize adopting the preserved working
+copies, running the generic MFL loader, applying target mappings or deploying
+to production. Slice 7 must validate the approved event plan, exact amounts,
+idempotent reruns and isolation from live roster/ownership consumers before
+any historical writes.
+
+Supplemental events cannot reuse a legacy player ID bound to another native
+identity through a previously reviewed event. Unbound name matches require
+unique native-name evidence; explicit reviewed native bindings remain
+authoritative. Supplement teams must resolve unambiguously through the
+hash-bound attribute taxonomy. Missing raw cells remain visible blockers,
+and accepted owner mapping IDs are normalized for downstream event lookup.
+
 Use `native_mapping_review_template` to review native franchise/player to
 target mappings; all entries start unapproved with null target IDs. Every
 season's franchise list is included even when legacy matches are unavailable.

@@ -73,7 +73,8 @@ def list_commissioners(
 ):
     commissioners = (
         db.query(models.User)
-        .filter(models.User.is_commissioner == True)
+        .filter(models.User.is_commissioner == True,
+                models.User.is_historical_stub.is_(False), ~models.User.username.like("hist_%"))
         .order_by(models.User.id.asc())
         .all()
     )

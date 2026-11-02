@@ -1,4 +1,5 @@
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -69,6 +70,7 @@ def test_get_waiver_budgets_with_record(client):
         starting_budget=100,
         remaining_budget=80,
         spent_budget=20,
+        year=datetime.now(UTC).year,
     )
     db.add(budget)
     db.commit()
@@ -80,6 +82,30 @@ def test_get_waiver_budgets_with_record(client):
     entry = data[0]
     assert entry["owner_id"] == user.id
     assert entry["remaining_budget"] == 80
+
+
+def test_waiver_budgets_ignore_other_seasons_and_historical_accounts(client, api_db):
+    db, _ = api_db
+    league = models.League(name="Season isolation", current_season=2030)
+    db.add(league)
+    db.flush()
+    users = [
+        models.User(username="active", league_id=league.id),
+        models.User(username="archive-renamed", league_id=league.id, is_historical_stub=True),
+        models.User(username="hist_2020_0001", league_id=league.id),
+    ]
+    db.add_all(users)
+    db.flush()
+    for user in users:
+        for year in (2029, 2030):
+            db.add(models.WaiverBudget(
+                league_id=league.id, owner_id=user.id, year=year,
+                starting_budget=100, remaining_budget=year - 2000, spent_budget=0,
+            ))
+    db.commit()
+    result = client.get(f"/leagues/{league.id}/waiver-budgets")
+    assert result.status_code == 200
+    assert [(row["owner_id"], row["remaining_budget"]) for row in result.json()] == [(users[0].id, 30)]
 
 
 def test_get_waiver_budgets_uses_ledger_when_present(client):

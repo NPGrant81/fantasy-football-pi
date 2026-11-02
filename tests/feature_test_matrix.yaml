@@ -187,6 +187,14 @@ lanes:
       - file: backend/tests/test_apply_migrations.py
         domain: infra
         status: active
+      - file: backend/tests/test_historical_schema_adoption.py
+        domain: infra
+        status: active
+        notes: Guarded unknown-revision adoption and transactional preservation on disposable PostgreSQL databases
+      - file: backend/tests/test_historical_ingestion.py
+        domain: historical-ingestion
+        status: active
+        notes: Provider identity conflicts, source-event grain, Sleeper bindings and seasonal waiver budgets
       - file: backend/tests/test_topology_compliance.py
         domain: infra
         status: active

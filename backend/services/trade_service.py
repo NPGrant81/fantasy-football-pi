@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from datetime import UTC, datetime
 from .ledger_service import record_ledger_entry
+from ..core.security import is_historical_account
 
 
 def execute_trade(db: Session, trade_id: int, approver_id: int) -> models.TradeProposal:
@@ -20,6 +21,8 @@ def execute_trade(db: Session, trade_id: int, approver_id: int) -> models.TradeP
     to_user = db.query(models.User).filter(models.User.id == trade.to_user_id).first()
     if not from_user or not to_user:
         raise ValueError("Users involved in trade no longer exist")
+    if is_historical_account(from_user) or is_historical_account(to_user):
+        raise ValueError("Historical accounts cannot participate in trades")
 
     offered_pick = (
         db.query(models.DraftPick)

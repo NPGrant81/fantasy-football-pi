@@ -86,6 +86,7 @@ def _league_strength_inputs(db: Session, league_id: int) -> list[TeamStrengthInp
     users = db.query(models.User).filter(
         models.User.league_id == league_id,
         ~models.User.username.like("hist_%"),
+        models.User.is_historical_stub.is_(False),
     ).all()
     rows: list[TeamStrengthInput] = []
 
@@ -161,6 +162,7 @@ def _current_assignment(db: Session, league_id: int) -> dict[int, list[int]]:
     users = db.query(models.User).filter(
         models.User.league_id == league_id,
         ~models.User.username.like("hist_%"),
+        models.User.is_historical_stub.is_(False),
     ).all()
     for user in users:
         if user.division_id is None:
@@ -223,6 +225,7 @@ def upsert_division_config(
     users = db.query(models.User).filter(
         models.User.league_id == league_id,
         ~models.User.username.like("hist_%"),
+        models.User.is_historical_stub.is_(False),
     ).all()
     team_count = len(users)
 
@@ -457,6 +460,7 @@ def finalize_assignment(
     users = {u.id: u for u in db.query(models.User).filter(
         models.User.league_id == league_id,
         ~models.User.username.like("hist_%"),
+        models.User.is_historical_stub.is_(False),
     ).all()}
     previous = _current_assignment(db, league_id)
 
@@ -521,6 +525,7 @@ def undo_last_assignment(
     users = {u.id: u for u in db.query(models.User).filter(
         models.User.league_id == league_id,
         ~models.User.username.like("hist_%"),
+        models.User.is_historical_stub.is_(False),
     ).all()}
 
     # Clear current assignment first.

@@ -101,7 +101,8 @@ def build_post_draft_outlook(
 
     owners = (
         db.query(models.User)
-        .filter(models.User.league_id == league_id, ~models.User.username.like("hist_%"))
+        .filter(models.User.league_id == league_id, ~models.User.username.like("hist_%"),
+                models.User.is_historical_stub.is_(False))
         .all()
     )
     if not owners:

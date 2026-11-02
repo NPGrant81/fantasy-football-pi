@@ -76,6 +76,10 @@ def verify_password(plain_password, hashed_password):
         # Treat unknown/legacy hash formats as invalid credentials instead of 500.
         return False
 
+
+def is_historical_account(user: models.User) -> bool:
+    return bool(user.is_historical_stub) or (user.username or "").lower().startswith("hist_")
+
 def get_password_hash(password):
     # In tests we still return a valid bcrypt hash (lower cost) so accidental
     # persisted rows remain usable for auth instead of becoming permanent 401s.
@@ -236,7 +240,7 @@ async def get_current_user(
         raise credentials_exception
 
     user = db.query(models.User).filter(models.User.username == username).first()
-    if user is None:
+    if user is None or is_historical_account(user):
         raise credentials_exception
     return user
 

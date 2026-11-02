@@ -206,6 +206,8 @@ def test_import_and_reconcile_mfl_csv_round_trip(tmp_path, monkeypatch):
     assert import_summary["players_inserted"] == 1
     assert import_summary["draft_picks_inserted"] == 2
     assert import_summary["draft_picks_skipped"] == 0
+    with TestingSessionLocal() as verify:
+        assert {player.mfl_id for player in verify.query(models.Player).all()} == {"1001", "1002"}
 
     monkeypatch.setenv("FFPI_ALLOW_LEGACY_CSV_PIPELINE", "1")
     reconcile_output = tmp_path / "reconcile.json"

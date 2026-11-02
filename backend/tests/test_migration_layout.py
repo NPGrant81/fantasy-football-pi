@@ -40,6 +40,7 @@ def test_repository_revision_files_use_governed_locations():
         Path("db/versions/unregistered_revision.py"),
         Path("backend/alembic/versions/unregistered_revision.py"),
         Path("backend/migrations/unregistered_revision.py"),
+        Path("db/bootstrap/versions/unregistered_revision.py"),
     ],
 )
 def test_revision_files_outside_canonical_locations_are_rejected(
@@ -61,9 +62,10 @@ def test_canonical_and_governed_bootstrap_revisions_are_allowed(tmp_path):
         / "versions"
         / "0001_create_schema_at_0028.py"
     )
-    for revision_file in (canonical, bootstrap):
+    extension = bootstrap.with_name("0002_historical_ingestion.py")
+    for revision_file in (canonical, bootstrap, extension):
         revision_file.parent.mkdir(parents=True, exist_ok=True)
         revision_file.write_text('revision = "allowed"\n', encoding="utf-8")
 
-    assert len(find_revision_files(tmp_path)) == 2
+    assert len(find_revision_files(tmp_path)) == 3
     assert find_noncanonical_revision_files(tmp_path) == []

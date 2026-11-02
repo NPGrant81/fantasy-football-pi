@@ -1,4 +1,7 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, JSON, Numeric, DateTime, func, UniqueConstraint, Index, event
+from sqlalchemy import (
+    Boolean, Column, ForeignKey, Integer, String, Float, JSON, Numeric, DateTime,
+    func, UniqueConstraint, CheckConstraint, Index, event, text,
+)
 from sqlalchemy.orm import relationship
 # import backend.database explicitly so the module is always named backend.database
 import importlib
@@ -15,11 +18,13 @@ class User(Base):
     # 1.1 ROLES
     is_superuser = Column(Boolean, default=False)
     is_commissioner = Column(Boolean, default=False)
+    is_historical_stub = Column(Boolean, nullable=False, default=False, server_default=text("false"), index=True)
     
     # 1.2 LEAGUE INFO
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=True)
     # new division mapping -- optional FK
     division_id = Column(Integer, ForeignKey("divisions.id"), nullable=True)
+    division = Column(String, nullable=True)
     team_name = Column(String, nullable=True)
     future_draft_budget = Column(Integer, default=0)  # dollars available for future drafts
     
@@ -341,6 +346,8 @@ class Player(Base):
     projected_points = Column(Float, default=0.0)
     gsis_id = Column(String, nullable=True, unique=True)
     espn_id = Column(String, nullable=True, unique=True)
+    mfl_id = Column(String(32), nullable=True, unique=True, index=True)
+    sleeper_id = Column(String(32), nullable=True, unique=True, index=True)
     bye_week = Column(Integer, nullable=True)
 
     # Injury & availability fields
@@ -494,8 +501,21 @@ class PlayoffMatch(Base):
 
 class DraftPick(Base):
     __tablename__ = "draft_picks"
+    __table_args__ = (
+        Index("ix_draft_picks_league_year", "league_id", "year"),
+        Index("uq_draft_picks_league_source_event", "league_id", "source", "source_event_id",
+              unique=True, postgresql_where=text("source_event_id IS NOT NULL"),
+              sqlite_where=text("source_event_id IS NOT NULL")),
+        CheckConstraint(
+            "source_event_id IS NULL OR (league_id IS NOT NULL AND source IS NOT NULL "
+            "AND length(trim(source)) > 0 AND length(trim(source_event_id)) > 0)",
+            name="ck_draft_picks_source_identity",
+        ),
+    )
     id = Column(Integer, primary_key=True, index=True)
-    year = Column(Integer)
+    year = Column(Integer, index=True)
+    source = Column(String(32), nullable=True)
+    source_event_id = Column(String(128), nullable=True)
     round_num = Column(Integer, nullable=True)
     pick_num = Column(Integer, nullable=True)
     amount = Column(Integer) 
@@ -534,7 +554,8 @@ class DraftBudget(Base):
 class WaiverBudget(Base):
     __tablename__ = "waiver_budgets"
     __table_args__ = (
-        UniqueConstraint("league_id", "owner_id", name="uq_waiver_league_owner"),
+        UniqueConstraint("league_id", "owner_id", "year", name="uq_waiver_budget_league_owner_year"),
+        Index("ix_waiver_budgets_league_year_owner", "league_id", "year", "owner_id"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -837,6 +858,16 @@ def _prevent_ledger_delete(mapper, connection, target):
 # --- 9. TRANSACTION HISTORY ---
 class TransactionHistory(Base):
     __tablename__ = "transaction_history"
+    __table_args__ = (
+        Index("uq_transaction_history_source_event", "league_id", "source", "source_transaction_id",
+              unique=True, postgresql_where=text("source_transaction_id IS NOT NULL"),
+              sqlite_where=text("source_transaction_id IS NOT NULL")),
+        CheckConstraint(
+            "source_transaction_id IS NULL OR (league_id IS NOT NULL AND source IS NOT NULL "
+            "AND length(trim(source)) > 0 AND length(trim(source_transaction_id)) > 0)",
+            name="ck_transaction_history_source_identity",
+        ),
+    )
     id = Column(Integer, primary_key=True, index=True)
     league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
     # Calendar year of the season this transaction belongs to (e.g. 2007, 2024).
@@ -848,6 +879,8 @@ class TransactionHistory(Base):
     transaction_type = Column(String, nullable=False)  # draft, trade, waiver_add, waiver_drop, drop
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(String, nullable=True)
+    source = Column(String(32), nullable=True)
+    source_transaction_id = Column(String(128), nullable=True)
 
     league = relationship("League")
     player = relationship("Player")

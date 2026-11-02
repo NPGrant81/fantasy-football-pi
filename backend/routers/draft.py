@@ -120,7 +120,8 @@ def _get_websocket_user(websocket: WebSocket, db: Session):
     if security.is_token_revoked(db, jti):
         return None
 
-    return db.query(models.User).filter(models.User.username == username).first()
+    user = db.query(models.User).filter(models.User.username == username).first()
+    return None if user is None or security.is_historical_account(user) else user
 
 
 def _can_access_draft_session(current_user: models.User, session_id: str) -> bool:
@@ -177,6 +178,7 @@ def _resolve_simulation_league_config(db: Session, league_id: int) -> dict[str, 
             models.User.league_id == league_id,
             models.User.is_superuser.is_(False),
             ~models.User.username.like("hist_%"),
+            models.User.is_historical_stub.is_(False),
         )
         .scalar()
         or 0
@@ -1093,6 +1095,8 @@ def run_draft_simulation(
                     for u in db.query(models.User).filter(
                         models.User.league_id == current_user.league_id,
                         models.User.is_superuser == False,
+                        models.User.is_historical_stub.is_(False),
+                        ~models.User.username.like("hist_%"),
                     ).all()
                 }
                 for pid, group in rival_counts.groupby("player_id"):

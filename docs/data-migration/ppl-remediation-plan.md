@@ -281,6 +281,64 @@ Slice 6 may address migration-owned schema/runtime parity and the unknown
 observed revision. Target mappings remain separately required before slice 7;
 production promotion still needs separate approval.
 
+## Slice 6 schema/runtime parity
+
+The operator approved guarded adoption, source-event uniqueness,
+[ADR-001](../architecture/ADR-001-historical-ingestion-adoption.md) and disposable-clone
+validation. Canonical head `0030_historical_ingestion` and the governed
+`bootstrap_0030` extension now own provider identities, event provenance,
+season-aware waiver uniqueness and historical-account exclusion.
+
+The missing `0029_harden_historical_ingestion_models` was not recreated or
+blindly stamped. The explicit copy-only adopter verifies its complete observed
+schema fingerprint, including the version table, under table locks. It refuses
+unreviewed drift, removal of columns/tables, changed rows or sequence states,
+and any result differing from the full bootstrap contract. Only then does the
+same transaction record the new revision. Normal migration startup continues
+to reject unknown revisions.
+
+The final new disposable clone, `ffpi_528_slice6_20261102003600`, preserved all
+58 application tables, 107,542 application rows and 58 sequence states. Its
+complete application-schema SHA-256 is
+`4f67593995de3c848922cacebf89325255b338bf2d690a465d0e90652d78dce9`.
+The Alembic version row is the separately verified intentional revision change.
+All observed legacy fields remain in place, including the MFL-ID field on
+58,030 seasonal rows; no canonical player/account mappings were inferred from them.
+
+Runtime changes use native MFL/Sleeper identifiers before name matching,
+reject conflicting or ambiguous bindings and block automatic merging of
+provider-bound duplicate groups. The actual Sleeper entry point is the UAT
+seeder, not the nonexistent extraction path in #526; Sleeper IDs no longer
+occupy GSIS fields. Historical flags are backfilled from legacy names and
+set on newly bootstrapped stubs. Member lists, login, refresh, existing-token
+and draft-websocket authentication exclude historical accounts. Historical
+analytics/import identities remain retained.
+
+Waiver budget reads and FAAB ledger aggregation use the configured active
+season; settings take precedence over league season, then UTC year. Claims
+write that same year, and legacy budget-backed claims decrement that season's
+budget. Unknown-year budgets remain preserved but are not assigned an
+invented year or treated as active-season allocations.
+
+Validation: 1,108 backend tests passed (55 environment-gated skips);
+142 PostgreSQL migration/adoption tests passed, including full bootstrap versus
+incremental equivalence, drift rejection and transactional rollback. Both
+preserved-copy table/column/count/full-row-hash manifests remain unchanged
+(59 tables/107,543 rows and four tables/2,923 rows). No live API requests,
+historical imports, original or preserved-copy repairs or production changes occurred.
+
+Fresh review findings from slice 5 were also fixed: supplement identities
+respect prior event-reviewed mappings and native-name collisions; teams must
+resolve through the same hash-bound taxonomy used for attribute review;
+accepted owner identifiers are returned normalized; missing optional raw cells
+become explicit blockers. The complete existing 1,198-event approval manifest
+replays unchanged with these stricter checks.
+
+Slice 7 still requires explicit target player/account mappings and an
+approved-plan importer with count, exact-bid, idempotency, provenance and live
+consumer-isolation checks. The existing generic importer is not that importer.
+Do not treat schema parity as authorization to reconstruct data.
+
 ## API policy
 
 Reuse retained exports first. Any new request is one season/report in a short,
@@ -290,7 +348,7 @@ Do not place credentials in chat, Git, reports or shell history.
 
 ## Tracking
 
-PR #557 contains the read-only evidence tooling; merging it does not close
+PR #557 contains evidence tooling and guarded schema/runtime parity; merging it does not close
 #524-#528. Record slice completion, residual blockers, commit/PR references and
 validation on #528. Production deployment and promotion are not included in
 this plan's first slice.

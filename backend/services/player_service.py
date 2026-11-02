@@ -120,29 +120,31 @@ def find_existing_player(
     *,
     gsis_id: str | None = None,
     espn_id: str | None = None,
+    mfl_id: str | None = None,
+    sleeper_id: str | None = None,
     name: str | None = None,
     position: str | None = None,
     nfl_team: str | None = None,
 ) -> models.Player | None:
-    normalized_gsis_id = (gsis_id or "").strip()
-    normalized_espn_id = (espn_id or "").strip()
-    if normalized_gsis_id:
-        existing = (
-            db.query(models.Player)
-            .filter(models.Player.gsis_id == normalized_gsis_id)
-            .first()
-        )
-        if existing:
-            return existing
-
-    if normalized_espn_id:
-        existing = (
-            db.query(models.Player)
-            .filter(models.Player.espn_id == normalized_espn_id)
-            .first()
-        )
-        if existing:
-            return existing
+    providers = {
+        field: str(value).strip()
+        for field, value in {
+            "gsis_id": gsis_id, "espn_id": espn_id,
+            "mfl_id": mfl_id, "sleeper_id": sleeper_id,
+        }.items() if value is not None and str(value).strip()
+    }
+    matches = {
+        row.id: row
+        for field, identifier in providers.items()
+        for row in db.query(models.Player).filter(getattr(models.Player, field) == identifier).all()
+    }
+    if len(matches) > 1:
+        raise ValueError("Provider identifiers resolve to different canonical players.")
+    if matches:
+        existing = next(iter(matches.values()))
+        if any(getattr(existing, field) not in (None, "", value) for field, value in providers.items()):
+            raise ValueError("Conflicting provider identifier on canonical player.")
+        return existing
 
     identity_name, identity_position, identity_team = canonical_player_identity(
         name,
@@ -159,6 +161,7 @@ def find_existing_player(
     )
     best_match = None
     best_rank = None
+    identity_matches = 0
     for candidate in candidates:
         if canonical_player_identity(candidate.name, candidate.position, candidate.nfl_team) != (
             identity_name,
@@ -166,11 +169,16 @@ def find_existing_player(
             identity_team,
         ):
             continue
+        identity_matches += 1
+        if any(getattr(candidate, field) not in (None, "", value) for field, value in providers.items()):
+            raise ValueError("Name-based match conflicts with an existing provider identifier.")
         candidate_rank = _player_rank(candidate)
         if best_match is None or candidate_rank > best_rank:
             best_match = candidate
             best_rank = candidate_rank
 
+    if providers and identity_matches > 1:
+        raise ValueError("Ambiguous name-based provider binding requires reviewed mapping.")
     return best_match
 
 
@@ -198,7 +206,7 @@ def _player_dedupe_key(player: models.Player):
 def _player_rank(player: models.Player) -> tuple[int, int]:
     # Prefer rows with external IDs, then prefer active-team rows over FA,
     # then prefer most recently inserted IDs.
-    has_external_id = 1 if (player.gsis_id or player.espn_id) else 0
+    has_external_id = 1 if (player.gsis_id or player.espn_id or player.mfl_id or player.sleeper_id) else 0
     has_active_team = 1 if _canonical_team(player.nfl_team) not in {"", "FA"} else 0
     return (has_external_id, has_active_team, int(player.id or 0))
 

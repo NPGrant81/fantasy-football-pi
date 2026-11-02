@@ -5,6 +5,34 @@ Pull request test branch: feature/tests-ci
 
 ## PR #557 Read-Only Reconciliation Preparation
 
+### Slice 6 schema/runtime parity
+
+- Added canonical `0030_historical_ingestion`, governed bootstrap extension
+  and [ADR-001](architecture/ADR-001-historical-ingestion-adoption.md); the unavailable
+  observed `0029` script was neither invented nor blindly stamped.
+- Guarded adoption on a newly restored disposable clone converged to the full
+  bootstrap schema while preserving 58 application tables, 107,542 rows and
+  58 sequence states. Every original column remains; the version row changes
+  only after transactional verification.
+- Source-event uniqueness preserves distinct observations. MFL/Sleeper
+  identities are provider-first with explicit conflict rejection; automatic
+  merging of provider-bound duplicate groups is blocked.
+- Waiver budget/FAAB queries are season-scoped. Historical flags and legacy
+  names exclude stubs from active lists, login, refresh, bearer/cookie tokens
+  and draft websocket authentication.
+- Validation: 1,108 backend tests passed, 55 environment-gated skips;
+  142 PostgreSQL migration/adoption tests passed. New-module lint, Black,
+  migration-layout, whitespace and repository hygiene checks passed.
+- Both original preservation-copy manifests are unchanged. No historical
+  imports, live API requests, preserved-copy mutations or production changes.
+  Target mappings and reviewed-plan application remain slice 7 gates.
+- Copilot Feedback: four new slice 5 findings fixed in `42137d2`:
+  reviewed-event identity reuse, unsupported supplement teams, normalized owner
+  mappings and nullable raw cells. All 1,198 retained event approvals replayed
+  unchanged offline after the fixes; imports remain blocked. Fresh review is
+  requested with this slice; hosted status and remaining findings are tracked
+  on PR #557, not assumed complete.
+
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.

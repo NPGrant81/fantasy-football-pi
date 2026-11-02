@@ -119,6 +119,8 @@ def _require_csrf_for_cookie_auth(request: Request) -> None:
 # --- 2.1 ENDPOINT: REGISTRATION ---
 @router.post("/register", response_model=User)
 def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
+    if user_data.username.strip().lower().startswith("hist_"):
+        raise HTTPException(status_code=400, detail="Username prefix is reserved for historical accounts")
     # 1.2.1 VALIDATION: Check if username exists
     existing_user = db.query(models.User).filter(models.User.username == user_data.username).first()
     if existing_user:
@@ -161,7 +163,10 @@ def login_for_access_token(
     user = db.query(models.User).filter(func.lower(models.User.username) == form_data.username.strip().lower()).first()
     
     # 1.2.4 VALIDATION: Verify password
-    if not user or not security.verify_password(form_data.password, user.hashed_password):
+    if (
+        not user or security.is_historical_account(user)
+        or not security.verify_password(form_data.password, user.hashed_password)
+    ):
         _record_failed_attempt(attempt_key)
         logger.warning("Failed login attempt for user=%s ip=%s", form_data.username, client_ip)
         raise HTTPException(
@@ -238,7 +243,7 @@ def refresh_access_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
 
     user = db.query(models.User).filter(models.User.id == token_record.user_id).first()
-    if user is None:
+    if user is None or security.is_historical_account(user):
         token_record.revoked_at = now
         db.commit()
         _clear_auth_cookies(response)
@@ -361,7 +366,7 @@ def request_password_reset(
         func.lower(models.User.email) == email
     ).first()
     
-    if user:
+    if user and not security.is_historical_account(user):
         try:
             # Generate reset token
             reset_token = password_reset_service.create_password_reset_request(
