@@ -24,6 +24,26 @@ class DraftPickShow(DraftPickBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DraftHistoryEvent(BaseModel):
+    id: int | str
+    owner_id: int
+    player_id: int
+    amount: int | str
+    timestamp: str | None = None
+    position: str | None = None
+    player_name: str | None = None
+    is_keeper: bool
+    source: str | None = None
+    source_event_id: str | None = None
+    event_grain: str | None = None
+    chronology_established: bool | None = None
+    snapshot_nfl_team: str | None = None
+    snapshot_team_labels: list[str] | None = None
+    team_basis: str | None = None
+    source_timestamp: str | None = None
+    owner_label: str | None = None
+
+
 class HistoricalRankingResponse(BaseModel):
     player_id: int
     player_name: str

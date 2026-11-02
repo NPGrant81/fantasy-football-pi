@@ -474,10 +474,14 @@ def test_ffpi_application_tables_match_bootstrap_schema():
         / "versions"
         / "0001_create_schema_at_0028.py"
     )
-    syntax_tree = ast.parse(bootstrap_revision.read_text(encoding="utf-8"))
+    schema_revisions = [
+        bootstrap_revision,
+        bootstrap_revision.parents[2] / "migrations" / "0031_historical_observations.py",
+    ]
     bootstrap_tables = {
         node.args[0].value
-        for node in ast.walk(syntax_tree)
+        for revision in schema_revisions
+        for node in ast.walk(ast.parse(revision.read_text(encoding="utf-8")))
         if isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "create_table"

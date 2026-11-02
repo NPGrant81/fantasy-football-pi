@@ -124,7 +124,9 @@ def adopt_disposable_copy(engine: sa.Engine, expected_database: str) -> dict:
         )
         with Operations.context(context):
             importlib.import_module("db.migrations.0030_historical_ingestion").upgrade()
-        target_metadata, expected = _bootstrap_schema_contract(connection)
+        target_metadata, expected = _bootstrap_schema_contract(
+            connection, revision="bootstrap_0030"
+        )
         reconciliation = produce_migrations(context, target_metadata)
         operations = list(_flatten_operations(reconciliation.upgrade_ops.ops))
         if any(

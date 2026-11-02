@@ -334,10 +334,80 @@ accepted owner identifiers are returned normalized; missing optional raw cells
 become explicit blockers. The complete existing 1,198-event approval manifest
 replays unchanged with these stricter checks.
 
-Slice 7 still requires explicit target player/account mappings and an
-approved-plan importer with count, exact-bid, idempotency, provenance and live
-consumer-isolation checks. The existing generic importer is not that importer.
-Do not treat schema parity as authorization to reconstruct data.
+At slice-6 closeout, slice 7 still required explicit target player/account
+mappings and an approved-plan importer with count, exact-bid, idempotency,
+provenance and live consumer-isolation checks. The generic importer does not
+satisfy that gate. Schema parity alone never authorizes reconstruction.
+
+## Slice 7 approved working-copy reconstruction
+
+The operator approved evidence-backed existing target representatives, preservation
+and exclusion of mixed-native records, creation of 96 non-login archival accounts,
+and separate historical-observation storage with history-reader integration.
+[ADR-002](../architecture/ADR-002-historical-auction-observations.md) records why
+auction observations must not be treated as mutable current ownership.
+
+The new target audit replays all source approvals and binds the complete adopted
+schema and all original table row digests. All 472 required players have
+same-season native-ID evidence. When several target snapshots represent the same
+native identity, the explicitly approved representative policy prefers an existing
+corroborated binding, otherwise the lowest eligible target ID. Names alone,
+overlapping IDs and team affiliation never approve a mapping. Four mixed-native
+target records account for nine rejected season links; these rows and all duplicate
+relationships remain unchanged and are never selected as canonical representatives.
+
+Canonical `0031_historical_observations` and matching `bootstrap_0031` own the
+separate observation table. Slice-6 unknown-revision adoption remains frozen to
+the reviewed `bootstrap_0030` contract; it does not silently acquire a new schema.
+The approved-plan application migrates only its explicitly named new slice-7 clone.
+The normal fresh bootstrap now stamps canonical 0031.
+
+Final working clone: `ffpi_528_slice7_20261102t042139z`. The verified baseline
+backup was restored before application. Results:
+
+- 1,198 distinct observations, exactly **$16,785**, for 2018-2025.
+- All 1,197 legacy observations retained, including the 147 staging gaps; the
+  reviewed 2024 native-only observation is included.
+- 472 approved MFL bindings and 96 new nonprivileged archival accounts.
+  No player merges, relationship redirects, live-member mappings or fabricated
+  passwords, rosters, transactions or chronology.
+- All original rows in 58 application tables preserved except the explicitly
+  approved MFL field bindings. Live draft, roster, ledger, budget and transaction
+  tables remain unchanged. The clone has 108,836 application rows afterward.
+- Complete schema SHA-256:
+  `77bc027341495a95f47ec539051c9e631431a376577e5d2decd7295af1698687`.
+- The second application created zero accounts, bound zero players and inserted
+  zero observations; all sequence states remained unchanged on replay.
+  Initial application retained 57 original sequence states; only the users
+  sequence advanced, by exactly 96. The new observation sequence has 1,198 entries.
+- Both originals, both original preserved copies and the adopted slice-6 baseline
+  were independently reverified unchanged.
+
+Exact bids use checked `NUMERIC(18,6)` storage; overflow and additional fractional
+precision reject rather than round. Durable provenance includes each complete
+reviewed event, source/catalog row references, source-file/taxonomy hashes and
+source/target approval hashes. Historical team alias sets (OAK/LVR and FA/FA*)
+remain explicit sets, not invented single canonical team labels. The native-only
+supplement retains its specifically approved catalog label. Snapshot team
+attribution still does not establish auction-time affiliation.
+
+Authenticated, same-league `/draft/history/by-year` and `/draft/seasons` expose
+the reconstructed observations. Responses and the historical UI identify the
+observation grain, archival franchise and lack of chronology/current ownership.
+Exact fractional bid text is not converted through floating point.
+Unauthenticated legacy session readers and live ownership consumers do not gain
+observation access. Roster-based analytics do not silently become auction analytics.
+
+Restricted evidence includes the slice-7 reviewed report and target approvals
+timestamped `20261102T041801Z`, the baseline dump/verification, and application,
+idempotent-rerun and final reader/preservation verification reports. An initial
+attempt correctly rolled back on unsupported single-label assumptions; the
+alias-preserving fix was validated on a fresh baseline restoration.
+
+Slice 7 is complete for **approved working-copy auction reconstruction**.
+No live API requests or production changes occurred. Production promotion,
+end-of-season roster reconstruction, unresolved legacy duplicate cleanup and
+historical periods outside 2018-2025 are not certified by these results.
 
 ## API policy
 

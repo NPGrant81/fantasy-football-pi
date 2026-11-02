@@ -28,7 +28,7 @@ def adoption_copy(monkeypatch):
         )
         command.upgrade(
             apply_migrations._bootstrap_config(apply_migrations.ALEMBIC_CONFIG_PATH),
-            "head",
+            "bootstrap_0030",
         )
         engine = sa.create_engine(target_url)
         with engine.begin() as connection:
@@ -76,7 +76,7 @@ def test_guarded_copy_adoption_preserves_rows_and_converges(adoption_copy):
     with engine.begin() as connection:
         actual = _schema_snapshot(connection, "public")
         actual.pop("alembic_version")
-        _, expected = _bootstrap_schema_contract(connection)
+        _, expected = _bootstrap_schema_contract(connection, revision="bootstrap_0030")
         assert actual == expected
         flags = connection.execute(
             sa.text("SELECT username, is_historical_stub FROM users ORDER BY username")

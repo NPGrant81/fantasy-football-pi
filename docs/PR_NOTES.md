@@ -3,7 +3,44 @@ Pull request test branch: feature/tests-ci
 > Historical snapshot: This file records point-in-time PR and issue close-out notes.
 > For current state, use GitHub PR/issue threads and `docs/ISSUE_STATUS.md` as canonical sources.
 
-## PR #557 Read-Only Reconciliation Preparation
+## PR #557 Historical Reconciliation and Working-Copy Reconstruction
+
+### Slice 7 approved reconstruction
+
+- Operator approved 472 existing native-corroborated canonical representatives,
+  explicit preservation/exclusion of nine mixed-native season links, 96
+  non-login archival accounts and separate observation storage.
+- Added canonical/bootstrap 0031 and
+  [ADR-002](architecture/ADR-002-historical-auction-observations.md). Kept
+  slice-6 adoption pinned to its original complete 0030 contract.
+- New approved-plan command validates the complete baseline, target/source
+  hashes, exact bids, provenance, original rows and full bootstrap parity.
+  It rejects changed/conflicting replays instead of guessing or overwriting.
+- Fresh working clone `ffpi_528_slice7_20261102t042139z` contains all 1,198
+  observations totaling exactly $16,785. A second application inserted
+  nothing, changed no bindings/accounts and preserved every sequence state.
+- All original data remains except approved player MFL fields on this new clone.
+  Both originals, both preserved copies and the adopted slice-6 baseline remain
+  unchanged. Live roster, draft, financial and transaction tables are unchanged.
+- Historical readers are authenticated and league-scoped; the history UI exposes
+  archival franchise labels, observation grain and exact bid text. Live player
+  availability, waivers, trade lookup and active-roster season isolation are tested.
+- Real-data validation exposed team aliases and the native-only supplement's
+  distinct attribute shape. Both are now retained without arbitrary single-label
+  selection; alias sets remain explicit and the supplement keeps its approved
+  label. Source approvals were not rewritten.
+- No live API requests, production promotion, player merges or duplicate
+  relationship rewrites. Roster-based analytics and out-of-scope historical
+  periods are not certified as reconstructed.
+- Validation: 1,175 backend tests passed (63 environment-gated skips);
+  183 PostgreSQL migration/adoption/import checks passed. Both light/dark
+  historical UI tests, frontend build/typecheck, targeted ESLint, theme
+  guardrails, new-module flake8/Black, migration layout and repository hygiene
+  passed. The hardened command also replayed the actual 1,198-row plan with
+  zero application writes and unchanged sequence states.
+- Copilot Feedback: fresh review will be requested on the slice-7 commit.
+  Previously resolved threads remain resolved; no latest-head review result
+  is assumed. Status is tracked on PR #557 and issue #528.
 
 ### Slice 6 schema/runtime parity
 

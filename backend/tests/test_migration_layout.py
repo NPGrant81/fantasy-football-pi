@@ -63,9 +63,10 @@ def test_canonical_and_governed_bootstrap_revisions_are_allowed(tmp_path):
         / "0001_create_schema_at_0028.py"
     )
     extension = bootstrap.with_name("0002_historical_ingestion.py")
-    for revision_file in (canonical, bootstrap, extension):
+    observations = bootstrap.with_name("0003_historical_observations.py")
+    for revision_file in (canonical, bootstrap, extension, observations):
         revision_file.parent.mkdir(parents=True, exist_ok=True)
         revision_file.write_text('revision = "allowed"\n', encoding="utf-8")
 
-    assert len(find_revision_files(tmp_path)) == 3
+    assert len(find_revision_files(tmp_path)) == 4
     assert find_noncanonical_revision_files(tmp_path) == []

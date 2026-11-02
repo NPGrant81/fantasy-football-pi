@@ -72,6 +72,71 @@ Keep reports and identity-review evidence in access-restricted storage outside
 Git; publish aggregate findings only. The general flows below do not bypass
 this remediation gate.
 
+### Slice 7 reviewed observations (copy only)
+
+The PPL seven-slice reconstruction uses
+[ADR-002](../architecture/ADR-002-historical-auction-observations.md), not the
+generic import flow below. Auction observations go into
+`historical_auction_observations`; they are not current roster rows.
+
+After replaying all player, owner, attribute and event approvals with the source
+reconciler, add `--target-copy <adopted-slice6-copy> --target-league-id 60`.
+Set `PPL_TARGET_DATABASE_URL` privately to that adopted local copy. The read-only
+target audit checks the frozen complete 0030 schema and all table row digests,
+then emits unapproved representative/account proposals. It still exits 2.
+Source and target reports remain private, outside Git.
+
+Review the entire target proposal, including same-season native-ID evidence,
+competing providers, rejected mixed-native links, canonical representatives and
+every season/franchise account. A target approval JSON must contain
+`approved=true`, a nonempty `review_basis`, `review_sha256` equal to the canonical
+digest of the entire reviewed report, and `resolution` exactly matching
+`target_resolution_proposal(report["target_mapping_review"])`.
+This includes explicit preservation/exclusion policies and separate observation
+storage. It is not approval to merge players or attach live accounts.
+
+Back up the adopted baseline using an exported repeatable-read snapshot. Restore
+a **new** database named `ffpi_528_slice7_<timestamp>` and verify every original
+table/column/count/full-row hash and sequence state before application. Keep the
+adopted baseline and all originals/preserved copies unchanged.
+Set `PPL_TARGET_DATABASE_URL` privately to this new clone:
+
+```powershell
+python -m backend.scripts.apply_reviewed_ppl_history `
+  --review C:\restricted-reports\ppl-slice7-reviewed.json `
+  --approvals C:\restricted-reports\ppl-target-approvals.json `
+  --teams backend\data\teams.csv `
+  --working-copy ffpi_528_slice7_REVIEWED_TIMESTAMP `
+  --output C:\restricted-reports\ppl-application.verification.json
+```
+
+The command refuses originals, earlier copies, remote hosts, database/service URL
+overrides, changed approvals, baseline rows or schemas. In one transaction it
+applies canonical 0031, verifies the full bootstrap contract, binds approved
+players, creates non-login archival users, writes full provenance and verifies
+every original row plus all observations and exact bids. Only reviewed player
+MFL fields may change in existing data. It does not write draft picks, budgets,
+financial ledgers or transactions. Team alias sets remain explicit; over-scale
+or overflowing bids fail without rounding.
+
+Rerun the same command with a **new output path**. Expect zero inserted
+observations/accounts/bindings and identical sequence states. Changed
+observations, provenance, bindings, archival privileges or original rows fail,
+rather than append, overwrite or silently succeed.
+Output files are exclusive-create. Operational errors exit 1; success exits 0.
+The output is reserved before database work; failed attempts can leave an empty
+reserved report. Use a new path when retrying, and never treat an empty report
+as verification.
+If verification fails, PostgreSQL rolls back rows/schema but may consume sequence
+values. Investigate the retained evidence and restore another fresh working
+clone; do not certify a failed clone or change a baseline to force acceptance.
+
+Finally reverify the originals, preserved copies and adopted baseline; check
+per-season count/exact-bid totals through the authenticated historical reader.
+History responses identify observation grain and snapshot attribution; they do
+not establish chronological transactions or current ownership. Back up the
+verified result before any separately approved production promotion.
+
 ### Native MFL repair worksheet (offline)
 
 The [sliced remediation plan](ppl-remediation-plan.md) defines the conflict-first

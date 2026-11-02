@@ -536,6 +536,38 @@ class DraftPick(Base):
     player = relationship("Player", back_populates="draft_pick")
     league = relationship("League", back_populates="draft_picks")
 
+class HistoricalAuctionObservation(Base):
+    """Reviewed auction evidence, never a live roster or transaction record."""
+
+    __tablename__ = "historical_auction_observations"
+    __table_args__ = (
+        UniqueConstraint("league_id", "source", "source_event_id",
+                         name="uq_historical_auction_source_event"),
+        CheckConstraint("winning_bid >= 0", name="ck_historical_auction_bid"),
+        CheckConstraint("length(trim(source)) > 0 AND length(trim(source_event_id)) > 0",
+                        name="ck_historical_auction_source_identity"),
+        Index("ix_historical_auction_league_season", "league_id", "season"),
+    )
+    id = Column(Integer, primary_key=True)
+    league_id = Column(Integer, ForeignKey("leagues.id"), nullable=False)
+    season = Column(Integer, nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    source = Column(String(32), nullable=False)
+    source_event_id = Column(String(128), nullable=False)
+    league_mfl_id = Column(String(32), nullable=False)
+    player_mfl_id = Column(String(32), nullable=False)
+    franchise_id = Column(String(32), nullable=False)
+    winning_bid = Column(Numeric(18, 6), nullable=False)
+    position = Column(String(16), nullable=False)
+    nfl_team = Column(String(16), nullable=True)
+    team_labels = Column(JSON, nullable=False)
+    plan_sha256 = Column(String(64), nullable=False)
+    provenance = Column(JSON, nullable=False)
+    player = relationship("Player")
+    owner = relationship("User")
+
+
 # --- 5.1 DRAFT BUDGETS ---
 class DraftBudget(Base):
     __tablename__ = "draft_budgets"

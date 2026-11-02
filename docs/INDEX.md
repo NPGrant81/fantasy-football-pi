@@ -105,6 +105,7 @@ Refer to the appropriate file for more information.
 
 - [Mfl-Data-Requirements](data-migration/mfl-data-requirements.md)
 - [ADR-001: Historical Ingestion Adoption](architecture/ADR-001-historical-ingestion-adoption.md)
+- [ADR-002: Historical Auction Observations](architecture/ADR-002-historical-auction-observations.md)
 - [Mfl-Extraction-Matrix](data-migration/mfl-extraction-matrix.md)
 - [Mfl-Hardening-Verification-Gates](data-migration/mfl-hardening-verification-gates.md)
 - [Mfl-Html-Records-Normalization-Plan](data-migration/mfl-html-records-normalization-plan.md)

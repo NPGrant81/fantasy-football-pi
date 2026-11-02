@@ -8,9 +8,12 @@ import csv
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
+
+import sqlalchemy as sa
 
 from backend.scripts.extract_mfl_history import KNOWN_LEAGUE_BY_SEASON
 from backend.scripts.reconcile_ppl_attributes import (
@@ -30,6 +33,10 @@ from backend.scripts.reconcile_ppl_history import (
     _position,
     _position_id,
     _read_sources,
+)
+from backend.scripts.reconcile_ppl_targets import (
+    build_target_review,
+    capture_target_snapshot,
 )
 from backend.services.player_service import (
     _dedupe_normalized_name,
@@ -710,6 +717,7 @@ def run_source_reconciliation(
     staging_snapshot: Path | None = None,
     staging_verification: Path | None = None,
     event_resolutions: dict[str, Any] | None = None,
+    target_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not season_exports or set(draft_exports) - set(season_exports):
         raise ValueError("Select season exports before any draft override.")
@@ -837,6 +845,10 @@ def run_source_reconciliation(
             result["approved_event_resolutions"] = approve_event_resolutions(
                 result, event_resolutions
             )
+    if target_snapshot is not None:
+        result["target_mapping_review"] = build_target_review(
+            result, native_seasons, target_snapshot
+        )
     return result
 
 
@@ -1333,10 +1345,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--staging-snapshot", type=Path)
     parser.add_argument("--staging-verification", type=Path)
     parser.add_argument("--event-resolutions", type=Path)
+    parser.add_argument("--target-copy")
+    parser.add_argument("--target-league-id", type=int)
     args = parser.parse_args(argv)
     if args.output.exists():
         parser.error("--output already exists; choose a new evidence file.")
+    if bool(args.target_copy) != (args.target_league_id is not None):
+        parser.error("--target-copy and --target-league-id must be supplied together.")
+    if args.target_copy and not args.event_resolutions:
+        parser.error("Target review requires all source approvals, including events.")
     try:
+        target_snapshot = None
+        if args.target_copy:
+            target_url = os.environ.get("PPL_TARGET_DATABASE_URL")
+            if not target_url:
+                raise ValueError(
+                    "PPL_TARGET_DATABASE_URL is required for target review."
+                )
+            engine = sa.create_engine(target_url)
+            try:
+                target_snapshot = capture_target_snapshot(
+                    engine, args.target_copy, args.target_league_id
+                )
+            finally:
+                engine.dispose()
         report = run_source_reconciliation(
             source_root=args.source_root,
             season_exports=_selections(args.season_export),
@@ -1349,18 +1381,30 @@ def main(argv: list[str] | None = None) -> int:
             staging_snapshot=args.staging_snapshot,
             staging_verification=args.staging_verification,
             event_resolutions=_read_approval(args.event_resolutions),
+            target_snapshot=target_snapshot,
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8") as handle:
             json.dump(report, handle, indent=2)
             handle.write("\n")
-    except (OSError, ValueError, csv.Error) as error:
+    except (
+        OSError,
+        ValueError,
+        RuntimeError,
+        csv.Error,
+        sa.exc.SQLAlchemyError,
+    ) as error:
         print(
             f"ERROR: source reconciliation failed ({type(error).__name__}).",
             file=sys.stderr,
         )
         return 1
-    if args.event_resolutions:
+    if args.target_copy:
+        print(f"Unapproved target mapping worksheet saved: {args.output}")
+        print(
+            "BLOCKED: target mappings, archival accounts and import safety need review."
+        )
+    elif args.event_resolutions:
         print(f"Reviewed event resolutions saved: {args.output}")
         print("Slice 6 ready; target mappings, schema and imports remain BLOCKED.")
     elif "event_reconciliation_audit" in report:

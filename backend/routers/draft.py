@@ -25,7 +25,8 @@ except ImportError:  # pragma: no cover
 # Internal Imports
 from ..database import SessionLocal, get_db
 import models
-from ..schemas.draft import HistoricalRankingResponse
+from ..schemas.draft import DraftHistoryEvent, HistoricalRankingResponse
+from ..services.historical_auction_service import historical_auction_events, observation_seasons
 from ..services.ledger_service import owner_draft_budget_total, owner_has_incoming_credits
 from ..services.player_service import normalize_display_name as _normalize_player_name
 from ..services.draft_rankings_service import get_historical_rankings as get_historical_rankings_service
@@ -676,10 +677,11 @@ def get_draft_seasons(
     if settings and settings.draft_year is not None and int(settings.draft_year) not in years:
         years.append(int(settings.draft_year))
 
-    return sorted(set(years), reverse=True)
+    return sorted(set(years) | set(observation_seasons(db, target_league_id)), reverse=True)
 
 
-@router.get("/draft/history/by-year")
+@router.get("/draft/history/by-year", response_model=list[DraftHistoryEvent],
+            response_model_exclude_unset=True)
 def get_draft_history_by_year(
     year: int,
     league_id: int | None = None,
@@ -709,7 +711,10 @@ def get_draft_history_by_year(
         .all()
     )
     keepers = _get_keeper_carryover_rows(db, league_id=target_league_id, draft_year=year) if include_keepers else []
-    return _serialize_draft_events(picks=picks, keepers=keepers)
+    return (
+        _serialize_draft_events(picks=picks, keepers=keepers)
+        + historical_auction_events(db, target_league_id, year)
+    )
 
 
 @router.get("/draft/rankings", response_model=List[HistoricalRankingResponse])

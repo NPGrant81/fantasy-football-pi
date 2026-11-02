@@ -11,6 +11,7 @@ CANONICAL_MIGRATIONS = Path("db/migrations")
 BOOTSTRAP_REVISIONS = {
     Path("db/bootstrap/versions/0001_create_schema_at_0028.py"),
     Path("db/bootstrap/versions/0002_historical_ingestion.py"),
+    Path("db/bootstrap/versions/0003_historical_observations.py"),
 }
 IGNORED_DIRECTORIES = {".git", ".venv", "venv", "node_modules", "__pycache__"}
 
