@@ -8,7 +8,7 @@ Pull request test branch: feature/tests-ci
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.
-- Validation: 162 focused backend tests passed, including existing auction
+- Validation: 204 focused backend tests passed, including existing auction
   extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
@@ -69,6 +69,17 @@ Pull request test branch: feature/tests-ci
   seasonal QB/TE history; 1,310 unlinked catalog rows remain untouched.
   Team repairs are season-catalog snapshot attribution, not proof of auction-time
   affiliation. Hash-bound CLI replay sets slice 5 ready but leaves imports blocked.
+- Slice 5 event gate is complete after explicit event-disposition and
+  observation-grain approval: 1,197 legacy events preserved, 1,050 staging matches,
+  147 restoration-plan gaps, zero unexpected staging rows and one native-only
+  2024 $1 supplement. The reviewed plan has 1,198 distinct observations totaling
+  $16,785, preserving all 293 players appearing in multiple seasons.
+  Read-only staging capture and offline full-row-hash verification bind exact
+  original tuples to the reviewed plan. No staged/original rows were changed.
+  Versioned semantic observation keys exclude row order/hash/extraction time;
+  identical tuples block instead of deduplicating. Shared season timestamps
+  prove no chronology; changed observations require new review. Target mappings,
+  schema adoption and imports remain blocked; slice 6 may proceed.
 - Copilot Feedback:
   - Review requested: attempted 2026-11-01 via MCP and CLI.
   - The initial request was not visible and CLI returned HTTP 422, but Copilot
@@ -76,9 +87,10 @@ Pull request test branch: feature/tests-ci
   - Initial threads opened: 4; threads resolved: 4 after `459006e` was pushed.
     A subsequent catalog-only native-ID conflict finding is fixed in `8ccd99c`
     with four regressions and its thread is resolved. Another finding rejects
-    supplied null/nonobject approval JSON before reconciliation; 15 regressions
-    cover player, owner and attribute manifests. Its resolution follows
-    publication. Fresh review remains required.
+    supplied null/nonobject approval JSON before reconciliation, fixed in
+    `2345b56` with its thread resolved. Shape regressions now also cover the event
+    manifest. All six existing review threads are resolved; fresh review of
+    slice 5 remains required.
   - Fixes reject database-name/service overrides, require nonempty provenance
     names, retain missing-table evidence and compare unique expressions,
     partial predicates and NULL semantics.
@@ -88,8 +100,8 @@ Pull request test branch: feature/tests-ci
     approved slice 2-4 manifests replay successfully.
 - Hosted CI: the slice 3 backend lane stopped at repository hygiene because the
   remediation plan lacked index/governance registration. Both registrations are
-  now added and the hygiene gate is rerun locally. New-head hosted CI remains
-  pending; no new-head result is claimed.
+  fixed; all applicable hosted checks, including `ci-gate`, passed for
+  `2345b56`. Slice 5 new-head hosted CI remains pending; no result is claimed.
 - Residual risk: no schema adoption, target-identity mapping, historical import or
   production deployment performed. Refs #524, #525, #526, #527 and #528 remain
   open; this preparatory slice does not certify ingestion or runtime parity.

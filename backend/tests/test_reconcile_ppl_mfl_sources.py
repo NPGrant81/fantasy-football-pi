@@ -940,6 +940,20 @@ def test_attribute_cli_replays_reviewed_repairs_and_preserves_input_files(
     with path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     _write_csv(path, [{**row, "nfl_team": "PHI"} for row in rows])
+    path = export_root / "draftResults" / "2024.csv"
+    with path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    for row in rows:
+        row["raw_pick"] = json.dumps(
+            {
+                "player": row["player_mfl_id"],
+                "franchise": row["franchise_id"],
+                "cost": row["winning_bid"],
+                "source": "auctionResults",
+                "timestamp": "1724684051",
+            }
+        )
+    _write_csv(path, rows)
     report = script.run_source_reconciliation(
         source_root=source_root, season_exports={2024: export_root}, draft_exports={}
     )
@@ -1007,20 +1021,106 @@ def test_attribute_cli_replays_reviewed_repairs_and_preserves_input_files(
     assert all(path.read_bytes() == raw for path, raw in inputs.items())
     with pytest.raises(SystemExit):
         script.main(args)
+    original_rows = [[10, 1, 2024, 2, 3, 5.01]]
+    row_digest = hashlib.sha256(
+        json.dumps(original_rows[0], separators=(",", ":")).encode()
+    ).digest()
+    table_manifest = {
+        "columns": [
+            [name, "BIGINT", True]
+            for name in [
+                "player_id",
+                "owner_id",
+                "year",
+                "position_id",
+                "team_id",
+                "amount",
+            ]
+        ],
+        "row_count": 1,
+        "all_rows_sha256": hashlib.sha256(row_digest).hexdigest(),
+    }
+    verification_path = tmp_path / "verification.json"
+    verification_path.write_text(
+        json.dumps(
+            {
+                "working_database": "ffpi_528_test",
+                "tables": {"public.draft_picks": table_manifest},
+            }
+        )
+    )
+    snapshot_path = tmp_path / "snapshot.json"
+    snapshot_path.write_text(
+        json.dumps(
+            {
+                "format": "ppl-staging-events-v1",
+                "database": "ffpi_528_test",
+                "table": "public.draft_picks",
+                "captured_at_utc": "2026-11-01T00:00:00+00:00",
+                "verification_sha256": hashlib.sha256(
+                    verification_path.read_bytes()
+                ).hexdigest(),
+                "table_manifest": table_manifest,
+                "rows": original_rows,
+            }
+        )
+    )
+    args[args.index("--output") + 1] = str(tmp_path / "event-audit.json")
+    args += [
+        "--audit-events",
+        "--staging-snapshot",
+        str(snapshot_path),
+        "--staging-verification",
+        str(verification_path),
+    ]
+    assert script.main(args) == 2
+    event_report = json.loads((tmp_path / "event-audit.json").read_text())
+    event_audit = event_report["event_reconciliation_audit"]
+    assert event_audit["ready_for_approval"] is True
+    assert "Slice 6 ready" not in capsys.readouterr().out
+    decisions = {
+        **common,
+        "teams_sha256": audit["teams_sha256"],
+        "staging_snapshot_sha256": event_audit["staging_snapshot_sha256"],
+        "staging_verification_sha256": event_audit["staging_verification_sha256"],
+        "resolution": event_audit["proposal"],
+    }
+    event_path = tmp_path / "events.json"
+    event_path.write_text(json.dumps(decisions))
+    args += ["--event-resolutions", str(event_path)]
+    args[args.index("--output") + 1] = str(tmp_path / "events-resolved.json")
+    assert script.main(args) == 2
+    resolved = json.loads((tmp_path / "events-resolved.json").read_text())
+    assert resolved["approved_event_resolutions"]["ready_for_slice_6"] is True
+    assert resolved["ready_to_import"] is False
+    assert resolved["api_requests_sent"] == 0
+    assert resolved["writes_performed_to_databases"] is False
+    assert "Slice 6 ready" in capsys.readouterr().out
+    assert all(path.read_bytes() == raw for path, raw in inputs.items())
 
 
-def test_attribute_review_requires_validated_owner_approvals(selected_exports):
+@pytest.mark.parametrize(
+    "options,message",
+    [
+        ({"audit_attributes": True}, "requires validated owner"),
+        ({"audit_events": True}, "requires validated attribute"),
+        ({"event_resolutions": {}}, "requires validated attribute"),
+    ],
+)
+def test_later_slice_review_requires_validated_prerequisites(
+    selected_exports, options, message
+):
     source_root, export_root = selected_exports
-    with pytest.raises(ValueError, match="requires validated owner"):
+    with pytest.raises(ValueError, match=message):
         script.run_source_reconciliation(
             source_root=source_root,
             season_exports={2024: export_root},
             draft_exports={},
-            audit_attributes=True,
+            **options,
         )
 
 
-@pytest.mark.parametrize("kind", ["player", "owner", "attribute"])
+@pytest.mark.parametrize("kind", ["player", "owner", "attribute", "event"])
 @pytest.mark.parametrize("payload", [None, [], 1, "approval", True])
 def test_supplied_nonobject_approval_never_skips_gate_or_claims_readiness(
     tmp_path, monkeypatch, capsys, kind, payload

@@ -17,6 +17,11 @@ from backend.scripts.reconcile_ppl_attributes import (
     approve_attribute_resolutions,
     build_attribute_audit,
 )
+from backend.scripts.reconcile_ppl_events import (
+    approve_event_resolutions,
+    build_event_audit,
+    read_staging_snapshot,
+)
 from backend.scripts.reconcile_ppl_history import (
     _amount,
     _index,
@@ -701,6 +706,10 @@ def run_source_reconciliation(
     owner_resolutions: dict[str, Any] | None = None,
     audit_attributes: bool = False,
     attribute_resolutions: dict[str, Any] | None = None,
+    audit_events: bool = False,
+    staging_snapshot: Path | None = None,
+    staging_verification: Path | None = None,
+    event_resolutions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not season_exports or set(draft_exports) - set(season_exports):
         raise ValueError("Select season exports before any draft override.")
@@ -804,6 +813,28 @@ def run_source_reconciliation(
         if attribute_resolutions is not None:
             result["approved_attribute_resolutions"] = approve_attribute_resolutions(
                 result, attribute_resolutions
+            )
+    if (
+        audit_events
+        or event_resolutions is not None
+        or staging_snapshot is not None
+        or staging_verification is not None
+    ):
+        if "approved_attribute_resolutions" not in result:
+            raise ValueError("Event review requires validated attribute approvals.")
+        if staging_snapshot is None or staging_verification is None:
+            raise ValueError(
+                "Event review requires a staging snapshot and verification."
+            )
+        result["event_reconciliation_audit"] = build_event_audit(
+            sources=sources,
+            report=result,
+            native_seasons=native_seasons,
+            staging=read_staging_snapshot(staging_snapshot, staging_verification),
+        )
+        if event_resolutions is not None:
+            result["approved_event_resolutions"] = approve_event_resolutions(
+                result, event_resolutions
             )
     return result
 
@@ -1289,6 +1320,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--owner-resolutions", type=Path)
     parser.add_argument("--audit-attributes", action="store_true")
     parser.add_argument("--attribute-resolutions", type=Path)
+    parser.add_argument("--audit-events", action="store_true")
+    parser.add_argument("--staging-snapshot", type=Path)
+    parser.add_argument("--staging-verification", type=Path)
+    parser.add_argument("--event-resolutions", type=Path)
     args = parser.parse_args(argv)
     if args.output.exists():
         parser.error("--output already exists; choose a new evidence file.")
@@ -1301,6 +1336,10 @@ def main(argv: list[str] | None = None) -> int:
             owner_resolutions=_read_approval(args.owner_resolutions),
             audit_attributes=args.audit_attributes,
             attribute_resolutions=_read_approval(args.attribute_resolutions),
+            audit_events=args.audit_events,
+            staging_snapshot=args.staging_snapshot,
+            staging_verification=args.staging_verification,
+            event_resolutions=_read_approval(args.event_resolutions),
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8") as handle:
@@ -1312,7 +1351,15 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    if args.attribute_resolutions:
+    if args.event_resolutions:
+        print(f"Reviewed event resolutions saved: {args.output}")
+        print("Slice 6 ready; target mappings, schema and imports remain BLOCKED.")
+    elif "event_reconciliation_audit" in report:
+        print(f"Unapproved event reconciliation worksheet saved: {args.output}")
+        print(
+            "BLOCKED: event additions, staging gaps and observation grain require review."
+        )
+    elif args.attribute_resolutions:
         print(f"Reviewed attribute resolutions saved: {args.output}")
         print("Slice 5 ready; target mappings, schema and imports remain BLOCKED.")
     elif args.audit_attributes:

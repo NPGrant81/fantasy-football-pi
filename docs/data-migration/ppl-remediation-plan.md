@@ -205,6 +205,82 @@ No API requests, source rewrites, database repairs or imports were performed.
 Slice 5 may reconcile missing/disputed events and define their ingestion grain;
 target mappings and schema/runtime adoption remain separate blockers.
 
+## Slice 5 reviewed event reconciliation
+
+The owner explicitly approved all event dispositions and the observation-grain
+policy. A read-only staging snapshot was captured only after all four staging
+table manifests matched the preserved backup. The offline event reconciler
+verifies that snapshot against the original column contract, row count and
+complete sorted row-hash multiset; its SHA-256 and the verification-file SHA-256
+are bound into the approval.
+
+All 1,197 legacy events remain represented:
+
+- 1,050 match staging using the **original** season/owner/player/exact bid/
+  position/team multiset. Attribute repairs are not used to conceal differences.
+- 147 are approved restoration-plan gaps: three 2023 defenses (Kansas City,
+  New England and New York Jets, each $1) and all 144 events from 2025.
+- No unexpected staging rows or original duplicate tuples were found.
+- One native-only supplement is approved: 2024 Odell Beckham Jr., native player
+  `11679` / legacy catalog player `1317`, franchise `0002` / reviewed season
+  source owner 3, $1. It retains `legacy_evidence_ref=null`, not a fabricated
+  legacy draft row. WR/FA is explicitly catalog-snapshot attribution, not proof
+  of auction-time team affiliation.
+
+The reviewed plan contains 1,198 distinct auction observations totaling $16,785:
+
+| Season | Legacy / staging / reviewed observations | Reviewed exact bids |
+| --- | --- | --- |
+| 2018 | 168 / 168 / 168 | $2,107 |
+| 2019 | 169 / 169 / 169 | $2,135 |
+| 2020 | 144 / 144 / 144 | $2,161 |
+| 2021 | 145 / 145 / 145 | $2,060 |
+| 2022 | 144 / 144 / 144 | $2,248 |
+| 2023 | 144 / 141 / 144 | $1,982 |
+| 2024 | 139 / 139 / 140 | $2,007 |
+| 2025 | 144 / 0 / 144 | $2,085 |
+
+No player repeats within a selected native season. All 293 native players
+appearing across multiple seasons retain separate seasonal observations.
+Tests also preserve distinct same-season acquisition observations; identical
+semantic tuples keep every evidence row but block approval rather than being
+silently deduplicated.
+
+### Approved observation grain
+
+`mfl-auction-observation-v1` fingerprints native league, season, player,
+franchise and the exact canonical bid under MFL/auctionResults scope.
+`source_event_key` is independent of CSV row order, file hash, extraction time,
+format-only bid changes and target database IDs. Native leading zeros survive.
+Each observation separately retains its hash-bound source row, reviewed legacy
+link (or explicit native-only disposition), attributes and raw timestamp.
+
+This is **not a native transaction ID or a chronological transaction ledger**.
+Every retained auction timestamp is shared by all observations in its season.
+Neither timestamps nor export order can distinguish acquisition chronology.
+Identical keys block approval; no arbitrary occurrence index is invented.
+Changed bids/owners or later exports require new reconciliation/approval rather
+than automatic correction or append. A future importer must consume only this
+reviewed plan and preserve its provenance, not infer fresh event identities
+from an unreviewed export or collapse observations by player alone.
+
+`--event-resolutions` replays the full reviewed event plan after validated
+player, owner and attribute approvals. It checks all source/export/team/staging
+hashes, every event/disposition, repetition group and exact seasonal count/bid.
+Empty selected native seasons, unsupported native/raw payloads, ambiguous
+supplements, identical observation collisions and unexpected staging rows
+cannot pass the gate.
+
+Slice 5 is **complete for reviewed historical auction event evidence**:
+`approved_event_resolutions.ready_for_slice_6=true`;
+`ready_to_import=false`. Validation: 204 focused tests, format/lint, editor
+diagnostics and repository hygiene passed. Both full database-copy manifests still match the
+preserved baselines, original source/export hashes are unchanged, and no API
+requests, source writes or database repairs/imports were performed.
+Slice 6 may address migration-owned schema/runtime parity and the unknown
+observed revision. Target mappings remain separately required before slice 7;
+production promotion still needs separate approval.
+
 ## API policy
 
 Reuse retained exports first. Any new request is one season/report in a short,

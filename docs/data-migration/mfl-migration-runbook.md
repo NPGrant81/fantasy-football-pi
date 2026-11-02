@@ -141,7 +141,7 @@ specifies `player_mfl_id`, `native_position`, `aliases_reviewed=true` and every
 `reviewed_variant_sha256`. Missing/duplicate identities, unreviewed variants,
 stale hashes, unsupported native catalog IDs/positions and conflicting events
 are rejected. This is an identity-review gate, not a repair/import command.
-All supplied player, owner and attribute approval manifests must decode to JSON
+All supplied player, owner, attribute and event approval manifests must decode to JSON
 objects. JSON null, arrays and scalar values fail before reconciliation with
 exit code 1 and no report/readiness claim; an absent option is not a supplied
 approval.
@@ -210,6 +210,54 @@ The separate `approved_attribute_resolutions` section marks
 `ready_for_slice_5=true`; candidate audit sections remain unapproved.
 The output is still exclusive-create and exit code 2 still means imports are
 blocked. No source/catalog/database rows or target mappings are changed.
+
+For slice 5, use `--audit-events` with all three prerequisite approval files and:
+
+- `--staging-snapshot`: restricted JSON format `ppl-staging-events-v1`, captured
+  read-only from the preserved staging copy after full manifest verification.
+  Include `database`, `table=public.draft_picks`, timezone-aware
+  `captured_at_utc`, `verification_sha256`, the original `table_manifest`, and
+  every unmodified row as a six-element array in the original column order
+  (`player_id`, `owner_id`, `year`, `position_id`, `team_id`, `amount`).
+- `--staging-verification`: the preserved backup verification JSON containing
+  the matching `working_database` and `tables["public.draft_picks"]` manifest.
+
+The offline loader checks the copy name, verification-file hash, exact table
+manifest/columns, row count and complete sorted row-hash multiset. Snapshot
+occurrence references identify evidence only; they are not database primary
+keys or native event IDs. Capture and preserve duplicate occurrences, too.
+
+`event_reconciliation_audit` compares original legacy and staging rows as a
+multiset including exact bid/position/team. It accounts for every approved
+legacy-to-native link, every staging gap and each native-only supplement.
+Raw auction payload player/franchise/cost/source must agree with the normalized
+export. Supplemental player/catalog and season-owner candidates require
+unique evidence and explicit approval; no legacy draft row is synthesized.
+Catalog team observations retain the snapshot-attribution limitation.
+
+Review the observation grain and complete proposal before supplying
+`--event-resolutions`. This restricted JSON requires `approved=true`, a nonempty
+`review_basis`, exact `legacy_source_files_sha256`, `selected_mfl_exports`,
+`teams_sha256`, `staging_snapshot_sha256`, `staging_verification_sha256`, and
+`resolution` equal to the full reviewed `event_reconciliation_audit.proposal`.
+Missing/duplicate/altered events, gap dispositions, repetition groups or exact
+count/bid totals reject approval. Empty selected seasons, unsupported evidence,
+unexpected staging rows and identical event-key collisions block the gate.
+
+The `mfl-auction-observation-v1` fingerprint uses native league/season/player/
+franchise/exact bid under MFL/auctionResults scope. It excludes evidence locators,
+extraction timestamps, row ordering and target IDs, so equivalent reviewed
+observations have stable keys. Preserve native string IDs and exact bids.
+This is not a native transaction ID: identical tuples remain separate evidence
+and block review; do not generate occurrence-index keys. Distinct repeated
+observations and cross-season players must never collapse. Shared snapshot
+timestamps do not prove chronology. Later exports or changed bids/owners
+require fresh reconciliation, not automatic correction or append.
+
+`approved_event_resolutions.ready_for_slice_6=true` clears only the source-event
+evidence gate. `ready_to_import=false`, exclusive-create output and blocked exit
+code 2 remain. The tool has no API/database write path, does not repair staging,
+and does not authorize target mappings, schema adoption or production promotion.
 
 Use `native_mapping_review_template` to review native franchise/player to
 target mappings; all entries start unapproved with null target IDs. Every
