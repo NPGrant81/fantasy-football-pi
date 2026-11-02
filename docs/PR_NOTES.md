@@ -8,7 +8,7 @@ Pull request test branch: feature/tests-ci
 - Scope: copied-database/retained-CSV reconciliation, unapproved identity-review
   worksheets, selected native MFL source evidence and a remediation gate in
   the MFL migration runbook.
-- Validation: 204 focused backend tests passed, including existing auction
+- Validation: 206 focused backend tests passed, including existing auction
   extraction regressions; Black, flake8 and whitespace
   checks passed. The real PostgreSQL reconciliation completed with the expected
   blocked exit code. Both working copies still match their original verified
@@ -89,8 +89,11 @@ Pull request test branch: feature/tests-ci
     with four regressions and its thread is resolved. Another finding rejects
     supplied null/nonobject approval JSON before reconciliation, fixed in
     `2345b56` with its thread resolved. Shape regressions now also cover the event
-    manifest. All six existing review threads are resolved; fresh review of
-    slice 5 remains required.
+    manifest. Those six review threads are resolved. A fresh seventh finding
+    exposes shortened optional team cells: both attribute and supplemental-event
+    audits now preserve missing-team blockers instead of raising AttributeError,
+    with two reproduced regressions. Its thread is resolved after publication;
+    fresh review of slice 5 remains required.
   - Fixes reject database-name/service overrides, require nonempty provenance
     names, retain missing-table evidence and compare unique expressions,
     partial predicates and NULL semantics.

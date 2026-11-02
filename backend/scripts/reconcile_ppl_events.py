@@ -335,7 +335,7 @@ def build_event_audit(
                     (
                         _dedupe_normalized_name(r["player_name"]),
                         _position(r["position"]),
-                        r.get("nfl_team", "").strip(),
+                        (r.get("nfl_team") or "").strip(),
                     )
                     for _, r in observations
                 }

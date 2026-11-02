@@ -78,7 +78,7 @@ def build_attribute_audit(
             catalog[(year, row["player_mfl_id"])].append(
                 {
                     "position": _position(row["position"]),
-                    "nfl_team": row.get("nfl_team", "").strip().upper(),
+                    "nfl_team": (row.get("nfl_team") or "").strip().upper(),
                     "evidence_ref": f"{export_hashes[(year, 'players')]}:{number}",
                     "extracted_at_utc": row["extracted_at_utc"],
                 }

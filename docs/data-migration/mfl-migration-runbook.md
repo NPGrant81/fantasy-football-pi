@@ -198,6 +198,8 @@ The validator requires exact row-level coverage and evidence. Missing,
 duplicate, stale or altered proposals and unsupported/conflicting native
 attributes reject approval. Catalog positions remain seasonal (for example
 QB/TE changes); label normalization never authorizes global draft-ID replacement.
+Missing optional team cells, including shortened CSV rows, remain explicit
+attribute/supplement blockers rather than crashing the offline audit.
 Shared team-taxonomy identifiers preserve all labels and source row references.
 
 Team replacements have basis `season_catalog_snapshot_not_auction_time`.

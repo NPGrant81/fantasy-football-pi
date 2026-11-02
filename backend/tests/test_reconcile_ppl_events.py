@@ -353,7 +353,13 @@ def test_staging_comparison_uses_original_attributes_and_exact_bid(
 
 @pytest.mark.parametrize(
     "problem",
-    ["ambiguous_player", "missing_owner", "raw_disagreement", "catalog_disagreement"],
+    [
+        "ambiguous_player",
+        "missing_owner",
+        "raw_disagreement",
+        "catalog_disagreement",
+        "null_team",
+    ],
 )
 def test_unresolved_supplement_never_passes_gate(event_evidence, problem):
     exports = event_evidence["native_seasons"][2024]
@@ -367,6 +373,8 @@ def test_unresolved_supplement_never_passes_gate(event_evidence, problem):
         raw = json.loads(exports["draftResults"][-1]["raw_pick"])
         raw["cost"] = "999"
         exports["draftResults"][-1]["raw_pick"] = json.dumps(raw)
+    elif problem == "null_team":
+        exports["players"][-1]["nfl_team"] = None
     else:
         exports["players"].append({**exports["players"][-1], "position": "RB"})
     report, decisions = _approval(event_evidence)

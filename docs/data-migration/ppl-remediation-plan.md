@@ -273,7 +273,7 @@ cannot pass the gate.
 
 Slice 5 is **complete for reviewed historical auction event evidence**:
 `approved_event_resolutions.ready_for_slice_6=true`;
-`ready_to_import=false`. Validation: 204 focused tests, format/lint, editor
+`ready_to_import=false`. Validation: 206 focused tests, format/lint, editor
 diagnostics and repository hygiene passed. Both full database-copy manifests still match the
 preserved baselines, original source/export hashes are unchanged, and no API
 requests, source writes or database repairs/imports were performed.

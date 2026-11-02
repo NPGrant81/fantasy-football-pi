@@ -164,6 +164,30 @@ def test_unsupported_catalog_attributes_block_approval(attribute_evidence, probl
         script.approve_attribute_resolutions(report, decisions)
 
 
+def test_shortened_optional_team_cell_is_saved_as_an_explicit_blocker(
+    attribute_evidence, tmp_path
+):
+    from backend.scripts.reconcile_ppl_mfl_sources import _read_export
+
+    path = tmp_path / "players.csv"
+    path.write_text(
+        "season,league_id,source_system,source_endpoint,extracted_at_utc,"
+        "player_mfl_id,player_name,position,nfl_team\n"
+        "2024,11422,mfl,players,2026-03-01T00:00:00Z,0123,Test Player,WR\n",
+        encoding="utf-8",
+    )
+    rows, digest = _read_export(path, "players", 2024)
+    assert rows[0]["nfl_team"] is None
+    attribute_evidence["native_seasons"][2024]["players"] = rows
+    attribute_evidence["report"]["selected_mfl_exports"][0]["sha256"] = digest
+    report, decisions = _approval(attribute_evidence)
+    audit = report["attribute_repair_audit"]
+    assert audit["draft_rows"][0]["status"] == "blocked"
+    assert audit["draft_rows"][0]["native_catalog_observations"][0]["nfl_team"] == ""
+    with pytest.raises(ValueError, match="Unresolved attribute"):
+        script.approve_attribute_resolutions(report, decisions)
+
+
 def test_catalog_position_changes_remain_season_specific(attribute_evidence):
     row = attribute_evidence["native_seasons"][2024]["players"][0]
     row["position"] = "TE"
